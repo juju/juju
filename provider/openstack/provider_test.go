@@ -35,12 +35,13 @@ var _ = gc.Suite(&localTests{})
 
 // ported from lp:juju/juju/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
-	summary  string
-	private  []nova.IPAddress
-	public   []nova.IPAddress
-	networks []string
-	expected string
-	failure  error
+	summary    string
+	floatingIP string
+	private    []nova.IPAddress
+	public     []nova.IPAddress
+	networks   []string
+	expected   string
+	failure    error
 }{
 	{
 		summary:  "missing",
@@ -103,32 +104,35 @@ var addressTests = []struct {
 		networks: []string{"private"},
 		expected: "",
 	},
-}, {
-summary:    "floating and public, same address",
-floatingIP: "8.8.8.8",
-public:     []nova.IPAddress{{4, "8.8.8.8"}},
-networks:   []string{"", "public"},
-expected:   "8.8.8.8",
-}, {
-summary:    "floating and public, different address",
-floatingIP: "8.8.4.4",
-public:     []nova.IPAddress{{4, "8.8.8.8"}},
-networks:   []string{"", "public"},
-expected:   "8.8.4.4",
-}, {
-summary:    "floating and private",
-floatingIP: "8.8.4.4",
-private:    []nova.IPAddress{{4, "10.0.0.1"}},
-networks:   []string{"private"},
-expected:   "8.8.4.4",
-}, {
-summary:    "floating, custom and public",
-floatingIP: "8.8.4.4",
-private:    []nova.IPAddress{{4, "172.16.0.1"}},
-public:     []nova.IPAddress{{4, "8.8.8.8"}},
-networks:   []string{"special", "public"},
-expected:   "8.8.4.4",
-}}
+	{
+		summary:    "floating and public, same address",
+		floatingIP: "8.8.8.8",
+		public:     []nova.IPAddress{{4, "8.8.8.8"}},
+		networks:   []string{"", "public"},
+		expected:   "8.8.8.8",
+	},
+	{
+		summary:    "floating and public, different address",
+		floatingIP: "8.8.4.4",
+		public:     []nova.IPAddress{{4, "8.8.8.8"}},
+		networks:   []string{"", "public"},
+		expected:   "8.8.4.4",
+	},
+	{
+		summary:    "floating and private",
+		floatingIP: "8.8.4.4",
+		private:    []nova.IPAddress{{4, "10.0.0.1"}},
+		networks:   []string{"private"},
+		expected:   "8.8.4.4",
+	},
+	{
+		summary:    "floating, custom and public",
+		floatingIP: "8.8.4.4",
+		private:    []nova.IPAddress{{4, "172.16.0.1"}},
+		public:     []nova.IPAddress{{4, "8.8.8.8"}},
+		networks:   []string{"special", "public"},
+		expected:   "8.8.4.4",
+	},
 }
 
 func (t *localTests) TestGetServerAddresses(c *gc.C) {
