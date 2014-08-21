@@ -388,7 +388,7 @@ func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
 const backupStorageRoot = "/"
 
 // Ensure we satisfy the interface.
-var _ = filestorage.RawFileStorage(&envFileStorage{})
+var _ = filestorage.RawFileStorage((*envFileStorage)(nil))
 
 type envFileStorage struct {
 	envStor storage.Storage
