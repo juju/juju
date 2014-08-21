@@ -34,14 +34,19 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 :syslogtag, startswith, "juju{{.Namespace}}-" @@foo:{{.Port}};LongTagForwardFormat
 # end: Forwarding rule for foo
 
-:syslogtag, startswith, "juju{{.Namespace}}-" ~
+:syslogtag, startswith, "juju{{.Namespace}}-" stop
 
 $FileCreateMode 0600
+
+# Maximum size for the log on this outchannel is 512MB
+# The command to execute when an outchannel as reached its size limit cannot accept any arguments
+# that is why we have created the helper script for executing logrotate.
+$outchannel logRotation,/var/log/juju{{.Namespace}}/all-machines.log,512000000,/var/log/juju{{.Namespace}}/logrotate.run
 
 $RuleSet remote
 $FileCreateMode 0600
-:syslogtag, startswith, "juju{{.Namespace}}-" /var/log/juju{{.Namespace}}/all-machines.log;JujuLogFormat{{.Namespace}}
-:syslogtag, startswith, "juju{{.Namespace}}-" ~
+:syslogtag, startswith, "juju{{.Namespace}}-" :omfile:$logRotation;JujuLogFormat{{.Namespace}}
+:syslogtag, startswith, "juju{{.Namespace}}-" stop
 $FileCreateMode 0600
 
 $InputFilePersistStateInterval 50

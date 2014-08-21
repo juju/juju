@@ -13,6 +13,7 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/ssh"
 )
@@ -33,11 +34,11 @@ func (s *systemSSHKeySuite) SetUpTest(c *gc.C) {
 	}
 	_, err := os.Stat(s.keyFile())
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	// There's initially one authorised key for the test user.
-	cfg, err := s.State.EnvironConfig()
+	// Bootstrap adds juju-system-key; remove it.
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{
+		"authorized-keys": testing.FakeAuthKeys,
+	}, nil, nil)
 	c.Assert(err, gc.IsNil)
-	authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys())
-	c.Assert(authKeys, gc.HasLen, 1)
 }
 
 func (s *systemSSHKeySuite) keyFile() string {

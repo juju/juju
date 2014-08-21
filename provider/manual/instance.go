@@ -14,8 +14,7 @@ type manualBootstrapInstance struct {
 }
 
 func (manualBootstrapInstance) Id() instance.Id {
-	// The only way to bootrap is via manual bootstrap.
-	return manual.BootstrapInstanceId
+	return BootstrapInstanceId
 }
 
 func (manualBootstrapInstance) Status() string {

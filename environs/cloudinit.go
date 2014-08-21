@@ -18,9 +18,11 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/version"
 )
 
 // DataDir is the default data directory.  Tests can override this
@@ -29,13 +31,7 @@ var DataDir = agent.DefaultDataDir
 
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
-//
-// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
-// Use the target series to decide the path.
-var logDir = "/var/log"
-
-// CloudInitOutputLog is the default cloud-init-output.log file path.
-var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
 // NewMachineConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
@@ -44,18 +40,29 @@ var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 func NewMachineConfig(
 	machineID,
 	machineNonce,
-	imageStream string,
+	imageStream,
+	series string,
 	networks []string,
 	mongoInfo *authentication.MongoInfo,
 	apiInfo *api.Info,
-) *cloudinit.MachineConfig {
+) (*cloudinit.MachineConfig, error) {
+	dataDir, err := paths.DataDir(series)
+	if err != nil {
+		return nil, err
+	}
+	logDir, err := paths.LogDir(series)
+	if err != nil {
+		return nil, err
+	}
+	cloudInitOutputLog := path.Join(logDir, "cloud-init-output.log")
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir:                 DataDir,
-		LogDir:                  agent.DefaultLogDir,
+		DataDir:                 dataDir,
+		LogDir:                  path.Join(logDir, "juju"),
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
-		CloudInitOutputLog:      CloudInitOutputLog,
+		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
+		Series:                  series,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -65,20 +72,24 @@ func NewMachineConfig(
 		APIInfo:      apiInfo,
 		ImageStream:  imageStream,
 	}
-	return mcfg
+	return mcfg, nil
 }
 
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
+func NewBootstrapMachineConfig(cons constraints.Value, privateSystemSSHKey, series string) (*cloudinit.MachineConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg := NewMachineConfig("0", agent.BootstrapNonce, "", nil, nil, nil)
+	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, nil, nil, nil)
+	if err != nil {
+		return nil, err
+	}
 	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
-	return mcfg
+	mcfg.Constraints = cons
+	return mcfg, nil
 }
 
 // PopulateMachineConfig is called both from the FinishMachineConfig below,
@@ -119,7 +130,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
-func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons constraints.Value) (err error) {
+func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
 	defer errors.Maskf(&err, "cannot complete machine configuration")
 
 	if err := PopulateMachineConfig(
@@ -169,7 +180,6 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		SystemIdentity: mcfg.SystemPrivateSSHKey,
 	}
 	mcfg.StateServingInfo = &srvInfo
-	mcfg.Constraints = cons
 	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
 		return err
 	}
@@ -177,13 +187,25 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	return nil
 }
 
-func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) (cloudinit.UserdataConfig, error) {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
-	if mcfg.Bootstrap {
-		return cloudinit.ConfigureBasic(mcfg, cloudcfg)
+	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	if err != nil {
+		return nil, err
 	}
-	return cloudinit.Configure(mcfg, cloudcfg)
+	if mcfg.Bootstrap {
+		err = udata.ConfigureBasic()
+		if err != nil {
+			return nil, err
+		}
+		return udata, nil
+	}
+	err = udata.Configure()
+	if err != nil {
+		return nil, err
+	}
+	return udata, nil
 }
 
 // ComposeUserData fills out the provided cloudinit configuration structure
@@ -195,10 +217,11 @@ func ComposeUserData(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Conf
 	if cloudcfg == nil {
 		cloudcfg = coreCloudinit.New()
 	}
-	if err := configureCloudinit(mcfg, cloudcfg); err != nil {
+	udata, err := configureCloudinit(mcfg, cloudcfg)
+	if err != nil {
 		return nil, err
 	}
-	data, err := cloudcfg.Render()
+	data, err := udata.Render()
 	logger.Tracef("Generated cloud init:\n%s", string(data))
 	if err != nil {
 		return nil, err
