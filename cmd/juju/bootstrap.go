@@ -142,7 +142,7 @@ func (v *seriesValue) Set(s string) error {
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
 	UploadTools(environs.BootstrapContext, environs.Environ, *string, bool, ...string) error
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
 }
 
 type bootstrapFuncs struct{}
@@ -155,7 +155,7 @@ func (b bootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.
 	return bootstrap.UploadTools(ctx, env, toolsArch, forceVersion, bootstrapSeries...)
 }
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
@@ -246,7 +246,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 	}
-	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
+	return bootstrapFuncs.Bootstrap(ctx, environ, bootstrap.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})

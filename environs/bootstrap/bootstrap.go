@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
@@ -19,10 +20,21 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.bootstrap")
 
+// BootstrapParams holds the parameters for bootstrapping an environment.
+type BootstrapParams struct {
+	// Constraints are used to choose the initial instance specification,
+	// and will be stored in the new environment's state.
+	Constraints constraints.Value
+
+	// Placement, if non-empty, holds an environment-specific placement
+	// directive used to choose the initial instance.
+	Placement string
+}
+
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args BootstrapParams) error {
 	cfg := environ.Config()
 	network.InitializeFromConfig(cfg)
 	if secret := cfg.AdminSecret(); secret == "" {
@@ -60,7 +72,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
 
 	ctx.Infof("Starting new instance for initial state server")
-	arch, series, finalizer, err := environ.Bootstrap(ctx, args)
+	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		Constraints: args.Constraints,
+		Placement:   args.Placement,
+	})
 	if err != nil {
 		return err
 	}
