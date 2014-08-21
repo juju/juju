@@ -47,7 +47,7 @@ func (s *backupSuite) checkMetadata(
 //---------------------------
 // getBackupMetadata()
 
-func (s *backupSuite) TestBackupsGetBackupMetadataFound(c *gc.C) {
+func (s *backupSuite) TestGetBackupMetadataFound(c *gc.C) {
 	expected := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, expected)
 	c.Assert(err, gc.IsNil)
@@ -58,7 +58,7 @@ func (s *backupSuite) TestBackupsGetBackupMetadataFound(c *gc.C) {
 	s.checkMetadata(c, metadata, expected, id)
 }
 
-func (s *backupSuite) TestBackupsGetBackupMetadataNotFound(c *gc.C) {
+func (s *backupSuite) TestGetBackupMetadataNotFound(c *gc.C) {
 	_, err := state.GetBackupMetadata(s.State, "spam")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -66,7 +66,7 @@ func (s *backupSuite) TestBackupsGetBackupMetadataNotFound(c *gc.C) {
 //---------------------------
 // addBackupMetadata()
 
-func (s *backupSuite) TestBackupsAddBackupMetadataSuccess(c *gc.C) {
+func (s *backupSuite) TestAddBackupMetadataSuccess(c *gc.C) {
 	expected := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, expected)
 	c.Check(err, gc.IsNil)
@@ -77,7 +77,7 @@ func (s *backupSuite) TestBackupsAddBackupMetadataSuccess(c *gc.C) {
 	s.checkMetadata(c, metadata, expected, id)
 }
 
-func (s *backupSuite) TestBackupsAddBackupMetadataGeneratedID(c *gc.C) {
+func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 	expected := s.metadata(c)
 	expected.SetID("spam")
 	id, err := state.AddBackupMetadata(s.State, expected)
@@ -86,7 +86,7 @@ func (s *backupSuite) TestBackupsAddBackupMetadataGeneratedID(c *gc.C) {
 	c.Check(id, gc.Not(gc.Equals), "spam")
 }
 
-func (s *backupSuite) TestBackupsAddBackupMetadataEmpty(c *gc.C) {
+func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
 	original := metadata.Metadata{}
 	c.Assert(original.Timestamp(), gc.NotNil)
 	_, err := state.AddBackupMetadata(s.State, &original)
@@ -94,7 +94,7 @@ func (s *backupSuite) TestBackupsAddBackupMetadataEmpty(c *gc.C) {
 	c.Check(err, gc.NotNil)
 }
 
-func (s *backupSuite) TestBackupsAddBackupMetadataAlreadyExists(c *gc.C) {
+func (s *backupSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 	expected := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, expected)
 	c.Assert(err, gc.IsNil)
@@ -106,7 +106,7 @@ func (s *backupSuite) TestBackupsAddBackupMetadataAlreadyExists(c *gc.C) {
 //---------------------------
 // setBackupStored()
 
-func (s *backupSuite) TestBackupsSetBackupStoredSuccess(c *gc.C) {
+func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	original := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, original)
 	c.Check(err, gc.IsNil)
@@ -122,7 +122,7 @@ func (s *backupSuite) TestBackupsSetBackupStoredSuccess(c *gc.C) {
 	c.Assert(metadata.Stored(), gc.Equals, true)
 }
 
-func (s *backupSuite) TestBackupsSetBackupStoredNotFound(c *gc.C) {
+func (s *backupSuite) TestSetBackupStoredNotFound(c *gc.C) {
 	err := state.SetBackupStored(s.State, "spam")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
