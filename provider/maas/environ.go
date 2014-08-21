@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -11,14 +12,10 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"github.com/juju/utils/set"
-	"gopkg.in/mgo.v2/bson"
-	"launchpad.net/gomaasapi"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -32,6 +29,10 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2/bson"
+	"launchpad.net/gomaasapi"
 )
 
 const (
@@ -329,38 +330,62 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
+// replaceInterface replaces all the ocurrences of the given interface on the provided command
+// template
+func replaceInterface(command string, iface string) (string, error) {
+	var cmd bytes.Buffer
+
+	tpl := template.New("")
+	tpl, err := tpl.Parse(command)
+
+	if err != nil {
+		return "", err
+	}
+
+	err = tpl.Execute(&cmd, struct{ NetworkInterface string }{iface})
+
+	if err != nil {
+		return "", err
+	}
+
+	return cmd.String(), nil
+}
+
 // restoreInterfacesFiles returns a string representing the upstart command to
 // revert MAAS changes to interfaces file.
-func restoreInterfacesFiles(iface string) string {
-	return fmt.Sprintf(`mkdir -p etc/network/interfaces.d
-cat > /etc/network/interfaces.d/%s.cfg << EOF
+func restoreInterfacesFiles(iface string) (string, error) {
+	return replaceInterface(`mkdir -p etc/network/interfaces.d
+cat > /etc/network/interfaces.d/{{ .NetworkInterface }}.cfg << EOF
 # The primary network interface
-auto %s
-iface %s inet dhcp
+auto {{ .NetworkInterface }}
+iface {{ .NetworkInterface }} inet dhcp
 EOF
-sed -i '/auto %s/{N;s/auto %s\niface %s inet dhcp//}' /etc/network/interfaces
+sed -i '/auto {{ .NetworkInterface }}/{N;s/auto {{ .NetworkInterface }}\niface {{ .NetworkInterface }} inet dhcp//}' /etc/network/interfaces
 cat >> /etc/network/interfaces << EOF
 # Source interfaces
 # Please check /etc/network/interfaces.d before changing this file
 # as interfaces may have been defined in /etc/network/interfaces.d
 # NOTE: the primary ethernet device is defined in
-# /etc/network/interfaces.d/%s.cfg
+# /etc/network/interfaces.d/{{ .NetworkInterface }}.cfg
 # See LP: #1262951
 source /etc/network/interfaces.d/*.cfg
 EOF
-`, iface, iface, iface, iface, iface, iface, iface)
+`, iface)
 }
 
 // createBridgeNetwork returns a string representing the upstart command to
 // create a bridged interface.
-func createBridgeNetwork(iface string) string {
-	return fmt.Sprintf(`cat > /etc/network/interfaces.d/br0.cfg << EOF
+func createBridgeNetwork(iface string) (string, error) {
+	return replaceInterface(`cat > /etc/network/interfaces.d/br0.cfg << EOF
 auto br0
 iface br0 inet dhcp
-  bridge_ports %s
+  pre-up ifconfig {{ .NetworkInterface }} down
+  pre-up brctl addbr br0
+  pre-up brctl addif br0 {{ .NetworkInterface }}
+  pre-up ifconfig {{ .NetworkInterface }} up
 EOF
-sed -i 's/iface %s inet dhcp/iface %s inet manual/' /etc/network/interfaces.d/%s.cfg
-`, iface, iface, iface, iface)
+sed -i 's/iface {{ .NetworkInterface }} inet dhcp/iface {{ .NetworkInterface }} inet manual/' /etc/network/interfaces.d/{{ .NetworkInterface }}.cfg
+`, iface)
 }
 
 var unsupportedConstraints = []string{
@@ -533,14 +558,27 @@ func newCloudinitConfig(hostname string, iface string) (*cloudinit.Config, error
 	cloudcfg := cloudinit.New()
 	cloudcfg.SetAptUpdate(true)
 	cloudcfg.AddPackage("bridge-utils")
+
+	bridgeNetwork, err := createBridgeNetwork(iface)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ifacesFiles, err := restoreInterfacesFiles(iface)
+
+	if err != nil {
+		return nil, err
+	}
+
 	cloudcfg.AddScripts(
 		"set -xe",
 		runCmd,
-		fmt.Sprintf("ifdown %s", iface),
-		restoreInterfacesFiles(iface),
-		createBridgeNetwork(iface),
+		ifacesFiles,
+		bridgeNetwork,
 		"ifup br0",
 	)
+
 	return cloudcfg, nil
 }
 
