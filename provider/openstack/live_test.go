@@ -178,17 +178,15 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	}
 	cleanup()
 	defer cleanup()
-	statePort := 12345 // Default 37017
-	apiPort := 34567   // Default 17070
-	group, err := openstack.SetUpGlobalGroup(t.Env, groupName, statePort, apiPort)
+	apiPort := 34567 // Default 17070
+	group, err := openstack.SetUpGlobalGroup(t.Env, groupName, apiPort)
 	c.Assert(err, gc.IsNil)
 	c.Assert(err, gc.IsNil)
-	// We default to exporting 22, statePort, apiPort, and icmp/udp/tcp on
+	// We default to exporting 22, apiPort, and icmp/udp/tcp on
 	// all ports to other machines inside the same group
 	// TODO(jam): 2013-09-18 http://pad.lv/1227142
-	// We shouldn't be exposing the API and State ports on all the machines
-	// that *aren't* hosting the state server. (And once we finish
-	// client-via-API we can disable the State port as well.)
+	// We shouldn't be exposing the API port on all the machines
+	// that *aren't* hosting the state server.
 	stringRules := make([]string, 0, len(group.Rules))
 	for _, rule := range group.Rules {
 		ruleStr := fmt.Sprintf("%s %d %d %q %q",
@@ -203,7 +201,6 @@ func (t *LiveTests) TestSetupGlobalGroupExposesCorrectPorts(c *gc.C) {
 	// We don't care about the ordering, so we sort the result, and compare it.
 	expectedRules := []string{
 		`tcp 22 22 "0.0.0.0/0" ""`,
-		fmt.Sprintf(`tcp %d %d "0.0.0.0/0" ""`, statePort, statePort),
 		fmt.Sprintf(`tcp %d %d "0.0.0.0/0" ""`, apiPort, apiPort),
 		fmt.Sprintf(`tcp 1 65535 "" "%s"`, groupName),
 		fmt.Sprintf(`udp 1 65535 "" "%s"`, groupName),
