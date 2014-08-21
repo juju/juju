@@ -9,6 +9,8 @@ import subprocess
 import sys
 
 
+from utility import builds_for_revision
+
 """Build Juju-Vagrant boxes for Juju packages build by publish-revision.
 
 Required environment variables:
@@ -39,11 +41,13 @@ def package_regexes(series, arch):
     }
 
 
-def get_debian_packages(jenkins, workspace, series, arch):
-    job_info = jenkins.get_job_info(PUBLISH_REVISION_JOB)
-    build_number = job_info['lastSuccessfulBuild']['number']
-    build_info = jenkins.get_build_info(PUBLISH_REVISION_JOB, build_number)
+def get_debian_packages(jenkins, workspace, series, arch, revision_build):
+    builds = builds_for_revision(PUBLISH_REVISION_JOB, revision_build, jenkins)
+    if len(builds) == 0:
+        logging.error('No builds found for revision_build %s' % revision_build)
+        sys.exit(1)
 
+    build_info = builds[0]
     result = {}
     regexes = package_regexes(series, arch)
     try:
@@ -55,7 +59,8 @@ def get_debian_packages(jenkins, workspace, series, arch):
                         build_info['url'], filename)
                     local_path = os.path.join(workspace, filename)
                     logging.info(
-                        'copying %s from build %s' % (filename, build_number))
+                        'copying %s from build %s' % (
+                            filename, build_info['number']))
                     result[package] = local_path
                     command = 'wget -q -O %s %s' % (
                         local_path, package_url)
@@ -135,14 +140,19 @@ def main():
     parser.add_argument(
         '--arch', help='Build the image for this architecture', required=True)
     parser.add_argument(
-        '--use-ci-juju-packages',  action='store_true', default=False,
-        help='Build the image with juju packages built by CI')
+        '--use-ci-juju-packages',
+        help=(
+            'Build the image with juju packages built by CI. The value of '
+            'this option is a revision_build number. The debian packages '
+            'are retrieved from a run of the publish-revision for this '
+            'revision_build.'))
     args = parser.parse_args()
     clean_workspace(args.workspace)
     jenkins = Jenkins(JENKINS_URL)
-    if args.use_ci_juju_packages:
+    if args.use_ci_juju_packages is not None:
         package_info = get_debian_packages(
-            jenkins, args.workspace, args.series, args.arch)
+            jenkins, args.workspace, args.series, args.arch,
+            args.use_ci_juju_packages)
         if 'core' not in package_info:
             logging.error('Could not find juju-core package')
             sys.exit(1)
