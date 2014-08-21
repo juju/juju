@@ -12,12 +12,12 @@ github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8
 github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
 github.com/juju/gojsonschema	git	33fa79718fa9b24e2a04122f91a75496c0f77098	
 github.com/juju/loggo	git	158009fb40c4a52b3d2c23eb56e72859cfc5321a	
-github.com/juju/names	git	93fc8cbf8111c11d4ff47e603f668a0e29fb7cec	
+github.com/juju/names	git	4353dc0f909ca5030269bc29f4fa05887475b438	
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
 github.com/juju/testing	git	503e61bd033592d7b6003174389f68454deb7b7a	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
-github.com/juju/utils	git	68554773385c32c354bf6357f8b6edd8a4742682	
+github.com/juju/utils	git	28f5ce7a725633883b280766a4f835277cde79cb	
 gopkg.in/juju/charm.v3	git	eb7dae8ed9dfa44b89e4e8eee6e21f80e31a3b69	
 gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
@@ -30,3 +30,4 @@ launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140728022143-mth8hx6p
 launchpad.net/goose	bzr	tarmac-20140702055133-xpuj6gm4pa0f3a0e	127
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20140624093241-rlqsuf7pqxnrztgw	236
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
+bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	

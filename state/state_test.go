@@ -2841,56 +2841,6 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 	// state servers.
 }
 
-func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	// Delete the stateServers collection to pretend this
-	// is an older environment that had not created it
-	// already.
-	err = s.stateServers.DropCollection()
-	c.Assert(err, gc.IsNil)
-
-	// Sanity check that we have in fact deleted the right info.
-	info, err := s.State.StateServerInfo()
-	c.Assert(err, gc.NotNil)
-	c.Assert(info, gc.IsNil)
-
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	expectIds := []string{m0.Id()}
-	expectStateServerInfo := &state.StateServerInfo{
-		MachineIds:       expectIds,
-		VotingMachineIds: expectIds,
-	}
-	info, err = st.StateServerInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info, gc.DeepEquals, expectStateServerInfo)
-}
-
-func (s *StateSuite) TestOpenCreatesAPIHostPortsDoc(c *gc.C) {
-	// Delete the stateServers collection to pretend this
-	// is an older environment that had not created it
-	// already.
-	err := s.stateServers.DropCollection()
-	c.Assert(err, gc.IsNil)
-
-	// Sanity check that we have in fact deleted the right info.
-	addrs, err := s.State.APIHostPorts()
-	c.Assert(err, gc.NotNil)
-	c.Assert(addrs, gc.IsNil)
-
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	addrs, err = s.State.APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 0)
-}
-
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
@@ -2903,41 +2853,6 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	info, err = s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
-}
-
-func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	// Clear the voting machine ids from the stateServers collection
-	// to pretend this is a semi-old environment that had
-	// created the collection but not the voting ids.
-	_, err = s.stateServers.UpdateAll(nil, bson.D{{
-		"$set",
-		bson.D{
-			{"votingmachineids", nil},
-			{"machineids", nil},
-		},
-	}})
-	c.Assert(err, gc.IsNil)
-
-	// Sanity check that they have actually been removed.
-	info, err := s.State.StateServerInfo()
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.MachineIds, gc.HasLen, 0)
-	c.Assert(info.VotingMachineIds, gc.HasLen, 0)
-
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	info, err = s.State.StateServerInfo()
-	c.Assert(err, gc.IsNil)
-	expectIds := []string{m0.Id()}
-	c.Assert(info, gc.DeepEquals, &state.StateServerInfo{
-		MachineIds:       expectIds,
-		VotingMachineIds: expectIds,
-	})
 }
 
 func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
@@ -3286,22 +3201,6 @@ func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
 		err := s.State.SetStateServingInfo(data)
 		c.Assert(err, gc.ErrorMatches, "incomplete state serving info set in state")
 	}
-}
-
-func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
-	// Delete the stateServers collection to pretend this
-	// is an older environment that had not created it
-	// already.
-	err := s.stateServers.DropCollection()
-	c.Assert(err, gc.IsNil)
-
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	info, err := st.StateServingInfo()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(info, gc.DeepEquals, params.StateServingInfo{})
 }
 
 func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {

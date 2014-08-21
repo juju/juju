@@ -44,7 +44,6 @@ func NewFirewallerAPI(
 	accessUnit := getAuthFuncForTagKind(names.UnitTagKind)
 	accessService := getAuthFuncForTagKind(names.ServiceTagKind)
 	accessMachine := getAuthFuncForTagKind(names.MachineTagKind)
-	accessEnviron := getAuthFuncForTagKind("")
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
 
@@ -58,8 +57,7 @@ func NewFirewallerAPI(
 	environWatcher := common.NewEnvironWatcher(
 		st,
 		resources,
-		accessEnviron,
-		accessEnviron,
+		authorizer,
 	)
 	// Watch() is supported for units or services.
 	entityWatcher := common.NewAgentEntityWatcher(
@@ -76,7 +74,7 @@ func NewFirewallerAPI(
 	machinesWatcher := common.NewEnvironMachinesWatcher(
 		st,
 		resources,
-		accessEnviron,
+		authorizer,
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
@@ -198,10 +196,6 @@ func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag string) (*stat
 func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
 		return func(tag string) bool {
-			if tag == "" {
-				// Assume an empty tag means a missing environment tag.
-				return kind == ""
-			}
 			// Allow only the given tag kind.
 			t, err := names.ParseTag(tag)
 			return err == nil && t.Kind() == kind

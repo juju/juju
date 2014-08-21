@@ -5,8 +5,6 @@ package common
 
 import (
 	"github.com/juju/names"
-
-	"github.com/juju/juju/state"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
@@ -43,9 +41,6 @@ type Authorizer interface {
 
 	// GetAuthTag returns the tag of the authenticated entity.
 	GetAuthTag() names.Tag
-
-	// GetAuthEntity returns the authenticated entity.
-	GetAuthEntity() state.Entity
 }
 
 // AuthEither returns an AuthFunc generator that returns an AuthFunc
@@ -66,12 +61,21 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 	}
 }
 
-// AuthAlways returns an authentication function that always returns
-// the given permission.
-func AuthAlways(ok bool) GetAuthFunc {
+// AuthAlways returns an authentication function that always returns true iff it is passed a valid tag.
+func AuthAlways() GetAuthFunc {
 	return func() (AuthFunc, error) {
 		return func(tag string) bool {
-			return ok
+			_, err := names.ParseTag(tag)
+			return err == nil
+		}, nil
+	}
+}
+
+// AuthNever returns an authentication function that never returns true.
+func AuthNever() GetAuthFunc {
+	return func() (AuthFunc, error) {
+		return func(tag string) bool {
+			return false
 		}, nil
 	}
 }

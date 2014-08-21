@@ -6,6 +6,7 @@ package rsyslog_test
 import (
 	"encoding/pem"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -34,8 +35,8 @@ var _ = gc.Suite(&rsyslogSuite{})
 func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		EnvironManager: true,
-		MachineAgent:   true,
+		Tag:            names.NewMachineTag("1"),
+		EnvironManager: false,
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -101,8 +102,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 
 func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = true
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewUnitTag("seven/9")
 	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	c.Check(anUpgrader, gc.NotNil)
@@ -110,8 +110,7 @@ func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
 
 func (s *rsyslogSuite) TestUpgraderAPIRefusesNonUnitNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewServiceTag("hadoop")
 	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.NotNil)
 	c.Check(anUpgrader, gc.IsNil)

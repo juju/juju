@@ -42,16 +42,24 @@ func WriteCloudInitFile(directory string, userData []byte) (string, error) {
 
 func cloudInitUserData(machineConfig *cloudinit.MachineConfig) ([]byte, error) {
 	cloudConfig := coreCloudinit.New()
-	err := cloudinit.Configure(machineConfig, cloudConfig)
+	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudConfig)
 	if err != nil {
 		return nil, err
 	}
-
+	err = udata.Configure()
+	if err != nil {
+		return nil, err
+	}
 	// Run ifconfig to get the addresses of the internal container at least
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
 
-	data, err := cloudConfig.Render()
+	renderer, err := coreCloudinit.NewRenderer(machineConfig.Series)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := renderer.Render(cloudConfig)
 	if err != nil {
 		return nil, err
 	}

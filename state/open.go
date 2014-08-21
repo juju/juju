@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
@@ -85,11 +84,18 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 		{
 			C:      stateServersC,
 			Id:     environGlobalKey,
+			Assert: txn.DocMissing,
 			Insert: &stateServersDoc{},
 		}, {
 			C:      stateServersC,
 			Id:     apiHostPortsKey,
+			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
+		}, {
+			C:      stateServersC,
+			Id:     stateServingInfoKey,
+			Assert: txn.DocMissing,
+			Insert: &params.StateServingInfo{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
@@ -220,103 +226,12 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		}
 	}
 
-	// TODO(rog) delete this when we can assume there are no
-	// pre-1.18 environments running.
-	if err := st.createStateServersDoc(); err != nil {
-		return nil, errors.Annotate(err, "cannot create state servers document")
-	}
-	if err := st.createAPIAddressesDoc(); err != nil {
-		return nil, errors.Annotate(err, "cannot create API addresses document")
-	}
-	if err := st.createStateServingInfoDoc(); err != nil {
-		return nil, errors.Annotate(err, "cannot create state serving info document")
-	}
 	return st, nil
-}
-
-// createStateServersDoc creates the state servers document
-// if it does not already exist. This is necessary to cope with
-// legacy environments that have not created the document
-// at initialization time.
-func (st *State) createStateServersDoc() error {
-	// Quick check to see if we need to do anything so
-	// that we can avoid transaction overhead in most cases.
-	// We don't care what the error is - if it's something
-	// unexpected, it'll be picked up again below.
-	if info, err := st.StateServerInfo(); err == nil {
-		if len(info.MachineIds) > 0 && len(info.VotingMachineIds) > 0 {
-			return nil
-		}
-	}
-	logger.Infof("adding state server info to legacy environment")
-	// Find all current state servers and add the state servers
-	// record containing them. We don't need to worry about
-	// this being concurrent-safe, because in the juju versions
-	// we're concerned about, there is only ever one state connection
-	// (from the single bootstrap machine).
-	var machineDocs []machineDoc
-	err := st.db.C(machinesC).Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
-	if err != nil {
-		return err
-	}
-	var doc stateServersDoc
-	for _, m := range machineDocs {
-		doc.MachineIds = append(doc.MachineIds, m.Id)
-	}
-	doc.VotingMachineIds = doc.MachineIds
-	logger.Infof("found existing state servers %v", doc.MachineIds)
-
-	// We update the document before inserting it because
-	// an earlier version of this code did not insert voting machine
-	// ids or maintain the ids correctly. If that was the case,
-	// the insert will be a no-op.
-	ops := []txn.Op{{
-		C:  stateServersC,
-		Id: environGlobalKey,
-		Update: bson.D{{"$set", bson.D{
-			{"machineids", doc.MachineIds},
-			{"votingmachineids", doc.VotingMachineIds},
-		}}},
-	}, {
-		C:      stateServersC,
-		Id:     environGlobalKey,
-		Insert: &doc,
-	}}
-
-	return st.runTransaction(ops)
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
 func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
 	return st.mongoInfo
-}
-
-// createAPIAddressesDoc creates the API addresses document
-// if it does not already exist. This is necessary to cope with
-// legacy environments that have not created the document
-// at initialization time.
-func (st *State) createAPIAddressesDoc() error {
-	var doc apiHostPortsDoc
-	ops := []txn.Op{{
-		C:      stateServersC,
-		Id:     apiHostPortsKey,
-		Assert: txn.DocMissing,
-		Insert: &doc,
-	}}
-	return onAbort(st.runTransaction(ops), nil)
-}
-
-// createStateServingInfoDoc creates the state serving info document
-// if it does not already exist
-func (st *State) createStateServingInfoDoc() error {
-	var info params.StateServingInfo
-	ops := []txn.Op{{
-		C:      stateServersC,
-		Id:     stateServingInfoKey,
-		Assert: txn.DocMissing,
-		Insert: &info,
-	}}
-	return onAbort(st.runTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.

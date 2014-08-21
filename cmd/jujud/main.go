@@ -135,10 +135,6 @@ func Main(args []string) {
 	os.Exit(code)
 }
 
-func main() {
-	Main(os.Args)
-}
-
 type writerFactory struct{}
 
 func (*writerFactory) NewWriter(target io.Writer) loggo.Writer {

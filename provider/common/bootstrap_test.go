@@ -87,7 +87,9 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
-		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey))
+		machineConfig, err := environs.NewBootstrapMachineConfig(cons, mcfg.SystemPrivateSSHKey, mcfg.Series)
+		c.Assert(err, gc.IsNil)
+		c.Assert(mcfg, gc.DeepEquals, machineConfig)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 
@@ -98,7 +100,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		Constraints: checkCons,
 		Placement:   checkPlacement,
 	})
@@ -132,7 +134,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -169,7 +171,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -181,7 +183,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"
-	checkHardware := instance.MustParseHardware("mem=2T")
+	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
 
 	startInstance := func(
 		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
@@ -201,23 +203,17 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		return nil
 	}
 
-	restore := envtesting.DisableFinishBootstrap()
-	defer restore()
-
 	env := &mockEnviron{
 		storage:       stor,
 		startInstance: startInstance,
 		config:        getConfig,
 		setConfig:     setConfig,
 	}
-	originalAuthKeys := env.Config().AuthorizedKeys()
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
-
-	authKeys := env.Config().AuthorizedKeys()
-	c.Assert(authKeys, gc.Not(gc.Equals), originalAuthKeys)
-	c.Assert(authKeys, jc.HasSuffix, "juju-system-key\n")
+	c.Assert(arch, gc.Equals, "ppc64el") // based on hardware characteristics
+	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
 }
 
 type neverRefreshes struct {

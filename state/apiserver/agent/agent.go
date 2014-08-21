@@ -6,6 +6,9 @@
 package agent
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -96,11 +99,19 @@ func (api *API) IsMaster() (params.IsMasterResult, error) {
 		return params.IsMasterResult{}, common.ErrPerm
 	}
 
-	session := api.st.MongoSession()
-	machine := api.auth.GetAuthEntity().(*state.Machine)
+	switch tag := api.auth.GetAuthTag().(type) {
+	case names.MachineTag:
+		machine, err := api.st.Machine(tag.Id())
+		if err != nil {
+			return params.IsMasterResult{}, common.ErrPerm
+		}
 
-	isMaster, err := MongoIsMaster(session, machine)
-	return params.IsMasterResult{Master: isMaster}, err
+		session := api.st.MongoSession()
+		isMaster, err := MongoIsMaster(session, machine)
+		return params.IsMasterResult{Master: isMaster}, err
+	default:
+		return params.IsMasterResult{}, errors.Errorf("authenticated entity is not a Machine")
+	}
 }
 
 func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {

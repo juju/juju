@@ -59,7 +59,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
-		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
+		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
 	}}, nil
 }
 

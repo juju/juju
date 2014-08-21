@@ -245,7 +245,10 @@ func (u *Uniter) init(unitTag string) (err error) {
 		return err
 	}
 	// The socket needs to have permissions 777 in order for other users to use it.
-	return os.Chmod(runListenerSocketPath, 0777)
+	if version.Current.OS != version.Windows {
+		return os.Chmod(runListenerSocketPath, 0777)
+	}
+	return nil
 }
 
 func (u *Uniter) Kill() {

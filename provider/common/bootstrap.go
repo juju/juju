@@ -34,7 +34,7 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (err error) {
+func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
@@ -45,9 +45,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	network.InitializeFromConfig(env.Config())
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), args.Constraints.Arch)
+	series = config.PreferredSeries(env.Config())
+	selectedTools, err := EnsureBootstrapTools(ctx, env, series, args.Constraints.Arch)
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 
 	// Get the bootstrap SSH client. Do this early, so we know
@@ -56,15 +57,13 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	if client == nil {
 		// This should never happen: if we don't have OpenSSH, then
 		// go.crypto/ssh should be used with an auto-generated key.
-		return fmt.Errorf("no SSH client available")
+		return "", "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	privateKey, err := GenerateSystemSSHKey(env)
+	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, "", series)
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
-
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   args.Constraints,
@@ -73,42 +72,25 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		Placement:     args.Placement,
 	})
 	if err != nil {
-		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return "", "", nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
-	machineConfig.InstanceId = inst.Id()
-	machineConfig.HardwareCharacteristics = hw
 
 	err = SaveState(env.Storage(), &BootstrapState{
 		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
-		return fmt.Errorf("cannot save state: %v", err)
+		return "", "", nil, fmt.Errorf("cannot save state: %v", err)
 	}
-	return FinishBootstrap(ctx, client, inst, machineConfig)
-}
-
-// GenerateSystemSSHKey creates a new key for the system identity. The
-// authorized_keys in the environment config is updated to include the public
-// key for the generated key.
-func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
-	logger.Debugf("generate a system ssh key")
-	// Create a new system ssh key and add that to the authorized keys.
-	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
-	if err != nil {
-		return "", fmt.Errorf("failed to create system key: %v", err)
+	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+		mcfg.InstanceId = inst.Id()
+		mcfg.HardwareCharacteristics = hw
+		if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
+			return err
+		}
+		return FinishBootstrap(ctx, client, inst, mcfg)
 	}
-	authorized_keys := config.ConcatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
-	newConfig, err := env.Config().Apply(map[string]interface{}{
-		config.AuthKeysConfig: authorized_keys,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create new config: %v", err)
-	}
-	if err = env.SetConfig(newConfig); err != nil {
-		return "", fmt.Errorf("failed to set new config: %v", err)
-	}
-	return privateKey, nil
+	return *hw.Arch, series, finalize, nil
 }
 
 // handleBootstrapError cleans up after a failed bootstrap.
@@ -183,6 +165,10 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	if err != nil {
 		return err
 	}
+	return ConfigureMachine(ctx, client, addr, machineConfig)
+}
+
+func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host string, machineConfig *cloudinit.MachineConfig) error {
 	// Bootstrap is synchronous, and will spawn a subprocess
 	// to complete the procedure. If the user hits Ctrl-C,
 	// SIGINT is sent to the foreground process attached to
@@ -190,7 +176,11 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
 	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
+	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudcfg)
+	if err != nil {
+		return err
+	}
+	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
@@ -199,7 +189,7 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	}
 	script := shell.DumpFileOnErrorScript(machineConfig.CloudInitOutputLog) + configScript
 	return sshinit.RunConfigureScript(script, sshinit.ConfigureParams{
-		Host:           "ubuntu@" + addr,
+		Host:           "ubuntu@" + host,
 		Client:         client,
 		Config:         cloudcfg,
 		ProgressWriter: ctx.GetStderr(),

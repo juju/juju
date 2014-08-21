@@ -4,6 +4,7 @@
 package machine_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
@@ -43,7 +44,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
