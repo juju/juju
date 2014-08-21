@@ -49,8 +49,6 @@ while [[ "${1-}" != "" ]]; do
     shift
 done
 
-echo "$REVISION_BUILD"
-exit
 
 if [[ $IS_LOCAL == "false" ]]; then
     archive="$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact"
