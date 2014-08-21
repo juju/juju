@@ -44,9 +44,6 @@ func (s *backupSuite) checkMetadata(
 	c.Check(metadata.Stored(), gc.DeepEquals, expected.Stored())
 }
 
-//---------------------------
-// getBackupMetadata()
-
 func (s *backupSuite) TestGetBackupMetadataFound(c *gc.C) {
 	expected := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, expected)
@@ -62,9 +59,6 @@ func (s *backupSuite) TestGetBackupMetadataNotFound(c *gc.C) {
 	_, err := state.GetBackupMetadata(s.State, "spam")
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
-
-//---------------------------
-// addBackupMetadata()
 
 func (s *backupSuite) TestAddBackupMetadataSuccess(c *gc.C) {
 	expected := s.metadata(c)
@@ -102,9 +96,6 @@ func (s *backupSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
-
-//---------------------------
-// setBackupStored()
 
 func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	original := s.metadata(c)
