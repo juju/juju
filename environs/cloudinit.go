@@ -18,11 +18,9 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/version"
 )
 
 // DataDir is the default data directory.  Tests can override this
@@ -31,7 +29,10 @@ var DataDir = agent.DefaultDataDir
 
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+//
+// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
+// Use the target series to decide the path.
+var logDir = "/var/log"
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
@@ -43,28 +44,18 @@ var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 func NewMachineConfig(
 	machineID,
 	machineNonce,
-	imageStream,
-	series string,
+	imageStream string,
 	networks []string,
 	mongoInfo *authentication.MongoInfo,
 	apiInfo *api.Info,
-) (*cloudinit.MachineConfig, error) {
-	dataDir, err := paths.DataDir(series)
-	if err != nil {
-		return nil, err
-	}
-	logDir, err := paths.LogDir(series)
-	if err != nil {
-		return nil, err
-	}
+) *cloudinit.MachineConfig {
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir:                 dataDir,
-		LogDir:                  path.Join(logDir, "juju"),
+		DataDir:                 DataDir,
+		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      CloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
-		Series:                  series,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -74,23 +65,20 @@ func NewMachineConfig(
 		APIInfo:      apiInfo,
 		ImageStream:  imageStream,
 	}
-	return mcfg, nil
+	return mcfg
 }
 
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapMachineConfig(privateSystemSSHKey, series string) (*cloudinit.MachineConfig, error) {
+func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, nil, nil, nil)
-	if err != nil {
-		return nil, err
-	}
+	mcfg := NewMachineConfig("0", agent.BootstrapNonce, "", nil, nil, nil)
 	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
-	return mcfg, nil
+	return mcfg
 }
 
 // PopulateMachineConfig is called both from the FinishMachineConfig below,
@@ -189,25 +177,13 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	return nil
 }
 
-func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) (cloudinit.UserdataConfig, error) {
+func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
 	// When bootstrapping, we only want to apt-get update/upgrade
 	// and setup the SSH keys. The rest we leave to cloudinit/sshinit.
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
-	if err != nil {
-		return nil, err
-	}
 	if mcfg.Bootstrap {
-		err = udata.ConfigureBasic()
-		if err != nil {
-			return nil, err
-		}
-		return udata, nil
+		return cloudinit.ConfigureBasic(mcfg, cloudcfg)
 	}
-	err = udata.Configure()
-	if err != nil {
-		return nil, err
-	}
-	return udata, nil
+	return cloudinit.Configure(mcfg, cloudcfg)
 }
 
 // ComposeUserData fills out the provided cloudinit configuration structure
@@ -219,11 +195,10 @@ func ComposeUserData(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Conf
 	if cloudcfg == nil {
 		cloudcfg = coreCloudinit.New()
 	}
-	udata, err := configureCloudinit(mcfg, cloudcfg)
-	if err != nil {
+	if err := configureCloudinit(mcfg, cloudcfg); err != nil {
 		return nil, err
 	}
-	data, err := udata.Render()
+	data, err := cloudcfg.Render()
 	logger.Tracef("Generated cloud init:\n%s", string(data))
 	if err != nil {
 		return nil, err

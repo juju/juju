@@ -37,13 +37,18 @@ func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
 
 func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
+	filename := "path/to/file"
+	old_MAASInstanceFilename := _MAASInstanceFilename
+	_MAASInstanceFilename = filename
+	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 	info := machineInfo{hostname}
-	filename := "/var/lib/juju/MAASmachine.txt"
-	script, err := info.cloudinitRunCmd("quantal")
+
+	script, err := info.cloudinitRunCmd()
+
 	c.Assert(err, gc.IsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, gc.IsNil)
-	expected := fmt.Sprintf("mkdir -p '%s'\ninstall -m 755 /dev/null '%s'\nprintf '%%s\\n' ''\"'\"'%s'\"'\"'' > '%s'", environs.DataDir, filename, yaml, filename)
+	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", environs.DataDir, yaml, filename)
 	c.Check(script, gc.Equals, expected)
 }
 

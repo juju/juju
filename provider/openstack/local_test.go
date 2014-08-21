@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -35,9 +36,11 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -239,6 +242,61 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
+}
+
+func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
+	// Floating IP address is 10.0.0.1
+	bootstrapFinished := false
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+		addr, err := inst.Addresses()
+		c.Assert(err, gc.IsNil)
+		c.Assert(addr, jc.SameContents, []network.Address{
+			{Value: "10.0.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
+			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
+			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+		})
+		bootstrapFinished = true
+		return nil
+	})
+
+	// Create a config that matches s.TestConfig but with use-floating-ip set to true
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": true,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(bootstrapFinished, jc.IsTrue)
+}
+
+func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
+	bootstrapFinished := false
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+		addr, err := inst.Addresses()
+		c.Assert(err, gc.IsNil)
+		c.Assert(addr, jc.SameContents, []network.Address{
+			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
+			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
+			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+		})
+		bootstrapFinished = true
+		return nil
+	})
+
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": false,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(bootstrapFinished, jc.IsTrue)
 }
 
 // If the environment is configured not to require a public IP address for nodes,

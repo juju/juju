@@ -395,7 +395,8 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, "--upload-tools")
+	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
+	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1

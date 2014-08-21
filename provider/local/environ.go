@@ -143,10 +143,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return err
 	}
 
-	mcfg, err := environs.NewBootstrapMachineConfig(privateKey, vers.Series)
-	if err != nil {
-		return err
-	}
+	mcfg := environs.NewBootstrapMachineConfig(privateKey)
 	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
@@ -191,11 +188,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
-	if err != nil {
-		return err
-	}
-	if err := udata.ConfigureJuju(); err != nil {
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
 	return finishBootstrap(mcfg, cloudcfg, ctx)

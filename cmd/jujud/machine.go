@@ -103,6 +103,7 @@ type MachineAgent struct {
 	tomb tomb.Tomb
 	AgentConf
 	MachineId            string
+	previousAgentVersion version.Number
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
@@ -162,10 +163,14 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+
+	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
+		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
+	}
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
+	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
-	a.upgradeWorkerContext.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
@@ -628,7 +633,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	// to upgrade from pre-HA-capable environments.
 	var shouldInitiateMongoServer bool
 	var addrs []network.Address
-	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
+	if isPreHAVersion(a.previousAgentVersion) {
 		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {
 			return err

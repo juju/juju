@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
-	corecloudinit "github.com/juju/juju/cloudinit"
+	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 )
@@ -53,7 +53,7 @@ func templateUserData(
 	authorizedKeys string,
 	aptProxy proxy.Settings,
 ) ([]byte, error) {
-	config := corecloudinit.New()
+	config := coreCloudinit.New()
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
@@ -66,12 +66,7 @@ func templateUserData(
 			utils.ShQuote(templateShutdownUpstartScript),
 			templateShutdownUpstartFilename,
 		))
-
-	renderer, err := corecloudinit.NewRenderer(series)
-	if err != nil {
-		return nil, err
-	}
-	data, err := renderer.Render(config)
+	data, err := config.Render()
 	if err != nil {
 		return nil, err
 	}

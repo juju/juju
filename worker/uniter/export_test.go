@@ -18,3 +18,9 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 }
 
 var MergeEnvironment = mergeEnvironment
+
+var SearchHook = searchHook
+
+var HookCommand = hookCommand
+
+var LookPath = lookPath

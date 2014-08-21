@@ -21,25 +21,21 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func MockMachineConfig(machineId string) (*cloudinit.MachineConfig, error) {
+func MockMachineConfig(machineId string) *cloudinit.MachineConfig {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
-	if err != nil {
-		return nil, err
-	}
+	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, nil, stateInfo, apiInfo)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
 
-	return machineConfig, nil
+	return machineConfig
 }
 
 func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
-	machineConfig, err := MockMachineConfig(machineId)
-	c.Assert(err, gc.IsNil)
+	machineConfig := MockMachineConfig(machineId)
 
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
@@ -54,7 +50,7 @@ func CreateContainerWithMachineConfig(
 ) instance.Instance {
 
 	network := container.BridgeNetworkConfig("nic42")
-	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "series", network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

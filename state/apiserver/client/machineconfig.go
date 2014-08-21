@@ -80,10 +80,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg, err := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(), networks, mongoInfo, apiInfo)
-	if err != nil {
-		return nil, err
-	}
+	mcfg := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), networks, mongoInfo, apiInfo)
 	if dataDir != "" {
 		mcfg.DataDir = dataDir
 	}
