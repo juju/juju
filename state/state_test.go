@@ -926,6 +926,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	// Check that the state server information is correct.
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
+	c.Assert(info.EnvUUID, gc.Equals, s.ConnSuite.envUUID)
 	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
 	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
@@ -1853,6 +1854,7 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		EnvUUID:          s.ConnSuite.envUUID,
 		MachineIds:       []string{"0"},
 		VotingMachineIds: []string{"0"},
 	})
@@ -1870,6 +1872,7 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 	info, err = s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
+		EnvUUID:          s.ConnSuite.envUUID,
 		MachineIds:       []string{"0", "1", "2"},
 		VotingMachineIds: []string{"0", "1", "2"},
 	})
@@ -2834,7 +2837,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 	ids, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	// c.Assert(ids.EnvUUID, gc.Equals, s.ConnSuite.Environ.Config().UUID())
+	c.Assert(ids.EnvUUID, gc.Equals, s.ConnSuite.envUUID)
 	c.Assert(ids.MachineIds, gc.HasLen, 0)
 	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
 
@@ -2843,9 +2846,12 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
+	expected := &state.StateServerInfo{
+		EnvUUID: s.ConnSuite.envUUID,
+	}
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+	c.Assert(info, jc.DeepEquals, expected)
 
 	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -2853,7 +2859,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 
 	info, err = s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+	c.Assert(info, jc.DeepEquals, expected)
 }
 
 func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
@@ -2913,6 +2919,7 @@ func newUint64(i uint64) *uint64 {
 func (s *StateSuite) assertStateServerInfo(c *gc.C, machineIds []string, votingMachineIds []string) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
+	c.Assert(info.EnvUUID, gc.Equals, s.ConnSuite.envUUID)
 	c.Assert(info.MachineIds, jc.SameContents, machineIds)
 	c.Assert(info.VotingMachineIds, jc.SameContents, votingMachineIds)
 }
