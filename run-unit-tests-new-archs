@@ -4,7 +4,7 @@
 # their tokenisation.
 
 set -eux
-: ${LOCAL_JENKINS_URL=$JENKINS_URL}
+: ${LOCAL_JENKINS_URL=${JENKINS_URL:-http://juju-ci.vapour.ws:8080}}
 ssh_options='-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null"'
 remote_user="ubuntu"
 
@@ -100,16 +100,10 @@ if [[ -d \$GOPATH ]]; then
   rm -r \$GOPATH
 fi
 tar -xzf $tarfile
-if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
-    cd \$GOPATH/src/launchpad.net/juju-core
-else
-    cd \$GOPATH/src/github.com/juju/juju
-fi
+cd \$GOPATH/src/github.com/juju/juju
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 go version || gccgo -v
 make build
-# Hack match for i386.
-sed -i 's/x86/86/' Makefile
 export JUJU_NOTEST_MONGOJS=1
 make check
 EOT
