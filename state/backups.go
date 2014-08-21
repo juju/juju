@@ -137,7 +137,7 @@ func (doc *backupMetadataDoc) validate() error {
 	return nil
 }
 
-// asMetadata returns a new backups.Metadata based on the backupMetadataDoc.
+// asMetadata returns a new metadata.Metadata based on the backupMetadataDoc.
 func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	// Create a new Metadata.
 	origin := metadata.NewOriginFull(
@@ -178,8 +178,8 @@ func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	return meta
 }
 
-// updateFromMetadata copies the corresponding data from the metadata.Metadata
-// into the backupMetadataDoc.
+// updateFromMetadata copies the corresponding data from the backup
+// Metadata into the backupMetadataDoc.
 func (doc *backupMetadataDoc) updateFromMetadata(metadata *metadata.Metadata) {
 	finished := metadata.Finished()
 	// Ignore metadata.ID.
