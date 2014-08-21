@@ -1,5 +1,3 @@
-bitbucket.org/kardianos/osext	hg	5d3ddcf53a508cc2f7404eaebf546ef2cb5cdb6e	12
-bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	58
 code.google.com/p/go.crypto	hg	aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef	212
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	
@@ -21,8 +19,8 @@ github.com/juju/testing	git	503e61bd033592d7b6003174389f68454deb7b7a
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	28f5ce7a725633883b280766a4f835277cde79cb	
 gopkg.in/juju/charm.v3	git	eb7dae8ed9dfa44b89e4e8eee6e21f80e31a3b69	
-gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
 gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	
+gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
 gopkg.in/yaml.v1	git	1418a9bc452f9cf4efa70307cafcb10743e64a56	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/goamz	bzr	martin.packman@canonical.com-20140813150539-umttn7s536u85eiz	49
@@ -32,3 +30,4 @@ launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140728022143-mth8hx6p
 launchpad.net/goose	bzr	tarmac-20140702055133-xpuj6gm4pa0f3a0e	127
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20140624093241-rlqsuf7pqxnrztgw	236
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
+bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	
