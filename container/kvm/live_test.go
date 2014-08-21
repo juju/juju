@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
@@ -93,7 +92,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 	environConfig := dummyConfig(c)
-	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
+	err := environs.FinishMachineConfig(machineConfig, environConfig)
 	c.Assert(err, gc.IsNil)
 
 	inst, hardware, err := manager.CreateContainer(machineConfig, "precise", network)

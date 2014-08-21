@@ -311,7 +311,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	return common.Bootstrap(ctx, e, args)
 }
 
@@ -594,7 +594,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 
 	args.MachineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 

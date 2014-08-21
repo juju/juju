@@ -84,7 +84,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	return common.Bootstrap(ctx, env, args)
 }
 
@@ -491,7 +491,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	// TODO(thumper): 2013-08-28 bug 1217614
