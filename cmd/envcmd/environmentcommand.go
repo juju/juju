@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs"
@@ -22,7 +23,7 @@ const CurrentEnvironmentFilename = "current-environment"
 // ErrNoEnvironmentSpecified is returned by commands that operate on
 // an environment if there is no current environment, no environment
 // has been explicitly specified, and there is no default environment.
-var ErrNoEnvironmentSpecified = fmt.Errorf("no environment specified")
+var ErrNoEnvironmentSpecified = errors.New("no environment specified")
 
 func getCurrentEnvironmentFilePath() string {
 	return filepath.Join(osenv.JujuHome(), CurrentEnvironmentFilename)
@@ -55,6 +56,8 @@ func WriteCurrentEnvironment(envName string) error {
 // JUJU_ENV environment variable.  If that is set, it gets used.  If it isn't
 // set, look in the $JUJU_HOME/current-environment file.  If neither are
 // available, read environments.yaml and use the default environment therein.
+// If no default is specified in the environments file, an empty string is returned.
+// Not having a default environment specified is not an error.
 func getDefaultEnvironment() (string, error) {
 	if defaultEnv := os.Getenv(osenv.JujuEnvEnvKey); defaultEnv != "" {
 		return defaultEnv, nil
@@ -63,11 +66,11 @@ func getDefaultEnvironment() (string, error) {
 		return currentEnv, nil
 	}
 	envs, err := environs.ReadEnvirons("")
-	if err != nil {
-		return "", err
-	}
-	if envs.Default == "" {
-		return "", ErrNoEnvironmentSpecified
+	if environs.IsNoEnv(err) {
+		// That's fine, not an error here.
+		return "", nil
+	} else if err != nil {
+		return "", errors.Trace(err)
 	}
 	return envs.Default, nil
 }
@@ -108,21 +111,6 @@ func (w *environCommandWrapper) EnvironName() string {
 	return w.envName
 }
 
-// ensureEnvName ensures that w.envName is non-empty, or sets it to
-// the default environment name. If there is no default environment name,
-// then ensureEnvName returns ErrNoEnvironmentSpecified.
-func (w *environCommandWrapper) ensureEnvName() error {
-	if w.envName != "" {
-		return nil
-	}
-	defaultEnv, err := getDefaultEnvironment()
-	if err != nil {
-		return err
-	}
-	w.envName = defaultEnv
-	return nil
-}
-
 func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&w.envName, "e", "", "juju environment to operate in")
 	f.StringVar(&w.envName, "environment", "", "")
@@ -130,8 +118,13 @@ func (w *environCommandWrapper) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (w *environCommandWrapper) Init(args []string) error {
-	if err := w.ensureEnvName(); err != nil {
-		return err
+	if w.envName == "" {
+		// Look for the default.
+		defaultEnv, err := getDefaultEnvironment()
+		if err != nil {
+			return err
+		}
+		w.envName = defaultEnv
 	}
 	w.SetEnvName(w.envName)
 	return w.EnvironCommand.Init(args)
