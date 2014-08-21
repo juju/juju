@@ -20,7 +20,9 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
@@ -32,16 +34,10 @@ var logger = loggo.GetLogger("juju.agent")
 
 // logDir returns a filesystem path to the location where juju
 // may create a folder containing its logs
-//
-// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
-// Use the target series to decide the path.
-var logDir = "/var/log"
+var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
 // dataDir returns the default data directory for this running system
-//
-// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
-// Use the target series to decide the path.
-var dataDir = "/var/lib/juju"
+var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
 // DefaultLogDir defines the default log directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
@@ -112,7 +108,7 @@ type Config interface {
 	// WriteCommands returns shell commands to write the agent configuration.
 	// It returns an error if the configuration does not have all the right
 	// elements.
-	WriteCommands() ([]string, error)
+	WriteCommands(series string) ([]string, error)
 
 	// StateServingInfo returns the details needed to run
 	// a state server and reports whether those details
@@ -627,13 +623,17 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *configInternal) WriteCommands() ([]string, error) {
+func (c *configInternal) WriteCommands(series string) ([]string, error) {
+	renderer, err := cloudinit.NewRenderer(series)
+	if err != nil {
+		return nil, err
+	}
 	data, err := c.fileContents()
 	if err != nil {
 		return nil, err
 	}
-	commands := []string{"mkdir -p " + utils.ShQuote(c.Dir())}
-	commands = append(commands, writeFileCommands(c.File(agentConfigFilename), data, 0600)...)
+	commands := renderer.Mkdir(c.Dir())
+	commands = append(commands, renderer.WriteFile(c.File(agentConfigFilename), string(data), 0600)...)
 	return commands, nil
 }
 

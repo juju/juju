@@ -74,7 +74,10 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
-	machineConfig := environs.NewBootstrapMachineConfig(args.Constraints, privateKey)
+	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, privateKey, series)
+	if err != nil {
+		return err
+	}
 	machineConfig.Tools = availableTools[0]
 	if err := finalizer(ctx, machineConfig); err != nil {
 		return err

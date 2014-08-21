@@ -196,7 +196,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 
 var expectedCloudinitConfig = []interface{}{
 	"set -xe",
-	"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
 	"ifdown eth0",
 	`mkdir -p etc/network/interfaces.d
 cat > /etc/network/interfaces.d/eth0.cfg << EOF
@@ -226,7 +226,7 @@ sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.
 }
 
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
-	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", "eth0")
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", "eth0", "quantal")
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)

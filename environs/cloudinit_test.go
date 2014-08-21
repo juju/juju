@@ -4,6 +4,7 @@
 package environs_test
 
 import (
+	"path"
 	"time"
 
 	"github.com/juju/names"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/api"
@@ -43,6 +45,16 @@ type CloudInitSuite struct {
 }
 
 var _ = gc.Suite(&CloudInitSuite{})
+
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+var logDir = must(paths.LogDir("precise"))
+var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	userTag := names.NewUserTag("not-touched")
@@ -166,6 +178,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
+		Series:       "quantal",
 		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
@@ -183,7 +196,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    allJobs,
-		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		CloudInitOutputLog:      cloudInitOutputLog,
 		Config:                  envConfig,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
