@@ -39,3 +39,15 @@ func (c *Client) CleanupOldMetrics() error {
 	}
 	return results.OneError()
 }
+
+func (c *Client) SendMetrics() error {
+	results := new(params.ErrorResult)
+	err := c.facade.FacadeCall("SendMetrics", nil, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if results.Error != nil {
+		return results.Error
+	}
+	return nil
+}

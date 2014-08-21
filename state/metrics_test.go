@@ -11,6 +11,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type MetricSuite struct {
@@ -146,4 +148,66 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
 	c.Assert(metricBatches[0].Sent(), gc.Equals, false)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+}
+
+// TestSendMetrics creates 2 unsent metrics and a sent metric
+// and checks that the 2 unsent metrics get sent and have their
+// sent field set to true
+func (s *MetricSuite) TestSendMetrics(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+	now := time.Now()
+	unsent1 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+	unsent2 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	sender := &testing.MockSender{}
+	s.PatchValue(&state.MetricSend, sender)
+	err := s.State.SendMetrics()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(sender.Data, gc.HasLen, 2)
+
+	sent1, err := s.State.MetricBatch(unsent1.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent1.Sent(), jc.IsTrue)
+
+	sent2, err := s.State.MetricBatch(unsent2.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent2.Sent(), jc.IsTrue)
+}
+
+// TestSendBulkMetrics tests the logic of splitting sends
+// into batches is done correctly. The batch size is changed
+// to send 10 batches of 10 metrics. If we create 101 metrics
+// then only 100 will be sent in this call
+func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
+	sender := &testing.MockSender{}
+	s.PatchValue(&state.MetricSend, sender)
+	s.PatchValue(&state.MaxBatchesPerSend, 10)
+	s.PatchValue(&state.MaxSendsPerCall, 10)
+	unit := s.factory.MakeUnit(c, nil)
+	now := time.Now()
+	for i := 0; i < 101; i++ {
+		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+	}
+	err := s.State.SendMetrics()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(sender.Data, gc.HasLen, 100)
+}
+
+// TestCountMetrics asserts the correct values are returned
+// by CountofUnsentMetrics and CountofSentMetrics
+func (s *MetricSuite) TestCountMetrics(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+	now := time.Now()
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	sent, err := s.State.CountofSentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 1)
+	unsent, err := s.State.CountofUnsentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsent, gc.Equals, 2)
+	c.Assert(unsent+sent, gc.Equals, 3)
 }

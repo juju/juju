@@ -6,6 +6,8 @@ package state
 import (
 	"time"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -14,6 +16,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
+
+var metricsLogger = loggo.GetLogger("juju.state.metrics")
 
 // MetricBatch represents a batch of metrics reported from a unit.
 // These will be received from the unit in batches.
@@ -137,6 +141,95 @@ func (st *State) CleanupOldMetrics() error {
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	})
+}
+
+type MetricSender interface {
+	Send([]*MetricBatch) error
+}
+
+var (
+	MetricSend        = MetricSender(nil)
+	MaxSendsPerCall   = 50
+	MaxBatchesPerSend = 1000
+)
+
+// SendMetrics will send any unsent metrics
+// over the MetricSender interface in batches
+// of no more than 1k. It will attempt to send up
+// to 50 batches in one go. Meaning that 50k batches
+// could be sent in a single call.
+func (st *State) SendMetrics() error {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	iter := c.Find(bson.M{
+		"sent": false,
+	}).Iter()
+	doc := metricBatchDoc{}
+	batch := make([]*MetricBatch, MaxBatchesPerSend)
+	for s := 0; s < MaxSendsPerCall; s++ {
+		i := 0
+		for i = 0; i < MaxBatchesPerSend; i++ {
+			if iter.Next(&doc) {
+				batch[i] = &MetricBatch{st: st, doc: doc}
+			} else {
+				break
+			}
+		}
+		batch = batch[:i]
+
+		if len(batch) == 0 {
+			return nil
+		}
+
+		err := st.sendBatch(batch)
+		if err != nil {
+			return err
+		}
+	}
+	unsent, err := st.CountofUnsentMetrics()
+	if err != nil {
+		return err
+	}
+	sent, err := st.CountofSentMetrics()
+	if err != nil {
+		return err
+	}
+	metricsLogger.Infof("metrics collection summary: sent:%d unsent:%d", sent, unsent)
+
+	return nil
+}
+
+func (st *State) CountofUnsentMetrics() (int, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	return c.Find(bson.M{
+		"sent": false,
+	}).Count()
+}
+
+func (st *State) CountofSentMetrics() (int, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	return c.Find(bson.M{
+		"sent": true,
+	}).Count()
+}
+
+func (st *State) sendBatch(batch []*MetricBatch) error {
+	if MetricSend == nil {
+		return nil
+	}
+	err := MetricSend.Send(batch)
+	if err != nil {
+		return err
+	}
+	for _, m := range batch {
+		err := m.SetSent()
+		if err != nil {
+			metricsLogger.Warningf("failed to setsent on metric %v %v", m.UUID(), err)
+		}
+	}
+	return nil
 }
 
 // UUID returns to uuid of the metric.

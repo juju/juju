@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -76,10 +78,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *metricsManagerSuite) TestCleanupArgsIndependant(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	oldTime := time.Now().Add(-(time.Hour * 25))
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
+func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
 		params.Entity{"invalid"},
 		params.Entity{s.State.EnvironTag().String()},
@@ -90,4 +89,19 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependant(c *gc.C) {
 	expectedError := common.ServerError(common.ErrPerm)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
+func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
+	sender := &statetesting.MockSender{}
+	s.PatchValue(&state.MetricSend, sender)
+	unit := s.Factory.MakeUnit(c, nil)
+	now := time.Now()
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	_, err := s.metricsmanager.SendMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sender.Data, gc.HasLen, 1)
+	m, err := s.State.MetricBatch(unsent.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Sent(), jc.IsTrue)
 }

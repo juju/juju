@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/juju/api/metricsmanager"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -41,4 +43,19 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.MetricBatch(newMetric.UUID())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
+	sender := &statetesting.MockSender{}
+	s.PatchValue(&state.MetricSend, sender)
+	unit := s.Factory.MakeUnit(c, nil)
+	now := time.Now()
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	err := s.manager.SendMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sender.Data, gc.HasLen, 1)
+	m, err := s.State.MetricBatch(unsent.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Sent(), jc.IsTrue)
 }

@@ -23,6 +23,7 @@ func init() {
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
 	CleanupOldMetrics(arg params.Entities) (params.ErrorResults, error)
+	SendMetrics() (params.ErrorResult, error)
 }
 
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
@@ -68,6 +69,19 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 			err = errors.Annotate(err, "failed to cleanup old metrics")
 			result.Results[i].Error = common.ServerError(err)
 		}
+	}
+	return result, nil
+}
+
+// SendMetrics will send any unsent metrics onto the metric collection service
+func (api *MetricsManagerAPI) SendMetrics() (params.ErrorResult, error) {
+	result := params.ErrorResult{}
+
+	err := api.state.SendMetrics()
+	if err != nil {
+		err = errors.Annotate(err, "failed to send metrics")
+		result.Error = common.ServerError(err)
+		return result, err
 	}
 	return result, nil
 }

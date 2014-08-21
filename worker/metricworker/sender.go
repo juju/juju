@@ -1,0 +1,28 @@
+package metricworker
+
+import (
+	"time"
+
+	"github.com/juju/loggo"
+
+	"github.com/juju/juju/api/metricsmanager"
+	"github.com/juju/juju/worker"
+)
+
+var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
+
+func NewSender(client *metricsmanager.Client) worker.Worker {
+	f := func(stopCh <-chan struct{}) error {
+		err := client.SendMetrics()
+		if err != nil {
+			senderLogger.Warningf("failed to send metrics %v - will retry later", err)
+			return nil
+		}
+		select {
+		case notify <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	return worker.NewPeriodicWorker(f, time.Second)
+}
