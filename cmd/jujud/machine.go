@@ -96,12 +96,13 @@ type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	MachineId        string
-	runner           worker.Runner
-	configChangedVal voyeur.Value
-	upgradeComplete  chan struct{}
-	workersStarted   chan struct{}
-	st               *state.State
+	MachineId            string
+	previousAgentVersion version.Number
+	runner               worker.Runner
+	configChangedVal     voyeur.Value
+	upgradeComplete      chan struct{}
+	workersStarted       chan struct{}
+	st                   *state.State
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -159,7 +160,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
-	if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
+	a.previousAgentVersion = agentConfig.UpgradedToVersion()
+	if !upgrades.AreUpgradesDefined(a.previousAgentVersion) {
 		logger.Infof("no upgrade steps required or upgrade steps for %v have already "+
 			"been run.", version.Current.Number)
 		close(a.upgradeComplete)
@@ -565,7 +567,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	// to upgrade from pre-HA-capable environments.
 	var shouldInitiateMongoServer bool
 	var addrs []network.Address
-	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
+	if isPreHAVersion(a.previousAgentVersion) {
 		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {
 			return err
