@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -40,13 +41,19 @@ func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 	c.Assert(env, gc.Equals, "fubar")
 }
 
+func (s *EnvironmentCommandSuite) TestGetDefaultEnvironment(c *gc.C) {
+	env, err := envcmd.GetDefaultEnvironment()
+	c.Assert(env, gc.Equals, "erewhemos")
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
 	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "")
-	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *gc.C) {
@@ -88,41 +95,41 @@ func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitExplicit(c *gc.C) {
 	// Take environment name from command line arg.
-	cmd, envName := prepareEnvCommand(c, "explicit")
-	err := cmd.Init(nil)
-	c.Assert(err, gc.IsNil)
-	c.Assert(*envName, gc.Equals, "explicit")
+	testEnsureEnvName(c, "explicit", "-e", "explicit")
+}
 
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigs(c *gc.C) {
 	// Take environment name from the default.
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	testEnsureEnvName(c, coretesting.SampleEnvName)
+}
 
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitSingleConfig(c *gc.C) {
 	// Take environment name from the one and only environment,
 	// even if it is not explicitly marked as default.
 	coretesting.WriteEnvironments(c, coretesting.SingleEnvConfigNoDefault)
 	testEnsureEnvName(c, coretesting.SampleEnvName)
+}
 
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitEnvFile(c *gc.C) {
 	// If there is a current-environment file, use that.
 	err = envcmd.WriteCurrentEnvironment("fubar")
 	testEnsureEnvName(c, "fubar")
 }
 
-func (s *EnvironmentCommandSuite) TestEnvironCommandInitErrors(c *gc.C) {
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitNoEnvFile(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
-	cmd, _ := prepareEnvCommand(c, "")
-	err = cmd.Init(nil)
-	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
+	testEnsureEnvName(c, "")
+}
 
-	// If there are multiple environments but no default,
-	// an error should be returned.
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigNoDefault(c *gc.C) {
+	// If there are multiple environments but no default, the connection name is empty.
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfigNoDefault)
-	cmd, _ = prepareEnvCommand(c, "")
-	err = cmd.Init(nil)
-	c.Assert(err, gc.Equals, envcmd.ErrNoEnvironmentSpecified)
+	testEnsureEnvName(c, "")
 }
 
 type testCommand struct {

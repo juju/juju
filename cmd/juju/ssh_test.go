@@ -131,7 +131,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(&SSHCommand{})
+	jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
 	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -177,7 +177,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	code := cmd.Main(&SSHCommand{}, ctx, args)
+	code := cmd.Main(envcmd.Wrap(&SSHCommand{}), ctx, args)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(called, gc.Equals, 2)
 	called = 0
@@ -188,7 +188,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		}
 		return true
 	}
-	code = cmd.Main(&SSHCommand{}, ctx, args)
+	code = cmd.Main(envcmd.Wrap(&SSHCommand{}), ctx, args)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(called, gc.Equals, 2)
 }
