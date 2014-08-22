@@ -86,6 +86,7 @@ if [[ $INSTANCE_TYPE == "lxc" ]]; then
     done
     sudoers_file="/var/lib/lxc/$instance_id/rootfs/etc/sudoers.d/91-ubuntu"
     echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' | sudo tee -a $sudoers_file
+    sudo chmod 0440 $sudoers_file
     echo "$instance_id is at $instance_name"
 else
     instance_id=$($SCRIPTS/ec2-run-instance-get-id)
