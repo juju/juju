@@ -230,6 +230,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	// given value.
 	defineIfNot := func(keyName string, value interface{}) {
 		if _, defined := cfg.AllAttrs()[keyName]; !defined {
+			logger.Infof("lxc-clone is enabled. Switching %s to %v", keyName, value)
 			localConfig.attrs[keyName] = value
 		}
 	}

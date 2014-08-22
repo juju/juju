@@ -139,6 +139,7 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	// given value.
 	defineIfNot := func(keyName string, value interface{}) {
 		if _, defined := cfg.AllAttrs()[keyName]; !defined {
+			logger.Infof("%s was not defined. Defaulting to %v.", keyName, value)
 			envConfig.attrs[keyName] = value
 		}
 	}
@@ -185,15 +186,14 @@ manual:
 
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in
-    # production systems, but disabling this can speed up local
-    # deployments for development or testing.
+    # production systems.
     #
-    # enable-os-refresh-update: false
+    # enable-os-refresh-update: true
 
     # Whether or not to perform OS upgrades when machines are
-    # provisioned. The default option of true is recommended for use
-    # in production systems, but disabling this can speed up local
-    # deployments for development or testing.
+    # provisioned. The default option of false is set so that Juju
+    # does not subsume any other way the system might be
+    # maintained.
     #
     # enable-os-upgrade: false
 

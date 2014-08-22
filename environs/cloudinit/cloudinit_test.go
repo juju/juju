@@ -529,7 +529,6 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			"command": "eatmydata",
 			"enabled": "auto",
 		})
-		c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
 
 		if test.cfg.EnableOSRefreshUpdate {
 			c.Check(configKeyValues["apt_update"], gc.Equals, true)

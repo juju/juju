@@ -15,22 +15,18 @@ const defaultStoragePort = 8040
 
 var (
 	configFields = schema.Fields{
-		"bootstrap-host":           schema.String(),
-		"bootstrap-user":           schema.String(),
-		"storage-listen-ip":        schema.String(),
-		"storage-port":             schema.ForceInt(),
-		"storage-auth-key":         schema.String(),
-		"use-sshstorage":           schema.Bool(),
-		"enable-os-refresh-update": schema.Bool(),
-		"enable-os-upgrade":        schema.Bool(),
+		"bootstrap-host":    schema.String(),
+		"bootstrap-user":    schema.String(),
+		"storage-listen-ip": schema.String(),
+		"storage-port":      schema.ForceInt(),
+		"storage-auth-key":  schema.String(),
+		"use-sshstorage":    schema.Bool(),
 	}
 	configDefaults = schema.Defaults{
-		"bootstrap-user":           "",
-		"storage-listen-ip":        "",
-		"storage-port":             defaultStoragePort,
-		"use-sshstorage":           true,
-		"enable-os-refresh-update": false,
-		"enable-os-upgrade":        false,
+		"bootstrap-user":    "",
+		"storage-listen-ip": "",
+		"storage-port":      defaultStoragePort,
+		"use-sshstorage":    true,
 	}
 )
 

@@ -131,6 +131,6 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Our preferences should not have been overwritten.
-	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, false)
-	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, false)
+	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, true)
 }

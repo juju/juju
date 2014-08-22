@@ -630,11 +630,11 @@ type ProvisioningScriptParams struct {
 
 	// DataDir may be "", in which case the default will be used.
 	DataDir string
-	*UpdateBehavior
 
-	// TODO(katco-): Deprecated as of 1.20.6. Utilize the UpdateBehavior struct instead.
-	// DisablePackageCommands is a flag that specifies whether to suppress
-	// the addition of package management commands.
+	// DisablePackageCommands may be set to disable all
+	// package-related commands. It is then the responsibility of the
+	// provisioner to ensure that all the packages required by Juju
+	// are available.
 	DisablePackageCommands bool
 }
 

@@ -1905,9 +1905,8 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a state/api password for the machine agent.
 	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
-		MachineId:      machineId,
-		Nonce:          apiParams.Nonce,
-		UpdateBehavior: &params.UpdateBehavior{true, true},
+		MachineId: machineId,
+		Nonce:     apiParams.Nonce,
 	})
 	c.Assert(err, gc.IsNil)
 	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
@@ -1946,9 +1945,20 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 		Nonce:     apiParams.Nonce,
 	}
 
+	setUpdateBehavior := func(update, upgrade bool) {
+		s.State.UpdateEnvironConfig(
+			map[string]interface{}{
+				"enable-os-upgrade":        upgrade,
+				"enable-os-refresh-update": update,
+			},
+			nil,
+			nil,
+		)
+	}
+
 	// Test enabling package commands
 	provParams.DisablePackageCommands = false
-	provParams.UpdateBehavior = &params.UpdateBehavior{true, true}
+	setUpdateBehavior(true, true)
 	script, err := s.APIState.Client().ProvisioningScript(provParams)
 	c.Assert(err, gc.IsNil)
 	c.Check(script, jc.Contains, "apt-get update")
@@ -1956,7 +1966,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 
 	// Test disabling package commands
 	provParams.DisablePackageCommands = true
-	provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
+	setUpdateBehavior(false, false)
 	script, err = s.APIState.Client().ProvisioningScript(provParams)
 	c.Assert(err, gc.IsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
@@ -1965,7 +1975,17 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	// Test client-specified DisablePackageCommands trumps environment
 	// config variables.
 	provParams.DisablePackageCommands = true
-	provParams.UpdateBehavior = &params.UpdateBehavior{true, true}
+	setUpdateBehavior(true, true)
+	script, err = s.APIState.Client().ProvisioningScript(provParams)
+	c.Assert(err, gc.IsNil)
+	c.Check(script, gc.Not(jc.Contains), "apt-get update")
+	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
+
+	// Test that in the abasence of a client-specified
+	// DisablePackageCommands we use what's set in environments.yaml.
+	provParams.DisablePackageCommands = false
+	setUpdateBehavior(false, false)
+	//provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
 	script, err = s.APIState.Client().ProvisioningScript(provParams)
 	c.Assert(err, gc.IsNil)
 	c.Check(script, gc.Not(jc.Contains), "apt-get update")
