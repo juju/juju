@@ -2242,12 +2242,6 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewActionTag("ser-vice2_a_0"),
 	err: `action "ser-vice2_a_0" not found`,
-}, {
-	tag: names.NewEnvironTag("notauuid"),
-	err: `"environment-notauuid" is not a valid environment tag`,
-}, {
-	tag: names.NewEnvironTag("testenv"),
-	err: `"environment-testenv" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{
