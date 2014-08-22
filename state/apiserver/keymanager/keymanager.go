@@ -75,11 +75,11 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 		return authorizer.GetAuthTag() == adminUser
 	}
 	return &KeyManagerAPI{
-		state: st,
-resources: resources,
-authorizer: authorizer,
-canRead: canRead,
-canWrite: canWrite}, nil
+		state:      st,
+		resources:  resources,
+		authorizer: authorizer,
+		canRead:    canRead,
+		canWrite:   canWrite}, nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.

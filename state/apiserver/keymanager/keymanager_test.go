@@ -91,7 +91,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 
 	args := params.ListSSHKeys{
 		Entities: params.Entities{[]params.Entity{
-			{Tag: names.NewUserTag(state.AdminUser).String()},
+			{Tag: state.AdminUser},
 			{Tag: "invalid"},
 		}},
 		Mode: ssh.FullKeys,
