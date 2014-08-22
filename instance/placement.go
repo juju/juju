@@ -23,7 +23,7 @@ var ErrPlacementScopeMissing = fmt.Errorf("placement scope missing")
 type Placement struct {
 	// Scope is the scope of the placement directive. Scope may
 	// be a container type (lxc, kvm), instance.MachineScope, or
-	// an environment name.
+	// an environment name or uuid.
 	//
 	// If Scope is empty, then it must be inferred from the context.
 	Scope string
