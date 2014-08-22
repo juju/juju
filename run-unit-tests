@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eux
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
-: ${LOCAL_JENKINS_URL=$JENKINS_URL}
+: ${LOCAL_JENKINS_URL=${JENKINS_URL:-http://juju-ci.vapour.ws:8080}}
 
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
@@ -11,6 +11,8 @@ FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
 SAFE="false"
+REVISION_BUILD=${revision_build:-}
+USE_PPA=""
 USE_TMPFS="false"
 while [[ "${1-}" != "" ]]; do
     case $1 in
@@ -28,12 +30,25 @@ while [[ "${1-}" != "" ]]; do
             shift
             tarfile=$1
             ;;
+        --revision-build)
+            shift
+            REVISION_BUILD=$1
+            ;;
+        --use-ppa)
+            shift
+            USE_PPA=$1
+            if [[ -z $(echo $USE_PPA | grep 'ppa:.*/.*') ]]; then
+                echo "$USE_PPA is not a ppa."
+                exit 1
+            fi
+            ;;
         --use-tmpfs)
             USE_TMPFS="true"
             ;;
     esac
     shift
 done
+
 
 if [[ $IS_LOCAL == "false" ]]; then
     archive="$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact"
@@ -43,7 +58,7 @@ if [[ $IS_LOCAL == "false" ]]; then
     rev=${REVNO-$(echo $REVISION_ID | head -c8)}
     echo "Testing $BRANCH $rev"
 
-    tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
+    tarfile=$($SCRIPTS/get-tarfile-name $REVISION_BUILD)
     test -f $tarfile && rm $tarfile
     wget -q $archive/$tarfile
 fi
@@ -103,11 +118,7 @@ if [[ "$USE_TMPFS" == "true" ]]; then
 fi
 tar -xzf $tarfile
 export GOPATH=\$HOME/$juju_version
-if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
-    cd \$GOPATH/src/launchpad.net/juju-core
-else
-    cd \$GOPATH/src/github.com/juju/juju
-fi
+cd \$GOPATH/src/github.com/juju/juju
 if [[ $INSTANCE_TYPE != "lxc" ]]; then
     for attempt in \$(seq 10); do
         if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
@@ -119,20 +130,12 @@ if [[ $INSTANCE_TYPE != "lxc" ]]; then
     done
     $FIXUP_SOURCES
 fi
-needs_ppa=\$(lsb_release -sc | sed -r 's,(saucy|precise),true,')
-if [[ \$needs_ppa == 'true' ]]; then
-    sudo apt-add-repository -y ppa:juju/experimental;
+if [[ -n $USE_PPA ]]; then
+    sudo apt-add-repository -y $USE_PPA;
 fi
 sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y make
-# Hack rules to allow i386 to run.
-sed -i 's/x86/86/' Makefile
-sed -i 's/go test \$/go test -test.timeout=1200s \$/' Makefile
-# Trusty needs mongodb-server and juju-mongodb
-if [[ \$(lsb_release -sc) == "trusty" ]]; then
-    sudo apt-get install -y mongodb-server
-fi
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 go version || gccgo -v
