@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
