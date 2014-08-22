@@ -264,7 +264,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 	progress("opening state")
 	if err != nil {
-		return fmt.Errorf("cannot connect to api server: %v", err)
+		return errors.Annotate(err, "cannot connect to api server")
 	}
 	progress("updating all machines")
 	if err := updateAllMachines(apiState, machine0Addr); err != nil {
@@ -330,7 +330,7 @@ func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentCo
 	client := st.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
-		return "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
+		return "", errors.Annotate(err, "cannot get public address of bootstrap machine")
 	}
 	paddr, err := client.PrivateAddress("0")
 	if err != nil {
@@ -517,7 +517,7 @@ func runMachineUpdate(client *api.Client, id string, sshArg string) error {
 	progress("updating machine: %v\n", id)
 	addr, err := client.PublicAddress(id)
 	if err != nil {
-		return fmt.Errorf("no public address found: %v", err)
+		return errors.Annotate(err, "no public address found")
 	}
 	return runViaSsh(addr, sshArg)
 }
