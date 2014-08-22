@@ -223,7 +223,7 @@ func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, er
 }
 
 // PublicAddress returns the public address of the specified
-// machine or unit.
+// machine or unit. For a machine, target is an id not a tag.
 func (c *Client) PublicAddress(target string) (string, error) {
 	var results params.PublicAddressResults
 	p := params.PublicAddress{Target: target}
