@@ -12,23 +12,16 @@ update_jenkins() {
     host=$1
     echo "updating $host"
     if [[ "$CLOUD_CITY" == "true" ]]; then
-        is_active=$(
-            ssh jenkins@$host "find ~/cloud-city/environments/ -name *.jenv")
-        if [[ -n "$is_active" ]]; then
-            echo "$host has jenvs. Either clear the files or run with 'false'."
-            exit 2
-        fi
-        ssh jenkins@$host "mv ~/cloud-city ~/cloud-city.old"
         bzr branch lp:~juju-qa/+junk/cloud-city \
-            bzr+ssh://jenkins@$host/var/lib/jenkins/cloud-city
+            bzr+ssh://jenkins@$host/var/lib/jenkins/cloud-city.new
     fi
     ssh jenkins@$host << EOT
 #!/bin/bash
 set -eux
 if [[ "$CLOUD_CITY" == "true" ]]; then
-    bzr checkout ~/cloud-city ~/cloud-city
-    chmod 600 ~/cloud-city/$KEY*
-    sudo rm -r ~/cloud-city.old
+    (cd ~/cloud-city; bzr revert; cd -)
+    bzr pull -d ~/cloud-city ~/cloud-city.new
+    rm -r ~/cloud-city.new
 fi
 cd ~/juju-release-tools
 bzr pull
