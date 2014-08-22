@@ -223,7 +223,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	agentConf, err := extractConfig(c.backupFile)
 	if err != nil {
-		return fmt.Errorf("cannot extract configuration from backup file: %v", err)
+		return errors.Annotate(err, "cannot extract configuration from backup file")
 	}
 	progress("extracted credentials from backup file")
 	store, err := configstore.Default()
@@ -236,7 +236,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	env, err := rebootstrap(cfg, ctx, c.Constraints)
 	if err != nil {
-		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
+		return errors.Annotate(err, "cannot re-bootstrap environment")
 	}
 	progress("connecting to newly bootstrapped instance")
 	var apiState *api.State
@@ -252,12 +252,12 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		progress("bootstrapped instance not ready - attempting to redial")
 	}
 	if err != nil {
-		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
+		return errors.Annotate(err, "cannot connect to bootstrap instance")
 	}
 	progress("restoring bootstrap machine")
 	machine0Addr, err := restoreBootstrapMachine(apiState, c.backupFile, agentConf)
 	if err != nil {
-		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
+		return errors.Annotate(err, "cannot restore bootstrap machine")
 	}
 	progress("restored bootstrap machine")
 
@@ -268,7 +268,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	progress("updating all machines")
 	if err := updateAllMachines(apiState, machine0Addr); err != nil {
-		return fmt.Errorf("cannot update machines: %v", err)
+		return errors.Annotate(err, "cannot update machines")
 	}
 	return nil
 }
@@ -285,7 +285,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot enable provisioner-safe-mode: %v", err)
+		return nil, errors.Annotate(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
 	if err != nil {
@@ -293,24 +293,24 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	}
 	instanceIds, err := env.StateServerInstances()
 	if err != nil {
-		return nil, fmt.Errorf("cannot determine state server instances: %v", err)
+		return nil, errors.Annotate(err, "cannot determine state server instances")
 	}
 	if len(instanceIds) == 0 {
-		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
+		return nil, errors.Annotate(err, "no instances found; perhaps the environment was not bootstrapped")
 	}
 	if len(instanceIds) > 1 {
-		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
+		return nil, errors.Annotate(err, "restore does not support HA juju configurations yet")
 	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
-		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+		return nil, errors.Annotate(err, fmt.Sprintf("old bootstrap instance %q still seems to exist; will not replace", inst))
 	}
 	if err != environs.ErrNoInstances {
-		return nil, fmt.Errorf("cannot detect whether old instance is still running: %v", err)
+		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
 	if err := env.Storage().Remove(common.StateFile); err != nil {
-		return nil, fmt.Errorf("cannot remove %q from storage: %v", common.StateFile, err)
+		return nil, errors.Annotate(err, fmt.Sprintf("cannot remove %q from storage", common.StateFile))
 	}
 
 	// TODO If we fail beyond here, then we won't have a state file and
@@ -321,7 +321,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 
 	args := environs.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
-		return nil, fmt.Errorf("cannot bootstrap new instance: %v", err)
+		return nil, errors.Annotate(err, "cannot bootstrap new instance")
 	}
 	return env, nil
 }
@@ -334,25 +334,25 @@ func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentCo
 	}
 	paddr, err := client.PrivateAddress("0")
 	if err != nil {
-		return "", fmt.Errorf("cannot get private address of bootstrap machine: %v", err)
+		return "", errors.Annotate(err, "cannot get private address of bootstrap machine")
 	}
 	status, err := client.Status(nil)
 	if err != nil {
-		return "", fmt.Errorf("cannot get environment status: %v", err)
+		return "", errors.Annotate(err, "cannot get environment status")
 	}
 	info, ok := status.Machines["0"]
 	if !ok {
-		return "", fmt.Errorf("cannot find bootstrap machine in status")
+		return "", errors.Annotate(err, "cannot find bootstrap machine in status")
 	}
 	newInstId := instance.Id(info.InstanceId)
 
 	progress("copying backup file to bootstrap host")
 	if err := sendViaScp(backupFile, addr, "~/juju-backup.tgz"); err != nil {
-		return "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
+		return "", errors.Annotate(err, "cannot copy backup file to bootstrap instance")
 	}
 	progress("updating bootstrap machine")
 	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, agentConf, addr, paddr)); err != nil {
-		return "", fmt.Errorf("update script failed: %v", err)
+		return "", errors.Annotate(err, "update script failed")
 	}
 	return addr, nil
 }
@@ -377,7 +377,7 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	defer f.Close()
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return agentConfig{}, fmt.Errorf("cannot unzip %q: %v", backupFile, err)
+		return agentConfig{}, errors.Annotate(err, fmt.Sprintf("cannot unzip %q", backupFile))
 	}
 	defer gzr.Close()
 	outerTar, err := findFileInTar(gzr, "juju-backup/root.tar")
@@ -390,11 +390,11 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	}
 	data, err := ioutil.ReadAll(agentConf)
 	if err != nil {
-		return agentConfig{}, fmt.Errorf("failed to read agent config file: %v", err)
+		return agentConfig{}, errors.Annotate(err, "failed to read agent config file")
 	}
 	var conf interface{}
 	if err := goyaml.Unmarshal(data, &conf); err != nil {
-		return agentConfig{}, fmt.Errorf("cannot unmarshal agent config file: %v", err)
+		return agentConfig{}, errors.Annotate(err, "cannot unmarshal agent config file")
 	}
 	m, ok := conf.(map[interface{}]interface{})
 	if !ok {
@@ -416,7 +416,7 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	statePort := strconv.Itoa(statePortNum)
 	apiPortNum, ok := m["apiport"].(int)
 	if !ok {
-		return agentConfig{}, fmt.Errorf("api port not found in configuration")
+		return agentConfig{}, errors.Annotate(err, "api port not found in configuration")
 	}
 	apiPort := strconv.Itoa(apiPortNum)
 
@@ -436,7 +436,7 @@ func findFileInTar(r io.Reader, name string) (io.Reader, error) {
 	for {
 		hdr, err := tarr.Next()
 		if err != nil {
-			return nil, fmt.Errorf("%q not found: %v", name, err)
+			return nil, errors.Annotate(err, fmt.Sprintf("%q not found", name))
 		}
 		if path.Clean(hdr.Name) == name {
 			return tarr, nil
@@ -481,7 +481,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 	client := apiState.Client()
 	status, err := client.Status(nil)
 	if err != nil {
-		return fmt.Errorf("cannot get status: %v", err)
+		return errors.Annotate(err, "cannot get status")
 	}
 	pendingMachineCount := 0
 	done := make(chan error)
@@ -506,7 +506,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 	err = nil
 	for ; pendingMachineCount > 0; pendingMachineCount-- {
 		if updateErr := <-done; updateErr != nil && err == nil {
-			err = fmt.Errorf("machine update failed")
+			err = errors.Annotate(err, "machine update failed")
 		}
 	}
 	return err
@@ -532,7 +532,7 @@ func runViaSsh(addr string, script string) error {
 	userCmd.Stdout = &stdoutBuf
 	err := userCmd.Run()
 	if err != nil {
-		return fmt.Errorf("ssh command failed: %v (%q)", err, stderrBuf.String())
+		return errors.Annotate(err, fmt.Sprintf("ssh command failed: (%q)", stderrBuf.String()))
 	}
 	progress("ssh command succedded: %q", stdoutBuf.String())
 	return nil
@@ -541,7 +541,7 @@ func runViaSsh(addr string, script string) error {
 func sendViaScp(file, host, destFile string) error {
 	err := ssh.Copy([]string{file, "ubuntu@" + host + ":" + destFile}, nil)
 	if err != nil {
-		return fmt.Errorf("scp command failed: %v", err)
+		return errors.Annotate(err, "scp command failed")
 	}
 	return nil
 }
@@ -557,7 +557,7 @@ func execTemplate(tmpl *template.Template, data interface{}) string {
 	var buf bytes.Buffer
 	err := tmpl.Execute(&buf, data)
 	if err != nil {
-		panic(fmt.Errorf("template error: %v", err))
+		panic(errors.Annotate(err, "template error"))
 	}
 	return buf.String()
 }
