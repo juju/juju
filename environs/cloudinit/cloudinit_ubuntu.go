@@ -7,6 +7,7 @@ package cloudinit
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"strings"
 
@@ -134,28 +135,35 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		fmt.Sprintf("chown syslog:adm %s", w.mcfg.LogDir),
 	)
 
+	w.conf.AddScripts(
+		"bin="+shquote(w.mcfg.jujuTools()),
+		"mkdir -p $bin",
+	)
+
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	var copyCmd string
 	if strings.HasPrefix(w.mcfg.Tools.URL, fileSchemePrefix) {
-		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(w.mcfg.Tools.URL[len(fileSchemePrefix):]))
+		toolsData, err := ioutil.ReadFile(w.mcfg.Tools.URL[len(fileSchemePrefix):])
+		if err != nil {
+			return err
+		}
+		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 		curlCommand += " --retry 10"
 		if w.mcfg.DisableSSLHostnameVerification {
 			curlCommand += " --insecure"
 		}
-		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
+		copyCmd := fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
+		w.conf.AddRunCmd(copyCmd)
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
 		return err
 	}
+
 	w.conf.AddScripts(
-		"bin="+shquote(w.mcfg.jujuTools()),
-		"mkdir -p $bin",
-		copyCmd,
 		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.mcfg.Tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			w.mcfg.Tools.SHA256, w.mcfg.Tools.Version),

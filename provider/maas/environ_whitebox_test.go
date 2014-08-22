@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"strings"
 	"text/template"
 
 	"github.com/juju/errors"
@@ -515,10 +514,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped,
-		gc.Matches,
-		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {

@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -12,13 +13,22 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.bootstrap")
+const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.
+You may want to use the 'tools-metadata-url' configuration setting to specify the tools location.
+`
+
+var (
+	logger = loggo.GetLogger("juju.environs.bootstrap")
+
+	environsVerifyStorage = environs.VerifyStorage
+)
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
 type BootstrapParams struct {
@@ -29,6 +39,10 @@ type BootstrapParams struct {
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string
+
+	// UploadTools reports whether we should upload the local tools and
+	// override the environment's specified agent-version.
+	UploadTools bool
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -56,7 +70,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 
 	// Write out the bootstrap-init file, and confirm storage is writeable.
-	if err := environs.VerifyStorage(environ.Storage()); err != nil {
+	if err := environsVerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
 
@@ -71,21 +85,61 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	ctx.Infof("Bootstrapping environment %q", cfg.Name())
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
 
+	availableTools, err := findAvailableTools(environ, args.Constraints.Arch, args.UploadTools)
+	if errors.IsNotFound(err) {
+		return errors.New(noToolsMessage)
+	} else if err != nil {
+		return err
+	}
+
+	// If we're uploading, we must override agent-version;
+	// if we're not uploading, we want to ensure we have an
+	// agent-version set anyway, to appease FinishMachineConfig.
+	// In the latter case, setBootstrapTools will later set
+	// agent-version to the correct thing.
+	if cfg, err = cfg.Apply(map[string]interface{}{
+		"agent-version": version.Current.Number.String(),
+	}); err != nil {
+		return err
+	}
+	if err = environ.SetConfig(cfg); err != nil {
+		return err
+	}
+
 	ctx.Infof("Starting new instance for initial state server")
 	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
-		Constraints: args.Constraints,
-		Placement:   args.Placement,
+		Constraints:    args.Constraints,
+		Placement:      args.Placement,
+		AvailableTools: availableTools,
 	})
 	if err != nil {
 		return err
 	}
 
-	// TODO(axw) remove EnsureToolsAvailability calls from providers,
-	// make this function responsible for locating tools first and
-	// uploading during finalization if necessary.
-	availableTools, err := EnsureToolsAvailability(ctx, environ, series, &arch)
+	matchingTools, err := availableTools.Match(coretools.Filter{
+		Arch:   arch,
+		Series: series,
+	})
 	if err != nil {
 		return err
+	}
+	selectedTools, err := setBootstrapTools(environ, matchingTools)
+	if err != nil {
+		return err
+	}
+	if selectedTools.URL == "" {
+		if !args.UploadTools {
+			logger.Warningf("no prepackaged tools available")
+		}
+		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
+		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number)
+		if err != nil {
+			return errors.Annotate(err, "cannot upload bootstrap tools")
+		}
+		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
+		selectedTools.URL = fmt.Sprintf("file://%s", filename)
+		selectedTools.Size = builtTools.Size
+		selectedTools.SHA256 = builtTools.Sha256Hash
 	}
 
 	ctx.Infof("Installing Juju agent on bootstrap instance")
@@ -93,7 +147,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	if err != nil {
 		return err
 	}
-	machineConfig.Tools = availableTools[0]
+	machineConfig.Tools = selectedTools
 	if err := finalizer(ctx, machineConfig); err != nil {
 		return err
 	}
@@ -124,9 +178,9 @@ func generateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	return privateKey, nil
 }
 
-// SetBootstrapTools returns the newest tools from the given tools list,
+// setBootstrapTools returns the newest tools from the given tools list,
 // and updates the agent-version configuration attribute.
-func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (coretools.List, error) {
+func setBootstrapTools(environ environs.Environ, possibleTools coretools.List) (*coretools.Tools, error) {
 	if len(possibleTools) == 0 {
 		return nil, fmt.Errorf("no bootstrap tools available")
 	}
@@ -161,7 +215,7 @@ func SetBootstrapTools(environ environs.Environ, possibleTools coretools.List) (
 		}
 	}
 	logger.Infof("picked bootstrap tools version: %s", bootstrapVersion)
-	return toolsList, nil
+	return toolsList[0], nil
 }
 
 // findCompatibleTools finds tools in the list that have the same major, minor

@@ -42,6 +42,7 @@ import (
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -110,8 +111,12 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return "", "", nil, err
 	}
 
-	vers := version.Current
-	if _, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch); err != nil {
+	// Make sure there are tools available for the
+	// host's architecture and series.
+	if _, err := args.AvailableTools.Match(tools.Filter{
+		Arch:   version.Current.Arch,
+		Series: version.Current.Series,
+	}); err != nil {
 		return "", "", nil, err
 	}
 

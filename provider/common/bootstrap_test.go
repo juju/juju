@@ -25,6 +25,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {
@@ -109,8 +110,9 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := coretesting.Context(c)
 	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		Constraints: checkCons,
-		Placement:   checkPlacement,
+		Constraints:    checkCons,
+		Placement:      checkPlacement,
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
@@ -142,7 +144,9 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -179,7 +183,9 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -218,7 +224,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		setConfig:     setConfig,
 	}
 	ctx := coretesting.Context(c)
-	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))

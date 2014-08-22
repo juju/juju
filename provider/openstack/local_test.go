@@ -335,7 +335,7 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Current
 	amd64Version.Arch = arch.AMD64
-	for _, series := range bootstrap.ToolsLtsSeries {
+	for _, series := range version.SupportedSeries() {
 		amd64Version.Series = series
 		envtesting.AssertUploadFakeToolsVersions(c, s.toolsMetadataStorage, amd64Version)
 	}

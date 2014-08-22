@@ -15,7 +15,6 @@ import (
 	envcloudinit "github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -67,7 +66,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	}
 	mcfg.Tools = &tools.Tools{
 		Version: vers,
-		URL:     "file:///var/lib/juju/storage/" + envtools.StorageName(vers),
+		URL:     "http://testing.invalid/tools.tar.gz",
 	}
 	environConfig := testConfig(c, stateServer, vers)
 	err = environs.FinishMachineConfig(mcfg, environConfig)
