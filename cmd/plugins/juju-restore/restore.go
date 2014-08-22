@@ -296,14 +296,14 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, errors.Annotate(err, "cannot determine state server instances")
 	}
 	if len(instanceIds) == 0 {
-		return nil, errors.Annotate(err, "no instances found; perhaps the environment was not bootstrapped")
+		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
 	if len(instanceIds) > 1 {
-		return nil, errors.Annotate(err, "restore does not support HA juju configurations yet")
+		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
 	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
-		return nil, errors.Annotate(err, fmt.Sprintf("old bootstrap instance %q still seems to exist; will not replace", inst))
+		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 	}
 	if err != environs.ErrNoInstances {
 		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
@@ -342,7 +342,7 @@ func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentCo
 	}
 	info, ok := status.Machines["0"]
 	if !ok {
-		return "", errors.Annotate(err, "cannot find bootstrap machine in status")
+		return "", fmt.Errorf("cannot find bootstrap machine in status")
 	}
 	newInstId := instance.Id(info.InstanceId)
 
@@ -416,7 +416,7 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	statePort := strconv.Itoa(statePortNum)
 	apiPortNum, ok := m["apiport"].(int)
 	if !ok {
-		return agentConfig{}, errors.Annotate(err, "api port not found in configuration")
+		return agentConfig{}, fmt.Errorf("api port not found in configuration")
 	}
 	apiPort := strconv.Itoa(apiPortNum)
 
@@ -506,7 +506,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 	err = nil
 	for ; pendingMachineCount > 0; pendingMachineCount-- {
 		if updateErr := <-done; updateErr != nil && err == nil {
-			err = errors.Annotate(err, "machine update failed")
+			err = errors.Annotate(updateErr, "machine update failed")
 		}
 	}
 	return err
