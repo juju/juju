@@ -1725,7 +1725,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
-	apiParams := make([]params.AddMachineParams, 4)
+	apiParams := make([]params.AddMachineParams, 5)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Jobs: []params.MachineJob{params.JobHostUnits},
@@ -1736,13 +1736,19 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams[1].ContainerType = instance.LXC
 	apiParams[2].Placement = instance.MustParsePlacement("dummyenv:invalid")
 	apiParams[3].Placement = instance.MustParsePlacement("dummyenv:valid")
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	apiParams[4].Placement = instance.MustParsePlacement(env.UUID() + ":valid")
 	machines, err := s.APIState.Client().AddMachines(apiParams)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(machines), gc.Equals, 4)
+	c.Assert(len(machines), gc.Equals, 5)
 	c.Assert(machines[0].Machine, gc.Equals, "0/lxc/0")
 	c.Assert(machines[1].Error, gc.ErrorMatches, "container type and placement are mutually exclusive")
 	c.Assert(machines[2].Error, gc.ErrorMatches, "cannot add a new machine: invalid placement is invalid")
+	c.Assert(machines[3].Error, gc.IsNil)
+	c.Assert(machines[4].Error, gc.IsNil)
 	c.Assert(machines[3].Machine, gc.Equals, "1")
+	c.Assert(machines[4].Machine, gc.Equals, "2")
 
 	m, err := s.BackingState.Machine(machines[3].Machine)
 	c.Assert(err, gc.IsNil)

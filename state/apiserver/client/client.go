@@ -635,7 +635,9 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		if err != nil {
 			return nil, err
 		}
-		if p.Placement.Scope != env.Name() {
+		// For 1.20+ we should support both UUID and name, and with 1.22
+		// just support UUID
+		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
 			return nil, fmt.Errorf("invalid environment name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive
