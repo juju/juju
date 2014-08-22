@@ -134,6 +134,20 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
 		}
 	}
+
+	// If the user hasn't already specified a value, set it to the
+	// given value.
+	defineIfNot := func(keyName string, value interface{}) {
+		if _, defined := cfg.AllAttrs()[keyName]; !defined {
+			envConfig.attrs[keyName] = value
+		}
+	}
+
+	// If the user hasn't specified a value, don't perform updates on
+	// manual providers.
+	defineIfNot("enable-os-refresh-update", false)
+	defineIfNot("enable-os-upgrade", false)
+
 	return envConfig, nil
 }
 
@@ -174,14 +188,14 @@ manual:
     # production systems, but disabling this can speed up local
     # deployments for development or testing.
     #
-    # enable-os-refresh-update: true
+    # enable-os-refresh-update: false
 
     # Whether or not to perform OS upgrades when machines are
     # provisioned. The default option of true is recommended for use
     # in production systems, but disabling this can speed up local
     # deployments for development or testing.
     #
-    # enable-os-upgrade: true
+    # enable-os-upgrade: false
 
 `[1:]
 }

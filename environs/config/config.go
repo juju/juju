@@ -702,7 +702,7 @@ func (c *Config) PreferIPv6() bool {
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
-	if val, set := c.defined["enable-os-refresh-update"].(bool); !set {
+	if val, ok := c.defined["enable-os-refresh-update"].(bool); !ok {
 		return true
 	} else {
 		return val
@@ -712,7 +712,7 @@ func (c *Config) EnableOSRefreshUpdate() bool {
 // EnableOSUpgrade returns whether or not newly provisioned instances
 // should run their respective OS's upgrade capability.
 func (c *Config) EnableOSUpgrade() bool {
-	if val, set := c.defined["enable-os-upgrade"].(bool); !set {
+	if val, ok := c.defined["enable-os-upgrade"].(bool); !ok {
 		return true
 	} else {
 		return val

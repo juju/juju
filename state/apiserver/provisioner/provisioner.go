@@ -232,8 +232,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.PreferIPv6 = config.PreferIPv6()
-	result.EnableOSRefreshUpdate = config.EnableOSRefreshUpdate()
-	result.EnableOSUpgrade = config.EnableOSUpgrade()
+
 	return result, nil
 }
 

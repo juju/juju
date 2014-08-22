@@ -112,7 +112,6 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		MachineId: machineId,
 		Nonce:     machineParams.Nonce,
 		DisablePackageCommands: !args.EnableOSRefreshUpdate && !args.EnableOSUpgrade,
-		UpdateBehavior:         args.UpdateBehavior,
 	})
 
 	if err != nil {

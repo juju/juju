@@ -143,7 +143,7 @@ func preferFastLXC(release string) bool {
 	return value >= 14.04
 }
 
-// Creates or clones an LXC container.
+// CreateContainer creates or clones an LXC container.
 func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,

@@ -61,6 +61,47 @@ type cloudinitTest struct {
 	inexactMatch bool
 }
 
+func minimalMachineConfig(tweakers ...func(cloudinit.MachineConfig)) cloudinit.MachineConfig {
+
+	baseConfig := cloudinit.MachineConfig{
+		MachineId:        "0",
+		AuthorizedKeys:   "sshkey1",
+		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+		// raring provides mongo in the archive
+		Tools:            newSimpleTools("1.2.3-raring-amd64"),
+		Series:           "raring",
+		Bootstrap:        true,
+		StateServingInfo: stateServingInfo,
+		MachineNonce:     "FAKE_NONCE",
+		MongoInfo: &authentication.MongoInfo{
+			Password: "arble",
+			Info: mongo.Info{
+				CACert: "CA CERT\n" + testing.CACert,
+			},
+		},
+		APIInfo: &api.Info{
+			Password: "bletch",
+			CACert:   "CA CERT\n" + testing.CACert,
+		},
+		Constraints:             envConstraints,
+		DataDir:                 environs.DataDir,
+		LogDir:                  agent.DefaultLogDir,
+		Jobs:                    allMachineJobs,
+		CloudInitOutputLog:      cloudInitOutputLog,
+		InstanceId:              "i-bootstrap",
+		SystemPrivateSSHKey:     "private rsa key",
+		MachineAgentServiceName: "jujud-machine-0",
+		EnableOSRefreshUpdate:   false,
+		EnableOSUpgrade:         false,
+	}
+
+	for _, tweaker := range tweakers {
+		tweaker(baseConfig)
+	}
+
+	return baseConfig
+}
+
 func minimalConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(config.NoDefaults, testing.FakeConfig())
 	c.Assert(err, gc.IsNil)
@@ -88,6 +129,42 @@ var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
 var cloudinitTests = []cloudinitTest{
+	// Test that cloudinit respects update/upgrade settings.
+	{
+		cfg: minimalMachineConfig(func(mc cloudinit.MachineConfig) {
+			mc.EnableOSRefreshUpdate = false
+			mc.EnableOSUpgrade = false
+		}),
+		inexactMatch: true,
+		// We're just checking for apt-flags. We don't much care if
+		// the script matches.
+		expectScripts: "",
+		setEnvConfig:  true,
+	},
+	// Test that cloudinit respects update/upgrade settings.
+	{
+		cfg: minimalMachineConfig(func(mc cloudinit.MachineConfig) {
+			mc.EnableOSRefreshUpdate = true
+			mc.EnableOSUpgrade = false
+		}),
+		inexactMatch: true,
+		// We're just checking for apt-flags. We don't much care if
+		// the script matches.
+		expectScripts: "",
+		setEnvConfig:  true,
+	},
+	// Test that cloudinit respects update/upgrade settings.
+	{
+		cfg: minimalMachineConfig(func(mc cloudinit.MachineConfig) {
+			mc.EnableOSRefreshUpdate = false
+			mc.EnableOSUpgrade = true
+		}),
+		inexactMatch: true,
+		// We're just checking for apt-flags. We don't much care if
+		// the script matches.
+		expectScripts: "",
+		setEnvConfig:  true,
+	},
 	{
 		// precise state server
 		cfg: cloudinit.MachineConfig{
@@ -421,13 +498,11 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 	c.Assert(found, gc.Equals, true)
 }
 
-func (*cloudinitSuite) TestCloudInitRespectsUpdateBehavior(c *gc.C) {
-}
-
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
 func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 	for i, test := range cloudinitTests {
+
 		c.Logf("test %d", i)
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
@@ -455,7 +530,18 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			"enabled": "auto",
 		})
 		c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
-		c.Check(configKeyValues["apt_update"], gc.Equals, true)
+
+		if test.cfg.EnableOSRefreshUpdate {
+			c.Check(configKeyValues["apt_update"], gc.Equals, true)
+		} else {
+			c.Check(configKeyValues["apt_update"], gc.IsNil)
+		}
+
+		if test.cfg.EnableOSUpgrade {
+			c.Check(configKeyValues["apt_upgrade"], gc.Equals, true)
+		} else {
+			c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
+		}
 
 		scripts := getScripts(configKeyValues)
 		assertScriptMatch(c, scripts, test.expectScripts, !test.inexactMatch)

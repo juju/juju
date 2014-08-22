@@ -207,7 +207,7 @@ amazon:
     # in production systems, but disabling this can speed up local
     # deployments for development or testing.
     #
-    # enable-os-upgrade: treu
+    # enable-os-upgrade: true
 
 `[1:]
 }

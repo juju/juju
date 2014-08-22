@@ -603,8 +603,8 @@ type ContainerManagerConfig struct {
 	ManagerConfig map[string]string
 }
 
-// These settings are duplicated in several places. Let's just embed
-// this instead.
+// UpdateBehavior contains settings that are duplicated in several
+// places. Let's just embed this instead.
 type UpdateBehavior struct {
 	EnableOSRefreshUpdate bool
 	EnableOSUpgrade       bool
