@@ -4,7 +4,7 @@
 package networker_test
 
 import (
-	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,21 +30,264 @@ import (
 type networkerSuite struct {
 	testing.JujuConnSuite
 
-	networks []state.NetworkInfo
-	machine  *state.Machine
-	ifaces   []state.NetworkInterfaceInfo
+	stateMachine    *state.Machine
+	stateNetworks   []state.NetworkInfo
+	stateInterfaces []state.NetworkInterfaceInfo
 
-	st             *api.State
-	networkerState *apinetworker.State
-	configStates   []*configState
-	executed       chan bool
+	upInterfaces          set.Strings
+	interfacesWithAddress set.Strings
+	machineInterfaces     []net.Interface
+	vlanModuleLoaded      bool
+	lastCommands          chan []string
+
+	apiState  *api.State
+	apiFacade *apinetworker.State
 }
 
 var _ = gc.Suite(&networkerSuite{})
 
+func (s *networkerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	// Setup testing state.
+	s.setUpNetworks(c)
+	s.setUpMachine(c)
+
+	s.machineInterfaces = []net.Interface{
+		{Index: 1, MTU: 65535, Name: "lo", Flags: net.FlagUp | net.FlagLoopback},
+		{Index: 2, MTU: 1500, Name: "eth0", Flags: net.FlagUp},
+		{Index: 3, MTU: 1500, Name: "eth1"},
+		{Index: 4, MTU: 1500, Name: "eth2"},
+	}
+	s.PatchValue(&networker.InterfaceIsUp, func(name string) bool {
+		return s.upInterfaces.Contains(name)
+	})
+	s.PatchValue(&networker.InterfaceHasAddress, func(name string) bool {
+		return s.interfacesWithAddress.Contains(name)
+	})
+	s.PatchValue(&networker.ExecuteCommands, func(commands []string) error {
+		return s.executeCommandsHook(c, commands)
+	})
+	s.PatchValue(&networker.Interfaces, func() ([]net.Interface, error) {
+		return s.machineInterfaces, nil
+	})
+
+	// Create the networker API facade.
+	s.apiFacade = s.apiState.Networker()
+	c.Assert(s.apiFacade, gc.NotNil)
+}
+
+func (s *networkerSuite) TestStartStop(c *gc.C) {
+	nw := s.newNetworker(c, true)
+	c.Assert(worker.Stop(nw), gc.IsNil)
+}
+
+func (s *networkerSuite) TestConfigPaths(c *gc.C) {
+	nw, configDir := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, true)
+	defer worker.Stop(nw)
+
+	c.Assert(nw.ConfigDir(), gc.Equals, configDir)
+	subdir := filepath.Join(configDir, "interfaces.d")
+	c.Assert(nw.ConfigSubDir(), gc.Equals, subdir)
+	c.Assert(nw.ConfigFile(""), gc.Equals, filepath.Join(configDir, "interfaces"))
+	c.Assert(nw.ConfigFile("ethX.42"), gc.Equals, filepath.Join(subdir, "ethX.42.cfg"))
+}
+
+func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
+	nw := s.newNetworker(c, false)
+	defer worker.Stop(nw)
+	c.Assert(nw.CanWriteConfig(), jc.IsFalse)
+
+	select {
+	case cmds := <-s.lastCommands:
+		c.Fatalf("no commands expected, got %v", cmds)
+	case <-time.After(coretesting.ShortWait):
+		s.assertNoConfig(c, nw, "", "lo", "eth0", "eth1", "eth1.42", "eth0.69")
+	}
+}
+
+func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *gc.C) {
+	nw := s.newNetworker(c, true)
+	defer worker.Stop(nw)
+	c.Assert(nw.CanWriteConfig(), jc.IsTrue)
+
+	select {
+	case <-s.lastCommands:
+		// VLAN module loading commands is one of the first things the
+		// worker does, so if it happened, we can assume commands are
+		// executed.
+		c.Assert(s.vlanModuleLoaded, jc.IsTrue)
+		c.Assert(nw.IsVLANModuleLoaded(), jc.IsTrue)
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("commands expected but not executed")
+	}
+	c.Assert(nw.IsPrimaryInterfaceOrLoopback("lo"), jc.IsTrue)
+	c.Assert(nw.IsPrimaryInterfaceOrLoopback("eth0"), jc.IsTrue)
+	s.assertHaveConfig(c, nw, "", "eth0", "eth1", "eth1.42", "eth0.69")
+}
+
+func (s *networkerSuite) TestPrimaryOrLoopbackInterfacesAreSkipped(c *gc.C) {
+	// Reset what's considered up, so we can test eth0 and lo are not
+	// touched.
+	s.upInterfaces = set.NewStrings()
+	s.interfacesWithAddress = set.NewStrings()
+
+	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
+	defer worker.Stop(nw)
+
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case <-s.lastCommands:
+			if !s.vlanModuleLoaded {
+				// VLAN module loading commands is one of the first things
+				// the worker does, so if hasn't happened, we wait a bit more.
+				continue
+			}
+			c.Assert(s.upInterfaces.Contains("lo"), jc.IsFalse)
+			c.Assert(s.upInterfaces.Contains("eth0"), jc.IsFalse)
+			if s.upInterfaces.Contains("eth1") {
+				// If we run ifup eth1, we successfully skipped lo and
+				// eth0.
+				s.assertHaveConfig(c, nw, "", "eth0", "eth1", "eth1.42", "eth0.69")
+				return
+			}
+		case <-timeout:
+			c.Fatalf("commands expected but not executed")
+		}
+	}
+}
+
+func (s *networkerSuite) TestDisabledInterfacesAreBroughtDown(c *gc.C) {
+	// Simulate eth1 is up and then disable it, so we can test it's
+	// brought down. Also test the VLAN interface eth1.42 is also
+	// brought down, as it's physical interface eth1 is disabled.
+	s.upInterfaces = set.NewStrings("lo", "eth0", "eth1")
+	s.interfacesWithAddress = set.NewStrings("lo", "eth0", "eth1")
+	s.machineInterfaces[2].Flags |= net.FlagUp
+	ifaces, err := s.stateMachine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	err = ifaces[1].Disable()
+	c.Assert(err, gc.IsNil)
+	// We verify that setting the parent physical interface to
+	// disabled leads to setting any VLAN intefaces depending on it to
+	// get disabled as well.
+	err = ifaces[2].Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces[2].IsDisabled(), jc.IsTrue)
+
+	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
+	defer worker.Stop(nw)
+
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case cmds := <-s.lastCommands:
+			if !strings.Contains(strings.Join(cmds, " "), "ifdown") {
+				// No down commands yet, keep waiting.
+				continue
+			}
+			c.Assert(s.upInterfaces.Contains("eth1"), jc.IsFalse)
+			c.Assert(s.machineInterfaces[2].Flags&net.FlagUp, gc.Equals, net.Flags(0))
+			c.Assert(s.upInterfaces.Contains("eth1.42"), jc.IsFalse)
+			s.assertNoConfig(c, nw, "eth1", "eth1.42")
+			s.assertHaveConfig(c, nw, "", "eth0", "eth0.69")
+			return
+		case <-timeout:
+			c.Fatalf("commands expected but not executed")
+		}
+	}
+}
+
+func (s *networkerSuite) TestIsRunningInLXC(c *gc.C) {
+	tests := []struct {
+		machineId string
+		result    bool
+	}{
+		{"0", false},
+		{"1/lxc/0", true},
+		{"2/kvm/1", false},
+		{"3/lxc/0/lxc/1", true},
+		{"4/lxc/0/kvm/1", false},
+		{"5/lxc/1/kvm/1/lxc/3", true},
+	}
+	for i, t := range tests {
+		c.Logf("test %d: %q -> %v", i, t.machineId, t.result)
+		c.Check(networker.IsRunningInLXC(t.machineId), gc.Equals, t.result)
+	}
+}
+
+func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
+	// Create a new container.
+	template := state.MachineTemplate{
+		Series: coretesting.FakeDefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	lxcMachine, err := s.State.AddMachineInsideMachine(template, s.stateMachine.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = lxcMachine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	lxcInterfaces := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:02:f0",
+		InterfaceName: "eth0.123",
+		NetworkName:   "vlan123",
+		IsVirtual:     true,
+		Disabled:      false,
+	}}
+	s.machineInterfaces = []net.Interface{
+		{Index: 1, MTU: 65535, Name: "lo", Flags: net.FlagUp | net.FlagLoopback},
+		{Index: 2, MTU: 1500, Name: "eth0", Flags: net.FlagUp},
+	}
+
+	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.stateNetworks, lxcInterfaces)
+	c.Assert(err, gc.IsNil)
+
+	// Login to the API as the machine agent of lxcMachine.
+	lxcState := s.OpenAPIAsMachine(c, lxcMachine.Tag(), password, "fake_nonce")
+	c.Assert(lxcState, gc.NotNil)
+	lxcFacade := lxcState.Networker()
+	c.Assert(lxcFacade, gc.NotNil)
+
+	// Create and setup networker for the LXC machine.
+	nw, _ := s.newCustomNetworker(c, lxcFacade, lxcMachine.Id(), true, true)
+	defer worker.Stop(nw)
+
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case cmds := <-s.lastCommands:
+			if !s.upInterfaces.Contains("eth0.123") {
+				c.Fatalf("expected command ifup eth0.123, got %v", cmds)
+			}
+			c.Assert(s.vlanModuleLoaded, jc.IsFalse)
+			c.Assert(nw.IsVLANModuleLoaded(), jc.IsFalse)
+			s.assertHaveConfig(c, nw, "", "eth0.123")
+			s.assertNoConfig(c, nw, "lo", "eth0")
+			return
+		case <-timeout:
+			c.Fatalf("no commands executed!")
+		}
+	}
+}
+
+type mockConfig struct {
+	agent.Config
+	tag names.Tag
+}
+
+func (mock *mockConfig) Tag() names.Tag {
+	return mock.tag
+}
+
+func agentConfig(machineId string) agent.Config {
+	return &mockConfig{tag: names.NewMachineTag(machineId)}
+}
+
 // Create several networks.
 func (s *networkerSuite) setUpNetworks(c *gc.C) {
-	s.networks = []state.NetworkInfo{{
+	s.stateNetworks = []state.NetworkInfo{{
 		Name:       "net1",
 		ProviderId: "net1",
 		CIDR:       "0.1.2.0/24",
@@ -72,16 +315,15 @@ func (s *networkerSuite) setUpNetworks(c *gc.C) {
 	}}
 }
 
-// Create a machine and login to it.
 func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.stateMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword(password)
+	err = s.stateMachine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.ifaces = []state.NetworkInterfaceInfo{{
+	s.stateInterfaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
 		NetworkName:   "net1",
@@ -107,345 +349,96 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		NetworkName:   "net2",
 		IsVirtual:     false,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", nil, s.networks, s.ifaces)
+	err = s.stateMachine.SetInstanceInfo("i-am", "fake_nonce", nil, s.stateNetworks, s.stateInterfaces)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
-	c.Assert(s.st, gc.NotNil)
+	s.apiState = s.OpenAPIAsMachine(c, s.stateMachine.Tag(), password, "fake_nonce")
+	c.Assert(s.apiState, gc.NotNil)
 }
 
-func (s *networkerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	// Create test juju state.
-	s.setUpNetworks(c)
-	s.setUpMachine(c)
-
-	// Create the networker API facade.
-	s.networkerState = s.st.Networker()
-	c.Assert(s.networkerState, gc.NotNil)
-
-	// Create temporary directory to store interfaces file.
-	networker.ChangeConfigDirName(c.MkDir())
-}
-
-type mockConfig struct {
-	agent.Config
-	tag names.Tag
-}
-
-func (mock *mockConfig) Tag() names.Tag {
-	return mock.tag
-}
-
-func agentConfig(tag names.Tag) agent.Config {
-	return &mockConfig{tag: tag}
-}
-
-const sampleInterfacesFile = `# This file describes the network interfaces available on your system
-# and how to activate them. For more information see interfaces(5).
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-auto eth0
-source %s/eth0.config
-
-auto wlan0
-iface wlan0 inet dhcp
-`
-const sampleEth0DotConfigFile = `iface eth0 inet manual
-
-auto br0
-iface br0 inet dhcp
-  bridge_ports eth0
-`
-
-var readyInterfaces = set.NewStrings("eth0", "br0", "wlan0")
-var interfacesWithAddress = set.NewStrings("br0", "wlan0")
-
-var expectedInterfacesFile = `# This file describes the network interfaces available on your system
-# and how to activate them. For more information see interfaces(5).
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-` + networker.SourceCommentAndCommand
-
-type configState struct {
-	files                 networker.ConfigFiles
-	commands              []string
-	readyInterfaces       []string
-	interfacesWithAddress []string
-}
-
-func executeCommandsHook(c *gc.C, s *networkerSuite, commands []string) error {
-	cs := &configState{}
-	err := networker.ReadAll(&cs.files)
-	c.Assert(err, gc.IsNil)
-	cs.commands = append(cs.commands, commands...)
-	// modify state of interfaces
-	for _, cmd := range commands {
-		args := strings.Split(cmd, " ")
-		if len(args) == 2 && args[0] == "ifup" {
-			readyInterfaces.Add(args[1])
-			interfacesWithAddress.Add(args[1])
-		} else if len(args) == 2 && args[0] == "ifdown" {
-			readyInterfaces.Remove(args[1])
-			interfacesWithAddress.Remove(args[1])
+func (s *networkerSuite) executeCommandsHook(c *gc.C, commands []string) error {
+	markUp := func(name string, isUp bool) {
+		for i, iface := range s.machineInterfaces {
+			if iface.Name == name {
+				if isUp {
+					iface.Flags |= net.FlagUp
+				} else {
+					iface.Flags &= ^net.FlagUp
+				}
+				s.machineInterfaces[i] = iface
+				return
+			}
 		}
 	}
-	cs.readyInterfaces = readyInterfaces.SortedValues()
-	cs.interfacesWithAddress = interfacesWithAddress.SortedValues()
-	s.configStates = append(s.configStates, cs)
-	s.executed <- true
+	for _, cmd := range commands {
+		args := strings.Split(cmd, " ")
+		if len(args) >= 2 {
+			what, name := args[0], args[1]
+			switch what {
+			case "ifup":
+				s.upInterfaces.Add(name)
+				s.interfacesWithAddress.Add(name)
+				markUp(name, true)
+				c.Logf("bringing %q up", name)
+			case "ifdown":
+				s.upInterfaces.Remove(name)
+				s.interfacesWithAddress.Remove(name)
+				markUp(name, false)
+				c.Logf("bringing %q down", name)
+			}
+		}
+		if strings.Contains(cmd, "modprobe 8021q") {
+			s.vlanModuleLoaded = true
+			c.Logf("VLAN module loaded")
+		}
+	}
+	// Send the commands without blocking.
+	select {
+	case s.lastCommands <- commands:
+	default:
+	}
 	return nil
 }
 
-func (s *networkerSuite) TestNewNetworkerReturnsErrorWithoutConfig(c *gc.C) {
-	_, err := os.Stat(networker.ConfigFileName)
-	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
-	c.Assert(err, gc.ErrorMatches, `missing ".*" config file`)
-	c.Assert(nw, gc.IsNil)
+func (s *networkerSuite) newCustomNetworker(c *gc.C, facade *apinetworker.State, machineId string, canWriteConfig, initInterfaces bool) (*networker.Networker, string) {
+
+	if initInterfaces {
+		s.upInterfaces = set.NewStrings("lo", "eth0")
+		s.interfacesWithAddress = set.NewStrings("lo", "eth0")
+	}
+	s.lastCommands = make(chan []string)
+	s.vlanModuleLoaded = false
+	configDir := c.MkDir()
+
+	var nw *networker.Networker
+	var err error
+	if canWriteConfig {
+		nw, err = networker.NewNetworker(facade, agentConfig(machineId), configDir)
+	} else {
+		nw, err = networker.NewSafeNetworker(facade, agentConfig(machineId), configDir)
+	}
+	c.Assert(err, gc.IsNil)
+	c.Assert(nw, gc.NotNil)
+
+	return nw, configDir
 }
 
-func (s *networkerSuite) TestNetworker(c *gc.C) {
-	// Create a sample interfaces file (MAAS configuration)
-	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
-	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
-	c.Assert(err, gc.IsNil)
-
-	// Patch the network interface functions
-	s.PatchValue(&networker.InterfaceIsUp,
-		func(name string) bool {
-			return readyInterfaces.Contains(name)
-		})
-	s.PatchValue(&networker.InterfaceHasAddress,
-		func(name string) bool {
-			return interfacesWithAddress.Contains(name)
-		})
-
-	// Patch the command executor function
-	s.configStates = []*configState{}
-	s.PatchValue(&networker.ExecuteCommands,
-		func(commands []string) error {
-			return executeCommandsHook(c, s, commands)
-		},
-	)
-
-	// Create and setup networker.
-	s.executed = make(chan bool)
-	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
-	c.Assert(err, gc.IsNil)
-	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
-
-	executeCount := 0
-loop:
-	for {
-		select {
-		case <-s.executed:
-			executeCount++
-			if executeCount == 3 {
-				break loop
-			}
-		case <-time.After(coretesting.ShortWait):
-			fmt.Printf("%#v\n", s.configStates)
-			c.Fatalf("command not executed")
-		}
-	}
-
-	// Verify the executed commands from SetUp()
-	expectedConfigFiles := networker.ConfigFiles{
-		networker.ConfigFileName: {
-			Data: fmt.Sprintf(expectedInterfacesFile, networker.ConfigSubDirName,
-				networker.ConfigSubDirName, networker.ConfigSubDirName, networker.ConfigSubDirName),
-		},
-		networker.IfaceConfigFileName("br0"): {
-			Data: "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
-		},
-		networker.IfaceConfigFileName("eth0"): {
-			Data: "auto eth0\niface eth0 inet manual\n",
-		},
-		networker.IfaceConfigFileName("wlan0"): {
-			Data: "auto wlan0\niface wlan0 inet dhcp\n",
-		},
-	}
-	c.Assert(s.configStates[0].files, gc.DeepEquals, expectedConfigFiles)
-	expectedCommands := []string(nil)
-	c.Assert(s.configStates[0].commands, gc.DeepEquals, expectedCommands)
-	c.Assert(s.configStates[0].readyInterfaces, gc.DeepEquals, []string{"br0", "eth0", "wlan0"})
-	c.Assert(s.configStates[0].interfacesWithAddress, gc.DeepEquals, []string{"br0", "wlan0"})
-
-	// Verify the executed commands from Handle()
-	c.Assert(s.configStates[1].files, gc.DeepEquals, expectedConfigFiles)
-	expectedCommands = []string(nil)
-	c.Assert(s.configStates[1].commands, gc.DeepEquals, expectedCommands)
-	c.Assert(s.configStates[1].readyInterfaces, gc.DeepEquals, []string{"br0", "eth0", "wlan0"})
-	c.Assert(s.configStates[1].interfacesWithAddress, gc.DeepEquals, []string{"br0", "wlan0"})
-
-	// Verify the executed commands from Handle()
-	expectedConfigFiles[networker.IfaceConfigFileName("eth0.69")] = &networker.ConfigFile{
-		Data: "# Managed by Juju, don't change.\nauto eth0.69\niface eth0.69 inet dhcp\n\tvlan-raw-device eth0\n",
-	}
-	expectedConfigFiles[networker.IfaceConfigFileName("eth1")] = &networker.ConfigFile{
-		Data: "# Managed by Juju, don't change.\nauto eth1\niface eth1 inet dhcp\n",
-	}
-	expectedConfigFiles[networker.IfaceConfigFileName("eth1.42")] = &networker.ConfigFile{
-		Data: "# Managed by Juju, don't change.\nauto eth1.42\niface eth1.42 inet dhcp\n\tvlan-raw-device eth1\n",
-	}
-	expectedConfigFiles[networker.IfaceConfigFileName("eth2")] = &networker.ConfigFile{
-		Data: "# Managed by Juju, don't change.\nauto eth2\niface eth2 inet dhcp\n",
-	}
-	for k, _ := range s.configStates[2].files {
-		c.Check(s.configStates[2].files[k], gc.DeepEquals, expectedConfigFiles[k])
-	}
-	c.Assert(s.configStates[2].files, gc.DeepEquals, expectedConfigFiles)
-	expectedCommands = []string{
-		"dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan",
-		"lsmod | grep -q 8021q || modprobe 8021q",
-		"grep -q 8021q /etc/modules || echo 8021q >> /etc/modules",
-		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
-		"ifup eth0.69",
-		"ifup eth1",
-		"ifup eth1.42",
-		"ifup eth2",
-	}
-	c.Assert(s.configStates[2].commands, gc.DeepEquals, expectedCommands)
-	c.Assert(s.configStates[2].readyInterfaces, gc.DeepEquals,
-		[]string{"br0", "eth0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})
-	c.Assert(s.configStates[2].interfacesWithAddress, gc.DeepEquals,
-		[]string{"br0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})
+func (s *networkerSuite) newNetworker(c *gc.C, canWriteConfig bool) *networker.Networker {
+	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), canWriteConfig, true)
+	return nw
 }
 
-func (s *networkerSuite) TestSafeNetworkerDoesNotWriteConfigFiles(c *gc.C) {
-	// Create a sample interfaces file (MAAS configuration).
-	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
-	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
-	c.Assert(err, gc.IsNil)
-	// Patch the command executor function.
-	s.configStates = []*configState{}
-	s.PatchValue(&networker.ExecuteCommands,
-		func(commands []string) error {
-			return executeCommandsHook(c, s, commands)
-		},
-	)
-
-	// Create and setup networker.
-	s.executed = make(chan bool)
-	nw, err := networker.NewSafeNetworker(s.networkerState, agentConfig(s.machine.Tag()))
-	c.Assert(err, gc.IsNil)
-	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
-
-	select {
-	case <-s.executed:
-		c.Fatalf("command executed unexpectedly")
-	case <-time.After(coretesting.ShortWait):
-		return
+func (s *networkerSuite) assertNoConfig(c *gc.C, nw *networker.Networker, interfaceNames ...string) {
+	for _, name := range interfaceNames {
+		fullPath := nw.ConfigFile(name)
+		_, err := os.Stat(fullPath)
+		c.Assert(err, jc.Satisfies, os.IsNotExist)
 	}
 }
 
-func (s *networkerSuite) TestIsRunningInLXC(c *gc.C) {
-	tests := []struct {
-		machineTag string
-		result     bool
-	}{
-		{"machine-0", false},
-		{"machine-1-lxc-0", true},
-		{"machine-2-kvm-1", false},
-		{"machine-3-lxc-0-lxc-1", true},
-		{"machine-4-lxc-0-kvm-1", false},
-		{"machine-5-lxc-1-kvm-1-lxc-3", true},
-	}
-	for i, t := range tests {
-		c.Logf("test %d: %q -> %v", i, t.machineTag, t.result)
-		tag, err := names.ParseMachineTag(t.machineTag)
+func (s *networkerSuite) assertHaveConfig(c *gc.C, nw *networker.Networker, interfaceNames ...string) {
+	for _, name := range interfaceNames {
+		fullPath := nw.ConfigFile(name)
+		_, err := os.Stat(fullPath)
 		c.Assert(err, gc.IsNil)
-		c.Check(networker.IsRunningInLXC(tag), gc.Equals, t.result)
-	}
-}
-
-func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
-	// Create a new container.
-	template := state.MachineTemplate{
-		Series: coretesting.FakeDefaultSeries,
-		Jobs:   []state.MachineJob{state.JobHostUnits},
-	}
-	lxcMachine, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
-	c.Assert(err, gc.IsNil)
-	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	err = lxcMachine.SetPassword(password)
-	c.Assert(err, gc.IsNil)
-	lxcIFaces := []state.NetworkInterfaceInfo{{
-		MACAddress:    "aa:bb:cc:dd:01:f0",
-		InterfaceName: "wlan0",
-		NetworkName:   "net2",
-		IsVirtual:     false,
-		Disabled:      false,
-	}}
-
-	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.networks, lxcIFaces)
-	c.Assert(err, gc.IsNil)
-
-	// Login to the API as the machine agent of lxcMachine.
-	lxcState := s.OpenAPIAsMachine(c, lxcMachine.Tag(), password, "fake_nonce")
-	c.Assert(lxcState, gc.NotNil)
-	lxcNetworker := lxcState.Networker()
-	c.Assert(lxcNetworker, gc.NotNil)
-
-	// Create a sample interfaces file (MAAS configuration).
-	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
-	err = utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
-	c.Assert(err, gc.IsNil)
-
-	// Patch the command executor and interface checker functions.
-	commandExecuted := make(chan string)
-	s.PatchValue(&networker.InterfaceIsUp,
-		func(name string) bool {
-			return false
-		},
-	)
-	s.PatchValue(&networker.ExecuteCommands,
-		func(commands []string) error {
-			for _, command := range commands {
-				commandExecuted <- command
-			}
-			return nil
-		},
-	)
-
-	// Create and setup networker for the LXC machine.
-	nw, err := networker.NewNetworker(lxcNetworker, agentConfig(lxcMachine.Tag()))
-	c.Assert(err, gc.IsNil)
-	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
-
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case command := <-commandExecuted:
-			if strings.Contains(command, "ifup") {
-				// ifup commands are executed after trying to load
-				// the VLAN module, so if we get any such commands,
-				// we're done waiting.
-				return
-			}
-			if strings.Contains(command, "modprobe 8021q") {
-				// We're not expecting a modprobe command,
-				// so we're done waiting and fail the test.
-				c.Fatalf("unexpected modprobe command!")
-				return
-			}
-		case <-timeout:
-			c.Fatalf("no commands executed!")
-			return
-		}
 	}
 }

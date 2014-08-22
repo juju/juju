@@ -37,6 +37,12 @@ func (n *InfoSuite) TestIsVirtual(c *gc.C) {
 	c.Check(n.info[2].IsVirtual(), jc.IsTrue)
 }
 
+func (n *InfoSuite) TestIsVLAN(c *gc.C) {
+	c.Check(n.info[0].IsVLAN(), jc.IsTrue)
+	c.Check(n.info[1].IsVLAN(), jc.IsFalse)
+	c.Check(n.info[2].IsVLAN(), jc.IsTrue)
+}
+
 type NetworkSuite struct {
 	testing.BaseSuite
 }

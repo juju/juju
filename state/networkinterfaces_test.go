@@ -13,9 +13,11 @@ import (
 
 type NetworkInterfaceSuite struct {
 	ConnSuite
-	machine *state.Machine
-	network *state.Network
-	iface   *state.NetworkInterface
+	machine     *state.Machine
+	net1        *state.Network
+	vlan42      *state.Network
+	ifaceNet1   *state.NetworkInterface
+	ifaceVLAN42 *state.NetworkInterface
 }
 
 var _ = gc.Suite(&NetworkInterfaceSuite{})
@@ -25,43 +27,72 @@ func (s *NetworkInterfaceSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.network, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 42})
+	s.net1, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
 	c.Assert(err, gc.IsNil)
-	s.iface, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
+	s.vlan42, err = s.State.AddNetwork(state.NetworkInfo{"vlan42", "vlan42", "0.2.3.4/24", 42})
+	c.Assert(err, gc.IsNil)
+	s.ifaceNet1, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
 		MACAddress:    "aa:bb:cc:dd:ee:ff",
 		InterfaceName: "eth0",
 		NetworkName:   "net1",
+		IsVirtual:     false,
+	})
+	c.Assert(err, gc.IsNil)
+	s.ifaceVLAN42, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
+		MACAddress:    "aa:bb:cc:dd:ee:ff",
+		InterfaceName: "eth0.42",
+		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
-	c.Assert(s.iface.Id(), gc.Not(gc.Equals), "")
-	c.Assert(s.iface.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:ff")
-	c.Assert(s.iface.InterfaceName(), gc.Equals, "eth0")
-	c.Assert(s.iface.NetworkName(), gc.Equals, s.network.Name())
-	c.Assert(s.iface.NetworkTag(), gc.Equals, s.network.Tag().String())
-	c.Assert(s.iface.MachineId(), gc.Equals, s.machine.Id())
-	c.Assert(s.iface.MachineTag(), gc.Equals, s.machine.Tag().String())
-	c.Assert(s.iface.IsVirtual(), jc.IsTrue)
-	c.Assert(s.iface.IsPhysical(), jc.IsFalse)
-	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+	c.Assert(s.ifaceNet1.Id(), gc.Not(gc.Equals), "")
+	c.Assert(s.ifaceNet1.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:ff")
+	c.Assert(s.ifaceNet1.InterfaceName(), gc.Equals, "eth0")
+	c.Assert(s.ifaceNet1.RawInterfaceName(), gc.Equals, "eth0")
+	c.Assert(s.ifaceNet1.NetworkName(), gc.Equals, s.net1.Name())
+	c.Assert(s.ifaceNet1.NetworkTag(), gc.Equals, s.net1.Tag().String())
+	c.Assert(s.ifaceNet1.MachineId(), gc.Equals, s.machine.Id())
+	c.Assert(s.ifaceNet1.MachineTag(), gc.Equals, s.machine.Tag().String())
+	c.Assert(s.ifaceNet1.IsVirtual(), jc.IsFalse)
+	c.Assert(s.ifaceNet1.IsPhysical(), jc.IsTrue)
+	c.Assert(s.ifaceNet1.IsDisabled(), jc.IsFalse)
+
+	c.Assert(s.ifaceVLAN42.NetworkName(), gc.Equals, s.vlan42.Name())
+	c.Assert(s.ifaceVLAN42.MACAddress(), gc.Equals, "aa:bb:cc:dd:ee:ff")
+	c.Assert(s.ifaceVLAN42.InterfaceName(), gc.Equals, "eth0.42")
+	c.Assert(s.ifaceVLAN42.RawInterfaceName(), gc.Equals, "eth0")
+	c.Assert(s.ifaceVLAN42.IsVirtual(), jc.IsTrue)
+	c.Assert(s.ifaceVLAN42.IsPhysical(), jc.IsFalse)
+	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsFalse)
 }
 
-func (s *NetworkInterfaceSuite) TestSetAndIsDisabled(c *gc.C) {
-	err := s.iface.SetDisabled(true)
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
+func (s *NetworkInterfaceSuite) TestEnableDisableAndIsDisabled(c *gc.C) {
+	c.Assert(s.ifaceNet1.IsDisabled(), jc.IsFalse)
+	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsFalse)
 
-	err = s.iface.SetDisabled(false)
+	err := s.ifaceNet1.Disable()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+	c.Assert(s.ifaceNet1.IsDisabled(), jc.IsTrue)
+	// Test eth0.42 is disabled as well when eth0 is.
+	err = s.ifaceVLAN42.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsTrue)
+
+	err = s.ifaceNet1.Enable()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.ifaceNet1.IsDisabled(), jc.IsFalse)
+	// eth0.42 is not automatically enabled when eth0 is.
+	err = s.ifaceVLAN42.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.ifaceVLAN42.IsDisabled(), jc.IsTrue)
 }
 
 func (s *NetworkInterfaceSuite) TestRefresh(c *gc.C) {
-	ifaceCopy := *s.iface
-	err := s.iface.SetDisabled(true)
+	ifaceCopy := *s.ifaceNet1
+	err := s.ifaceNet1.Disable()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaceCopy.IsDisabled(), jc.IsFalse)
 	err = ifaceCopy.Refresh()
@@ -70,9 +101,9 @@ func (s *NetworkInterfaceSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
-	err := s.iface.Remove()
+	err := s.ifaceNet1.Remove()
 	c.Assert(err, gc.IsNil)
-	err = s.iface.Refresh()
+	err = s.ifaceNet1.Refresh()
 	errMatch := `network interface &state\.NetworkInterface\{.*\} not found`
 	c.Check(err, gc.ErrorMatches, errMatch)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
