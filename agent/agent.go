@@ -157,7 +157,7 @@ type ConfigSetterOnly interface {
 	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
 
-	// SetUpgradedToVerson sets the version that
+	// SetUpgradedToVersion sets the version that
 	// the agent has successfully upgraded to.
 	SetUpgradedToVersion(newVersion version.Number)
 
