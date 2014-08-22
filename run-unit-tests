@@ -119,7 +119,7 @@ fi
 tar -xzf $tarfile
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/github.com/juju/juju
-if [[ $INSTANCE_TYPE != "lxc" ]]; then
+if [[ "$INSTANCE_TYPE" != "lxc" ]]; then
     for attempt in \$(seq 10); do
         if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
             break
@@ -130,7 +130,7 @@ if [[ $INSTANCE_TYPE != "lxc" ]]; then
     done
     $FIXUP_SOURCES
 fi
-if [[ -n $USE_PPA ]]; then
+if [[ "$USE_PPA" != "" ]]; then
     sudo apt-add-repository -y $USE_PPA;
 fi
 sudo apt-get update
