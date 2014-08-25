@@ -636,3 +636,21 @@ type ProvisioningInfoResult struct {
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult
 }
+
+// Metric holds a single metric.
+type Metric struct {
+	Key   string
+	Value string
+	Time  time.Time
+}
+
+// MetricsParam contains the metrics for a single unit.
+type MetricsParam struct {
+	Tag     string
+	Metrics []Metric
+}
+
+// MetricsParams contains the metrics for multiple units.
+type MetricsParams struct {
+	Metrics []MetricsParam
+}
