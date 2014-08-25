@@ -166,6 +166,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return "amd64"
 	})
+	s.PatchValue(&version.Current.Arch, "amd64")
 	trustyTools := &tools.Tools{
 		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
 		URL:     "http://testing.invalid/tools.tar.gz",

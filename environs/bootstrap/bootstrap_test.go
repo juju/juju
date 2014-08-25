@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -117,6 +118,10 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
+	s.PatchValue(&version.Current.Arch, "arm64")
+	s.PatchValue(&arch.HostArch, func() string {
+		return "arm64"
+	})
 	s.PatchValue(bootstrap.FindTools, func(environs.ConfigGetter, int, int, tools.Filter, bool) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
