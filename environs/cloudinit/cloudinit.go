@@ -246,10 +246,7 @@ fi
 `
 
 func toolsDownloadCommandWithRetry(command string) string {
-	tmpl := template.New("").Funcs(template.FuncMap{
-		"shquote": utils.ShQuote,
-	})
-	parsedTemplate := template.Must(tmpl.Parse(toolsDownloadTemplate))
+	parsedTemplate := template.Must(template.New("").Parse(toolsDownloadTemplate))
 	var buf bytes.Buffer
 	err := parsedTemplate.Execute(&buf, map[string]interface{}{"ToolsDownloadCommand": command})
 	if err != nil {
