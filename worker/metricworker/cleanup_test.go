@@ -32,7 +32,7 @@ var _ = gc.Suite(&CleanupSuite{})
 // After a single run of the cleanup worker it expects the
 // old one to be deleted
 func (s *CleanupSuite) TestCleaner(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	now := time.Now()
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})

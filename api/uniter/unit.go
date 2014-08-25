@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v3"
 
@@ -63,6 +64,22 @@ func (u *Unit) SetStatus(status params.Status, info string, data map[string]inte
 	err := u.st.facade.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
+	}
+	return result.OneError()
+}
+
+// AddMetrics adds the metrics for the unit.
+func (u *Unit) AddMetrics(metrics []params.Metric) error {
+	var result params.ErrorResults
+	args := params.MetricsParams{
+		Metrics: []params.MetricsParam{{
+			Tag:     u.tag.String(),
+			Metrics: metrics,
+		}},
+	}
+	err := u.st.facade.FacadeCall("AddMetrics", args, &result)
+	if err != nil {
+		jujuerrors.Annotate(err, "unable to add metric")
 	}
 	return result.OneError()
 }

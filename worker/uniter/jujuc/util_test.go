@@ -9,6 +9,7 @@ import (
 	"io"
 	"sort"
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v3"
@@ -84,6 +85,18 @@ type Context struct {
 	relid        int
 	remote       string
 	rels         map[int]*ContextRelation
+	metrics      []Metric
+}
+
+type Metric struct {
+	Key   string
+	Value string
+	Time  time.Time
+}
+
+func (c *Context) AddMetrics(key, value string, created time.Time) error {
+	c.metrics = append(c.metrics, Metric{key, value, created})
+	return nil
 }
 
 func (c *Context) UnitName() string {

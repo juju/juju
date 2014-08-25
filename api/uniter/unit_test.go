@@ -6,6 +6,7 @@ package uniter_test
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -498,4 +499,18 @@ func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.apiUnit.WatchAddresses()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
+}
+
+func (s *unitSuite) TestAddMetrics(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wordpressCharm.URL())
+	c.Assert(err, gc.IsNil)
+	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	err = s.apiUnit.AddMetrics(metrics)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *unitSuite) TestAddMetricsError(c *gc.C) {
+	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	err := s.apiUnit.AddMetrics(metrics)
+	c.Assert(err, gc.ErrorMatches, "failed to add metrics, couldn't find charm url")
 }
