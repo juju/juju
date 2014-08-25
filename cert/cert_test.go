@@ -17,6 +17,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cert"
 )
@@ -53,18 +54,22 @@ func (certSuite) TestParseCertAndKey(c *gc.C) {
 }
 
 func (certSuite) TestNewCA(c *gc.C) {
-	expiry := roundTime(time.Now().AddDate(0, 0, 1))
+	now := time.Now()
+	expiry := roundTime(now.AddDate(0, 0, 1))
 	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
 	c.Assert(err, gc.IsNil)
 
 	caCert, caKey, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
-	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
-	c.Assert(caCert.NotAfter.Equal(expiry), gc.Equals, true)
-	c.Assert(caCert.BasicConstraintsValid, gc.Equals, true)
-	c.Assert(caCert.IsCA, gc.Equals, true)
+	c.Check(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
+	c.Check(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
+	c.Check(caCert.NotBefore.Before(now), jc.IsTrue)
+	c.Check(caCert.NotBefore.Before(now.AddDate(0,0,-6)), jc.IsTrue)
+	c.Check(caCert.NotBefore.After(now.AddDate(0,0,-8)), jc.IsTrue)
+	c.Check(caCert.NotAfter.Equal(expiry), gc.Equals, true)
+	c.Check(caCert.BasicConstraintsValid, gc.Equals, true)
+	c.Check(caCert.IsCA, gc.Equals, true)
 	//c.Assert(caCert.MaxPathLen, Equals, 0)	TODO it ends up as -1 - check that this is ok.
 }
 

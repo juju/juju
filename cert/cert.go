@@ -94,7 +94,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error)
 			CommonName:   fmt.Sprintf("juju-generated CA for environment %q", envName),
 			Organization: []string{"juju"},
 		},
-		NotBefore:             now.UTC().Add(-5 * time.Minute),
+		NotBefore:             now.UTC().AddDate(0, 0, -7),
 		NotAfter:              expiry.UTC(),
 		SubjectKeyId:          bigIntHash(key.N),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
