@@ -49,11 +49,7 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 var adminUser = names.NewUserTag("admin")
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
-func NewKeyManagerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*KeyManagerAPI, error) {
+func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients and environment managers can access the key manager service.
 	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
@@ -79,7 +75,11 @@ func NewKeyManagerAPI(
 		return authorizer.GetAuthTag() == adminUser
 	}
 	return &KeyManagerAPI{
-		state: st, resources: resources, authorizer: authorizer, canRead: canRead, canWrite: canWrite}, nil
+		state:      st,
+		resources:  resources,
+		authorizer: authorizer,
+		canRead:    canRead,
+		canWrite:   canWrite}, nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
@@ -110,13 +110,10 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 			}
 			continue
 		}
-		var err error
 		if configErr == nil {
 			results[i].Result = keyInfo
-		} else {
-			err = configErr
 		}
-		results[i].Error = common.ServerError(err)
+		results[i].Error = common.ServerError(configErr)
 	}
 	return params.StringsResults{Results: results}, nil
 }

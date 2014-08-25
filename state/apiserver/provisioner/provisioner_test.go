@@ -307,8 +307,8 @@ func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
 
 	// Verify the changes.
 	s.assertLife(c, 0, state.Alive)
-	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = s.machines[2].Refresh()
+	c.Assert(err, gc.IsNil)
 	s.assertLife(c, 2, state.Alive)
 }
 

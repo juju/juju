@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -36,25 +37,24 @@ func (f *fakeInstanceIdGetter) InstanceId() (instance.Id, error) {
 
 func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeInstanceIdGetter{instanceId: "foo"},
-			"x1": &fakeInstanceIdGetter{instanceId: "bar"},
-			"x2": &fakeInstanceIdGetter{instanceId: "baz", err: "x2 error"},
-			"x3": &fakeInstanceIdGetter{fetchError: "x3 error"},
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeInstanceIdGetter{instanceId: "foo"},
+			u("x/1"): &fakeInstanceIdGetter{instanceId: "bar"},
+			u("x/2"): &fakeInstanceIdGetter{instanceId: "baz", err: "x2 error"},
+			u("x/3"): &fakeInstanceIdGetter{fetchError: "x3 error"},
 		},
 	}
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			switch tag {
-			case "x0", "x2", "x3":
-				return true
-			}
-			return false
+		x0 := u("x/0")
+		x2 := u("x/2")
+		x3 := u("x/3")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x2 || tag == x3
 		}, nil
 	}
 	ig := common.NewInstanceIdGetter(st, getCanRead)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
 	results, err := ig.InstanceId(entities)
 	c.Assert(err, gc.IsNil)
@@ -74,6 +74,6 @@ func (*instanceIdGetterSuite) TestInstanceIdError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	ig := common.NewInstanceIdGetter(&fakeState{}, getCanRead)
-	_, err := ig.InstanceId(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := ig.InstanceId(params.Entities{[]params.Entity{{"unit-x-0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }

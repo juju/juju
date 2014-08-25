@@ -5,6 +5,7 @@ package keyupdater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -63,13 +64,18 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 		return params.NotifyWatchResults{}, err
 	}
 	for i, entity := range arg.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
 		// 1. Check permissions
-		if !canRead(entity.Tag) {
+		if !canRead(tag) {
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		// 2. Check entity exists
-		if _, err := api.state.FindEntity(entity.Tag); err != nil {
+		if _, err := api.state.FindEntity(tag); err != nil {
 			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
@@ -77,8 +83,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 			}
 			continue
 		}
-		// 3. Watch fr changes
-		var err error
+		// 3. Watch for changes
 		watch := api.state.WatchForEnvironConfigChanges()
 		// Consume the initial event.
 		if _, ok := <-watch.Changes(); ok {
@@ -112,13 +117,18 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 		return params.StringsResults{}, err
 	}
 	for i, entity := range arg.Entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
 		// 1. Check permissions
-		if !canRead(entity.Tag) {
+		if !canRead(tag) {
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		// 2. Check entity exists
-		if _, err := api.state.FindEntity(entity.Tag); err != nil {
+		if _, err := api.state.FindEntity(tag); err != nil {
 			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
@@ -127,7 +137,6 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(arg params.Entities) (params.StringsRes
 			continue
 		}
 		// 3. Get keys
-		var err error
 		if configErr == nil {
 			results[i].Result = keys
 		} else {

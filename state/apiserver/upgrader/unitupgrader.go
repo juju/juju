@@ -45,7 +45,7 @@ func NewUnitUpgraderAPI(
 	}, nil
 }
 
-func (u *UnitUpgraderAPI) watchAssignedMachine(unitTag string) (string, error) {
+func (u *UnitUpgraderAPI) watchAssignedMachine(unitTag names.Tag) (string, error) {
 	machine, err := u.getAssignedMachine(unitTag)
 	if err != nil {
 		return "", err
@@ -69,10 +69,15 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		err := common.ErrPerm
-		if u.authorizer.AuthOwner(agent.Tag) {
+		tag, err := names.ParseTag(agent.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if u.authorizer.AuthOwner(tag) {
 			var watcherId string
-			watcherId, err = u.watchAssignedMachine(agent.Tag)
+			watcherId, err = u.watchAssignedMachine(tag)
 			if err == nil {
 				result.Results[i].NotifyWatcherId = watcherId
 			}
@@ -86,13 +91,15 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 // The desired version is what the unit's assigned machine is running.
 func (u *UnitUpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
 	result := make([]params.VersionResult, len(args.Entities))
-	if len(args.Entities) == 0 {
-		return params.VersionResults{}, nil
-	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if u.authorizer.AuthOwner(entity.Tag) {
-			result[i].Version, err = u.getMachineToolsVersion(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if u.authorizer.AuthOwner(tag) {
+			result[i].Version, err = u.getMachineToolsVersion(tag)
 		}
 		result[i].Error = common.ServerError(err)
 	}
@@ -106,31 +113,36 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 	}
 	for i, entity := range args.Entities {
 		result.Results[i].Error = common.ServerError(common.ErrPerm)
-		if u.authorizer.AuthOwner(entity.Tag) {
-			result.Results[i] = u.getMachineTools(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			continue
+		}
+		if u.authorizer.AuthOwner(tag) {
+			result.Results[i] = u.getMachineTools(tag)
 		}
 	}
 	return result, nil
 }
 
-func (u *UnitUpgraderAPI) getAssignedMachine(tag string) (*state.Machine, error) {
+func (u *UnitUpgraderAPI) getAssignedMachine(tag names.Tag) (*state.Machine, error) {
 	// Check that we really have a unit tag.
-	t, err := names.ParseUnitTag(tag)
-	if err != nil {
+	switch tag := tag.(type) {
+	case names.UnitTag:
+		unit, err := u.st.Unit(tag.Id())
+		if err != nil {
+			return nil, common.ErrPerm
+		}
+		id, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, err
+		}
+		return u.st.Machine(id)
+	default:
 		return nil, common.ErrPerm
 	}
-	unit, err := u.st.Unit(t.Id())
-	if err != nil {
-		return nil, common.ErrPerm
-	}
-	id, err := unit.AssignedMachineId()
-	if err != nil {
-		return nil, err
-	}
-	return u.st.Machine(id)
 }
 
-func (u *UnitUpgraderAPI) getMachineTools(tag string) params.ToolsResult {
+func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 	var result params.ToolsResult
 	machine, err := u.getAssignedMachine(tag)
 	if err != nil {
@@ -171,7 +183,7 @@ func (u *UnitUpgraderAPI) getMachineTools(tag string) params.ToolsResult {
 	return result
 }
 
-func (u *UnitUpgraderAPI) getMachineToolsVersion(tag string) (*version.Number, error) {
+func (u *UnitUpgraderAPI) getMachineToolsVersion(tag names.Tag) (*version.Number, error) {
 	machine, err := u.getAssignedMachine(tag)
 	if err != nil {
 		return nil, err

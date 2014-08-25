@@ -2214,87 +2214,34 @@ type entity interface {
 }
 
 type findEntityTest struct {
-	tag string
+	tag names.Tag
 	err string
 }
 
 var findEntityTests = []findEntityTest{{
-	tag: "",
-	err: `"" is not a valid tag`,
-}, {
-	tag: "machine",
-	err: `"machine" is not a valid tag`,
-}, {
-	tag: "-foo",
-	err: `"-foo" is not a valid tag`,
-}, {
-	tag: "foo-",
-	err: `"foo-" is not a valid tag`,
-}, {
-	tag: "---",
-	err: `"---" is not a valid tag`,
-}, {
-	tag: "machine-bad",
-	err: `"machine-bad" is not a valid machine tag`,
-}, {
-	tag: "unit-123",
-	err: `"unit-123" is not a valid unit tag`,
-}, {
-	tag: "relation-blah",
-	err: `"relation-blah" is not a valid relation tag`,
-}, {
-	tag: "relation-svc1.rel1#svc2.rel2",
+	tag: names.NewRelationTag("svc1:rel1 svc2:rel2"),
 	err: `relation "svc1:rel1 svc2:rel2" not found`,
 }, {
-	tag: "unit-foo",
-	err: `"unit-foo" is not a valid unit tag`,
-}, {
-	tag: "service-",
-	err: `"service-" is not a valid service tag`,
-}, {
-	tag: "service-foo/bar",
-	err: `"service-foo/bar" is not a valid service tag`,
-}, {
-	tag: "environment-9f484882-2f18-4fd2-967d-db9663db7bea",
+	tag: names.NewEnvironTag("9f484882-2f18-4fd2-967d-db9663db7bea"),
 	err: `environment "9f484882-2f18-4fd2-967d-db9663db7bea" not found`,
 }, {
-	tag: "machine-1234",
-	err: `machine 1234 not found`,
+	tag: names.NewMachineTag("0"),
 }, {
-	tag: "unit-foo-654",
-	err: `unit "foo/654" not found`,
+	tag: names.NewServiceTag("ser-vice2"),
 }, {
-	tag: "unit-foo-bar-654",
-	err: `unit "foo-bar/654" not found`,
+	tag: names.NewRelationTag("wordpress:db ser-vice2:server"),
 }, {
-	tag: "machine-0",
+	tag: names.NewUnitTag("ser-vice2/0"),
 }, {
-	tag: "service-ser-vice2",
+	tag: names.NewUserTag("arble"),
 }, {
-	tag: "relation-wordpress.db#ser-vice2.server",
-}, {
-	tag: "unit-ser-vice2-0",
-}, {
-	tag: "user-arble",
-}, {
-	tag: "network-missing",
+	tag: names.NewNetworkTag("missing"),
 	err: `network "missing" not found`,
 }, {
-	tag: "network-",
-	err: `"network-" is not a valid network tag`,
+	tag: names.NewNetworkTag("net1"),
 }, {
-	tag: "network-net1",
-}, {
-	tag: "action-",
-	err: `"action-" is not a valid action tag`,
-}, {
-	tag: "action-ser-vice2/0_a_0",
-}, {
-	tag: "environment-notauuid",
-	err: `"environment-notauuid" is not a valid environment tag`,
-}, {
-	tag: "environment-testenv",
-	err: `"environment-testenv" is not a valid environment tag`,
+	tag: names.NewActionTag("ser-vice2_a_0"),
+	err: `action "ser-vice2_a_0" not found`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -2339,7 +2286,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	findEntityTests = append([]findEntityTest{}, findEntityTests...)
 	findEntityTests = append(findEntityTests, findEntityTest{
-		tag: "environment-" + env.UUID(),
+		tag: names.NewEnvironTag(env.UUID()),
 	})
 
 	for i, test := range findEntityTests {
@@ -2349,8 +2296,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
 			c.Assert(err, gc.IsNil)
-			kind, err := names.TagKind(test.tag)
-			c.Assert(err, gc.IsNil)
+			kind := test.tag.Kind()
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
 			if kind == "environment" {
 				// TODO(axw) 2013-12-04 #1257587
@@ -2358,7 +2304,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// for backwards-compatibility we accept any non-UUID tag.
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
 			} else {
-				c.Assert(e.Tag().String(), gc.Equals, test.tag)
+				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}
 		}
 	}

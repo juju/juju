@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
@@ -35,26 +36,27 @@ func (e *fakeDeadEnsurer) Life() state.Life {
 
 func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeDeadEnsurer{life: state.Dying, err: fmt.Errorf("x0 fails")},
-			"x1": &fakeDeadEnsurer{life: state.Alive},
-			"x2": &fakeDeadEnsurer{life: state.Dying},
-			"x3": &fakeDeadEnsurer{life: state.Dead},
-			"x4": &fakeDeadEnsurer{fetchError: "x4 error"},
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeDeadEnsurer{life: state.Dying, err: fmt.Errorf("x0 fails")},
+			u("x/1"): &fakeDeadEnsurer{life: state.Alive},
+			u("x/2"): &fakeDeadEnsurer{life: state.Dying},
+			u("x/3"): &fakeDeadEnsurer{life: state.Dead},
+			u("x/4"): &fakeDeadEnsurer{fetchError: "x4 error"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			switch tag {
-			case "x0", "x1", "x2", "x4":
-				return true
-			}
-			return false
+		x0 := u("x/0")
+		x1 := u("x/1")
+		x2 := u("x/2")
+		x4 := u("x/4")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x1 || tag == x2 || tag == x4
 		}, nil
 	}
+
 	d := common.NewDeadEnsurer(st, getCanModify)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"},
 	}}
 	result, err := d.EnsureDead(entities)
 	c.Assert(err, gc.IsNil)

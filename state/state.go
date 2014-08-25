@@ -502,13 +502,9 @@ func (st *State) Machine(id string) (*Machine, error) {
 // The returned value can be of type *Machine, *Unit,
 // *User, *Service, *Environment, or *Action, depending
 // on the tag.
-func (st *State) FindEntity(tag string) (Entity, error) {
-	t, err := names.ParseTag(tag)
-	if err != nil {
-		return nil, err
-	}
-	id := t.Id()
-	switch t.(type) {
+func (st *State) FindEntity(tag names.Tag) (Entity, error) {
+	id := tag.Id()
+	switch tag := tag.(type) {
 	case names.MachineTag:
 		return st.Machine(id)
 	case names.UnitTag:
@@ -546,9 +542,9 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.NetworkTag:
 		return st.Network(id)
 	case names.ActionTag:
-		return st.ActionByTag(t)
+		return st.ActionByTag(tag)
 	default:
-		return nil, errors.Errorf("unsupported tag tpe %T", t)
+		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
 }
 
@@ -1508,18 +1504,14 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, doc), nil
 }
 
-// ActionByTag returns an Action given an ActionTag
-func (st *State) ActionByTag(tag names.Tag) (*Action, error) {
-	actionTag, ok := tag.(names.ActionTag)
-	if !ok {
-		return nil, fmt.Errorf("cannot get action from tag %v", tag)
-	}
-	return st.Action(actionIdFromTag(actionTag))
-}
-
 // matchingActions finds actions that match ActionReceiver
 func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
 	return st.matchingActionsByPrefix(ar.Name())
+}
+
+// ActionByTag returns an Action given an ActionTag
+func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
+	return st.Action(actionIdFromTag(tag))
 }
 
 // matchingActionsByPrefix finds actions with a given prefix
