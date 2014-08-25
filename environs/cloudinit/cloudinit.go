@@ -232,17 +232,12 @@ func AddAptCommands(proxySettings proxy.Settings, c *cloudinit.Config) {
 const toolsDownloadTemplate = `
 for n in $(seq 1 5); do
    echo "Attempt $n to download tools..."
-   success=1
-   {{.ToolsDownloadCommand}} && break
-   success=0
+   {{.ToolsDownloadCommand}} && echo "Tools downloaded successfully." && break
    if [ $n -lt 5 ]; then
        echo "Download failed..... wait 15s"
    fi
    sleep 15
 done
-if [ $success -eq 1 ]; then
-  echo "Tools downloaded successfully."
-fi
 `
 
 func toolsDownloadCommandWithRetry(command string) string {
