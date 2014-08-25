@@ -89,6 +89,14 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	c.Assert(st.EnvironTag().Id(), gc.Equals, s.envUUID)
+}
+
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)

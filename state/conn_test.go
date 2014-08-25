@@ -51,6 +51,7 @@ func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 }
 
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
+	c.Log("SetUpTest")
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
@@ -68,6 +69,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
 	cs.State.AddAdminUser("pass")
 	cs.factory = factory.NewFactory(cs.State)
+	c.Log("SetUpTest done")
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
