@@ -364,3 +364,13 @@ func (s *MainSuite) TestEnvironCommands(c *gc.C) {
 		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
 	}
 }
+
+func runDeploy(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args...)
+	return err
+}
+
+func runExpose(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&ExposeCommand{}), args...)
+	return err
+}
