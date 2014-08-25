@@ -142,16 +142,23 @@ type AddMachinesResult struct {
 	Error   *Error
 }
 
-// IsManualResult holds one result of an IsManual call.
-type IsManualResult struct {
-	Tag      string
-	IsManual bool
-	Error    *Error
+// GetMachinesV0 holds a list of tags for the GetMachines call.
+type GetMachinesV0 struct {
+	Tags []string
 }
 
-// IsManualResults holds the results of an IsManual call.
-type IsManualResults struct {
-	Results []IsManualResult
+// GetMachinesResults holds the results of a GetMachines call.
+type GetMachinesResultsV0 struct {
+	Machines []GetMachinesResultV0
+}
+
+// GetMachineResult holds the results of the GetMachines call
+// for one machine.
+type GetMachinesResultV0 struct {
+	Tag      string
+	Life     Life
+	IsManual bool
+	Error    *Error
 }
 
 // DestroyMachines holds parameters for the DestroyMachines call.

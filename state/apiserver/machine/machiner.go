@@ -62,23 +62,27 @@ func (api *MachinerAPI) getMachine(tag string) (*state.Machine, error) {
 	return entity.(*state.Machine), nil
 }
 
-func (api *MachinerAPI) IsManual(args params.Entities) (params.IsManualResults, error) {
-	results := params.IsManualResults{
-		Results: make([]params.IsManualResult, len(args.Entities)),
+// GetMachines implements the API call GetMachines.
+func (api *MachinerAPI) GetMachines(args params.GetMachinesV0) (params.GetMachinesResultsV0, error) {
+	results := params.GetMachinesResultsV0{
+		Machines: make([]params.GetMachinesResultV0, len(args.Tags)),
 	}
-	for i, arg := range args.Entities {
+	for i, tag := range args.Tags {
 		err := common.ErrPerm
 		var m *state.Machine
-		m, err = api.getMachine(arg.Tag)
+		m, err = api.getMachine(tag)
 		if err == nil {
-			var isManual bool
-			isManual, err = m.IsManual()
-			results.Results[i].Tag = arg.Tag
-			results.Results[i].IsManual = isManual
+			isManual, err := m.IsManual()
+			if err == nil {
+				life := m.Life()
+				results.Machines[i].Tag = tag
+				results.Machines[i].Life = params.Life(life.String())
+				results.Machines[i].IsManual = isManual
+			}
 		} else if errors.IsNotFound(err) {
 			err = common.ErrPerm
 		}
-		results.Results[i].Error = common.ServerError(err)
+		results.Machines[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }

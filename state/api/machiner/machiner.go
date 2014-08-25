@@ -36,39 +36,22 @@ func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
 	return common.Life(st.facade, tag)
 }
 
-// machineIsManual requests the IsManual flag of the given machine from the server.
-func (st *State) machineIsManual(tag names.MachineTag) (bool, error) {
-	var result params.IsManualResults
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: tag.String()},
-		},
-	}
-	err := st.facade.FacadeCall("IsManual", args, &result)
-	if err != nil {
-		return false, err
-	}
-	if n := len(result.Results); n != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", n)
-	}
-	// TODO(mue) Add check of possible results error.
-	return result.Results[0].IsManual, nil
-}
-
 // Machine provides access to methods of a state.Machine through the facade.
 func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := st.machineLife(tag)
+	var result params.GetMachinesResultsV0
+	args := params.GetMachinesV0{[]string{tag.String()}}
+	err := st.facade.FacadeCall("GetMachines", args, &result)
 	if err != nil {
 		return nil, err
 	}
-	isManual, err := st.machineIsManual(tag)
-	if err != nil {
-		return nil, err
+	if n := len(result.Machines); n != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", n)
 	}
+	machineResult := result.Machines[0]
 	return &Machine{
 		tag:      tag,
-		life:     life,
-		isManual: isManual,
+		life:     machineResult.Life,
+		isManual: machineResult.IsManual,
 		st:       st,
 	}, nil
 }
