@@ -168,8 +168,13 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			w.mcfg.Tools.SHA256, w.mcfg.Tools.Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
 		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
+	)
+
+	// Don't remove tools tarball until after bootstrap agent
+	// runs, so it has a chance to add it to its catalogue.
+	defer w.conf.AddRunCmd(
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
 	)
 
 	// We add the machine agent's configuration info
