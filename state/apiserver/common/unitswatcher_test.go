@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -56,25 +57,23 @@ func (w *fakeStringsWatcher) Changes() <-chan []string {
 
 func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeUnitsWatcher{fetchError: "x0 fails"},
-			"x1": &fakeUnitsWatcher{initial: []string{"foo", "bar"}},
-			"x2": &fakeUnitsWatcher{},
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeUnitsWatcher{fetchError: "x0 fails"},
+			u("x/1"): &fakeUnitsWatcher{initial: []string{"foo", "bar"}},
+			u("x/2"): &fakeUnitsWatcher{},
 		},
 	}
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			switch tag {
-			case "x0", "x1":
-				return true
-			}
-			return false
+		x0 := u("x/0")
+		x1 := u("x/1")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x1
 		}, nil
 	}
 	resources := common.NewResources()
 	w := common.NewUnitsWatcher(st, resources, getCanWatch)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
 	}}
 	result, err := w.WatchUnits(entities)
 	c.Assert(err, gc.IsNil)

@@ -293,7 +293,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(
+			st.Upgrader(),
+			agentConfig,
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
+		), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
@@ -316,20 +321,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	if networker.CanStart() {
-		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-		writeNetworkConfig := providerType == "maas"
-		if writeNetworkConfig {
-			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-				return networker.NewNetworker(st.Networker(), agentConfig)
-			})
-		} else {
-			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-				return networker.NewSafeNetworker(st.Networker(), agentConfig)
-			})
-		}
+	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
+	writeNetworkConfig := providerType == "maas"
+	if writeNetworkConfig {
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+		})
 	} else {
-		logger.Infof("not starting networker - missing /etc/network/interfaces")
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+		})
 	}
 
 	// If not a local provider bootstrap machine, start the worker to
@@ -578,10 +579,7 @@ func init() {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
-	select {
-	case <-a.upgradeWorkerContext.UpgradeComplete:
-		return nil // upgrade done so allow all logins
-	default:
+	if a.upgradeWorkerContext.IsUpgradeRunning() {
 		authTag, err := names.ParseTag(creds.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -597,6 +595,8 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+	} else {
+		return nil // allow all logins
 	}
 }
 
@@ -744,7 +744,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 			st.Close()
 		}
 	}()
-	m0, err := st.FindEntity(agentConfig.Tag().String())
+	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = worker.ErrTerminateAgent

@@ -265,12 +265,23 @@ runcmd:
 		},
 	},
 	{
-		"AddFile",
-		addFileExpected,
+		"AddTextFile",
+		addTextFileExpected,
 		func(cfg *cloudinit.Config) {
-			cfg.AddFile(
+			cfg.AddTextFile(
 				"/etc/apt/apt.conf.d/99proxy",
 				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
+	{
+		"AddBinaryFile",
+		addBinaryFileExpected,
+		func(cfg *cloudinit.Config) {
+			cfg.AddBinaryFile(
+				"/dev/nonsense",
+				[]byte{0, 1, 2, 3},
 				0644,
 			)
 		},
@@ -285,10 +296,14 @@ runcmd:
 }
 
 const (
-	header          = "#cloud-config\n"
-	addFileExpected = `runcmd:
+	header              = "#cloud-config\n"
+	addTextFileExpected = `runcmd:
 - install -D -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
 - printf '%s\n' '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
+`
+	addBinaryFileExpected = `runcmd:
+- install -D -m 644 /dev/null '/dev/nonsense'
+- printf %s AAECAw== | base64 -d > '/dev/nonsense'
 `
 )
 

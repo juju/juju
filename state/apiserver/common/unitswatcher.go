@@ -4,9 +4,11 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/names"
 )
 
 // UnitsWatcher implements a common WatchUnits method for use by
@@ -28,7 +30,7 @@ func NewUnitsWatcher(st state.EntityFinder, resources *Resources, getCanWatch Ge
 	}
 }
 
-func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag string) (params.StringsWatchResult, error) {
+func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag names.Tag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
 	if !canWatch(tag) {
 		return nothing, ErrPerm
@@ -63,10 +65,15 @@ func (u *UnitsWatcher) WatchUnits(args params.Entities) (params.StringsWatchResu
 	}
 	canWatch, err := u.getCanWatch()
 	if err != nil {
-		return params.StringsWatchResults{}, err
+		return params.StringsWatchResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		entityResult, err := u.watchOneEntityUnits(canWatch, entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		entityResult, err := u.watchOneEntityUnits(canWatch, tag)
 		result.Results[i] = entityResult
 		result.Results[i].Error = ServerError(err)
 	}

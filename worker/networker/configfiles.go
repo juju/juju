@@ -4,280 +4,219 @@
 package networker
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/network"
 )
 
-var (
-	configDirName    = "/etc/network"
-	configFileName   = filepath.Join(configDirName, "interfaces")
-	configSubDirName = filepath.Join(configDirName, "interfaces.d")
-)
+// ConfigFile defines operations on a network config file for a single
+// network interface.
+type ConfigFile interface {
+	// InterfaceName returns the inteface name for this config file.
+	InterfaceName() string
 
-// Indication what to do with the interface config file in writeOrRemove method.
-const (
-	doNone = iota
-	doWrite
-	doRemove
-)
+	// FileName returns the full path for storing this config file on
+	// disk.
+	FileName() string
 
-// ConfigFile contains information about config file,
-// its content and what to do to apply changes.
-type ConfigFile struct {
-	Data string
-	Op   int
+	// NetworkInfo returns the network.Info associated with this
+	// config file.
+	NetworkInfo() network.Info
+
+	// ReadData opens the underlying config file and populates the
+	// data.
+	ReadData() error
+
+	// Data returns the original raw contents of this config file.
+	Data() []byte
+
+	// RenderManaged generates network config based on the known
+	// network.Info and returns it.
+	RenderManaged() []byte
+
+	// NeedsUpdating returns true if this config file needs to be
+	// written to disk.
+	NeedsUpdating() bool
+
+	// IsPendingRemoval returns true if this config file needs to be
+	// removed.
+	IsPendingRemoval() bool
+
+	// IsManaged returns true if this config file is managed by Juju.
+	IsManaged() bool
+
+	// UpdateData updates the internally stored raw contents of this
+	// config file, and sets the "needs updating" internal flag,
+	// returning true, if newData is different. If newData is the same
+	// as the old or the interface is not managed, returns false and
+	// does not change anything.
+	UpdateData(newData []byte) bool
+
+	// MarkForRemoval marks this config file as pending for removal,
+	// if the interface is managed.
+	MarkForRemoval()
+
+	// Apply updates the config file data (if it needs updating),
+	// removes the file (if it's marked removal), or does nothing.
+	Apply() error
 }
 
-// ConfigFiles contains information about all configuration files.
-// Map key is file name either /etc/netwotk/interfaces or /etc/netwotk/interfaces.d/*.cfg.
-type ConfigFiles map[string]*ConfigFile
+// ManagedHeader is the header of a network config file managed by Juju.
+const ManagedHeader = "# Managed by Juju, please don't change.\n\n"
 
-// readOneFile reads one file and stores it in the map cf with fileName as a key.
-func (cf ConfigFiles) readOneFile(fileName string) error {
-	data, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		logger.Errorf("failed to read file %q: %v", fileName, err)
-		return err
-	}
-	cf[fileName] = &ConfigFile{Data: string(data)}
-	return nil
+// RenderMainConfig generates a managed main config file, which
+// includes *.cfg individual config files inside configSubDir (i.e.
+// /etc/network/interfaces).
+func RenderMainConfig(configSubDir string) []byte {
+	var data bytes.Buffer
+	globSpec := fmt.Sprintf("%s/*.cfg", configSubDir)
+	logger.Debugf("rendering main network config to include %q", globSpec)
+	fmt.Fprintf(&data, ManagedHeader)
+	fmt.Fprintf(&data, "source %s\n\n", globSpec)
+	return data.Bytes()
 }
 
-// readAll reads /etc/network/interfaces and /etc/network/interfaces.d/*.cfg files
-func (cf *ConfigFiles) readAll() error {
-	// Reset the map with configurations.
-	*cf = ConfigFiles{}
+// configFile implement ConfigFile.
+type configFile struct {
+	// interfaceName holds the name of the network interface.
+	interfaceName string
 
-	// Read the content of /etc/network/interfaces
-	if err := cf.readOneFile(configFileName); err != nil {
-		return err
-	}
+	// fileName holds the full path to the config file on disk.
+	fileName string
 
-	// Check the presence of /etc/network/interfaces.d/ direcotory.
-	fi, err := os.Stat(configSubDirName)
-	if err == nil && fi.IsDir() {
-		// Read the content of /etc/network/interfaces.d/ directory.
-		files, err := ioutil.ReadDir(configSubDirName)
-		if err != nil {
-			logger.Errorf("failed to read directory %q: %v", configSubDirName, err)
-			return err
-		}
-		// Read all /etc/network/interfaces.d/*.cfg files.
-		for _, info := range files {
-			if info.Mode().IsRegular() && filepath.Ext(info.Name()) == ".cfg" {
-				err = cf.readOneFile(filepath.Join(configSubDirName, info.Name()))
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
+	// networkInfo holds the network information about this interface,
+	// known by the API server.
+	networkInfo network.Info
+
+	// data holds the raw file contents of the underlying file.
+	data []byte
+
+	// needsUpdating is true when the interface config has changed and
+	// needs to be written back to disk.
+	needsUpdating bool
+
+	// pendingRemoval is true when the interface config file is about
+	// to be removed.
+	pendingRemoval bool
 }
 
-// writeOrRemove writes the new content of the file or removes it according to Op field.
-func (cf ConfigFiles) writeOrRemove() error {
-	// Create /etc/network/interfaces.d directory if absent.
-	if _, err := os.Stat(configSubDirName); err != nil {
-		err := os.Mkdir(configSubDirName, 0755)
-		if err != nil {
-			logger.Errorf("failed to create directory %q: %v", configSubDirName, err)
-			return err
-		}
-	}
+var _ ConfigFile = (*configFile)(nil)
 
-	for fileName, f := range cf {
-		if f.Op == doRemove {
-			err := os.Remove(fileName)
-			if err != nil {
-				logger.Errorf("failed to remove file %q: %v", fileName, err)
-				return err
-			}
-		} else if f.Op == doWrite {
-			err := utils.AtomicWriteFile(fileName, []byte(f.Data), 0644)
-			if err != nil {
-				logger.Errorf("failed to white file %q: %v", fileName, err)
-				return err
-			}
-		}
-	}
-	return nil
+// InterfaceName implements ConfigFile.InterfaceName().
+func (f *configFile) InterfaceName() string {
+	return f.interfaceName
 }
 
-// ifaceConfigFileName returns the fileName that stores the configuration for ifaceName.
-func ifaceConfigFileName(ifaceName string) string {
-	return filepath.Join(configSubDirName, ifaceName+".cfg")
+// FileName implements ConfigFile.FileName().
+func (f *configFile) FileName() string {
+	return f.fileName
 }
 
-// managedPrefix is the prefix that always presents in configuration file for interfaces managed by juju.
-const managedPrefix = "# Managed by Juju, don't change.\n"
-
-// addManaged makes ifaceName configureation to be written.
-func (cf ConfigFiles) addManaged(ifaceName, configText string) {
-	cf[ifaceConfigFileName(ifaceName)] = &ConfigFile{
-		Data: managedPrefix + configText,
-		Op:   doWrite,
-	}
-}
-
-// removeManaged marks ifaceName configuration to be removed.
-func (cf ConfigFiles) removeManaged(ifaceName string) {
-	if cf[ifaceConfigFileName(ifaceName)] != nil {
-		cf[ifaceName].Data = ""
-		cf[ifaceName].Op = doRemove
-	}
-}
-
-// isManaged checks whether the ifaceName is an interface managed by juju.
-func (cf ConfigFiles) isManaged(ifaceName string) bool {
-	fileName := ifaceConfigFileName(ifaceName)
-	return ifaceName != privateInterface &&
-		ifaceName != privateBridge &&
-		cf[fileName] != nil &&
-		len(cf[fileName].Data) > len(managedPrefix) &&
-		cf[fileName].Data[:len(managedPrefix)] == managedPrefix
-}
-
-// isChanged checks whether the configuration text for ifaceName has changed.
-func (cf ConfigFiles) isChanged(ifaceName, configText string) bool {
-	return ifaceName != privateInterface &&
-		ifaceName != privateBridge &&
-		(cf[ifaceName] == nil || cf[ifaceName].Data != managedPrefix+configText)
-}
-
-// filterManaged filters out interfaces that are not managed by juju.
-func (cf ConfigFiles) filterManaged() {
-	for fileName, file := range cf {
-		if fileName == configFileName ||
-			fileName == ifaceConfigFileName(privateInterface) ||
-			fileName == ifaceConfigFileName(privateBridge) ||
-			len(file.Data) <= len(managedPrefix) ||
-			file.Data[:len(managedPrefix)] != managedPrefix {
-			delete(cf, fileName)
-		}
-	}
-}
-
-// readManaged only reads the configuration for interfaces managed by juju.
-func (cf *ConfigFiles) readManaged() error {
-	if err := cf.readAll(); err != nil {
-		return err
-	}
-	cf.filterManaged()
-	return nil
-}
-
-// splitRegExp is used to split /etc/interfaces/network by stanzas
-// The below digits are indices of positions returned by regexp.FindAllStringSubmatchIndex.
-var splitRegExp = regexp.MustCompile(
-	`(^|\n)(#[^\n]*\n)*(auto|allow\-\w+|iface|mapping|source|source\-directory)\s+([^\s]+)`)
-
-//       0                                                                                   1
-//       2    34         5 6                                                      7   8      9
-
-// splitByInterfaces splits /etc/network/interfaces content to separate configuration
-// for each interace.
-// Comment lines (started with '#') that directly precede a stanza belongs to the stanza.
-func splitByInterfaces(data string) (map[string]string, error) {
-	result := map[string]string{}
-	pos := 0
-	ifaceName := ""
-	sliceOfIndices := splitRegExp.FindAllStringSubmatchIndex(data, -1)
-	for _, indices := range sliceOfIndices {
-		endOfPrevious := data[pos:indices[3]]
-		result[ifaceName] += endOfPrevious
-		pos = indices[3]
-		stanza := data[indices[6]:indices[7]]
-		ifaceName = data[indices[8]:indices[9]]
-		// "source*" stanzas and local interface configuration will remain in /etc/network/interfaces.
-		if stanza == "source" || stanza == "source-directory" || ifaceName == "lo" {
-			ifaceName = ""
-		}
-	}
-	result[ifaceName] += data[pos:]
-
-	// Strip extra line feeds at end of configurations
-	for i, _ := range result {
-		result[i] = strings.TrimRight(result[i], "\n") + "\n"
-	}
-	return result, nil
-}
-
-// sourceCommentAndCommand is the text that present in default Ubuntu /etc/network/interfaces file
-const sourceCommentAndCommand = `# Source interfaces
-# Please check %s before changing this file
-# as interfaces may have been defined in %s
-# NOTE: the primary ethernet device is defined in
-# %s/eth0.cfg
-# See LP: #1262951
-source %s/*.cfg
-`
-
-// fixMAAS restores /etc/network/interfaces file to the original format
-// Ubuntu 14.04+ uses (i.e. one master interfaces file and one .cfg
-// file per interface).
-// With time, this function will be dropped.
-func (cf ConfigFiles) fixMAAS() error {
-	// Remove "source eth0.config" lines, created by MAAS provider.
-	re := regexp.MustCompile(fmt.Sprintf("(^|\n)source\\s+(%s/[0-9A-Za-z_.:]+\\.config)\\s*\n", regexp.QuoteMeta(configDirName)))
-	data := cf[configFileName].Data
-	for sl := re.FindStringSubmatchIndex(data); len(sl) != 0; sl = re.FindStringSubmatchIndex(data) {
-		fileName := data[sl[4]:sl[5]]
-		if err := cf.readOneFile(fileName); err != nil {
-			return err
-		}
-		// Update the main config file.
-		cf[configFileName].Op = doWrite
-		data = data[:sl[3]] + cf[fileName].Data + data[sl[1]:]
-
-		// Mark included file /etc/network/eth0.config to remove.
-		cf[fileName].Data = ""
-		cf[fileName].Op = doRemove
-	}
-
-	// Verify the presence of line 'source /etc/network/interfaces.d/*.cfg'
-	re = regexp.MustCompile(
-		fmt.Sprintf("(^|\n)source\\s+%s\\s*\n",
-			regexp.QuoteMeta(filepath.Join(configSubDirName, "*.cfg")),
-		),
-	)
-	if !re.MatchString(data) {
-		// Should add source line and delete from files from /etc/network/interfaces.d,
-		// because they were not intended to load
-		data += fmt.Sprintf(sourceCommentAndCommand, configSubDirName, configSubDirName,
-			configSubDirName, configSubDirName)
-		for ifaceName, f := range cf {
-			if ifaceName != "" && ifaceName[0] != '#' {
-				f.Data = ""
-				f.Op = doRemove
-			}
-		}
-	}
-
-	// Split /etc/network/interfaces into /etc/network/interfaces.d/*.cfg files.
-	parts, err := splitByInterfaces(data)
+// ReadData implements ConfigFile.ReadData().
+func (f *configFile) ReadData() error {
+	data, err := ioutil.ReadFile(f.fileName)
 	if err != nil {
 		return err
 	}
-	if len(parts) != 1 {
-		for ifaceName, part := range parts {
-			var fileName string
-			if ifaceName == "" {
-				fileName = configFileName
-			} else {
-				fileName = ifaceConfigFileName(ifaceName)
-			}
-			cf[fileName] = &ConfigFile{
-				Data: part,
-				Op:   doWrite,
-			}
+	f.UpdateData(data)
+	return nil
+}
+
+// NetworkInfo implements ConfigFile.NetworkInfo().
+func (f *configFile) NetworkInfo() network.Info {
+	return f.networkInfo
+}
+
+// Data implements ConfigFile.Data().
+func (f *configFile) Data() []byte {
+	return f.data
+}
+
+// RenderManaged implements ConfigFile.RenderManaged().
+func (f *configFile) RenderManaged() []byte {
+	var data bytes.Buffer
+	actualName := f.networkInfo.ActualInterfaceName()
+	logger.Debugf("rendering managed config for %q", actualName)
+	fmt.Fprintf(&data, ManagedHeader)
+	fmt.Fprintf(&data, "auto %s\n", actualName)
+	fmt.Fprintf(&data, "iface %s inet dhcp\n", actualName)
+
+	// Add vlan-raw-device line for VLAN interfaces.
+	if f.networkInfo.IsVLAN() {
+		// network.Info.InterfaceName is always the physical device name,
+		// i.e. "eth1" for VLAN interface "eth1.42".
+		fmt.Fprintf(&data, "\tvlan-raw-device %s\n", f.networkInfo.InterfaceName)
+	}
+	fmt.Fprintf(&data, "\n")
+	return data.Bytes()
+}
+
+// NeedsUpdating implements ConfigFile.NeedsUpdating().
+func (f *configFile) NeedsUpdating() bool {
+	return f.needsUpdating
+}
+
+// IsPendingRemoval implements ConfigFile.IsPendingRemoval().
+func (f *configFile) IsPendingRemoval() bool {
+	return f.pendingRemoval
+}
+
+// IsManaged implements ConfigFile.IsManaged()
+func (f *configFile) IsManaged() bool {
+	return len(f.data) > 0 && bytes.HasPrefix(f.data, []byte(ManagedHeader))
+}
+
+// UpdateData implements ConfigFile.UpdateData().
+func (f *configFile) UpdateData(newData []byte) bool {
+	if bytes.Equal(f.data, newData) {
+		// Not changed.
+		if f.interfaceName == "" {
+			// This is the main config.
+			logger.Debugf("main network config not changed")
+		} else {
+			logger.Debugf("network config for %q not changed", f.interfaceName)
 		}
+		return false
+	}
+	f.data = make([]byte, len(newData))
+	copy(f.data, newData)
+	f.needsUpdating = true
+	return true
+}
+
+// MarkForRemoval implements ConfigFile.MarkForRemoval().
+func (f *configFile) MarkForRemoval() {
+	f.pendingRemoval = true
+}
+
+// Apply implements ConfigFile.Apply().
+func (f *configFile) Apply() error {
+	if f.needsUpdating {
+		err := utils.AtomicWriteFile(f.fileName, f.data, 0644)
+		if err != nil {
+			logger.Errorf("failed to write file %q: %v", f.fileName, err)
+			return err
+		}
+		if f.interfaceName == "" {
+			logger.Debugf("updated main network config %q", f.fileName)
+		} else {
+			logger.Debugf("updated network config %q for %q", f.fileName, f.interfaceName)
+		}
+		f.needsUpdating = false
+	}
+	if f.pendingRemoval {
+		err := os.Remove(f.fileName)
+		if err != nil {
+			logger.Errorf("failed to remove file %q: %v", f.fileName, err)
+			return err
+		}
+		logger.Debugf("removed config %q for %q", f.fileName, f.interfaceName)
+		f.pendingRemoval = false
 	}
 	return nil
 }

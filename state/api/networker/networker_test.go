@@ -276,22 +276,22 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Disable the first interface.
-	err = ifaces[0].SetDisabled(true)
+	err = ifaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Disable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(true)
+	err = ifaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Enable the first interface.
-	err = ifaces[0].SetDisabled(false)
+	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Enable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(false)
+	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -324,7 +324,7 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(containerIfaces, gc.HasLen, 4)
 
 	// Disable the first interface on the second machine, should not report.
-	err = containerIfaces[0].SetDisabled(true)
+	err = containerIfaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
