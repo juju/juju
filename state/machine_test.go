@@ -1896,34 +1896,34 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Disable the first interface.
-	err = ifaces[0].SetDisabled(true)
+	err = ifaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Disable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(true)
+	err = ifaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Enable the second interface, should report, because it was initially disabled.
-	err = ifaces[1].SetDisabled(false)
+	err = ifaces[1].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Disable two interfaces at once, check that both are reported.
-	err = ifaces[1].SetDisabled(true)
+	err = ifaces[1].Disable()
 	c.Assert(err, gc.IsNil)
-	err = ifaces[2].SetDisabled(true)
+	err = ifaces[2].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Enable the first interface.
-	err = ifaces[0].SetDisabled(false)
+	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Enable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(false)
+	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1969,7 +1969,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(ifaces2, gc.HasLen, 3)
 
 	// Disable the first interface on the second machine, should not report.
-	err = ifaces2[0].SetDisabled(true)
+	err = ifaces2[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

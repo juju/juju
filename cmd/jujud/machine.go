@@ -321,20 +321,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	if networker.CanStart() {
-		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-		writeNetworkConfig := providerType == "maas"
-		if writeNetworkConfig {
-			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-				return networker.NewNetworker(st.Networker(), agentConfig)
-			})
-		} else {
-			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-				return networker.NewSafeNetworker(st.Networker(), agentConfig)
-			})
-		}
+	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
+	writeNetworkConfig := providerType == "maas"
+	if writeNetworkConfig {
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+		})
 	} else {
-		logger.Infof("not starting networker - missing /etc/network/interfaces")
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+		})
 	}
 
 	// If not a local provider bootstrap machine, start the worker to
