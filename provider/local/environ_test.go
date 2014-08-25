@@ -191,8 +191,8 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
-		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
-		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
+		c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+		c.Assert(cloudcfg.AptUpgrade(), jc.IsTrue)
 		if !mcfg.EnableOSRefreshUpdate {
 			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		}
