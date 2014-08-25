@@ -293,7 +293,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(
+			st.Upgrader(),
+			agentConfig,
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
+		), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
@@ -578,10 +583,7 @@ func init() {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
-	select {
-	case <-a.upgradeWorkerContext.UpgradeComplete:
-		return nil // upgrade done so allow all logins
-	default:
+	if a.upgradeWorkerContext.IsUpgradeRunning() {
 		authTag, err := names.ParseTag(creds.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -597,6 +599,8 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+	} else {
+		return nil // allow all logins
 	}
 }
 

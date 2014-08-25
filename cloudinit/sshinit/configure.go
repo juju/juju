@@ -48,7 +48,7 @@ func Configure(params ConfigureParams) error {
 // SSH, and executes the provided script which is expected
 // to have been returned by ConfigureScript.
 func RunConfigureScript(script string, params ConfigureParams) error {
-	logger.Debugf("Running script on %s: %s", params.Host, script)
+	logger.Tracef("Running script on %s: %s", params.Host, script)
 	client := params.Client
 	if client == nil {
 		client = ssh.DefaultClient

@@ -4,6 +4,8 @@
 package tools_test
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -90,4 +92,26 @@ func (b *buildSuite) TestFindExecutable(c *gc.C) {
 			c.Assert(result, gc.Equals, "")
 		}
 	}
+}
+
+const emptyArchive = "\x1f\x8b\b\x00\x00\tn\x88\x00\xffb\x18\x05\xa3`\x14\x8cX\x00\b\x00\x00\xff\xff.\xaf\xb5\xef\x00\x04\x00\x00"
+
+func (b *buildSuite) TestEmptyArchive(c *gc.C) {
+	var buf bytes.Buffer
+	dir := c.MkDir()
+	err := tools.Archive(&buf, dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(buf.String(), gc.Equals, emptyArchive)
+}
+
+func (b *buildSuite) TestArchiveAndSHA256(c *gc.C) {
+	var buf bytes.Buffer
+	dir := c.MkDir()
+	sha256hash, err := tools.ArchiveAndSHA256(&buf, dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(buf.String(), gc.Equals, emptyArchive)
+
+	h := sha256.New()
+	h.Write([]byte(emptyArchive))
+	c.Assert(sha256hash, gc.Equals, fmt.Sprintf("%x", h.Sum(nil)))
 }

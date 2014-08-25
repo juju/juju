@@ -69,7 +69,7 @@ func (w *ubuntuConfigure) ConfigureBasic() error {
 	// the presence of the nonce file is used to gate the remainder
 	// of synchronous bootstrap.
 	noncefile := path.Join(w.mcfg.DataDir, NonceFile)
-	w.conf.AddFile(noncefile, w.mcfg.MachineNonce, 0644)
+	w.conf.AddTextFile(noncefile, w.mcfg.MachineNonce, 0644)
 	return nil
 }
 

@@ -54,7 +54,7 @@ func (c *GoCryptoClient) Command(host string, command []string, options *Options
 		}
 		proxyCommand = options.proxyCommand
 	}
-	logger.Debugf(`running (equivalent of): ssh "%s@%s" -p %d '%s'`, user, host, port, shellCommand)
+	logger.Tracef(`running (equivalent of): ssh "%s@%s" -p %d '%s'`, user, host, port, shellCommand)
 	return &Cmd{impl: &goCryptoCommand{
 		signers:      signers,
 		user:         user,
@@ -105,7 +105,7 @@ var sshDialWithProxy = func(addr string, proxyCommand []string, config *ssh.Clie
 		proxyCommand[i] = arg
 	}
 	client, server := net.Pipe()
-	logger.Debugf(`executing proxy command %q`, proxyCommand)
+	logger.Tracef(`executing proxy command %q`, proxyCommand)
 	cmd := exec.Command(proxyCommand[0], proxyCommand[1:]...)
 	cmd.Stdin = server
 	cmd.Stdout = server
