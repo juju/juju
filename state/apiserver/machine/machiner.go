@@ -7,6 +7,7 @@ package machine
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -54,7 +55,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	}, nil
 }
 
-func (api *MachinerAPI) getMachine(tag string) (*state.Machine, error) {
+func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
@@ -93,13 +94,18 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 	}
 	canModify, err := api.getCanModify()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return results, err
 	}
 	for i, arg := range args.MachineAddresses {
-		err := common.ErrPerm
-		if canModify(arg.Tag) {
+		tag, err := names.ParseMachineTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canModify(tag) {
 			var m *state.Machine
-			m, err = api.getMachine(arg.Tag)
+			m, err = api.getMachine(tag)
 			if err == nil {
 				err = m.SetMachineAddresses(arg.Addresses...)
 			} else if errors.IsNotFound(err) {

@@ -6,7 +6,6 @@ package client
 import (
 	"fmt"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
@@ -80,12 +79,15 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), networks, mongoInfo, apiInfo)
+	mcfg, err := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), machine.Series(), networks, mongoInfo, apiInfo)
+	if err != nil {
+		return nil, err
+	}
 	if dataDir != "" {
 		mcfg.DataDir = dataDir
 	}
 	mcfg.Tools = tools
-	err = environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
+	err = environs.FinishMachineConfig(mcfg, environConfig)
 	if err != nil {
 		return nil, err
 	}

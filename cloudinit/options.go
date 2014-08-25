@@ -4,6 +4,7 @@
 package cloudinit
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/juju/utils"
@@ -108,7 +109,7 @@ func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
 	)
 	if prefs != nil {
 		// Create the apt preferences file.
-		cfg.AddFile(prefs.Path, prefs.FileContents(), 0644)
+		cfg.AddTextFile(prefs.Path, prefs.FileContents(), 0644)
 	}
 }
 
@@ -337,21 +338,34 @@ func (cfg *Config) AddScripts(scripts ...string) {
 	}
 }
 
-// AddFile will add multiple run_cmd entries to safely set the contents of a
-// specific file to the requested contents.
-func (cfg *Config) AddFile(filename, data string, mode uint) {
+// AddTextFile will add multiple run_cmd entries to safely set the
+// contents of a specific file to the requested contents.
+func (cfg *Config) AddTextFile(filename, data string, mode uint) {
+	cfg.addFile(filename, []byte(data), mode, false)
+}
+
+// AddBinaryFile will add multiple run_cmd entries to safely set the
+// contents of a specific file to the requested contents.
+func (cfg *Config) AddBinaryFile(filename string, data []byte, mode uint) {
+	cfg.addFile(filename, data, mode, true)
+}
+
+func (cfg *Config) addFile(filename string, data []byte, mode uint, binary bool) {
 	// Note: recent versions of cloud-init have the "write_files"
 	// module, which can write arbitrary files. We currently support
 	// 12.04 LTS, which uses an older version of cloud-init without
 	// this module.
 	p := shquote(filename)
+	cfg.AddRunCmd(fmt.Sprintf("install -D -m %o /dev/null %s", mode, p))
 	// Don't use the shell's echo builtin here; the interpretation
 	// of escape sequences differs between shells, namely bash and
 	// dash. Instead, we use printf (or we could use /bin/echo).
-	cfg.AddScripts(
-		fmt.Sprintf("install -D -m %o /dev/null %s", mode, p),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
-	)
+	if binary {
+		encoded := base64.StdEncoding.EncodeToString(data)
+		cfg.AddRunCmd(fmt.Sprintf(`printf %%s %s | base64 -d > %s`, encoded, p))
+	} else {
+		cfg.AddRunCmd(fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(string(data)), p))
+	}
 }
 
 func shquote(p string) string {

@@ -4,39 +4,29 @@
 package networker
 
 import (
-	"path/filepath"
-
 	"github.com/juju/names"
+
+	"github.com/juju/juju/network"
 )
 
-const (
-	DoNone   = doNone
-	DoWrite  = doWrite
-	DoRemove = doRemove
-)
+// NewConfigFile is a helper use to create a *configFile for testing.
+func NewConfigFile(interfaceName, fileName string, info network.Info, data []byte) ConfigFile {
+	return &configFile{
+		interfaceName: interfaceName,
+		fileName:      fileName,
+		networkInfo:   info,
+		data:          data,
+	}
+}
 
-var (
-	ConfigDirName           = configDirName
-	ConfigFileName          = configFileName
-	ConfigSubDirName        = configSubDirName
-	ReadAll                 = (*ConfigFiles).readAll
-	WriteOrRemove           = (ConfigFiles).writeOrRemove
-	FixMAAS                 = (ConfigFiles).fixMAAS
-	IfaceConfigFileName     = ifaceConfigFileName
-	SplitByInterfaces       = splitByInterfaces
-	SourceCommentAndCommand = sourceCommentAndCommand
-)
-
-func IsRunningInLXC(machineTag names.MachineTag) bool {
-	nw := &networker{tag: machineTag}
+// IsRunningInLXC is a helper for testing isRunningInLXC.
+func IsRunningInLXC(machineId string) bool {
+	nw := &Networker{tag: names.NewMachineTag(machineId)}
 	return nw.isRunningInLXC()
 }
 
-func ChangeConfigDirName(dirName string) {
-	configDirName = dirName
-	configFileName = filepath.Join(configDirName, "interfaces")
-	configSubDirName = filepath.Join(configDirName, "interfaces.d")
-	ConfigDirName = configDirName
-	ConfigFileName = configFileName
-	ConfigSubDirName = configSubDirName
+// IsVLANModuleLoaded returns whether 8021q kernel module has been
+// loaded.
+func (nw *Networker) IsVLANModuleLoaded() bool {
+	return nw.isVLANSupportInstalled
 }

@@ -272,11 +272,11 @@ func isVirtualNetworkExist(err error) bool {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (err error) {
+func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil && !isHTTPConflict(err) {
-		return err
+		return "", "", nil, err
 	}
 	// If we fail after this point, clean up the affinity group.
 	defer func() {
@@ -287,7 +287,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 
 	err = env.createVirtualNetwork()
 	if err != nil && !isVirtualNetworkExist(err) {
-		return err
+		return "", "", nil, err
 	}
 	// If we fail after this point, clean up the virtual network.
 	defer func() {
@@ -642,7 +642,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
-	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
+	err = environs.FinishMachineConfig(args.MachineConfig, env.Config())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -786,10 +786,6 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 // getInitialEndpoints returns a slice of the endpoints every instance should have open
 // (ssh port, etc).
 func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndpoint {
-	// TODO(axw) either proxy ssh traffic through one of the
-	// randomly chosen VMs to the internal address, or otherwise
-	// don't load balance SSH and provide a way of getting the
-	// local port.
 	cfg := env.Config()
 	endpoints := []gwacl.InputEndpoint{{
 		LocalPort: 22,
@@ -799,11 +795,6 @@ func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndp
 	}}
 	if stateServer {
 		endpoints = append(endpoints, []gwacl.InputEndpoint{{
-			LocalPort: cfg.StatePort(),
-			Port:      cfg.StatePort(),
-			Protocol:  "tcp",
-			Name:      "stateport",
-		}, {
 			LocalPort: cfg.APIPort(),
 			Port:      cfg.APIPort(),
 			Protocol:  "tcp",

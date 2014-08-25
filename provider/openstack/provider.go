@@ -669,13 +669,13 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	err := e.client.Authenticate()
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
 }
@@ -953,7 +953,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 	args.MachineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
@@ -983,7 +983,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1338,19 +1338,13 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
+func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
 	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
 				FromPort:   22,
 				ToPort:     22,
-				Cidr:       "0.0.0.0/0",
-			},
-			{
-				IPProtocol: "tcp",
-				FromPort:   statePort,
-				ToPort:     statePort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -1388,8 +1382,8 @@ func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (no
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
+func (e *environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), apiPort)
 	if err != nil {
 		return nil, err
 	}

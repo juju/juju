@@ -7,6 +7,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/names"
 )
 
 // InstanceIdGetter implements a common InstanceId method for use by
@@ -26,7 +27,7 @@ func NewInstanceIdGetter(st state.EntityFinder, getCanRead GetAuthFunc) *Instanc
 	}
 }
 
-func (ig *InstanceIdGetter) getInstanceId(tag string) (instance.Id, error) {
+func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
 	entity0, err := ig.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -49,10 +50,15 @@ func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResul
 		return result, err
 	}
 	for i, entity := range args.Entities {
-		err := ErrPerm
-		if canRead(entity.Tag) {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		err = ErrPerm
+		if canRead(tag) {
 			var instanceId instance.Id
-			instanceId, err = ig.getInstanceId(entity.Tag)
+			instanceId, err = ig.getInstanceId(tag)
 			if err == nil {
 				result.Results[i].Result = string(instanceId)
 			}

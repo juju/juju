@@ -34,6 +34,8 @@ import (
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" >> $0.args"
@@ -153,7 +155,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.MachineConfig, *coreCloudinit.Config) error {
 		return nil
 	})
 }
@@ -188,19 +190,26 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 	c.Skip("StartInstance not implemented yet.")
 }
 
-func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env environs.Environ) {
+func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs.Environ {
 	ctx := coretesting.Context(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	err = environ.Bootstrap(ctx, environs.BootstrapParams{})
+	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "system-key", "quantal")
+	c.Assert(err, gc.IsNil)
+	mcfg.Tools = &coretools.Tools{
+		Version: version.Current, URL: "http://testing.invalid/tools.tar.gz",
+	}
+	err = finalizer(ctx, mcfg)
 	c.Assert(err, gc.IsNil)
 	return environ
 }
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+	s.PatchValue(local.ExecuteCloudConfig, func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
 		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
 		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
 		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)

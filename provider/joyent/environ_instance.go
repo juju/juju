@@ -104,7 +104,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 
 	args.MachineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)

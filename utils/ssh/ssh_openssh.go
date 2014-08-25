@@ -128,7 +128,7 @@ func (c *OpenSSHClient) Command(host string, command []string, options *Options)
 		args = append(args, command...)
 	}
 	bin, args := sshpassWrap("ssh", args)
-	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
+	logger.Tracef("running: %s %s", bin, utils.CommandString(args...))
 	return &Cmd{impl: &opensshCmd{exec.Command(bin, args...)}}
 }
 
@@ -145,7 +145,7 @@ func (c *OpenSSHClient) Copy(args []string, userOptions *Options) error {
 	cmd := exec.Command(bin, allArgs...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
+	logger.Tracef("running: %s %s", bin, utils.CommandString(args...))
 	if err := cmd.Run(); err != nil {
 		stderr := strings.TrimSpace(stderr.String())
 		if len(stderr) > 0 {

@@ -16,7 +16,7 @@ import (
 // EntityFinder is implemented by *State. See State.FindEntity
 // for documentation on the method.
 type EntityFinder interface {
-	FindEntity(tag string) (Entity, error)
+	FindEntity(tag names.Tag) (Entity, error)
 }
 
 var _ EntityFinder = (*State)(nil)

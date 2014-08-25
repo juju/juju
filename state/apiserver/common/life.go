@@ -4,8 +4,10 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/names"
 )
 
 // LifeGetter implements a common Life method for use by various facades.
@@ -23,7 +25,7 @@ func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
 	}
 }
 
-func (lg *LifeGetter) oneLife(tag string) (params.Life, error) {
+func (lg *LifeGetter) oneLife(tag names.Tag) (params.Life, error) {
 	entity0, err := lg.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -45,12 +47,17 @@ func (lg *LifeGetter) Life(args params.Entities) (params.LifeResults, error) {
 	}
 	canRead, err := lg.getCanRead()
 	if err != nil {
-		return params.LifeResults{}, err
+		return params.LifeResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		err := ErrPerm
-		if canRead(entity.Tag) {
-			result.Results[i].Life, err = lg.oneLife(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		err = ErrPerm
+		if canRead(tag) {
+			result.Results[i].Life, err = lg.oneLife(tag)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

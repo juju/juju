@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/txn"
 
 	"github.com/juju/juju/state"
@@ -15,20 +16,20 @@ import (
 )
 
 type notSupportedError struct {
-	entity    string
+	tag       names.Tag
 	operation string
 }
 
 func (e *notSupportedError) Error() string {
-	return fmt.Sprintf("entity %q does not support %s", e.entity, e.operation)
+	return fmt.Sprintf("entity %q does not support %s", e.tag, e.operation)
 }
 
-func NotSupportedError(entity, operation string) error {
-	return &notSupportedError{entity, operation}
+func NotSupportedError(tag names.Tag, operation string) error {
+	return &notSupportedError{tag, operation}
 }
 
 type noAddressSetError struct {
-	unitTag     string
+	unitTag     names.UnitTag
 	addressName string
 }
 
@@ -36,7 +37,7 @@ func (e *noAddressSetError) Error() string {
 	return fmt.Sprintf("%q has no %s address set", e.unitTag, e.addressName)
 }
 
-func NoAddressSetError(unitTag, addressName string) error {
+func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
 	return &noAddressSetError{unitTag, addressName}
 }
 

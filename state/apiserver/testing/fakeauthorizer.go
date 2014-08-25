@@ -13,17 +13,8 @@ type FakeAuthorizer struct {
 	EnvironManager bool
 }
 
-func (fa FakeAuthorizer) AuthOwner(tag string) bool {
-	return fa.Tag == mustParseTag(tag)
-}
-
-// temporary method until common/Authorizer.AuthOwner takes a names.Tag not a string.
-func mustParseTag(tag string) names.Tag {
-	t, err := names.ParseTag(tag)
-	if err != nil {
-		panic(err)
-	}
-	return t
+func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
+	return fa.Tag == tag
 }
 
 func (fa FakeAuthorizer) AuthEnvironManager() bool {
