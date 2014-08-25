@@ -78,7 +78,9 @@ func agentConfig(tag, datadir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir}
 }
 
-func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
+func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
+	err := s.machine.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
 	config := agentConfig(s.machine.Tag().String(), s.DataDir())
 	return upgrader.NewUpgrader(s.state.Upgrader(), config)
 }
@@ -94,7 +96,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -114,7 +116,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -136,7 +138,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	// it's been stopped.
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -164,7 +166,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		return retryc
 	}
 	dummy.Poison(s.Conn.Environ.Storage(), envtools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	defer u.Stop()
 
 	for i := 0; i < 3; i++ {
@@ -231,7 +233,7 @@ func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
 	// We've already downloaded the tools, so change the URL to be
 	// something invalid and ensure we don't actually get an error, because
 	// it doesn't actually do an HTTP request
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	newTools.URL = "http://0.1.2.3/invalid/path/tools.tgz"
 	err := upgrader.EnsureTools(u, newTools, utils.VerifySSLHostnames)
 	c.Assert(err, gc.IsNil)
@@ -246,7 +248,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	err = u.Stop()
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
@@ -269,7 +271,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
