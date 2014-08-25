@@ -160,7 +160,7 @@ func newLeaf(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string, e
 			CommonName:   "*",
 			Organization: []string{"juju"},
 		},
-		NotBefore: now.UTC().Add(-5 * time.Minute),
+		NotBefore: now.UTC().AddDate(0, 0, -7),
 		NotAfter:  expiry.UTC(),
 
 		SubjectKeyId: bigIntHash(key.N),

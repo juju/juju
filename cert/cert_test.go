@@ -16,8 +16,8 @@ import (
 	"testing"
 	"time"
 
-	gc "launchpad.net/gocheck"
 	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
 )
@@ -64,9 +64,10 @@ func (certSuite) TestNewCA(c *gc.C) {
 
 	c.Check(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
 	c.Check(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
+	// Check that the certificate is valid from one week before today.
 	c.Check(caCert.NotBefore.Before(now), jc.IsTrue)
-	c.Check(caCert.NotBefore.Before(now.AddDate(0,0,-6)), jc.IsTrue)
-	c.Check(caCert.NotBefore.After(now.AddDate(0,0,-8)), jc.IsTrue)
+	c.Check(caCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
+	c.Check(caCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
 	c.Check(caCert.NotAfter.Equal(expiry), gc.Equals, true)
 	c.Check(caCert.BasicConstraintsValid, gc.Equals, true)
 	c.Check(caCert.IsCA, gc.Equals, true)
@@ -74,7 +75,8 @@ func (certSuite) TestNewCA(c *gc.C) {
 }
 
 func (certSuite) TestNewServer(c *gc.C) {
-	expiry := roundTime(time.Now().AddDate(1, 0, 0))
+	now := time.Now()
+	expiry := roundTime(now.AddDate(1, 0, 0))
 	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
 	c.Assert(err, gc.IsNil)
 
@@ -88,6 +90,10 @@ func (certSuite) TestNewServer(c *gc.C) {
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
 	c.Assert(err, gc.IsNil)
 	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")
+	// Check that the certificate is valid from one week before today.
+	c.Check(srvCert.NotBefore.Before(now), jc.IsTrue)
+	c.Check(srvCert.NotBefore.Before(now.AddDate(0, 0, -6)), jc.IsTrue)
+	c.Check(srvCert.NotBefore.After(now.AddDate(0, 0, -8)), jc.IsTrue)
 	c.Assert(srvCert.NotAfter.Equal(expiry), gc.Equals, true)
 	c.Assert(srvCert.BasicConstraintsValid, gc.Equals, false)
 	c.Assert(srvCert.IsCA, gc.Equals, false)
@@ -169,9 +175,8 @@ func (certSuite) TestVerify(c *gc.C) {
 	err = cert.Verify(srvCert, caCert, now.Add(55*time.Second))
 	c.Assert(err, gc.IsNil)
 
-	// TODO(rog) why does this succeed?
-	// err = cert.Verify(srvCert, caCert, now.Add(-1 * time.Minute))
-	//c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
+	err = cert.Verify(srvCert, caCert, now.AddDate(0, 0, -8))
+	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
 
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
 	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
