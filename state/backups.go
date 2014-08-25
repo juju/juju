@@ -77,17 +77,17 @@ type backupMetadataDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
-func (doc *backupMetadataDoc) fileNotSet() bool {
-	if doc.Finished != 0 {
+func (doc *backupMetadataDoc) fileSet() bool {
+	if doc.Finished == 0 {
 		return false
 	}
-	if doc.Checksum != "" {
+	if doc.Checksum == "" {
 		return false
 	}
-	if doc.ChecksumFormat != "" {
+	if doc.ChecksumFormat == "" {
 		return false
 	}
-	if doc.Size != 0 {
+	if doc.Size == 0 {
 		return false
 	}
 	return true
@@ -114,7 +114,7 @@ func (doc *backupMetadataDoc) validate() error {
 	}
 
 	// Check the file-related fields.
-	if doc.fileNotSet() {
+	if !doc.fileSet() {
 		if doc.Stored {
 			return errors.New(`"Stored" flag is unexpectedly true`)
 		}
@@ -158,7 +158,7 @@ func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	meta.SetID(doc.ID)
 
 	// Exit early if file-related fields not set.
-	if doc.fileNotSet() {
+	if !doc.fileSet() {
 		return meta
 	}
 
