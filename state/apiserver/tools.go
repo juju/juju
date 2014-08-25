@@ -13,6 +13,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
@@ -23,16 +25,47 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// toolsHandler handles tool upload through HTTPS in the API server.
+// toolsHandler is the base type for uploading and downloading
+// tools over HTTPS via the API server.
 type toolsHandler struct {
 	httpHandler
 }
 
-func (h *toolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// toolsHandler handles tool upload through HTTPS in the API server.
+type toolsUploadHandler struct {
+	toolsHandler
+}
+
+// toolsHandler handles tool download through HTTPS in the API server.
+type toolsDownloadHandler struct {
+	toolsHandler
+}
+
+func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := h.validateEnvironUUID(r); err != nil {
+		h.sendError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	switch r.Method {
+	case "GET":
+		tools, verifyHostname, err := h.processGet(r)
+		if err != nil {
+			h.sendError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		h.sendTools(w, http.StatusOK, tools, verifyHostname)
+	default:
+		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
+	}
+}
+
+func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
 		h.authError(w, h)
 		return
 	}
+
 	if err := h.validateEnvironUUID(r); err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
@@ -73,8 +106,58 @@ func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message 
 	return h.sendJSON(w, statusCode, &params.ToolsResult{Error: err})
 }
 
-// processPost handles a charm upload POST request after authentication.
-func (h *toolsHandler) processPost(r *http.Request) (*tools.Tools, bool, error) {
+// processGet handles a tools GET request.
+func (h *toolsDownloadHandler) processGet(r *http.Request) (*tools.Tools, utils.SSLHostnameVerification, error) {
+	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
+	if err != nil {
+		return nil, false, err
+	}
+	cfg, err := h.state.EnvironConfig()
+	if err != nil {
+		return nil, false, err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, false, err
+	}
+	filter := tools.Filter{
+		Number: version.Number,
+		Series: version.Series,
+		Arch:   version.Arch,
+	}
+	tools, err := envtools.FindTools(env, version.Major, version.Minor, filter, false)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to find tools: %v", err)
+	}
+	verify := utils.SSLHostnameVerification(cfg.SSLHostnameVerification())
+	return tools[0], verify, nil
+}
+
+// sendTools streams the tools tarball to the client.
+func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tools *tools.Tools, verify utils.SSLHostnameVerification) {
+	client := utils.GetHTTPClient(verify)
+	resp, err := client.Get(tools.URL)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to get %q: %v", err.Error()))
+		return
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to read tools: %v", err.Error()))
+		return
+	}
+	w.Header().Set("Content-Type", "application/x-gtar")
+	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
+	w.WriteHeader(statusCode)
+	if _, err := w.Write(data); err != nil {
+		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to write tools: %v", err.Error()))
+		return
+	}
+}
+
+// processPost handles a tools upload POST request after authentication.
+func (h *toolsUploadHandler) processPost(r *http.Request) (*tools.Tools, bool, error) {
 	query := r.URL.Query()
 	binaryVersionParam := query.Get("binaryVersion")
 	if binaryVersionParam == "" {
@@ -94,7 +177,7 @@ func (h *toolsHandler) processPost(r *http.Request) (*tools.Tools, bool, error) 
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*tools.Tools, bool, error) {
+func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*tools.Tools, bool, error) {
 	// Set up a local temp directory for the tools tarball.
 	tmpDir, err := ioutil.TempDir("", "juju-upload-tools-")
 	if err != nil {
@@ -139,8 +222,7 @@ func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*
 }
 
 // uploadToStorage uploads the tools from the specified directory to environment storage.
-func (h *toolsHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir, toolsFilename string) (*tools.Tools, bool, error) {
-
+func (h *toolsUploadHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir, toolsFilename string) (*tools.Tools, bool, error) {
 	// SyncTools requires simplestreams metadata to find the tools to upload.
 	stor, err := filestorage.NewFileStorageWriter(toolsDir)
 	if err != nil {

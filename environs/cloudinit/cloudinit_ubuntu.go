@@ -22,6 +22,10 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
+const curlCommand = "curl -sSfw " +
+	"'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; " +
+	"size %{size_download} bytes; speed %{speed_download} bytes/s '"
+
 type ubuntuConfigure struct {
 	mcfg     *MachineConfig
 	conf     *cloudinit.Config
@@ -151,12 +155,33 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		}
 		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
-		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
-		curlCommand += " --retry 10"
-		if w.mcfg.DisableSSLHostnameVerification {
-			curlCommand += " --insecure"
+		var copyCmd string
+		curlCommand := curlCommand + " --retry 10"
+		if w.mcfg.Bootstrap {
+			if w.mcfg.DisableSSLHostnameVerification {
+				curlCommand += " --insecure"
+			}
+			copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
+		} else {
+			// Our CA certificates are unusable by curl (invalid subject name),
+			// so we must use --insecure. It doesn't actually matter, because
+			// there is no sensitive information being transmitted and we verify
+			// the tools' hash.
+
+			// TODO(axw) multi-source download. For now we're
+			// just picking the first API server address.
+			apiHostAddrs := w.mcfg.apiHostAddrs()
+
+			// TODO(axw) encode env UUID in URL when EnvironTag
+			// is guaranteed to be available in APIInfo.
+			urlbase := fmt.Sprintf("https://%s", apiHostAddrs[0])
+
+			copyCmd = fmt.Sprintf(
+				"%s --insecure -o $bin/tools.tar.gz %s",
+				curlCommand,
+				shquote(fmt.Sprintf("%s/tools/%s", urlbase, w.mcfg.Tools.Version)),
+			)
 		}
-		copyCmd := fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
 		w.conf.AddRunCmd(toolsDownloadCommandWithRetry(copyCmd))
 	}
