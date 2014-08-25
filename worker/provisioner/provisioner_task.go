@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -34,12 +35,7 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
-
-	// SetSafeMode sets a flag to indicate whether the provisioner task
-	// runs in safe mode or not. In safe mode, any running instances
-	// which do no exist in state are allowed to keep running rather than
-	// being shut down.
-	SetSafeMode(safeMode bool)
+	SetHarvestingMethod(method config.HarvestingMethod)
 }
 
 type MachineGetter interface {
@@ -51,7 +47,7 @@ var _ MachineGetter = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
 	machineTag names.MachineTag,
-	safeMode bool,
+	harvestingMethod config.HarvestingMethod,
 	machineGetter MachineGetter,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
@@ -60,16 +56,16 @@ func NewProvisionerTask(
 	imageStream string,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineTag:     machineTag,
-		machineGetter:  machineGetter,
-		machineWatcher: machineWatcher,
-		retryWatcher:   retryWatcher,
-		broker:         broker,
-		auth:           auth,
-		safeMode:       safeMode,
-		safeModeChan:   make(chan bool, 1),
-		machines:       make(map[string]*apiprovisioner.Machine),
-		imageStream:    imageStream,
+		machineTag:           machineTag,
+		machineGetter:        machineGetter,
+		machineWatcher:       machineWatcher,
+		retryWatcher:         retryWatcher,
+		broker:               broker,
+		auth:                 auth,
+		harvestingMethod:     harvestingMethod,
+		harvestingMethodChan: make(chan config.HarvestingMethod, 1),
+		machines:             make(map[string]*apiprovisioner.Machine),
+		imageStream:          imageStream,
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -79,18 +75,16 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag     names.MachineTag
-	machineGetter  MachineGetter
-	machineWatcher apiwatcher.StringsWatcher
-	retryWatcher   apiwatcher.NotifyWatcher
-	broker         environs.InstanceBroker
-	tomb           tomb.Tomb
-	auth           authentication.AuthenticationProvider
-	imageStream    string
-
-	safeMode     bool
-	safeModeChan chan bool
-
+	machineTag           names.MachineTag
+	machineGetter        MachineGetter
+	machineWatcher       apiwatcher.StringsWatcher
+	retryWatcher         apiwatcher.NotifyWatcher
+	broker               environs.InstanceBroker
+	tomb                 tomb.Tomb
+	auth                 authentication.AuthenticationProvider
+	imageStream          string
+	harvestingMethod     config.HarvestingMethod
+	harvestingMethodChan chan config.HarvestingMethod
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
@@ -124,11 +118,11 @@ func (task *provisionerTask) loop() error {
 	logger.Infof("Starting up provisioner task %s", task.machineTag)
 	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
-	// Don't allow the safe mode to change until we have
-	// read at least one set of changes, which will populate
-	// the task.machines map. Otherwise we will potentially
-	// see all legitimate instances as unknown.
-	var safeModeChan chan bool
+	// Don't allow the harvesting method to change until we have read
+	// at least one set of changes, which will populate the
+	// task.machines map. Otherwise we will potentially see all
+	// legitimate instances as unknown.
+	var harvestingMethodChan chan config.HarvestingMethod
 
 	// Not all provisioners have a retry channel.
 	var retryChan <-chan struct{}
@@ -151,17 +145,20 @@ func (task *provisionerTask) loop() error {
 			if err := task.processMachines(ids); err != nil {
 				return errors.Annotate(err, "failed to process updated machines")
 			}
-			// We've seen a set of changes. Enable safe mode change.
-			safeModeChan = task.safeModeChan
-		case safeMode := <-safeModeChan:
-			if safeMode == task.safeMode {
+			// We've seen a set of changes. Enable modification of
+			// harvesting method.
+			harvestingMethodChan = task.harvestingMethodChan
+		case harvestingMethod := <-harvestingMethodChan:
+			if harvestingMethod == task.harvestingMethod {
 				break
 			}
-			logger.Infof("safe mode changed to %v", safeMode)
-			task.safeMode = safeMode
-			if !safeMode {
-				// Safe mode has been disabled, so process current machines
-				// so that unknown machines will be immediately dealt with.
+
+			logger.Infof("harvesting method changed to %s", harvestingMethod.Description())
+			task.harvestingMethod = harvestingMethod
+
+			if harvestingMethod.Unknown() {
+
+				logger.Infof("harvesting unknown machines")
 				if err := task.processMachines(nil); err != nil {
 					return errors.Annotate(err, "failed to process machines after safe mode disabled")
 				}
@@ -175,9 +172,9 @@ func (task *provisionerTask) loop() error {
 }
 
 // SetSafeMode implements ProvisionerTask.SetSafeMode().
-func (task *provisionerTask) SetSafeMode(safeMode bool) {
+func (task *provisionerTask) SetHarvestingMethod(method config.HarvestingMethod) {
 	select {
-	case task.safeModeChan <- safeMode:
+	case task.harvestingMethodChan <- method:
 	case <-task.Dying():
 	}
 }
@@ -207,6 +204,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 
 func (task *provisionerTask) processMachines(ids []string) error {
 	logger.Tracef("processMachines(%v)", ids)
+
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ids); err != nil {
 		return err
@@ -226,10 +224,23 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	if err != nil {
 		return err
 	}
-	if task.safeMode {
-		logger.Infof("running in safe mode, unknown instances not stopped %v", instanceIds(unknown))
+	if !task.harvestingMethod.Unknown() {
+		logger.Infof(
+			"harvesting method is %s; unknown instances not stopped %v",
+			task.harvestingMethod.Description(),
+			instanceIds(unknown),
+		)
 		unknown = nil
 	}
+	if task.harvestingMethod.None() || !task.harvestingMethod.Destroyed() {
+		logger.Infof(
+			`provisioner-harvesting-method is set to "%s"; will not harvest %s`,
+			task.harvestingMethod.Description(),
+			instanceIds(stopping),
+		)
+		stopping = nil
+	}
+
 	if len(stopping) > 0 {
 		logger.Infof("stopping known instances %v", stopping)
 	}
@@ -265,6 +276,8 @@ func instanceIds(instances []instance.Instance) []string {
 	return ids
 }
 
+// Update the instances map. Update the machines map if a list of IDs
+// is given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instance.Instance)
 
@@ -475,7 +488,12 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			return task.setErrorStatus("cannot find tools for machine %q: %v", m, err)
 		}
 
-		startInstanceParams := constructStartInstanceParams(m, machineCfg, pInfo, possibleTools)
+		startInstanceParams := constructStartInstanceParams(
+			m,
+			machineCfg,
+			pInfo,
+			possibleTools,
+		)
 
 		if err := task.startMachine(m, pInfo, startInstanceParams); err != nil {
 			return errors.Annotatef(err, "cannot start machine %v", m)

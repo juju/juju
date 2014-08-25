@@ -106,6 +106,10 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		)
 	}
 
+	if _, ok := attrs["safe-mode"]; ok {
+		logger.Warningf(`Config attribute "safe-mode" has been deprecated. Please utilize the "provisioner-harvesting-method" config attribute instead.`)
+	}
+
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, err

@@ -752,35 +752,6 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *gc.C) {
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// create a machine
-	m0, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i0 := s.checkStartInstance(c, m0)
-
-	// create a second machine
-	m1, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i1 := s.checkStartInstance(c, m1)
-	stop(c, p)
-
-	// mark the first machine as dead
-	c.Assert(m0.EnsureDead(), gc.IsNil)
-
-	// remove the second machine entirely
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-	c.Assert(m1.Remove(), gc.IsNil)
-
-	// start a new provisioner to shut them both down
-	p = s.newEnvironProvisioner(c)
-	defer stop(c, p)
-	s.checkStopInstances(c, i0, i1)
-	s.waitRemoved(c, m0)
-}
-
 func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
@@ -904,7 +875,7 @@ func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machi
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, false, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, config.All, s.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// create a machine
@@ -916,7 +887,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.startUnknownInstance(c, "999")
 
 	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
-	task = s.newProvisionerTask(c, false, s.Environ, &mockMachineGetter{})
+	task = s.newProvisionerTask(c, config.All, s.Environ, &mockMachineGetter{})
 	defer func() {
 		err := task.Stop()
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
@@ -924,11 +895,9 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
+func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-
-	// First check that safe mode is initially off.
 
 	// create a machine
 	m0, err := s.addMachine()
@@ -947,7 +916,9 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	c.Assert(m1.EnsureDead(), gc.IsNil)
 	c.Assert(m1.Remove(), gc.IsNil)
 
-	s.checkStopInstances(c, i0, i1)
+	// We default to the destroyed method. Only the one we know is
+	// dead should be stopped; not the unknown instance.
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
 	s.waitRemoved(c, m0)
 
 	// insert our observer
@@ -955,7 +926,7 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	provisioner.SetObserver(p, cfgObserver)
 
 	// turn on safe mode
-	attrs := map[string]interface{}{"provisioner-safe-mode": true}
+	attrs := map[string]interface{}{"provisioner-harvesting-method": config.All.Description()}
 	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
@@ -963,31 +934,22 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 
 	// wait for the PA to load the new configuration
 	select {
-	case <-cfgObserver:
+	case newCfg := <-cfgObserver:
+		c.Assert(newCfg.ProvisionerHarvestMethod().Description(), gc.Equals, config.All.Description())
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("PA did not action config change")
 	}
 
-	// Now check that the provisioner has noticed safe mode is on.
-
-	// create a machine
 	m3, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
-	i3 := s.checkStartInstance(c, m3)
-
-	// create an instance out of band
-	i4 := s.startUnknownInstance(c, "999")
-
-	// mark the machine as dead
-	c.Assert(m3.EnsureDead(), gc.IsNil)
-
-	// check the machine's instance is stopped, and the other isn't
-	s.checkStopSomeInstances(c, []instance.Instance{i3}, []instance.Instance{i4})
-	s.waitRemoved(c, m3)
+	s.checkStartInstance(c, m3)
 }
 
 func (s *ProvisionerSuite) newProvisionerTask(
-	c *gc.C, safeMode bool, broker environs.InstanceBroker, machineGetter provisioner.MachineGetter,
+	c *gc.C,
+	harvestingMethod config.HarvestingMethod,
+	broker environs.InstanceBroker,
+	machineGetter provisioner.MachineGetter,
 ) provisioner.ProvisionerTask {
 
 	machineWatcher, err := s.provisioner.WatchEnvironMachines()
@@ -999,7 +961,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 	return provisioner.NewProvisionerTask(
 		names.NewMachineTag("0"),
-		safeMode,
+		harvestingMethod,
 		machineGetter,
 		machineWatcher,
 		retryWatcher,
@@ -1009,8 +971,74 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	)
 }
 
-func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, s.Environ, s.provisioner)
+func (s *ProvisionerSuite) TestUnknownReapsOnlyUnknown(c *gc.C) {
+
+	task := s.newProvisionerTask(c, config.Destroyed, s.Environ, s.provisioner)
+	defer stop(c, task)
+	task.SetHarvestingMethod(config.Unknown)
+
+	// Initially create a machine, and an unknown instance, with safe mode on.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+	i1 := s.startUnknownInstance(c, "999")
+
+	// Mark the first machine as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// When only harvesting destroyed machines, only one of the
+	// machines is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i1}, []instance.Instance{i0})
+	s.waitRemoved(c, m0)
+}
+
+func (s *ProvisionerSuite) TestNoneReapsNothing(c *gc.C) {
+
+	task := s.newProvisionerTask(c, config.Destroyed, s.Environ, s.provisioner)
+	defer stop(c, task)
+	task.SetHarvestingMethod(config.None)
+
+	// Initially create a machine, and an unknown instance, with safe mode on.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m0)
+	s.startUnknownInstance(c, "999")
+
+	// Mark the first machine as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// Ensure we're doing nothing.
+	s.checkNoOperations(c)
+
+}
+
+func (s *ProvisionerSuite) TestAllReapsUnknownInstances(c *gc.C) {
+
+	task := s.newProvisionerTask(c, config.Destroyed, s.Environ, s.provisioner)
+	defer stop(c, task)
+
+	// Initially create a machine, and an unknown instance, with safe mode on.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+	i1 := s.startUnknownInstance(c, "999")
+
+	// Mark the first machine as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// When only harvesting destroyed machines, only one of the
+	// machines is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
+	s.waitRemoved(c, m0)
+
+	// Once we set harvest to all, the second machine should be
+	// harvested.
+	task.SetHarvestingMethod(config.All)
+	s.checkStopInstances(c, i1)
+}
+
+func (s *ProvisionerSuite) TestUnknownReapsUnknownInstances(c *gc.C) {
+	task := s.newProvisionerTask(c, config.Destroyed, s.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -1026,15 +1054,15 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
 	s.waitRemoved(c, m0)
 
-	// turn off safe mode and check that the other machine is now stopped also.
-	task.SetSafeMode(false)
+	// Check that setting the harvest method has the intended affect.
+	task.SetHarvestingMethod(config.Unknown)
 	s.checkStopInstances(c, i1)
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	var e environs.Environ = &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, e, s.provisioner)
+	task := s.newProvisionerTask(c, config.All, e, s.provisioner)
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -1079,7 +1107,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, broker, s.provisioner)
+	task := s.newProvisionerTask(c, config.All, broker, s.provisioner)
 	defer stop(c, task)
 
 	added := s.ensureAvailability(c, 3)

@@ -196,25 +196,7 @@ var configTests = []configTest{
 			"ca-cert-path":        "~/othercert.pem",
 			"ca-private-key-path": "~/otherkey.pem",
 		},
-	}, /* {
-		about: "CA cert only from ~ path",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert-path":   "~/othercert.pem",
-			"ca-private-key": "",
-		},
 	}, {
-		about: "CA cert only as attribute",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        caCert,
-			"ca-private-key": "",
-		},
-	}, */{
 		about:       "CA cert and key as attributes",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -252,36 +234,7 @@ var configTests = []configTest{
 			"ca-private-key": invalidCAKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, /* {
-		about: "No CA cert or key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": "",
-		},
 	}, {
-		about: "CA key but no cert",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": caKey,
-		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, {
-		about: "No CA key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "foo",
-			"ca-private-key": "",
-		},
-		err: "bad CA certificate/key in configuration: no certificates found",
-	}, */{
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -477,30 +430,46 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
-		about:       "provisioner-safe-mode off",
+		about:       "provisioner-harvesting-method all",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": false,
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvesting-method": "all",
 		},
 	}, {
-		about:       "provisioner-safe-mode on",
+		about:       "provisioner-harvesting-method destroyed",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": true,
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvesting-method": "destroyed",
 		},
 	}, {
-		about:       "provisioner-safe-mode incorrect",
+		about:       "provisioner-harvesting-method unknown",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": "yes please",
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvesting-method": "unknown",
 		},
-		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
+	}, {
+		about:       "provisioner-harvesting-method none",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvesting-method": "none",
+		},
+	}, {
+		about:       "provisioner-harvesting-method incorrect",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvesting-method": "yes please",
+		},
+		err: `unknown harvesting method: yes please`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -1016,10 +985,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
-	if v, ok := test.attrs["provisioner-safe-mode"]; ok {
-		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
+	if v, ok := test.attrs["provisioner-harvesting-method"]; ok {
+		hvstMeth, err := config.ParseHarvestingMethod(v.(string))
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg.ProvisionerHarvestMethod(), gc.Equals, hvstMeth)
 	} else {
-		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
+		c.Assert(cfg.ProvisionerHarvestMethod(), gc.Equals, config.Destroyed)
 	}
 	sshOpts := cfg.BootstrapSSHOpts()
 	test.assertDuration(
@@ -1118,7 +1089,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"provisioner-safe-mode":     false,
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
@@ -1143,6 +1113,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
+	attrs["provisioner-harvesting-method"] = "destroyed"
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

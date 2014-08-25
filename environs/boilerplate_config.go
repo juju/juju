@@ -42,6 +42,21 @@ var configHeader = `
 #     $ juju switch myenv
 #
 
+# You can control how Juju harvests machines by specifying the
+# provisioner-harvesting-method variable. Options are as follows:
+#
+# Don't harvest any machines.
+# provisioner-harvesting-method: none
+#
+# Only harvest machines that Juju knows about and are dead.
+# provisioner-harvesting-method: destroyed
+#
+# Only harvest machines that Juju doesn't know about.
+# provisioner-harvesting-method: unknown
+#
+# Harvest all machines regardless of whether Juju knows about them or not.
+# provisioner-harvesting-method: all
+
 default: amazon
 
 environments:

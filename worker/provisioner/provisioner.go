@@ -101,7 +101,7 @@ func (p *provisioner) Stop() error {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(harvestingMethod config.HarvestingMethod) (ProvisionerTask, error) {
 	auth, err := authentication.NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 
 	task := NewProvisionerTask(
 		machineTag,
-		safeMode,
+		harvestingMethod,
 		p.st,
 		machineWatcher,
 		retryWatcher,
@@ -174,8 +174,8 @@ func (p *environProvisioner) loop() error {
 	}
 	p.broker = p.environ
 
-	safeMode := p.environ.Config().ProvisionerSafeMode()
-	task, err := p.getStartTask(safeMode)
+	harvestingMethod := p.environ.Config().ProvisionerHarvestMethod()
+	task, err := p.getStartTask(harvestingMethod)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (p *environProvisioner) loop() error {
 			if err := p.setConfig(environConfig); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
-			task.SetSafeMode(environConfig.ProvisionerSafeMode())
+			task.SetHarvestingMethod(environConfig.ProvisionerHarvestMethod())
 		}
 	}
 }
@@ -248,7 +248,7 @@ func NewContainerProvisioner(containerType instance.ContainerType, st *apiprovis
 }
 
 func (p *containerProvisioner) loop() error {
-	task, err := p.getStartTask(false)
+	task, err := p.getStartTask(config.All)
 	if err != nil {
 		return err
 	}
