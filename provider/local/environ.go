@@ -352,14 +352,14 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	// For LXC containers we update the tools URL to point to a mounted directory
 	// and the container then copies the tools from there. This is in response
 	// to bug 1357552.
-//	if env.config.container() == instance.LXC {
-//		storageReleasesDir, err := env.Storage().URL("tools/releases")
-//		if err != nil {
-//			return nil, nil, nil, err
-//		}
-//		args.MachineConfig.Tools.URL = strings.Replace(
-//			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
-//	}
+	if env.config.container() == instance.LXC {
+		storageReleasesDir, err := env.Storage().URL("tools/releases")
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		args.MachineConfig.Tools.URL = strings.Replace(
+			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
+	}
 
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
