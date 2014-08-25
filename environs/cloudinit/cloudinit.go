@@ -4,11 +4,13 @@
 package cloudinit
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"path"
 	"strings"
+	"text/template"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -225,6 +227,29 @@ func AddAptCommands(proxySettings proxy.Settings, c *cloudinit.Config) {
 	}
 }
 
+// toolsDownloadTemplate is a bash template that attempts up to 5 times
+// to run the tools download command.
+const toolsDownloadTemplate = `
+for n in $(seq 1 5); do
+   echo "Attempt $n to download tools..."
+   {{.ToolsDownloadCommand}} && echo "Tools downloaded successfully." && break
+   if [ $n -lt 5 ]; then
+       echo "Download failed..... wait 15s"
+   fi
+   sleep 15
+done
+`
+
+func toolsDownloadCommandWithRetry(command string) string {
+	parsedTemplate := template.Must(template.New("").Parse(toolsDownloadTemplate))
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{"ToolsDownloadCommand": command})
+	if err != nil {
+		panic(errors.Annotate(err, "tools download template error"))
+	}
+	return buf.String()
+}
+
 // ConfigureJuju updates the provided cloudinit.Config with configuration
 // to initialise a Juju machine agent.
 func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
@@ -296,6 +321,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		}
 		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(cfg.Tools.URL))
 		c.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
+		copyCmd = toolsDownloadCommandWithRetry(copyCmd)
 	}
 	toolsJson, err := json.Marshal(cfg.Tools)
 	if err != nil {
