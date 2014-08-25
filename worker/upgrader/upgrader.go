@@ -86,11 +86,6 @@ func allowedTargetVersion(curVersion, targetVersion version.Number) bool {
 }
 
 func (u *Upgrader) loop() error {
-	currentTools := &coretools.Tools{Version: version.Current}
-	err := u.st.SetVersion(u.tag, currentTools.Version)
-	if err != nil {
-		return err
-	}
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag)
 	if err != nil {
 		return err
@@ -124,7 +119,7 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion == currentTools.Version.Number {
+		if wantVersion == version.Current.Number {
 			continue
 		} else if !allowedTargetVersion(version.Current.Number, wantVersion) {
 			// See also bug #1299802 where when upgrading from
@@ -136,7 +131,7 @@ func (u *Upgrader) loop() error {
 				wantVersion, version.Current)
 			continue
 		}
-		logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+		logger.Infof("upgrade requested from %v to %v", version.Current, wantVersion)
 		// TODO(dimitern) 2013-10-03 bug #1234715
 		// Add a testing HTTPS storage to verify the
 		// disableSSLHostnameVerification behavior here.
