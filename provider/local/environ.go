@@ -242,14 +242,9 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 	containerType := ecfg.container()
-	toolsDir := filepath.Join(env.config.storageDir(), "tools", "releases")
-	if _, err = os.Stat(toolsDir); err != nil {
-		toolsDir = ""
-	}
 	managerConfig := container.ManagerConfig{
-		container.ConfigName:     env.config.namespace(),
-		container.ConfigLogDir:   env.config.logDir(),
-		container.ConfigToolsDir: toolsDir,
+		container.ConfigName:   env.config.namespace(),
+		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
 		if useLxcClone, ok := cfg.LXCUseClone(); ok {
@@ -351,18 +346,6 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
-
-	// For LXC containers we update the tools URL to point to a mounted directory
-	// and the container then copies the tools from there. This is in response
-	// to bug 1357552.
-	if env.config.container() == instance.LXC {
-		storageReleasesDir, err := env.Storage().URL("tools/releases")
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		args.MachineConfig.Tools.URL = strings.Replace(
-			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
-	}
 
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
