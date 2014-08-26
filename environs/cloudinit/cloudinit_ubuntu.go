@@ -22,9 +22,10 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
-const curlCommand = "curl -sSfw " +
-	"'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; " +
-	"size %{size_download} bytes; speed %{speed_download} bytes/s '"
+//const curlCommand = "curl -sSfw " +
+//	"'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; " +
+//	"size %{size_download} bytes; speed %{speed_download} bytes/s '"
+const aria2Command = "aria2c"
 
 type ubuntuConfigure struct {
 	mcfg     *MachineConfig
@@ -156,30 +157,29 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		var copyCmd string
-		curlCommand := curlCommand + " --retry 10"
+		aria2Command := aria2Command + " --max-tries=10 --retry-wait=3"
 		if w.mcfg.Bootstrap {
 			if w.mcfg.DisableSSLHostnameVerification {
-				curlCommand += " --insecure"
+				aria2Command += " --check-certificate=false"
 			}
-			copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
+			copyCmd = fmt.Sprintf("%s -d $bin -o tools.tar.gz %s", aria2Command, shquote(w.mcfg.Tools.URL))
 		} else {
-			// Our CA certificates are unusable by curl (invalid subject name),
-			// so we must use --insecure. It doesn't actually matter, because
-			// there is no sensitive information being transmitted and we verify
-			// the tools' hash.
+			var urls []string
+			for _, addr := range w.mcfg.apiHostAddrs() {
+				// TODO(axw) encode env UUID in URL when EnvironTag
+				// is guaranteed to be available in APIInfo.
+				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
+				urls = append(urls, shquote(url))
+			}
 
-			// TODO(axw) multi-source download. For now we're
-			// just picking the first API server address.
-			apiHostAddrs := w.mcfg.apiHostAddrs()
-
-			// TODO(axw) encode env UUID in URL when EnvironTag
-			// is guaranteed to be available in APIInfo.
-			urlbase := fmt.Sprintf("https://%s", apiHostAddrs[0])
-
+			// Our certificates are unusable by aria2c (invalid subject name),
+			// so we must disable certificate validation. It doesn't actually
+			// matter, because there is no sensitive information being transmitted
+			// and we verify the tools' hash after.
 			copyCmd = fmt.Sprintf(
-				"%s --insecure -o $bin/tools.tar.gz %s",
-				curlCommand,
-				shquote(fmt.Sprintf("%s/tools/%s", urlbase, w.mcfg.Tools.Version)),
+				"%s --check-certificate=false -d $bin -o tools.tar.gz %s",
+				aria2Command,
+				strings.Join(urls, " "),
 			)
 		}
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))

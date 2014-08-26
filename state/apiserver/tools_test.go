@@ -210,16 +210,28 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	}
 }
 
-func (s *toolsSuite) TestDownload(c *gc.C) {
+func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
+	s.testDownload(c, environ.UUID())
+}
 
+func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
+	s.testDownload(c, "")
+}
+
+func (s *toolsSuite) testDownload(c *gc.C, uuid string) {
 	stor := s.Environ.Storage()
 	envtesting.RemoveTools(c, stor)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
 
-	data := s.testDownload(c, tools.Version, environ.UUID())
+	resp, err := s.downloadRequest(c, tools.Version, uuid)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.HasLen, int(tools.Size))
+
 	hash := sha256.New()
 	hash.Write(data)
 	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
@@ -229,16 +241,6 @@ func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
 	resp, err := s.downloadRequest(c, version.Current, "dead-beef-123456")
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
-}
-
-func (s *toolsSuite) TestDownloadRejectsTopLevelPath(c *gc.C) {
-	url := s.toolsURL(c, "")
-	url.Path = fmt.Sprintf("/tools/%s", version.Current)
-	resp, err := s.sendRequest(c, "", "", "GET", url.String(), "", nil)
-	if resp != nil && resp.Body != nil {
-		resp.Body.Close()
-	}
-	c.Assert(err, gc.NotNil)
 }
 
 func (s *toolsSuite) toolsURL(c *gc.C, query string) *url.URL {
@@ -255,18 +257,13 @@ func (s *toolsSuite) toolsURI(c *gc.C, query string) string {
 	return s.toolsURL(c, query).String()
 }
 
-func (s *toolsSuite) testDownload(c *gc.C, version version.Binary, uuid string) []byte {
-	resp, err := s.downloadRequest(c, version, uuid)
-	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	c.Assert(err, gc.IsNil)
-	return data
-}
-
 func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) (*http.Response, error) {
 	url := s.toolsURL(c, "")
-	url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
+	if uuid == "" {
+		url.Path = fmt.Sprintf("/tools/%s", version)
+	} else {
+		url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
+	}
 	return s.sendRequest(c, "", "", "GET", url.String(), "", nil)
 }
 

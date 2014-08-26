@@ -192,7 +192,7 @@ func AddAptCommands(
 	// If we're not doing an update, adding these packages is
 	// meaningless.
 	if addUpdateScripts {
-		c.AddPackage("curl")
+		c.AddPackage("aria2")
 		c.AddPackage("cpu-checker")
 		// TODO(axw) 2014-07-02 #1277359
 		// Don't install bridge-utils in cloud-init;
