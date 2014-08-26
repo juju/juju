@@ -64,6 +64,9 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	if err != nil {
 		return "", "", nil, err
 	}
+	machineConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
+	machineConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   args.Constraints,
@@ -176,6 +179,9 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
 	cloudcfg := coreCloudinit.New()
+	cloudcfg.SetAptUpdate(machineConfig.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(machineConfig.EnableOSUpgrade)
+
 	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudcfg)
 	if err != nil {
 		return err

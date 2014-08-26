@@ -62,6 +62,10 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 // ConfigureScript generates the bash script that applies
 // the specified cloud-config.
 func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
+	if cloudcfg == nil {
+		panic("cloudcfg is nil")
+	}
+
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
 	// machine-updates-authkeys, using cloud-init config.
@@ -79,7 +83,7 @@ func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 		return "", err
 	}
 
-	// Add package sources and packages.
+	// Depending on cloudcfg, potentially add package sources and packages.
 	pkgcmds, err := addPackageCommands(cloudcfg)
 	if err != nil {
 		return "", err
@@ -124,6 +128,12 @@ const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
+	if cfg == nil {
+		panic("cfg is nil")
+	} else if !cfg.AptUpdate() && len(cfg.AptSources()) > 0 {
+		return nil, fmt.Errorf("update sources were specified, but OS updates have been disabled.")
+	}
+
 	// If apt_get_wrapper is specified, then prepend it to aptget.
 	aptget := aptget
 	wrapper := cfg.AptGetWrapper()
@@ -158,10 +168,12 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 			cmds = append(cmds, `printf '%s\n' `+contents+` > `+path)
 		}
 	}
-	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
+
+	if cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
 		cmds = append(cmds, aptget+"update")
 	}
+
 	if cfg.AptUpgrade() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
 		cmds = append(cmds, aptget+"upgrade")

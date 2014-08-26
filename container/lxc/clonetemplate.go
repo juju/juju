@@ -52,14 +52,18 @@ func templateUserData(
 	series string,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
+	enablePackageUpdates bool,
+	enableOSUpgrades bool,
 ) ([]byte, error) {
 	config := corecloudinit.New()
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	config.AddSSHAuthorizedKeys(authorizedKeys)
-	cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
-	cloudinit.AddAptCommands(aptProxy, config)
+	if enablePackageUpdates {
+		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
+	}
+	cloudinit.AddAptCommands(aptProxy, config, enablePackageUpdates, enableOSUpgrades)
 	config.AddScripts(
 		fmt.Sprintf(
 			"printf '%%s\n' %s > %s",
@@ -100,6 +104,8 @@ func EnsureCloneTemplate(
 	network *container.NetworkConfig,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
+	enablePackageUpdates bool,
+	enableOSUpgrades bool,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
@@ -121,7 +127,13 @@ func EnsureCloneTemplate(
 	}
 	logger.Infof("template does not exist, creating")
 
-	userData, err := templateUserData(series, authorizedKeys, aptProxy)
+	userData, err := templateUserData(
+		series,
+		authorizedKeys,
+		aptProxy,
+		enablePackageUpdates,
+		enableOSUpgrades,
+	)
 	if err != nil {
 		logger.Tracef("failed to create template user data for template: %v", err)
 		return nil, err

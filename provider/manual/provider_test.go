@@ -98,3 +98,39 @@ func (s *providerSuite) TestNullAlias(c *gc.C) {
 	c.Assert(p, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 }
+
+func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
+	p, err := environs.Provider("manual")
+	c.Assert(err, gc.IsNil)
+
+	attrs := manual.MinimalConfigValues()
+	testConfig, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+
+	validCfg, err := p.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+
+	// Unless specified, updates should default to false.
+	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, false)
+	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, false)
+}
+
+func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
+	p, err := environs.Provider("manual")
+	c.Assert(err, gc.IsNil)
+
+	attrs := manual.MinimalConfigValues()
+	attrs["enable-os-refresh-update"] = true
+	attrs["enable-os-upgrade"] = true
+
+	testConfig, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	validCfg, err := p.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+
+	// Our preferences should not have been overwritten.
+	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, true)
+}
