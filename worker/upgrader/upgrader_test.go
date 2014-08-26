@@ -86,8 +86,6 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 }
 
 func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
-	err := s.machine.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
 	return upgrader.NewUpgrader(
 		s.state.Upgrader(),
 		agentConfig(s.machine.Tag(), s.DataDir()),
@@ -107,7 +105,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader()
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -127,7 +125,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader()
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -149,7 +147,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	// it's been stopped.
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader()
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -177,7 +175,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		return retryc
 	}
 	dummy.Poison(s.Environ.Storage(), envtools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader()
 	defer u.Stop()
 
 	for i := 0; i < 3; i++ {
@@ -272,7 +270,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, downgradeTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader()
 	err = u.Stop()
 	// If the upgrade would have triggered, we would have gotten an
 	// UpgradeReadyError, since it was skipped, we get no error
@@ -295,7 +293,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := s.makeUpgrader(c)
+	u := s.makeUpgrader()
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
