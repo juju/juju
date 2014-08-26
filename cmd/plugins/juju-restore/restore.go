@@ -496,9 +496,9 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 		go func() {
 			err := runMachineUpdate(client, machine.Id, setAgentAddressScript(stateAddr))
 			if err != nil {
-				logger.Errorf("failed to update machine %s: %v", machine, err)
+				logger.Errorf("failed to update machine %s: %v", machine.Id, err)
 			} else {
-				progress("updated machine %s", machine)
+				progress("updated machine %s", machine.Id)
 			}
 			done <- err
 		}()
