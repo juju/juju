@@ -1640,10 +1640,10 @@ type stateServersDoc struct {
 // StateServerInfo holds information about currently
 // configured state server machines.
 type StateServerInfo struct {
-	// EnvUUID is the UUID of the initial environment. Only the initial
+	// EnvironmentTag identifies the initial environment. Only the initial
 	// environment is able to have machines that manage state. The initial
 	// environment is the environment that is created when bootstrapping.
-	EnvUUID string
+	EnvironmentTag names.EnvironTag
 
 	// MachineIds holds the ids of all machines configured
 	// to run a state server. It includes all the machine
@@ -1668,7 +1668,7 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
 	return &StateServerInfo{
-		EnvUUID:          doc.EnvUUID,
+		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil

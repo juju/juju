@@ -6,6 +6,7 @@ package state_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/mgo.v2"
@@ -37,7 +38,7 @@ type ConnSuite struct {
 	State        *state.State
 	policy       statetesting.MockPolicy
 	factory      *factory.Factory
-	envUUID      string
+	envTag       names.EnvironTag
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -58,7 +59,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	cs.State = TestingInitialize(c, cfg, &cs.policy)
 	uuid, ok := cfg.UUID()
-	cs.envUUID = uuid
+	cs.envTag = names.NewEnvironTag(uuid)
 	c.Assert(ok, jc.IsTrue)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")

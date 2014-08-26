@@ -40,7 +40,7 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 		st.Close()
 		return nil, errors.Annotate(err, "could not access state server info")
 	}
-	st.environTag = names.NewEnvironTag(ssInfo.EnvUUID)
+	st.environTag = ssInfo.EnvironmentTag
 	return st, nil
 }
 

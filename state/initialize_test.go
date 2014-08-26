@@ -88,7 +88,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{EnvUUID: uuid})
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{EnvironmentTag: names.NewEnvironTag(uuid)})
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
