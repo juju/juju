@@ -148,7 +148,8 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
-	mcfg.DisablePackageCommands = true
+	mcfg.EnableOSRefreshUpdate = env.config.Config.EnableOSRefreshUpdate()
+	mcfg.EnableOSUpgrade = env.config.Config.EnableOSUpgrade()
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
@@ -167,7 +168,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	// don't write proxy settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
 	mcfg.ProxySettings = proxy.Settings{}
+
 	cloudcfg := coreCloudinit.New()
+	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
 
 	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
 	// we now provide a symlink to the written file in the local log dir.

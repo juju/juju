@@ -14,6 +14,8 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/params"
@@ -128,12 +130,24 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
+
+		var config *config.Config
+		if defaultStore, err := configstore.Default(); err != nil {
+			return err
+		} else if config, err = c.Config(defaultStore); err != nil {
+			return err
+		}
+
 		args := manual.ProvisionMachineArgs{
 			Host:   c.Placement.Directive,
 			Client: client,
 			Stdin:  ctx.Stdin,
 			Stdout: ctx.Stdout,
 			Stderr: ctx.Stderr,
+			UpdateBehavior: &params.UpdateBehavior{
+				config.EnableOSRefreshUpdate(),
+				config.EnableOSUpgrade(),
+			},
 		}
 		machineId, err := manualProvisioner(args)
 		if err == nil {

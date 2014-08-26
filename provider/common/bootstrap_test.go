@@ -79,25 +79,33 @@ func configGetter(c *gc.C) configFunc {
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
+	env := &mockEnviron{
+		storage: newStorage(s, c),
+		config:  configGetter(c),
+	}
 
 	startInstance := func(
-		placement string, cons constraints.Value, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
-	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
-	) {
+		placement string,
+		cons constraints.Value,
+		_ []string,
+		possibleTools tools.List,
+		mcfg *cloudinit.MachineConfig,
+	) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
-		machineConfig, err := environs.NewBootstrapMachineConfig(cons, mcfg.SystemPrivateSSHKey, mcfg.Series)
+
+		// The machine config should set its upgrade behavior based on
+		// the environment config.
+		expectedMcfg, err := environs.NewBootstrapMachineConfig(cons, mcfg.SystemPrivateSSHKey, mcfg.Series)
 		c.Assert(err, gc.IsNil)
-		c.Assert(mcfg, gc.DeepEquals, machineConfig)
+		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
+		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+
+		c.Assert(mcfg, gc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 
-	env := &mockEnviron{
-		storage:       newStorage(s, c),
-		startInstance: startInstance,
-		config:        configGetter(c),
-	}
+	env.startInstance = startInstance
 
 	ctx := coretesting.Context(c)
 	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{

@@ -622,6 +622,13 @@ type ContainerManagerConfig struct {
 	ManagerConfig map[string]string
 }
 
+// UpdateBehavior contains settings that are duplicated in several
+// places. Let's just embed this instead.
+type UpdateBehavior struct {
+	EnableOSRefreshUpdate bool
+	EnableOSUpgrade       bool
+}
+
 // ContainerConfig contains information from the environment config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
@@ -631,6 +638,7 @@ type ContainerConfig struct {
 	Proxy                   proxy.Settings
 	AptProxy                proxy.Settings
 	PreferIPv6              bool
+	*UpdateBehavior
 }
 
 // ProvisioningScriptParams contains the parameters for the
@@ -642,9 +650,10 @@ type ProvisioningScriptParams struct {
 	// DataDir may be "", in which case the default will be used.
 	DataDir string
 
-	// DisablePackageCommands may be set to disable all package-related
-	// commands. It is then the responsibility of the provisioner to
-	// ensure that all the packages required by Juju are available.
+	// DisablePackageCommands may be set to disable all
+	// package-related commands. It is then the responsibility of the
+	// provisioner to ensure that all the packages required by Juju
+	// are available.
 	DisablePackageCommands bool
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
@@ -142,36 +143,49 @@ func preferFastLXC(release string) bool {
 	return value >= 14.04
 }
 
+// CreateContainer creates or clones an LXC container.
 func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
 	network *container.NetworkConfig,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	start := time.Now()
+) (inst instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+
+	// Check our preconditions
+	if manager == nil {
+		panic("manager is nil")
+	} else if series == "" {
+		panic("series not set")
+	} else if network == nil {
+		panic("network is nil")
+	}
+
+	// Log how long the start took
+	defer func(start time.Time) {
+		if err == nil {
+			logger.Tracef("container %q started: %v", inst.Id(), time.Now().Sub(start))
+		}
+	}(time.Now())
+
 	name := names.NewMachineTag(machineConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
+
 	// Create the cloud-init.
 	directory, err := container.NewDirectory(name)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "failed to create a directory for the container")
 	}
 	logger.Tracef("write cloud-init")
-	if manager.createWithClone {
-		// If we are using clone, disable the apt-get steps
-		machineConfig.DisablePackageCommands = true
-	}
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
-		logger.Errorf("failed to write user data: %v", err)
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "failed to write user data")
 	}
+
 	logger.Tracef("write the lxc.conf file")
 	configFile, err := writeLxcConfig(network, directory)
 	if err != nil {
-		logger.Errorf("failed to write config file: %v", err)
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "failed to write config file")
 	}
 
 	var lxcContainer golxc.Container
@@ -182,9 +196,11 @@ func (manager *containerManager) CreateContainer(
 			network,
 			machineConfig.AuthorizedKeys,
 			machineConfig.AptProxySettings,
+			machineConfig.EnableOSRefreshUpdate,
+			machineConfig.EnableOSUpgrade,
 		)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Annotate(err, "failed to retrieve the template to clone")
 		}
 		templateParams := []string{
 			"--debug",                      // Debug errors in the cloud image
@@ -201,13 +217,12 @@ func (manager *containerManager) CreateContainer(
 
 		lock, err := AcquireTemplateLock(templateContainer.Name(), "clone")
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to acquire lock on template: %v", err)
+			return nil, nil, errors.Annotate(err, "failed to acquire lock on template")
 		}
 		defer lock.Unlock()
 		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
 		if err != nil {
-			logger.Errorf("lxc container cloning failed: %v", err)
-			return nil, nil, err
+			return nil, nil, errors.Annotate(err, "lxc container cloning failed")
 		}
 	} else {
 		// Note here that the lxcObjectFacotry only returns a valid container
@@ -220,19 +235,19 @@ func (manager *containerManager) CreateContainer(
 			"--hostid", name, // Use the container name as the hostid
 			"-r", series,
 		}
+
 		// Create the container.
 		logger.Tracef("create the container")
 		if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
-			logger.Errorf("lxc container creation failed: %v", err)
-			return nil, nil, err
+			return nil, nil, errors.Annotate(err, "lxc container creation failed")
 		}
-		logger.Tracef("lxc container created")
 	}
+
 	if err := autostartContainer(name); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "failed to configure the container for autostart")
 	}
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
 	}
 	if err := mountHostToolsDir(name, manager.toolsdir); err != nil {
 		return nil, nil, err
@@ -242,19 +257,19 @@ func (manager *containerManager) CreateContainer(
 	consoleFile := filepath.Join(directory, "console.log")
 	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
+
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
 	if err = lxcContainer.Start("", consoleFile); err != nil {
-		logger.Errorf("container failed to start: %v", err)
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
-	arch := version.Current.Arch
+
 	hardware := &instance.HardwareCharacteristics{
-		Arch: &arch,
+		Arch: &version.Current.Arch,
 	}
-	logger.Tracef("container %q started: %v", name, time.Now().Sub(start))
+
 	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 

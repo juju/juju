@@ -271,7 +271,14 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
 	template, err := lxc.EnsureCloneTemplate(
-		"ext4", "quantal", network, authorizedKeys, aptProxy)
+		"ext4",
+		"quantal",
+		network,
+		authorizedKeys,
+		aptProxy,
+		true,
+		true,
+	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(template.Name(), gc.Equals, name)
 	s.AssertEvent(c, <-s.events, mock.Created, name)

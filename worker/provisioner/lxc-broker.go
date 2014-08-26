@@ -88,6 +88,8 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.Proxy,
 		config.AptProxy,
 		config.PreferIPv6,
+		config.EnableOSRefreshUpdate,
+		config.EnableOSUpgrade,
 	); err != nil {
 		lxcLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, nil, err
