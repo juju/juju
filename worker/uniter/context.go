@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
@@ -67,8 +69,15 @@ type HookContext struct {
 	// id identifies the context.
 	id string
 
+	// actionTag is the handle to the action, if the hook was an action.
+	// This is necessary for calling back for ActionFailed / ActionCompleted.
+	actionTag names.ActionTag
+
 	// actionParams holds the set of arguments passed with the action.
 	actionParams map[string]interface{}
+
+	// actionResults holds the values set by action-set and action-fail.
+	actionResults *actionResults
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -104,10 +113,15 @@ type HookContext struct {
 
 	// canAddMetrics specifies whether the hook allows recording metrics
 	canAddMetrics bool
+
+	// state is the handle to the uniter State so that HookContext can make
+	// API calls on the stateservice.
+	state *uniter.State
 }
 
 func NewHookContext(
 	unit *uniter.Unit,
+	state *uniter.State,
 	id,
 	uuid,
 	envName string,
@@ -119,9 +133,11 @@ func NewHookContext(
 	proxySettings proxy.Settings,
 	actionParams map[string]interface{},
 	canAddMetrics bool,
+	actionTag names.ActionTag,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
+		state:          state,
 		id:             id,
 		uuid:           uuid,
 		envName:        envName,
@@ -143,6 +159,11 @@ func NewHookContext(
 	ctx.privateAddress, err = unit.PrivateAddress()
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
+	}
+
+	ctx.actionResults = &actionResults{
+		Results: map[string]interface{}{},
+		Status:  actionStatusInit,
 	}
 	return ctx, nil
 }
@@ -188,6 +209,11 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 
 func (ctx *HookContext) ActionParams() map[string]interface{} {
 	return ctx.actionParams
+}
+
+func (ctx *HookContext) ActionSetFailed(message string) {
+	ctx.actionResults.Message = message
+	ctx.actionResults.Status = actionStatusFailed
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -323,6 +349,7 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		}
 		rctx.ClearCache()
 	}
+
 	if err != nil {
 		return err
 	}
@@ -346,6 +373,26 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		ctx.metrics = nil
 	}
 	return err
+
+	// This short-circuits the Action related error, which otherwise is
+	// overwritten.  If ctx.actionTag was not empty, it is an Action.
+	if err != nil || (ctx.actionTag == names.ActionTag{}) {
+		if (ctx.actionTag == names.ActionTag{}) {
+			return err
+		}
+		// Otherwise, it was an action, but there was an error.
+		callError := ctx.state.ActionFail(ctx.actionTag, err.Error())
+		if callError != nil {
+			// Oh dear.  Stack the errors.  Best we can do.
+			err = errors.New(fmt.Sprintf("Action API error %s on top of error: %s", callError.Error(), err.Error()))
+		}
+		return err
+	}
+
+	if ctx.actionResults.Status == actionStatusFailed {
+		return ctx.state.ActionFail(ctx.actionTag, ctx.actionResults.Message)
+	}
+	return ctx.state.ActionComplete(ctx.actionTag, ctx.actionResults.Results)
 }
 
 // RunCommands executes the commands in an environment which allows it to to
@@ -383,7 +430,9 @@ func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmD
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
-	} else {
+	} else if ctx.actionResults.Status != actionStatusFailed {
+		// If the action has already failed before it is run, there's
+		// a bigger problem, probably validation failure.
 		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
 	}
 	return ctx.finalizeContext(hookName, err)
@@ -641,3 +690,20 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationS
 	}
 	return settings, nil
 }
+
+// actionResults contains the results of an action, and any response message.
+type actionResults struct {
+	Message string
+	Status  actionStatus
+	Results map[string]interface{}
+}
+
+// actionStatus defines the state of a completed Action.
+type actionStatus string
+
+// actionStatus messages define the possible states of a completed Action.
+const (
+	actionStatusInit     = "init"
+	actionStatusComplete = "completed"
+	actionStatusFailed   = "failed"
+)

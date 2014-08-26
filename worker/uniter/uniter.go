@@ -354,8 +354,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
-
+func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag names.ActionTag) (context *HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
@@ -377,9 +376,9 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
-	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
+	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		actionParams, canAddMetrics)
+		actionParams, canAddMetrics, actionTag)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -429,7 +428,8 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", map[string]interface{}(nil))
+	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", map[string]interface{}(nil), names.ActionTag{})
+
 	if err != nil {
 		return nil, err
 	}
@@ -498,6 +498,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 
 	hookName := string(hi.Kind)
 	actionParams := map[string]interface{}(nil)
+	actionTag := names.ActionTag{}
 
 	// This value is needed to pass results of Action param validation
 	// in case of error or invalidation.  This is probably bad form; it
@@ -512,7 +513,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 			return err
 		}
 	} else if hi.Kind == hooks.ActionRequested {
-		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
+		actionTag = names.NewActionTag(hi.ActionId)
+		action, err := u.st.Action(actionTag)
 		if err != nil {
 			return err
 		}
@@ -528,7 +530,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, actionParams)
+	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, actionParams, actionTag)
+
 	if err != nil {
 		return err
 	}
@@ -552,11 +555,25 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// with the location as "actions" instead of "hooks".
 	if hi.Kind == hooks.ActionRequested {
 		if actionParamsErr != nil {
-			logger.Errorf("action %q param validation failed: %s", hookName, actionParamsErr.Error())
-			u.notifyHookFailed(hookName, hctx)
-			return u.commitHook(hi)
+			hctx.ActionSetFailed(fmt.Sprintf("action %q param validation failed: %s", hookName, actionParamsErr.Error()))
 		}
 		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
+
+		if err != nil {
+			errMsg := fmt.Sprintf("action %q had unexpected failure: %s", hookName, err.Error())
+			if IsMissingHookError(err) {
+				errMsg = fmt.Sprintf("action %q not implemented on the charm: %s", hookName, err.Error())
+			}
+			logger.Errorf("action failed: %s", errMsg)
+			u.notifyHookFailed(hookName, hctx)
+			return errHookFailed
+		}
+		if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
+			return err
+		}
+		logger.Infof(hctx.actionResults.Message)
+		u.notifyHookCompleted(hookName, hctx)
+		return u.commitHook(hi)
 	} else {
 		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 	}

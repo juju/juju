@@ -213,6 +213,31 @@ exit 1
 `[1:],
 }
 
+var actionResults = map[string]struct {
+	results map[string]interface{}
+	message string
+	status  string
+}{
+	"snapshot": {
+		results: map[string]interface{}{},
+		status:  "completed",
+	},
+	"action-log": {
+		results: map[string]interface{}{},
+		status:  "completed",
+	},
+	"snapshot-badparams": {
+		results: map[string]interface{}{},
+		status:  "failed",
+		message: "verify failed",
+	},
+	"action-log-missing": {
+		results: map[string]interface{}{},
+		status:  "failed",
+		message: "action not implemented",
+	},
+}
+
 var actionsYaml = map[string]string{
 	"base": `
 actions:
@@ -1310,6 +1335,7 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitHooks{"action-log"},
+		verifyActionResults{"action-log"},
 	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
@@ -1331,6 +1357,7 @@ var actionEventTests = []uniterTest{
 			params: map[string]interface{}{"outfile": "foo.bar"},
 		},
 		waitHooks{"snapshot"},
+		verifyActionResults{"snapshot"},
 	), ut(
 		"actions with incorrect params passed are not an error but fail",
 		createCharm{
@@ -1351,10 +1378,11 @@ var actionEventTests = []uniterTest{
 			name:   "snapshot",
 			params: map[string]interface{}{"outfile": 2},
 		},
-		waitHooks{"fail-snapshot"},
+		waitHooks{"snapshot"},
+		verifyActionResults{"snapshot-badparams"},
 		waitUnit{status: params.StatusStarted},
 	), ut(
-		"actions not defined in actions.yaml fail without an error",
+		"actions not defined in actions.yaml fail",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "snapshot")
@@ -1369,7 +1397,8 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
-		waitHooks{"fail-snapshot"},
+		waitHooks{"snapshot"},
+		verifyActionResults{"snapshot-undefined"},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"pending actions get consumed",
@@ -1397,10 +1426,21 @@ var actionEventTests = []uniterTest{
 			"action-log",
 			"action-log",
 		},
+		verifyActionResults{
+			"action-log",
+			"action-log",
+			"action-log",
+		},
 		waitUnit{status: params.StatusStarted},
 	), ut(
-		"actions not implemented are not errors, similarly to hooks",
-		createCharm{},
+		"actions not implemented are errors, unlike hooks",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeActionsYaml(c, path, []string{
+					"action-log",
+				})
+			},
+		},
 		serveCharm{},
 		ensureStateWorker{},
 		createServiceAndUnit{},
@@ -1411,6 +1451,7 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitNoHooks{"action-log", "fail-action-log"},
+		verifyActionResults{"action-log-missing"},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
@@ -1963,6 +2004,39 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 			}
 		case <-timeout:
 			c.Fatalf("never got expected hooks")
+		}
+	}
+}
+
+type verifyActionResults []string
+
+func (s verifyActionResults) step(c *gc.C, ctx *context) {
+	timeout := time.After(worstCase)
+	for _, action := range s {
+		expected, ok := actionResults[action]
+		c.Assert(ok, gc.Equals, true)
+		c.Logf("Verifying action %q matches %#v", action, expected)
+		resultsWatcher := ctx.st.WatchActionResults()
+		for {
+			ctx.s.BackingState.StartSync()
+			select {
+			case <-timeout:
+				c.Fatalf("timed out waiting for action results")
+			case changes := <-resultsWatcher.Changes():
+				c.Logf("Got changes: %#v", changes)
+				for _, change := range changes {
+					c.Logf("Change: %s", change)
+					result, err := ctx.st.ActionResult(change)
+					c.Assert(err, gc.IsNil)
+					payload, message := result.Results()
+					status := string(result.Status())
+					name := result.ActionName()
+					c.Check(payload, jc.DeepEquals, expected.results)
+					c.Check(status, gc.Equals, expected.status)
+					c.Check(message, gc.Equals, expected.message)
+					c.Check(name, gc.Equals, action)
+				}
+			}
 		}
 	}
 }

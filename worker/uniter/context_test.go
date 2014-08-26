@@ -800,9 +800,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
+	context, err := uniter.NewHookContext(s.apiUnit, nil, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies, map[string]interface{}(nil), addMetrics)
+		proxies, map[string]interface{}(nil), addMetrics, names.ActionTag{})
 	c.Assert(err, gc.IsNil)
 	return context
 }
