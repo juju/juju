@@ -15,7 +15,6 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -58,7 +57,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
 	for _, arch := range arches {
 		v := version.Current
 		v.Arch = arch
-		for _, series := range bootstrap.ToolsLtsSeries {
+		for _, series := range envtools.ToolsLtsSeries {
 			v.Series = series
 			versions = append(versions, v)
 		}
@@ -204,7 +203,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	toolsSeries := set.NewStrings(bootstrap.ToolsLtsSeries...)
+	toolsSeries := set.NewStrings(envtools.ToolsLtsSeries...)
 	toolsSeries.Add(version.Current.Series)
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {

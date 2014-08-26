@@ -626,11 +626,11 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	series = config.PreferredSeries(e.Config())
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, args.Constraints.Arch)
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
 		return "", "", nil, err
 	}
-	arch = selectedTools.Arches()[0]
+	arch = availableTools.Arches()[0]
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
@@ -645,7 +645,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return "", "", nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	logger.Infof("would pick tools from %s", selectedTools)
+	logger.Infof("would pick tools from %s", availableTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
 		return "", "", nil, fmt.Errorf("cannot make bootstrap config: %v", err)

@@ -198,8 +198,9 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-2:], gc.DeepEquals, []string{
+	c.Assert(scripts[len(scripts)-3:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
+		"rm $bin/tools.tar.gz && rm $bin/juju2.3.4-quantal-amd64.sha256",
 		"ifconfig",
 	})
 

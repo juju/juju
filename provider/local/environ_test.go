@@ -196,13 +196,17 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{})
+	availableTools := coretools.List{&coretools.Tools{
+		Version: version.Current,
+		URL:     "http://testing.invalid/tools.tar.gz",
+	}}
+	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		AvailableTools: availableTools,
+	})
 	c.Assert(err, gc.IsNil)
 	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "system-key", "quantal")
 	c.Assert(err, gc.IsNil)
-	mcfg.Tools = &coretools.Tools{
-		Version: version.Current, URL: "http://testing.invalid/tools.tar.gz",
-	}
+	mcfg.Tools = availableTools[0]
 	err = finalizer(ctx, mcfg)
 	c.Assert(err, gc.IsNil)
 	return environ

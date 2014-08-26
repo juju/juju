@@ -8,12 +8,14 @@ import (
 	"runtime"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -93,6 +95,14 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Before starting any workers, ensure we record the Juju version this unit
+	// agent is running.
+	currentTools := &tools.Tools{Version: version.Current}
+	if err := st.Upgrader().SetVersion(agentConfig.Tag(), currentTools.Version); err != nil {
+		return nil, errors.Annotate(err, "cannot set unit agent version")
+	}
+
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(

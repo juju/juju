@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
-	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -210,9 +209,6 @@ func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
 	})
 	s.PatchValue(&manualCheckProvisioned, func(string) (bool, error) {
 		return false, nil
-	})
-	s.PatchValue(&commonEnsureBootstrapTools, func(environs.BootstrapContext, environs.Environ, string, *string) (coretools.List, error) {
-		return nil, nil
 	})
 
 	// use-sshstorage is initially true.
