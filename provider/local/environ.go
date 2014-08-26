@@ -42,6 +42,7 @@ import (
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -110,8 +111,12 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return "", "", nil, err
 	}
 
-	vers := version.Current
-	if _, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch); err != nil {
+	// Make sure there are tools available for the
+	// host's architecture and series.
+	if _, err := args.AvailableTools.Match(tools.Filter{
+		Arch:   version.Current.Arch,
+		Series: version.Current.Series,
+	}); err != nil {
 		return "", "", nil, err
 	}
 
@@ -237,14 +242,9 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 	containerType := ecfg.container()
-	toolsDir := filepath.Join(env.config.storageDir(), "tools", "releases")
-	if _, err = os.Stat(toolsDir); err != nil {
-		toolsDir = ""
-	}
 	managerConfig := container.ManagerConfig{
-		container.ConfigName:     env.config.namespace(),
-		container.ConfigLogDir:   env.config.logDir(),
-		container.ConfigToolsDir: toolsDir,
+		container.ConfigName:   env.config.namespace(),
+		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
 		if useLxcClone, ok := cfg.LXCUseClone(); ok {
@@ -346,18 +346,6 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
-
-	// For LXC containers we update the tools URL to point to a mounted directory
-	// and the container then copies the tools from there. This is in response
-	// to bug 1357552.
-	if env.config.container() == instance.LXC {
-		storageReleasesDir, err := env.Storage().URL("tools/releases")
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		args.MachineConfig.Tools.URL = strings.Replace(
-			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
-	}
 
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)

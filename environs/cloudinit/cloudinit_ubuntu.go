@@ -5,10 +5,13 @@
 package cloudinit
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"strings"
+	"text/template"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -134,34 +137,46 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		fmt.Sprintf("chown syslog:adm %s", w.mcfg.LogDir),
 	)
 
+	w.conf.AddScripts(
+		"bin="+shquote(w.mcfg.jujuTools()),
+		"mkdir -p $bin",
+	)
+
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	var copyCmd string
 	if strings.HasPrefix(w.mcfg.Tools.URL, fileSchemePrefix) {
-		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(w.mcfg.Tools.URL[len(fileSchemePrefix):]))
+		toolsData, err := ioutil.ReadFile(w.mcfg.Tools.URL[len(fileSchemePrefix):])
+		if err != nil {
+			return err
+		}
+		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
 		curlCommand += " --retry 10"
 		if w.mcfg.DisableSSLHostnameVerification {
 			curlCommand += " --insecure"
 		}
-		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
+		copyCmd := fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
+		w.conf.AddRunCmd(toolsDownloadCommandWithRetry(copyCmd))
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
 		return err
 	}
+
 	w.conf.AddScripts(
-		"bin="+shquote(w.mcfg.jujuTools()),
-		"mkdir -p $bin",
-		copyCmd,
 		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.mcfg.Tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			w.mcfg.Tools.SHA256, w.mcfg.Tools.Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
 		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
+	)
+
+	// Don't remove tools tarball until after bootstrap agent
+	// runs, so it has a chance to add it to its catalogue.
+	defer w.conf.AddRunCmd(
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
 	)
 
 	// We add the machine agent's configuration info
@@ -208,6 +223,29 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	}
 
 	return w.addMachineAgentToBoot(machineTag.String())
+}
+
+// toolsDownloadTemplate is a bash template that attempts up to 5 times
+// to run the tools download command.
+const toolsDownloadTemplate = `
+for n in $(seq 1 5); do
+    echo "Attempt $n to download tools..."
+    {{.ToolsDownloadCommand}} && echo "Tools downloaded successfully." && break
+    if [ $n -lt 5 ]; then
+        echo "Download failed..... wait 15s"
+    fi
+    sleep 15
+done
+`
+
+func toolsDownloadCommandWithRetry(command string) string {
+	parsedTemplate := template.Must(template.New("").Parse(toolsDownloadTemplate))
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{"ToolsDownloadCommand": command})
+	if err != nil {
+		panic(errors.Annotate(err, "tools download template error"))
+	}
+	return buf.String()
 }
 
 func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {

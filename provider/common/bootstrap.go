@@ -20,7 +20,6 @@ import (
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -42,11 +41,9 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
-	network.InitializeFromConfig(env.Config())
-
 	// First thing, ensure we have tools otherwise there's no point.
 	series = config.PreferredSeries(env.Config())
-	selectedTools, err := EnsureBootstrapTools(ctx, env, series, args.Constraints.Arch)
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -70,7 +67,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   args.Constraints,
-		Tools:         selectedTools,
+		Tools:         availableTools,
 		MachineConfig: machineConfig,
 		Placement:     args.Placement,
 	})
@@ -397,15 +394,4 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 			return result.(*hostChecker).addr.Value, nil
 		}
 	}
-}
-
-// EnsureBootstrapTools finds tools, syncing with an external tools source as
-// necessary; it then selects the newest tools to bootstrap with, and sets
-// agent-version.
-func EnsureBootstrapTools(ctx environs.BootstrapContext, env environs.Environ, series string, arch *string) (coretools.List, error) {
-	possibleTools, err := bootstrap.EnsureToolsAvailability(ctx, env, series, arch)
-	if err != nil {
-		return nil, err
-	}
-	return bootstrap.SetBootstrapTools(env, possibleTools)
 }

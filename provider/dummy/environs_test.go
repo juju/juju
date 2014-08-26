@@ -115,7 +115,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ 
 	envtesting.UploadFakeTools(c, e.Storage())
 	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(testing.Context(c), e, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(testing.Context(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	return e
 }

@@ -70,7 +70,6 @@ func containerDirFilesystem() (string, error) {
 type containerManager struct {
 	name              string
 	logdir            string
-	toolsdir          string
 	createWithClone   bool
 	useAUFS           bool
 	backingFilesystem string
@@ -91,7 +90,6 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if logDir == "" {
 		logDir = agent.DefaultLogDir
 	}
-	toolsDir := conf.PopValue(container.ConfigToolsDir)
 	var useClone bool
 	useCloneVal := conf.PopValue("use-clone")
 	if useCloneVal != "" {
@@ -119,7 +117,6 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	return &containerManager{
 		name:              name,
 		logdir:            logDir,
-		toolsdir:          toolsDir,
 		createWithClone:   useClone,
 		useAUFS:           useAUFS,
 		backingFilesystem: backingFS,
@@ -249,9 +246,6 @@ func (manager *containerManager) CreateContainer(
 	if err := mountHostLogDir(name, manager.logdir); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to mount the directory to log to")
 	}
-	if err := mountHostToolsDir(name, manager.toolsdir); err != nil {
-		return nil, nil, err
-	}
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
@@ -318,23 +312,6 @@ func mountHostLogDir(name, logDir string) error {
 	return appendToContainerConfig(name, line)
 }
 
-func mountHostToolsDir(name, toolsDir string) error {
-	if toolsDir == "" {
-		return nil
-	}
-	// Make sure that the mount dir has been created.
-	internalDir := internalToolsDir(name)
-	logger.Tracef("make the mount dir for the tools: %s", internalDir)
-	if err := os.MkdirAll(internalDir, 0755); err != nil {
-		logger.Errorf("failed to create internal /var/lib/juju/storage/tools mount dir: %v", err)
-		return err
-	}
-	line := fmt.Sprintf(
-		"lxc.mount.entry=%s var/lib/juju/storage/tools none defaults,bind 0 0\n",
-		toolsDir)
-	return appendToContainerConfig(name, line)
-}
-
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	start := time.Now()
 	name := string(id)
@@ -384,12 +361,6 @@ const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"
 
 func internalLogDir(containerName string) string {
 	return fmt.Sprintf(internalLogDirTemplate, LxcContainerDir, containerName)
-}
-
-const internalToolsDirTemplate = "%s/%s/rootfs/var/lib/juju/storage/tools"
-
-func internalToolsDir(containerName string) string {
-	return fmt.Sprintf(internalToolsDirTemplate, LxcContainerDir, containerName)
 }
 
 func restartSymlink(name string) string {
