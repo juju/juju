@@ -81,8 +81,8 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list")
-	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "upload tools for supplied comma-separated series list (DEPRECATED, see --upload-series)")
+	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
+	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
@@ -162,10 +162,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
 	if len(c.seriesOld) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. It is no longer necessary to specify this flag.")
+		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 	if len(c.Series) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is deprecated. It is no longer necessary to specify this flag.")
+		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
 	if c.ConnectionName() == "" {
