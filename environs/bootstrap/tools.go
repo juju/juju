@@ -77,13 +77,16 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 		return nil, findToolsErr
 	}
 
-	// The tools located may not include the ones that the
-	// provider requires. If we're running a development build
-	// then we augment the list of tools with those that we can
-	// build locally.
 	if !dev || (vers != nil && version.Current.Number != *vers) {
+		// We are not running a development build, or the target
+		// version does not match the local version; the only tools
+		// available are the ones we've just found.
 		return toolsList, findToolsErr
 	}
+	// The tools located may not include the ones that the
+	// provider requires. We are running a development build,
+	// so augment the list of tools with those that we can build
+	// locally.
 
 	// Collate the set of arch+series that are externally available
 	// so we can see if we need to build any locally. If we need
