@@ -263,6 +263,33 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 	}
 }
 
+func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
+	vers := version.Current
+	vers.Minor = version.Current.Minor + 1
+	_, unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	timeout := time.After(coretesting.LongWait)
+	for done := false; !done; {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for agent version to be set")
+		case <-time.After(coretesting.ShortWait):
+			err := unit.Refresh()
+			c.Assert(err, gc.IsNil)
+			agentTools, err := unit.AgentTools()
+			c.Assert(err, gc.IsNil)
+			if agentTools.Version.Minor != version.Current.Minor {
+				continue
+			}
+			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			done = true
+		}
+	}
+}
+
 func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	_, unit, _, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)

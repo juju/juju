@@ -694,6 +694,41 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	})
 }
 
+func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
+	vers := version.Current
+	vers.Minor = version.Current.Minor + 1
+	m, _, _ := s.primeAgent(c, vers, job)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	timeout := time.After(coretesting.LongWait)
+	for done := false; !done; {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for agent version to be set")
+		case <-time.After(coretesting.ShortWait):
+			err := m.Refresh()
+			c.Assert(err, gc.IsNil)
+			agentTools, err := m.AgentTools()
+			c.Assert(err, gc.IsNil)
+			if agentTools.Version.Minor != version.Current.Minor {
+				continue
+			}
+			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			done = true
+		}
+	}
+}
+
+func (s *MachineSuite) TestAgentSetsToolsVersionManageEnviron(c *gc.C) {
+	s.assertAgentSetsToolsVersion(c, state.JobManageEnviron)
+}
+
+func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
+	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
+}
+
 func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
