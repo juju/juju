@@ -66,6 +66,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
+		"default-series":  version.Current.Series,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
