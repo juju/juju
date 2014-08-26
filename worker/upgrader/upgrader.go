@@ -104,11 +104,6 @@ func allowedTargetVersion(
 }
 
 func (u *Upgrader) loop() error {
-	currentTools := &coretools.Tools{Version: version.Current}
-	err := u.st.SetVersion(u.tag.String(), currentTools.Version)
-	if err != nil {
-		return err
-	}
 	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return err
@@ -142,7 +137,7 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion == currentTools.Version.Number {
+		if wantVersion == version.Current.Number {
 			continue
 		} else if !allowedTargetVersion(u.origAgentVersion, version.Current.Number,
 			u.isUpgradeRunning(), wantVersion) {
@@ -155,7 +150,7 @@ func (u *Upgrader) loop() error {
 				wantVersion, version.Current)
 			continue
 		}
-		logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+		logger.Infof("upgrade requested from %v to %v", version.Current, wantVersion)
 
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion)
