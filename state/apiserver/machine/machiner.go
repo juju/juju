@@ -68,26 +68,33 @@ func (api *MachinerAPI) GetMachines(args params.GetMachinesV0) (params.GetMachin
 	results := params.GetMachinesResultsV0{
 		Machines: make([]params.GetMachinesResultV0, len(args.Tags)),
 	}
-	for i, tag := range args.Tags {
-		err := common.ErrPerm
-		var m *state.Machine
-		m, err = api.getMachine(tag)
-		if err == nil {
-			isManual, err := m.IsManual()
-			if err == nil {
-				life := m.Life()
-				results.Machines[i].Tag = tag
-				results.Machines[i].Life = params.Life(life.String())
-				results.Machines[i].IsManual = isManual
-			}
-		} else if errors.IsNotFound(err) {
-			err = common.ErrPerm
+	for i, atag := range args.Tags {
+		results.Machines[i].Tag = atag
+		tag, err := names.ParseTag(atag)
+		if err != nil {
+			results.Machines[i].Error = common.ServerError(err)
+			continue
 		}
-		results.Machines[i].Error = common.ServerError(err)
+		m, err := api.getMachine(tag)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				err = common.ErrPerm
+			}
+			results.Machines[i].Error = common.ServerError(err)
+			continue
+		}
+		isManual, err := m.IsManual()
+		if err != nil {
+			results.Machines[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Machines[i].Life = params.Life(m.Life().String())
+		results.Machines[i].IsManual = isManual
 	}
 	return results, nil
 }
 
+// SetMachineAddresses implements the API call SetMachineAddresses.
 func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),

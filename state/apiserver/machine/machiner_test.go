@@ -42,6 +42,40 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.machiner = machiner
 }
 
+func (s *machinerSuite) TestGetMachines(c *gc.C) {
+	args := params.GetMachinesV0{
+		Tags: []string{
+			"machine-0",
+			"machine-1",
+		},
+	}
+	result, err := s.machiner.GetMachines(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
+		Machines: []params.GetMachinesResultV0{
+			{"machine-0", params.Alive, false, nil},
+			{"machine-1", params.Alive, false, nil},
+		},
+	})
+}
+
+func (s *machinerSuite) TestGetMachinesNotFound(c *gc.C) {
+	args := params.GetMachinesV0{
+		Tags: []string{
+			"machine-0",
+			"machine-42",
+		},
+	}
+	result, err := s.machiner.GetMachines(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
+		Machines: []params.GetMachinesResultV0{
+			{"machine-0", params.Alive, false, nil},
+			{"machine-42", "", false, apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
