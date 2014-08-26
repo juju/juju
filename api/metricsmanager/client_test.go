@@ -4,38 +4,41 @@
 package metricsmanager_test
 
 import (
-	gc "launchpad.net/gocheck"
 	"time"
+
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/api/metricsmanager"
 	"github.com/juju/juju/testing/factory"
 )
 
-type metricsmanagerSuite struct {
+type metricsManagerSuite struct {
 	jujutesting.JujuConnSuite
 
-	metricsmanager *metricsmanager.Client
+	manager *metricsmanager.Client
 }
 
-var _ = gc.Suite(&metricsmanagerSuite{})
+var _ = gc.Suite(&metricsManagerSuite{})
 
-func (s *metricsmanagerSuite) SetUpTest(c *gc.C) {
+func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.metricsmanager = metricsmanager.NewClient(s.APIState)
-	c.Assert(s.metricsmanager, gc.NotNil)
+	s.manager = metricsmanager.NewClient(s.APIState)
+	c.Assert(s.manager, gc.NotNil)
 }
 
-func (s *metricsmanagerSuite) TestCleanupOldMetrics(c *gc.C) {
+func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
-	err := s.metricsmanager.CleanupOldMetrics()
+	err := s.manager.CleanupOldMetrics()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.MetricBatch(oldMetric.UUID())
-	c.Assert(err, gc.ErrorMatches, "not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.MetricBatch(newMetric.UUID())
 	c.Assert(err, gc.IsNil)
 }

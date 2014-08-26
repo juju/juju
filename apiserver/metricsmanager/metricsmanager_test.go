@@ -6,6 +6,9 @@ package metricsmanager_test
 import (
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -44,7 +47,15 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	_, err := s.metricsmanager.CleanupOldMetrics()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.MetricBatch(oldMetric.UUID())
-	c.Assert(err, gc.ErrorMatches, "not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.MetricBatch(newMetric.UUID())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) {
+	anAuthoriser := s.authorizer
+	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
+	endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
+	c.Assert(endPoint, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

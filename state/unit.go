@@ -1736,7 +1736,7 @@ func (u *Unit) WatchActionResults() StringsWatcher {
 
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
-func (u *Unit) AddMetrics(created time.Time, metrics []*Metric) (*MetricBatch, error) {
+func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, error) {
 	charmUrl, ok := u.CharmURL()
 	if !ok {
 		return nil, stderrors.New("failed to add metrics, couldn't find charm url")

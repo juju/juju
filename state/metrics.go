@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -25,25 +26,16 @@ type MetricBatch struct {
 }
 
 type metricBatchDoc struct {
-	UUID     string      `bson:"_id"`
-	Unit     string      `bson:"unit"`
-	CharmUrl string      `bson:"charmurl"`
-	Sent     bool        `bson:"sent"`
-	Created  time.Time   `bson:"created"`
-	Metrics  []metricDoc `bson:"metrics"`
+	UUID     string    `bson:"_id"`
+	Unit     string    `bson:"unit"`
+	CharmUrl string    `bson:"charmurl"`
+	Sent     bool      `bson:"sent"`
+	Created  time.Time `bson:"created"`
+	Metrics  []Metric  `bson:"metrics"`
 }
 
 // Metric represents a single Metric.
 type Metric struct {
-	doc metricDoc
-}
-
-func NewMetric(key, value string, time time.Time, cred []byte) *Metric {
-	doc := metricDoc{key, value, time, cred}
-	return &Metric{doc}
-}
-
-type metricDoc struct {
 	Key         string    `bson:"key"`
 	Value       string    `bson:"value"`
 	Time        time.Time `bson:"time"`
@@ -52,7 +44,7 @@ type metricDoc struct {
 
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
-func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []*Metric) (*MetricBatch, error) {
+func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
 	if len(metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
 	}
@@ -61,15 +53,6 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		return nil, err
 	}
 
-	metricDocs := make([]metricDoc, len(metrics))
-	for i, m := range metrics {
-		metricDocs[i] = metricDoc{
-			Key:         m.Key(),
-			Value:       m.Value(),
-			Time:        m.Time(),
-			Credentials: m.Credentials(),
-		}
-	}
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
@@ -78,7 +61,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
 			Created:  created,
-			Metrics:  metricDocs,
+			Metrics:  metrics,
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -113,34 +96,26 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	defer closer()
 	doc := metricBatchDoc{}
 	err := c.Find(bson.M{"_id": id}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("metric %v", id)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &MetricBatch{st: st, doc: doc}, nil
 }
 
-// NoMetricToDeleteError is used by DeleteMetric
-// to signify that no metric was deleted by the call
-var NoMetricToDeleteError = errors.Errorf("No metric to delete")
-
-// DeleteMetric deletes a metric from the collection
-// If not metric is deleted returns a NoMetricToDeleteError
-// It's up to the caller to decide if this is an issue or not
-func (st *State) DeleteMetric(Uuid string) error {
+// DeleteMetricBatch deletes a metricBatch from the collection
+func (st *State) DeleteMetricBatch(UUID string) error {
 	ops := []txn.Op{{
 		C:      metricsC,
-		Id:     Uuid,
-		Assert: txn.DocExists,
+		Id:     UUID,
 		Remove: true,
 	}}
-	err := st.runTransaction(ops)
-	if err == txn.ErrAborted {
-		return NoMetricToDeleteError
-	}
-	return err
+	return st.runTransaction(ops)
 }
 
-// CleanupOldMetrics looks for metrics that are 24 hours old (or older
+// CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(time.Hour - 24))
@@ -149,10 +124,10 @@ func (st *State) CleanupOldMetrics() error {
 	iter := c.Find(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
-	}).Iter()
+	}).Select(bson.D{{"_id", 1}}).Iter()
 	doc := metricBatchDoc{}
 	for iter.Next(&doc) {
-		err := st.DeleteMetric(doc.Uuid)
+		err := st.DeleteMetricBatch(doc.UUID)
 		if err != nil {
 			return err
 		}
@@ -204,28 +179,7 @@ func (m *MetricBatch) SetSent() error {
 func (m *MetricBatch) Metrics() []Metric {
 	result := make([]Metric, len(m.doc.Metrics))
 	for i, m := range m.doc.Metrics {
-		result[i] = Metric{m}
+		result[i] = m
 	}
 	return result
-}
-
-// Key returns the key of the metric.
-func (m *Metric) Key() string {
-	return m.doc.Key
-}
-
-// Value returns the value of the metric
-// 'value' in this context is associated with the metric's key.
-func (m *Metric) Value() string {
-	return m.doc.Value
-}
-
-// Time returns the time associated with this metric
-func (m *Metric) Time() time.Time {
-	return m.doc.Time
-}
-
-// Credentials returns the credentials for the metric
-func (m *Metric) Credentials() []byte {
-	return m.doc.Credentials
 }

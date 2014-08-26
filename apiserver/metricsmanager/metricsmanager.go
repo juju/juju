@@ -1,6 +1,8 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// The metricsmanager package contains implementation of an api endpoint
+// for calling metrics functions in state.
 package metricsmanager
 
 import (
@@ -26,12 +28,12 @@ type MetricsManager interface {
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
 // implementation of the api end point.
 type MetricsManagerAPI struct {
-	state      *state.State
-	authorizer common.Authorizer
+	state *state.State
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
 
+// NewMetricsManagerAPI creates a new API endpoint for calling metrics manager functions.
 func NewMetricsManagerAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -42,8 +44,7 @@ func NewMetricsManagerAPI(
 	}
 
 	return &MetricsManagerAPI{
-		state:      st,
-		authorizer: authorizer,
+		state: st,
 	}, nil
 }
 
