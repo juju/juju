@@ -55,57 +55,68 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string) error {
 // uploaded. Tools that need to be built will have an
 // empty URL.
 func findAvailableTools(env environs.Environ, arch *string, upload bool) (coretools.List, error) {
-	var availableTools coretools.List
 	if upload {
 		// We're forcing an upload: ensure we can do so.
 		if err := validateUploadAllowed(env, arch); err != nil {
 			return nil, err
 		}
-	} else {
-		// We're not forcing an upload, so look for tools
-		// in the environment's simplestreams search paths
-		// for existing tools.
-		var vers *version.Number
-		if agentVersion, ok := env.Config().AgentVersion(); ok {
-			vers = &agentVersion
-		}
-		dev := version.Current.IsDev() || env.Config().Development()
-		logger.Debugf("looking for bootstrap tools: version=%v", vers)
-		toolsList, findToolsErr := findBootstrapTools(env, vers, arch, dev)
-		if findToolsErr != nil && !errors.IsNotFound(findToolsErr) {
-			return nil, findToolsErr
-		}
-		// Even if we're successful above, we continue on in case the
-		// tools found do not include the local architecture.
-		if dev && (vers == nil || version.Current.Number == *vers) {
-			// (but only if we're running a dev build,
-			// and it's the same as agent-version.)
-			if validateUploadAllowed(env, arch) != nil {
-				return toolsList, findToolsErr
-			}
-		} else {
-			return toolsList, findToolsErr
-		}
-		availableTools = toolsList
+		return locallyBuildableTools(), nil
 	}
 
-	// Add tools that we can build locally.
+	// We're not forcing an upload, so look for tools
+	// in the environment's simplestreams search paths
+	// for existing tools.
+	var vers *version.Number
+	if agentVersion, ok := env.Config().AgentVersion(); ok {
+		vers = &agentVersion
+	}
+	dev := version.Current.IsDev() || env.Config().Development()
+	logger.Debugf("looking for bootstrap tools: version=%v", vers)
+	toolsList, findToolsErr := findBootstrapTools(env, vers, arch, dev)
+	if findToolsErr != nil && !errors.IsNotFound(findToolsErr) {
+		return nil, findToolsErr
+	}
+
+	// The tools located may not include the ones that the
+	// provider requires. If we're running a development build
+	// then we augment the list of tools with those that we can
+	// build locally.
+	if !dev || (vers != nil && version.Current.Number != *vers) {
+		return toolsList, findToolsErr
+	}
+
+	// Collate the set of arch+series that are externally available
+	// so we can see if we need to build any locally. If we need
+	// to, only then do we validate that we can upload (which
+	// involves a potentially expensive SupportedArchitectures call).
 	var archSeries set.Strings
-	for _, tools := range availableTools {
+	for _, tools := range toolsList {
 		archSeries.Add(tools.Version.Arch + tools.Version.Series)
 	}
-	for _, series := range version.SupportedSeries() {
-		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Ubuntu {
-			continue
+	var localToolsList coretools.List
+	for _, tools := range locallyBuildableTools() {
+		if !archSeries.Contains(tools.Version.Arch + tools.Version.Series) {
+			localToolsList = append(localToolsList, tools)
 		}
-		if archSeries.Contains(version.Current.Arch + series) {
+	}
+	if len(localToolsList) == 0 || validateUploadAllowed(env, arch) != nil {
+		return toolsList, findToolsErr
+	}
+	return append(toolsList, localToolsList...), nil
+}
+
+// locallyBuildableTools returns the list of tools that
+// can be built locally, for series of the same OS.
+func locallyBuildableTools() (buildable coretools.List) {
+	for _, series := range version.SupportedSeries() {
+		if os, err := version.GetOSFromSeries(series); err != nil || os != version.Current.OS {
 			continue
 		}
 		binary := version.Current
 		binary.Series = series
-		availableTools = append(availableTools, &coretools.Tools{Version: binary})
+		buildable = append(buildable, &coretools.Tools{Version: binary})
 	}
-	return availableTools, nil
+	return buildable
 }
 
 // findBootstrapTools returns a tools.List containing only those tools with

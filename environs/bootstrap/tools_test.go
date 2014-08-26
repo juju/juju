@@ -178,6 +178,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
+	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
 	var trustyToolsFound int
 	for _, tools := range availableTools {
 		if tools == trustyTools {
@@ -189,4 +190,30 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 		}
 	}
 	c.Assert(trustyToolsFound, gc.Equals, 1)
+}
+
+func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return "amd64"
+	})
+	s.PatchValue(&version.Current.Arch, "amd64")
+
+	var allTools tools.List
+	for _, series := range version.SupportedSeries() {
+		binary := version.Current
+		binary.Series = series
+		allTools = append(allTools, &tools.Tools{
+			Version: binary,
+			URL:     "http://testing.invalid/tools.tar.gz",
+		})
+	}
+
+	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+		return allTools, nil
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(availableTools, gc.HasLen, len(allTools))
+	c.Assert(env.supportedArchitecturesCount, gc.Equals, 0)
 }

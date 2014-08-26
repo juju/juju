@@ -194,11 +194,12 @@ type bootstrapEnviron struct {
 	environs.Environ // stub out all methods we don't care about.
 
 	// The following fields are filled in when Bootstrap is called.
-	bootstrapCount int
-	finalizerCount int
-	args           environs.BootstrapParams
-	machineConfig  *cloudinit.MachineConfig
-	storage        storage.Storage
+	bootstrapCount              int
+	finalizerCount              int
+	supportedArchitecturesCount int
+	args                        environs.BootstrapParams
+	machineConfig               *cloudinit.MachineConfig
+	storage                     storage.Storage
 }
 
 var _ envtools.SupportsCustomSources = (*bootstrapEnviron)(nil)
@@ -264,6 +265,7 @@ func (e *bootstrapEnviron) Storage() storage.Storage {
 }
 
 func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
+	e.supportedArchitecturesCount++
 	return []string{"amd64", "arm64"}, nil
 }
 
