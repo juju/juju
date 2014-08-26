@@ -162,6 +162,21 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 	}
 }
 
+func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
+	s.PatchValue(&arch.HostArch, func() string {
+		return arch.I386
+	})
+	var findToolsCalled int
+	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+		findToolsCalled++
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, nil)
+	_, err := bootstrap.FindAvailableTools(env, nil, true)
+	c.Assert(err, gc.ErrorMatches, `environment "foo" of type dummy does not support instances running on "i386"`)
+	c.Assert(findToolsCalled, gc.Equals, 0)
+}
+
 func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return "amd64"
