@@ -217,44 +217,6 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	c.Check(tw.Log(), jc.LogMatches, messages)
 }
 
-func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
-	// Remove the default tools URL from the search path, just look in cloud storage.
-	s.PatchValue(&envtools.DefaultBaseURL, "")
-	for i, test := range envtesting.BootstrapToolsTests {
-		c.Logf("\ntest %d: %s", i, test.Info)
-		attrs := map[string]interface{}{
-			"development": test.Development,
-		}
-		var agentVersion *version.Number
-		if test.AgentVersion != version.Zero {
-			attrs["agent-version"] = test.AgentVersion.String()
-			agentVersion = &test.AgentVersion
-		}
-		s.reset(c, attrs)
-		version.Current = test.CliVersion
-		available := s.uploadCustom(c, test.Available...)
-
-		params := envtools.BootstrapToolsParams{
-			Version: agentVersion,
-			Series:  test.DefaultSeries,
-			Arch:    &test.Arch,
-		}
-		actual, err := envtools.FindBootstrapTools(s.env, params)
-		if test.Err != "" {
-			if len(actual) > 0 {
-				c.Logf(actual.String())
-			}
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
-			continue
-		}
-		expect := map[version.Binary]string{}
-		for _, expected := range test.Expect {
-			expect[expected] = available[expected]
-		}
-		c.Check(actual.URLs(), gc.DeepEquals, expect)
-	}
-}
-
 var findInstanceToolsTests = []struct {
 	info         string
 	available    []version.Binary

@@ -319,7 +319,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	// error-prone) or we could provide a --no-check flag to make
 	// it go ahead anyway without the check.
 
-	args := environs.BootstrapParams{Constraints: cons}
+	args := bootstrap.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
 		return nil, errors.Annotate(err, "cannot bootstrap new instance")
 	}
@@ -496,9 +496,9 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 		go func() {
 			err := runMachineUpdate(client, machine.Id, setAgentAddressScript(stateAddr))
 			if err != nil {
-				logger.Errorf("failed to update machine %s: %v", machine, err)
+				logger.Errorf("failed to update machine %s: %v", machine.Id, err)
 			} else {
-				progress("updated machine %s", machine)
+				progress("updated machine %s", machine.Id)
 			}
 			done <- err
 		}()

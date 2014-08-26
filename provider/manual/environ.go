@@ -53,7 +53,6 @@ const (
 
 var (
 	logger                                       = loggo.GetLogger("juju.provider.manual")
-	commonEnsureBootstrapTools                   = common.EnsureBootstrapTools
 	manualCheckProvisioned                       = manual.CheckProvisioned
 	manualDetectSeriesAndHardwareCharacteristics = manual.DetectSeriesAndHardwareCharacteristics
 )
@@ -130,10 +129,6 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		return "", "", nil, manual.ErrProvisioned
 	}
 	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
-	if err != nil {
-		return "", "", nil, err
-	}
-	_, err = commonEnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
 		return "", "", nil, err
 	}

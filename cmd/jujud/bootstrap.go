@@ -6,23 +6,34 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/sync"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
@@ -175,6 +186,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
+	// Populate the tools catalogue.
+	if err := c.populateTools(env); err != nil {
+		return err
+	}
+
 	// bootstrap machine always gets the vote
 	return m.SetHasVote(true)
 }
@@ -252,6 +268,78 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})
+}
+
+// populateTools stores uploaded tools in provider storage
+// and updates the tools metadata.
+//
+// TODO(axw) store tools in gridfs, catalogue in state.
+func (c *BootstrapCommand) populateTools(env environs.Environ) error {
+	agentConfig := c.CurrentConfig()
+	dataDir := agentConfig.DataDir()
+	tools, err := agenttools.ReadTools(dataDir, version.Current)
+	if err != nil {
+		return err
+	}
+	if !strings.HasPrefix(tools.URL, "file://") {
+		// Nothing to do since the tools were not uploaded.
+		return nil
+	}
+
+	// This is a hack: providers using localstorage (local, manual)
+	// can't use storage during bootstrap as the localstorage worker
+	// isn't running. Use filestorage instead.
+	var stor storage.Storage
+	storageDir := agentConfig.Value(agent.StorageDir)
+	if storageDir != "" {
+		stor, err = filestorage.NewFileStorageWriter(storageDir)
+		if err != nil {
+			return err
+		}
+	} else {
+		stor = env.Storage()
+	}
+
+	// Build a list of other supported series with the same OS.
+	// Until we catalogue tools in state, we clone the tools
+	// for each of these series.
+	var otherSeries []string
+	for _, series := range version.SupportedSeries() {
+		os, err := version.GetOSFromSeries(series)
+		if err != nil {
+			return err
+		}
+		if os == version.Current.OS {
+			otherSeries = append(otherSeries, series)
+		}
+	}
+
+	// Create a temporary directory to contain source and cloned tools.
+	tempDir, err := ioutil.TempDir("", "juju-sync-tools")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(tempDir)
+	destTools := filepath.Join(tempDir, filepath.FromSlash(envtools.StorageName(tools.Version)))
+	if err := os.MkdirAll(filepath.Dir(destTools), 0700); err != nil {
+		return err
+	}
+	srcTools := filepath.Join(
+		agenttools.SharedToolsDir(dataDir, version.Current),
+		"tools.tar.gz",
+	)
+	if err := utils.CopyFile(destTools, srcTools); err != nil {
+		return err
+	}
+
+	_, err = sync.SyncBuiltTools(stor, &sync.BuiltTools{
+		Version:     tools.Version,
+		Dir:         tempDir,
+		StorageName: envtools.StorageName(tools.Version),
+		Sha256Hash:  tools.SHA256,
+		Size:        tools.Size,
+	}, otherSeries...)
+	return err
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

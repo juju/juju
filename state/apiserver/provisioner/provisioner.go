@@ -225,12 +225,18 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	if err != nil {
 		return result, err
 	}
+
+	result.UpdateBehavior = &params.UpdateBehavior{
+		config.EnableOSRefreshUpdate(),
+		config.EnableOSUpgrade(),
+	}
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.PreferIPv6 = config.PreferIPv6()
+
 	return result, nil
 }
 

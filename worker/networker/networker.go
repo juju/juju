@@ -505,7 +505,7 @@ func (nw *Networker) prepareDownCommands() {
 			}
 			if !cfgFile.IsPendingRemoval() {
 				cfgFile.MarkForRemoval()
-				logger.Debugf("diabled %q marked for removal", name, info)
+				logger.Debugf("diabled %q marked for removal", name)
 			}
 		}
 	}

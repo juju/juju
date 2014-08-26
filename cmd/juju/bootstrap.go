@@ -82,8 +82,8 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list")
-	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "upload tools for supplied comma-separated series list (DEPRECATED, see --upload-series)")
+	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
+	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
@@ -97,9 +97,6 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	}
 	if len(c.Series) > 0 && len(c.seriesOld) > 0 {
 		return fmt.Errorf("--upload-series and --series can't be used together")
-	}
-	if len(c.seriesOld) > 0 {
-		c.Series = c.seriesOld
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -142,8 +139,7 @@ func (v *seriesValue) Set(s string) error {
 // bootstrap functionality that Run calls to support cleaner testing
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
-	UploadTools(environs.BootstrapContext, environs.Environ, *string, bool, ...string) error
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
 }
 
 type bootstrapFuncs struct{}
@@ -152,11 +148,7 @@ func (b bootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
 	return bootstrap.EnsureNotBootstrapped(env)
 }
 
-func (b bootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
-	return bootstrap.UploadTools(ctx, env, toolsArch, forceVersion, bootstrapSeries...)
-}
-
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
@@ -171,7 +163,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
 	if len(c.seriesOld) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
+		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
+	}
+	if len(c.Series) > 0 {
+		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
 	if c.ConnectionName() == "" {
@@ -241,15 +236,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if environ.Config().Type() == provider.Local {
 		c.UploadTools = true
 	}
-	if c.UploadTools {
-		err = bootstrapFuncs.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
-		if err != nil {
-			return err
-		}
-	}
-	err = bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
+
+	err = bootstrapFuncs.Bootstrap(ctx, environ, bootstrap.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
+		UploadTools: c.UploadTools,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
