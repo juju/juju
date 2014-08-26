@@ -42,9 +42,6 @@ import (
 	apiagent "github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
-	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -289,13 +286,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			}
 			break
 		}
-	}
-
-	// Before starting any workers, ensure we record the Juju version this machine
-	// agent is running.
-	currentTools := &coretools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag(), currentTools.Version); err != nil {
-		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
 	providerType := agentConfig.Value(agent.ProviderType)
