@@ -84,7 +84,7 @@ func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 		return nil
 	}
 
-	logger.Infof("initial container setup with ids: %v", containerIds)
+	logger.Tracef("initial container setup with ids: %v", containerIds)
 	for _, id := range containerIds {
 		containerType := state.ContainerTypeFromId(id)
 		// If this container type has been dealt with, do nothing.
@@ -117,6 +117,12 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 		}
 	}
 
+	// We only care about the initial container creation.
+	// This worker has done its job so stop it.
+	// We do not expect there will be an error, and there's not much we can do anyway.
+	if err := cs.runner.StopWorker(cs.workerName); err != nil {
+		logger.Warningf("stopping machine agent container watcher: %v", err)
+	}
 	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
 		return fmt.Errorf("initialising container infrastructure on host machine: %v", err)
 	} else {
