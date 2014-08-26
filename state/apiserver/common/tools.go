@@ -6,6 +6,7 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/names"
 )
 
 type EntityFinderEnvironConfigGetter interface {
@@ -55,10 +57,15 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 	disableSSLHostnameVerification := !cfg.SSLHostnameVerification()
 	env, err := environs.New(cfg)
 	if err != nil {
-		return result, err
+		return result, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		agentTools, err := t.oneAgentTools(canRead, entity.Tag, agentVersion, env)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, env)
 		if err == nil {
 			result.Results[i].Tools = agentTools
 			result.Results[i].DisableSSLHostnameVerification = disableSSLHostnameVerification
@@ -82,7 +89,7 @@ func (t *ToolsGetter) getGlobalAgentVersion() (version.Number, *config.Config, e
 	return agentVersion, cfg, nil
 }
 
-func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag string, agentVersion version.Number, env environs.Environ) (*coretools.Tools, error) {
+func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersion version.Number, env environs.Environ) (*coretools.Tools, error) {
 	if !canRead(tag) {
 		return nil, ErrPerm
 	}
@@ -127,16 +134,21 @@ func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults
 	}
 	canWrite, err := t.getCanWrite()
 	if err != nil {
-		return results, err
+		return results, errors.Trace(err)
 	}
 	for i, agentTools := range args.AgentTools {
-		err := t.setOneAgentVersion(agentTools.Tag, agentTools.Tools.Version, canWrite)
+		tag, err := names.ParseTag(agentTools.Tag)
+		if err != nil {
+			results.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		err = t.setOneAgentVersion(tag, agentTools.Tools.Version, canWrite)
 		results.Results[i].Error = ServerError(err)
 	}
 	return results, nil
 }
 
-func (t *ToolsSetter) setOneAgentVersion(tag string, vers version.Binary, canWrite AuthFunc) error {
+func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, canWrite AuthFunc) error {
 	if !canWrite(tag) {
 		return ErrPerm
 	}

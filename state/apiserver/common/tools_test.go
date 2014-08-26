@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -33,8 +34,8 @@ func (s *toolsSuite) SetUpTest(c *gc.C) {
 
 func (s *toolsSuite) TestTools(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return tag == "machine-0" || tag == "machine-42"
+		return func(tag names.Tag) bool {
+			return tag == names.NewMachineTag("0") || tag == names.NewMachineTag("42")
 		}, nil
 	}
 	tg := common.NewToolsGetter(s.State, getCanRead)
@@ -74,8 +75,8 @@ func (s *toolsSuite) TestToolsError(c *gc.C) {
 
 func (s *toolsSuite) TestSetTools(c *gc.C) {
 	getCanWrite := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return tag == "machine-0" || tag == "machine-42"
+		return func(tag names.Tag) bool {
+			return tag == names.NewMachineTag("0") || tag == names.NewMachineTag("42")
 		}, nil
 	}
 	ts := common.NewToolsSetter(s.State, getCanWrite)

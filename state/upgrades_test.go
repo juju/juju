@@ -88,3 +88,46 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	_, keyExists := userMap["_id_"]
 	c.Assert(keyExists, jc.IsFalse)
 }
+
+func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
+	info, err := s.state.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	uuid := info.EnvUUID
+
+	// force remove the uuid.
+	ops := []txn.Op{{
+		C:      stateServersC,
+		Id:     environGlobalKey,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$unset", bson.D{
+			{"env-uuid", nil},
+		}}},
+	}}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+	// Make sure it has gone.
+	info, err = s.state.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.EnvUUID, gc.Equals, "")
+
+	// Run the upgrade step
+	err = AddEnvironmentUUIDToStateServerDoc(s.state)
+	c.Assert(err, gc.IsNil)
+	// Make sure it is there now
+	info, err = s.state.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.EnvUUID, gc.Equals, uuid)
+}
+
+func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C) {
+	info, err := s.state.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	uuid := info.EnvUUID
+
+	err = AddEnvironmentUUIDToStateServerDoc(s.state)
+	c.Assert(err, gc.IsNil)
+
+	info, err = s.state.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.EnvUUID, gc.Equals, uuid)
+}

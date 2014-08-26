@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
+	"github.com/juju/names"
 )
 
 type lifeSuite struct{}
@@ -30,25 +31,24 @@ func (l *fakeLifer) Life() state.Life {
 
 func (*lifeSuite) TestLife(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeLifer{life: state.Alive},
-			"x1": &fakeLifer{life: state.Dying},
-			"x2": &fakeLifer{life: state.Dead},
-			"x3": &fakeLifer{fetchError: "x3 error"},
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeLifer{life: state.Alive},
+			u("x/1"): &fakeLifer{life: state.Dying},
+			u("x/2"): &fakeLifer{life: state.Dead},
+			u("x/3"): &fakeLifer{fetchError: "x3 error"},
 		},
 	}
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			switch tag {
-			case "x0", "x2", "x3":
-				return true
-			}
-			return false
+		x0 := u("x/0")
+		x2 := u("x/2")
+		x3 := u("x/3")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x2 || tag == x3
 		}, nil
 	}
 	lg := common.NewLifeGetter(st, getCanRead)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
 	results, err := lg.Life(entities)
 	c.Assert(err, gc.IsNil)

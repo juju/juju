@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/wrench"
 )
 
 type upgradingMachineAgent interface {
@@ -70,6 +71,15 @@ func (c *upgradeWorkerContext) Worker(
 	c.apiState = apiState
 	c.jobs = jobs
 	return worker.NewSimpleWorker(c.run)
+}
+
+func (c *upgradeWorkerContext) IsUpgradeRunning() bool {
+	select {
+	case <-c.UpgradeComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 type apiLostDuringUpgrade struct {
@@ -157,15 +167,17 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		if err := waitForOtherStateServers(c.st, isMaster); err != nil {
 			logger.Errorf(`other state servers failed to come up for upgrade `+
 				`to %s - aborting: %v`, version.Current, err)
-
 			a.setMachineStatus(c.apiState, params.StatusError,
 				fmt.Sprintf("upgrade to %v aborted while waiting for other "+
 					"state servers: %v", version.Current, err))
-
-			// TODO(menn0): if master, roll agent-version back to
-			// previous version, once the upgrader allows downgrades
-			// to previous version.
-
+			// If master, trigger a rollback to the previous agent version.
+			if isMaster {
+				logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+					from.Number)
+				if rollbackErr := c.st.SetEnvironAgentVersion(from.Number); rollbackErr != nil {
+					return errors.Annotate(rollbackErr, "failed to roll back desired agent version")
+				}
+			}
 			return err
 		}
 	}
@@ -264,6 +276,9 @@ var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) 
 }
 
 var waitForOtherStateServers = func(st *state.State, isMaster bool) error {
+	if wrench.IsActive("machine-agent", "fail-state-server-upgrade-wait") {
+		return errors.New("failing other state servers check due to wrench")
+	}
 	// TODO(mjs) - for now, assume that the other state servers are
 	// ready. This function will be fleshed out once the UpgradeInfo
 	// work is done.

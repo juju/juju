@@ -92,10 +92,12 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
+	c.Assert(ch, gc.NotNil)
 	return AddTestingServiceWithNetworks(c, st, name, ch, nil)
 }
 
 func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, networks []string) *Service {
+	c.Assert(ch, gc.NotNil)
 	service, err := st.AddService(name, "user-admin", ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service

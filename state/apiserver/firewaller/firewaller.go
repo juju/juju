@@ -106,8 +106,12 @@ func (f *FirewallerAPI) OpenedPorts(args params.Entities) (params.PortsResults, 
 		return params.PortsResults{}, err
 	}
 	for i, entity := range args.Entities {
-		var unit *state.Unit
-		unit, err = f.getUnit(canAccess, entity.Tag)
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := f.getUnit(canAccess, tag)
 		if err == nil {
 			result.Results[i].Ports = unit.OpenedPorts()
 		}
@@ -126,8 +130,12 @@ func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, er
 		return params.BoolResults{}, err
 	}
 	for i, entity := range args.Entities {
-		var service *state.Service
-		service, err = f.getService(canAccess, entity.Tag)
+		tag, err := names.ParseServiceTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		service, err := f.getService(canAccess, tag)
 		if err == nil {
 			result.Results[i].Result = service.IsExposed()
 		}
@@ -147,8 +155,12 @@ func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringR
 		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
-		var unit *state.Unit
-		unit, err = f.getUnit(canAccess, entity.Tag)
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		unit, err := f.getUnit(canAccess, tag)
 		if err == nil {
 			var machineId string
 			machineId, err = unit.AssignedMachineId()
@@ -161,14 +173,14 @@ func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringR
 	return result, nil
 }
 
-func (f *FirewallerAPI) getEntity(canAccess common.AuthFunc, tag string) (state.Entity, error) {
+func (f *FirewallerAPI) getEntity(canAccess common.AuthFunc, tag names.Tag) (state.Entity, error) {
 	if !canAccess(tag) {
 		return nil, common.ErrPerm
 	}
 	return f.st.FindEntity(tag)
 }
 
-func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag string) (*state.Unit, error) {
+func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag names.UnitTag) (*state.Unit, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
@@ -178,7 +190,7 @@ func (f *FirewallerAPI) getUnit(canAccess common.AuthFunc, tag string) (*state.U
 	return entity.(*state.Unit), nil
 }
 
-func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag string) (*state.Service, error) {
+func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ServiceTag) (*state.Service, error) {
 	entity, err := f.getEntity(canAccess, tag)
 	if err != nil {
 		return nil, err
@@ -195,10 +207,9 @@ func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag string) (*stat
 // (for now).
 func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
 	return func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			// Allow only the given tag kind.
-			t, err := names.ParseTag(tag)
-			return err == nil && t.Kind() == kind
+			return tag.Kind() == kind
 		}, nil
 	}
 }

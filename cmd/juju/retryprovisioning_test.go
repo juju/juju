@@ -37,12 +37,12 @@ var resolvedMachineTests = []struct {
 		stdErr: `cannot retry provisioning "machine-42": machine 42 not found`,
 	}, {
 		args:   []string{"1"},
-		stdErr: `cannot retry provisioning "machine-1": machine "machine-1" is not in an error state`,
+		stdErr: `cannot retry provisioning "machine-1": "machine-1" is not in an error state`,
 	}, {
 		args: []string{"0"},
 	}, {
 		args:   []string{"0", "1"},
-		stdErr: `cannot retry provisioning "machine-1": machine "machine-1" is not in an error state`,
+		stdErr: `cannot retry provisioning "machine-1": "machine-1" is not in an error state`,
 	},
 }
 

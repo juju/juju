@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
+	"github.com/juju/names"
 )
 
 type agentEntityWatcherSuite struct{}
@@ -54,25 +55,23 @@ func (w *fakeNotifyWatcher) Changes() <-chan struct{} {
 
 func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeAgentEntityWatcher{fetchError: "x0 fails"},
-			"x1": &fakeAgentEntityWatcher{},
-			"x2": &fakeAgentEntityWatcher{},
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeAgentEntityWatcher{fetchError: "x0 fails"},
+			u("x/1"): &fakeAgentEntityWatcher{},
+			u("x/2"): &fakeAgentEntityWatcher{},
 		},
 	}
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			switch tag {
-			case "x0", "x1":
-				return true
-			}
-			return false
+		x0 := u("x/0")
+		x1 := u("x/1")
+		return func(tag names.Tag) bool {
+			return tag == x0 || tag == x1
 		}, nil
 	}
 	resources := common.NewResources()
 	a := common.NewAgentEntityWatcher(st, resources, getCanWatch)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"},
 	}}
 	result, err := a.Watch(entities)
 	c.Assert(err, gc.IsNil)

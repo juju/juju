@@ -4,8 +4,10 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/names"
 )
 
 // DeadEnsurer implements a common EnsureDead method for use by
@@ -25,7 +27,7 @@ func NewDeadEnsurer(st state.EntityFinder, getCanModify GetAuthFunc) *DeadEnsure
 	}
 }
 
-func (d *DeadEnsurer) ensureEntityDead(tag string) error {
+func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
 	entity0, err := d.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -49,12 +51,17 @@ func (d *DeadEnsurer) EnsureDead(args params.Entities) (params.ErrorResults, err
 	}
 	canModify, err := d.getCanModify()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		err := ErrPerm
-		if canModify(entity.Tag) {
-			err = d.ensureEntityDead(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+
+		err = ErrPerm
+		if canModify(tag) {
+			err = d.ensureEntityDead(tag)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

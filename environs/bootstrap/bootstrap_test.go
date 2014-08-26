@@ -210,6 +210,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
+	c.Skip("provider no longer locates tools")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
