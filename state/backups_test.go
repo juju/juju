@@ -25,7 +25,8 @@ func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
 		"localhost",
 	)
 	meta := metadata.NewMetadata(*origin, "", nil)
-	meta.Finish(int64(42), "some hash", "", nil)
+	err := meta.Finish(int64(42), "some hash", "", nil)
+	c.Assert(err, gc.IsNil)
 	return meta
 }
 
