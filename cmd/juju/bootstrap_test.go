@@ -518,11 +518,11 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 
-	c.Check(coretesting.Stderr(ctx), gc.Equals, `
+	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Bootstrapping environment "peckham"
 Starting new instance for initial state server
-Building tools to upload (1.7.3-raring-amd64)
-`[1:])
+Building tools to upload (1.7.3-raring-%s)
+`[1:], version.Current.Arch))
 	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
 }
 
