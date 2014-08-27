@@ -330,6 +330,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
+		if entity.Life() == params.Dead {
+			return nil, worker.ErrTerminateAgent
+		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
 	for _, job := range entity.Jobs() {
