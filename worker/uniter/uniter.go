@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -574,9 +574,10 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		logger.Infof(hctx.actionResults.Message)
 		u.notifyHookCompleted(hookName, hctx)
 		return u.commitHook(hi)
-	} else {
-		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 	}
+
+	// Otherwise, treat it as a normal hook.
+	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 
 	// Since the Action validation error was separated, regular error pathways
 	// will still occur correctly.

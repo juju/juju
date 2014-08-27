@@ -1,11 +1,10 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -212,6 +211,8 @@ func (ctx *HookContext) ActionParams() map[string]interface{} {
 	return ctx.actionParams
 }
 
+// ActionSetFailed sets the state of the action to "fail" and sets the results
+// message to the string argument.
 func (ctx *HookContext) ActionSetFailed(message string) {
 	ctx.actionResults.Message = message
 	ctx.actionResults.Status = actionStatusFailed
@@ -382,10 +383,14 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 			return err
 		}
 		// Otherwise, it was an action, but there was an error.
-		callError := ctx.state.ActionFail(ctx.actionTag, err.Error())
+		errMsg := err.Error()
+		if IsMissingHookError(err) {
+			errMsg = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
+		}
+		callError := ctx.state.ActionFail(ctx.actionTag, errMsg)
 		if callError != nil {
 			// Oh dear.  Stack the errors.  Best we can do.
-			err = errors.New(fmt.Sprintf("Action API error %s on top of error: %s", callError.Error(), err.Error()))
+			err = fmt.Errorf("Action API error %s on top of error: %s", callError.Error(), errMsg)
 		}
 		return err
 	}
@@ -704,7 +709,6 @@ type actionStatus string
 
 // actionStatus messages define the possible states of a completed Action.
 const (
-	actionStatusInit     = "init"
-	actionStatusComplete = "completed"
-	actionStatusFailed   = "failed"
+	actionStatusInit   = "init"
+	actionStatusFailed = "fail"
 )

@@ -217,24 +217,35 @@ var actionResults = map[string]struct {
 	results map[string]interface{}
 	message string
 	status  string
+	name    string
 }{
 	"snapshot": {
 		results: map[string]interface{}{},
-		status:  "completed",
+		status:  "complete",
+		name:    "snapshot",
 	},
 	"action-log": {
 		results: map[string]interface{}{},
-		status:  "completed",
+		status:  "complete",
+		name:    "action-log",
 	},
 	"snapshot-badparams": {
 		results: map[string]interface{}{},
-		status:  "failed",
-		message: "verify failed",
+		status:  "fail",
+		message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
+		name:    "snapshot",
+	},
+	"snapshot-undefined": {
+		results: map[string]interface{}{},
+		status:  "fail",
+		message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
+		name:    "snapshot",
 	},
 	"action-log-missing": {
 		results: map[string]interface{}{},
-		status:  "failed",
-		message: "action not implemented",
+		status:  "fail",
+		message: `action failed (not implemented on unit "u/0")`,
+		name:    "action-log",
 	},
 }
 
@@ -1382,7 +1393,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{"snapshot-badparams"},
 		waitUnit{status: params.StatusStarted},
 	), ut(
-		"actions not defined in actions.yaml fail",
+		"actions not defined in actions.yaml fail without causing a uniter error",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "snapshot")
@@ -1452,7 +1463,13 @@ var actionEventTests = []uniterTest{
 		addAction{"action-log", nil},
 		waitNoHooks{"action-log", "fail-action-log"},
 		verifyActionResults{"action-log-missing"},
-		waitUnit{status: params.StatusStarted},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "action-requested-u/0_a_0"`,
+			data: params.StatusData{
+				"hook": "action-log",
+			},
+		},
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
 		startupError{"install"},
@@ -2031,11 +2048,12 @@ func (s verifyActionResults) step(c *gc.C, ctx *context) {
 					payload, message := result.Results()
 					status := string(result.Status())
 					name := result.ActionName()
-					c.Check(payload, jc.DeepEquals, expected.results)
-					c.Check(status, gc.Equals, expected.status)
-					c.Check(message, gc.Equals, expected.message)
-					c.Check(name, gc.Equals, action)
+					c.Assert(payload, jc.DeepEquals, expected.results)
+					c.Assert(status, gc.Equals, expected.status)
+					c.Assert(message, gc.Equals, expected.message)
+					c.Assert(name, gc.Equals, expected.name)
 				}
+				return
 			}
 		}
 	}
