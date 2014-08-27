@@ -1159,6 +1159,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, gc.IsNil)
+	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)

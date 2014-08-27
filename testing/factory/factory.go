@@ -147,15 +147,16 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	}
 	if params.User == "" {
 		user := factory.MakeUser(c, nil)
-		params.User = user.Name()
+		params.User = user.UserTag().Username()
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = factory.UniqueString("display name")
 	}
 	if params.CreatedBy == "" {
 		user := factory.MakeUser(c, nil)
-		params.CreatedBy = user.Name()
+		params.CreatedBy = user.UserTag().Username()
 	}
+
 	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), names.NewUserTag(params.CreatedBy), params.DisplayName)
 	c.Assert(err, gc.IsNil)
 	return envUser

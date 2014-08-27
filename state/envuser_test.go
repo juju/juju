@@ -22,14 +22,13 @@ var _ = gc.Suite(&EnvUserSuite{})
 
 func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
-	envUuid := s.State.EnvironTag().Id()
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag(), "display-name")
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", envUuid))
-	c.Assert(envUser.EnvironmentTag().Id(), gc.Equals, envUuid)
+	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.envTag.Id()))
+	c.Assert(envUser.EnvironmentTag(), gc.Equals, s.envTag)
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(envUser.DisplayName(), gc.Equals, "display-name")
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
@@ -38,8 +37,8 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 
 	envUser, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", envUuid))
-	c.Assert(envUser.EnvironmentTag().Id(), gc.Equals, envUuid)
+	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:validusername@local", s.envTag.Id()))
+	c.Assert(envUser.EnvironmentTag(), gc.Equals, s.envTag)
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
 	c.Assert(envUser.DateCreated().Equal(now), jc.IsTrue)

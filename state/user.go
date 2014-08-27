@@ -156,12 +156,12 @@ func (u *User) DateCreated() time.Time {
 
 // Tag returns the Tag for the User.
 func (u *User) Tag() names.Tag {
-	return names.NewUserTag(u.doc.Name)
+	return u.UserTag()
 }
 
 // UserTag returns the Tag for the User.
 func (u *User) UserTag() names.UserTag {
-	return u.Tag().(names.UserTag)
+	return names.NewUserTag(u.doc.Name)
 }
 
 // LastLogin returns when this User last connected through the API in UTC.

@@ -164,10 +164,6 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 		Assert: txn.DocMissing,
 		Insert: &envUser.doc,
 	}}
-	err = st.ResumeTransactions()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	err = st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("env user already exists")

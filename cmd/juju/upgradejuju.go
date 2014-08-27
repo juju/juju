@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
@@ -146,12 +146,10 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if c.UploadTools {
-		series := bootstrap.SeriesToUpload(cfg, c.Series)
-		if !c.DryRun {
-			if err := context.uploadTools(series); err != nil {
-				return err
-			}
+	if c.UploadTools && !c.DryRun {
+		series := seriesToUpload(cfg, c.Series)
+		if err := context.uploadTools(series); err != nil {
+			return err
 		}
 	}
 	if err := context.validate(); err != nil {
@@ -372,4 +370,22 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 		}
 	}
 	return vers
+}
+
+// seriesToUpload returns the supplied series with duplicates removed if
+// non-empty; otherwise it returns a default list of series we should
+// probably upload, based on cfg.
+// TODO(axw) don't use this.
+func seriesToUpload(cfg *config.Config, series []string) []string {
+	unique := set.NewStrings(series...)
+	if unique.IsEmpty() {
+		unique.Add(version.Current.Series)
+		for _, toolsSeries := range envtools.ToolsLtsSeries {
+			unique.Add(toolsSeries)
+		}
+		if series, ok := cfg.DefaultSeries(); ok {
+			unique.Add(series)
+		}
+	}
+	return unique.SortedValues()
 }

@@ -89,6 +89,14 @@ func (s *StateSuite) TestDialAgain(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	c.Assert(st.EnvironTag(), gc.Equals, s.envTag)
+}
+
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)
@@ -926,7 +934,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	// Check that the state server information is correct.
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, s.ConnSuite.envUUID)
+	c.Assert(info.EnvironmentTag, gc.Equals, s.envTag)
 	c.Assert(info.MachineIds, gc.DeepEquals, []string{"0"})
 	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
@@ -1854,7 +1862,7 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
-		EnvUUID:          s.ConnSuite.envUUID,
+		EnvironmentTag:   s.envTag,
 		MachineIds:       []string{"0"},
 		VotingMachineIds: []string{"0"},
 	})
@@ -1872,7 +1880,7 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 	info, err = s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{
-		EnvUUID:          s.ConnSuite.envUUID,
+		EnvironmentTag:   s.envTag,
 		MachineIds:       []string{"0", "1", "2"},
 		VotingMachineIds: []string{"0", "1", "2"},
 	})
@@ -2783,7 +2791,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 	ids, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids.EnvUUID, gc.Equals, s.ConnSuite.envUUID)
+	c.Assert(ids.EnvironmentTag, gc.Equals, s.envTag)
 	c.Assert(ids.MachineIds, gc.HasLen, 0)
 	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
 
@@ -2793,7 +2801,7 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	expected := &state.StateServerInfo{
-		EnvUUID: s.ConnSuite.envUUID,
+		EnvironmentTag: s.envTag,
 	}
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
@@ -2865,7 +2873,7 @@ func newUint64(i uint64) *uint64 {
 func (s *StateSuite) assertStateServerInfo(c *gc.C, machineIds []string, votingMachineIds []string) {
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, s.ConnSuite.envUUID)
+	c.Assert(info.EnvironmentTag, gc.Equals, s.envTag)
 	c.Assert(info.MachineIds, jc.SameContents, machineIds)
 	c.Assert(info.VotingMachineIds, jc.SameContents, votingMachineIds)
 }

@@ -142,7 +142,7 @@ func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	if c.envName == "" {
 		return emptyCreds, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	info, err := connectionInfoForName(c.envName)
+	info, err := ConnectionInfoForName(c.envName)
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
@@ -159,7 +159,7 @@ func (c *EnvCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoi
 	if c.envName == "" {
 		return emptyEndpoint, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	info, err := connectionInfoForName(c.envName)
+	info, err := ConnectionInfoForName(c.envName)
 	if err != nil {
 		return emptyEndpoint, errors.Trace(err)
 	}
@@ -177,7 +177,7 @@ func (c *EnvCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoi
 	}
 	refresher.Close()
 
-	info, err = connectionInfoForName(c.envName)
+	info, err = ConnectionInfoForName(c.envName)
 	if err != nil {
 		return emptyEndpoint, err
 	}
@@ -207,7 +207,9 @@ var getConfigStore = func() (configstore.Storage, error) {
 	return store, nil
 }
 
-func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+// ConnectionInfoForName reads the environment information for the named
+// environment (envName) and returns it.
+func ConnectionInfoForName(envName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -229,7 +231,7 @@ func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
 	if c.envName == "" {
 		return nil, errors.Trace(ErrNoEnvironmentSpecified)
 	}
-	return connectionInfoForName(c.envName)
+	return ConnectionInfoForName(c.envName)
 }
 
 // ConnectionName returns the name of the connection if there is one.

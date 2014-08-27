@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package state enables reading, observing, and changing
@@ -403,7 +403,7 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, environGlobalKey, cons)
 }
 
-var errDead = fmt.Errorf("not found or dead")
+var ErrDead = fmt.Errorf("not found or dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
 func onAbort(txnErr, err error) error {
@@ -1641,10 +1641,10 @@ type stateServersDoc struct {
 // StateServerInfo holds information about currently
 // configured state server machines.
 type StateServerInfo struct {
-	// EnvUUID is the UUID of the initial environment. Only the initial
+	// EnvironmentTag identifies the initial environment. Only the initial
 	// environment is able to have machines that manage state. The initial
 	// environment is the environment that is created when bootstrapping.
-	EnvUUID string
+	EnvironmentTag names.EnvironTag
 
 	// MachineIds holds the ids of all machines configured
 	// to run a state server. It includes all the machine
@@ -1669,7 +1669,7 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
 	return &StateServerInfo{
-		EnvUUID:          doc.EnvUUID,
+		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil

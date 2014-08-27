@@ -84,24 +84,21 @@ func AddStateUsersAsEnvironUsers(st *State) error {
 		}
 		uTag := user.UserTag()
 
-		eUser, err := st.EnvironmentUser(uTag)
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
-		}
-		if eUser != nil {
+		_, err := st.EnvironmentUser(uTag)
+		if err != nil && errors.IsNotFound(err) {
+			_, err = st.AddEnvironmentUser(uTag, uTag, user.DisplayName())
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
 			upgradesLogger.Infof("user '%s' already added to environment", uTag.Username())
-			continue
 		}
 
-		_, err = st.AddEnvironmentUser(uTag, uTag, user.DisplayName())
-		if err != nil {
-			return errors.Trace(err)
-		}
 	}
 	return nil
 }
 
-// Add environment uuid to state server doc.
+// AddEnvironmentUUIDToStateServerDoc adds environment uuid to state server doc.
 func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 	env, err := st.Environment()
 	if err != nil {

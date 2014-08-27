@@ -36,8 +36,9 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	client := s.APIState.Client()
 	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
-		Host:   hostname,
-		Client: client,
+		Host:           hostname,
+		Client:         client,
+		UpdateBehavior: &params.UpdateBehavior{true, true},
 	}
 }
 
@@ -147,10 +148,18 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
+
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
+	err = s.State.UpdateEnvironConfig(
+		map[string]interface{}{
+			"enable-os-upgrade": false,
+		}, nil, nil)
+	c.Assert(err, gc.IsNil)
+
 	mcfg, err := client.MachineConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+
 	c.Assert(err, gc.IsNil)
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)

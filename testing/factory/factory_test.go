@@ -115,9 +115,9 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 
 func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
 	envUser := s.Factory.MakeEnvUser(c, nil)
-	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
 	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
@@ -128,9 +128,9 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User: "foobar123"})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
 	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
@@ -149,10 +149,26 @@ func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 		CreatedBy:   "created-by",
 	})
 
-	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
+	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
+	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
+}
+
+func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User:        "foobar@ubuntuone",
+		DisplayName: "displayName",
+		CreatedBy:   "created-by",
+	})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
 	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
 	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
 }

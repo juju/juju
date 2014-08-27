@@ -6,7 +6,6 @@ package state
 import (
 	"time"
 
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/mgo.v2/bson"
@@ -91,10 +90,14 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
-	adminTag := s.createUser(c, "admin", "admin")
-	bobTag := s.createUser(c, "bob", "admin")
+	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
+	c.Assert(err, gc.IsNil)
+	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, gc.IsNil)
+	adminTag := stateAdmin.UserTag()
+	bobTag := stateBob.UserTag()
 
-	_, err := s.state.EnvironmentUser(adminTag)
+	_, err = s.state.EnvironmentUser(adminTag)
 	c.Assert(err, gc.ErrorMatches, `envUser "admin@local" not found`)
 	_, err = s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.ErrorMatches, `envUser "bob@local" not found`)
@@ -111,49 +114,30 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
-	s.createUser(c, "admin", "admin")
-	s.createUser(c, "bob", "admin")
+	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
+	c.Assert(err, gc.IsNil)
+	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, gc.IsNil)
+	adminTag := stateAdmin.UserTag()
+	bobTag := stateBob.UserTag()
 
-	err := AddStateUsersAsEnvironUsers(s.state)
+	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)
 
 	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)
-}
 
-func (s *upgradesSuite) createUser(c *gc.C, userID, creatorID string) names.UserTag {
-	now := time.Now().UTC().Round(time.Second)
-	uDoc := bson.M{
-		"_id_":           userID,
-		"_id":            userID,
-		"displayname":    "admin",
-		"deactivated":    false,
-		"passwordhash":   "hash",
-		"passwordsalt":   "salt",
-		"createdby":      creatorID,
-		"datecreated":    now,
-		"lastconnection": now,
-	}
-
-	ops := []txn.Op{
-		txn.Op{
-			C:      "users",
-			Id:     userID,
-			Assert: txn.DocMissing,
-			Insert: uDoc,
-		},
-	}
-
-	err := s.state.runTransaction(ops)
+	admin, err := s.state.EnvironmentUser(adminTag)
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.IsNil)
-
-	return names.NewUserTag(userID)
+	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	info, err := s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	uuid := info.EnvUUID
+	tag := info.EnvironmentTag
 
 	// force remove the uuid.
 	ops := []txn.Op{{
@@ -167,9 +151,12 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 	// Make sure it has gone.
-	info, err = s.state.StateServerInfo()
+	stateServers, closer := s.state.getCollection(stateServersC)
+	defer closer()
+	var doc stateServersDoc
+	err = stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, "")
+	c.Assert(doc.EnvUUID, gc.Equals, "")
 
 	// Run the upgrade step
 	err = AddEnvironmentUUIDToStateServerDoc(s.state)
@@ -177,18 +164,18 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	// Make sure it is there now
 	info, err = s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, uuid)
+	c.Assert(info.EnvironmentTag, gc.Equals, tag)
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C) {
 	info, err := s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	uuid := info.EnvUUID
+	tag := info.EnvironmentTag
 
 	err = AddEnvironmentUUIDToStateServerDoc(s.state)
 	c.Assert(err, gc.IsNil)
 
 	info, err = s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, uuid)
+	c.Assert(info.EnvironmentTag, gc.Equals, tag)
 }

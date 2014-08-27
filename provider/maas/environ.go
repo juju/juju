@@ -503,7 +503,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	iface := environ.ecfg().networkBridge()
 	series := args.MachineConfig.Tools.Version.Series
 
-	cloudcfg, err := newCloudinitConfig(hostname, iface, series)
+	cloudcfg, err := environ.newCloudinitConfig(hostname, iface, series)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -523,7 +523,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func newCloudinitConfig(hostname, iface, series string) (*cloudinit.Config, error) {
+func (environ *maasEnviron) newCloudinitConfig(hostname, iface, series string) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd(series)
 
@@ -544,15 +544,20 @@ func newCloudinitConfig(hostname, iface, series string) (*cloudinit.Config, erro
 		)
 	case version.Ubuntu:
 		cloudcfg.SetAptUpdate(true)
-		cloudcfg.AddPackage("bridge-utils")
-		cloudcfg.AddScripts(
-			"set -xe",
-			runCmd,
-			fmt.Sprintf("ifdown %s", iface),
-			restoreInterfacesFiles(iface),
-			createBridgeNetwork(iface),
-			"ifup br0",
-		)
+		if on, set := environ.Config().DisableNetworkManagement(); on && set {
+			logger.Infof("network management disabled - setting up br0, eth0 disabled")
+			cloudcfg.AddScripts("set -xe", runCmd)
+		} else {
+			cloudcfg.AddPackage("bridge-utils")
+			cloudcfg.AddScripts(
+				"set -xe",
+				runCmd,
+				fmt.Sprintf("ifdown %s", iface),
+				restoreInterfacesFiles(iface),
+				createBridgeNetwork(iface),
+				"ifup br0",
+			)
+		}
 	}
 	return cloudcfg, nil
 }
