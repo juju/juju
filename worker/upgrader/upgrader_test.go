@@ -85,7 +85,7 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 	}
 }
 
-func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
+func (s *UpgraderSuite) makeUpgrader(c *gc.C) *upgrader.Upgrader {
 	err := s.machine.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 	return upgrader.NewUpgrader(
@@ -252,7 +252,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	// downloaded tools without looking in environment storage.
 	envtesting.InstallFakeDownloadedTools(c, s.DataDir(), newVersion)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	err = u.Stop()
 
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
@@ -323,7 +323,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag().String(),
@@ -350,7 +350,7 @@ func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInP
 
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := s.makeUpgrader()
+	u := s.makeUpgrader(c)
 	err = u.Stop()
 
 	// If the upgrade would have triggered, we would have gotten an
