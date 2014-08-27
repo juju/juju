@@ -105,6 +105,9 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.PatchValue(&version.Current.Series, "trusty") // for predictable tools
+	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
+		return "private-key", "public-key", nil
+	})
 
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
@@ -201,10 +204,13 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
+	c.Assert(expectInfo.SystemIdentity, gc.Equals, "")
 
 	servingInfo := s.fakeEnsureMongo.info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
+	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
+	servingInfo.SystemIdentity = ""
 	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
 	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
@@ -240,6 +246,10 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.envcfg.AuthorizedKeys()+"\npublic-key")
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
@@ -509,6 +519,19 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
+	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	_, err = os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {

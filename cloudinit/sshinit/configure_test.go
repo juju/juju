@@ -55,7 +55,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 	var mcfg *envcloudinit.MachineConfig
 	var err error
 	if stateServer {
-		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, "private-key", vers.Series)
+		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
 		c.Assert(err, gc.IsNil)
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
@@ -33,12 +34,14 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
 var (
 	agentInitializeState = agent.InitializeState
+	sshGenerateKey       = ssh.GenerateKey
 	minSocketTimeout     = 1 * time.Minute
 )
 
@@ -117,9 +120,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Create system-identity file
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return err
+	// Generate a private SSH key for the state servers, and add
+	// the public key to the environment config. We'll add the
+	// private key to StateServingInfo below.
+	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+	if err != nil {
+		return errors.Annotate(err, "failed to generate system key")
+	}
+	authorizedKeys := config.ConcatAuthKeys(envCfg.AuthorizedKeys(), publicKey)
+	envCfg, err = env.Config().Apply(map[string]interface{}{
+		config.AuthKeysConfig: authorizedKeys,
+	})
+	if err != nil {
+		return errors.Annotate(err, "failed to add public key to environment config")
 	}
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
@@ -132,6 +145,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
+	info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 		return nil
@@ -140,6 +154,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 	agentConfig = c.CurrentConfig()
+
+	// Create system-identity file
+	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
+		return err
+	}
 
 	if err := c.startMongo(addrs, agentConfig); err != nil {
 		return err

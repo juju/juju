@@ -78,7 +78,7 @@ func NewMachineConfig(
 // NewBootstrapMachineConfig sets up a basic machine configuration for a
 // bootstrap node.  You'll still need to supply more information, but this
 // takes care of the fixed entries and the ones that are always needed.
-func NewBootstrapMachineConfig(cons constraints.Value, privateSystemSSHKey, series string) (*cloudinit.MachineConfig, error) {
+func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudinit.MachineConfig, error) {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
 	mcfg, err := NewMachineConfig("0", agent.BootstrapNonce, "", series, nil, nil, nil)
@@ -86,7 +86,6 @@ func NewBootstrapMachineConfig(cons constraints.Value, privateSystemSSHKey, seri
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	mcfg.Constraints = cons
 	return mcfg, nil
@@ -179,11 +178,10 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	}
 
 	srvInfo := params.StateServingInfo{
-		StatePort:      cfg.StatePort(),
-		APIPort:        cfg.APIPort(),
-		Cert:           string(cert),
-		PrivateKey:     string(key),
-		SystemIdentity: mcfg.SystemPrivateSSHKey,
+		StatePort:  cfg.StatePort(),
+		APIPort:    cfg.APIPort(),
+		Cert:       string(cert),
+		PrivateKey: string(key),
 	}
 	mcfg.StateServingInfo = &srvInfo
 	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
