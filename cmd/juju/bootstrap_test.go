@@ -212,7 +212,7 @@ var bootstrapTests = []bootstrapTest{{
 	version:     "1.3.3-saucy-ppc64el",
 	hostArch:    "ppc64el",
 	args:        []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3-raring-ppc64el", // from version.Current
+	upload:      "1.3.3.1-raring-ppc64el", // from version.Current
 	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:     "--upload-tools rejects mismatched arch",
@@ -227,10 +227,10 @@ var bootstrapTests = []bootstrapTest{{
 	args:     []string{"--upload-tools"},
 	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "arm64"`,
 }, {
-	info:    "--upload-tools never bumps build number",
+	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-amd64",
 	args:    []string{"--upload-tools"},
-	upload:  "1.2.3.4-raring-amd64",
+	upload:  "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
@@ -506,7 +506,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "peckham")
 	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).MachineConfig
 	c.Assert(mcfg, gc.NotNil)
-	c.Assert(mcfg.Tools.Version.String(), gc.Equals, "1.7.3-raring-"+version.Current.Arch)
+	c.Assert(mcfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
@@ -538,7 +538,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
 Bootstrapping environment "peckham"
 Starting new instance for initial state server
-Building tools to upload (1.7.3-raring-%s)
+Building tools to upload (1.7.3.1-raring-%s)
 `[1:], version.Current.Arch))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }

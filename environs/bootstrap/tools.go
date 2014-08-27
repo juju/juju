@@ -77,10 +77,10 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 		return nil, findToolsErr
 	}
 
-	if !dev || (vers != nil && version.Current.Number != *vers) {
-		// We are not running a development build, or the target
-		// version does not match the local version; the only tools
-		// available are the ones we've just found.
+	if !dev || vers != nil {
+		// We are not running a development build, or agent-version
+		// was specified; the only tools available are the ones we've
+		// just found.
 		return toolsList, findToolsErr
 	}
 	// The tools located may not include the ones that the
@@ -117,6 +117,8 @@ func locallyBuildableTools() (buildable coretools.List) {
 		}
 		binary := version.Current
 		binary.Series = series
+		// Increment the build number so we know it's a development build.
+		binary.Build++
 		buildable = append(buildable, &coretools.Tools{Version: binary})
 	}
 	return buildable

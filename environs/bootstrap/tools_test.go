@@ -156,8 +156,10 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(uploadedTools, gc.Not(gc.HasLen), 0)
 	c.Assert(findToolsCalled, gc.Equals, 0)
+	expectedVersion := version.Current.Number
+	expectedVersion.Build++
 	for _, tools := range uploadedTools {
-		c.Assert(tools.Version.Number, gc.Equals, version.Current.Number)
+		c.Assert(tools.Version.Number, gc.Equals, expectedVersion)
 		c.Assert(tools.URL, gc.Equals, "")
 	}
 }
@@ -195,11 +197,13 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
 	c.Assert(env.supportedArchitecturesCount, gc.Equals, 1)
 	var trustyToolsFound int
+	expectedVersion := version.Current.Number
+	expectedVersion.Build++
 	for _, tools := range availableTools {
 		if tools == trustyTools {
 			trustyToolsFound++
 		} else {
-			c.Assert(tools.Version.Number, gc.Equals, version.Current.Number)
+			c.Assert(tools.Version.Number, gc.Equals, expectedVersion)
 			c.Assert(tools.Version.Series, gc.Not(gc.Equals), "trusty")
 			c.Assert(tools.URL, gc.Equals, "")
 		}
