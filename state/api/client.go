@@ -4,6 +4,7 @@
 package api
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -664,21 +665,17 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	if err != nil {
 		return nil, fmt.Errorf("cannot upload charm: %v", err)
 	}
-	if resp.StatusCode == http.StatusMethodNotAllowed {
-		// API server is 1.16 or older, so charm upload
-		// is not supported; notify the client.
-		return nil, &params.Error{
-			Message: "charm upload is not supported by the API server",
-			Code:    params.CodeNotImplemented,
-		}
-	}
+	defer resp.Body.Close()
 
 	// Now parse the response & return.
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read charm upload response: %v", err)
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("charm upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
+	}
+
 	var jsonResponse params.CharmsResponse
 	if err := json.Unmarshal(body, &jsonResponse); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
@@ -716,8 +713,10 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 	return urlInfo.URL, nil
 }
 
+// UploadTools uploads tools at the specified location to the
+// API server over HTTPS.
 func (c *Client) UploadTools(
-	toolsFilename string, vers version.Binary, fakeSeries ...string,
+	toolsFilename string, vers version.Binary,
 ) (
 	tools *tools.Tools, err error,
 ) {
@@ -726,6 +725,11 @@ func (c *Client) UploadTools(
 		return nil, err
 	}
 	defer toolsTarball.Close()
+
+	// Older versions of Juju expect to be told which series to expand
+	// the uploaded tools to on the server-side. In new versions we
+	// do this automatically, and the parameter will be ignored.
+	fakeSeries := version.OSSupportedSeries(vers.OS)
 
 	// Prepare the upload request.
 	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
@@ -750,21 +754,17 @@ func (c *Client) UploadTools(
 	if err != nil {
 		return nil, fmt.Errorf("cannot upload charm: %v", err)
 	}
-	if resp.StatusCode == http.StatusMethodNotAllowed {
-		// API server is older than 1.17.5, so tools upload
-		// is not supported; notify the client.
-		return nil, &params.Error{
-			Message: "tools upload is not supported by the API server",
-			Code:    params.CodeNotImplemented,
-		}
-	}
+	defer resp.Body.Close()
 
 	// Now parse the response & return.
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read tools upload response: %v", err)
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
+	}
+
 	var jsonResponse params.ToolsResult
 	if err := json.Unmarshal(body, &jsonResponse); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
