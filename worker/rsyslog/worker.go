@@ -13,7 +13,6 @@ import (
 	"os/user"
 	"runtime"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -169,8 +168,12 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 	var newLoggers []*rsyslog.Writer
 	var wrapLoggers []io.Writer
 	for _, j := range h.syslogConfig.StateServerAddresses {
-		parts := strings.Split(j, ":")
-		target := fmt.Sprintf("%s:%d", parts[0], h.syslogConfig.Port)
+		host, _, err := net.SplitHostPort(j)
+		if err != nil {
+			// No port was found
+			host = j
+		}
+		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
 		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, "juju-"+h.tag.String(), tlsConf)
 		if err != nil {
 			return err
@@ -211,7 +214,6 @@ func (h *RsyslogConfigHandler) Handle() error {
 
 	h.syslogConfig.Port = cfg.Port
 	if h.mode == RsyslogModeForwarding {
-		// TODO(gabriel-samfira): check if this is actually needed anymore
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
 			return errors.Annotate(err, "cannot write CA certificate")
 		}
