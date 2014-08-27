@@ -403,16 +403,16 @@ func (a *MachineAgent) updateSupportedContainers(
 		return worker.ErrTerminateAgent
 	}
 	if err != nil {
-		return errors.Annotatef(err, "cannot load machine %s from state: %v", tag)
+		return errors.Annotatef(err, "cannot load machine %s from state", tag)
 	}
 	if len(containers) == 0 {
 		if err := machine.SupportsNoContainers(); err != nil {
-			return errors.Annotatef(err, "clearing supported containers for %s: %v", tag)
+			return errors.Annotatef(err, "clearing supported containers for %s", tag)
 		}
 		return nil
 	}
 	if err := machine.SetSupportedContainers(containers...); err != nil {
-		return errors.Annotatef(err, "setting supported containers for %s: %v", tag)
+		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
 	initLock, err := hookExecutionLock(agentConfig.DataDir())
 	if err != nil {
