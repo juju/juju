@@ -106,7 +106,10 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (env *localEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	if err := ensureNotRoot(); err != nil {
 		return "", "", nil, err
 	}
@@ -120,10 +123,24 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return "", "", nil, err
 	}
 
-	// Record the bootstrap IP, so the containers know where to go for storage.
-	cfg, err := env.Config().Apply(map[string]interface{}{
+	configAttrs := env.Config().AllAttrs()
+	toApply := map[string]interface{}{
+		// Record the bootstrap IP, so the containers know where to go for storage.
 		"bootstrap-ip": env.bridgeAddress,
-	})
+	}
+
+	setIfNot := func(key string, value interface{}) {
+		if _, ok := configAttrs[key]; !ok {
+			toApply[key] = value
+		}
+	}
+
+	// Since Juju's state machine is currently the host machine
+	// for local providers, don't stomp on it.
+	setIfNot("enable-os-refresh-update", false)
+	setIfNot("enable-os-upgrade", false)
+
+	cfg, err := env.Config().Apply(toApply)
 	if err == nil {
 		err = env.SetConfig(cfg)
 	}

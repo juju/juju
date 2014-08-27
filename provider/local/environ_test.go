@@ -195,8 +195,8 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 
 	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
-		c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
-		c.Assert(cloudcfg.AptUpgrade(), jc.IsTrue)
+		c.Assert(cloudcfg.AptUpdate(), gc.Equals, mcfg.EnableOSRefreshUpdate)
+		c.Assert(cloudcfg.AptUpgrade(), gc.Equals, mcfg.EnableOSUpgrade)
 		if !mcfg.EnableOSRefreshUpdate {
 			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		}
@@ -206,7 +206,18 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 		return nil
 	}
 	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
-	s.testBootstrap(c, minimalConfig(c))
+
+	// Test that defaults are correct.
+	minCfg := minimalConfig(c)
+	s.testBootstrap(c, minCfg)
+
+	// Test that overrides work.
+	minCfg, err := minCfg.Apply(map[string]interface{}{
+		"enable-os-refresh-update": true,
+		"enable-os-upgrade":        true,
+	})
+	c.Assert(err, gc.IsNil)
+	s.testBootstrap(c, minCfg)
 }
 
 func (s *localJujuTestSuite) TestDestroy(c *gc.C) {
