@@ -14,10 +14,16 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
+	id       string
 	tag      names.MachineTag
 	life     params.Life
 	isManual bool
 	st       *State
+}
+
+// Id returns the machine's id.
+func (m *Machine) Id() string {
+	return m.id
 }
 
 // Tag returns the machine's tag.

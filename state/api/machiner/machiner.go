@@ -49,6 +49,7 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	}
 	machineResult := result.Machines[0]
 	return &Machine{
+		id:       machineResult.Id,
 		tag:      tag,
 		life:     machineResult.Life,
 		isManual: machineResult.IsManual,

@@ -37,8 +37,10 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -225,18 +227,17 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	tests := []struct {
-		machineId string
-		isManual  bool
-		requires  bool
+		snr      state.SafeNetworkerRequirer
+		requires bool
 	}{
-		{"0", false, false},
-		{"0", true, true},
-		{"1", false, false},
-		{"1", true, true},
+		{statetesting.NewMockSafeNetworkerRequirer("0", false), false},
+		{statetesting.NewMockSafeNetworkerRequirer("0", true), false},
+		{statetesting.NewMockSafeNetworkerRequirer("1", false), false},
+		{statetesting.NewMockSafeNetworkerRequirer("1", true), false},
 	}
 	for i, test := range tests {
-		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
-		c.Assert(env.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())
+		c.Assert(env.RequiresSafeNetworker(test.snr), gc.Equals, test.requires)
 	}
 }
 

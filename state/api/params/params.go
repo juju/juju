@@ -155,6 +155,7 @@ type GetMachinesResultsV0 struct {
 // GetMachineResult holds the results of the GetMachines call
 // for one machine.
 type GetMachinesResultV0 struct {
+	Id       string
 	Tag      string
 	Life     Life
 	IsManual bool

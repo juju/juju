@@ -88,6 +88,7 @@ func (api *MachinerAPI) GetMachines(args params.GetMachinesV0) (params.GetMachin
 			results.Machines[i].Error = common.ServerError(err)
 			continue
 		}
+		results.Machines[i].Id = m.Id()
 		results.Machines[i].Life = params.Life(m.Life().String())
 		results.Machines[i].IsManual = isManual
 	}

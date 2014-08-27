@@ -462,8 +462,9 @@ func (env *azureEnviron) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (env *azureEnviron) RequiresSafeNetworker(machineId string, isManual bool) bool {
-	if isManual {
+func (env *azureEnviron) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
+	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
+	if disableNetworkManagement || snr.IsManual() {
 		return true
 	}
 	return false

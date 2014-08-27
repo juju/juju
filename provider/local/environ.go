@@ -41,6 +41,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -91,8 +92,9 @@ func (*localEnviron) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (env *localEnviron) RequiresSafeNetworker(machineId string, isManual bool) bool {
-	if machineId == bootstrapMachineId || isManual {
+func (env *localEnviron) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
+	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
+	if disableNetworkManagement || snr.Id() == bootstrapMachineId || snr.IsManual() {
 		return true
 	}
 	return false

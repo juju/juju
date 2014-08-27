@@ -33,6 +33,10 @@ func (p *mockEnvironCapability) SupportNetworks() bool {
 	panic("unused")
 }
 
+func (p *mockEnvironCapability) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
+	return true
+}
+
 func (p *mockEnvironCapability) SupportsUnitPlacement() error {
 	return p.supportsUnitPlacementError
 }

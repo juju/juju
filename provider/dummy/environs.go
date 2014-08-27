@@ -600,7 +600,7 @@ func (*environ) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (*environ) RequiresSafeNetworker(machineId string, isManual bool) bool {
+func (*environ) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
 	return true
 }
 

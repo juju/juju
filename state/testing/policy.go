@@ -53,3 +53,29 @@ func (p *MockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDist
 	}
 	return nil, errors.NewNotImplemented(nil, "InstanceDistributor")
 }
+
+// mockSafeNetworkerRequirer helps to test the RequiresSafeNetworker
+// environment capability.
+type mockSafeNetworkerRequirer struct {
+	id       string
+	isManual bool
+}
+
+// NewMockSafeNetworkerRequirer creates a mock implementing the
+// state.SafeNetworkerRequirer interface.
+func NewMockSafeNetworkerRequirer(id string, isManual bool) state.SafeNetworkerRequirer {
+	return &mockSafeNetworkerRequirer{
+		id:       id,
+		isManual: isManual,
+	}
+}
+
+// Id returns the identifier of the simulated machine.
+func (msnr *mockSafeNetworkerRequirer) Id() string {
+	return msnr.id
+}
+
+// IsManual returns the manually provisioning flag of the simulated machine.
+func (msnr *mockSafeNetworkerRequirer) IsManual() bool {
+	return msnr.isManual
+}

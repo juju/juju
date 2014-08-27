@@ -88,6 +88,8 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
+	newNetworker             = networker.NewNetworker
+	newSafeNetworker         = networker.NewSafeNetworker
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -253,6 +255,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	reportOpenedAPI(st)
 
+	// Check if the network management is disabled.
+	envConfig, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
+	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
+	if disableNetworkManagement {
+		logger.Infof("network management is disabled")
+	}
+
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
 	for _, job := range entity.Jobs() {
@@ -328,7 +340,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// Start the networker.
+	// Start the networker in a mode depending on environment cpability.
 	ecap, err := environCapability(st)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve environment capability")
@@ -337,13 +349,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve machine")
 	}
-	if ecap.RequiresSafeNetworker(a.MachineId, m.IsManual()) {
+	if ecap.RequiresSafeNetworker(m) {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+			return newSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
 		})
 	} else {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+			return newNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
 		})
 	}
 

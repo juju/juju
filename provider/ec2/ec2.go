@@ -361,8 +361,9 @@ func (e *environ) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (e *environ) RequiresSafeNetworker(machineId string, isManual bool) bool {
-	if isManual {
+func (e *environ) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
+	disableNetworkManagement, _ := e.Config().DisableNetworkManagement()
+	if disableNetworkManagement || snr.IsManual() {
 		return true
 	}
 	return false

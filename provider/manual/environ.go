@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/terminationworker"
@@ -106,7 +107,7 @@ func (e *manualEnviron) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (e *manualEnviron) RequiresSafeNetworker(machineId string, isManual bool) bool {
+func (e *manualEnviron) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
 	return true
 }
 

@@ -32,7 +32,9 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -112,18 +114,17 @@ func (*environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	tests := []struct {
-		machineId string
-		isManual  bool
-		requires  bool
+		snr      state.SafeNetworkerRequirer
+		requires bool
 	}{
-		{"0", false, true},
-		{"0", true, true},
-		{"1", false, false},
-		{"1", true, true},
+		{statetesting.NewMockSafeNetworkerRequirer("0", false), true},
+		{statetesting.NewMockSafeNetworkerRequirer("0", true), true},
+		{statetesting.NewMockSafeNetworkerRequirer("1", false), false},
+		{statetesting.NewMockSafeNetworkerRequirer("1", true), true},
 	}
 	for i, test := range tests {
-		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
-		c.Assert(environ.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())
+		c.Assert(environ.RequiresSafeNetworker(test.snr), gc.Equals, test.requires)
 	}
 }
 
