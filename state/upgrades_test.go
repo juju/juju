@@ -92,7 +92,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	info, err := s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	uuid := info.EnvUUID
+	tag := info.EnvironmentTag
 
 	// force remove the uuid.
 	ops := []txn.Op{{
@@ -106,9 +106,12 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	err = s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 	// Make sure it has gone.
-	info, err = s.state.StateServerInfo()
+	stateServers, closer := s.state.getCollection(stateServersC)
+	defer closer()
+	var doc stateServersDoc
+	err = stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, "")
+	c.Assert(doc.EnvUUID, gc.Equals, "")
 
 	// Run the upgrade step
 	err = AddEnvironmentUUIDToStateServerDoc(s.state)
@@ -116,18 +119,18 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	// Make sure it is there now
 	info, err = s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, uuid)
+	c.Assert(info.EnvironmentTag, gc.Equals, tag)
 }
 
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C) {
 	info, err := s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	uuid := info.EnvUUID
+	tag := info.EnvironmentTag
 
 	err = AddEnvironmentUUIDToStateServerDoc(s.state)
 	c.Assert(err, gc.IsNil)
 
 	info, err = s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.EnvUUID, gc.Equals, uuid)
+	c.Assert(info.EnvironmentTag, gc.Equals, tag)
 }

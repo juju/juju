@@ -128,11 +128,6 @@ type MachineConfig struct {
 	// Series represents the machine series.
 	Series string
 
-	// SystemPrivateSSHKey is created at bootstrap time and recorded on every
-	// node that has an API server. At this stage, that is any machine where
-	// StateServer (member above) is set to true.
-	SystemPrivateSSHKey string
-
 	// MachineAgentServiceName is the Upstart service name for the Juju machine agent.
 	MachineAgentServiceName string
 
@@ -440,9 +435,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.StateServingInfo.APIPort == 0 {
 			return fmt.Errorf("missing API port")
-		}
-		if cfg.SystemPrivateSSHKey == "" {
-			return fmt.Errorf("missing system ssh identity")
 		}
 		if cfg.InstanceId == "" {
 			return fmt.Errorf("missing instance-id")

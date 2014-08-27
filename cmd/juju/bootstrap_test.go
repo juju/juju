@@ -30,7 +30,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -160,6 +162,10 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(hasCert, gc.Equals, true)
 	_, hasKey := env.Config().CAPrivateKey()
 	c.Check(hasKey, gc.Equals, true)
+	info, err := store.ReadInfo("peckham")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{"localhost:17070"})
 }
 
 var bootstrapTests = []bootstrapTest{{
@@ -192,7 +198,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
-	err:     `dummy.Bootstrap is broken`,
+	err:     `failed to bootstrap environment: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -213,13 +219,13 @@ var bootstrapTests = []bootstrapTest{{
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
 	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
-	err:      `cannot build tools for "ppc64el" using a machine running on "amd64"`,
+	err:      `failed to bootstrap environment: cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
 	version:  "1.3.3-saucy-arm64",
 	hostArch: "arm64",
 	args:     []string{"--upload-tools"},
-	err:      `environment "peckham" of type dummy does not support instances running on "arm64"`,
+	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "arm64"`,
 }, {
 	info:    "--upload-tools never bumps build number",
 	version: "1.2.3.4-raring-amd64",
@@ -252,6 +258,14 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
+type mockBootstrapInstance struct {
+	instance.Instance
+}
+
+func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
+	return []network.Address{network.Address{Value: "localhost"}}, nil
+}
+
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
@@ -270,6 +284,9 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 		return _bootstrap
 	})
 	resetJujuHome(c)
+	s.PatchValue(&allInstances, func(environ environs.Environ) ([]instance.Instance, error) {
+		return []instance.Instance{&mockBootstrapInstance{}}, nil
+	})
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--upload-tools", argVariant, "foo,bar")
 
@@ -337,7 +354,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", c.MkDir())
-	c.Check(err, gc.ErrorMatches, `Juju cannot bootstrap because no tools are available for your environment(.|\n)*`)
+	c.Check(err, gc.ErrorMatches, `failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*`)
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
@@ -497,7 +514,7 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	_, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches,
-		"Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
@@ -505,7 +522,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 	c.Assert(err, gc.ErrorMatches,
-		"Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
+		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func buildToolsTarballAlwaysFails(forceVersion *version.Number) (*sync.BuiltTools, error) {
@@ -523,7 +540,7 @@ Bootstrapping environment "peckham"
 Starting new instance for initial state server
 Building tools to upload (1.7.3-raring-%s)
 `[1:], version.Current.Arch))
-	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
@@ -536,7 +553,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	s.PatchValue(&version.Current, devVersion)
 	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
 	for opDestroy == nil {
 		select {

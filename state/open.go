@@ -31,6 +31,20 @@ import (
 //
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+	st, err := open(info, opts, policy)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ssInfo, err := st.StateServerInfo()
+	if err != nil {
+		st.Close()
+		return nil, errors.Annotate(err, "could not access state server info")
+	}
+	st.environTag = ssInfo.EnvironmentTag
+	return st, nil
+}
+
+func open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -51,7 +65,7 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
 func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
-	st, err := Open(info, opts, policy)
+	st, err := open(info, opts, policy)
 	if err != nil {
 		return nil, err
 	}

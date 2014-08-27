@@ -57,7 +57,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		return "", "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, "", series)
+	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, series)
 	if err != nil {
 		return "", "", nil, err
 	}
