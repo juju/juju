@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"syscall"
+	"runtime"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -127,6 +127,9 @@ func (s *wrenchSuite) TestFileNotOwnedByJujuUser(c *gc.C) {
 }
 
 func (s *wrenchSuite) TestFilePermsTooLoose(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Windows is not fully POSIX compliant")
+	}
 	s.createWrenchDir(c)
 	filename := s.createWrenchFile(c, "foo", "bar")
 	err := os.Chmod(filename, 0666)
@@ -173,25 +176,6 @@ func (s *wrenchSuite) TestSetEnabled(c *gc.C) {
 
 var notJujuUid = uint32(os.Getuid() + 1)
 
-// Patch out the os.Stat call used by wrench so that a particular file
-// appears to be owned by a UID that isn't Juju's UID.
-func (s *wrenchSuite) tweakOwner(c *gc.C, targetPath string) {
-	s.PatchValue(wrench.Stat, func(path string) (fi os.FileInfo, err error) {
-		fi, err = os.Stat(path)
-		if err != nil {
-			return
-		}
-		if path == targetPath {
-			statStruct, ok := fi.Sys().(*syscall.Stat_t)
-			if !ok {
-				c.Skip("this test only support on POSIX systems")
-			}
-			statStruct.Uid = notJujuUid
-		}
-		return
-	})
-}
-
 func (s *wrenchSuite) AssertActivationLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.WARNING, `wrench for foo/bar is active`}})
@@ -203,12 +187,10 @@ func (s *wrenchSuite) AssertNothingLogged(c *gc.C) {
 
 func (s *wrenchSuite) AssertFileErrorLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.DEBUG, `no wrench data for foo/bar \(ignored\): ` +
-			`stat .+: no such file or directory`}})
+		{loggo.DEBUG, `no wrench data for foo/bar \(ignored\): ` + fileNotFound}})
 }
 
 func (s *wrenchSuite) AssertDirErrorLogged(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
-		{loggo.DEBUG, `couldn't read wrench directory: ` +
-			`stat .+: no such file or directory`}})
+		{loggo.DEBUG, `couldn't read wrench directory: ` + fileNotFound}})
 }

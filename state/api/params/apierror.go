@@ -41,6 +41,7 @@ const (
 	CodeUnitHasSubordinates = "unit has subordinates"
 	CodeNotAssigned         = "not assigned"
 	CodeStopped             = "stopped"
+	CodeDead                = "dead"
 	CodeHasAssignedUnits    = "machine has assigned units"
 	CodeNotProvisioned      = "not provisioned"
 	CodeNoAddressSet        = "no address set"
@@ -115,6 +116,10 @@ func IsCodeNotAssigned(err error) bool {
 
 func IsCodeStopped(err error) bool {
 	return ErrCode(err) == CodeStopped
+}
+
+func IsCodeDead(err error) bool {
+	return ErrCode(err) == CodeDead
 }
 
 func IsCodeHasAssignedUnits(err error) bool {

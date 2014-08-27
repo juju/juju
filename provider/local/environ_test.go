@@ -176,28 +176,36 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{})
+	availableTools := coretools.List{&coretools.Tools{
+		Version: version.Current,
+		URL:     "http://testing.invalid/tools.tar.gz",
+	}}
+	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		AvailableTools: availableTools,
+	})
 	c.Assert(err, gc.IsNil)
-	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "system-key", "quantal")
+	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
-	mcfg.Tools = &coretools.Tools{
-		Version: version.Current, URL: "http://testing.invalid/tools.tar.gz",
-	}
+	mcfg.Tools = availableTools[0]
 	err = finalizer(ctx, mcfg)
 	c.Assert(err, gc.IsNil)
 	return environ
 }
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(local.ExecuteCloudConfig, func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
-		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
-		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
-		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+
+	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+		c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+		c.Assert(cloudcfg.AptUpgrade(), jc.IsTrue)
+		if !mcfg.EnableOSRefreshUpdate {
+			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		}
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		// local does not allow machine-0 to host units
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
-	})
+	}
+	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
 	s.testBootstrap(c, minimalConfig(c))
 }
 

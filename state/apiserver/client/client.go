@@ -693,7 +693,23 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	if err != nil {
 		return result, err
 	}
-	mcfg.DisablePackageCommands = args.DisablePackageCommands
+
+	// Until DisablePackageCommands is retired, for backwards
+	// compatibility, we must respect the client's request and
+	// override any environment settings the user may have specified.
+	// If the client does specify this setting, it will only ever be
+	// true. False indicates the client doesn't care and we should use
+	// what's specified in the environments.yaml file.
+	if args.DisablePackageCommands {
+		mcfg.EnableOSRefreshUpdate = false
+		mcfg.EnableOSUpgrade = false
+	} else if cfg, err := c.api.state.EnvironConfig(); err != nil {
+		return result, err
+	} else {
+		mcfg.EnableOSUpgrade = cfg.EnableOSUpgrade()
+		mcfg.EnableOSRefreshUpdate = cfg.EnableOSRefreshUpdate()
+	}
+
 	result.Script, err = manual.ProvisioningScript(mcfg)
 	return result, err
 }

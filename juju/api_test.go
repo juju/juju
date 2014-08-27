@@ -65,7 +65,7 @@ func (*NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	cfg = env.Config()
@@ -122,7 +122,7 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	env, err := environs.PrepareFromName(envName, ctx, store)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 

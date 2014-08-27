@@ -5,9 +5,12 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/juju/cmd"
@@ -16,16 +19,19 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -34,6 +40,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -97,16 +104,39 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Series, "trusty") // for predictable tools
+	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
+		return "private-key", "public-key", nil
+	})
+
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
 	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = fakeEnsure{}
+
+	// Create fake tools.tar.gz and downloaded-tools.txt.
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, version.Current))
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
+	c.Assert(err, gc.IsNil)
+	s.writeDownloadedTools(c, &tools.Tools{Version: version.Current})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, tools.Version))
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	data, err := json.Marshal(tools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
+	c.Assert(err, gc.IsNil)
 }
 
 var testPassword = "my-admin-secret"
@@ -174,10 +204,13 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
+	c.Assert(expectInfo.SystemIdentity, gc.Equals, "")
 
 	servingInfo := s.fakeEnsureMongo.info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
+	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
+	servingInfo.SystemIdentity = ""
 	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
 	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
@@ -213,6 +246,10 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.envcfg.AuthorizedKeys()+"\npublic-key")
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
@@ -482,6 +519,69 @@ func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
 	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
+	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, "private-key")
+}
+
+func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
+	// Tools downloaded by cloud-init script.
+	s.testToolsMetadata(c, false)
+}
+
+func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
+	// Tools uploaded over ssh.
+	s.writeDownloadedTools(c, &tools.Tools{
+		Version: version.Current,
+		URL:     "file:///does/not/matter",
+	})
+	s.testToolsMetadata(c, true)
+}
+
+func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
+	provider, err := environs.Provider(s.envcfg.Type())
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Open(s.envcfg)
+	c.Assert(err, gc.IsNil)
+	oldMetadata, err := envtools.ReadMetadata(env.Storage())
+	c.Assert(err, gc.IsNil)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	newMetadata, err := envtools.ReadMetadata(env.Storage())
+	c.Assert(err, gc.IsNil)
+	if !exploded {
+		c.Assert(newMetadata, gc.HasLen, len(oldMetadata))
+	} else {
+		// new metadata should have more tools.
+		c.Assert(len(newMetadata), jc.GreaterThan, len(oldMetadata))
+		var expectedSeries set.Strings
+		for _, series := range version.SupportedSeries() {
+			os, err := version.GetOSFromSeries(series)
+			c.Assert(err, gc.IsNil)
+			if os == version.Ubuntu {
+				expectedSeries.Add(series)
+			}
+		}
+		c.Assert(newMetadata, gc.HasLen, expectedSeries.Size())
+		for _, m := range newMetadata {
+			c.Assert(expectedSeries.Contains(m.Release), jc.IsTrue)
+		}
+	}
 }
 
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {

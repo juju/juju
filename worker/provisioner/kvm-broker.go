@@ -83,6 +83,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		kvmLogger.Errorf("failed to get container config: %v", err)
 		return nil, nil, nil, err
 	}
+
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
 		config.ProviderType,
@@ -91,6 +92,8 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.Proxy,
 		config.AptProxy,
 		config.PreferIPv6,
+		config.EnableOSRefreshUpdate,
+		config.EnableOSUpgrade,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, nil, err

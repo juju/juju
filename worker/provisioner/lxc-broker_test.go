@@ -305,6 +305,7 @@ type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
+		UpdateBehavior:          &params.UpdateBehavior{true, true},
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
 		SSLHostnameVerification: true}, nil

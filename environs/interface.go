@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -75,6 +76,10 @@ type BootstrapParams struct {
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string
+
+	// AvailableTools is a collection of tools which the Bootstrap method
+	// may use to decide which architecture/series to instantiate.
+	AvailableTools tools.List
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
