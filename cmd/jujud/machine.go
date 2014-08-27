@@ -330,9 +330,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
-		if entity.Life() == params.Dead {
-			return nil, worker.ErrTerminateAgent
-		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
 	for _, job := range entity.Jobs() {
@@ -398,8 +395,11 @@ func (a *MachineAgent) updateSupportedContainers(
 ) error {
 	pr := st.Provisioner()
 	machine, err := pr.Machine(tag)
+	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
+		return worker.ErrTerminateAgent
+	}
 	if err != nil {
-		return fmt.Errorf("%s is not in state: %v", tag, err)
+		return fmt.Errorf("cannot load machine %s from state: %v", tag, err)
 	}
 	if len(containers) == 0 {
 		if err := machine.SupportsNoContainers(); err != nil {
