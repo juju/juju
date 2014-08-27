@@ -25,6 +25,9 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
+// toolsLtsSeries records the known Ubuntu LTS series.
+var toolsLtsSeries = []string{"precise", "trusty"}
+
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
 type ToolsFixture struct {
@@ -57,7 +60,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
 	for _, arch := range arches {
 		v := version.Current
 		v.Arch = arch
-		for _, series := range envtools.ToolsLtsSeries {
+		for _, series := range toolsLtsSeries {
 			v.Series = series
 			versions = append(versions, v)
 		}
@@ -203,7 +206,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	toolsSeries := set.NewStrings(envtools.ToolsLtsSeries...)
+	toolsSeries := set.NewStrings(toolsLtsSeries...)
 	toolsSeries.Add(version.Current.Series)
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {
