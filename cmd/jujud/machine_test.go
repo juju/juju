@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apideployer "github.com/juju/juju/state/api/deployer"
+	apinetworker "github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	charmtesting "github.com/juju/juju/state/apiserver/charmrevisionupdater/testing"
@@ -53,6 +54,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machineenvironmentworker"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -988,6 +990,42 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsSafeNetworkerWhenNetworkManagementIsDisabled(c *gc.C) {
+	attrs := coretesting.Attrs{"disable-network-management": true}
+	err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+
+	started := make(chan struct{}, 1)
+	nonSafeStarted := make(chan struct{}, 1)
+	s.agentSuite.PatchValue(&newSafeNetworker, func(st *apinetworker.State, conf agent.Config, confDir string) (*networker.Networker, error) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return networker.NewSafeNetworker(st, conf, confDir)
+	})
+	s.agentSuite.PatchValue(&newNetworker, func(st *apinetworker.State, conf agent.Config, confDir string) (*networker.Networker, error) {
+		select {
+		case nonSafeStarted <- struct{}{}:
+		default:
+		}
+		return networker.NewNetworker(st, conf, confDir)
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+	case <-nonSafeStarted:
+		c.Fatalf("expected to start safe networker, but started a normal one")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for the safe networker worker to be started")
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
