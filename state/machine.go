@@ -254,7 +254,7 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, errDead))
+		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.HasVote = hasVote
 	return nil
@@ -322,7 +322,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	m.doc.Tools = tools
 	return nil
@@ -354,7 +354,7 @@ func (m *Machine) setPasswordHash(passwordHash string) error {
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
+		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, ErrDead))
 	}
 	m.doc.PasswordHash = passwordHash
 	return nil
@@ -981,7 +981,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			}
 		}
 		if m.doc.Life == Dead {
-			return nil, errDead
+			return nil, ErrDead
 		}
 		op := txn.Op{
 			C:      machinesC,
@@ -1304,7 +1304,9 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 		},
 	}
 	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot update supported containers of machine %v: %v", m, err)
+		return err
 	}
 	m.doc.SupportedContainers = supportedContainers
 	m.doc.SupportedContainersKnown = true

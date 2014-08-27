@@ -254,9 +254,12 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 }
 
 func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
+	_, unit, _, _ := s.primeAgent(c)
 	vers := version.Current
 	vers.Minor = version.Current.Minor + 1
-	_, unit, _, _ := s.primeAgent(c)
+	err := unit.SetAgentVersion(vers)
+	c.Assert(err, gc.IsNil)
+
 	a := s.newAgent(c, unit)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()

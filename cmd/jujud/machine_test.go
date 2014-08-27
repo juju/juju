@@ -243,6 +243,8 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	defer func() {
 		c.Check(a.Stop(), gc.IsNil)
 	}()
+	// Wait for configuration to be finished
+	<-a.WorkersStarted()
 	err := m.Destroy()
 	c.Assert(err, gc.IsNil)
 	select {
