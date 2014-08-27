@@ -24,8 +24,8 @@ func NewCleanup(client *metricsmanager.Client, notify chan struct{}) worker.Work
 	f := func(stopCh <-chan struct{}) error {
 		err := client.CleanupOldMetrics()
 		if err != nil {
-			logger.Errorf("failed to cleanup %v", err)
-			return nil // We failed this time, but we'll retry later
+			logger.Warningf("failed to cleanup %v - will retry later", err)
+			return nil
 		}
 		select {
 		case notify <- struct{}{}:
