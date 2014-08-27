@@ -101,9 +101,11 @@ func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response 
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
+func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
 	err := common.ServerError(fmt.Errorf(message))
-	return h.sendJSON(w, statusCode, &params.ToolsResult{Error: err})
+	if err := h.sendJSON(w, statusCode, &params.ToolsResult{Error: err}); err != nil {
+		logger.Errorf("failed to send error: %v", err)
+	}
 }
 
 // processGet handles a tools GET request.
@@ -138,7 +140,7 @@ func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, 
 	client := utils.GetHTTPClient(verify)
 	resp, err := client.Get(tools.URL)
 	if err != nil {
-		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to get %q: %v", err.Error()))
+		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to get %q: %v", tools.URL, err.Error()))
 		return
 	}
 	defer resp.Body.Close()

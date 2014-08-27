@@ -18,7 +18,7 @@ import (
 
 // errorSender implementations send errors back to the caller.
 type errorSender interface {
-	sendError(w http.ResponseWriter, statusCode int, message string) error
+	sendError(w http.ResponseWriter, statusCode int, message string)
 }
 
 // httpHandler handles http requests through HTTPS in the API server.
