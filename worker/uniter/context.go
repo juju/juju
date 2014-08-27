@@ -148,6 +148,7 @@ func NewHookContext(
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
 		actionParams:   actionParams,
+		actionTag:      actionTag,
 		canAddMetrics:  canAddMetrics,
 	}
 	// Get and cache the addresses.
