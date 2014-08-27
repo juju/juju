@@ -79,6 +79,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
 	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
 	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
+	state.ErrDead:                params.CodeDead,
 	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
