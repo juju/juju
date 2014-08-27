@@ -1304,7 +1304,9 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 		},
 	}
 	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, ErrDead))
+		err = onAbort(err, ErrDead)
+		logger.Errorf("cannot update supported containers of machine %v: %v", m, err)
+		return err
 	}
 	m.doc.SupportedContainers = supportedContainers
 	m.doc.SupportedContainersKnown = true
