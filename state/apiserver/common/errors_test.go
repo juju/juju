@@ -44,6 +44,10 @@ var errorTransformTests = []struct {
 	code:       params.CodeCannotEnterScope,
 	helperFunc: params.IsCodeCannotEnterScope,
 }, {
+	err:        state.ErrDead,
+	code:       params.CodeDead,
+	helperFunc: params.IsCodeDead,
+}, {
 	err:        txn.ErrExcessiveContention,
 	code:       params.CodeExcessiveContention,
 	helperFunc: params.IsCodeExcessiveContention,

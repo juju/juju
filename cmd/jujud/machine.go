@@ -330,8 +330,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
-		if err == worker.ErrTerminateAgent {
-			return nil, err
+		cause := errors.Cause(err)
+		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
+			return nil, worker.ErrTerminateAgent
 		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
@@ -402,16 +403,16 @@ func (a *MachineAgent) updateSupportedContainers(
 		return worker.ErrTerminateAgent
 	}
 	if err != nil {
-		return fmt.Errorf("cannot load machine %s from state: %v", tag, err)
+		return errors.Annotatef(err, "cannot load machine %s from state: %v", tag)
 	}
 	if len(containers) == 0 {
 		if err := machine.SupportsNoContainers(); err != nil {
-			return fmt.Errorf("clearing supported containers for %s: %v", tag, err)
+			return errors.Annotatef(err, "clearing supported containers for %s: %v", tag)
 		}
 		return nil
 	}
 	if err := machine.SetSupportedContainers(containers...); err != nil {
-		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
+		return errors.Annotatef(err, "setting supported containers for %s: %v", tag)
 	}
 	initLock, err := hookExecutionLock(agentConfig.DataDir())
 	if err != nil {

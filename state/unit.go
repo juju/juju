@@ -194,7 +194,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	u.doc.Tools = tools
 	return nil
@@ -227,7 +227,7 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 	}}
 	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, ErrDead))
 	}
 	u.doc.PasswordHash = passwordHash
 	return nil
@@ -633,7 +633,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 	}
 	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
+		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}
 	return nil
 }
@@ -650,7 +650,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	}}
 	err = u.st.runTransaction(ops)
 	if err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	found := false
 	for _, p := range u.doc.Ports {
@@ -676,7 +676,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	}}
 	err = u.st.runTransaction(ops)
 	if err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	newPorts := make([]network.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
@@ -1487,7 +1487,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if ok, err := isNotDead(u.st.db, unitsC, u.doc.Name); err != nil {
 		return err
 	} else if !ok {
-		return errDead
+		return ErrDead
 	}
 	// For now, the only remaining assert is that resolved was unset.
 	return fmt.Errorf("already resolved")
