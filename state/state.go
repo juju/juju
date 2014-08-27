@@ -402,7 +402,7 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 	return writeConstraints(st, environGlobalKey, cons)
 }
 
-var errDead = fmt.Errorf("not found or dead")
+var ErrDead = fmt.Errorf("not found or dead")
 var errNotAlive = fmt.Errorf("not found or not alive")
 
 func onAbort(txnErr, err error) error {
