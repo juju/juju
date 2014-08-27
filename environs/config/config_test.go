@@ -338,6 +338,32 @@ var configTests = []configTest{
 		},
 		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
+		about:       "Invalid disable-network-management flag",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                       "my-type",
+			"name":                       "my-name",
+			"authorized-keys":            testing.FakeAuthKeys,
+			"disable-network-management": "invalid",
+		},
+		err: `disable-network-management: expected bool, got string\("invalid"\)`,
+	}, {
+		about:       "disable-network-management off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"disable-network-management": false,
+		},
+	}, {
+		about:       "disable-network-management on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"disable-network-management": true,
+		},
+	}, {
 		about:       "Invalid prefer-ipv6 flag",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
