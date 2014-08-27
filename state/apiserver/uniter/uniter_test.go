@@ -807,9 +807,9 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	act1, err := s.wordpressUnit.AddAction("backup", nil)
+	action1, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
-	act2, err := s.wordpressUnit.AddAction("snapshot", nil)
+	action2, err := s.wordpressUnit.AddAction("snapshot", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -819,7 +819,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	results, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.IsNil)
 
-	checkUnorderedActionIdsEqual(c, []string{act1.Id(), act2.Id()}, results)
+	checkUnorderedActionIdsEqual(c, []string{action1.Id(), action2.Id()}, results)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
