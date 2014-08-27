@@ -99,7 +99,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	// Before starting any workers, ensure we record the Juju version this unit
 	// agent is running.
 	currentTools := &tools.Tools{Version: version.Current}
-	if err := st.Upgrader().SetVersion(agentConfig.Tag(), currentTools.Version); err != nil {
+	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
 		return nil, errors.Annotate(err, "cannot set unit agent version")
 	}
 
