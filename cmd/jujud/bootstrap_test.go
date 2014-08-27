@@ -530,8 +530,9 @@ func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	_, err = os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
+	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
 	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, "private-key")
 }
 
 func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
