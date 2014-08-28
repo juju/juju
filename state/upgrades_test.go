@@ -89,6 +89,51 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	c.Assert(keyExists, jc.IsFalse)
 }
 
+func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
+	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
+	c.Assert(err, gc.IsNil)
+	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, gc.IsNil)
+	adminTag := stateAdmin.UserTag()
+	bobTag := stateBob.UserTag()
+
+	_, err = s.state.EnvironmentUser(adminTag)
+	c.Assert(err, gc.ErrorMatches, `envUser "admin@local" not found`)
+	_, err = s.state.EnvironmentUser(bobTag)
+	c.Assert(err, gc.ErrorMatches, `envUser "bob@local" not found`)
+
+	err = AddStateUsersAsEnvironUsers(s.state)
+	c.Assert(err, gc.IsNil)
+
+	admin, err := s.state.EnvironmentUser(adminTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	bob, err := s.state.EnvironmentUser(bobTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
+}
+
+func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
+	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
+	c.Assert(err, gc.IsNil)
+	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, gc.IsNil)
+	adminTag := stateAdmin.UserTag()
+	bobTag := stateBob.UserTag()
+
+	err = AddStateUsersAsEnvironUsers(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = AddStateUsersAsEnvironUsers(s.state)
+	c.Assert(err, gc.IsNil)
+
+	admin, err := s.state.EnvironmentUser(adminTag)
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	bob, err := s.state.EnvironmentUser(bobTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
+}
+
 func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDoc(c *gc.C) {
 	info, err := s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
