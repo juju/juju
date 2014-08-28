@@ -22,9 +22,6 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
-//const curlCommand = "curl -sSfw " +
-//	"'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; " +
-//	"size %{size_download} bytes; speed %{speed_download} bytes/s '"
 const aria2Command = "aria2c"
 
 type ubuntuConfigure struct {
@@ -157,7 +154,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
 		var copyCmd string
-		aria2Command := aria2Command + " --max-tries=10 --retry-wait=3"
+		// Retry indefinitely.
+		aria2Command := aria2Command + " --max-tries=0 --retry-wait=3"
 		if w.mcfg.Bootstrap {
 			if w.mcfg.DisableSSLHostnameVerification {
 				aria2Command += " --check-certificate=false"
