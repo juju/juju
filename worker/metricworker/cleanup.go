@@ -14,10 +14,6 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.metricworker.cleanup")
 
-type MetricCleanupWorker struct {
-	work worker.Worker
-}
-
 // NewCleanup creates a new periodic worker that calls the CleanupOldMetrics api.
 // If a notify channel is provided it will be signalled everytime the call is made.
 func NewCleanup(client *metricsmanager.Client, notify chan struct{}) worker.Worker {

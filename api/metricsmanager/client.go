@@ -18,7 +18,7 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
-// NewClients creates a new client for accessing the metricsmanager api
+// NewClient creates a new client for accessing the metricsmanager api
 func NewClient(st base.APICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "MetricsManager")
 	return &Client{ClientFacade: frontend, facade: backend}
@@ -27,13 +27,10 @@ func NewClient(st base.APICallCloser) *Client {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
-	results := new(params.ErrorResult)
-	err := c.facade.FacadeCall("CleanupOldMetrics", nil, results)
+	var results params.ErrorResult
+	err := c.facade.FacadeCall("CleanupOldMetrics", nil, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if results.Error != nil {
-		return results.Error
-	}
-	return nil
+	return results.Error
 }

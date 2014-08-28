@@ -118,24 +118,21 @@ func (st *State) DeleteMetricBatch(UUID string) error {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(time.Hour - 24))
+	age := time.Now().Add(-(time.Hour * 24))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	iter := c.Find(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	}).Select(bson.D{{"_id", 1}}).Iter()
-	doc := metricBatchDoc{}
+	var doc metricBatchDoc
 	for iter.Next(&doc) {
 		err := st.DeleteMetricBatch(doc.UUID)
 		if err != nil {
 			return err
 		}
 	}
-	if err := iter.Close(); err != nil {
-		return err
-	}
-	return nil
+	return iter.Close()
 }
 
 // UUID returns to uuid of the metric.
@@ -178,8 +175,6 @@ func (m *MetricBatch) SetSent() error {
 // Metrics returns the metrics in this batch.
 func (m *MetricBatch) Metrics() []Metric {
 	result := make([]Metric, len(m.doc.Metrics))
-	for i, m := range m.doc.Metrics {
-		result[i] = m
-	}
+	copy(result, m.doc.Metrics)
 	return result
 }

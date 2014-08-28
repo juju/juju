@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The metricsmanager package contains implementation of an api endpoint
+// Package metricsmanager contains the implementation of an api endpoint
 // for calling metrics functions in state.
 package metricsmanager
 
