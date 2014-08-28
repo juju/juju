@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
@@ -70,7 +71,7 @@ type HookContext struct {
 
 	// actionTag is the handle to the action, if the hook was an action.
 	// This is necessary for calling back for ActionFailed / ActionCompleted.
-	actionTag names.ActionTag
+	actionTag *names.ActionTag
 
 	// actionParams holds the set of arguments passed with the action.
 	actionParams map[string]interface{}
@@ -131,8 +132,8 @@ func NewHookContext(
 	serviceOwner string,
 	proxySettings proxy.Settings,
 	actionParams map[string]interface{},
+	actionTag *names.ActionTag,
 	canAddMetrics bool,
-	actionTag names.ActionTag,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
@@ -211,9 +212,9 @@ func (ctx *HookContext) ActionParams() map[string]interface{} {
 	return ctx.actionParams
 }
 
-// ActionSetFailed sets the state of the action to "fail" and sets the results
+// SetActionFailed sets the state of the action to "fail" and sets the results
 // message to the string argument.
-func (ctx *HookContext) ActionSetFailed(message string) {
+func (ctx *HookContext) SetActionFailed(message string) {
 	ctx.actionResults.Message = message
 	ctx.actionResults.Status = actionStatusFailed
 }
@@ -384,21 +385,34 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		}
 		// Otherwise, it was an action, but there was an error.
 		errMsg := err.Error()
+	}
+
+	// If it was not an Action, just short-circuit to return err.
+	if ctx.actionTag == nil {
+		return err
+	}
+
+	// Otherwise, if there *was* an error, and it was an action...
+	if err != nil {
+		// If it was a missing hook error, the action implementation
+		// is missing, and that's a problem with the unit.
 		if IsMissingHookError(err) {
-			errMsg = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
+			err = errors.Errorf("action failed (not implemented on unit %q)", ctx.UnitName())
 		}
-		callError := ctx.state.ActionFail(ctx.actionTag, errMsg)
+
+		callError := ctx.state.ActionFail(*ctx.actionTag, err.Error())
 		if callError != nil {
-			// Oh dear.  Stack the errors.  Best we can do.
-			err = fmt.Errorf("Action API error %s on top of error: %s", callError.Error(), errMsg)
+			// Oh dear.  Wrap the errors.  Best we can do.
+			err = errors.Wrap(err, callError)
 		}
+
 		return err
 	}
 
 	if ctx.actionResults.Status == actionStatusFailed {
-		return ctx.state.ActionFail(ctx.actionTag, ctx.actionResults.Message)
+		return ctx.state.ActionFail(*ctx.actionTag, ctx.actionResults.Message)
 	}
-	return ctx.state.ActionComplete(ctx.actionTag, ctx.actionResults.Results)
+	return ctx.state.ActionComplete(*ctx.actionTag, ctx.actionResults.Results)
 }
 
 // RunCommands executes the commands in an environment which allows it to to
