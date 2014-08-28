@@ -815,7 +815,7 @@ func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryR
 
 	result.Action = &params.Action{
 		Name:   action.Name(),
-		Params: action.Payload(),
+		Params: action.Parameters(),
 	}
 	return result, nil
 }

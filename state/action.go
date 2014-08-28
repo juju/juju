@@ -60,9 +60,9 @@ type actionDoc struct {
 	// match an action defined by the unit's charm.
 	Name string `bson:"name"`
 
-	// Payload holds the action's parameters, if any; it should validate
+	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm
-	Payload map[string]interface{} `bson:"payload"`
+	Parameters map[string]interface{} `bson:"parameters"`
 }
 
 // Action represents an instruction to do some "action" and is expected
@@ -111,11 +111,11 @@ func (a *Action) Name() string {
 	return a.doc.Name
 }
 
-// Payload will contain a structure representing arguments or parameters to
+// Parameters will contain a structure representing arguments or parameters to
 // an action, and is expected to be validated by the Unit using the Charm
 // definition of the Action
-func (a *Action) Payload() map[string]interface{} {
-	return a.doc.Payload
+func (a *Action) Parameters() map[string]interface{} {
+	return a.doc.Parameters
 }
 
 // ActionResults is a data transfer object that holds the key Action
@@ -165,7 +165,7 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 	if err != nil {
 		return actionDoc{}, err
 	}
-	return actionDoc{Id: actionId, Name: actionName, Payload: parameters}, nil
+	return actionDoc{Id: actionId, Name: actionName, Parameters: parameters}, nil
 }
 
 var ensureActionMarker = ensureSuffixFn(actionMarker)

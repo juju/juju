@@ -124,7 +124,7 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 	return actionResultDoc{
 		Id:         id,
 		ActionName: a.doc.Name,
-		Parameters: a.doc.Payload,
+		Parameters: a.doc.Parameters,
 		Status:     finalStatus,
 		Results:    results,
 		Message:    message,
