@@ -52,18 +52,13 @@ func NewNetworkerAPI(
 				// Only machine tags are allowed.
 				return false
 			}
-
-			// gcc has horrible problems comparing types and interfaces
-			// so convert to concrete types.
-			authMachine, ok := authEntityTag.(names.MachineTag)
-			if !ok {
-				// the auth tag should always be a machine...
-				return false
-			}
 			id := tag.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
-				if names.NewMachineTag(parentId) == authMachine {
+
+				// TODO (thumper): remove the names.Tag conversion when gccgo
+				// implements concrete-type-to-interface comparison correctly.
+				if names.Tag(names.NewMachineTag(parentId)) == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
 					return true
