@@ -65,5 +65,8 @@ func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()
 	c.Assert(err, gc.IsNil)
-	c.Assert(envUser.LastConnection().Equal(now), jc.IsTrue)
+	// It is possible that the update is done over a second boundary, so we need
+	// to check for after now as well as equal.
+	c.Assert(envUser.LastConnection().After(now) ||
+		envUser.LastConnection().Equal(now), jc.IsTrue)
 }
