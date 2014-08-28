@@ -366,6 +366,14 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
 
+	// The local provider's user-data size is only limited by the
+	// host's disk, so it's safe to serialise tools in cloud-config.
+	toolsPath := filepath.Join(
+		env.config.storageDir(),
+		envtools.StorageName(args.Tools[0].Version),
+	)
+	args.MachineConfig.Tools.URL = fmt.Sprintf("file://%s", toolsPath)
+
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {

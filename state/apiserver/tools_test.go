@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
@@ -208,6 +210,39 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	}
 }
 
+func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	s.testDownload(c, environ.UUID())
+}
+
+func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
+	s.testDownload(c, "")
+}
+
+func (s *toolsSuite) testDownload(c *gc.C, uuid string) {
+	stor := s.Environ.Storage()
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
+
+	resp, err := s.downloadRequest(c, tools.Version, uuid)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.HasLen, int(tools.Size))
+
+	hash := sha256.New()
+	hash.Write(data)
+	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+}
+
+func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
+	resp, err := s.downloadRequest(c, version.Current, "dead-beef-123456")
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+}
+
 func (s *toolsSuite) toolsURL(c *gc.C, query string) *url.URL {
 	uri := s.baseURL(c)
 	uri.Path += "/tools"
@@ -220,6 +255,16 @@ func (s *toolsSuite) toolsURI(c *gc.C, query string) string {
 		query = query[1:]
 	}
 	return s.toolsURL(c, query).String()
+}
+
+func (s *toolsSuite) downloadRequest(c *gc.C, version version.Binary, uuid string) (*http.Response, error) {
+	url := s.toolsURL(c, "")
+	if uuid == "" {
+		url.Path = fmt.Sprintf("/tools/%s", version)
+	} else {
+		url.Path = fmt.Sprintf("/environment/%s/tools/%s", uuid, version)
+	}
+	return s.sendRequest(c, "", "", "GET", url.String(), "", nil)
 }
 
 func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {
