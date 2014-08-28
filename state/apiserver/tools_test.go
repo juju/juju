@@ -177,11 +177,13 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
 }
 
-func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
+func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	// Now try uploading them.
-	params := "?binaryVersion=" + vers.String() + "&series=precise,trusty"
+	// Now try uploading them. The "series" parameter is accepted
+	// but ignored; the API server will expand the tools for all
+	// supported series.
+	params := "?binaryVersion=" + vers.String() + "&series=nonsense"
 	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
 	c.Assert(err, gc.IsNil)
 
@@ -193,7 +195,7 @@ func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	for _, series := range []string{"precise", "quantal", "trusty"} {
+	for _, series := range version.OSSupportedSeries(version.Ubuntu) {
 		toolsVersion := vers
 		toolsVersion.Series = series
 		r, err := stor.Get(tools.StorageName(toolsVersion))

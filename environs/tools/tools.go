@@ -215,6 +215,3 @@ func convertToolsError(err *error) {
 		*err = errors.NewNotFound(*err, "")
 	}
 }
-
-// ToolsLtsSeries records the known Ubuntu LTS series.
-var ToolsLtsSeries = []string{"precise", "trusty"}

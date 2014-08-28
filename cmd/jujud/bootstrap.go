@@ -319,20 +319,6 @@ func (c *BootstrapCommand) populateTools(env environs.Environ) error {
 		stor = env.Storage()
 	}
 
-	// Build a list of other supported series with the same OS.
-	// Until we catalogue tools in state, we clone the tools
-	// for each of these series.
-	var otherSeries []string
-	for _, series := range version.SupportedSeries() {
-		os, err := version.GetOSFromSeries(series)
-		if err != nil {
-			return err
-		}
-		if os == version.Current.OS {
-			otherSeries = append(otherSeries, series)
-		}
-	}
-
 	// Create a temporary directory to contain source and cloned tools.
 	tempDir, err := ioutil.TempDir("", "juju-sync-tools")
 	if err != nil {
@@ -351,6 +337,9 @@ func (c *BootstrapCommand) populateTools(env environs.Environ) error {
 		return err
 	}
 
+	// Until we catalogue tools in state, we clone the tools
+	// for each of the supported series of the same OS.
+	otherSeries := version.OSSupportedSeries(version.Current.OS)
 	_, err = sync.SyncBuiltTools(stor, &sync.BuiltTools{
 		Version:     tools.Version,
 		Dir:         tempDir,
