@@ -51,9 +51,6 @@ var _ = gc.Suite(&environSuite{})
 func (s *environSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
-		return nil
-	})
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
