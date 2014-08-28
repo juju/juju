@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/utils/fslock"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
@@ -104,24 +105,31 @@ func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 	return resultError
 }
 
-func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) error {
+func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) (resultError error) {
 	// Flag that this container type has been handled.
 	atomic.StoreInt32(cs.setupDone[containerType], 1)
 
-	if atomic.AddInt32(&cs.numberProvisioners, 1) == int32(len(cs.supportedContainers)) {
-		// We only care about the initial container creation.
-		// This worker has done its job so stop it.
-		// We do not expect there will be an error, and there's not much we can do anyway.
-		if err := cs.runner.StopWorker(cs.workerName); err != nil {
-			logger.Warningf("stopping machine agent container watcher: %v", err)
+	defer func() {
+		if resultError != nil {
+			logger.Warningf("not stopping machine agent container watcher due to error: %v", resultError)
+			return
 		}
-	}
+		if atomic.AddInt32(&cs.numberProvisioners, 1) == int32(len(cs.supportedContainers)) {
+			// We only care about the initial container creation.
+			// This worker has done its job so stop it.
+			// We do not expect there will be an error, and there's not much we can do anyway.
+			if err := cs.runner.StopWorker(cs.workerName); err != nil {
+				logger.Warningf("stopping machine agent container watcher: %v", err)
+			}
+		}
+	}()
 
+	logger.Debugf("setup and start provisioner for %s containers", containerType)
 	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
-		return fmt.Errorf("initialising container infrastructure on host machine: %v", err)
+		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	} else {
 		if err := cs.runInitialiser(containerType, initialiser); err != nil {
-			return fmt.Errorf("setting up container dependencies on host machine: %v", err)
+			return errors.Annotate(err, "setting up container dependencies on host machine")
 		}
 		return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker)
 	}
@@ -129,8 +137,9 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 
 // runInitialiser runs the container initialiser with the initialisation hook held.
 func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+	logger.Debugf("running initialiser for %s containers", containerType)
 	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
-		return fmt.Errorf("failed to acquire initialization lock: %v", err)
+		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
 	defer cs.initLock.Unlock()
 	return initialiser.Initialise()
@@ -143,6 +152,7 @@ func (cs *ContainerSetup) TearDown() error {
 }
 
 func (cs *ContainerSetup) getContainerArtifacts(containerType instance.ContainerType) (container.Initialiser, environs.InstanceBroker, error) {
+	logger.Debugf("finding tools for %s containers", containerType)
 	tools, err := cs.provisioner.Tools(cs.config.Tag())
 	if err != nil {
 		logger.Errorf("cannot get tools from machine for %s container", containerType)
