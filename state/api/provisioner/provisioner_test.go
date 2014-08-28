@@ -319,10 +319,10 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	actual := make([]params.NetworkInterface, len(ifacesMachine))
 	for i, iface := range ifacesMachine {
 		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkTag = iface.NetworkTag()
+		actual[i].NetworkTag = iface.NetworkTag().String()
 		actual[i].MACAddress = iface.MACAddress()
 		actual[i].IsVirtual = iface.IsVirtual()
-		c.Check(iface.MachineTag(), gc.Equals, notProvisionedMachine.Tag().String())
+		c.Check(iface.MachineTag(), gc.Equals, notProvisionedMachine.Tag())
 		c.Check(iface.MachineId(), gc.Equals, notProvisionedMachine.Id())
 	}
 	c.Assert(actual, jc.SameContents, ifaces[:4]) // skip the rest as they are ignored.
