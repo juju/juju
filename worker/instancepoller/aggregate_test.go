@@ -27,6 +27,7 @@ var _ = gc.Suite(&aggregateSuite{})
 
 type testInstance struct {
 	instance.Instance
+	id        instance.Id
 	addresses []network.Address
 	status    string
 	err       error
@@ -34,6 +35,9 @@ type testInstance struct {
 
 var _ instance.Instance = (*testInstance)(nil)
 
+func (t *testInstance) Id() instance.Id {
+	return t.id
+}
 func (t *testInstance) Addresses() ([]network.Address, error) {
 	if t.err != nil {
 		return nil, t.err
@@ -48,27 +52,39 @@ func (t *testInstance) Status() string {
 type testInstanceGetter struct {
 	// ids is set when the Instances method is called.
 	ids     []instance.Id
-	results []instance.Instance
+	results map[instance.Id]instance.Instance
 	err     error
 	counter int32
 }
 
-func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
-	i.ids = ids
-	atomic.AddInt32(&i.counter, 1)
-	return i.results, i.err
+func (tig *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Instance, err error) {
+	tig.ids = ids
+	atomic.AddInt32(&tig.counter, 1)
+	results := make([]instance.Instance, len(ids))
+	for i, id := range ids {
+		// We don't check 'ok' here, because we want the Instance{nil}
+		// response for those
+		results[i] = tig.results[id]
+	}
+	return results, tig.err
 }
 
-func newTestInstance(status string, addresses []string) *testInstance {
-	thisInstance := testInstance{status: status}
-	thisInstance.addresses = network.NewAddresses(addresses...)
-	return &thisInstance
+func (tig *testInstanceGetter) newTestInstance(id instance.Id, status string, addresses []string) *testInstance {
+	if tig.results == nil {
+		tig.results = make(map[instance.Id]instance.Instance)
+	}
+	thisInstance := &testInstance{
+		id:        id,
+		status:    status,
+		addresses: network.NewAddresses(addresses...),
+	}
+	tig.results[thisInstance.Id()] = thisInstance
+	return thisInstance
 }
 
 func (s *aggregateSuite) TestSingleRequest(c *gc.C) {
 	testGetter := new(testInstanceGetter)
-	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.results = []instance.Instance{instance1}
+	instance1 := testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
 	aggregator := newAggregator(testGetter)
 
 	info, err := aggregator.instanceInfo("foo")
@@ -84,8 +100,7 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	s.PatchValue(&gatherTime, 30*time.Millisecond)
 	testGetter := new(testInstanceGetter)
 
-	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	testGetter.results = []instance.Instance{instance1}
+	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
 	aggregator := newAggregator(testGetter)
 
 	replyChan := make(chan instanceInfoReply)
@@ -97,9 +112,8 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	reply := <-replyChan
 	c.Assert(reply.err, gc.IsNil)
 
-	instance2 := newTestInstance("not foobar", []string{"192.168.1.2"})
-	instance3 := newTestInstance("ok-ish", []string{"192.168.1.3"})
-	testGetter.results = []instance.Instance{instance2, instance3}
+	testGetter.newTestInstance("foo2", "not foobar", []string{"192.168.1.2"})
+	testGetter.newTestInstance("foo3", "ok-ish", []string{"192.168.1.3"})
 
 	var wg sync.WaitGroup
 	checkInfo := func(id instance.Id, expectStatus string) {
@@ -121,6 +135,7 @@ type batchingInstanceGetter struct {
 	testInstanceGetter
 	wg         sync.WaitGroup
 	aggregator *aggregator
+	totalCount int
 	batchSize  int
 	started    int
 }
@@ -132,7 +147,7 @@ func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instan
 }
 
 func (g *batchingInstanceGetter) startRequests() {
-	n := len(g.results) - g.started
+	n := g.totalCount - g.started
 	if n > g.batchSize {
 		n = g.batchSize
 	}
@@ -156,15 +171,19 @@ func (s *aggregateSuite) TestBatching(c *gc.C) {
 	s.PatchValue(&gatherTime, 10*time.Millisecond)
 	var testGetter batchingInstanceGetter
 	testGetter.aggregator = newAggregator(&testGetter)
-	testGetter.results = make([]instance.Instance, 100)
-	for i := range testGetter.results {
-		testGetter.results[i] = newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
-	}
+	// We only need to inform the system about 1 instance, because all the
+	// requests are for the same instance.
+	testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
+	testGetter.totalCount = 100
 	testGetter.batchSize = 10
-	testGetter.wg.Add(len(testGetter.results))
+	testGetter.wg.Add(testGetter.totalCount)
+	// startRequest will trigger one request, which ends up calling
+	// Instances, which will turn around and trigger batchSize requests,
+	// which should get aggregated into a single call to Instances, which
+	// then should trigger another round of batchSize requests.
 	testGetter.startRequest()
 	testGetter.wg.Wait()
-	c.Assert(testGetter.counter, gc.Equals, int32(len(testGetter.results)/testGetter.batchSize)+1)
+	c.Assert(testGetter.counter, gc.Equals, int32(testGetter.totalCount/testGetter.batchSize)+1)
 }
 
 func (s *aggregateSuite) TestError(c *gc.C) {
@@ -181,7 +200,6 @@ func (s *aggregateSuite) TestError(c *gc.C) {
 func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 	testGetter := new(testInstanceGetter)
 	testGetter.err = environs.ErrPartialInstances
-	testGetter.results = []instance.Instance{nil}
 
 	aggregator := newAggregator(testGetter)
 	_, err := aggregator.instanceInfo("foo")
@@ -192,10 +210,9 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 
 func (s *aggregateSuite) TestAddressesError(c *gc.C) {
 	testGetter := new(testInstanceGetter)
-	instance1 := newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
+	instance1 := testGetter.newTestInstance("foo", "foobar", []string{"127.0.0.1", "192.168.1.1"})
 	ourError := fmt.Errorf("gotcha")
 	instance1.err = ourError
-	testGetter.results = []instance.Instance{instance1}
 
 	aggregator := newAggregator(testGetter)
 	_, err := aggregator.instanceInfo("foo")
