@@ -72,7 +72,7 @@ func (api *MachinerAPI) GetMachines(args params.GetMachinesV0) (params.GetMachin
 		results.Machines[i].Tag = atag
 		tag, err := names.ParseTag(atag)
 		if err != nil {
-			results.Machines[i].Error = common.ServerError(err)
+			results.Machines[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		m, err := api.getMachine(tag)

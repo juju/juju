@@ -168,8 +168,9 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
 		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[µumn]?s {"RequestId":1,"Response":.*} Admin\[""\].Login`,
-		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"GetMachines","Params":{"Tags":\["machine-0"\]}}`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":{"Machines":\[{"Id":"0","Tag":"machine-0","Life":"alive",` +
+			`"IsManual":false,"Error":null}\]}} Machiner\[""\]\.GetMachines`,
 	})
 }
 

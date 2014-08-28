@@ -47,6 +47,9 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	if n := len(result.Machines); n != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", n)
 	}
+	if err := result.Machines[0].Error; err != nil {
+		return nil, err
+	}
 	machineResult := result.Machines[0]
 	return &Machine{
 		id:       machineResult.Id,

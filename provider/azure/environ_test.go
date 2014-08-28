@@ -231,9 +231,9 @@ func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
 		requires bool
 	}{
 		{statetesting.NewMockSafeNetworkerRequirer("0", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("0", true), false},
+		{statetesting.NewMockSafeNetworkerRequirer("0", true), true},
 		{statetesting.NewMockSafeNetworkerRequirer("1", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("1", true), false},
+		{statetesting.NewMockSafeNetworkerRequirer("1", true), true},
 	}
 	for i, test := range tests {
 		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())

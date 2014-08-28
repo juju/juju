@@ -53,8 +53,8 @@ func (s *machinerSuite) TestGetMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
 		Machines: []params.GetMachinesResultV0{
-			{"machine-0", params.Alive, false, nil},
-			{"machine-1", params.Alive, false, nil},
+			{"0", "machine-0", params.Alive, false, nil},
+			{"1", "machine-1", params.Alive, false, nil},
 		},
 	})
 }
@@ -70,8 +70,8 @@ func (s *machinerSuite) TestGetMachinesNotFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
 		Machines: []params.GetMachinesResultV0{
-			{"machine-0", params.Alive, false, nil},
-			{"machine-42", "", false, apiservertesting.ErrUnauthorized},
+			{"0", "machine-0", params.Alive, false, nil},
+			{"", "machine-42", "", false, apiservertesting.ErrUnauthorized},
 		},
 	})
 }
