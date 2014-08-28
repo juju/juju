@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package state enables reading, observing, and changing
@@ -60,6 +60,7 @@ const (
 	actionsC           = "actions"
 	actionresultsC     = "actionresults"
 	usersC             = "users"
+	envUsersC          = "envusers"
 	presenceC          = "presence"
 	cleanupsC          = "cleanups"
 	annotationsC       = "annotations"

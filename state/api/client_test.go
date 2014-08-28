@@ -73,10 +73,9 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(savedURL.String(), gc.Equals, curl.WithRevision(43).String())
+}
 
-	// Finally, try the NotImplementedError by mocking the server
-	// address to a handler that returns 405 Method Not Allowed for
-	// POST.
+func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	lis, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	defer lis.Close()
@@ -90,9 +89,15 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 		http.Serve(lis, nil)
 	}()
 
+	client := s.APIState.Client()
 	api.SetServerRoot(client, url)
+
+	charmArchive := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
+	)
 	_, err = client.AddLocalCharm(curl, charmArchive)
-	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
+	c.Assert(err, gc.ErrorMatches, "charm upload failed: 405 \\(Method Not Allowed\\)")
 }
 
 func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {

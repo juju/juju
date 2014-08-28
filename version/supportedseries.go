@@ -109,7 +109,7 @@ func SeriesVersion(series string) (string, error) {
 	return "", fmt.Errorf("invalid series %q", series)
 }
 
-// SupportedSeries returns the Ubuntu series on which we can run Juju workloads.
+// SupportedSeries returns the series on which we can run Juju workloads.
 func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
@@ -119,6 +119,20 @@ func SupportedSeries() []string {
 		series = append(series, s)
 	}
 	return series
+}
+
+// OSSupportedSeries returns the series of the specified OS on which we
+// can run Juju workloads.
+func OSSupportedSeries(os OSType) []string {
+	var osSeries []string
+	for _, series := range SupportedSeries() {
+		seriesOS, err := GetOSFromSeries(series)
+		if err != nil || seriesOS != os {
+			continue
+		}
+		osSeries = append(osSeries, series)
+	}
+	return osSeries
 }
 
 func updateSeriesVersions() {

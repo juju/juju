@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
@@ -36,6 +37,13 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     string
+}
+
+// EnvUserParams defines the parameters for creating an environment user.
+type EnvUserParams struct {
+	User        string
+	DisplayName string
+	CreatedBy   string
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -127,6 +135,31 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	c.Assert(err, gc.IsNil)
 	return user
+}
+
+// MakeEnvUser will create a envUser with values defined by the params. For
+// attributes of EnvUserParams that are the default empty values, some
+// meaningful valid values are used instead. If params is not specified,
+// defaults are used.
+func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.EnvironmentUser {
+	if params == nil {
+		params = &EnvUserParams{}
+	}
+	if params.User == "" {
+		user := factory.MakeUser(c, nil)
+		params.User = user.UserTag().Username()
+	}
+	if params.DisplayName == "" {
+		params.DisplayName = factory.UniqueString("display name")
+	}
+	if params.CreatedBy == "" {
+		user := factory.MakeUser(c, nil)
+		params.CreatedBy = user.UserTag().Username()
+	}
+
+	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), names.NewUserTag(params.CreatedBy), params.DisplayName)
+	c.Assert(err, gc.IsNil)
+	return envUser
 }
 
 // MakeMachine will add a machine with values defined in params. For some

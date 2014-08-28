@@ -60,7 +60,45 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 	return st.runTransaction(ops)
 }
 
-// Add environment uuid to state server doc.
+// AddStateUsersAsEnvironUsers loops through all users stored in state and
+// adds them as environment users with a local provider.
+func AddStateUsersAsEnvironUsers(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return err
+	}
+
+	var userSlice []userDoc
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	err = users.Find(nil).All(&userSlice)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, uDoc := range userSlice {
+		user := &User{
+			st:  st,
+			doc: uDoc,
+		}
+		uTag := user.UserTag()
+
+		_, err := st.EnvironmentUser(uTag)
+		if err != nil && errors.IsNotFound(err) {
+			_, err = st.AddEnvironmentUser(uTag, uTag, user.DisplayName())
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			upgradesLogger.Infof("user '%s' already added to environment", uTag.Username())
+		}
+
+	}
+	return nil
+}
+
+// AddEnvironmentUUIDToStateServerDoc adds environment uuid to state server doc.
 func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 	env, err := st.Environment()
 	if err != nil {

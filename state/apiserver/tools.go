@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
@@ -41,8 +40,7 @@ func (h *toolsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		// Add a local charm to the store provider.
-		// Requires a "series" query specifying the series to use for the charm.
+		// Add tools to storage.
 		agentTools, disableSSLHostnameVerification, err := h.processPost(r)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
@@ -86,22 +84,17 @@ func (h *toolsHandler) processPost(r *http.Request) (*tools.Tools, bool, error) 
 	if err != nil {
 		return nil, false, fmt.Errorf("invalid tools version %q: %v", binaryVersionParam, err)
 	}
-	var fakeSeries []string
-	seriesParam := query.Get("series")
-	if seriesParam != "" {
-		fakeSeries = strings.Split(seriesParam, ",")
-	}
-	logger.Debugf("request to upload tools %s for series %q", toolsVersion, seriesParam)
+	logger.Debugf("request to upload tools %s", toolsVersion)
 	// Make sure the content type is x-tar-gz.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/x-tar-gz" {
 		return nil, false, fmt.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
-	return h.handleUpload(r.Body, toolsVersion, fakeSeries...)
+	return h.handleUpload(r.Body, toolsVersion)
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary, fakeSeries ...string) (*tools.Tools, bool, error) {
+func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*tools.Tools, bool, error) {
 	// Set up a local temp directory for the tools tarball.
 	tmpDir, err := ioutil.TempDir("", "juju-upload-tools-")
 	if err != nil {
@@ -142,22 +135,22 @@ func (h *toolsHandler) handleUpload(r io.Reader, toolsVersion version.Binary, fa
 		SHA256:  fmt.Sprintf("%x", sha256hash.Sum(nil)),
 	}
 	logger.Debugf("about to upload tools %+v to storage", uploadedTools)
-	return h.uploadToStorage(uploadedTools, tmpDir, toolsFilename, fakeSeries...)
+	return h.uploadToStorage(uploadedTools, tmpDir, toolsFilename)
 }
 
 // uploadToStorage uploads the tools from the specified directory to environment storage.
-func (h *toolsHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir,
-	toolsFilename string, fakeSeries ...string) (*tools.Tools, bool, error) {
+func (h *toolsHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir, toolsFilename string) (*tools.Tools, bool, error) {
 
 	// SyncTools requires simplestreams metadata to find the tools to upload.
 	stor, err := filestorage.NewFileStorageWriter(toolsDir)
 	if err != nil {
 		return nil, false, fmt.Errorf("cannot create metadata storage: %v", err)
 	}
-	// Generate metadata for the fake series. The URL for each fake series
-	// record points to the same tools tarball.
+	// Generate metadata for each series of the same OS as the uploaded tools.
+	// The URL for each fake series record points to the same tools tarball.
 	allToolsMetadata := []*tools.Tools{uploadedTools}
-	for _, series := range fakeSeries {
+	osSeries := version.OSSupportedSeries(uploadedTools.Version.OS)
+	for _, series := range osSeries {
 		vers := uploadedTools.Version
 		vers.Series = series
 		allToolsMetadata = append(allToolsMetadata, &tools.Tools{
@@ -190,7 +183,7 @@ func (h *toolsHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir,
 		Size:        uploadedTools.Size,
 		Sha256Hash:  uploadedTools.SHA256,
 	}
-	uploadedTools, err = sync.SyncBuiltTools(env.Storage(), builtTools, fakeSeries...)
+	uploadedTools, err = sync.SyncBuiltTools(env.Storage(), builtTools, osSeries...)
 	if err != nil {
 		return nil, false, err
 	}
