@@ -189,13 +189,17 @@ func AddAptCommands(
 	c.SetAptUpgrade(addUpgradeScripts)
 	c.SetAptGetWrapper("eatmydata")
 
-	c.AddPackage("curl")
-	c.AddPackage("cpu-checker")
-	// TODO(axw) 2014-07-02 #1277359
-	// Don't install bridge-utils in cloud-init;
-	// leave it to the networker worker.
-	c.AddPackage("bridge-utils")
-	c.AddPackage("rsyslog-gnutls")
+	// If we're not doing an update, adding these packages is
+	// meaningless.
+	if addUpdateScripts {
+		c.AddPackage("curl")
+		c.AddPackage("cpu-checker")
+		// TODO(axw) 2014-07-02 #1277359
+		// Don't install bridge-utils in cloud-init;
+		// leave it to the networker worker.
+		c.AddPackage("bridge-utils")
+		c.AddPackage("rsyslog-gnutls")
+	}
 
 	// Write out the apt proxy settings
 	if (proxySettings != proxy.Settings{}) {

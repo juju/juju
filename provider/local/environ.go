@@ -106,7 +106,10 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (env *localEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	if err := ensureNotRoot(); err != nil {
 		return "", "", nil, err
 	}
@@ -120,8 +123,8 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return "", "", nil, err
 	}
 
-	// Record the bootstrap IP, so the containers know where to go for storage.
 	cfg, err := env.Config().Apply(map[string]interface{}{
+		// Record the bootstrap IP, so the containers know where to go for storage.
 		"bootstrap-ip": env.bridgeAddress,
 	})
 	if err == nil {
@@ -142,8 +145,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
-	mcfg.EnableOSRefreshUpdate = env.config.Config.EnableOSRefreshUpdate()
-	mcfg.EnableOSUpgrade = env.config.Config.EnableOSUpgrade()
+
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
@@ -155,8 +157,25 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		// the preallocation faster with no disadvantage.
 		agent.MongoOplogSize: "1", // 1MB
 	}
+
 	if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
 		return err
+	}
+
+	// Since Juju's state machine is currently the host machine
+	// for local providers, don't stomp on it.
+	cfgAttrs := env.config.AllAttrs()
+	if val, ok := cfgAttrs["enable-os-refresh-update"].(bool); !ok {
+		logger.Infof("local provider; disabling refreshing OS updates.")
+		mcfg.EnableOSRefreshUpdate = false
+	} else {
+		mcfg.EnableOSRefreshUpdate = val
+	}
+	if val, ok := cfgAttrs["enable-os-upgrade"].(bool); !ok {
+		logger.Infof("local provider; disabling OS upgrades.")
+		mcfg.EnableOSUpgrade = false
+	} else {
+		mcfg.EnableOSUpgrade = val
 	}
 
 	// don't write proxy settings for local machine
