@@ -180,7 +180,7 @@ func GetPluginDescriptions() []PluginDescription {
 	}
 	resultMap := map[string]PluginDescription{}
 	// gather the results at the end
-	for _ = range plugins {
+	for range plugins {
 		result := <-description
 		resultMap[result.name] = result
 	}

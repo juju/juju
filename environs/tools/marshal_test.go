@@ -18,7 +18,7 @@ type marshalSuite struct{}
 
 func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 	metadata := []*tools.ToolsMetadata{
-		&tools.ToolsMetadata{
+		{
 			Release:  "saucy",
 			Version:  "1.2.3.4",
 			Arch:     "arm",
@@ -116,7 +116,7 @@ var expectedProducts = `{
 }`
 
 var toolMetadataForTesting = []*tools.ToolsMetadata{
-	&tools.ToolsMetadata{
+	{
 		Release:  "saucy",
 		Version:  "1.2.3.4",
 		Arch:     "arm",
@@ -124,7 +124,7 @@ var toolMetadataForTesting = []*tools.ToolsMetadata{
 		Path:     "/somewhere/over/the/rainbow.tar.gz",
 		FileType: "tar.gz",
 	},
-	&tools.ToolsMetadata{
+	{
 		Release:  "precise",
 		Version:  "1.2.3.4",
 		Arch:     "arm",
@@ -132,7 +132,7 @@ var toolMetadataForTesting = []*tools.ToolsMetadata{
 		Path:     "toenlightenment.tar.gz",
 		FileType: "tar.gz",
 	},
-	&tools.ToolsMetadata{
+	{
 		Release:  "precise",
 		Version:  "4.3.2.1",
 		Arch:     "amd64",

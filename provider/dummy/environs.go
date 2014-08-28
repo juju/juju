@@ -251,7 +251,7 @@ func init() {
 	// the testing environment by simply importing it.
 	c := make(chan Operation)
 	go func() {
-		for _ = range c {
+		for range c {
 		}
 	}()
 	discardOperations = c

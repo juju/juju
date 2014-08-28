@@ -581,7 +581,7 @@ func newMachineToolWaiter(m *state.Machine) *toolsWaiter {
 		tooler:  m,
 	}
 	go func() {
-		for _ = range w.Changes() {
+		for range w.Changes() {
 			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
@@ -597,7 +597,7 @@ func newUnitToolWaiter(u *state.Unit) *toolsWaiter {
 		tooler:  u,
 	}
 	go func() {
-		for _ = range w.Changes() {
+		for range w.Changes() {
 			waiter.changes <- struct{}{}
 		}
 		close(waiter.changes)
@@ -612,7 +612,7 @@ func (w *toolsWaiter) Stop() error {
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
 func (w *toolsWaiter) NextTools(c *gc.C) (*coretools.Tools, error) {
-	for _ = range w.changes {
+	for range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
 			return nil, fmt.Errorf("cannot refresh: %v", err)

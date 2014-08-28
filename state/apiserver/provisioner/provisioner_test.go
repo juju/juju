@@ -1049,7 +1049,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
 	c.Assert(ifacesMachine2[0].NetworkTag().String(), gc.Equals, ifaces[5].NetworkTag)
 	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
-	for i, _ := range networks {
+	for i := range networks {
 		if i == 3 {
 			// Last one was ignored, so don't check.
 			break

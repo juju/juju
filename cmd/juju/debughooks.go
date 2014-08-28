@@ -77,7 +77,7 @@ func (c *DebugHooksCommand) validateHooks() error {
 	for _, hook := range c.hooks {
 		if !validHooks[hook] {
 			names := make([]string, 0, len(validHooks))
-			for hookName, _ := range validHooks {
+			for hookName := range validHooks {
 				names = append(names, hookName)
 			}
 			sort.Strings(names)

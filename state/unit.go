@@ -427,15 +427,15 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	var machineAssert bson.D
 	if machineCheck {
 		machineAssert = bson.D{{"$and", []bson.D{
-			bson.D{{"principals", []string{u.doc.Name}}},
-			bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
-			bson.D{{"hasvote", bson.D{{"$ne", true}}}},
+			{{"principals", []string{u.doc.Name}}},
+			{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			{{"hasvote", bson.D{{"$ne", true}}}},
 		}}}
 	} else {
 		machineAssert = bson.D{{"$or", []bson.D{
-			bson.D{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
-			bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
-			bson.D{{"hasvote", true}},
+			{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
+			{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			{{"hasvote", true}},
 		}}}
 	}
 

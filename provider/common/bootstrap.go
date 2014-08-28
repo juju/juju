@@ -105,7 +105,7 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 	defer ctx.StopInterruptNotify(ch)
 	defer close(ch)
 	go func() {
-		for _ = range ch {
+		for range ch {
 			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
 		}
 	}()

@@ -2222,26 +2222,26 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 			},
 		},
 		Services: map[string]api.ServiceStatus{
-			"mysql": api.ServiceStatus{
+			"mysql": {
 				Charm: "local:quantal/mysql-1",
 				Relations: map[string][]string{
-					"server": []string{"wordpress"},
+					"server": {"wordpress"},
 				},
 				Units: map[string]api.UnitStatus{
-					"mysql/0": api.UnitStatus{
+					"mysql/0": {
 						// Agent field intentionally not set
 						Machine:    "1",
 						AgentState: "pending",
 					},
 				},
 			},
-			"wordpress": api.ServiceStatus{
+			"wordpress": {
 				Charm: "local:quantal/wordpress-3",
 				Relations: map[string][]string{
-					"db": []string{"mysql"},
+					"db": {"mysql"},
 				},
 				Units: map[string]api.UnitStatus{
-					"wordpress/0": api.UnitStatus{
+					"wordpress/0": {
 						// Agent field intentionally not set
 						AgentState:     "error",
 						AgentStateInfo: "blam",

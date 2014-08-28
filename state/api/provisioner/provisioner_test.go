@@ -295,7 +295,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(instanceId, gc.Equals, instance.Id("i-manager"))
 
 	// Check the networks are created.
-	for i, _ := range networks {
+	for i := range networks {
 		if i == 3 {
 			// Last one was ignored, so skip it.
 			break

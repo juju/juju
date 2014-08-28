@@ -2338,7 +2338,7 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
 	expectedCons := []constraints.Value{
-		constraints.Value{},
+		{},
 		constraints.MustParse("mem=4G"),
 		constraints.MustParse("mem=4G"),
 	}

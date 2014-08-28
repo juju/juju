@@ -193,7 +193,7 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 	}, {
 		message: "stdout and stderr are base64 encoded if not valid utf8",
 		results: []params.RunResult{
-			params.RunResult{
+			{
 				ExecResponse: exec.ExecResponse{
 					Stdout: []byte{0xff},
 					Stderr: []byte{0xfe},

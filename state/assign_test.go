@@ -1056,7 +1056,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 
 	// Assign units to all the expectedMachines machines.
 	var got []string
-	for _ = range expectedMachines {
+	for range expectedMachines {
 		unit, err := s.wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
 		err = s.State.AssignUnit(unit, s.policy)
@@ -1161,7 +1161,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
 		}()
 	}
 	assignments := make(map[string][]*state.Unit)
-	for _ = range us {
+	for range us {
 		r := <-done
 		if !c.Check(r.err, gc.IsNil) {
 			continue

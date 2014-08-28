@@ -416,7 +416,7 @@ type DryRunTest struct {
 
 func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 	tests := []DryRunTest{
-		DryRunTest{
+		{
 			about:          "dry run outputs and doesn't change anything when uploading tools",
 			cmdArgs:        []string{"--upload-tools", "--dry-run"},
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
@@ -434,7 +434,7 @@ upgrade to this version by running
     juju upgrade-juju --version="2.1.3"
 `,
 		},
-		DryRunTest{
+		{
 			about:          "dry run outputs and doesn't change anything",
 			cmdArgs:        []string{"--dry-run"},
 			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
