@@ -80,6 +80,9 @@ func setMachineAddresses(m *machiner.Machine) error {
 			continue
 		}
 		address := network.NewAddress(ip.String(), network.ScopeUnknown)
+		if address.Scope == network.ScopeLinkLocal {
+			continue
+		}
 		hostAddresses = append(hostAddresses, address)
 	}
 	if len(hostAddresses) == 0 {

@@ -146,6 +146,8 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 			&net.IPAddr{IP: net.IPv6loopback},
 			&net.UnixAddr{}, // not IP, ignored
 			&net.IPNet{IP: net.ParseIP("2001:db8::1")},
+			&net.IPAddr{IP: net.IPv4(169, 254, 1, 20)}, // LinkLocal Ignored
+			&net.IPNet{IP: net.ParseIP("fe80::1")}, // LinkLocal Ignored
 		}
 		return addrs, nil
 	})
