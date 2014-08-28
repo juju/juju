@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/juju/utils/fslock"
 	"github.com/juju/errors"
+	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
