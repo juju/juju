@@ -49,8 +49,14 @@ func NewDeployerAPI(
 		}
 		// Then we just check if the unit is already known.
 		return func(tag names.Tag) bool {
+			// gcc has horrible problems comparing types and interfaces
+			// so convert to concrete types.
+			utag, ok := tag.(names.UnitTag)
+			if !ok {
+				return false
+			}
 			for _, unit := range units {
-				if names.NewUnitTag(unit) == tag {
+				if names.NewUnitTag(unit) == utag {
 					return true
 				}
 			}
