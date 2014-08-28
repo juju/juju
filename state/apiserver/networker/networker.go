@@ -44,22 +44,21 @@ func NewNetworkerAPI(
 		authEntityTag := authorizer.GetAuthTag()
 
 		return func(tag names.Tag) bool {
+			if tag == authEntityTag {
+				// A machine agent can always access its own machine.
+				return true
+			}
+			if _, ok := tag.(names.MachineTag); !ok {
+				// Only machine tags are allowed.
+				return false
+			}
+
 			// gcc has horrible problems comparing types and interfaces
 			// so convert to concrete types.
 			authMachine, ok := authEntityTag.(names.MachineTag)
 			if !ok {
 				// the auth tag should always be a machine...
 				return false
-			}
-			mtag, ok := tag.(names.MachineTag)
-			if !ok {
-				// Only machine tags are allowed.
-				return false
-			}
-
-			if mtag == authMachine {
-				// A machine agent can always access its own machine.
-				return true
 			}
 			id := tag.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
