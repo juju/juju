@@ -63,12 +63,13 @@ See Also:
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	envcmd.EnvCommandBase
-	Constraints    constraints.Value
-	UploadTools    bool
-	Series         []string
-	seriesOld      []string
-	MetadataSource string
-	Placement      string
+	Constraints           constraints.Value
+	UploadTools           bool
+	Series                []string
+	seriesOld             []string
+	MetadataSource        string
+	Placement             string
+	KeepBrokenEnvironment bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -86,6 +87,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destory the environment if bootstrap fails")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -181,7 +183,13 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// If we error out for any reason, clean up the environment.
 	defer func() {
 		if resultErr != nil {
-			cleanup()
+			if c.KeepBrokenEnvironment {
+				logger.Warningf("bootstrap failed but --keep-broken was specified so bootstrap instance is not being stopped.\n" +
+					"Remember to shutdown down the bootstrap instance when finished diagnosing the problem.\n" +
+					"You will also need to run destroy-environment --force to cleanup Juju files.")
+			} else {
+				cleanup()
+			}
 		}
 	}()
 
