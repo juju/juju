@@ -63,8 +63,6 @@ If no state-server is present restore will do the following:
    dead ones),
 7. restart all services.
 
-XXX Don't we now restore into a new environment no matter what?
-
 As noted above, restoring via an uploaded archive (rather than by using
 an ID) will need to be addressed in the short term, since the existing
 restore functionality works this way.  However, it shouldn't involve
