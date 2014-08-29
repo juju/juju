@@ -1949,7 +1949,7 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	for {
 		ctx.s.BackingState.StartSync()
 		select {
-		case <-time.After(coretesting.ShortWait):
+		case <-time.After(coretesting.LongWait):
 			if match, _ = ctx.matchHooks(c); match {
 				return
 			}
