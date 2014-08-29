@@ -717,7 +717,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	s.PatchValue(&version.Current, devVersion)
 	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv", "--keep-broken")
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
 	done := false
 	for !done {
 		select {
