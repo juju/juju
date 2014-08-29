@@ -184,9 +184,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			if c.KeepBrokenEnvironment {
-				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n"+
-					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n") +
-					"to clean up the environment."
+				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n" +
+					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
+					"to clean up the environment.")
 			} else {
 				cleanup()
 			}
