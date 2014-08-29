@@ -55,7 +55,10 @@ func NewNetworkerAPI(
 			id := tag.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
-				if names.NewMachineTag(parentId) == authEntityTag {
+
+				// TODO (thumper): remove the names.Tag conversion when gccgo
+				// implements concrete-type-to-interface comparison correctly.
+				if names.Tag(names.NewMachineTag(parentId)) == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
 					return true

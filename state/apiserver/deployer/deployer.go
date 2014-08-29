@@ -50,7 +50,9 @@ func NewDeployerAPI(
 		// Then we just check if the unit is already known.
 		return func(tag names.Tag) bool {
 			for _, unit := range units {
-				if names.NewUnitTag(unit) == tag {
+				// TODO (thumper): remove the names.Tag conversion when gccgo
+				// implements concrete-type-to-interface comparison correctly.
+				if names.Tag(names.NewUnitTag(unit)) == tag {
 					return true
 				}
 			}
