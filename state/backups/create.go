@@ -67,6 +67,8 @@ func create(args *createArgs) (*createResult, error) {
 	// deleted at the end of this function.  This includes the backup
 	// archive file we built.  However, the handle to that file in the
 	// result will still be open and readable.
+	// If we ever support state machines on Windows, this will need to
+	// change (you can't delete open files on Windows).
 	return result, nil
 }
 
