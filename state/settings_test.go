@@ -44,30 +44,30 @@ func TestingDialOpts() mongo.DialOpts {
 }
 
 func (s *SettingsSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *SettingsSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *SettingsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	state, err := Open(TestingMongoInfo(), TestingDialOpts(), Policy(nil))
+	cfg := testing.EnvironConfig(c)
+	state, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
-
+	s.AddCleanup(func(*gc.C) { state.Close() })
 	s.state = state
 	s.key = "config"
 }
 
 func (s *SettingsSuite) TearDownTest(c *gc.C) {
-	s.state.Close()
-	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 }
 
 func (s *SettingsSuite) TestCreateEmptySettings(c *gc.C) {

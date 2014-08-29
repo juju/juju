@@ -6,15 +6,18 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -130,4 +133,34 @@ func (s *toolsSuite) TestToolsSetError(c *gc.C) {
 	result, err := ts.SetTools(args)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(result.Results, gc.HasLen, 1)
+}
+
+func (s *toolsSuite) TestFindTools(c *gc.C) {
+	list := coretools.List{&coretools.Tools{Version: version.Current}}
+	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (coretools.List, error) {
+		c.Assert(major, gc.Equals, 123)
+		c.Assert(minor, gc.Equals, 456)
+		c.Assert(filter.Number, gc.Equals, version.Current.Number)
+		c.Assert(filter.Series, gc.Equals, "win81")
+		c.Assert(filter.Arch, gc.Equals, "alpha")
+		return list, nil
+	})
+	result, err := common.FindTools(s.State, params.FindToolsParams{
+		Number:       version.Current.Number,
+		MajorVersion: 123,
+		MinorVersion: 456,
+		Series:       "win81",
+		Arch:         "alpha",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.List, gc.DeepEquals, list)
+}
+
+func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
+	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	result, err := common.FindTools(s.State, params.FindToolsParams{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 }

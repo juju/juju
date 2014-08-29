@@ -5,10 +5,13 @@
 package cloudinit
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"path"
 	"strings"
+	"text/template"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -18,6 +21,8 @@ import (
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/service/upstart"
 )
+
+const aria2Command = "aria2c"
 
 type ubuntuConfigure struct {
 	mcfg     *MachineConfig
@@ -96,9 +101,12 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.mcfg.CloudInitOutputLog))
 	}
 
-	if !w.mcfg.DisablePackageCommands {
-		AddAptCommands(w.mcfg.AptProxySettings, w.conf)
-	}
+	AddAptCommands(
+		w.mcfg.AptProxySettings,
+		w.conf,
+		w.mcfg.EnableOSRefreshUpdate,
+		w.mcfg.EnableOSUpgrade,
+	)
 
 	// Write out the normal proxy settings so that the settings are
 	// sourced by bash, and ssh through that.
@@ -131,34 +139,67 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		fmt.Sprintf("chown syslog:adm %s", w.mcfg.LogDir),
 	)
 
+	w.conf.AddScripts(
+		"bin="+shquote(w.mcfg.jujuTools()),
+		"mkdir -p $bin",
+	)
+
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	var copyCmd string
 	if strings.HasPrefix(w.mcfg.Tools.URL, fileSchemePrefix) {
-		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(w.mcfg.Tools.URL[len(fileSchemePrefix):]))
-	} else {
-		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
-		curlCommand += " --retry 10"
-		if w.mcfg.DisableSSLHostnameVerification {
-			curlCommand += " --insecure"
+		toolsData, err := ioutil.ReadFile(w.mcfg.Tools.URL[len(fileSchemePrefix):])
+		if err != nil {
+			return err
 		}
-		copyCmd = fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
+		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
+	} else {
+		var copyCmd string
+		// Retry indefinitely.
+		aria2Command := aria2Command + " --max-tries=0 --retry-wait=3"
+		if w.mcfg.Bootstrap {
+			if w.mcfg.DisableSSLHostnameVerification {
+				aria2Command += " --check-certificate=false"
+			}
+			copyCmd = fmt.Sprintf("%s -d $bin -o tools.tar.gz %s", aria2Command, shquote(w.mcfg.Tools.URL))
+		} else {
+			var urls []string
+			for _, addr := range w.mcfg.apiHostAddrs() {
+				// TODO(axw) encode env UUID in URL when EnvironTag
+				// is guaranteed to be available in APIInfo.
+				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
+				urls = append(urls, shquote(url))
+			}
+
+			// Our certificates are unusable by aria2c (invalid subject name),
+			// so we must disable certificate validation. It doesn't actually
+			// matter, because there is no sensitive information being transmitted
+			// and we verify the tools' hash after.
+			copyCmd = fmt.Sprintf(
+				"%s --check-certificate=false -d $bin -o tools.tar.gz %s",
+				aria2Command,
+				strings.Join(urls, " "),
+			)
+		}
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
+		w.conf.AddRunCmd(toolsDownloadCommandWithRetry(copyCmd))
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
 		return err
 	}
+
 	w.conf.AddScripts(
-		"bin="+shquote(w.mcfg.jujuTools()),
-		"mkdir -p $bin",
-		copyCmd,
 		fmt.Sprintf("sha256sum $bin/tools.tar.gz > $bin/juju%s.sha256", w.mcfg.Tools.Version),
 		fmt.Sprintf(`grep '%s' $bin/juju%s.sha256 || (echo "Tools checksum mismatch"; exit 1)`,
 			w.mcfg.Tools.SHA256, w.mcfg.Tools.Version),
 		fmt.Sprintf("tar zxf $bin/tools.tar.gz -C $bin"),
-		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
 		fmt.Sprintf("printf %%s %s > $bin/downloaded-tools.txt", shquote(string(toolsJson))),
+	)
+
+	// Don't remove tools tarball until after bootstrap agent
+	// runs, so it has a chance to add it to its catalogue.
+	defer w.conf.AddRunCmd(
+		fmt.Sprintf("rm $bin/tools.tar.gz && rm $bin/juju%s.sha256", w.mcfg.Tools.Version),
 	)
 
 	// We add the machine agent's configuration info
@@ -176,9 +217,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
-	if !w.mcfg.DisablePackageCommands {
-		series := w.mcfg.Series
-		MaybeAddCloudArchiveCloudTools(w.conf, series)
+	if w.conf.AptUpdate() {
+		MaybeAddCloudArchiveCloudTools(w.conf, w.mcfg.Tools.Version.Series)
 	}
 
 	if w.mcfg.Bootstrap {
@@ -206,6 +246,29 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	}
 
 	return w.addMachineAgentToBoot(machineTag.String())
+}
+
+// toolsDownloadTemplate is a bash template that attempts up to 5 times
+// to run the tools download command.
+const toolsDownloadTemplate = `
+for n in $(seq 1 5); do
+    echo "Attempt $n to download tools..."
+    {{.ToolsDownloadCommand}} && echo "Tools downloaded successfully." && break
+    if [ $n -lt 5 ]; then
+        echo "Download failed..... wait 15s"
+    fi
+    sleep 15
+done
+`
+
+func toolsDownloadCommandWithRetry(command string) string {
+	parsedTemplate := template.Must(template.New("").Parse(toolsDownloadTemplate))
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{"ToolsDownloadCommand": command})
+	if err != nil {
+		panic(errors.Annotate(err, "tools download template error"))
+	}
+	return buf.String()
 }
 
 func (w *ubuntuConfigure) addMachineAgentToBoot(tag string) error {

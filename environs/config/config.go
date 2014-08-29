@@ -804,6 +804,26 @@ func (c *Config) PreferIPv6() bool {
 	return v
 }
 
+// EnableOSRefreshUpdate returns whether or not newly provisioned
+// instances should run their respective OS's update capability.
+func (c *Config) EnableOSRefreshUpdate() bool {
+	if val, ok := c.defined["enable-os-refresh-update"].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
+// EnableOSUpgrade returns whether or not newly provisioned instances
+// should run their respective OS's upgrade capability.
+func (c *Config) EnableOSUpgrade() bool {
+	if val, ok := c.defined["enable-os-upgrade"].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
 // SSLHostnameVerification returns weather the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
@@ -869,6 +889,13 @@ func (c *Config) LXCUseCloneAUFS() (bool, bool) {
 	return v, ok
 }
 
+// DisableNetworkManagement reports whether Juju is allowed to
+// configure and manage networking inside the environment.
+func (c *Config) DisableNetworkManagement() (bool, bool) {
+	v, ok := c.defined["disable-network-management"].(bool)
+	return v, ok
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -909,46 +936,49 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 }
 
 var fields = schema.Fields{
-	"type":                      schema.String(),
-	"name":                      schema.String(),
-	"uuid":                      schema.UUID(),
-	"default-series":            schema.String(),
-	"tools-metadata-url":        schema.String(),
-	"image-metadata-url":        schema.String(),
-	"image-stream":              schema.String(),
-	"authorized-keys":           schema.String(),
-	"authorized-keys-path":      schema.String(),
-	"firewall-mode":             schema.String(),
-	"agent-version":             schema.String(),
-	"development":               schema.Bool(),
-	"admin-secret":              schema.String(),
-	"ca-cert":                   schema.String(),
-	"ca-cert-path":              schema.String(),
-	"ca-private-key":            schema.String(),
-	"ca-private-key-path":       schema.String(),
-	"ssl-hostname-verification": schema.Bool(),
-	"state-port":                schema.ForceInt(),
-	"api-port":                  schema.ForceInt(),
-	"syslog-port":               schema.ForceInt(),
-	"rsyslog-ca-cert":           schema.String(),
-	"logging-config":            schema.String(),
-	"charm-store-auth":          schema.String(),
-	ProvisionerHarvestModeKey:   schema.String(),
-	"http-proxy":                schema.String(),
-	"https-proxy":               schema.String(),
-	"ftp-proxy":                 schema.String(),
-	"no-proxy":                  schema.String(),
-	"apt-http-proxy":            schema.String(),
-	"apt-https-proxy":           schema.String(),
-	"apt-ftp-proxy":             schema.String(),
-	"bootstrap-timeout":         schema.ForceInt(),
-	"bootstrap-retry-delay":     schema.ForceInt(),
-	"bootstrap-addresses-delay": schema.ForceInt(),
-	"test-mode":                 schema.Bool(),
-	"proxy-ssh":                 schema.Bool(),
-	"lxc-clone":                 schema.Bool(),
-	"lxc-clone-aufs":            schema.Bool(),
-	"prefer-ipv6":               schema.Bool(),
+	"type":                       schema.String(),
+	"name":                       schema.String(),
+	"uuid":                       schema.UUID(),
+	"default-series":             schema.String(),
+	"tools-metadata-url":         schema.String(),
+	"image-metadata-url":         schema.String(),
+	"image-stream":               schema.String(),
+	"authorized-keys":            schema.String(),
+	"authorized-keys-path":       schema.String(),
+	"firewall-mode":              schema.String(),
+	"agent-version":              schema.String(),
+	"development":                schema.Bool(),
+	"admin-secret":               schema.String(),
+	"ca-cert":                    schema.String(),
+	"ca-cert-path":               schema.String(),
+	"ca-private-key":             schema.String(),
+	"ca-private-key-path":        schema.String(),
+	"ssl-hostname-verification":  schema.Bool(),
+	"state-port":                 schema.ForceInt(),
+	"api-port":                   schema.ForceInt(),
+	"syslog-port":                schema.ForceInt(),
+	"rsyslog-ca-cert":            schema.String(),
+	"logging-config":             schema.String(),
+	"charm-store-auth":           schema.String(),
+	ProvisionerHarvestModeKey:    schema.String(),
+	"http-proxy":                 schema.String(),
+	"https-proxy":                schema.String(),
+	"ftp-proxy":                  schema.String(),
+	"no-proxy":                   schema.String(),
+	"apt-http-proxy":             schema.String(),
+	"apt-https-proxy":            schema.String(),
+	"apt-ftp-proxy":              schema.String(),
+	"bootstrap-timeout":          schema.ForceInt(),
+	"bootstrap-retry-delay":      schema.ForceInt(),
+	"bootstrap-addresses-delay":  schema.ForceInt(),
+	"test-mode":                  schema.Bool(),
+	"proxy-ssh":                  schema.Bool(),
+	"lxc-clone":                  schema.Bool(),
+	"lxc-clone-aufs":             schema.Bool(),
+	"prefer-ipv6":                schema.Bool(),
+	"enable-os-refresh-update":   schema.Bool(),
+	"enable-os-upgrade":          schema.Bool(),
+	"disable-network-management": schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url":            schema.String(),
@@ -965,26 +995,27 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":             schema.Omit,
-	"ca-cert":                   schema.Omit,
-	"authorized-keys":           schema.Omit,
-	"authorized-keys-path":      schema.Omit,
-	"ca-cert-path":              schema.Omit,
-	"ca-private-key-path":       schema.Omit,
-	"logging-config":            schema.Omit,
-	ProvisionerHarvestModeKey:   schema.Omit,
-	"bootstrap-timeout":         schema.Omit,
-	"bootstrap-retry-delay":     schema.Omit,
-	"bootstrap-addresses-delay": schema.Omit,
-	"rsyslog-ca-cert":           schema.Omit,
-	"http-proxy":                schema.Omit,
-	"https-proxy":               schema.Omit,
-	"ftp-proxy":                 schema.Omit,
-	"no-proxy":                  schema.Omit,
-	"apt-http-proxy":            schema.Omit,
-	"apt-https-proxy":           schema.Omit,
-	"apt-ftp-proxy":             schema.Omit,
-	"lxc-clone":                 schema.Omit,
+	"agent-version":              schema.Omit,
+	"ca-cert":                    schema.Omit,
+	"authorized-keys":            schema.Omit,
+	"authorized-keys-path":       schema.Omit,
+	"ca-cert-path":               schema.Omit,
+	"ca-private-key-path":        schema.Omit,
+	"logging-config":             schema.Omit,
+	ProvisionerHarvestModeKey:    schema.Omit,
+	"bootstrap-timeout":          schema.Omit,
+	"bootstrap-retry-delay":      schema.Omit,
+	"bootstrap-addresses-delay":  schema.Omit,
+	"rsyslog-ca-cert":            schema.Omit,
+	"http-proxy":                 schema.Omit,
+	"https-proxy":                schema.Omit,
+	"ftp-proxy":                  schema.Omit,
+	"no-proxy":                   schema.Omit,
+	"apt-http-proxy":             schema.Omit,
+	"apt-https-proxy":            schema.Omit,
+	"apt-ftp-proxy":              schema.Omit,
+	"lxc-clone":                  schema.Omit,
+	"disable-network-management": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url":            "",
@@ -1011,11 +1042,13 @@ var alwaysOptional = schema.Defaults{
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
-	"image-stream":   "",
-	"test-mode":      false,
-	"proxy-ssh":      false,
-	"lxc-clone-aufs": false,
-	"prefer-ipv6":    false,
+	"image-stream":             "",
+	"test-mode":                false,
+	"proxy-ssh":                false,
+	"lxc-clone-aufs":           false,
+	"prefer-ipv6":              false,
+	"enable-os-refresh-update": schema.Omit,
+	"enable-os-upgrade":        schema.Omit,
 
 	// uuid may be missing for backwards compatability.
 	"uuid": schema.Omit,
@@ -1032,17 +1065,18 @@ var defaults = allDefaults()
 // UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"firewall-mode":             FwInstance,
-		"development":               false,
-		"ssl-hostname-verification": true,
-		"state-port":                DefaultStatePort,
-		"api-port":                  DefaultAPIPort,
-		"syslog-port":               DefaultSyslogPort,
-		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
-		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
-		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
-		"proxy-ssh":                 true,
-		"prefer-ipv6":               false,
+		"firewall-mode":              FwInstance,
+		"development":                false,
+		"ssl-hostname-verification":  true,
+		"state-port":                 DefaultStatePort,
+		"api-port":                   DefaultAPIPort,
+		"syslog-port":                DefaultSyslogPort,
+		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
+		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
+		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                  true,
+		"prefer-ipv6":                false,
+		"disable-network-management": false,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

@@ -159,14 +159,6 @@ var tests = []struct {
 		},
 		tools: v1all,
 	},
-	{
-		description: "write the mirrors files",
-		ctx: &sync.SyncContext{
-			Public: true,
-		},
-		tools:         v180all,
-		expectMirrors: true,
-	},
 }
 
 func (s *syncSuite) TestSyncing(c *gc.C) {
@@ -188,7 +180,9 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				test.ctx.MajorVersion = test.major
 				test.ctx.MinorVersion = test.minor
 			}
-			test.ctx.Target = s.targetEnv.Storage()
+			stor := s.targetEnv.Storage()
+			test.ctx.TargetToolsFinder = sync.StorageToolsFinder{stor}
+			test.ctx.TargetToolsUploader = sync.StorageToolsUploader{stor, false}
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)

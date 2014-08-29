@@ -14,11 +14,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
@@ -80,7 +77,7 @@ func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.BoolVar(&c.DryRun, "dry-run", false, "don't change anything, just report what would change")
-	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list (OBSOLETE)")
 }
 
 func (c *UpgradeJujuCommand) Init(args []string) error {
@@ -121,6 +118,10 @@ func formatTools(tools coretools.List) string {
 
 // Run changes the version proposed for the juju envtools.
 func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
+	if len(c.Series) > 0 {
+		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
+	}
+
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
@@ -146,12 +147,9 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if c.UploadTools {
-		series := bootstrap.SeriesToUpload(cfg, c.Series)
-		if !c.DryRun {
-			if err := context.uploadTools(series); err != nil {
-				return err
-			}
+	if c.UploadTools && !c.DryRun {
+		if err := context.uploadTools(); err != nil {
+			return err
 		}
 	}
 	if err := context.validate(); err != nil {
@@ -186,12 +184,6 @@ func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config
 	}
 	clientVersion := version.Current.Number
 	findResult, err := client.FindTools(clientVersion.Major, -1, "", "")
-	var availableTools coretools.List
-	if params.IsCodeNotImplemented(err) {
-		availableTools, err = findTools1dot17(cfg)
-	} else {
-		availableTools = findResult.List
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -213,21 +205,10 @@ func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config
 		agent:     agent,
 		client:    clientVersion,
 		chosen:    c.Version,
-		tools:     availableTools,
+		tools:     findResult.List,
 		apiClient: client,
 		config:    cfg,
 	}, nil
-}
-
-// findTools1dot17 allows 1.17.x versions to be upgraded.
-func findTools1dot17(cfg *config.Config) (coretools.List, error) {
-	logger.Warningf("running find tools in 1.17 compatibility mode")
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	clientVersion := version.Current.Number
-	return envtools.FindTools(env, clientVersion.Major, -1, coretools.Filter{}, envtools.DoNotAllowRetry)
 }
 
 // upgradeContext holds the version information for making upgrade decisions.
@@ -247,7 +228,7 @@ type upgradeContext struct {
 // than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
-func (context *upgradeContext) uploadTools(series []string) (err error) {
+func (context *upgradeContext) uploadTools() (err error) {
 	// TODO(fwereade): this is kinda crack: we should not assume that
 	// version.Current matches whatever source happens to be built. The
 	// ideal would be:
@@ -274,26 +255,17 @@ func (context *upgradeContext) uploadTools(series []string) (err error) {
 	var uploaded *coretools.Tools
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
 	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
-	uploaded, err = context.apiClient.UploadTools(toolsPath, builtTools.Version, series...)
-	if params.IsCodeNotImplemented(err) {
-		uploaded, err = context.uploadTools1dot17(builtTools, series...)
+	f, err := os.Open(toolsPath)
+	if err != nil {
+		return err
 	}
+	defer f.Close()
+	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version)
 	if err != nil {
 		return err
 	}
 	context.tools = coretools.List{uploaded}
 	return nil
-}
-
-func (context *upgradeContext) uploadTools1dot17(builtTools *sync.BuiltTools,
-	series ...string) (*coretools.Tools, error) {
-
-	logger.Warningf("running upload tools in 1.17 compatibility mode")
-	env, err := environs.New(context.config)
-	if err != nil {
-		return nil, err
-	}
-	return sync.SyncBuiltTools(env.Storage(), builtTools, series...)
 }
 
 // validate chooses an upgrade version, if one has not already been chosen,

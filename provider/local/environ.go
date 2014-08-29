@@ -42,6 +42,7 @@ import (
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -105,18 +106,25 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+func (env *localEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	if err := ensureNotRoot(); err != nil {
 		return "", "", nil, err
 	}
 
-	vers := version.Current
-	if _, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch); err != nil {
+	// Make sure there are tools available for the
+	// host's architecture and series.
+	if _, err := args.AvailableTools.Match(tools.Filter{
+		Arch:   version.Current.Arch,
+		Series: version.Current.Series,
+	}); err != nil {
 		return "", "", nil, err
 	}
 
-	// Record the bootstrap IP, so the containers know where to go for storage.
 	cfg, err := env.Config().Apply(map[string]interface{}{
+		// Record the bootstrap IP, so the containers know where to go for storage.
 		"bootstrap-ip": env.bridgeAddress,
 	})
 	if err == nil {
@@ -137,7 +145,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
-	mcfg.DisablePackageCommands = true
+
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
@@ -149,14 +157,34 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		// the preallocation faster with no disadvantage.
 		agent.MongoOplogSize: "1", // 1MB
 	}
+
 	if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
 		return err
+	}
+
+	// Since Juju's state machine is currently the host machine
+	// for local providers, don't stomp on it.
+	cfgAttrs := env.config.AllAttrs()
+	if val, ok := cfgAttrs["enable-os-refresh-update"].(bool); !ok {
+		logger.Infof("local provider; disabling refreshing OS updates.")
+		mcfg.EnableOSRefreshUpdate = false
+	} else {
+		mcfg.EnableOSRefreshUpdate = val
+	}
+	if val, ok := cfgAttrs["enable-os-upgrade"].(bool); !ok {
+		logger.Infof("local provider; disabling OS upgrades.")
+		mcfg.EnableOSUpgrade = false
+	} else {
+		mcfg.EnableOSUpgrade = val
 	}
 
 	// don't write proxy settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
 	mcfg.ProxySettings = proxy.Settings{}
+
 	cloudcfg := coreCloudinit.New()
+	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
 
 	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
 	// we now provide a symlink to the written file in the local log dir.
@@ -233,14 +261,9 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 	containerType := ecfg.container()
-	toolsDir := filepath.Join(env.config.storageDir(), "tools", "releases")
-	if _, err = os.Stat(toolsDir); err != nil {
-		toolsDir = ""
-	}
 	managerConfig := container.ManagerConfig{
-		container.ConfigName:     env.config.namespace(),
-		container.ConfigLogDir:   env.config.logDir(),
-		container.ConfigToolsDir: toolsDir,
+		container.ConfigName:   env.config.namespace(),
+		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
 		if useLxcClone, ok := cfg.LXCUseClone(); ok {
@@ -343,17 +366,13 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
 
-	// For LXC containers we update the tools URL to point to a mounted directory
-	// and the container then copies the tools from there. This is in response
-	// to bug 1357552.
-	if env.config.container() == instance.LXC {
-		storageReleasesDir, err := env.Storage().URL("tools/releases")
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		args.MachineConfig.Tools.URL = strings.Replace(
-			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
-	}
+	// The local provider's user-data size is only limited by the
+	// host's disk, so it's safe to serialise tools in cloud-config.
+	toolsPath := filepath.Join(
+		env.config.storageDir(),
+		envtools.StorageName(args.Tools[0].Version),
+	)
+	args.MachineConfig.Tools.URL = fmt.Sprintf("file://%s", toolsPath)
 
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)

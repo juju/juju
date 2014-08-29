@@ -93,8 +93,8 @@ func (ni *NetworkInterface) NetworkName() string {
 }
 
 // NetworkTag returns the network tag of the interface.
-func (ni *NetworkInterface) NetworkTag() string {
-	return names.NewNetworkTag(ni.doc.NetworkName).String()
+func (ni *NetworkInterface) NetworkTag() names.NetworkTag {
+	return names.NewNetworkTag(ni.doc.NetworkName)
 }
 
 // MachineId returns the machine id of the interface.
@@ -103,8 +103,8 @@ func (ni *NetworkInterface) MachineId() string {
 }
 
 // MachineTag returns the machine tag of the interface.
-func (ni *NetworkInterface) MachineTag() string {
-	return names.NewMachineTag(ni.doc.MachineId).String()
+func (ni *NetworkInterface) MachineTag() names.MachineTag {
+	return names.NewMachineTag(ni.doc.MachineId)
 }
 
 // IsVirtual returns whether the interface represents a virtual

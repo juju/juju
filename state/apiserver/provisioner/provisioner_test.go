@@ -26,7 +26,6 @@ import (
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func Test(t *stdtesting.T) {
@@ -1034,12 +1033,12 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	actual := make([]params.NetworkInterface, len(ifacesMachine1))
 	for i, iface := range ifacesMachine1 {
 		actual[i].InterfaceName = iface.InterfaceName()
-		actual[i].NetworkTag = iface.NetworkTag()
+		actual[i].NetworkTag = iface.NetworkTag().String()
 		actual[i].MACAddress = iface.MACAddress()
 		actual[i].IsVirtual = iface.IsVirtual()
 		actual[i].Disabled = iface.IsDisabled()
 		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
-		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag().String())
+		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag())
 	}
 	c.Assert(actual, jc.SameContents, ifaces[:4])
 	ifacesMachine2, err := s.machines[2].NetworkInterfaces()
@@ -1047,7 +1046,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 	c.Assert(ifacesMachine2, gc.HasLen, 1)
 	c.Assert(ifacesMachine2[0].InterfaceName(), gc.Equals, ifaces[5].InterfaceName)
 	c.Assert(ifacesMachine2[0].MACAddress(), gc.Equals, ifaces[5].MACAddress)
-	c.Assert(ifacesMachine2[0].NetworkTag(), gc.Equals, ifaces[5].NetworkTag)
+	c.Assert(ifacesMachine2[0].NetworkTag().String(), gc.Equals, ifaces[5].NetworkTag)
 	c.Assert(ifacesMachine2[0].MachineId(), gc.Equals, s.machines[2].Id())
 	for i, _ := range networks {
 		if i == 3 {
@@ -1131,13 +1130,6 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResult{})
 }
 
-func (s *withoutStateServerSuite) TestToolsNothing(c *gc.C) {
-	// Not an error to watch nothing
-	results, err := s.provisioner.Tools(params.Entities{})
-	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 0)
-}
-
 func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.KVM}
 	results, err := s.provisioner.ContainerManagerConfig(args)
@@ -1159,49 +1151,13 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, gc.IsNil)
+	c.Check(results.UpdateBehavior, gc.Not(gc.IsNil))
 	c.Check(results.ProviderType, gc.Equals, "dummy")
 	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.PreferIPv6, jc.IsTrue)
-}
-
-func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewMachineTag("12354")
-	anAuthorizer.EnvironManager = false
-	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, gc.IsNil)
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.machines[0].Tag().String()}},
-	}
-	results, err := aProvisioner.Tools(args)
-	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	toolResult := results.Results[0]
-	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
-}
-
-func (s *withoutStateServerSuite) TestToolsForAgent(c *gc.C) {
-	cur := version.Current
-	agent := params.Entity{Tag: s.machines[0].Tag().String()}
-
-	// The machine must have its existing tools set before we query for the
-	// next tools. This is so that we can grab Arch and Series without
-	// having to pass it in again
-	err := s.machines[0].SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
-
-	args := params.Entities{Entities: []params.Entity{agent}}
-	results, err := s.provisioner.Tools(args)
-	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	agentTools := results.Results[0].Tools
-	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
-	c.Check(agentTools.Version, gc.DeepEquals, cur)
 }
 
 func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {

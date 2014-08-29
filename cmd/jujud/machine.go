@@ -42,6 +42,7 @@ import (
 	apiagent "github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -87,6 +88,8 @@ var (
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
+	newNetworker             = networker.NewNetworker
+	newSafeNetworker         = networker.NewSafeNetworker
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -253,6 +256,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	reportOpenedAPI(st)
 
+	// Check if the network management is disabled.
+	envConfig, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot read environment config: %v", err)
+	}
+	disableNetworkManagement, _ := envConfig.DisableNetworkManagement()
+	if disableNetworkManagement {
+		logger.Infof("network management is disabled")
+	}
+
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
 	for _, job := range entity.Jobs() {
@@ -286,6 +299,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			}
 			break
 		}
+	}
+
+	// Before starting any workers, ensure we record the Juju version this machine
+	// agent is running.
+	currentTools := &coretools.Tools{Version: version.Current}
+	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
+		return nil, errors.Annotate(err, "cannot set machine agent version")
 	}
 
 	providerType := agentConfig.Value(agent.ProviderType)
@@ -323,13 +343,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	})
 	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
 	writeNetworkConfig := providerType == "maas"
-	if writeNetworkConfig {
+	if disableNetworkManagement || !writeNetworkConfig {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+			return newSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
 		})
-	} else {
+	} else if !disableNetworkManagement && writeNetworkConfig {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+			return newNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
 		})
 	}
 
@@ -343,6 +363,10 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
+		cause := errors.Cause(err)
+		if params.IsCodeDead(cause) || cause == worker.ErrTerminateAgent {
+			return nil, worker.ErrTerminateAgent
+		}
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
 	for _, job := range entity.Jobs() {
@@ -412,17 +436,20 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	machine, err := pr.Machine(tag)
+	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
+		return worker.ErrTerminateAgent
+	}
 	if err != nil {
-		return fmt.Errorf("%s is not in state: %v", tag, err)
+		return errors.Annotatef(err, "cannot load machine %s from state", tag)
 	}
 	if len(containers) == 0 {
 		if err := machine.SupportsNoContainers(); err != nil {
-			return fmt.Errorf("clearing supported containers for %s: %v", tag, err)
+			return errors.Annotatef(err, "clearing supported containers for %s", tag)
 		}
 		return nil
 	}
 	if err := machine.SetSupportedContainers(containers...); err != nil {
-		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
+		return errors.Annotatef(err, "setting supported containers for %s", tag)
 	}
 	initLock, err := hookExecutionLock(agentConfig.DataDir())
 	if err != nil {

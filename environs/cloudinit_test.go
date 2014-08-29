@@ -57,19 +57,10 @@ var logDir = must(paths.LogDir("precise"))
 var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
+
 	userTag := names.NewUserTag("not-touched")
-	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"authorized-keys": "we-are-the-keys",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	mcfg := &cloudinit.MachineConfig{
-		MongoInfo: &authentication.MongoInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: userTag},
-	}
-	err = environs.FinishMachineConfig(mcfg, cfg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
+
+	expectedMcfg := &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -79,7 +70,36 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
 		PreferIPv6:                     true,
-	})
+		EnableOSRefreshUpdate:          true,
+		EnableOSUpgrade:                true,
+	}
+
+	cfg, err := config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
+		"authorized-keys": "we-are-the-keys",
+	}))
+	c.Assert(err, gc.IsNil)
+
+	mcfg := &cloudinit.MachineConfig{
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		APIInfo:   &api.Info{Tag: userTag},
+	}
+	err = environs.FinishMachineConfig(mcfg, cfg)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
+
+	// Test when updates/upgrades are set to false.
+	cfg, err = config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
+		"authorized-keys":          "we-are-the-keys",
+		"enable-os-refresh-update": false,
+		"enable-os-upgrade":        false,
+	}))
+	c.Assert(err, gc.IsNil)
+	err = environs.FinishMachineConfig(mcfg, cfg)
+	c.Assert(err, gc.IsNil)
+	expectedMcfg.EnableOSRefreshUpdate = false
+	expectedMcfg.EnableOSUpgrade = false
+	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
 }
 
 func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
@@ -106,6 +126,8 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
 		PreferIPv6:                     true,
+		EnableOSRefreshUpdate:          true,
+		EnableOSUpgrade:                true,
 	})
 }
 
@@ -201,6 +223,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
 		MachineAgentServiceName: "jujud-machine-10",
+		EnableOSUpgrade:         true,
 	}
 	if bootstrap {
 		cfg.Bootstrap = true

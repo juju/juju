@@ -423,7 +423,7 @@ environments:
 
 	var stripped string
 	if log := s.writer.Log(); len(log) == 1 {
-		stripped = strings.Trim(log[0].Message, "\n")
+		stripped = strings.Replace(log[0].Message, "\n", "", -1)
 	}
 
 	c.Check(stripped, gc.Matches, expectedMsg)
@@ -463,12 +463,12 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 
 func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 	attrs := testing.Attrs{"type": "null"}
-	expected := `Provider type \"null\" has been renamed to \"manual\"\.Please update your environment configuration\.`
+	expected := `Provider type "null" has been renamed to "manual".\nPlease update your environment configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
 	attrs := testing.Attrs{"lxc-use-clone": true}
-	expected := `Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".Please update your environment configuration\.`
+	expected := `Config attribute "lxc-use-clone" has been renamed to "lxc-clone".Please update your environment configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }

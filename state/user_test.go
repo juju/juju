@@ -29,7 +29,7 @@ func (s *UserSuite) TestAddInvalidNames(c *gc.C) {
 		"a.",
 		"a-",
 	} {
-		c.Logf("check invalid name %q, name")
+		c.Logf("check invalid name %q", name)
 		user, err := s.State.AddUser(name, "ignored", "ignored", "ignored")
 		c.Check(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
 		c.Check(user, gc.IsNil)

@@ -1705,6 +1705,6 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	})
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
 	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

@@ -216,7 +216,14 @@ func (srv *Server) run(lis net.Listener) {
 	// tests currently assert that errors come back as application/json and
 	// pat only does "text/plain" responses.
 	handleAll(mux, "/environment/:envuuid/tools",
-		&toolsHandler{httpHandler{state: srv.state}},
+		&toolsUploadHandler{toolsHandler{
+			httpHandler{state: srv.state},
+		}},
+	)
+	handleAll(mux, "/environment/:envuuid/tools/:version",
+		&toolsDownloadHandler{toolsHandler{
+			httpHandler{state: srv.state},
+		}},
 	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	// For backwards compatibility we register all the old paths
@@ -231,7 +238,14 @@ func (srv *Server) run(lis net.Listener) {
 			dataDir:     srv.dataDir},
 	)
 	handleAll(mux, "/tools",
-		&toolsHandler{httpHandler{state: srv.state}},
+		&toolsUploadHandler{toolsHandler{
+			httpHandler{state: srv.state},
+		}},
+	)
+	handleAll(mux, "/tools/:version",
+		&toolsDownloadHandler{toolsHandler{
+			httpHandler{state: srv.state},
+		}},
 	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 	// The error from http.Serve is not interesting.

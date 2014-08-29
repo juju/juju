@@ -198,8 +198,9 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-2:], gc.DeepEquals, []string{
+	c.Assert(scripts[len(scripts)-3:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
+		"rm $bin/tools.tar.gz && rm $bin/juju2.3.4-quantal-amd64.sha256",
 		"ifconfig",
 	})
 
@@ -271,7 +272,14 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
 	template, err := lxc.EnsureCloneTemplate(
-		"ext4", "quantal", network, authorizedKeys, aptProxy)
+		"ext4",
+		"quantal",
+		network,
+		authorizedKeys,
+		aptProxy,
+		true,
+		true,
+	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(template.Name(), gc.Equals, name)
 	s.AssertEvent(c, <-s.events, mock.Created, name)

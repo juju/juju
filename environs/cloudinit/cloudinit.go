@@ -125,17 +125,8 @@ type MachineConfig struct {
 	// that it shouldn't verify SSL certificates
 	DisableSSLHostnameVerification bool
 
-	// SystemPrivateSSHKey is created at bootstrap time and recorded on every
-	// node that has an API server. At this stage, that is any machine where
-	// StateServer (member above) is set to true.
-	SystemPrivateSSHKey string
-
 	// Series represents the machine series.
 	Series string
-
-	// DisablePackageCommands is a flag that specifies whether to suppress
-	// the addition of package management commands.
-	DisablePackageCommands bool
 
 	// MachineAgentServiceName is the Upstart service name for the Juju machine agent.
 	MachineAgentServiceName string
@@ -154,6 +145,15 @@ type MachineConfig struct {
 
 	// The type of Simple Stream to download and deploy on this machine.
 	ImageStream string
+
+	// EnableOSRefreshUpdate specifies whether Juju will refresh its
+	// respective OS's updates list.
+	EnableOSRefreshUpdate bool
+
+	// EnableOSUpgrade defines Juju's behavior when provisioning
+	// machines. If enabled, the OS will perform any upgrades
+	// available as part of its provisioning.
+	EnableOSUpgrade bool
 }
 
 func base64yaml(m *config.Config) string {
@@ -173,19 +173,33 @@ const NonceFile = "nonce.txt"
 // AddAptCommands update the cloudinit.Config instance with the necessary
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy settings if there are any.
-func AddAptCommands(proxySettings proxy.Settings, c *cloudinit.Config) {
+func AddAptCommands(
+	proxySettings proxy.Settings,
+	c *cloudinit.Config,
+	addUpdateScripts bool,
+	addUpgradeScripts bool,
+) {
+	// Check preconditions
+	if c == nil {
+		panic("c is nil")
+	}
+
 	// Bring packages up-to-date.
-	c.SetAptUpdate(true)
-	c.SetAptUpgrade(true)
+	c.SetAptUpdate(addUpdateScripts)
+	c.SetAptUpgrade(addUpgradeScripts)
 	c.SetAptGetWrapper("eatmydata")
 
-	c.AddPackage("curl")
-	c.AddPackage("cpu-checker")
-	// TODO(axw) 2014-07-02 #1277359
-	// Don't install bridge-utils in cloud-init;
-	// leave it to the networker worker.
-	c.AddPackage("bridge-utils")
-	c.AddPackage("rsyslog-gnutls")
+	// If we're not doing an update, adding these packages is
+	// meaningless.
+	if addUpdateScripts {
+		c.AddPackage("aria2")
+		c.AddPackage("cpu-checker")
+		// TODO(axw) 2014-07-02 #1277359
+		// Don't install bridge-utils in cloud-init;
+		// leave it to the networker worker.
+		c.AddPackage("bridge-utils")
+		c.AddPackage("rsyslog-gnutls")
+	}
 
 	// Write out the apt proxy settings
 	if (proxySettings != proxy.Settings{}) {
@@ -425,9 +439,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		}
 		if cfg.StateServingInfo.APIPort == 0 {
 			return fmt.Errorf("missing API port")
-		}
-		if cfg.SystemPrivateSSHKey == "" {
-			return fmt.Errorf("missing system ssh identity")
 		}
 		if cfg.InstanceId == "" {
 			return fmt.Errorf("missing instance-id")

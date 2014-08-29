@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
 
@@ -62,12 +63,13 @@ See Also:
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
 	envcmd.EnvCommandBase
-	Constraints    constraints.Value
-	UploadTools    bool
-	Series         []string
-	seriesOld      []string
-	MetadataSource string
-	Placement      string
+	Constraints           constraints.Value
+	UploadTools           bool
+	Series                []string
+	seriesOld             []string
+	MetadataSource        string
+	Placement             string
+	KeepBrokenEnvironment bool
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -81,10 +83,11 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list")
-	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "upload tools for supplied comma-separated series list (DEPRECATED, see --upload-series)")
+	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list (OBSOLETE)")
+	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destory the environment if bootstrap fails")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -96,9 +99,6 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	}
 	if len(c.Series) > 0 && len(c.seriesOld) > 0 {
 		return fmt.Errorf("--upload-series and --series can't be used together")
-	}
-	if len(c.seriesOld) > 0 {
-		c.Series = c.seriesOld
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -141,8 +141,7 @@ func (v *seriesValue) Set(s string) error {
 // bootstrap functionality that Run calls to support cleaner testing
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
-	UploadTools(environs.BootstrapContext, environs.Environ, *string, bool, ...string) error
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args bootstrap.BootstrapParams) error
 }
 
 type bootstrapFuncs struct{}
@@ -151,11 +150,7 @@ func (b bootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
 	return bootstrap.EnsureNotBootstrapped(env)
 }
 
-func (b bootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
-	return bootstrap.UploadTools(ctx, env, toolsArch, forceVersion, bootstrapSeries...)
-}
-
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
@@ -170,7 +165,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	bootstrapFuncs := getBootstrapFuncs()
 
 	if len(c.seriesOld) > 0 {
-		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
+		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
+	}
+	if len(c.Series) > 0 {
+		fmt.Fprintln(ctx.Stderr, "Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
 	if c.ConnectionName() == "" {
@@ -185,7 +183,13 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// If we error out for any reason, clean up the environment.
 	defer func() {
 		if resultErr != nil {
-			cleanup()
+			if c.KeepBrokenEnvironment {
+				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n" +
+					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
+					"to clean up the environment.")
+			} else {
+				cleanup()
+			}
 		}
 	}()
 
@@ -240,16 +244,65 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if environ.Config().Type() == provider.Local {
 		c.UploadTools = true
 	}
-	if c.UploadTools {
-		err = bootstrapFuncs.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
-		if err != nil {
-			return err
-		}
-	}
-	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
+
+	err = bootstrapFuncs.Bootstrap(ctx, environ, bootstrap.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
+		UploadTools: c.UploadTools,
 	})
+	if err != nil {
+		return errors.Annotate(err, "failed to bootstrap environment")
+	}
+	return c.SetBootstrapEndpointAddress(environ)
+}
+
+var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
+	return environ.AllInstances()
+}
+
+// SetBootstrapEndpointAddress writes the API endpoint address of the
+// bootstrap server into the connection information. This should only be run
+// once directly after Bootstrap. It assumes that there is just one instance
+// in the environment - the bootstrap instance.
+func (c *BootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ) error {
+	instances, err := allInstances(environ)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	length := len(instances)
+	if length == 0 {
+		return errors.Errorf("found no instances, expected at least one")
+	}
+	if length > 1 {
+		logger.Warningf("expected one instance, got %d", length)
+	}
+	bootstrapInstance := instances[0]
+	cfg := environ.Config()
+	info, err := envcmd.ConnectionInfoForName(c.ConnectionName())
+	if err != nil {
+		return errors.Annotate(err, "failed to get connection info")
+	}
+
+	// Don't use c.ConnectionEndpoint as it attempts to contact the state
+	// server if no addresses are found in connection info.
+	endpoint := info.APIEndpoint()
+	netAddrs, err := bootstrapInstance.Addresses()
+	apiPort := cfg.APIPort()
+	apiAddrs := make([]string, len(netAddrs))
+	for i, hp := range network.AddressesWithPort(netAddrs, apiPort) {
+		apiAddrs[i] = hp.NetAddr()
+	}
+	endpoint.Addresses = apiAddrs
+	writer, err := c.ConnectionWriter()
+	if err != nil {
+		return errors.Annotate(err, "failed to get connection writer")
+	}
+	writer.SetAPIEndpoint(endpoint)
+	err = writer.Write()
+	if err != nil {
+		return errors.Annotate(err, "failed to write API endpoint to connection info")
+	}
+	return nil
 }
 
 var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {

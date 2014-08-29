@@ -4,6 +4,7 @@
 package api
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -569,9 +570,10 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
-func (c *Client) FindTools(majorVersion, minorVersion int,
-	series, arch string) (result params.FindToolsResults, err error) {
-
+func (c *Client) FindTools(
+	majorVersion, minorVersion int,
+	series, arch string,
+) (result params.FindToolsResult, err error) {
 	args := params.FindToolsParams{
 		MajorVersion: majorVersion,
 		MinorVersion: minorVersion,
@@ -613,7 +615,7 @@ func (c *Client) DestroyEnvironment() error {
 // error satisfying params.IsCodeNotImplemented() is returned.
 func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, error) {
 	if curl.Schema != "local" {
-		return nil, fmt.Errorf("expected charm URL with local: schema, got %q", curl.String())
+		return nil, errors.Errorf("expected charm URL with local: schema, got %q", curl.String())
 	}
 	// Package the charm for uploading.
 	var archive *os.File
@@ -621,31 +623,31 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	case *charm.CharmDir:
 		var err error
 		if archive, err = ioutil.TempFile("", "charm"); err != nil {
-			return nil, fmt.Errorf("cannot create temp file: %v", err)
+			return nil, errors.Annotate(err, "cannot create temp file")
 		}
 		defer os.Remove(archive.Name())
 		defer archive.Close()
 		if err := ch.ArchiveTo(archive); err != nil {
-			return nil, fmt.Errorf("cannot repackage charm: %v", err)
+			return nil, errors.Annotate(err, "cannot repackage charm")
 		}
 		if _, err := archive.Seek(0, 0); err != nil {
-			return nil, fmt.Errorf("cannot rewind packaged charm: %v", err)
+			return nil, errors.Annotate(err, "cannot rewind packaged charm")
 		}
 	case *charm.CharmArchive:
 		var err error
 		if archive, err = os.Open(ch.Path); err != nil {
-			return nil, fmt.Errorf("cannot read charm archive: %v", err)
+			return nil, errors.Annotate(err, "cannot read charm archive")
 		}
 		defer archive.Close()
 	default:
-		return nil, fmt.Errorf("unknown charm type %T", ch)
+		return nil, errors.Errorf("unknown charm type %T", ch)
 	}
 
 	// Prepare the upload request.
 	url := fmt.Sprintf("%s/charms?series=%s", c.st.serverRoot, curl.Series)
 	req, err := http.NewRequest("POST", url, archive)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create upload request: %v", err)
+		return nil, errors.Annotate(err, "cannot create upload request")
 	}
 	req.SetBasicAuth(c.st.tag, c.st.password)
 	req.Header.Set("Content-Type", "application/zip")
@@ -662,29 +664,25 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	// the tag and password) passed in api.Open()'s info argument.
 	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("cannot upload charm: %v", err)
+		return nil, errors.Annotate(err, "cannot upload charm")
 	}
-	if resp.StatusCode == http.StatusMethodNotAllowed {
-		// API server is 1.16 or older, so charm upload
-		// is not supported; notify the client.
-		return nil, &params.Error{
-			Message: "charm upload is not supported by the API server",
-			Code:    params.CodeNotImplemented,
-		}
-	}
+	defer resp.Body.Close()
 
 	// Now parse the response & return.
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read charm upload response: %v", err)
+		return nil, errors.Annotate(err, "cannot read charm upload response")
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("charm upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
+	}
+
 	var jsonResponse params.CharmsResponse
 	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
+		return nil, errors.Annotate(err, "cannot unmarshal upload response")
 	}
 	if jsonResponse.Error != "" {
-		return nil, fmt.Errorf("error uploading charm: %v", jsonResponse.Error)
+		return nil, errors.Errorf("error uploading charm: %v", jsonResponse.Error)
 	}
 	return charm.MustParseURL(jsonResponse.CharmURL), nil
 }
@@ -707,31 +705,27 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 		return nil, err
 	}
 	if len(result.URLs) == 0 {
-		return nil, fmt.Errorf("unexpected empty response")
+		return nil, errors.New("unexpected empty response")
 	}
 	urlInfo := result.URLs[0]
 	if urlInfo.Error != "" {
-		return nil, fmt.Errorf("%v", urlInfo.Error)
+		return nil, errors.New(urlInfo.Error)
 	}
 	return urlInfo.URL, nil
 }
 
-func (c *Client) UploadTools(
-	toolsFilename string, vers version.Binary, fakeSeries ...string,
-) (
-	tools *tools.Tools, err error,
-) {
-	toolsTarball, err := os.Open(toolsFilename)
-	if err != nil {
-		return nil, err
-	}
-	defer toolsTarball.Close()
+// UploadTools uploads tools at the specified location to the API server over HTTPS.
+func (c *Client) UploadTools(r io.Reader, vers version.Binary) (*tools.Tools, error) {
+	// Older versions of Juju expect to be told which series to expand
+	// the uploaded tools to on the server-side. In new versions we
+	// do this automatically, and the parameter will be ignored.
+	fakeSeries := version.OSSupportedSeries(vers.OS)
 
 	// Prepare the upload request.
 	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
-	req, err := http.NewRequest("POST", url, toolsTarball)
+	req, err := http.NewRequest("POST", url, r)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create upload request: %v", err)
+		return nil, errors.Annotate(err, "cannot create upload request")
 	}
 	req.SetBasicAuth(c.st.tag, c.st.password)
 	req.Header.Set("Content-Type", "application/x-tar-gz")
@@ -748,29 +742,25 @@ func (c *Client) UploadTools(
 	// the tag and password) passed in api.Open()'s info argument.
 	resp, err := utils.GetNonValidatingHTTPClient().Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("cannot upload charm: %v", err)
+		return nil, errors.Annotate(err, "cannot upload charm")
 	}
-	if resp.StatusCode == http.StatusMethodNotAllowed {
-		// API server is older than 1.17.5, so tools upload
-		// is not supported; notify the client.
-		return nil, &params.Error{
-			Message: "tools upload is not supported by the API server",
-			Code:    params.CodeNotImplemented,
-		}
-	}
+	defer resp.Body.Close()
 
 	// Now parse the response & return.
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read tools upload response: %v", err)
+		return nil, errors.Annotate(err, "cannot read tools upload response")
 	}
-	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("tools upload failed: %v (%s)", resp.StatusCode, bytes.TrimSpace(body))
+	}
+
 	var jsonResponse params.ToolsResult
 	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return nil, fmt.Errorf("cannot unmarshal upload response: %v", err)
+		return nil, errors.Annotate(err, "cannot unmarshal upload response")
 	}
 	if err := jsonResponse.Error; err != nil {
-		return nil, fmt.Errorf("error uploading tools: %v", err)
+		return nil, errors.Annotate(err, "error uploading tools")
 	}
 	return jsonResponse.Tools, nil
 }
@@ -799,7 +789,7 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 		return params.StateServersChanges{}, err
 	}
 	if len(results.Results) != 1 {
-		return params.StateServersChanges{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return params.StateServersChanges{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
@@ -911,7 +901,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	line := make([]byte, 4096)
 	n, err := connection.Read(line)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read initial response: %v", err)
+		return nil, errors.Annotate(err, "unable to read initial response")
 	}
 	line = line[0:n]
 
@@ -919,7 +909,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	var errResult params.ErrorResult
 	err = json.Unmarshal(line, &errResult)
 	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal initial response: %v", err)
+		return nil, errors.Annotate(err, "unable to unmarshal initial response")
 	}
 	if errResult.Error != nil {
 		return nil, errResult.Error

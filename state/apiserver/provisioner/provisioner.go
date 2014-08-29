@@ -31,7 +31,6 @@ type ProvisionerAPI struct {
 	*common.LifeGetter
 	*common.StateAddresser
 	*common.APIAddresser
-	*common.ToolsGetter
 	*common.EnvironWatcher
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
@@ -84,7 +83,6 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		LifeGetter:             common.NewLifeGetter(st, getAuthFunc),
 		StateAddresser:         common.NewStateAddresser(st),
 		APIAddresser:           common.NewAPIAddresser(st, resources),
-		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
@@ -225,12 +223,18 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	if err != nil {
 		return result, err
 	}
+
+	result.UpdateBehavior = &params.UpdateBehavior{
+		config.EnableOSRefreshUpdate(),
+		config.EnableOSUpgrade(),
+	}
 	result.ProviderType = config.Type()
 	result.AuthorizedKeys = config.AuthorizedKeys()
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
 	result.PreferIPv6 = config.PreferIPv6()
+
 	return result, nil
 }
 
@@ -639,4 +643,9 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 		return result, watcher.MustErr(watch)
 	}
 	return result, nil
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func (p *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	return common.FindTools(p.st, args)
 }

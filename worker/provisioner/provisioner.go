@@ -100,6 +100,12 @@ func (p *provisioner) Stop() error {
 	return p.tomb.Wait()
 }
 
+// getToolsFinder returns a ToolsFinder for the provided State.
+// This exists for mocking.
+var getToolsFinder = func(st *apiprovisioner.State) ToolsFinder {
+	return st
+}
+
 // getStartTask creates a new worker for the provisioner,
 func (p *provisioner) getStartTask(harvestingMethod config.HarvestMode) (ProvisionerTask, error) {
 	auth, err := authentication.NewAPIAuthenticator(p.st)
@@ -131,6 +137,7 @@ func (p *provisioner) getStartTask(harvestingMethod config.HarvestMode) (Provisi
 		machineTag,
 		harvestingMethod,
 		p.st,
+		getToolsFinder(p.st),
 		machineWatcher,
 		retryWatcher,
 		p.broker,

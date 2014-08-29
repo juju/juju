@@ -708,6 +708,9 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return mockToolsFinder{}
+	})
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -785,6 +788,9 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *gc.C) {
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return mockToolsFinder{}
+	})
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -841,7 +847,7 @@ func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machi
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, config.HarvestAll, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, config.HarvestAll, s.Environ, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	// create a machine
@@ -853,7 +859,13 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.startUnknownInstance(c, "999")
 
 	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
-	task = s.newProvisionerTask(c, config.HarvestAll, s.Environ, &mockMachineGetter{})
+	task = s.newProvisionerTask(
+		c,
+		config.HarvestAll,
+		s.Environ,
+		&mockMachineGetter{},
+		&mockToolsFinder{},
+	)
 	defer func() {
 		err := task.Stop()
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
@@ -922,6 +934,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	harvestingMethod config.HarvestMode,
 	broker environs.InstanceBroker,
 	machineGetter provisioner.MachineGetter,
+	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
 	machineWatcher, err := s.provisioner.WatchEnvironMachines()
@@ -935,6 +948,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		names.NewMachineTag("0"),
 		harvestingMethod,
 		machineGetter,
+		toolsFinder,
 		machineWatcher,
 		retryWatcher,
 		broker,
@@ -945,7 +959,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 
 func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 	task.SetHarvestMode(config.HarvestNone)
 
@@ -963,7 +977,12 @@ func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 }
 func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c,
+		config.HarvestDestroyed,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
 	defer stop(c, task)
 	task.SetHarvestMode(config.HarvestUnknown)
 
@@ -984,7 +1003,13 @@ func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 
 func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(
+		c,
+		config.HarvestDestroyed,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
 	defer stop(c, task)
 
 	// Create a machine and an unknown instance.
@@ -1004,7 +1029,12 @@ func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
 
 func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 
-	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c,
+		config.HarvestDestroyed,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
 	defer stop(c, task)
 	task.SetHarvestMode(config.HarvestAll)
 
@@ -1025,7 +1055,7 @@ func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	e := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner)
+	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -1070,7 +1100,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner)
+	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	added := s.ensureAvailability(c, 3)
@@ -1108,4 +1138,18 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 
 func (b *mockBroker) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return b.Environ.(tools.SupportsCustomSources).GetToolsSources()
+}
+
+type mockToolsFinder struct {
+}
+
+func (f mockToolsFinder) FindTools(number version.Number, series string, arch *string) (coretools.List, error) {
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, version.Current.Arch))
+	if err != nil {
+		return nil, err
+	}
+	if arch != nil {
+		v.Arch = *arch
+	}
+	return coretools.List{&coretools.Tools{Version: v}}, nil
 }

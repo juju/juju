@@ -17,8 +17,14 @@ import (
 	"github.com/juju/names"
 )
 
+var envtoolsFindTools = envtools.FindTools
+
 type EntityFinderEnvironConfigGetter interface {
 	state.EntityFinder
+	EnvironConfigGetter
+}
+
+type EnvironConfigGetter interface {
 	EnvironConfig() (*config.Config, error)
 }
 
@@ -161,4 +167,26 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 		return NotSupportedError(tag, "agent tools")
 	}
 	return entity.SetAgentVersion(vers)
+}
+
+// FindTools returns a List containing all tools matching the given parameters.
+func FindTools(e EnvironConfigGetter, args params.FindToolsParams) (params.FindToolsResult, error) {
+	result := params.FindToolsResult{}
+	// Get the existing environment config from the state.
+	envConfig, err := e.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	env, err := environs.New(envConfig)
+	if err != nil {
+		return result, err
+	}
+	filter := coretools.Filter{
+		Number: args.Number,
+		Arch:   args.Arch,
+		Series: args.Series,
+	}
+	result.List, err = envtoolsFindTools(env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry)
+	result.Error = ServerError(err)
+	return result, nil
 }

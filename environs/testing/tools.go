@@ -15,7 +15,6 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -25,6 +24,9 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )
+
+// toolsLtsSeries records the known Ubuntu LTS series.
+var toolsLtsSeries = []string{"precise", "trusty"}
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.
@@ -58,7 +60,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
 	for _, arch := range arches {
 		v := version.Current
 		v.Arch = arch
-		for _, series := range bootstrap.ToolsLtsSeries {
+		for _, series := range toolsLtsSeries {
 			v.Series = series
 			versions = append(versions, v)
 		}
@@ -204,7 +206,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	toolsSeries := set.NewStrings(bootstrap.ToolsLtsSeries...)
+	toolsSeries := set.NewStrings(toolsLtsSeries...)
 	toolsSeries.Add(version.Current.Series)
 	var versions []version.Binary
 	for _, series := range toolsSeries.Values() {

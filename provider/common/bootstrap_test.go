@@ -25,6 +25,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {
@@ -65,6 +66,7 @@ func minimalConfig(c *gc.C) *config.Config {
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 		"authorized-keys": coretesting.FakeAuthKeys,
+		"default-series":  version.Current.Series,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -79,30 +81,39 @@ func configGetter(c *gc.C) configFunc {
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
+	env := &mockEnviron{
+		storage: newStorage(s, c),
+		config:  configGetter(c),
+	}
 
 	startInstance := func(
-		placement string, cons constraints.Value, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
-	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
-	) {
+		placement string,
+		cons constraints.Value,
+		_ []string,
+		possibleTools tools.List,
+		mcfg *cloudinit.MachineConfig,
+	) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
-		machineConfig, err := environs.NewBootstrapMachineConfig(cons, mcfg.SystemPrivateSSHKey, mcfg.Series)
+
+		// The machine config should set its upgrade behavior based on
+		// the environment config.
+		expectedMcfg, err := environs.NewBootstrapMachineConfig(cons, mcfg.Series)
 		c.Assert(err, gc.IsNil)
-		c.Assert(mcfg, gc.DeepEquals, machineConfig)
+		expectedMcfg.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
+		expectedMcfg.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+
+		c.Assert(mcfg, gc.DeepEquals, expectedMcfg)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 
-	env := &mockEnviron{
-		storage:       newStorage(s, c),
-		startInstance: startInstance,
-		config:        configGetter(c),
-	}
+	env.startInstance = startInstance
 
 	ctx := coretesting.Context(c)
 	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		Constraints: checkCons,
-		Placement:   checkPlacement,
+		Constraints:    checkCons,
+		Placement:      checkPlacement,
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
@@ -134,7 +145,9 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -171,7 +184,9 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -210,7 +225,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		setConfig:     setConfig,
 	}
 	ctx := coretesting.Context(c)
-	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
+	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(arch, gc.Equals, "ppc64el") // based on hardware characteristics
 	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))

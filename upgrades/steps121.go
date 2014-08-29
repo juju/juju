@@ -22,5 +22,12 @@ func stepsFor121() []Step {
 				return state.AddEnvironmentUUIDToStateServerDoc(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "add all users in state as environment users",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddStateUsersAsEnvironUsers(context.State())
+			},
+		},
 	}
 }
