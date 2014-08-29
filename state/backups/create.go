@@ -103,7 +103,7 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 		return nil, errors.Annotate(err, "error making backups workspace")
 	}
 	filename := filepath.Join(rootDir, tempFilename)
-	b.archive = archive.NewRootedArchive(filename, rootDir)
+	b.archive = archive.NewArchive(filename, rootDir)
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in

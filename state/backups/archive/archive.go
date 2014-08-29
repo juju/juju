@@ -19,20 +19,12 @@ type Archive struct {
 	rootDir  string
 }
 
-// NewRootedArchive returns a new archive summary for the filename and
+// NewArchive returns a new archive summary for the filename and
 // root directory for the unpacked contents.
-func NewRootedArchive(filename, rootDir string) *Archive {
+func NewArchive(filename, rootDir string) *Archive {
 	ar := Archive{
 		filename: filename,
 		rootDir:  rootDir,
-	}
-	return &ar
-}
-
-// NewArchive returns a new archive summary for the filename.
-func NewArchive(filename string) *Archive {
-	ar := Archive{
-		filename: filename,
 	}
 	return &ar
 }
