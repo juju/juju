@@ -18,8 +18,3 @@ type Tools struct {
 	SHA256  string         `json:"sha256,omitempty"`
 	Size    int64          `json:"size"`
 }
-
-// HasTools instances can be asked for a tools list.
-type HasTools interface {
-	Tools(series string) List
-}

@@ -570,9 +570,10 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
-func (c *Client) FindTools(majorVersion, minorVersion int,
-	series, arch string) (result params.FindToolsResults, err error) {
-
+func (c *Client) FindTools(
+	majorVersion, minorVersion int,
+	series, arch string,
+) (result params.FindToolsResult, err error) {
 	args := params.FindToolsParams{
 		MajorVersion: majorVersion,
 		MinorVersion: minorVersion,
@@ -713,19 +714,8 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 	return urlInfo.URL, nil
 }
 
-// UploadTools uploads tools at the specified location to the
-// API server over HTTPS.
-func (c *Client) UploadTools(
-	toolsFilename string, vers version.Binary,
-) (
-	tools *tools.Tools, err error,
-) {
-	toolsTarball, err := os.Open(toolsFilename)
-	if err != nil {
-		return nil, err
-	}
-	defer toolsTarball.Close()
-
+// UploadTools uploads tools at the specified location to the API server over HTTPS.
+func (c *Client) UploadTools(r io.Reader, vers version.Binary) (*tools.Tools, error) {
 	// Older versions of Juju expect to be told which series to expand
 	// the uploaded tools to on the server-side. In new versions we
 	// do this automatically, and the parameter will be ignored.
@@ -733,7 +723,7 @@ func (c *Client) UploadTools(
 
 	// Prepare the upload request.
 	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
-	req, err := http.NewRequest("POST", url, toolsTarball)
+	req, err := http.NewRequest("POST", url, r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
 	}

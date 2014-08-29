@@ -255,7 +255,12 @@ func (context *upgradeContext) uploadTools() (err error) {
 	var uploaded *coretools.Tools
 	toolsPath := path.Join(builtTools.Dir, builtTools.StorageName)
 	logger.Infof("uploading tools %v (%dkB) to Juju state server", builtTools.Version, (builtTools.Size+512)/1024)
-	uploaded, err = context.apiClient.UploadTools(toolsPath, builtTools.Version)
+	f, err := os.Open(toolsPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version)
 	if err != nil {
 		return err
 	}

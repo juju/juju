@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
+const aria2Command = "aria2c"
+
 type ubuntuConfigure struct {
 	mcfg     *MachineConfig
 	conf     *cloudinit.Config
@@ -151,12 +153,33 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		}
 		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
-		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
-		curlCommand += " --retry 10"
-		if w.mcfg.DisableSSLHostnameVerification {
-			curlCommand += " --insecure"
+		var copyCmd string
+		// Retry indefinitely.
+		aria2Command := aria2Command + " --max-tries=0 --retry-wait=3"
+		if w.mcfg.Bootstrap {
+			if w.mcfg.DisableSSLHostnameVerification {
+				aria2Command += " --check-certificate=false"
+			}
+			copyCmd = fmt.Sprintf("%s -d $bin -o tools.tar.gz %s", aria2Command, shquote(w.mcfg.Tools.URL))
+		} else {
+			var urls []string
+			for _, addr := range w.mcfg.apiHostAddrs() {
+				// TODO(axw) encode env UUID in URL when EnvironTag
+				// is guaranteed to be available in APIInfo.
+				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
+				urls = append(urls, shquote(url))
+			}
+
+			// Our certificates are unusable by aria2c (invalid subject name),
+			// so we must disable certificate validation. It doesn't actually
+			// matter, because there is no sensitive information being transmitted
+			// and we verify the tools' hash after.
+			copyCmd = fmt.Sprintf(
+				"%s --check-certificate=false -d $bin -o tools.tar.gz %s",
+				aria2Command,
+				strings.Join(urls, " "),
+			)
 		}
-		copyCmd := fmt.Sprintf("%s -o $bin/tools.tar.gz %s", curlCommand, shquote(w.mcfg.Tools.URL))
 		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
 		w.conf.AddRunCmd(toolsDownloadCommandWithRetry(copyCmd))
 	}

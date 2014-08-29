@@ -67,10 +67,6 @@ func (s *lxcSuite) TearDownTest(c *gc.C) {
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -84,7 +80,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -95,7 +91,10 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
 	lxc, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
@@ -245,10 +244,8 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig, managerConfig)
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }

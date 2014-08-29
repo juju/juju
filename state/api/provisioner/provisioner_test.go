@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -25,7 +27,7 @@ import (
 	apitesting "github.com/juju/juju/state/api/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -617,25 +619,6 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.PreferIPv6, jc.IsTrue)
 }
 
-func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
-	tools, err := s.provisioner.Tools(names.NewMachineTag("42"))
-	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
-	c.Assert(tools, gc.IsNil)
-}
-
-func (s *provisionerSuite) TestTools(c *gc.C) {
-	cur := version.Current
-	curTools := &tools.Tools{Version: cur, URL: ""}
-	curTools.Version.Minor++
-	s.machine.SetAgentVersion(cur)
-	// Provisioner.Tools returns the *desired* set of tools, not the
-	// currently running set. We want to be upgraded to cur.Version
-	stateTools, err := s.provisioner.Tools(s.machine.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
-	c.Assert(stateTools.Version, gc.Equals, cur)
-	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
-}
-
 func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
@@ -660,4 +643,28 @@ func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
 	containers, ok := s.machine.SupportedContainers()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
+}
+
+func (s *provisionerSuite) TestFindTools(c *gc.C) {
+	list, err := envtools.FindTools(s.Environ, -1, -1, coretools.Filter{
+		Number: version.Current.Number,
+		Series: version.Current.Series,
+		Arch:   version.Current.Arch,
+	}, false)
+	c.Assert(err, gc.IsNil)
+	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, &version.Current.Arch)
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiList, gc.HasLen, len(list))
+
+	listStrings := make([]string, len(list))
+	for i, tools := range list {
+		listStrings[i] = fmt.Sprintf("%+v", tools)
+	}
+
+	apiListStrings := make([]string, len(apiList))
+	for i, tools := range apiList {
+		apiListStrings[i] = fmt.Sprintf("%+v", tools)
+	}
+
+	c.Assert(apiListStrings, jc.SameContents, listStrings)
 }

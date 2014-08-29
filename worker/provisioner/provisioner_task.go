@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
@@ -47,12 +46,22 @@ type MachineGetter interface {
 	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
 }
 
+// ToolsFinder is an interface used for finding tools to run on
+// provisioned instances.
+type ToolsFinder interface {
+	// FindTools returns a list of tools matching the specified
+	// version and series, and optionally arch.
+	FindTools(version version.Number, series string, arch *string) (coretools.List, error)
+}
+
 var _ MachineGetter = (*apiprovisioner.State)(nil)
+var _ ToolsFinder = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
 	machineTag names.MachineTag,
 	safeMode bool,
 	machineGetter MachineGetter,
+	toolsFinder ToolsFinder,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
 	broker environs.InstanceBroker,
@@ -62,6 +71,7 @@ func NewProvisionerTask(
 	task := &provisionerTask{
 		machineTag:     machineTag,
 		machineGetter:  machineGetter,
+		toolsFinder:    toolsFinder,
 		machineWatcher: machineWatcher,
 		retryWatcher:   retryWatcher,
 		broker:         broker,
@@ -81,6 +91,7 @@ func NewProvisionerTask(
 type provisionerTask struct {
 	machineTag     names.MachineTag
 	machineGetter  MachineGetter
+	toolsFinder    ToolsFinder
 	machineWatcher apiwatcher.StringsWatcher
 	retryWatcher   apiwatcher.NotifyWatcher
 	broker         environs.InstanceBroker
@@ -470,7 +481,11 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 		assocProvInfoAndMachCfg(pInfo, machineCfg)
 
-		possibleTools, err := task.possibleTools(pInfo.Series, pInfo.Constraints)
+		possibleTools, err := task.toolsFinder.FindTools(
+			version.Current.Number,
+			pInfo.Series,
+			pInfo.Constraints.Arch,
+		)
 		if err != nil {
 			return task.setErrorStatus("cannot find tools for machine %q: %v", m, err)
 		}
@@ -552,16 +567,6 @@ func (task *provisionerTask) startMachine(
 		return errors.Annotatef(err, "cannot stop instance %q for machine %v", inst.Id(), machine)
 	}
 	return nil
-}
-
-func (task *provisionerTask) possibleTools(series string, cons constraints.Value) (coretools.List, error) {
-	if env, ok := task.broker.(environs.Environ); ok {
-		return tools.FindInstanceTools(env, version.Current.Number, series, cons.Arch)
-	}
-	if hasTools, ok := task.broker.(coretools.HasTools); ok {
-		return hasTools.Tools(series), nil
-	}
-	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }
 
 type provisioningInfo struct {

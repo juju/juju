@@ -166,8 +166,10 @@ func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 }
 
 // sendError sends a JSON-encoded error response.
-func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
-	return h.sendJSON(w, statusCode, &params.CharmsResponse{Error: message})
+func (h *charmsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
+	if err := h.sendJSON(w, statusCode, &params.CharmsResponse{Error: message}); err != nil {
+		logger.Errorf("failed to send error: %v", err)
+	}
 }
 
 // processPost handles a charm upload POST request after authentication.
