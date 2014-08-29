@@ -247,10 +247,12 @@ exposed via the following options:
 Note: further options may be appropriate for later addition
       (e.g. [<filename>] on --restore).
 
-Other non-essential subcommands:
+Other anticipated subcommands:
 
 - juju backups --download <ID> [<filename>]
 - juju backups --upload <filename>
 
 Note that download and upload are only hypothetical, pending support in
-the API facade.
+the API facade.  When we add the ability to restore from an archive
+(rather than an ID), --download and --upload (or a --filename option on
+restore) will become essential.
