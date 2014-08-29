@@ -6,12 +6,14 @@ package backups
 import (
 	"compress/gzip"
 	"crypto/sha1"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/hash"
 	"github.com/juju/utils/tar"
 
@@ -44,13 +46,20 @@ type createResult struct {
 
 // create builds a new backup archive file and returns it.  It also
 // updates the metadata with the file info.
-func create(args *createArgs) (*createResult, error) {
+func create(args *createArgs) (_ *createResult, err error) {
 	// Prepare the backup builder.
 	builder, err := newBuilder(args.filesToBackUp, args.db)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer builder.cleanUp()
+	defer func() {
+		if cerr := builder.cleanUp(); cerr != nil {
+			cerr.Log(logger)
+			if err == nil {
+				err = cerr
+			}
+		}
+	}()
 
 	// Build the backup.
 	if err := builder.buildAll(); err != nil {
@@ -93,17 +102,15 @@ type builder struct {
 // directories which backup uses as its staging area while building the
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
-func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
-	var err error
-
+func newBuilder(filesToBackUp []string, db dumper) (_ *builder, err error) {
 	b := builder{
 		filesToBackUp: filesToBackUp,
 		db:            db,
 	}
 	defer func() {
 		if err != nil {
-			if err := b.cleanUp(); err != nil {
-				logger.Errorf("error while cleaning up: %v", err)
+			if cerr := b.cleanUp(); cerr != nil {
+				cerr.Log(logger)
 			}
 		}
 	}()
@@ -177,24 +184,40 @@ func (b *builder) removeRootDir() error {
 	return nil
 }
 
-func (b *builder) cleanUp() error {
-	var failed int
+type cleanupErrors struct {
+	Errors []error
+}
+
+func (e cleanupErrors) Error() string {
+	if len(e.Errors) == 1 {
+		return fmt.Sprintf("while cleaning up: %v", e.Errors[0])
+	} else {
+		return fmt.Sprintf("%d errors during cleanup", len(e.Errors))
+	}
+}
+
+func (e cleanupErrors) Log(logger loggo.Logger) {
+	logger.Errorf(e.Error())
+	for _, err := range e.Errors {
+		logger.Errorf(err.Error())
+	}
+}
+
+func (b *builder) cleanUp() *cleanupErrors {
+	var errors []error
 
 	if err := b.closeBundleFile(); err != nil {
-		logger.Errorf(err.Error())
-		failed++
+		errors = append(errors, err)
 	}
 	if err := b.closeArchiveFile(); err != nil {
-		logger.Errorf(err.Error())
-		failed++
+		errors = append(errors, err)
 	}
 	if err := b.removeRootDir(); err != nil {
-		logger.Errorf(err.Error())
-		failed++
+		errors = append(errors, err)
 	}
 
-	if failed > 0 {
-		return errors.Errorf("%d errors during cleanup (see logs)", failed)
+	if errors != nil {
+		return &cleanupErrors{errors}
 	}
 	return nil
 }
