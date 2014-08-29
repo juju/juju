@@ -34,7 +34,7 @@ var (
 	dbSecret      = "shared-secret"
 )
 
-// GetFilesTOBackUp returns the paths that should be included in the
+// GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
 func GetFilesToBackUp(rootDir string) ([]string, error) {
 	var glob string

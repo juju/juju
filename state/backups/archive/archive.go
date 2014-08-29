@@ -36,7 +36,7 @@ func NewArchive(filename string) *Archive {
 	return &ar
 }
 
-// Filename is the path to the archilve file.
+// Filename is the path to the archive file.
 func (ar *Archive) Filename() string {
 	return ar.filename
 }

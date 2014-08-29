@@ -70,7 +70,7 @@ func create(args *createArgs) (*createResult, error) {
 	return result, nil
 }
 
-// Builder exposes the machinery for creating a backup of juju's state.
+// builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
 	// archive is the backups archive summary.
 	archive *archive.Archive
@@ -125,7 +125,7 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	b.bundleFile, err = os.Create(b.archive.FilesBundle())
 	if err != nil {
 		b.cleanUp()
-		return nil, errors.Annotate(err, `error creating "bundle" file`)
+		return nil, errors.Annotate(err, `error creating bundle file`)
 	}
 
 	return &b, nil
