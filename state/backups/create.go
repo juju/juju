@@ -224,7 +224,7 @@ func (b *builder) buildDBDump() error {
 	return nil
 }
 
-func (b *builder) buildArchiveRaw(outFile io.Writer) error {
+func (b *builder) buildArchive(outFile io.Writer) error {
 	tarball := gzip.NewWriter(outFile)
 	defer tarball.Close()
 
@@ -240,7 +240,7 @@ func (b *builder) buildArchiveRaw(outFile io.Writer) error {
 	return nil
 }
 
-func (b *builder) buildArchive() error {
+func (b *builder) buildArchiveAndChecksum() error {
 	logger.Infof("building archive file (%s)", b.archive.Filename())
 	if b.archiveFile == nil {
 		return errors.New("missing archiveFile")
@@ -252,7 +252,7 @@ func (b *builder) buildArchive() error {
 	// that users can compare the published checksum against the
 	// checksum of the file without having to decompress it first.
 	hasher := hash.NewHashingWriter(b.archiveFile, sha1.New())
-	if err := b.buildArchiveRaw(hasher); err != nil {
+	if err := b.buildArchive(hasher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -277,7 +277,7 @@ func (b *builder) buildAll() error {
 	}
 
 	// Bundle it all into a tarball.
-	if err := b.buildArchive(); err != nil {
+	if err := b.buildArchiveAndChecksum(); err != nil {
 		return errors.Trace(err)
 	}
 
