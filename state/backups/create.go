@@ -83,10 +83,10 @@ type builder struct {
 	// db is the wrapper around the DB dump command and args.
 	db dumper
 	// archiveFile is the backup archive file.
-	archiveFile *os.File
+	archiveFile io.WriteCloser
 	// bundleFile is the inner archive file containing all the juju
 	// state-related files gathered during backup.
-	bundleFile *os.File
+	bundleFile io.WriteCloser
 }
 
 // newBuilder returns a new backup archive builder.  It creates the temp
