@@ -708,6 +708,9 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return mockToolsFinder{}
+	})
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -814,6 +817,9 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *gc.C) {
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return mockToolsFinder{}
+	})
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -904,7 +910,7 @@ func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machi
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, false, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, false, s.Environ, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	// create a machine
@@ -916,7 +922,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.startUnknownInstance(c, "999")
 
 	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
-	task = s.newProvisionerTask(c, false, s.Environ, &mockMachineGetter{})
+	task = s.newProvisionerTask(c, false, s.Environ, &mockMachineGetter{}, mockToolsFinder{})
 	defer func() {
 		err := task.Stop()
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
@@ -987,7 +993,11 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) newProvisionerTask(
-	c *gc.C, safeMode bool, broker environs.InstanceBroker, machineGetter provisioner.MachineGetter,
+	c *gc.C,
+	safeMode bool,
+	broker environs.InstanceBroker,
+	machineGetter provisioner.MachineGetter,
+	toolsFinder provisioner.ToolsFinder,
 ) provisioner.ProvisionerTask {
 
 	machineWatcher, err := s.provisioner.WatchEnvironMachines()
@@ -1001,6 +1011,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 		names.NewMachineTag("0"),
 		safeMode,
 		machineGetter,
+		toolsFinder,
 		machineWatcher,
 		retryWatcher,
 		broker,
@@ -1010,7 +1021,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, s.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, true, s.Environ, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -1034,7 +1045,7 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	var e environs.Environ = &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, e, s.provisioner)
+	task := s.newProvisionerTask(c, false, e, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -1079,7 +1090,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, broker, s.provisioner)
+	task := s.newProvisionerTask(c, false, broker, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	added := s.ensureAvailability(c, 3)
@@ -1117,4 +1128,18 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 
 func (b *mockBroker) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return b.Environ.(tools.SupportsCustomSources).GetToolsSources()
+}
+
+type mockToolsFinder struct {
+}
+
+func (f mockToolsFinder) FindTools(number version.Number, series string, arch *string) (coretools.List, error) {
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, version.Current.Arch))
+	if err != nil {
+		return nil, err
+	}
+	if arch != nil {
+		v.Arch = *arch
+	}
+	return coretools.List{&coretools.Tools{Version: v}}, nil
 }

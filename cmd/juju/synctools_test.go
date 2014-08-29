@@ -202,13 +202,13 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 	var called bool
 	result := coretools.List{&coretools.Tools{}}
 	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResults, error) {
+		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
 			called = true
 			c.Assert(majorVersion, gc.Equals, 2)
 			c.Assert(minorVersion, gc.Equals, -1)
 			c.Assert(series, gc.Equals, "")
 			c.Assert(arch, gc.Equals, "")
-			return params.FindToolsResults{List: result}, nil
+			return params.FindToolsResult{List: result}, nil
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
@@ -220,9 +220,9 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 
 func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResults, error) {
+		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
 			err := common.ServerError(errors.NotFoundf("tools"))
-			return params.FindToolsResults{Error: err}, nil
+			return params.FindToolsResult{Error: err}, nil
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
@@ -234,8 +234,8 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 	findToolsErr := common.ServerError(errors.NotFoundf("tools"))
 	fake := fakeSyncToolsAPI{
-		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResults, error) {
-			return params.FindToolsResults{Error: findToolsErr}, findToolsErr
+		findTools: func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
+			return params.FindToolsResult{Error: findToolsErr}, findToolsErr
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
@@ -261,11 +261,11 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 }
 
 type fakeSyncToolsAPI struct {
-	findTools   func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResults, error)
+	findTools   func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
 	uploadTools func(r io.Reader, v version.Binary) (*coretools.Tools, error)
 }
 
-func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResults, error) {
+func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
 	return f.findTools(majorVersion, minorVersion, series, arch)
 }
 

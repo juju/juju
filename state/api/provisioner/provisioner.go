@@ -4,8 +4,6 @@
 package provisioner
 
 import (
-	"fmt"
-
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
@@ -13,6 +11,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 // State provides access to the Machiner API facade.
@@ -91,28 +90,6 @@ func (st *State) StateAddresses() ([]string, error) {
 	return result.Result, nil
 }
 
-// Tools returns the agent tools for the given entity.
-func (st *State) Tools(tag names.MachineTag) (*tools.Tools, error) {
-	var results params.ToolsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
-	}
-	err := st.facade.FacadeCall("Tools", args, &results)
-	if err != nil {
-		// TODO: Not directly tested
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if err := result.Error; err != nil {
-		return nil, err
-	}
-	return result.Tools, nil
-}
-
 // ContainerManagerConfig returns information from the environment config that is
 // needed for configuring the container manager.
 func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
@@ -147,4 +124,26 @@ func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResul
 		}
 	}
 	return machines, results.Results, nil
+}
+
+// FindTools returns al ist of tools matching the specified version number and
+// series, and, if non-empty, arch.
+func (st *State) FindTools(v version.Number, series string, arch *string) (tools.List, error) {
+	args := params.FindToolsParams{
+		Number:       v,
+		Series:       series,
+		MajorVersion: -1,
+		MinorVersion: -1,
+	}
+	if arch != nil {
+		args.Arch = *arch
+	}
+	var result params.FindToolsResult
+	if err := st.facade.FacadeCall("FindTools", args, &result); err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.List, nil
 }
