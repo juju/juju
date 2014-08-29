@@ -570,6 +570,36 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
 }
 
+func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
+	resetJujuHome(c)
+	devVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion.Build = 1234
+	s.PatchValue(&version.Current, devVersion)
+	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv", "--keep-broken")
+	err := <-errc
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+	done := false
+	for !done {
+		select {
+		case op, ok := <-opc:
+			if !ok {
+				done = true
+				break
+			}
+			switch op.(type) {
+			case dummy.OpDestroy:
+				c.Error("unexpected call to env.Destroy")
+				break
+			}
+		default:
+			break
+		}
+	}
+}
+
 // createToolsSource writes the mock tools and metadata into a temporary
 // directory and returns it.
 func createToolsSource(c *gc.C, versions []version.Binary) string {
