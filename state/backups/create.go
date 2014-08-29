@@ -180,7 +180,7 @@ func (b *builder) cleanUp() error {
 	for _, cleanupFunc := range funcs {
 		if err := cleanupFunc(); err != nil {
 			logger.Errorf(err.Error())
-			failed += 1
+			failed++
 		}
 	}
 
