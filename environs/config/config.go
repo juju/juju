@@ -64,8 +64,23 @@ const (
 	fallbackLtsSeries string = "precise"
 )
 
-// Parse description of harvesting method and return representation.
-func ParseHarvestingMethod(description string) (HarvestingMethod, error) {
+// Centralized place to store values of config keys. This transitions
+// mistakes in referencing key-values to a compile-time error.
+const (
+	// ProvisionerHarvestModeKey stores the key for this setting.
+	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
+
+	//
+	// Deprecated Settings
+	//
+
+	// ProvisionerSafeModeKey stores the key for this setting.
+	ProvisionerSafeModeKey = "provisioner-safe-mode"
+)
+
+// ParseHarvestMode parses description of harvesting method and
+// returns the representation.
+func ParseHarvestMode(description string) (HarvestMode, error) {
 	description = strings.ToLower(description)
 	for method, descr := range harvestingMethodToFlag {
 		if description == descr {
@@ -75,47 +90,55 @@ func ParseHarvestingMethod(description string) (HarvestingMethod, error) {
 	return 0, fmt.Errorf("unknown harvesting method: %s", description)
 }
 
-type HarvestingMethod uint32
+// HarvestMode is a bit field which is used to store the harvesting
+// behavior for Juju.
+type HarvestMode uint32
 
 const (
-	// Don't harvest any machines.
-	None HarvestingMethod = 1 << iota
-	// Machines which exist, but we don't know about.
-	Unknown
-	// Machines which have been explicitly released by the user
-	// through a destroy of a service/environment/unit.
-	Destroyed
-	// Harvest both unknown and destroyed.
-	All HarvestingMethod = Unknown | Destroyed
+	// None signifies that Juju should not harvest any machines.
+	HarvestNone HarvestMode = 1 << iota
+	// Unknown signifies that Juju should only harvest machines which
+	// exist, but we don't know about.
+	HarvestUnknown
+	// Destroyed signifies that Juju should only harvest machines
+	// which have been explicitly released by the user through a
+	// destroy of a service/environment/unit.
+	HarvestDestroyed
+	// All signifies that Juju should harvest both unknown and
+	// destroyed instances. ♫ Don't fear the reaper. ♫
+	HarvestAll HarvestMode = HarvestUnknown | HarvestDestroyed
 )
 
 // A mapping from method to description. Going this way will be the
 // more common operation, so we want this type of lookup to be O(1).
-var harvestingMethodToFlag = map[HarvestingMethod]string{
-	All:       "all",
-	None:      "none",
-	Unknown:   "unknown",
-	Destroyed: "destroyed",
+var harvestingMethodToFlag = map[HarvestMode]string{
+	HarvestAll:       "all",
+	HarvestNone:      "none",
+	HarvestUnknown:   "unknown",
+	HarvestDestroyed: "destroyed",
 }
 
-// Return the description of the harvesting method.
-func (method HarvestingMethod) Description() string {
+// Description returns the description of the harvesting method.
+func (method HarvestMode) Description() string {
 	if description, ok := harvestingMethodToFlag[method]; ok {
 		return description
 	}
 	panic("Unknown harvesting method.")
 }
 
-func (method HarvestingMethod) None() bool {
-	return method&None != 0
+// None returns whether or not the None harvesting flag is set.
+func (method HarvestMode) HarvestNone() bool {
+	return method&HarvestNone != 0
 }
 
-func (method HarvestingMethod) Destroyed() bool {
-	return method&Destroyed != 0
+// Destroyed returns whether or not the Destroyed harvesting flag is set.
+func (method HarvestMode) HarvestDestroyed() bool {
+	return method&HarvestDestroyed != 0
 }
 
-func (method HarvestingMethod) Unknown() bool {
-	return method&Unknown != 0
+// Unknown returns whether or not the Unknown harvesting flag is set.
+func (method HarvestMode) HarvestUnknown() bool {
+	return method&HarvestUnknown != 0
 }
 
 var latestLtsSeries string
@@ -327,6 +350,27 @@ func (cfg *Config) processDeprecatedAttributes() {
 	if cfg.Type() == "null" {
 		cfg.defined["type"] = "manual"
 	}
+
+	if _, ok := cfg.defined[ProvisionerHarvestModeKey]; !ok {
+		if safeMode, ok := cfg.defined[ProvisionerSafeModeKey].(bool); ok {
+
+			var harvestModeDescr string
+			if safeMode {
+				harvestModeDescr = HarvestDestroyed.Description()
+			} else {
+				harvestModeDescr = HarvestAll.Description()
+			}
+
+			cfg.defined[ProvisionerHarvestModeKey] = harvestModeDescr
+
+			logger.Infof(
+				`Based on your "%s" setting, configuring "%s" to "%s" for this session.`,
+				ProvisionerSafeModeKey,
+				ProvisionerHarvestModeKey,
+				harvestModeDescr,
+			)
+		}
+	}
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -398,9 +442,10 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// Ensure that the given harvesting method is valid.
-	hvstMeth := cfg.defined["provisioner-harvesting-method"].(string)
-	if _, err := ParseHarvestingMethod(hvstMeth); err != nil {
-		return err
+	if hvstMeth, ok := cfg.defined[ProvisionerHarvestModeKey].(string); ok {
+		if _, err := ParseHarvestMode(hvstMeth); err != nil {
+			return err
+		}
 	}
 
 	// Check the immutable config values.  These can't change
@@ -776,16 +821,19 @@ func (c *Config) CharmStoreAuth() (string, bool) {
 	return auth, auth != ""
 }
 
-// ProvisionerHarvest reports the harvesting methodology the
+// ProvisionerHarvestMethod reports the harvesting methodology the
 // provisioner should take.
-func (c *Config) ProvisionerHarvestMethod() HarvestingMethod {
-	v := c.defined["provisioner-harvesting-method"].(string)
-	if method, err := ParseHarvestingMethod(v); err != nil {
-		// This setting should have already been validated. Don't
-		// burden the caller with handling any errors.
-		panic(err)
+func (c *Config) ProvisionerHarvestMode() HarvestMode {
+	if v, ok := c.defined[ProvisionerHarvestModeKey].(string); ok {
+		if method, err := ParseHarvestMode(v); err != nil {
+			// This setting should have already been validated. Don't
+			// burden the caller with handling any errors.
+			panic(err)
+		} else {
+			return method
+		}
 	} else {
-		return method
+		return HarvestDestroyed
 	}
 }
 
@@ -861,50 +909,51 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 }
 
 var fields = schema.Fields{
-	"type":                          schema.String(),
-	"name":                          schema.String(),
-	"uuid":                          schema.UUID(),
-	"default-series":                schema.String(),
-	"tools-metadata-url":            schema.String(),
-	"image-metadata-url":            schema.String(),
-	"image-stream":                  schema.String(),
-	"authorized-keys":               schema.String(),
-	"authorized-keys-path":          schema.String(),
-	"firewall-mode":                 schema.String(),
-	"agent-version":                 schema.String(),
-	"development":                   schema.Bool(),
-	"admin-secret":                  schema.String(),
-	"ca-cert":                       schema.String(),
-	"ca-cert-path":                  schema.String(),
-	"ca-private-key":                schema.String(),
-	"ca-private-key-path":           schema.String(),
-	"ssl-hostname-verification":     schema.Bool(),
-	"state-port":                    schema.ForceInt(),
-	"api-port":                      schema.ForceInt(),
-	"syslog-port":                   schema.ForceInt(),
-	"rsyslog-ca-cert":               schema.String(),
-	"logging-config":                schema.String(),
-	"charm-store-auth":              schema.String(),
-	"provisioner-harvesting-method": schema.String(),
-	"http-proxy":                    schema.String(),
-	"https-proxy":                   schema.String(),
-	"ftp-proxy":                     schema.String(),
-	"no-proxy":                      schema.String(),
-	"apt-http-proxy":                schema.String(),
-	"apt-https-proxy":               schema.String(),
-	"apt-ftp-proxy":                 schema.String(),
-	"bootstrap-timeout":             schema.ForceInt(),
-	"bootstrap-retry-delay":         schema.ForceInt(),
-	"bootstrap-addresses-delay":     schema.ForceInt(),
-	"test-mode":                     schema.Bool(),
-	"proxy-ssh":                     schema.Bool(),
-	"lxc-clone":                     schema.Bool(),
-	"lxc-clone-aufs":                schema.Bool(),
-	"prefer-ipv6":                   schema.Bool(),
+	"type":                      schema.String(),
+	"name":                      schema.String(),
+	"uuid":                      schema.UUID(),
+	"default-series":            schema.String(),
+	"tools-metadata-url":        schema.String(),
+	"image-metadata-url":        schema.String(),
+	"image-stream":              schema.String(),
+	"authorized-keys":           schema.String(),
+	"authorized-keys-path":      schema.String(),
+	"firewall-mode":             schema.String(),
+	"agent-version":             schema.String(),
+	"development":               schema.Bool(),
+	"admin-secret":              schema.String(),
+	"ca-cert":                   schema.String(),
+	"ca-cert-path":              schema.String(),
+	"ca-private-key":            schema.String(),
+	"ca-private-key-path":       schema.String(),
+	"ssl-hostname-verification": schema.Bool(),
+	"state-port":                schema.ForceInt(),
+	"api-port":                  schema.ForceInt(),
+	"syslog-port":               schema.ForceInt(),
+	"rsyslog-ca-cert":           schema.String(),
+	"logging-config":            schema.String(),
+	"charm-store-auth":          schema.String(),
+	ProvisionerHarvestModeKey:   schema.String(),
+	"http-proxy":                schema.String(),
+	"https-proxy":               schema.String(),
+	"ftp-proxy":                 schema.String(),
+	"no-proxy":                  schema.String(),
+	"apt-http-proxy":            schema.String(),
+	"apt-https-proxy":           schema.String(),
+	"apt-ftp-proxy":             schema.String(),
+	"bootstrap-timeout":         schema.ForceInt(),
+	"bootstrap-retry-delay":     schema.ForceInt(),
+	"bootstrap-addresses-delay": schema.ForceInt(),
+	"test-mode":                 schema.Bool(),
+	"proxy-ssh":                 schema.Bool(),
+	"lxc-clone":                 schema.Bool(),
+	"lxc-clone-aufs":            schema.Bool(),
+	"prefer-ipv6":               schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":     schema.String(),
-	"lxc-use-clone": schema.Bool(),
+	"tools-url":            schema.String(),
+	"lxc-use-clone":        schema.Bool(),
+	ProvisionerSafeModeKey: schema.Bool(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -916,31 +965,31 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":                 schema.Omit,
-	"ca-cert":                       schema.Omit,
-	"authorized-keys":               schema.Omit,
-	"authorized-keys-path":          schema.Omit,
-	"ca-cert-path":                  schema.Omit,
-	"ca-private-key-path":           schema.Omit,
-	"logging-config":                schema.Omit,
-	"provisioner-harvesting-method": "destroyed",
-	"bootstrap-timeout":             schema.Omit,
-	"bootstrap-retry-delay":         schema.Omit,
-	"bootstrap-addresses-delay":     schema.Omit,
-	"rsyslog-ca-cert":               schema.Omit,
-	"http-proxy":                    schema.Omit,
-	"https-proxy":                   schema.Omit,
-	"ftp-proxy":                     schema.Omit,
-	"no-proxy":                      schema.Omit,
-	"apt-http-proxy":                schema.Omit,
-	"apt-https-proxy":               schema.Omit,
-	"apt-ftp-proxy":                 schema.Omit,
-	"lxc-clone":                     schema.Omit,
+	"agent-version":             schema.Omit,
+	"ca-cert":                   schema.Omit,
+	"authorized-keys":           schema.Omit,
+	"authorized-keys-path":      schema.Omit,
+	"ca-cert-path":              schema.Omit,
+	"ca-private-key-path":       schema.Omit,
+	"logging-config":            schema.Omit,
+	ProvisionerHarvestModeKey:   schema.Omit,
+	"bootstrap-timeout":         schema.Omit,
+	"bootstrap-retry-delay":     schema.Omit,
+	"bootstrap-addresses-delay": schema.Omit,
+	"rsyslog-ca-cert":           schema.Omit,
+	"http-proxy":                schema.Omit,
+	"https-proxy":               schema.Omit,
+	"ftp-proxy":                 schema.Omit,
+	"no-proxy":                  schema.Omit,
+	"apt-http-proxy":            schema.Omit,
+	"apt-https-proxy":           schema.Omit,
+	"apt-ftp-proxy":             schema.Omit,
+	"lxc-clone":                 schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":             "",
-	"lxc-use-clone":         schema.Omit,
-	"provisioner-safe-mode": schema.Omit,
+	"tools-url":            "",
+	"lxc-use-clone":        schema.Omit,
+	ProvisionerSafeModeKey: schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being

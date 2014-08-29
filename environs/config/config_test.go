@@ -430,44 +430,64 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
-		about:       "provisioner-harvesting-method all",
+		about: fmt.Sprintf(
+			"%s: %s",
+			config.ProvisionerHarvestModeKey,
+			config.HarvestAll.Description(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"provisioner-harvesting-method": "all",
+			config.ProvisionerHarvestModeKey: config.HarvestAll.Description(),
 		},
 	}, {
-		about:       "provisioner-harvesting-method destroyed",
+		about: fmt.Sprintf(
+			"%s: %s",
+			config.ProvisionerHarvestModeKey,
+			config.HarvestDestroyed.Description(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"provisioner-harvesting-method": "destroyed",
+			config.ProvisionerHarvestModeKey: config.HarvestDestroyed.Description(),
 		},
 	}, {
-		about:       "provisioner-harvesting-method unknown",
+		about: fmt.Sprintf(
+			"%s: %s",
+			config.ProvisionerHarvestModeKey,
+			config.HarvestUnknown.Description(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"provisioner-harvesting-method": "unknown",
+			config.ProvisionerHarvestModeKey: config.HarvestUnknown.Description(),
 		},
 	}, {
-		about:       "provisioner-harvesting-method none",
+		about: fmt.Sprintf(
+			"%s: %s",
+			config.ProvisionerHarvestModeKey,
+			config.HarvestNone.Description(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"provisioner-harvesting-method": "none",
+			config.ProvisionerHarvestModeKey: config.HarvestNone.Description(),
 		},
 	}, {
-		about:       "provisioner-harvesting-method incorrect",
+		about: fmt.Sprintf(
+			"%s: %s",
+			config.ProvisionerHarvestModeKey,
+			"incorrect",
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			"provisioner-harvesting-method": "yes please",
+			config.ProvisionerHarvestModeKey: "yes please",
 		},
 		err: `unknown harvesting method: yes please`,
 	}, {
@@ -718,6 +738,16 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
+	{
+		about:       "Deprecated safe-mode failover",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			//			config.ProvisionerSafeModeKey:    true,
+			config.ProvisionerHarvestModeKey: config.HarvestNone.Description(),
+		},
+	},
 }
 
 // authTokenConfigTest returns a config test that checks
@@ -872,6 +902,35 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	}
 }
 
+func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
+
+	cfg, err := config.New(config.UseDefaults, testing.Attrs{
+		"name": "name",
+		"type": "type",
+		config.ProvisionerSafeModeKey: false,
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(
+		cfg.ProvisionerHarvestMode().Description(),
+		gc.Equals,
+		config.HarvestAll.Description(),
+	)
+
+	cfg, err = config.New(config.UseDefaults, testing.Attrs{
+		"name": "name",
+		"type": "type",
+		config.ProvisionerSafeModeKey: true,
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(
+		cfg.ProvisionerHarvestMode().Description(),
+		gc.Equals,
+		config.HarvestDestroyed.Description(),
+	)
+}
+
 func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
@@ -985,12 +1044,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
-	if v, ok := test.attrs["provisioner-harvesting-method"]; ok {
-		hvstMeth, err := config.ParseHarvestingMethod(v.(string))
+	if v, ok := test.attrs[config.ProvisionerHarvestModeKey]; ok {
+		hvstMeth, err := config.ParseHarvestMode(v.(string))
 		c.Assert(err, gc.IsNil)
-		c.Assert(cfg.ProvisionerHarvestMethod(), gc.Equals, hvstMeth)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)
 	} else {
-		c.Assert(cfg.ProvisionerHarvestMethod(), gc.Equals, config.Destroyed)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
 	sshOpts := cfg.BootstrapSSHOpts()
 	test.assertDuration(
@@ -1113,12 +1172,14 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
-	attrs["provisioner-harvesting-method"] = "destroyed"
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+
+	// Verify that default provisioner-harvest-mode is good.
+	c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",

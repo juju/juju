@@ -35,7 +35,11 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
-	SetHarvestingMethod(method config.HarvestingMethod)
+
+	// SetHarvestMode sets a flag to indicate how the provisioner
+	// task should harvest machines. See config.HarvestMode for
+	// documentation of behavior.
+	SetHarvestMode(method config.HarvestMode)
 }
 
 type MachineGetter interface {
@@ -47,7 +51,7 @@ var _ MachineGetter = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
 	machineTag names.MachineTag,
-	harvestingMethod config.HarvestingMethod,
+	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
@@ -56,16 +60,16 @@ func NewProvisionerTask(
 	imageStream string,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineTag:           machineTag,
-		machineGetter:        machineGetter,
-		machineWatcher:       machineWatcher,
-		retryWatcher:         retryWatcher,
-		broker:               broker,
-		auth:                 auth,
-		harvestingMethod:     harvestingMethod,
-		harvestingMethodChan: make(chan config.HarvestingMethod, 1),
-		machines:             make(map[string]*apiprovisioner.Machine),
-		imageStream:          imageStream,
+		machineTag:      machineTag,
+		machineGetter:   machineGetter,
+		machineWatcher:  machineWatcher,
+		retryWatcher:    retryWatcher,
+		broker:          broker,
+		auth:            auth,
+		harvestMode:     harvestMode,
+		harvestModeChan: make(chan config.HarvestMode, 1),
+		machines:        make(map[string]*apiprovisioner.Machine),
+		imageStream:     imageStream,
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -75,16 +79,16 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag           names.MachineTag
-	machineGetter        MachineGetter
-	machineWatcher       apiwatcher.StringsWatcher
-	retryWatcher         apiwatcher.NotifyWatcher
-	broker               environs.InstanceBroker
-	tomb                 tomb.Tomb
-	auth                 authentication.AuthenticationProvider
-	imageStream          string
-	harvestingMethod     config.HarvestingMethod
-	harvestingMethodChan chan config.HarvestingMethod
+	machineTag      names.MachineTag
+	machineGetter   MachineGetter
+	machineWatcher  apiwatcher.StringsWatcher
+	retryWatcher    apiwatcher.NotifyWatcher
+	broker          environs.InstanceBroker
+	tomb            tomb.Tomb
+	auth            authentication.AuthenticationProvider
+	imageStream     string
+	harvestMode     config.HarvestMode
+	harvestModeChan chan config.HarvestMode
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
@@ -122,7 +126,7 @@ func (task *provisionerTask) loop() error {
 	// at least one set of changes, which will populate the
 	// task.machines map. Otherwise we will potentially see all
 	// legitimate instances as unknown.
-	var harvestingMethodChan chan config.HarvestingMethod
+	var harvestModeChan chan config.HarvestMode
 
 	// Not all provisioners have a retry channel.
 	var retryChan <-chan struct{}
@@ -147,16 +151,16 @@ func (task *provisionerTask) loop() error {
 			}
 			// We've seen a set of changes. Enable modification of
 			// harvesting method.
-			harvestingMethodChan = task.harvestingMethodChan
-		case harvestingMethod := <-harvestingMethodChan:
-			if harvestingMethod == task.harvestingMethod {
+			harvestModeChan = task.harvestModeChan
+		case harvestMode := <-harvestModeChan:
+			if harvestMode == task.harvestMode {
 				break
 			}
 
-			logger.Infof("harvesting method changed to %s", harvestingMethod.Description())
-			task.harvestingMethod = harvestingMethod
+			logger.Infof("harvesting method changed to %s", harvestMode.Description())
+			task.harvestMode = harvestMode
 
-			if harvestingMethod.Unknown() {
+			if harvestMode.HarvestUnknown() {
 
 				logger.Infof("harvesting unknown machines")
 				if err := task.processMachines(nil); err != nil {
@@ -171,10 +175,10 @@ func (task *provisionerTask) loop() error {
 	}
 }
 
-// SetSafeMode implements ProvisionerTask.SetSafeMode().
-func (task *provisionerTask) SetHarvestingMethod(method config.HarvestingMethod) {
+// SetHarvestMode implements ProvisionerTask.SetHarvestMode().
+func (task *provisionerTask) SetHarvestMode(method config.HarvestMode) {
 	select {
-	case task.harvestingMethodChan <- method:
+	case task.harvestModeChan <- method:
 	case <-task.Dying():
 	}
 }
@@ -224,18 +228,20 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	if err != nil {
 		return err
 	}
-	if !task.harvestingMethod.Unknown() {
+	if !task.harvestMode.HarvestUnknown() {
 		logger.Infof(
-			"harvesting method is %s; unknown instances not stopped %v",
-			task.harvestingMethod.Description(),
+			"%s is set to %s; unknown instances not stopped %v",
+			config.ProvisionerHarvestModeKey,
+			task.harvestMode.Description(),
 			instanceIds(unknown),
 		)
 		unknown = nil
 	}
-	if task.harvestingMethod.None() || !task.harvestingMethod.Destroyed() {
+	if task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed() {
 		logger.Infof(
-			`provisioner-harvesting-method is set to "%s"; will not harvest %s`,
-			task.harvestingMethod.Description(),
+			`%s is set to "%s"; will not harvest %s`,
+			config.ProvisionerHarvestModeKey,
+			task.harvestMode.Description(),
 			instanceIds(stopping),
 		)
 		stopping = nil
@@ -276,8 +282,8 @@ func instanceIds(instances []instance.Instance) []string {
 	return ids
 }
 
-// Update the instances map. Update the machines map if a list of IDs
-// is given.
+// Update task.instances. Update task.machines map if a list of IDs is
+// given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instance.Instance)
 
