@@ -500,7 +500,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 
 	hookName := string(hi.Kind)
 	actionParams := map[string]interface{}(nil)
-	var actionTag *names.ActionTag = nil
+	var actionTag *names.ActionTag
 
 	// This value is needed to pass results of Action param validation
 	// in case of error or invalidation.  This is probably bad form; it

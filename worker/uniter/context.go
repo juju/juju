@@ -77,7 +77,7 @@ type HookContext struct {
 	actionParams map[string]interface{}
 
 	// actionResults holds the values set by action-set and action-fail.
-	actionResults *actionResults
+	actionResults actionResults
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -162,7 +162,7 @@ func NewHookContext(
 		return nil, err
 	}
 
-	ctx.actionResults = &actionResults{
+	ctx.actionResults = actionResults{
 		Results: map[string]interface{}{},
 		Status:  actionStatusInit,
 	}
@@ -336,18 +336,14 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 }
 
 func (ctx *HookContext) finalizeContext(process string, err error) error {
-	writeChanges := err == nil
 	for id, rctx := range ctx.relations {
-		if writeChanges {
-			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
-					"could not write settings from %q to relation %d: %v",
-					process, id, e,
+		if err == nil {
+			if err = rctx.WriteSettings(); err != nil {
+				err = errors.Annotatef(err,
+					"could not write settings from %q to relation %d",
+					process, id,
 				)
-				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
-				}
+				logger.Errorf("%v", err)
 			}
 		}
 		rctx.ClearCache()
@@ -392,15 +388,24 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		return err
 	}
 
-	// Otherwise, if there *was* an error, and it was an action...
+	// If the state handle was nil, we cannot call home and this will panic.
+	if ctx.state == nil {
+		return errors.New("action cannot call home, state handle undefined")
+	}
+
+	// Otherwise, if there was an error, *and* it was an action...
 	if err != nil {
+		failMessage := "Unexpected error: " + err.Error()
 		// If it was a missing hook error, the action implementation
 		// is missing, and that's a problem with the unit.
+		// Since this is a known error case, the user only needs to know
+		// that the action failed because it was missing.
 		if IsMissingHookError(err) {
-			err = errors.Errorf("action failed (not implemented on unit %q)", ctx.UnitName())
+			failMessage = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
+			err = errors.Annotatef(err, failMessage)
 		}
 
-		callError := ctx.state.ActionFail(*ctx.actionTag, err.Error())
+		callError := ctx.state.ActionFail(*ctx.actionTag, failMessage)
 		if callError != nil {
 			// Oh dear.  Wrap the errors.  Best we can do.
 			err = errors.Wrap(err, callError)
@@ -714,12 +719,9 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationS
 // actionResults contains the results of an action, and any response message.
 type actionResults struct {
 	Message string
-	Status  actionStatus
+	Status  string
 	Results map[string]interface{}
 }
-
-// actionStatus defines the state of a completed Action.
-type actionStatus string
 
 // actionStatus messages define the possible states of a completed Action.
 const (
