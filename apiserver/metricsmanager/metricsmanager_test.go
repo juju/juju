@@ -44,7 +44,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	newTime := time.Now()
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
-	_, err := s.metricsmanager.CleanupOldMetrics()
+	err := s.metricsmanager.CleanupOldMetrics()
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.MetricBatch(oldMetric.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

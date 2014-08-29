@@ -10,7 +10,6 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
@@ -22,7 +21,7 @@ func init() {
 
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
-	CleanupOldMetrics() (params.ErrorResult, error)
+	CleanupOldMetrics() error
 }
 
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
@@ -43,21 +42,16 @@ func NewMetricsManagerAPI(
 		return nil, common.ErrPerm
 	}
 
-	return &MetricsManagerAPI{
-		state: st,
-	}, nil
+	return &MetricsManagerAPI{state: st}, nil
 }
 
 // CleanupOldMetrics removes old metrics from the collection.
 // TODO (mattyw) Returns result with all the delete metrics
-func (api *MetricsManagerAPI) CleanupOldMetrics() (params.ErrorResult, error) {
-	result := params.ErrorResult{}
-
+func (api *MetricsManagerAPI) CleanupOldMetrics() error {
 	err := api.state.CleanupOldMetrics()
 	if err != nil {
 		err = errors.Annotate(err, "failed to cleanup old metrics")
-		result.Error = common.ServerError(err)
-		return result, err
+		return err
 	}
-	return result, nil
+	return nil
 }

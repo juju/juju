@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/api/params"
 )
 
 // Client provides access to the metrics manager api
@@ -27,10 +26,9 @@ func NewClient(st base.APICallCloser) *Client {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
-	var results params.ErrorResult
-	err := c.facade.FacadeCall("CleanupOldMetrics", nil, &results)
+	err := c.facade.FacadeCall("CleanupOldMetrics", nil, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return results.Error
+	return nil
 }
