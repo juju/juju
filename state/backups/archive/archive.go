@@ -32,19 +32,19 @@ type Archive struct {
 // all the contents.  It is the only file or directory at the top-level
 // of the archive and everything else in the archive is contained in the
 // content directory.
-func (ar *Archive) ContentDir() string {
+func (ar Archive) ContentDir() string {
 	return filepath.Join(ar.UnpackedRootDir, contentDir)
 }
 
 // FilesBundle is the path to the tar file inside the archive containing
 // all the state-related files (with the exception of the DB dump files)
 // gathered in by the backup machinery.
-func (ar *Archive) FilesBundle() string {
+func (ar Archive) FilesBundle() string {
 	return filepath.Join(ar.ContentDir(), filesBundle)
 }
 
 // DBDumpDir is the path to the directory within the archive contents
 // that contains all the files dumped from the juju state database.
-func (ar *Archive) DBDumpDir() string {
+func (ar Archive) DBDumpDir() string {
 	return filepath.Join(ar.ContentDir(), dbDumpDir)
 }
