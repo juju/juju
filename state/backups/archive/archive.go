@@ -13,6 +13,7 @@ const (
 	dbDumpDir   = "dump"
 )
 
+// Archive is used to represents the contents of a backup archive.
 type Archive struct {
 	filename string
 	rootDir  string
