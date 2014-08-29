@@ -180,16 +180,17 @@ func (b *builder) removeRootDir() error {
 func (b *builder) cleanUp() error {
 	var failed int
 
-	funcs := [](func() error){
-		b.closeBundleFile,
-		b.closeArchiveFile,
-		b.removeRootDir,
+	if err := b.closeBundleFile(); err != nil {
+		logger.Errorf(err.Error())
+		failed++
 	}
-	for _, cleanupFunc := range funcs {
-		if err := cleanupFunc(); err != nil {
-			logger.Errorf(err.Error())
-			failed++
-		}
+	if err := b.closeArchiveFile(); err != nil {
+		logger.Errorf(err.Error())
+		failed++
+	}
+	if err := b.removeRootDir(); err != nil {
+		logger.Errorf(err.Error())
+		failed++
 	}
 
 	if failed > 0 {
