@@ -43,8 +43,8 @@ func (s *createSuite) TestCreateLegacy(c *gc.C) {
 	file, ok := archiveFile.(*os.File)
 	c.Assert(ok, gc.Equals, true)
 
-	s.checkSize(c, file, size, 0)
-	s.checkChecksum(c, file, checksum, "")
+	s.checkSize(c, file, size)
+	s.checkChecksum(c, file, checksum)
 	s.checkArchive(c, file, expected)
 }
 
@@ -167,28 +167,16 @@ func (s *LegacySuite) checkTarContents(
 	}
 }
 
-func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum, expected string) {
-	if expected == "" {
-		expected = checksum
-	}
-
-	c.Check(checksum, gc.Equals, expected)
-
+func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum string) {
 	fileShaSum := shaSumFile(c, file)
-	c.Check(fileShaSum, gc.Equals, expected)
+	c.Check(fileShaSum, gc.Equals, checksum)
 	resetFile(c, file)
 }
 
-func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size, expected int64) {
-	if expected == 0 {
-		expected = size
-	}
-
-	c.Check(size, gc.Equals, expected)
-
+func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size int64) {
 	stat, err := file.Stat()
 	c.Assert(err, gc.IsNil)
-	c.Check(stat.Size(), gc.Equals, expected)
+	c.Check(stat.Size(), gc.Equals, size)
 }
 
 func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) {
