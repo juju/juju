@@ -94,10 +94,19 @@ type builder struct {
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
 func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
+	var err error
+
 	b := builder{
 		filesToBackUp: filesToBackUp,
 		db:            db,
 	}
+	defer func() {
+		if err != nil {
+			if err := b.cleanUp(); err != nil {
+				logger.Errorf("error while cleaning up: %v", err)
+			}
+		}
+	}()
 
 	// Create the backups workspace root directory.
 	rootDir, err := ioutil.TempDir("", tempPrefix)
@@ -112,7 +121,6 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	// practice it shouldn't matter much.
 	err = os.MkdirAll(b.archive.DBDumpDir(), 0700)
 	if err != nil {
-		b.cleanUp()
 		return nil, errors.Annotate(err, "while creating temp directories")
 	}
 
@@ -120,13 +128,11 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	// possible.
 	b.archiveFile, err = os.Create(filename)
 	if err != nil {
-		b.cleanUp()
 		return nil, errors.Annotate(err, "while creating archive file")
 	}
 
 	b.bundleFile, err = os.Create(b.archive.FilesBundle())
 	if err != nil {
-		b.cleanUp()
 		return nil, errors.Annotate(err, `while creating bundle file`)
 	}
 
