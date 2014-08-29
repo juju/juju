@@ -222,6 +222,10 @@ juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"snapshot": `
 #!/bin/bash --norc
+action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
+action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
+action-set completion.status="yes" completion.time="5m"
+action-set completion="yes"
 juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail": `
@@ -1311,9 +1315,8 @@ var actionEventTests = []uniterTest{
 		addAction{"action-log", nil},
 		waitHooks{"action-log"},
 		verifyActionResults{[]actionResult{{
-			name:    "action-log",
-			results: map[string]interface{}{},
-			status:  "complete",
+			name:   "action-log",
+			status: "complete",
 		}}},
 	), ut(
 		"actions with correct params passed are not an error",
@@ -1337,9 +1340,18 @@ var actionEventTests = []uniterTest{
 		},
 		waitHooks{"snapshot"},
 		verifyActionResults{[]actionResult{{
-			name:    "snapshot",
-			results: map[string]interface{}{},
-			status:  "complete",
+			name: "snapshot",
+			results: map[string]interface{}{
+				"outfile": map[string]interface{}{
+					"name": "snapshot-01.tar",
+					"size": map[string]interface{}{
+						"magnitude": "10.3",
+						"units":     "GB",
+					},
+				},
+				"completion": "yes",
+			},
+			status: "complete",
 		}}},
 	), ut(
 		"actions with incorrect params passed are not an error but fail",
