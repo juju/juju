@@ -102,7 +102,7 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	// Create the backups workspace root directory.
 	rootDir, err := ioutil.TempDir("", tempPrefix)
 	if err != nil {
-		return nil, errors.Annotate(err, "error making backups workspace")
+		return nil, errors.Annotate(err, "while making backups workspace")
 	}
 	filename := filepath.Join(rootDir, tempFilename)
 	b.archive = &archive.Archive{filename, rootDir}
@@ -113,7 +113,7 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	err = os.MkdirAll(b.archive.DBDumpDir(), 0700)
 	if err != nil {
 		b.cleanUp()
-		return nil, errors.Annotate(err, "error creating temp directories")
+		return nil, errors.Annotate(err, "while creating temp directories")
 	}
 
 	// Create the archive files.  We do so here to fail as early as
@@ -121,13 +121,13 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	b.archiveFile, err = os.Create(filename)
 	if err != nil {
 		b.cleanUp()
-		return nil, errors.Annotate(err, "error creating archive file")
+		return nil, errors.Annotate(err, "while creating archive file")
 	}
 
 	b.bundleFile, err = os.Create(b.archive.FilesBundle())
 	if err != nil {
 		b.cleanUp()
-		return nil, errors.Annotate(err, `error creating bundle file`)
+		return nil, errors.Annotate(err, `while creating bundle file`)
 	}
 
 	return &b, nil
@@ -139,7 +139,7 @@ func (b *builder) closeArchiveFile() error {
 	}
 
 	if err := b.archiveFile.Close(); err != nil {
-		return errors.Annotate(err, "error closing archive file")
+		return errors.Annotate(err, "while closing archive file")
 	}
 
 	b.archiveFile = nil
@@ -152,7 +152,7 @@ func (b *builder) closeBundleFile() error {
 	}
 
 	if err := b.bundleFile.Close(); err != nil {
-		return errors.Annotate(err, `error closing "bundle" file`)
+		return errors.Annotate(err, "while closing bundle file")
 	}
 
 	b.bundleFile = nil
@@ -165,7 +165,7 @@ func (b *builder) removeRootDir() error {
 	}
 
 	if err := os.RemoveAll(b.archive.UnpackedRootDir); err != nil {
-		return errors.Annotate(err, "error removing backups temp dir")
+		return errors.Annotate(err, "while removing backups temp dir")
 	}
 
 	return nil
@@ -205,7 +205,7 @@ func (b *builder) buildFilesBundle() error {
 	stripPrefix := string(os.PathSeparator)
 	_, err := tar.TarFiles(b.filesToBackUp, b.bundleFile, stripPrefix)
 	if err != nil {
-		return errors.Annotate(err, "cannot backup configuration files")
+		return errors.Annotate(err, "while bundling state-critical files")
 	}
 
 	return nil
@@ -220,7 +220,7 @@ func (b *builder) buildDBDump() error {
 
 	dumpDir := b.archive.DBDumpDir()
 	if err := b.db.Dump(dumpDir); err != nil {
-		return errors.Annotate(err, "error dumping juju state database")
+		return errors.Annotate(err, "while dumping juju state database")
 	}
 
 	return nil
@@ -236,7 +236,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 	stripPrefix := b.archive.UnpackedRootDir + string(os.PathSeparator)
 	filenames := []string{b.archive.ContentDir()}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
-		return errors.Annotate(err, "error bundling final archive")
+		return errors.Annotate(err, "while bundling final archive")
 	}
 
 	return nil
@@ -290,13 +290,13 @@ func (b *builder) result() (*createResult, error) {
 	// Open the file in read-only mode.
 	file, err := os.Open(b.archive.Filename)
 	if err != nil {
-		return nil, errors.Annotate(err, "error opening archive file")
+		return nil, errors.Annotate(err, "while opening archive file")
 	}
 
 	// Get the size.
 	stat, err := file.Stat()
 	if err != nil {
-		return nil, errors.Annotate(err, "error reading archive file info")
+		return nil, errors.Annotate(err, "while reading archive file info")
 	}
 	size := stat.Size()
 
