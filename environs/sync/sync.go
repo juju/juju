@@ -363,6 +363,8 @@ func SyncBuiltTools(stor storage.Storage, builtTools *BuiltTools, fakeSeries ...
 	}, nil
 }
 
+// StorageToolsFinder is an implementation of ToolsFinder
+// that searches for tools in the specified storage.
 type StorageToolsFinder struct {
 	Storage storage.StorageReader
 }
@@ -371,9 +373,9 @@ func (f StorageToolsFinder) FindTools(major int) (coretools.List, error) {
 	return envtools.ReadList(f.Storage, major, -1)
 }
 
-// NewStorageToolsUplader is an implementatio nof ToolsUploader that
-// writes tools to the provided storage and then writes merged metadata,
-// optionally with mirrors.
+// StorageToolsUplader is an implementation of ToolsUploader that
+// writes tools to the provided storage and then writes merged
+// metadata, optionally with mirrors.
 type StorageToolsUploader struct {
 	Storage      storage.Storage
 	WriteMirrors envtools.ShouldWriteMirrors

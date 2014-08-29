@@ -83,6 +83,8 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// syncToolsAPI provides an interface with a subset of the
+// state/api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResults, error)
 	UploadTools(r io.Reader, v version.Binary) (*coretools.Tools, error)
@@ -134,6 +136,10 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	return syncTools(sctx)
 }
 
+// syncToolsAPIAdapter implements sync.ToolsFinder and
+// sync.ToolsUploader, adapting a syncToolsAPI. This
+// enables the use of sync.SyncTools with the client
+// API.
 type syncToolsAPIAdapter struct {
 	syncToolsAPI
 }
