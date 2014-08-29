@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
@@ -226,19 +225,11 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 
 func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
-	tests := []struct {
-		snr      state.SafeNetworkerRequirer
-		requires bool
-	}{
-		{statetesting.NewMockSafeNetworkerRequirer("0", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("0", true), true},
-		{statetesting.NewMockSafeNetworkerRequirer("1", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("1", true), true},
-	}
-	for i, test := range tests {
-		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())
-		c.Assert(env.RequiresSafeNetworker(test.snr), gc.Equals, test.requires)
-	}
+	// Standard: required for disabledNetworkManagement || isManual.
+	statetesting.CommonRequiresSafeNetworkerTest(c, env, [8]bool{
+		false, true, true, true,
+		false, true, true, true,
+	})
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {

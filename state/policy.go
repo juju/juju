@@ -63,9 +63,9 @@ type ConfigValidator interface {
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 }
 
-// SafeNetworkerRequirer describes the machine which asks
-// if a safe networker is required.
-type SafeNetworkerRequirer interface {
+// MachineInfoGetter allows getting information about a machine, including its
+// id and whether it was manually provisioned.
+type MachineInfoGetter interface {
 	// Id return the identifier of the machine.
 	Id() string
 
@@ -86,8 +86,8 @@ type EnvironCapability interface {
 
 	// RequiresSafeNetworker returns whether the safe variant of the networker
 	// is required. In this case the networker doesn't modify local network
-	// configuration files.
-	RequiresSafeNetworker(snr SafeNetworkerRequirer) bool
+	// configuration files, and does not bring interfaces up or down.
+	RequiresSafeNetworker(mig MachineInfoGetter) bool
 
 	// SupportsUnitAssignment returns an error which, if non-nil, indicates
 	// that the environment does not support unit placement. If the environment

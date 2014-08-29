@@ -14,7 +14,6 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	id       string
 	tag      names.MachineTag
 	life     params.Life
 	isManual bool
@@ -23,7 +22,7 @@ type Machine struct {
 
 // Id returns the machine's id.
 func (m *Machine) Id() string {
-	return m.id
+	return m.tag.Id()
 }
 
 // Tag returns the machine's tag.

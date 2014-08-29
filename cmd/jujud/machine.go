@@ -343,7 +343,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Start the networker in a mode depending on environment cpability.
 	ecap, err := environCapability(st)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot retrieve environment capability")
+		return nil, err
 	}
 	m, err := st.Machiner().Machine(a.Tag().(names.MachineTag))
 	if err != nil {

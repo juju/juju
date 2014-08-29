@@ -148,15 +148,14 @@ type GetMachinesV0 struct {
 	Tags []string
 }
 
-// GetMachinesResults holds the results of a GetMachines call.
+// GetMachinesResultsV0 holds the results of a GetMachines call.
 type GetMachinesResultsV0 struct {
 	Machines []GetMachinesResultV0
 }
 
-// GetMachineResult holds the results of the GetMachines call
+// GetMachineResultV0 holds the results of the GetMachines call
 // for one machine.
 type GetMachinesResultV0 struct {
-	Id       string
 	Tag      string
 	Life     Life
 	IsManual bool

@@ -42,10 +42,9 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.machiner = machiner
 }
 
-func (s *machinerSuite) TestGetMachines(c *gc.C) {
+func (s *machinerSuite) TestGetMachinesOK(c *gc.C) {
 	args := params.GetMachinesV0{
 		Tags: []string{
-			"machine-0",
 			"machine-1",
 		},
 	}
@@ -53,13 +52,12 @@ func (s *machinerSuite) TestGetMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
 		Machines: []params.GetMachinesResultV0{
-			{"0", "machine-0", params.Alive, false, nil},
-			{"1", "machine-1", params.Alive, false, nil},
+			{"machine-1", params.Alive, false, nil},
 		},
 	})
 }
 
-func (s *machinerSuite) TestGetMachinesNotFound(c *gc.C) {
+func (s *machinerSuite) TestGetMachinesNotFoundOrNotAuthorized(c *gc.C) {
 	args := params.GetMachinesV0{
 		Tags: []string{
 			"machine-0",
@@ -70,8 +68,8 @@ func (s *machinerSuite) TestGetMachinesNotFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
 		Machines: []params.GetMachinesResultV0{
-			{"0", "machine-0", params.Alive, false, nil},
-			{"", "machine-42", "", false, apiservertesting.ErrUnauthorized},
+			{"machine-0", "", false, apiservertesting.ErrUnauthorized},
+			{"machine-42", "", false, apiservertesting.ErrUnauthorized},
 		},
 	})
 }

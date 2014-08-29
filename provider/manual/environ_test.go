@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -155,19 +154,11 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 }
 
 func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
-	tests := []struct {
-		snr      state.SafeNetworkerRequirer
-		requires bool
-	}{
-		{statetesting.NewMockSafeNetworkerRequirer("0", false), true},
-		{statetesting.NewMockSafeNetworkerRequirer("0", true), true},
-		{statetesting.NewMockSafeNetworkerRequirer("1", false), true},
-		{statetesting.NewMockSafeNetworkerRequirer("1", true), true},
-	}
-	for i, test := range tests {
-		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())
-		c.Assert(s.env.RequiresSafeNetworker(test.snr), gc.Equals, test.requires)
-	}
+	// Special: always.
+	statetesting.CommonRequiresSafeNetworkerTest(c, s.env, [8]bool{
+		true, true, true, true,
+		true, true, true, true,
+	})
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {

@@ -107,7 +107,7 @@ func (e *manualEnviron) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (e *manualEnviron) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
+func (e *manualEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
 	return true
 }
 

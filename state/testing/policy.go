@@ -4,9 +4,12 @@
 package testing
 
 import (
+	gc "launchpad.net/gocheck"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
@@ -54,28 +57,66 @@ func (p *MockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDist
 	return nil, errors.NewNotImplemented(nil, "InstanceDistributor")
 }
 
-// mockSafeNetworkerRequirer helps to test the RequiresSafeNetworker
+// mockMachineInfoGetter helps to test the RequiresSafeNetworker
 // environment capability.
-type mockSafeNetworkerRequirer struct {
+type mockMachineInfoGetter struct {
 	id       string
 	isManual bool
 }
 
-// NewMockSafeNetworkerRequirer creates a mock implementing the
-// state.SafeNetworkerRequirer interface.
-func NewMockSafeNetworkerRequirer(id string, isManual bool) state.SafeNetworkerRequirer {
-	return &mockSafeNetworkerRequirer{
+// NewMachineInfoGetter creates a mock implementing the
+// state.MachineInfoGetter interface.
+func NewMachineInfoGetter(id string, isManual bool) state.MachineInfoGetter {
+	return &mockMachineInfoGetter{
 		id:       id,
 		isManual: isManual,
 	}
 }
 
 // Id returns the identifier of the simulated machine.
-func (msnr *mockSafeNetworkerRequirer) Id() string {
-	return msnr.id
+func (mig *mockMachineInfoGetter) Id() string {
+	return mig.id
 }
 
 // IsManual returns the manually provisioning flag of the simulated machine.
-func (msnr *mockSafeNetworkerRequirer) IsManual() bool {
-	return msnr.isManual
+func (mig *mockMachineInfoGetter) IsManual() bool {
+	return mig.isManual
+}
+
+// CommonRequiresSafeNetworkerTest tests the RequiresSafeNetworker environ capability
+// for machine 0 and 1, for each regular and manual provisioning, and for
+// each then without and with disabled network management. So eight
+// boolean values have to be past.
+//
+// So a standard pattern is
+//
+// Machine 0: false, true, true, true,
+// Machine 1: false, true, true, true,
+//
+// Only local, maas, and manual provider behave different.
+func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements [8]bool) {
+	tests := []struct {
+		mig                      state.MachineInfoGetter
+		disableNetworkManagement bool
+	}{
+		{&mockMachineInfoGetter{"0", false}, false},
+		{&mockMachineInfoGetter{"0", false}, true},
+		{&mockMachineInfoGetter{"0", true}, false},
+		{&mockMachineInfoGetter{"0", true}, true},
+		{&mockMachineInfoGetter{"1", false}, false},
+		{&mockMachineInfoGetter{"1", false}, true},
+		{&mockMachineInfoGetter{"1", true}, false},
+		{&mockMachineInfoGetter{"1", true}, true},
+	}
+	for i, test := range tests {
+		c.Logf("test %d: machine: %q, is manual: %v, disable networking: %v", i, test.mig.Id(), test.mig.IsManual(), test.disableNetworkManagement)
+		// TODO(mue) Set the disableNetworkManager flag.
+		attrs := env.Config().AllAttrs()
+		attrs["disable-network-management"] = test.disableNetworkManagement
+		newCfg, err := config.New(config.NoDefaults, attrs)
+		c.Check(err, gc.IsNil)
+		err = env.SetConfig(newCfg)
+		c.Check(err, gc.IsNil)
+		c.Check(env.RequiresSafeNetworker(test.mig), gc.Equals, requirements[i])
+	}
 }

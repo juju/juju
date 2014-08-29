@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
@@ -743,19 +742,11 @@ func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
 
 func (s *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := s.Open(c)
-	tests := []struct {
-		snr      state.SafeNetworkerRequirer
-		requires bool
-	}{
-		{statetesting.NewMockSafeNetworkerRequirer("0", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("0", true), true},
-		{statetesting.NewMockSafeNetworkerRequirer("1", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("1", true), true},
-	}
-	for i, test := range tests {
-		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())
-		c.Assert(env.RequiresSafeNetworker(test.snr), gc.Equals, test.requires)
-	}
+	// Standard: required for disabledNetworkManagement || isManual.
+	statetesting.CommonRequiresSafeNetworkerTest(c, env, [8]bool{
+		false, true, true, true,
+		false, true, true, true,
+	})
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

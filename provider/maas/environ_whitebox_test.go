@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -830,17 +829,9 @@ func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 
 func (suite *environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := suite.makeEnviron()
-	tests := []struct {
-		snr      state.SafeNetworkerRequirer
-		requires bool
-	}{
-		{statetesting.NewMockSafeNetworkerRequirer("0", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("0", true), true},
-		{statetesting.NewMockSafeNetworkerRequirer("1", false), false},
-		{statetesting.NewMockSafeNetworkerRequirer("1", true), true},
-	}
-	for i, test := range tests {
-		c.Logf("test #%d: machine %q / is manual = %v", i, test.snr.Id(), test.snr.IsManual())
-		c.Assert(env.RequiresSafeNetworker(test.snr), gc.Equals, test.requires)
-	}
+	// Standard: disabledNetworkManagement || isManual.
+	statetesting.CommonRequiresSafeNetworkerTest(c, env, [8]bool{
+		false, true, true, true,
+		false, true, true, true,
+	})
 }

@@ -52,6 +52,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,
+		getCanRead:         getCanRead,
 	}, nil
 }
 
@@ -63,15 +64,24 @@ func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
 	return entity.(*state.Machine), nil
 }
 
-// GetMachines implements the API call GetMachines.
+// GetMachines returns information about all machined identified
+// by the passed tags.
 func (api *MachinerAPI) GetMachines(args params.GetMachinesV0) (params.GetMachinesResultsV0, error) {
 	results := params.GetMachinesResultsV0{
 		Machines: make([]params.GetMachinesResultV0, len(args.Tags)),
 	}
+	canRead, err := api.getCanRead()
+	if err != nil {
+		return results, err
+	}
 	for i, atag := range args.Tags {
 		results.Machines[i].Tag = atag
-		tag, err := names.ParseTag(atag)
+		tag, err := names.ParseMachineTag(atag)
 		if err != nil {
+			results.Machines[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canRead(tag) {
 			results.Machines[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -88,14 +98,14 @@ func (api *MachinerAPI) GetMachines(args params.GetMachinesV0) (params.GetMachin
 			results.Machines[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Machines[i].Id = m.Id()
 		results.Machines[i].Life = params.Life(m.Life().String())
 		results.Machines[i].IsManual = isManual
 	}
 	return results, nil
 }
 
-// SetMachineAddresses implements the API call SetMachineAddresses.
+// SetMachineAddresses sets the addresses for each given machine tag
+// and list of addresses.
 func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),

@@ -92,12 +92,9 @@ func (*localEnviron) SupportNetworks() bool {
 }
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
-func (env *localEnviron) RequiresSafeNetworker(snr state.SafeNetworkerRequirer) bool {
+func (env *localEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
 	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
-	if disableNetworkManagement || snr.Id() == bootstrapMachineId || snr.IsManual() {
-		return true
-	}
-	return false
+	return disableNetworkManagement || mig.Id() == bootstrapMachineId || mig.IsManual()
 }
 
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
