@@ -13,40 +13,32 @@ const (
 	dbDumpDir   = "dump"
 )
 
-// Archive is used to represents the contents of a backup archive.
+// Archive is used to represent the contents of a backup archive.  This
+// archive may be packed into an archive file, unpacked into some
+// directory on the filesystem, or both.  Regardless, the contents
+// remain the same.
 type Archive struct {
-	filename string
-	rootDir  string
-}
-
-// NewArchive returns a new archive summary for the filename and
-// root directory for the unpacked contents.
-func NewArchive(filename, rootDir string) *Archive {
-	ar := Archive{
-		filename: filename,
-		rootDir:  rootDir,
-	}
-	return &ar
-}
-
-// Filename is the path to the archive file.
-func (ar *Archive) Filename() string {
-	return ar.filename
-}
-
-// RootDir is the path to the root directory for the unpacked contents.
-func (ar *Archive) RootDir() string {
-	return ar.rootDir
+	// The path to the archive file.  An empty filename indicates that
+	// you are dealing exclusively with an unpacked archive.
+	Filename string
+	// The path to the directory into which the archive has been (or may
+	// be) unpacked.  This path is prepended to all paths returned by
+	// getter methods of an Archive.  It may be left blank (e.g. when
+	// dealing with the paths within a tar file).
+	UnpackedRootDir string
 }
 
 // ContentDir is the path to the directory within the archive containing
-// all the contents.
+// all the contents.  It is the only file or directory at the top-level
+// of the archive and everything else in the archive is contained in the
+// content directory.
 func (ar *Archive) ContentDir() string {
-	return filepath.Join(ar.rootDir, contentDir)
+	return filepath.Join(ar.UnpackedRootDir, contentDir)
 }
 
 // FilesBundle is the path to the tar file inside the archive containing
-// all the state-related files gathered in by the backup machinery.
+// all the state-related files (with the exception of the DB dump files)
+// gathered in by the backup machinery.
 func (ar *Archive) FilesBundle() string {
 	return filepath.Join(ar.ContentDir(), filesBundle)
 }

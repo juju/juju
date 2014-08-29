@@ -103,7 +103,7 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 		return nil, errors.Annotate(err, "error making backups workspace")
 	}
 	filename := filepath.Join(rootDir, tempFilename)
-	b.archive = archive.NewArchive(filename, rootDir)
+	b.archive = &archive.Archive{filename, rootDir}
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
@@ -158,11 +158,11 @@ func (b *builder) closeBundleFile() error {
 }
 
 func (b *builder) removeRootDir() error {
-	if b.archive == nil || b.archive.RootDir() == "" {
+	if b.archive == nil || b.archive.UnpackedRootDir == "" {
 		return nil
 	}
 
-	if err := os.RemoveAll(b.archive.RootDir()); err != nil {
+	if err := os.RemoveAll(b.archive.UnpackedRootDir); err != nil {
 		return errors.Annotate(err, "error removing backups temp dir")
 	}
 
@@ -231,7 +231,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 	// We add a trailing slash (or whatever) to root so that everything
 	// in the path up to and including that slash is stripped off when
 	// each file is added to the tar file.
-	stripPrefix := b.archive.RootDir() + string(os.PathSeparator)
+	stripPrefix := b.archive.UnpackedRootDir + string(os.PathSeparator)
 	filenames := []string{b.archive.ContentDir()}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		return errors.Annotate(err, "error bundling final archive")
@@ -241,7 +241,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 }
 
 func (b *builder) buildArchiveAndChecksum() error {
-	logger.Infof("building archive file (%s)", b.archive.Filename())
+	logger.Infof("building archive file (%s)", b.archive.Filename)
 	if b.archiveFile == nil {
 		return errors.New("missing archiveFile")
 	}
@@ -286,7 +286,7 @@ func (b *builder) buildAll() error {
 
 func (b *builder) result() (*createResult, error) {
 	// Open the file in read-only mode.
-	file, err := os.Open(b.archive.Filename())
+	file, err := os.Open(b.archive.Filename)
 	if err != nil {
 		return nil, errors.Annotate(err, "error opening archive file")
 	}
