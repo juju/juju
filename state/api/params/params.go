@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
@@ -776,4 +777,29 @@ type StateServersChanges struct {
 	Removed    []string `json:removed,omitempty`
 	Promoted   []string `json:promoted,omitempty`
 	Demoted    []string `json:demoted,omitempty`
+}
+
+// FindToolsParams defines parameters for the FindTools method.
+type FindToolsParams struct {
+	// Number will be used to match tools versions exactly if non-zero.
+	Number version.Number
+
+	// MajorVersion will be used to match the major version if non-zero.
+	MajorVersion int
+
+	// MinorVersion will be used to match the major version if greater
+	// than or equal to zero, and Number is zero.
+	MinorVersion int
+
+	// Arch will be used to match tools by architecture if non-empty.
+	Arch string
+
+	// Series will be used to match tools by series if non-empty.
+	Series string
+}
+
+// FindToolsResult holds a list of tools from FindTools and any error.
+type FindToolsResult struct {
+	List  tools.List
+	Error *Error
 }

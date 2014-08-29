@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
-	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -906,24 +904,8 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResults, error) {
-	result := params.FindToolsResults{}
-	// Get the existing environment config from the state.
-	envConfig, err := c.api.state.EnvironConfig()
-	if err != nil {
-		return result, err
-	}
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return result, err
-	}
-	filter := coretools.Filter{
-		Arch:   args.Arch,
-		Series: args.Series,
-	}
-	result.List, err = envtools.FindTools(env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry)
-	result.Error = common.ServerError(err)
-	return result, nil
+func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
+	return common.FindTools(c.api.state, args)
 }
 
 func destroyErr(desc string, ids, errs []string) error {
