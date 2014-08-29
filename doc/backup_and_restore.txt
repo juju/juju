@@ -135,7 +135,7 @@ following structure.
 
 juju-backup/
     metadata.json - the backup metadata for the archive.
-    root.tar      - the bundle of state-related files.
+    root.tar      - the bundle of state-related files (exluding mongo).
     dump/         - all the files dumped from the DB (using mongodump).
 
 At present we do not include any sort of manifest/index file in the
