@@ -9,7 +9,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO(ericsnow) Pull these from authoritative sources:
+// TODO(ericsnow) Pull these from authoritative sources (see
+// github.com/juju/juju/juju/paths, etc.):
 var (
 	dataDir        = "/var/lib/juju"
 	startupDir     = "/etc/init"
