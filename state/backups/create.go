@@ -147,6 +147,7 @@ func newBuilder(filesToBackUp []string, db dumper) (_ *builder, err error) {
 }
 
 func (b *builder) closeArchiveFile() error {
+	// Currently this method isn't thread-safe (doesn't need to be).
 	if b.archiveFile == nil {
 		return nil
 	}
@@ -160,6 +161,7 @@ func (b *builder) closeArchiveFile() error {
 }
 
 func (b *builder) closeBundleFile() error {
+	// Currently this method isn't thread-safe (doesn't need to be).
 	if b.bundleFile == nil {
 		return nil
 	}
@@ -173,6 +175,7 @@ func (b *builder) closeBundleFile() error {
 }
 
 func (b *builder) removeRootDir() error {
+	// Currently this method isn't thread-safe (doesn't need to be).
 	if b.archive == nil || b.archive.UnpackedRootDir == "" {
 		return nil
 	}
