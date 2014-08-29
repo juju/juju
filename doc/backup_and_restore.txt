@@ -27,7 +27,7 @@ regard to ensuring the consistency of the archive.
 
 First of all, running juju commands will fail while the DB is
 unavailable (already running services should not be affected).  While
-this period of time a rather short, we expect that it will grow over
+this period of time is rather short, we expect that it will grow over
 time.  Furthermore, the larger an environment's state, the larger the
 impact of this downtime.  In the long term this makes it less than ideal
 to run backup as often as it should be.
