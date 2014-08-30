@@ -177,18 +177,22 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 	}, nil
 }
 
-// ActionComplete captures the structured output of an action.
-func (st *State) ActionComplete(tag names.ActionTag, results map[string]interface{}) error {
-	var result params.BoolResult
-	args := params.ActionResult{ActionTag: tag.String(), Results: results}
-	return st.facade.FacadeCall("ActionFinish", args, &result)
-}
-
-// ActionFail captures the action tag and error of a failed action.
-func (st *State) ActionFail(tag names.ActionTag, err string) error {
-	var result params.BoolResult
-	args := params.ActionResult{ActionTag: tag.String(), Message: err, Failed: true}
-	return st.facade.FacadeCall("ActionFinish", args, &result)
+// ActionFinish captures the structured output of an action.
+func (st *State) ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
+	var outcome params.BoolResults
+	args := params.ActionResults{Results: []params.ActionResult{{ActionTag: tag.String(), Status: status, Results: results, Message: message}}}
+	err := st.facade.FacadeCall("FinishActions", args, &outcome)
+	if err != nil {
+		return err
+	}
+	if len(outcome.Results) != 1 {
+		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
+	}
+	result := outcome.Results[0]
+	if err := result.Error; err != nil {
+		return err
+	}
+	return nil
 }
 
 // RelationById returns the existing relation with the given id.

@@ -86,7 +86,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	output := map[string]interface{}{"output": "it worked!"}
-	err = s.uniter.ActionComplete(action.ActionTag(), output)
+	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, output, "")
 	c.Assert(err, gc.IsNil)
 
 	results, err = s.uniterSuite.wordpressUnit.ActionResults()
@@ -108,7 +108,7 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	errmsg := "it failed!"
-	err = s.uniter.ActionFail(action.ActionTag(), errmsg)
+	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionFailed, nil, errmsg)
 	c.Assert(err, gc.IsNil)
 
 	results, err = s.uniterSuite.wordpressUnit.ActionResults()

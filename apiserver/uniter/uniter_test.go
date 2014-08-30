@@ -1044,7 +1044,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 		actionsQueryResult := results.ActionsQueryResults[0]
 
 		c.Assert(actionsQueryResult.Error, gc.IsNil)
-		c.Assert(actionsQueryResult.Action, jc.DeepEquals, &actionTest.action)
+		c.Assert(actionsQueryResult.Action, jc.DeepEquals, actionTest.action)
 	}
 }
 
@@ -1112,14 +1112,17 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResult := params.ActionResult{
-		ActionTag: action.ActionTag().String(),
-		Results:   testOutput,
+	actionResults := params.ActionResults{
+		Results: []params.ActionResult{{
+			ActionTag: action.ActionTag().String(),
+			Status:    params.ActionCompleted,
+			Results:   testOutput,
+		}},
 	}
 
-	res, err := s.uniter.ActionFinish(actionResult)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
+	c.Assert(res, gc.DeepEquals, params.BoolResults{Results: []params.BoolResult{{Error: nil, Result: true}}})
 
 	results, err = s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
@@ -1142,15 +1145,18 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResult := params.ActionResult{
-		ActionTag: action.ActionTag().String(),
-		Failed:    true,
-		Message:   testError,
+	actionResults := params.ActionResults{
+		Results: []params.ActionResult{{
+			ActionTag: action.ActionTag().String(),
+			Status:    params.ActionFailed,
+			Results:   nil,
+			Message:   testError,
+		}},
 	}
 
-	res, err := s.uniter.ActionFinish(actionResult)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
+	c.Assert(res, gc.DeepEquals, params.BoolResults{Results: []params.BoolResult{{Error: nil, Result: true}}})
 
 	results, err = s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)

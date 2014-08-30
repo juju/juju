@@ -254,24 +254,29 @@ type ActionsQueryResults struct {
 
 // Action holds the name and parameters of an Actions query.
 type ActionsQueryResult struct {
-	Error  *Error  `json:"actionsqueryresult-error,omitempty"`
-	Action *Action `json:"actionsqueryresult-result,omitempty"`
+	Error  *Error `json:"error,omitempty"`
+	Action Action `json:"result,omitempty"`
 }
 
 // Action holds the actual name and parameters of an Action.
 type Action struct {
-	Name   string                 `json:"action-name,omitempty"`
-	Params map[string]interface{} `json:"action-params,omitempty"`
+	Name   string                 `json:"name,omitempty"`
+	Params map[string]interface{} `json:"params,omitempty"`
+}
+
+// ActionResults holds a slice of ActionResult for a bulk action API call
+type ActionResults struct {
+	Results []ActionResult `json:"results"`
 }
 
 // ActionResult holds the action tag and output used when recording the
 // result of an action. This is an argument, not a result, despite the
 // confusing name.
 type ActionResult struct {
-	ActionTag string
-	Results   map[string]interface{}
-	Failed    bool
-	Message   string
+	ActionTag string                 `json:"actiontag"`
+	Status    string                 `json:"status"`
+	Results   map[string]interface{} `json:"results,omitempty"`
+	Message   string                 `json:"message"`
 }
 
 // EntityPort holds an entity's tag, a protocol and a port.

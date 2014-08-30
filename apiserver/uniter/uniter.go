@@ -805,21 +805,6 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	return result, nil
 }
 
-// getOneActionByTag retrieves a single Action by Tag.
-func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryResult, error) {
-	var result params.ActionsQueryResult
-	action, err := u.st.ActionByTag(tag)
-	if err != nil {
-		return result, err
-	}
-
-	result.Action = &params.Action{
-		Name:   action.Name(),
-		Params: action.Parameters(),
-	}
-	return result, nil
-}
-
 // Actions returns the Actions by Tags passed and ensures that the Unit asking
 // for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
@@ -830,17 +815,16 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		return nothing, err
 	}
 
+	whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
+	if !ok {
+		return nothing, fmt.Errorf("entity is not a unit")
+	}
+
 	results := params.ActionsQueryResults{
 		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.Entities)),
 	}
 
 	for i, actionQuery := range args.Entities {
-		// Use the currently authenticated unit to get the endpoint.
-		whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
-		if !ok {
-			return nothing, fmt.Errorf("entity is not a unit")
-		}
-
 		// this Unit must match the Action's prefix.
 		actionTag, err := names.ParseActionTag(actionQuery.Tag)
 		if err != nil {
@@ -858,67 +842,70 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 			return nothing, common.ErrPerm
 		}
 
-		actionQueryResult, err := u.getOneActionByTag(actionTag)
-		if err == nil {
-			results.ActionsQueryResults[i] = actionQueryResult
+		action, err := u.st.ActionByTag(actionTag)
+		if err != nil {
+			results.ActionsQueryResults[i] = params.ActionsQueryResult{Error: common.ServerError(err)}
+		} else {
+			results.ActionsQueryResults[i] = params.ActionsQueryResult{Action: params.Action{Name: action.Name(), Params: action.Parameters()}}
 		}
-		results.ActionsQueryResults[i].Error = common.ServerError(err)
 	}
 
 	return results, nil
 }
 
-// ActionFinish saves the result of a completed Action
-func (u *UniterAPI) ActionFinish(result params.ActionResult) (params.BoolResult, error) {
-	action, err := u.actionIfPermitted(result.ActionTag)
-	if err == nil {
-		status := state.ActionCompleted
-		// TODO(jcw4) fix this, we should not infer state from other fields.
-		// Depends on params.ActionResult getting an explicit pass/fail field.
-		if result.Message != "" {
-			status = state.ActionFailed
-		}
-		actionResults := state.ActionResults{
-			Status:  status,
-			Results: result.Results,
-			Message: result.Message,
-		}
-		err = action.Finish(actionResults)
-	}
-	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
-}
+// FinishActions saves the result of a completed Action
+func (u *UniterAPI) FinishActions(args params.ActionResults) (params.BoolResults, error) {
+	nothing := params.BoolResults{}
 
-// actionIfPermitted returns an action, only if canAccess permits,
-// returns common.ErrPerm if not permitted
-func (u *UniterAPI) actionIfPermitted(tag string) (*state.Action, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return nil, err
+		return nothing, err
 	}
-	// Use the currently authenticated unit to get the endpoint.
+
 	whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
 	if !ok {
-		return nil, fmt.Errorf("entity is not a unit")
+		return nothing, fmt.Errorf("entity is not a unit")
 	}
 
-	// this Unit must match the Action's prefix.
-	actionTag, err := names.ParseActionTag(tag)
-	if err != nil {
-		return nil, err
-	}
-	unitTag := actionTag.PrefixTag()
+	results := params.BoolResults{Results: make([]params.BoolResult, len(args.Results))}
 
-	// The Unit is querying for another Unit's Action.
-	if unitTag != whichUnit {
-		return nil, common.ErrPerm
+	for ix, res := range args.Results {
+		actionTag, err := names.ParseActionTag(res.ActionTag)
+		if err != nil {
+			return nothing, err
+		}
+
+		unitTag := actionTag.PrefixTag()
+		if unitTag != whichUnit {
+			return nothing, common.ErrPerm
+		}
+
+		if !canAccess(unitTag) {
+			return nothing, common.ErrPerm
+		}
+
+		action, err := u.st.ActionByTag(actionTag)
+		if err == nil {
+			var status state.ActionStatus
+			switch res.Status {
+			case "complete":
+				status = state.ActionCompleted
+			case "fail":
+				status = state.ActionFailed
+			default:
+				status = state.ActionUnknown
+			}
+			actionResults := state.ActionResults{
+				Status:  status,
+				Results: res.Results,
+				Message: res.Message,
+			}
+			err = action.Finish(actionResults)
+		}
+		results.Results[ix] = params.BoolResult{Error: common.ServerError(err), Result: err == nil}
 	}
 
-	// The Unit does not have access.
-	if !canAccess(unitTag) {
-		return nil, common.ErrPerm
-	}
-
-	return u.st.ActionByTag(actionTag)
+	return results, nil
 }
 
 // RelationById returns information about all given relations,
