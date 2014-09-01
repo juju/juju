@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
 
 const manualInstancePrefix = "manual:"
@@ -48,10 +47,6 @@ type ProvisionMachineArgs struct {
 
 	// Client provides the API needed to provision the machines.
 	Client ProvisioningClientAPI
-
-	// Tools to install on the machine. If nil, tools will be automatically
-	// chosen using environs/tools FindInstanceTools.
-	Tools *tools.Tools
 
 	// Stdin is required to respond to sudo prompts,
 	// and must be a terminal (except in tests)

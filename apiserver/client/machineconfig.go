@@ -6,25 +6,14 @@ package client
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/tools"
 )
-
-func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools, error) {
-	agentVersion, ok := env.Config().AgentVersion()
-	if !ok {
-		return nil, fmt.Errorf("no agent version set in environment configuration")
-	}
-	possibleTools, err := envtools.FindInstanceTools(env, agentVersion, series, &arch)
-	if err != nil {
-		return nil, err
-	}
-	return possibleTools[0], nil
-}
 
 // MachineConfig returns information from the environment config that
 // is needed for machine cloud-init (for non-state servers only). It
@@ -56,7 +45,11 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 	if err != nil {
 		return nil, err
 	}
-	tools, err := findInstanceTools(env, machine.Series(), *hc.Arch)
+	agentVersion, ok := env.Config().AgentVersion()
+	if !ok {
+		return nil, errors.New("no agent version set in environment configuration")
+	}
+	tools, err := envtools.FindExactTools(env, agentVersion, machine.Series(), *hc.Arch)
 	if err != nil {
 		return nil, err
 	}
