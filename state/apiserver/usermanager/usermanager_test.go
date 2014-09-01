@@ -67,6 +67,57 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
 }
 
+func (s *userManagerSuite) TestAddMissingLocalEnvironmentUserFails(c *gc.C) {
+	args := usermanager.ModifyEnvironUsers{
+		Changes: []usermanager.ModifyEnvironUser{{
+			Username:    "foobar@local",
+			DisplayName: "Foo Bar",
+		}}}
+
+	result, err := s.usermanager.AddEnvironmentUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error.Error(), gc.Equals, `failed to create environment user: user "foobar" does not exist locally: user "foobar" not found`)
+}
+
+func (s *userManagerSuite) TestAddLocalEnvironmentUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	args := usermanager.ModifyEnvironUsers{
+		Changes: []usermanager.ModifyEnvironUser{{
+			Username:    "foobar@local",
+			DisplayName: "Foo Bar",
+		}}}
+
+	result, err := s.usermanager.AddEnvironmentUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, "foobar@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *userManagerSuite) TestAddRemoteEnvironmentUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar@ubuntuone"})
+	args := usermanager.ModifyEnvironUsers{
+		Changes: []usermanager.ModifyEnvironUser{{
+			Username:    "foobar@ubuntuone",
+			DisplayName: "Foo Bar",
+		}}}
+
+	result, err := s.usermanager.AddEnvironmentUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, "foobar@ubuntuone")
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{{

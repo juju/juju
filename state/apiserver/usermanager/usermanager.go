@@ -65,6 +65,22 @@ type ModifyUser struct {
 	Password    string
 }
 
+// ModifyEnvironUsers holds the parameters for making UserManager AddEnvironmentUser calls.
+type ModifyEnvironUsers struct {
+	Changes []ModifyEnvironUser
+}
+
+// ModifyEnvironUser stores the parameters used for a UserManager.AddEnvironmentUser call.
+type ModifyEnvironUser struct {
+	// Tag is here purely for backwards compatability. Older clients will
+	// attempt to use the EntityPassword structure, so we need a Tag here
+	// (which will be treated as Username)
+	Tag         string
+	Username    string
+	DisplayName string
+	Password    string
+}
+
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
@@ -87,6 +103,40 @@ func NewUserManagerAPI(
 		state:      st,
 		authorizer: authorizer,
 	}, nil
+}
+
+// AddEnvironmentUser adds a user to the environment.
+func (api *UserManagerAPI) AddEnvironmentUser(args ModifyEnvironUsers) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+	user := api.getLoggedInUser()
+	if user == nil {
+		return result, errors.Errorf("api connection is not through a user")
+	}
+	for i, arg := range args.Changes {
+		username := arg.Username
+		// TODO(waigani) Do we still need this?
+		if username == "" {
+			username = arg.Tag
+		}
+		user := names.NewUserTag(username)
+		if createdBy, ok := api.getLoggedInUser().(names.UserTag); ok {
+			_, err := api.state.AddEnvironmentUser(user, createdBy, arg.DisplayName)
+			if err != nil {
+				err = errors.Annotate(err, "failed to create environment user")
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		} else {
+			return result, errors.Errorf("api connection is not through a user")
+		}
+
+	}
+	return result, nil
 }
 
 // AddUser adds a user.
