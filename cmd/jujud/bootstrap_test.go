@@ -69,7 +69,7 @@ type fakeEnsure struct {
 	dataDir        string
 	namespace      string
 	oplogSize      int
-	info           params.StateServingInfo
+	info           state.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }

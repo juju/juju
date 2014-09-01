@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 )

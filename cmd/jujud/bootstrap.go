@@ -227,13 +227,19 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		}
 	}
 
-	servingInfo, ok := agentConfig.StateServingInfo()
+	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
 	}
 
 	params := mongo.EnsureServerParams{
-		StateServingInfo: servingInfo,
+        APIPort: si.APIPort,
+        StatePort: si.StatePort,
+        Cert: si.Cert,
+        PrivateKey: si.PrivateKey,
+        // this will be passed as the KeyFile argument to MongoDB
+        SharedSecret: si.SharedSecret,
+        SystemIdentity: si.SystemIdentity,
 		DataDir:          agentConfig.DataDir(),
 		Namespace:        agentConfig.Value(agent.Namespace),
 		OplogSize:        oplogSize,
