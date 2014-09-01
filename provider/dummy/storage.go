@@ -133,7 +133,7 @@ func (s *storageServer) URL(name string) (string, error) {
 	if name != "" {
 		if _, ok := s.files[name]; !ok {
 			found := false
-			for file, _ := range s.files {
+			for file := range s.files {
 				found = strings.HasPrefix(file, name+"/")
 				if found {
 					break

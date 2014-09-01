@@ -185,7 +185,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
 	c.Assert(err, gc.IsNil)
 	connectedAddrHostPorts := [][]network.HostPort{
-		[]network.HostPort{{
+		{{
 			network.NewAddress(connectedAddrHost, network.ScopeUnknown),
 			connectedAddrPort,
 		}},

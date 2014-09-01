@@ -196,27 +196,27 @@ var scenarioStatus = &api.Status{
 		},
 	},
 	Services: map[string]api.ServiceStatus{
-		"logging": api.ServiceStatus{
+		"logging": {
 			Charm: "local:quantal/logging-1",
 			Relations: map[string][]string{
-				"logging-directory": []string{"wordpress"},
+				"logging-directory": {"wordpress"},
 			},
 			SubordinateTo: []string{"wordpress"},
 		},
-		"mysql": api.ServiceStatus{
+		"mysql": {
 			Charm:         "local:quantal/mysql-1",
 			Relations:     map[string][]string{},
 			SubordinateTo: []string{},
 			Units:         map[string]api.UnitStatus{},
 		},
-		"wordpress": api.ServiceStatus{
+		"wordpress": {
 			Charm: "local:quantal/wordpress-3",
 			Relations: map[string][]string{
-				"logging-dir": []string{"logging"},
+				"logging-dir": {"logging"},
 			},
 			SubordinateTo: []string{},
 			Units: map[string]api.UnitStatus{
-				"wordpress/0": api.UnitStatus{
+				"wordpress/0": {
 					Agent: api.AgentStatus{
 						Status: "error",
 						Info:   "blam",
@@ -226,7 +226,7 @@ var scenarioStatus = &api.Status{
 					AgentStateInfo: "(error: blam)",
 					Machine:        "1",
 					Subordinates: map[string]api.UnitStatus{
-						"logging/0": api.UnitStatus{
+						"logging/0": {
 							Agent: api.AgentStatus{
 								Status: "pending",
 								Data:   params.StatusData{},
@@ -235,7 +235,7 @@ var scenarioStatus = &api.Status{
 						},
 					},
 				},
-				"wordpress/1": api.UnitStatus{
+				"wordpress/1": {
 					Agent: api.AgentStatus{
 						Status: "pending",
 						Data:   params.StatusData{},
@@ -243,7 +243,7 @@ var scenarioStatus = &api.Status{
 					AgentState: "pending",
 					Machine:    "2",
 					Subordinates: map[string]api.UnitStatus{
-						"logging/1": api.UnitStatus{
+						"logging/1": {
 							Agent: api.AgentStatus{
 								Status: "pending",
 								Data:   params.StatusData{},
@@ -256,17 +256,17 @@ var scenarioStatus = &api.Status{
 		},
 	},
 	Relations: []api.RelationStatus{
-		api.RelationStatus{
+		{
 			Id:  0,
 			Key: "logging:logging-directory wordpress:logging-dir",
 			Endpoints: []api.EndpointStatus{
-				api.EndpointStatus{
+				{
 					ServiceName: "logging",
 					Name:        "logging-directory",
 					Role:        "requirer",
 					Subordinate: true,
 				},
-				api.EndpointStatus{
+				{
 					ServiceName: "wordpress",
 					Name:        "logging-dir",
 					Role:        "provider",

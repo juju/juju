@@ -49,7 +49,7 @@ func MarshalToolsMetadataIndexJSON(metadata []*ToolsMetadata, updated time.Time)
 	indices.Updated = updated.Format(time.RFC1123Z)
 	indices.Format = "index:1.0"
 	indices.Indexes = map[string]*simplestreams.IndexMetadata{
-		ToolsContentId: &simplestreams.IndexMetadata{
+		ToolsContentId: {
 			Updated:          indices.Updated,
 			Format:           "products:1.0",
 			DataType:         "content-download",
@@ -83,7 +83,7 @@ func MarshalToolsMetadataProductsJSON(metadata []*ToolsMetadata, updated time.Ti
 				Arch:    t.Arch,
 				Version: t.Version,
 				Items: map[string]*simplestreams.ItemCollection{
-					itemsversion: &simplestreams.ItemCollection{
+					itemsversion: {
 						Items: map[string]interface{}{itemid: t},
 					},
 				},

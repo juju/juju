@@ -263,7 +263,7 @@ type mockBootstrapInstance struct {
 }
 
 func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
-	return []network.Address{network.Address{Value: "localhost"}}, nil
+	return []network.Address{{Value: "localhost"}}, nil
 }
 
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {

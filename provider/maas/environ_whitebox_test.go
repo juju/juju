@@ -737,7 +737,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
+		{
 			MACAddress:    "aa:bb:cc:dd:ee:ff",
 			CIDR:          "192.168.1.1/24",
 			NetworkName:   "WLAN",
@@ -746,7 +746,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			InterfaceName: "wlan0",
 			Disabled:      true,
 		},
-		network.Info{
+		{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			CIDR:          "192.168.2.1/24",
 			NetworkName:   "LAN",
@@ -755,7 +755,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			InterfaceName: "eth0",
 			Disabled:      false,
 		},
-		network.Info{
+		{
 			MACAddress:    "aa:bb:cc:dd:ee:f2",
 			CIDR:          "192.168.3.1/24",
 			NetworkName:   "Virt",
@@ -788,7 +788,7 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 
 	// Note: order of networks is based on lshwXML
 	c.Check(networkInfo, jc.SameContents, []network.Info{
-		network.Info{
+		{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			CIDR:          "192.168.2.1/24",
 			NetworkName:   "LAN",

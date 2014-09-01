@@ -63,7 +63,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	}
 
 	ops := []txn.Op{
-		txn.Op{
+		{
 			C:      "users",
 			Id:     userId,
 			Assert: txn.DocMissing,

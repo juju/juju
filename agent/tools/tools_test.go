@@ -74,8 +74,8 @@ var unpackToolsBadDataTests = []badDataTest{
 	initBadDataTest("bar", os.ModeDir, "", "bad file type.*"),
 	initBadDataTest("../../etc/passwd", agenttools.DirPerm, "", "bad name.*"),
 	initBadDataTest(`\ini.sys`, agenttools.DirPerm, "", "bad name.*"),
-	badDataTest{[]byte("x"), "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
-	badDataTest{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
+	{[]byte("x"), "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
+	{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
 }
 
 func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {

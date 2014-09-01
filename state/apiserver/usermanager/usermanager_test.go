@@ -85,7 +85,7 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 
 	result, err := s.usermanager.RemoveUser(removeArgs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{params.ErrorResult{Error: nil}}})
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 	user, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
 	// Removal makes the user in active
@@ -117,7 +117,7 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	expectedError := apiservertesting.ServerError("failed to create user: user already exists")
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			params.ErrorResult{expectedError}}})
+			{expectedError}}})
 }
 
 func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {

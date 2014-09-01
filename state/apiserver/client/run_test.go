@@ -171,7 +171,7 @@ func (s *runSuite) TestParallelExecuteErrorsOnBlankHost(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Command: "foo",
 				Timeout: testing.LongWait,
@@ -189,7 +189,7 @@ func (s *runSuite) TestParallelExecuteAddsIdentity(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
@@ -209,7 +209,7 @@ func (s *runSuite) TestParallelExecuteCopiesAcrossMachineAndUnit(c *gc.C) {
 	s.mockSSH(c, echoInputShowArgs)
 
 	params := []*client.RemoteExec{
-		&client.RemoteExec{
+		{
 			ExecParams: ssh.ExecParams{
 				Host:    "localhost",
 				Command: "foo",
@@ -281,16 +281,16 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.HasLen, 3)
 	expectedResults := []params.RunResult{
-		params.RunResult{
+		{
 			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
 			MachineId:    "0",
 		},
-		params.RunResult{
+		{
 			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
 			MachineId:    "1",
 			UnitId:       "magic/0",
 		},
-		params.RunResult{
+		{
 			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
 			MachineId:    "2",
 			UnitId:       "magic/1",

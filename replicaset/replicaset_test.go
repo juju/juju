@@ -72,7 +72,7 @@ func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string)
 	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
-	expectedMembers := []Member{Member{Id: 1, Address: addr, Tags: initialTags}}
+	expectedMembers := []Member{{Id: 1, Address: addr, Tags: initialTags}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
@@ -410,7 +410,7 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 		}
 	}
 
-	for x, _ := range res.Members {
+	for x := range res.Members {
 		// non-empty uptime and ping
 		c.Check(res.Members[x].Uptime, gc.Not(gc.Equals), 0)
 
