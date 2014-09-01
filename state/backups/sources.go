@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
 	coreutils "github.com/juju/juju/utils"
 )
@@ -155,7 +154,7 @@ func (ci *dbConnInfo) Password() string {
 }
 
 // UpdateFromMongoInfo pulls in the provided connection info.
-func (ci *dbConnInfo) UpdateFromMongoInfo(mgoInfo *authentication.MongoInfo) {
+func (ci *dbConnInfo) UpdateFromMongoInfo(mgoInfo *mongo.MongoInfo) {
 	ci.address = mgoInfo.Addrs[0]
 	ci.password = mgoInfo.Password
 

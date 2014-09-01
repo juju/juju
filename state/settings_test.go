@@ -10,7 +10,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
@@ -26,8 +25,8 @@ var _ = gc.Suite(&SettingsSuite{})
 
 // TestingMongoInfo returns information suitable for
 // connecting to the testing state server's mongo database.
-func TestingMongoInfo() *authentication.MongoInfo {
-	return &authentication.MongoInfo{
+func TestingMongoInfo() *mongo.MongoInfo {
+	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
