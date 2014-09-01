@@ -85,14 +85,17 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	action, err := s.uniterSuite.wordpressUnit.AddAction("gabloxi", nil)
 	c.Assert(err, gc.IsNil)
 
-	err = s.uniter.ActionComplete(action.ActionTag(), "it worked!")
+	output := map[string]interface{}{"output": "it worked!"}
+	err = s.uniter.ActionComplete(action.ActionTag(), output)
 	c.Assert(err, gc.IsNil)
 
 	results, err = s.uniterSuite.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
-	c.Assert(results[0].Output(), gc.Equals, "it worked!")
+	res, errstr := results[0].Results()
+	c.Assert(errstr, gc.Equals, "")
+	c.Assert(res, gc.DeepEquals, output)
 	c.Assert(results[0].ActionName(), gc.Equals, "gabloxi")
 }
 
@@ -104,13 +107,16 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	action, err := s.uniterSuite.wordpressUnit.AddAction("beebz", nil)
 	c.Assert(err, gc.IsNil)
 
-	err = s.uniter.ActionFail(action.ActionTag(), "it failed!")
+	errmsg := "it failed!"
+	err = s.uniter.ActionFail(action.ActionTag(), errmsg)
 	c.Assert(err, gc.IsNil)
 
 	results, err = s.uniterSuite.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
-	c.Assert(results[0].Output(), gc.Equals, "it failed!")
+	res, errstr := results[0].Results()
+	c.Assert(errstr, gc.Equals, errmsg)
+	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
 	c.Assert(results[0].ActionName(), gc.Equals, "beebz")
 }
