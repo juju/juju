@@ -231,11 +231,14 @@ juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 		"action-log-fail": `
 #!/bin/bash --norc
 action-fail "I'm afraid I can't let you do that, Dave."
+action-set foo="still works"
 juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail-error": `
 #!/bin/bash --norc
 action-fail too many arguments
+action-set foo="still works"
+action-fail "A real message"
 juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 	}
@@ -1376,6 +1379,45 @@ var actionEventTests = []uniterTest{
 			status:  "complete",
 		}}},
 		waitUnit{status: params.StatusStarted},
+		verifyActionResult{"action-log"},
+	), ut(
+		"action-fail causes the action to fail with a message",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeActions(c, path, "action-log-fail")
+				ctx.writeActionsYaml(c, path, "action-log-fail")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log-fail", nil},
+		waitHooks{"action-log-fail"},
+		verifyActionResult{"action-log-fail"},
+	), ut(
+		"action-fail with the wrong arguments is an error",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeActions(c, path, "action-log-fail-error")
+				ctx.writeActionsYaml(c, path, "action-log-fail-error")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log-fail-error", nil},
+		waitHooks{"action-log-fail-error"},
+		verifyActionResult{"action-log-fail-error"},
 	), ut(
 		"action-fail causes the action to fail with a message",
 		createCharm{
@@ -2176,7 +2218,7 @@ type verifyActionResults struct {
 	expectedResults []actionResult
 }
 
-func (s verifyActionResults) step(c *gc.C, ctx *context) {
+func (s verifyActionResult) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
 	action := s.action
 	expected, ok := actionResults[action]
