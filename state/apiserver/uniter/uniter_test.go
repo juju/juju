@@ -1103,7 +1103,7 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 
 func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	testName := "frobz"
-	testOutput := "completed frobz successfully"
+	testOutput := map[string]interface{}{"output": "completed frobz successfully"}
 
 	results, err := s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
@@ -1114,10 +1114,10 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 
 	actionResult := params.ActionResult{
 		ActionTag: action.ActionTag().String(),
-		Output:    testOutput,
+		Results:   testOutput,
 	}
 
-	res, err := s.uniter.ActionComplete(actionResult)
+	res, err := s.uniter.ActionFinish(actionResult)
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
 
@@ -1125,7 +1125,9 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
-	c.Assert(results[0].Output(), gc.Equals, testOutput)
+	res2, errstr := results[0].Results()
+	c.Assert(errstr, gc.Equals, "")
+	c.Assert(res2, gc.DeepEquals, testOutput)
 	c.Assert(results[0].ActionName(), gc.Equals, testName)
 }
 
@@ -1142,10 +1144,11 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 
 	actionResult := params.ActionResult{
 		ActionTag: action.ActionTag().String(),
-		Output:    testError,
+		Failed:    true,
+		Message:   testError,
 	}
 
-	res, err := s.uniter.ActionFail(actionResult)
+	res, err := s.uniter.ActionFinish(actionResult)
 	c.Assert(err, gc.IsNil)
 	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
 
@@ -1153,7 +1156,9 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
-	c.Assert(results[0].Output(), gc.Equals, testError)
+	res2, errstr := results[0].Results()
+	c.Assert(errstr, gc.Equals, testError)
+	c.Assert(res2, gc.DeepEquals, map[string]interface{}{})
 	c.Assert(results[0].ActionName(), gc.Equals, testName)
 }
 
