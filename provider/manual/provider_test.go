@@ -112,8 +112,9 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
 	validCfg, err := p.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	// Unless specified, updates should default to false.
-	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, false)
+	// Unless specified, update should default to true,
+	// upgrade to false.
+	c.Check(validCfg.EnableOSRefreshUpdate(), gc.Equals, true)
 	c.Check(validCfg.EnableOSUpgrade(), gc.Equals, false)
 }
 
