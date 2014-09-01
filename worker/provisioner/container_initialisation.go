@@ -118,6 +118,7 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 			// We only care about the initial container creation.
 			// This worker has done its job so stop it.
 			// We do not expect there will be an error, and there's not much we can do anyway.
+			logger.Infof("stopping machine agent container watcher")
 			if err := cs.runner.StopWorker(cs.workerName); err != nil {
 				logger.Warningf("stopping machine agent container watcher: %v", err)
 			}

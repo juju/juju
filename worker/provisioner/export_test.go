@@ -19,4 +19,8 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 	return p.getRetryWatcher()
 }
 
-var ContainerManagerConfig = containerManagerConfig
+var (
+	ContainerManagerConfig = containerManagerConfig
+	ChurningWait           = &churningWait
+	MachineStatus          = &machineStatus
+)
