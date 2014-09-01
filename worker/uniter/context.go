@@ -393,31 +393,33 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		return errors.New("action cannot call home, state handle undefined")
 	}
 
-	// Otherwise, if there was an error, *and* it was an action...
+	// Otherwise, set up for handling ActionFinish
+	message := ctx.actionResults.Message
+	results := ctx.actionResults.Results
+	status := params.ActionCompleted
+	if ctx.actionResults.Status == actionStatusFailed {
+		status = params.ActionFailed
+	}
+
 	if err != nil {
-		failMessage := "Unexpected error: " + err.Error()
+		message = err.Error()
 		// If it was a missing hook error, the action implementation
 		// is missing, and that's a problem with the unit.
-		// Since this is a known error case, the user only needs to know
-		// that the action failed because it was missing.
 		if IsMissingHookError(err) {
-			failMessage = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
-			err = errors.Annotatef(err, failMessage)
+			message = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
 		}
-
-		callError := ctx.state.ActionFail(*ctx.actionTag, failMessage)
-		if callError != nil {
-			// Oh dear.  Wrap the errors.  Best we can do.
-			err = errors.Wrap(err, callError)
-		}
-
-		return err
+		status = params.ActionFailed
 	}
 
-	if ctx.actionResults.Status == actionStatusFailed {
-		return ctx.state.ActionFail(*ctx.actionTag, ctx.actionResults.Message)
+	callErr := ctx.state.ActionFinish(*ctx.actionTag, status, results, message)
+	if callErr != nil {
+		if err != nil {
+			err = errors.Wrap(err, callErr)
+		} else {
+			err = callErr
+		}
 	}
-	return ctx.state.ActionComplete(*ctx.actionTag, ctx.actionResults.Results)
+	return err
 }
 
 // RunCommands executes the commands in an environment which allows it to to
