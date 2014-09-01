@@ -11,7 +11,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/juju/paths"
@@ -55,7 +54,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			URL:     "http://testing.invalid/tools.tar.gz",
 		},
 		Series: "quantal",
-		MongoInfo: &authentication.MongoInfo{
+		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,
 				Addrs:  []string{"127.0.0.1:123"},

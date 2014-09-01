@@ -14,20 +14,6 @@ import (
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 )
 
-// MongoInfo encapsulates information about cluster of
-// servers holding juju state and can be used to make a
-// connection to that cluster.
-type MongoInfo struct {
-	// mongo.Info contains the addresses and cert of the mongo cluster.
-	mongo.Info
-	// Tag holds the name of the entity that is connecting.
-	// It should be nil when connecting as an administrator.
-	Tag names.Tag
-
-	// Password holds the password for the connecting entity.
-	Password string
-}
-
 // TaggedPasswordChanger defines an interface for a entity with a
 // Tag() and SetPassword() methods.
 type TaggedPasswordChanger interface {
@@ -36,7 +22,7 @@ type TaggedPasswordChanger interface {
 }
 
 // NewAuthenticator returns a simpleAuth populated with connectionInfo and apiInfo
-func NewAuthenticator(connectionInfo *MongoInfo, apiInfo *api.Info) AuthenticationProvider {
+func NewAuthenticator(connectionInfo *mongo.MongoInfo, apiInfo *api.Info) AuthenticationProvider {
 	return &simpleAuth{
 		stateInfo: connectionInfo,
 		apiInfo:   apiInfo,
@@ -46,7 +32,7 @@ func NewAuthenticator(connectionInfo *MongoInfo, apiInfo *api.Info) Authenticati
 // AuthenticationProvider defines the single method that the provisioner
 // task needs to set up authentication for a machine.
 type AuthenticationProvider interface {
-	SetupAuthentication(machine TaggedPasswordChanger) (*MongoInfo, *api.Info, error)
+	SetupAuthentication(machine TaggedPasswordChanger) (*mongo.MongoInfo, *api.Info, error)
 }
 
 // NewAPIAuthenticator gets the state and api info once from the
@@ -64,7 +50,7 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	if err != nil {
 		return nil, err
 	}
-	stateInfo := &MongoInfo{
+	stateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  stateAddresses,
 			CACert: caCert,
@@ -78,11 +64,11 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 }
 
 type simpleAuth struct {
-	stateInfo *MongoInfo
+	stateInfo *mongo.MongoInfo
 	apiInfo   *api.Info
 }
 
-func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*MongoInfo, *api.Info, error) {
+func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*mongo.MongoInfo, *api.Info, error) {
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
