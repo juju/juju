@@ -75,7 +75,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 	// verify we get out what we put in
 	c.Assert(action.Name(), gc.Equals, name)
-	c.Assert(action.Payload(), jc.DeepEquals, params)
+	c.Assert(action.Parameters(), jc.DeepEquals, params)
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 
 	action2, err := s.State.Action(a2.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(action2.Payload(), jc.DeepEquals, params2)
+	c.Assert(action2.Parameters(), jc.DeepEquals, params2)
 
 	// verify only one left, and it's the expected one
 	actions, err = s.unit.Actions()
