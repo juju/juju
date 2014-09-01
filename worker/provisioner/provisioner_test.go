@@ -695,6 +695,33 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	s.checkNoOperations(c)
 }
 
+func (s *ProvisionerSuite) TestProvisioningRetriesChurningMachines(c *gc.C) {
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// Patch MachineStatus so it will fail the first time but succeed the next time.
+	numStatusCalls := 0
+	var statusCalls []string
+	s.PatchValue(provisioner.MachineStatus, func(m *apiprovisioner.Machine) (params.Status, string, error) {
+		numStatusCalls++
+		if numStatusCalls < 2 {
+			statusCalls = append(statusCalls, "error")
+			return "", "", &params.Error{Code: params.CodeNotFound}
+		}
+		statusCalls = append(statusCalls, "ok")
+		return m.Status()
+	})
+	// Trigger the retry of churning machines after a short time.
+	s.PatchValue(provisioner.ChurningWait, coretesting.ShortWait)
+
+	// Create a machine
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m)
+	// Ensure that churning was triggered by checking the status calls.
+	c.Assert(statusCalls, gc.DeepEquals, []string{"error", "ok"})
+}
+
 func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)

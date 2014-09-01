@@ -66,6 +66,7 @@ func NewProvisionerTask(
 		safeMode:       safeMode,
 		safeModeChan:   make(chan bool, 1),
 		machines:       make(map[string]*apiprovisioner.Machine),
+		churningChan:   make(chan []string, 1),
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -90,7 +91,13 @@ type provisionerTask struct {
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
 	machines map[string]*apiprovisioner.Machine
+	// channel of machine ids which are churning.
+	churningChan chan []string
 }
+
+// churningWait is the time interval between re-processing churning machines.
+// Override for testing.
+var churningWait = 5 * time.Second
 
 // Kill implements worker.Worker.Kill.
 func (task *provisionerTask) Kill() {
@@ -165,6 +172,13 @@ func (task *provisionerTask) loop() error {
 			if err := task.processMachinesWithTransientErrors(); err != nil {
 				return errors.Annotate(err, "failed to process machines with transient errors")
 			}
+		case ids := <-task.churningChan:
+			if len(ids) > 0 {
+				logger.Infof("re-processing churning machines %v", ids)
+				if err := task.processMachines(ids); err != nil {
+					return errors.Annotate(err, "failed to process churning machines")
+				}
+			}
 		}
 	}
 }
@@ -200,6 +214,13 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 	return task.startMachines(pending)
 }
 
+func (task *provisionerTask) triggerChurning(churning []string) {
+	select {
+	case <-task.Dying():
+	case task.churningChan <- churning:
+	}
+}
+
 func (task *provisionerTask) processMachines(ids []string) error {
 	logger.Tracef("processMachines(%v)", ids)
 	// Populate the tasks maps of current instances and machines.
@@ -209,10 +230,20 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	}
 
 	// Find machines without an instance id or that are dead
-	pending, dead, err := task.pendingOrDead(ids)
+	pending, dead, churning, err := task.pendingOrDead(ids)
 	if err != nil {
 		return err
 	}
+	// If there are churning machines, wait till the processing
+	// of this current batch is finished and set up future processing.
+	defer func() {
+		if len(churning) > 0 {
+			go func() {
+				time.Sleep(churningWait)
+				task.triggerChurning(churning)
+			}()
+		}
+	}()
 
 	// Stop all machines that are dead
 	stopping := task.instancesForMachines(dead)
@@ -291,9 +322,15 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	return nil
 }
 
+//Override for testing.
+var machineStatus = func(m *apiprovisioner.Machine) (params.Status, string, error) {
+	return m.Status()
+}
+
 // pendingOrDead looks up machines with ids and returns those that do not
-// have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, err error) {
+// have an instance id assigned yet, and also those that are dead and churning.
+func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apiprovisioner.Machine, churning []string, err error) {
+	// First reset any previously churning machines.
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
@@ -305,11 +342,15 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			if _, err := machine.InstanceId(); err == nil {
 				continue
 			} else if !params.IsCodeNotProvisioned(err) {
-				return nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
+				return nil, nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
 			}
 			logger.Infof("killing dying, unprovisioned machine %q", machine)
 			if err := machine.EnsureDead(); err != nil {
-				return nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
+				if params.IsCodeNotFound(err) {
+					logger.Warningf("cannot set machine %q to dead - if has alread been removed", machine)
+				} else {
+					return nil, nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
+				}
 			}
 			fallthrough
 		case params.Dead:
@@ -321,9 +362,13 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
 				continue
 			}
-			status, _, err := machine.Status()
+			status, _, err := machineStatus(machine)
 			if err != nil {
 				logger.Infof("cannot get machine %q status: %v", machine, err)
+				if params.IsCodeNotFound(err) {
+					logger.Infof("machine %q is churning", machine)
+					churning = append(churning, machine.Id())
+				}
 				continue
 			}
 			if status == params.StatusPending {
@@ -337,6 +382,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 	}
 	logger.Tracef("pending machines: %v", pending)
 	logger.Tracef("dead machines: %v", dead)
+	logger.Tracef("churning machines: %v", churning)
 	return
 }
 
