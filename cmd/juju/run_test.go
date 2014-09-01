@@ -14,7 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/testing"
 )
 

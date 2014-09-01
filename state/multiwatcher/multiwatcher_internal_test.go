@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )

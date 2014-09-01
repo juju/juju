@@ -39,7 +39,7 @@ import (
 	"github.com/juju/juju/state/api"
 	apideployer "github.com/juju/juju/state/api/deployer"
 	apinetworker "github.com/juju/juju/state/api/networker"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	charmtesting "github.com/juju/juju/state/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/state/watcher"

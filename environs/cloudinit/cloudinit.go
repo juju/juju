@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

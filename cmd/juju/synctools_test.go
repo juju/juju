@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver/common"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"

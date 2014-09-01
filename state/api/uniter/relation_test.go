@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/uniter"
 )
 

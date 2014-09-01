@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/names"

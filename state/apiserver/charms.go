@@ -26,7 +26,7 @@ import (
 	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.

@@ -26,7 +26,7 @@ import (
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"

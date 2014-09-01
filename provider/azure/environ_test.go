@@ -38,7 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/api"
-	apiparams "github.com/juju/juju/state/api/params"
+	apiparams "github.com/juju/juju/state/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )

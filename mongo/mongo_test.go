@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )

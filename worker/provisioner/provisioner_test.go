@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
 	coretesting "github.com/juju/juju/testing"

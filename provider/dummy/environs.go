@@ -56,7 +56,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"

@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // NotifyWatcher will send events when something changes.

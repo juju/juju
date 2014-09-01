@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // Life requests the life cycle of the given entity from the given

@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/watcher"
 )
 

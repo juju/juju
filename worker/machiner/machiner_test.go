@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apimachiner "github.com/juju/juju/state/api/machiner"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machiner"

@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver/common"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/names"

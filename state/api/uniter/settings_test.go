@@ -7,7 +7,7 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/uniter"
 )
 

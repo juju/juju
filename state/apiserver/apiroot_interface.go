@@ -2,7 +2,7 @@ package apiserver
 
 import (
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver/common"
 )
 

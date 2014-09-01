@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/watcher"
 )
 

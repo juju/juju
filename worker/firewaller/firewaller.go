@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	apifirewaller "github.com/juju/juju/state/api/firewaller"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/state/api"
 	apiagent "github.com/juju/juju/state/api/agent"
 	apideployer "github.com/juju/juju/state/api/deployer"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/txn"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 type notSupportedError struct {

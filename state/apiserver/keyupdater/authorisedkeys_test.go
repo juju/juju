@@ -9,7 +9,7 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/apiserver/keyupdater"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"

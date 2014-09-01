@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // State provides access to an agent's view of the state.

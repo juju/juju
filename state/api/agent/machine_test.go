@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	apiserveragent "github.com/juju/juju/state/apiserver/agent"
 	coretesting "github.com/juju/juju/testing"
 )
