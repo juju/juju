@@ -265,8 +265,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
-	ops := append(prereqOps, machineOp)
-	return mdoc, ops, nil
+	return mdoc, append(prereqOps, machineOp), nil
 }
 
 // supportsContainerType reports whether the machine supports the given
@@ -328,8 +327,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(mdoc.Id),
 	)
-	ops := append(prereqOps, machineOp)
-	return mdoc, ops, nil
+	return mdoc, append(prereqOps, machineOp), nil
 }
 
 // newContainerId returns a new id for a machine within the machine
@@ -384,15 +382,14 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	mdoc.ContainerType = string(containerType)
 	parentPrereqOps, parentOp := st.insertNewMachineOps(parentDoc, parentTemplate)
 	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
-	ops := append(parentPrereqOps, prereqOps...)
-	ops = append(ops,
+	prereqOps = append(prereqOps, parentPrereqOps...)
+	prereqOps = append(prereqOps,
 		// The host machine doesn't exist yet, create a new containers record.
 		st.insertNewContainerRefOp(mdoc.Id),
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
 	)
-	ops = append(ops, parentOp, machineOp)
-	return mdoc, ops, nil
+	return mdoc, append(prereqOps, parentOp, machineOp), nil
 }
 
 func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
