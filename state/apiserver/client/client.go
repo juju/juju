@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package client
@@ -774,6 +774,37 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 		UUID:          env.UUID(),
 	}
 	return info, nil
+}
+
+// ShareEnvironment adds a user to the environment.
+func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
+	var createdBy names.UserTag
+	var ok bool
+	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
+		return result, errors.Errorf("api connection is not through a user")
+	}
+
+	result = params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	for i, arg := range args.Changes {
+		username := arg.Username
+		if !names.IsValidUser(username) {
+			return result, errors.Errorf("%q is not a valid username", username)
+		}
+		user := names.NewUserTag(username)
+		_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
+		if err != nil {
+			err = errors.Annotate(err, "failed to create environment user")
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+	}
+	return result, nil
 }
 
 // GetAnnotations returns annotations about a given entity.

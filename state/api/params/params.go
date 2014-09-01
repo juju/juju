@@ -663,6 +663,16 @@ type EnvironmentUnset struct {
 	Keys []string
 }
 
+// ModifyEnvironUsers holds the parameters for making Client ShareEnvironment calls.
+type ModifyEnvironUsers struct {
+	Changes []ModifyEnvironUser
+}
+
+// ModifyEnvironUser stores the parameters used for a Client.ShareEnvironment call.
+type ModifyEnvironUser struct {
+	Username string
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {

@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package client_test
@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
@@ -1644,6 +1645,71 @@ func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, found = envConfig.AllAttrs()["abc"]
 	c.Assert(found, jc.IsTrue)
+}
+
+func (s *clientSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			Username: "foobar@local",
+		}}}
+
+	result, err := s.APIState.Client().ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error.Error(), gc.Equals, `failed to create environment user: user "foobar" does not exist locally: user "foobar" not found`)
+}
+
+func (s *clientSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			Username: "foobar@local",
+		}}}
+
+	result, err := s.APIState.Client().ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, "foobar@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *clientSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
+	user := names.NewUserTag("foobar@ubuntuone")
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			Username: user.Username(),
+		}}}
+
+	result, err := s.APIState.Client().ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *clientSuite) TestShareEnvironmentInvalidUsernames(c *gc.C) {
+	for _, username := range []string{
+		"user@",
+		"user@ubuntuone",
+		"@ubuntuone",
+		"in^valid.",
+	} {
+		args := params.ModifyEnvironUsers{
+			Changes: []params.ModifyEnvironUser{{
+				Username: username,
+			}}}
+
+		_, err := s.APIState.Client().ShareEnvironment(args)
+		c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`%q is not a valid username`, username))
+	}
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
