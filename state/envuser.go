@@ -91,46 +91,28 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 	return nil
 }
 
-// Returns the document id of the environment user
+// envUserID returns the document id of the environment user with the
+// following format uuid:username@provider.
 func envUserID(envuuid, user string) string {
 	return fmt.Sprintf("%s:%s", envuuid, user)
 }
 
-func (st *State) getEnvironmentUser(user string, doc *envUserDoc) error {
-	envUsers, closer := st.getCollection(envUsersC)
-	defer closer()
-	env, err := st.Environment()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	envuuid := env.UUID()
-	id := envUserID(envuuid, user) //TODO(waigani) use st.EnvironTag().Id() when it becomes available.
-	err = envUsers.Find(bson.D{{"_id", id}}).One(doc)
-	if err == mgo.ErrNotFound {
-		err = errors.NotFoundf("envUser %q", user)
-	}
-	return err
-}
-
 // EnvironmentUser returns the environment user.
-// TODO(waigani) once we have multiple environments, this function will use the environTag associated with the *State instance.
 func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	envUser := &EnvironmentUser{st: st}
-	if err := st.getEnvironmentUser(user.Username(), &envUser.doc); err != nil {
-		return nil, errors.Trace(err)
+	envUsers, closer := st.getCollection(envUsersC)
+	defer closer()
+
+	id := envUserID(st.EnvironTag().Id(), user.Username())
+	err := envUsers.FindId(id).One(&envUser.doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("envUser %q", user.Username())
 	}
 	return envUser, nil
 }
 
 // AddEnvironmentUser adds a new user to the database.
 func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName string) (*EnvironmentUser, error) {
-	env, err := st.Environment()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	envuuid := env.UUID() //TODO(waigani) use st.EnvironTag().Id() when it becomes available.
-	username := user.Username()
-	creatorname := createdBy.Username()
 
 	// Ensure local user exists in state before adding them as an environment user.
 	if user.Provider() == names.LocalProvider {
@@ -146,6 +128,8 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 		}
 	}
 
+	username := user.Username()
+	envuuid := st.EnvironTag().Id()
 	id := envUserID(envuuid, username)
 	envUser := &EnvironmentUser{
 		st: st,
@@ -154,7 +138,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 			EnvUUID:     envuuid,
 			UserName:    username,
 			DisplayName: displayName,
-			CreatedBy:   creatorname,
+			CreatedBy:   createdBy.Username(),
 			DateCreated: nowToTheSecond(),
 		}}
 
@@ -164,7 +148,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 		Assert: txn.DocMissing,
 		Insert: &envUser.doc,
 	}}
-	err = st.runTransaction(ops)
+	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("env user already exists")
 	}

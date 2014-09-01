@@ -4,7 +4,6 @@
 package agent
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -61,7 +60,6 @@ func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
 	commands, err := config.WriteCommands("win8")
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 2)
-	fmt.Println(config)
 	c.Assert(commands[0], gc.Matches, `mkdir \S+\\agents\\machine-1`)
 	c.Assert(commands[1], gc.Matches, `Set-Content '\S+/agents/machine-1/agent.conf' @"
 (.|\n)*

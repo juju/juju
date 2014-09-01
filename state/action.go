@@ -58,11 +58,11 @@ type actionDoc struct {
 
 	// Name identifies the action that should be run; it should
 	// match an action defined by the unit's charm.
-	Name string
+	Name string `bson:"name"`
 
-	// Payload holds the action's parameters, if any; it should validate
+	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm
-	Payload map[string]interface{}
+	Parameters map[string]interface{} `bson:"parameters"`
 }
 
 // Action represents an instruction to do some "action" and is expected
@@ -111,29 +111,31 @@ func (a *Action) Name() string {
 	return a.doc.Name
 }
 
-// Payload will contain a structure representing arguments or parameters to
+// Parameters will contain a structure representing arguments or parameters to
 // an action, and is expected to be validated by the Unit using the Charm
 // definition of the Action
-func (a *Action) Payload() map[string]interface{} {
-	return a.doc.Payload
+func (a *Action) Parameters() map[string]interface{} {
+	return a.doc.Parameters
 }
 
-// Complete removes action from the pending queue and creates an ActionResult
-// to capture the output and end state of the action.
-func (a *Action) Complete(output string) error {
-	return a.removeAndLog(ActionCompleted, output)
+// ActionResults is a data transfer object that holds the key Action
+// output and results information.
+type ActionResults struct {
+	Status  ActionStatus           `json:"status"`
+	Results map[string]interface{} `json:"results"`
+	Message string                 `json:"message"`
 }
 
-// Fail removes an Action from the queue, and creates an ActionResult that
-// will capture the reason for the failure.
-func (a *Action) Fail(reason string) error {
-	return a.removeAndLog(ActionFailed, reason)
+// Finish removes action from the pending queue and creates an
+// ActionResult to capture the output and end state of the action.
+func (a *Action) Finish(results ActionResults) error {
+	return a.removeAndLog(results.Status, results.Results, results.Message)
 }
 
-// removeAndLog takes the action off of the pending queue, and creates an
-// actionresult to capture the outcome of the action.
-func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
-	doc := newActionResultDoc(a, finalStatus, output)
+// removeAndLog takes the action off of the pending queue, and creates
+// an actionresult to capture the outcome of the action.
+func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, err string) error {
+	doc := newActionResultDoc(a, finalStatus, results, err)
 	return a.st.runTransaction([]txn.Op{
 		addActionResultOp(a.st, &doc),
 		{
@@ -163,7 +165,7 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 	if err != nil {
 		return actionDoc{}, err
 	}
-	return actionDoc{Id: actionId, Name: actionName, Payload: parameters}, nil
+	return actionDoc{Id: actionId, Name: actionName, Parameters: parameters}, nil
 }
 
 var ensureActionMarker = ensureSuffixFn(actionMarker)

@@ -815,7 +815,7 @@ func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryR
 
 	result.Action = &params.Action{
 		Name:   action.Name(),
-		Params: action.Payload(),
+		Params: action.Parameters(),
 	}
 	return result, nil
 }
@@ -868,20 +868,22 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 	return results, nil
 }
 
-// ActionComplete saves the result of a completed Action
-func (u *UniterAPI) ActionComplete(args params.ActionResult) (params.BoolResult, error) {
-	action, err := u.actionIfPermitted(args.ActionTag)
+// ActionFinish saves the result of a completed Action
+func (u *UniterAPI) ActionFinish(result params.ActionResult) (params.BoolResult, error) {
+	action, err := u.actionIfPermitted(result.ActionTag)
 	if err == nil {
-		err = action.Complete(args.Output)
-	}
-	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
-}
-
-// ActionFail saves the result of a completed Action
-func (u *UniterAPI) ActionFail(args params.ActionResult) (params.BoolResult, error) {
-	action, err := u.actionIfPermitted(args.ActionTag)
-	if err == nil {
-		err = action.Fail(args.Output)
+		status := state.ActionCompleted
+		// TODO(jcw4) fix this, we should not infer state from other fields.
+		// Depends on params.ActionResult getting an explicit pass/fail field.
+		if result.Message != "" {
+			status = state.ActionFailed
+		}
+		actionResults := state.ActionResults{
+			Status:  status,
+			Results: result.Results,
+			Message: result.Message,
+		}
+		err = action.Finish(actionResults)
 	}
 	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
 }

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -73,7 +72,7 @@ func minimalMachineConfig(tweakers ...func(cloudinit.MachineConfig)) cloudinit.M
 		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineNonce:     "FAKE_NONCE",
-		MongoInfo: &authentication.MongoInfo{
+		MongoInfo: &mongo.MongoInfo{
 			Password: "arble",
 			Info: mongo.Info{
 				CACert: "CA CERT\n" + testing.CACert,
@@ -176,7 +175,7 @@ var cloudinitTests = []cloudinitTest{
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -239,7 +238,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -284,7 +283,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
 			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
 			Series:             "quantal",
 			MachineNonce:       "FAKE_NONCE",
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
@@ -344,7 +343,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
 			Tools:                newSimpleTools("1.2.3-quantal-amd64"),
 			Series:               "quantal",
 			MachineNonce:         "FAKE_NONCE",
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Tag:      names.NewMachineTag("2/lxc/1"),
 				Password: "arble",
 				Info: mongo.Info{
@@ -384,7 +383,7 @@ start jujud-machine-2-lxc-1
 			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
 			Series:             "quantal",
 			MachineNonce:       "FAKE_NONCE",
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
@@ -418,7 +417,7 @@ aria2c --max-tries=0 --retry-wait=3 --check-certificate=false -d \$bin -o tools\
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -738,7 +737,7 @@ var verifyTests = []struct {
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.MongoInfo = &authentication.MongoInfo{
+		cfg.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				CACert: testing.CACert,
@@ -752,7 +751,7 @@ var verifyTests = []struct {
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.MongoInfo = &authentication.MongoInfo{
+		cfg.MongoInfo = &mongo.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"foo:35"},
 				CACert: testing.CACert,
@@ -765,11 +764,11 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.MongoInfo = &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
+		cfg.MongoInfo = &mongo.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.MongoInfo = &authentication.MongoInfo{
+		cfg.MongoInfo = &mongo.MongoInfo{
 			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				Addrs: []string{"host:98765"},
@@ -876,7 +875,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		AuthorizedKeys:   "sshkey1",
 		Series:           "quantal",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		MongoInfo: &authentication.MongoInfo{
+		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"host:98765"},
 				CACert: testing.CACert,
@@ -1042,7 +1041,7 @@ var windowsCloudinitTests = []cloudinitTest{
 			Jobs:               normalMachineJobs,
 			MachineNonce:       "FAKE_NONCE",
 			CloudInitOutputLog: cloudInitOutputLog,
-			MongoInfo: &authentication.MongoInfo{
+			MongoInfo: &mongo.MongoInfo{
 				Tag:      names.NewMachineTag("10"),
 				Password: "arble",
 				Info: mongo.Info{

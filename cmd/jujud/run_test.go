@@ -90,11 +90,11 @@ func (s *RunTestSuite) TestMissingAgent(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unit "foo" not found on this machine`)
 }
 
-func waitForResult(running <-chan *cmd.Context) (*cmd.Context, error) {
+func waitForResult(running <-chan *cmd.Context, timeout time.Duration) (*cmd.Context, error) {
 	select {
 	case result := <-running:
 		return result, nil
-	case <-time.After(testing.ShortWait):
+	case <-time.After(timeout):
 		return nil, fmt.Errorf("timeout")
 	}
 }
@@ -126,7 +126,7 @@ func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 	s.PatchValue(&AgentDir, c.MkDir())
 
 	channel := startRunAsync(c, []string{"--no-context", "echo done"})
-	ctx, err := waitForResult(channel)
+	ctx, err := waitForResult(channel, testing.LongWait)
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }
@@ -139,14 +139,15 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 	lock, err := getLock()
 	c.Assert(err, gc.IsNil)
 	lock.Lock("juju-run test")
+	defer lock.Unlock() // in case of failure
 
 	channel := startRunAsync(c, []string{"--no-context", "echo done"})
-	ctx, err := waitForResult(channel)
+	ctx, err := waitForResult(channel, testing.ShortWait)
 	c.Assert(err, gc.ErrorMatches, "timeout")
 
 	lock.Unlock()
 
-	ctx, err = waitForResult(channel)
+	ctx, err = waitForResult(channel, testing.LongWait)
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
 }

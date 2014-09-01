@@ -23,7 +23,6 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -1538,7 +1537,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	machineTag := names.NewMachineTag("1")
-	stateInfo := &authentication.MongoInfo{
+	stateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			CACert: coretesting.CACert,
 			Addrs:  []string{"localhost:123"},

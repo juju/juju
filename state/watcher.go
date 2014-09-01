@@ -1693,7 +1693,7 @@ func (w *idPrefixWatcher) initial() (set.Strings, error) {
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		if w.filterFn(doc.Id) {
+		if w.filterFn == nil || w.filterFn(doc.Id) {
 			ids.Add(doc.Id)
 		}
 	}
