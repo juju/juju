@@ -6,10 +6,13 @@
 package metricsmanager
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
@@ -21,7 +24,7 @@ func init() {
 
 // MetricsManager defines the methods on the metricsmanager API end point.
 type MetricsManager interface {
-	CleanupOldMetrics() error
+	CleanupOldMetrics(arg params.Entities) (params.ErrorResults, error)
 }
 
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
@@ -47,11 +50,28 @@ func NewMetricsManagerAPI(
 
 // CleanupOldMetrics removes old metrics from the collection.
 // TODO (mattyw) Returns result with all the delete metrics
-func (api *MetricsManagerAPI) CleanupOldMetrics() error {
-	err := api.state.CleanupOldMetrics()
-	if err != nil {
-		err = errors.Annotate(err, "failed to cleanup old metrics")
-		return err
+// The single arg params is expected to contain and environment uuid.
+// Even though the call will delete all metrics across environments
+// it serves to validate that the connection has access to at least one environment.
+func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	return nil
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, arg := range args.Entities {
+		if arg.Tag != api.state.EnvironTag().String() {
+			err := fmt.Errorf("invalid environment uuid")
+			result.Results[i].Error = common.ServerError(err)
+			return result, err
+		}
+		err := api.state.CleanupOldMetrics()
+		if err != nil {
+			err = errors.Annotate(err, "failed to cleanup old metrics")
+			result.Results[i].Error = common.ServerError(err)
+			return result, err
+		}
+	}
+	return result, nil
 }

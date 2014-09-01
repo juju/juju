@@ -124,7 +124,7 @@ func (st *State) CleanupOldMetrics() error {
 	iter := c.Find(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
-	}).Select(bson.D{{"_id", 1}}).Iter()
+	}).Select(bson.M{"_id": 1}).Iter()
 	var doc metricBatchDoc
 	for iter.Next(&doc) {
 		err := st.DeleteMetricBatch(doc.UUID)
@@ -162,7 +162,7 @@ func (m *MetricBatch) SetSent() error {
 		C:      metricsC,
 		Id:     m.UUID(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"sent", true}}}},
+		Update: bson.M{"$set": bson.M{"sent": true}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())

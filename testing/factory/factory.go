@@ -298,7 +298,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{state.Metric{factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds")}}
+		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds")}}
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)

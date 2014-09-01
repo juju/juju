@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -124,6 +125,8 @@ func (s *MetricSuite) TestDeleteMetric(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.MetricBatch(added.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	// We check the error explicitly to ensure the error message looks readable
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("metric %v not found", added.UUID()))
 }
 
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {

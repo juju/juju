@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/metricsmanager"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/testing/factory"
@@ -44,12 +45,26 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	newTime := time.Now()
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
-	err := s.metricsmanager.CleanupOldMetrics()
+	args := params.Entities{Entities: []params.Entity{
+		params.Entity{s.State.EnvironTag().String()},
+	}}
+	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	_, err = s.State.MetricBatch(oldMetric.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.State.MetricBatch(newMetric.UUID())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		params.Entity{"invalid"},
+	}}
+	result, err := s.metricsmanager.CleanupOldMetrics(args)
+	c.Assert(err, gc.ErrorMatches, "invalid environment uuid")
+	expectedError := apiservertesting.ServerError("invalid environment uuid")
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }
 
 func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) {

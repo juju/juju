@@ -8,27 +8,34 @@ package metricsmanager
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/base"
+	"github.com/juju/juju/state/api/params"
 )
 
 // Client provides access to the metrics manager api
 type Client struct {
 	base.ClientFacade
+	st     *api.State
 	facade base.FacadeCaller
 }
 
 // NewClient creates a new client for accessing the metricsmanager api
-func NewClient(st base.APICallCloser) *Client {
+func NewClient(st *api.State) *Client {
 	frontend, backend := base.NewClientFacade(st, "MetricsManager")
-	return &Client{ClientFacade: frontend, facade: backend}
+	return &Client{ClientFacade: frontend, st: st, facade: backend}
 }
 
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
-	err := c.facade.FacadeCall("CleanupOldMetrics", nil, nil)
+	p := params.Entities{Entities: []params.Entity{
+		params.Entity{c.st.EnvironTag()},
+	}}
+	results := new(params.ErrorResults)
+	err := c.facade.FacadeCall("CleanupOldMetrics", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return nil
+	return results.OneError()
 }
