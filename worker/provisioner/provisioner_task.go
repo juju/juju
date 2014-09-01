@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -92,11 +91,8 @@ type provisionerTask struct {
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
 	machines map[string]*apiprovisioner.Machine
-
 	// channel of machine ids which are churning.
 	churningChan chan []string
-	// mutex to serialise access to machine processing functionality.
-	processMutex sync.Mutex
 }
 
 // churningWait is the time interval between re-processing churning machines.
@@ -226,8 +222,6 @@ func (task *provisionerTask) triggerChurning(churning []string) {
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
-	task.processMutex.Lock()
-	defer task.processMutex.Unlock()
 	logger.Tracef("processMachines(%v)", ids)
 	// Populate the tasks maps of current instances and machines.
 	err := task.populateMachineMaps(ids)
