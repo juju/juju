@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -25,8 +24,8 @@ import (
 // FakeStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func FakeStateInfo(machineId string) *authentication.MongoInfo {
-	return &authentication.MongoInfo{
+func FakeStateInfo(machineId string) *mongo.MongoInfo {
+	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: testing.CACert,
