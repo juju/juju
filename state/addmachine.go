@@ -246,11 +246,10 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	mdoc := machineDocForTemplate(template, strconv.Itoa(seq))
-	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
-	ops = append(ops, st.insertNewContainerRefOp(mdoc.Id))
+	machineOp, otherOps := st.insertNewMachineOps(mdoc, template)
+	otherOps = append(otherOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
-		ops = append(ops, txn.Op{
+		otherOps = append(otherOps, txn.Op{
 			C:      instanceDataC,
 			Id:     mdoc.Id,
 			Assert: txn.DocMissing,
@@ -266,6 +265,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
+	ops := append(otherOps, machineOp)
 	return mdoc, ops, nil
 }
 
@@ -321,14 +321,14 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	mdoc := machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
-	ops = append(ops,
+	machineOp, otherOps := st.insertNewMachineOps(mdoc, template)
+	otherOps = append(otherOps,
 		// Update containers record for host machine.
 		st.addChildToContainerRefOp(parentId, mdoc.Id),
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(mdoc.Id),
 	)
+	ops := append(otherOps, machineOp)
 	return mdoc, ops, nil
 }
 
@@ -382,15 +382,16 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	}
 	mdoc := machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(parentDoc, parentTemplate)...)
-	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
+	parentOp, parentOtherOps := st.insertNewMachineOps(parentDoc, parentTemplate)
+	machineOp, otherOps := st.insertNewMachineOps(mdoc, template)
+	ops := append(parentOtherOps, otherOps...)
 	ops = append(ops,
 		// The host machine doesn't exist yet, create a new containers record.
 		st.insertNewContainerRefOp(mdoc.Id),
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
 	)
+	ops = append(ops, parentOp, machineOp)
 	return mdoc, ops, nil
 }
 
@@ -413,14 +414,15 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 // insertNewMachineOps returns operations to insert the given machine
 // document into the database, based on the given template. Only the
 // constraints and networks are used from the template.
-func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) []txn.Op {
-	return []txn.Op{
-		{
-			C:      machinesC,
-			Id:     mdoc.Id,
-			Assert: txn.DocMissing,
-			Insert: mdoc,
-		},
+func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (machineOp txn.Op, otherOps []txn.Op) {
+	machineOp = txn.Op{
+		C:      machinesC,
+		Id:     mdoc.Id,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
+	}
+
+	return machineOp, []txn.Op{
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status: params.StatusPending,
