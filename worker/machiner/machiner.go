@@ -80,6 +80,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 			continue
 		}
 		address := network.NewAddress(ip.String(), network.ScopeUnknown)
+		// Filter out link-local addresses as we cannot reliably use them.
 		if address.Scope == network.ScopeLinkLocal {
 			continue
 		}

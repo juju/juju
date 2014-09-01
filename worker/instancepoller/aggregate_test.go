@@ -38,6 +38,7 @@ var _ instance.Instance = (*testInstance)(nil)
 func (t *testInstance) Id() instance.Id {
 	return t.id
 }
+
 func (t *testInstance) Addresses() ([]network.Address, error) {
 	if t.err != nil {
 		return nil, t.err
