@@ -105,6 +105,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
+	// si := paramsStateServingInfoToStateStateServingInfo(&servingInfo)
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
 		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
@@ -113,6 +114,19 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, err
 	}
 	return st, m, nil
+}
+
+// convert params.StateServingInfo to a state.StateServingInfo.
+// This avoids state having a dependency on api/params.
+func paramsStateServingInfoToStateStateServingInfo(si *params.StateServingInfo) state.StateServingInfo {
+	return  state.StateServingInfo {
+        	APIPort:   si.APIPort,
+        StatePort: si.StatePort,
+        Cert: si.Cert,
+        PrivateKey: si.PrivateKey,
+        SharedSecret: si.SharedSecret,
+        SystemIdentity: si.SystemIdentity,
+	}
 }
 
 func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {

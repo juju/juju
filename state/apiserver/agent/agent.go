@@ -86,7 +86,7 @@ func (api *API) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, 
 	return
 }
 
-func (api *API) StateServingInfo() (result params.StateServingInfo, err error) {
+func (api *API) StateServingInfo() (result state.StateServingInfo, err error) {
 	if !api.auth.AuthEnvironManager() {
 		err = common.ErrPerm
 		return

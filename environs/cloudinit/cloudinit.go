@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -44,7 +45,7 @@ type MachineConfig struct {
 	// This must only be set if the Bootstrap field is true
 	// (state servers started subsequently will acquire their serving info
 	// from another server)
-	StateServingInfo *params.StateServingInfo
+	StateServingInfo *state.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
 	// juju state database. Unless the new machine is running a state server

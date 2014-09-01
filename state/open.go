@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
@@ -111,7 +110,7 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 			C:      stateServersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
-			Insert: &params.StateServingInfo{},
+			Insert: &StateServingInfo{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
