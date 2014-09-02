@@ -11,11 +11,11 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -84,7 +84,7 @@ func (c *SyncToolsCommand) Init(args []string) error {
 }
 
 // syncToolsAPI provides an interface with a subset of the
-// state/api.Client API. This exists to enable mocking.
+// api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
 	UploadTools(r io.Reader, v version.Binary) (*coretools.Tools, error)

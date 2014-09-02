@@ -21,7 +21,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -32,7 +32,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -108,7 +107,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
+func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 	info := s.State.MongoConnectionInfo()
 	info.Password = "dummy-secret"
 	return info
@@ -249,7 +248,7 @@ var redialStrategy = utils.AttemptStrategy{
 
 // newState returns a new State that uses the given environment.
 // The environment must have already been bootstrapped.
-func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*state.State, error) {
+func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.State, error) {
 	password := environ.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")

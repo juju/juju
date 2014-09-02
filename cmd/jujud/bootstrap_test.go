@@ -25,8 +25,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -221,7 +220,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(&authentication.MongoInfo{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -272,7 +271,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&authentication.MongoInfo{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -306,7 +305,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&authentication.MongoInfo{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -327,7 +326,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&authentication.MongoInfo{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -341,7 +340,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
-func testOpenState(c *gc.C, info *authentication.MongoInfo, expectErrType error) {
+func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
@@ -360,7 +359,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	info := &authentication.MongoInfo{
+	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

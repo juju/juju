@@ -152,21 +152,6 @@ func stringOrEmpty(pstr *string) string {
 	return *pstr
 }
 
-// FindInstanceTools returns a ToolsList containing only those tools with which
-// it would be reasonable to start a new instance, given the supplied series and arch.
-func FindInstanceTools(cloudInst environs.ConfigGetter,
-	vers version.Number, series string, arch *string) (list coretools.List, err error) {
-
-	// Construct a tools filter.
-	// Discard all that are known to be irrelevant.
-	filter := coretools.Filter{
-		Number: vers,
-		Series: series,
-		Arch:   stringOrEmpty(arch),
-	}
-	return FindTools(cloudInst, vers.Major, vers.Minor, filter, DoNotAllowRetry)
-}
-
 // FindExactTools returns only the tools that match the supplied version.
 func FindExactTools(cloudInst environs.ConfigGetter,
 	vers version.Number, series string, arch string) (t *coretools.Tools, err error) {

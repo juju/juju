@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/api"
 	coretesting "github.com/juju/juju/testing"
 )
 

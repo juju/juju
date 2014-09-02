@@ -19,13 +19,13 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/mongo"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -51,7 +51,7 @@ type MachineConfig struct {
 	// (StateServer is set), there must be at least one state server address supplied.
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
-	MongoInfo *authentication.MongoInfo
+	MongoInfo *mongo.MongoInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new machine is running a state server (StateServer is

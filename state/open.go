@@ -12,11 +12,10 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
@@ -30,7 +29,7 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	st, err := open(info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,7 +43,7 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 	return st, nil
 }
 
-func open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
@@ -64,7 +63,7 @@ func open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := open(info, opts, policy)
 	if err != nil {
 		return nil, err
@@ -181,7 +180,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (_ *State, resultErr error) {
+func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
 	authenticated := false
 	if mongoInfo.Tag != nil {
@@ -246,7 +245,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
+func (st *State) MongoConnectionInfo() *mongo.MongoInfo {
 	return st.mongoInfo
 }
 

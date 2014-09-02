@@ -26,11 +26,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -88,7 +87,7 @@ type State struct {
 	// be used instead of creating a new runnner each time.
 	transactionRunner jujutxn.Runner
 	authenticated     bool
-	mongoInfo         *authentication.MongoInfo
+	mongoInfo         *mongo.MongoInfo
 	policy            Policy
 	db                *mgo.Database
 	watcher           *watcher.Watcher

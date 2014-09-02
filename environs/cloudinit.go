@@ -13,15 +13,14 @@ import (
 	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
 
@@ -43,7 +42,7 @@ func NewMachineConfig(
 	imageStream,
 	series string,
 	networks []string,
-	mongoInfo *authentication.MongoInfo,
+	mongoInfo *mongo.MongoInfo,
 	apiInfo *api.Info,
 ) (*cloudinit.MachineConfig, error) {
 	dataDir, err := paths.DataDir(series)
@@ -169,7 +168,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
-	mcfg.MongoInfo = &authentication.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	mcfg.MongoInfo = &mongo.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()

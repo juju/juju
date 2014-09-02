@@ -18,11 +18,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -94,7 +94,7 @@ func (job MachineJob) String() string {
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
-// Note the correspondence with MachineInfo in state/api/params.
+// Note the correspondence with MachineInfo in apiserver/params.
 type machineDoc struct {
 	Id            string `bson:"_id"`
 	Nonce         string
