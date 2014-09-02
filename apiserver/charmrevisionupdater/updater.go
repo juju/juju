@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.charmrevisionupdater")
+var logger = loggo.GetLogger("juju.apiserver.charmrevisionupdater")
 
 func init() {
 	common.RegisterStandardFacade("CharmRevisionUpdater", 0, NewCharmRevisionUpdaterAPI)

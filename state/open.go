@@ -264,8 +264,16 @@ func (st *State) Close() error {
 	}
 	st.mu.Unlock()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2, err3} {
+	for i, err := range []error{err1, err2, err3} {
 		if err != nil {
+			switch i {
+			case 0:
+				logger.Errorf("failed to stop state watcher: %v", err)
+			case 1:
+				logger.Errorf("failed to stop presence watcher: %v", err)
+			case 2:
+				logger.Errorf("failed to stop all manager: %v", err)
+			}
 			return err
 		}
 	}

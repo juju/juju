@@ -309,14 +309,14 @@ machine-0: 2014-03-24 22:34:25 INFO juju runner.go:262 worker: start "instancepo
 machine-0: 2014-03-24 22:34:25 INFO juju runner.go:262 worker: start "apiserver"
 machine-0: 2014-03-24 22:34:25 INFO juju runner.go:262 worker: start "resumer"
 machine-0: 2014-03-24 22:34:25 INFO juju runner.go:262 worker: start "cleaner"
-machine-0: 2014-03-24 22:34:25 INFO juju.state.apiserver apiserver.go:43 listening on "[::]:17070"
+machine-0: 2014-03-24 22:34:25 INFO juju.apiserver apiserver.go:43 listening on "[::]:17070"
 machine-0: 2014-03-24 22:34:25 INFO juju runner.go:262 worker: start "minunitsworker"
 machine-0: 2014-03-24 22:34:28 INFO juju runner.go:262 worker: start "api"
 machine-0: 2014-03-24 22:34:28 INFO juju apiclient.go:114 api: dialing "wss://localhost:17070/"
-machine-0: 2014-03-24 22:34:28 INFO juju.state.apiserver apiserver.go:131 [1] API connection from 127.0.0.1:36491
+machine-0: 2014-03-24 22:34:28 INFO juju.apiserver apiserver.go:131 [1] API connection from 127.0.0.1:36491
 machine-0: 2014-03-24 22:34:28 INFO juju apiclient.go:124 api: connection established
-machine-0: 2014-03-24 22:34:28 DEBUG juju.state.apiserver apiserver.go:120 <- [1] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":{"AuthTag":"machine-0","Password":"ARbW7iCV4LuMugFEG+Y4e0yr","Nonce":"user-admin:bootstrap"}}
-machine-0: 2014-03-24 22:34:28 DEBUG juju.state.apiserver apiserver.go:127 -> [1] machine-0 10.305679ms {"RequestId":1,"Response":{}} Admin[""].Login
+machine-0: 2014-03-24 22:34:28 DEBUG juju.apiserver apiserver.go:120 <- [1] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":{"AuthTag":"machine-0","Password":"ARbW7iCV4LuMugFEG+Y4e0yr","Nonce":"user-admin:bootstrap"}}
+machine-0: 2014-03-24 22:34:28 DEBUG juju.apiserver apiserver.go:127 -> [1] machine-0 10.305679ms {"RequestId":1,"Response":{}} Admin[""].Login
 machine-1: 2014-03-24 22:36:28 INFO juju.cmd supercommand.go:297 running juju-1.17.7.1-precise-amd64 [gc]
 machine-1: 2014-03-24 22:36:28 INFO juju.cmd.jujud machine.go:127 machine agent machine-1 start (1.17.7.1-precise-amd64 [gc])
 machine-1: 2014-03-24 22:36:28 DEBUG juju.agent agent.go:384 read agent config, format "1.18"
