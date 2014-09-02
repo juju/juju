@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -386,7 +387,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		tests = append(tests, testStruct{
 			about:  test.about,
 			params: test.params,
-			servingInfo: params.StateServingInfo{
+			servingInfo: state.StateServingInfo{
 				Cert:       "server cert",
 				PrivateKey: "server key",
 				StatePort:  3171,
