@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/exec"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 )
 

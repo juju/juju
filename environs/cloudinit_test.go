@@ -14,6 +14,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs"
@@ -23,8 +25,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -226,7 +227,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	}
 	if bootstrap {
 		cfg.Bootstrap = true
-		cfg.StateServingInfo = &params.StateServingInfo{
+		cfg.StateServingInfo = &state.StateServingInfo{
 			StatePort:  envConfig.StatePort(),
 			APIPort:    envConfig.APIPort(),
 			Cert:       testing.ServerCert,

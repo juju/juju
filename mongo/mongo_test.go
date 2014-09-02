@@ -19,11 +19,11 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -53,9 +53,13 @@ var testInfo = params.StateServingInfo{
 
 func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams {
 	return mongo.EnsureServerParams{
-		StateServingInfo: testInfo,
-		DataDir:          dataDir,
-		Namespace:        namespace,
+		StatePort:    testInfo.StatePort,
+		Cert:         testInfo.Cert,
+		PrivateKey:   testInfo.PrivateKey,
+		SharedSecret: testInfo.SharedSecret,
+
+		DataDir:   dataDir,
+		Namespace: namespace,
 	}
 }
 

@@ -10,13 +10,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
 
@@ -119,13 +119,13 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 // convert params.StateServingInfo to a state.StateServingInfo.
 // This avoids state having a dependency on api/params.
 func paramsStateServingInfoToStateStateServingInfo(si *params.StateServingInfo) state.StateServingInfo {
-	return  state.StateServingInfo {
-        	APIPort:   si.APIPort,
-        StatePort: si.StatePort,
-        Cert: si.Cert,
-        PrivateKey: si.PrivateKey,
-        SharedSecret: si.SharedSecret,
-        SystemIdentity: si.SystemIdentity,
+	return state.StateServingInfo{
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
 	}
 }
 

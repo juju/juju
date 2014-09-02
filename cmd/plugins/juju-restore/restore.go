@@ -23,6 +23,8 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -33,8 +35,6 @@ import (
 	"github.com/juju/juju/juju"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils/ssh"
 )
 

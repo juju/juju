@@ -11,10 +11,10 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 )
 

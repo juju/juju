@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -233,16 +233,16 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 	}
 
 	params := mongo.EnsureServerParams{
-        APIPort: si.APIPort,
-        StatePort: si.StatePort,
-        Cert: si.Cert,
-        PrivateKey: si.PrivateKey,
-        // this will be passed as the KeyFile argument to MongoDB
-        SharedSecret: si.SharedSecret,
-        SystemIdentity: si.SystemIdentity,
-		DataDir:          agentConfig.DataDir(),
-		Namespace:        agentConfig.Value(agent.Namespace),
-		OplogSize:        oplogSize,
+		APIPort:    si.APIPort,
+		StatePort:  si.StatePort,
+		Cert:       si.Cert,
+		PrivateKey: si.PrivateKey,
+		// this will be passed as the KeyFile argument to MongoDB
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
+		DataDir:        agentConfig.DataDir(),
+		Namespace:      agentConfig.Value(agent.Namespace),
+		OplogSize:      oplogSize,
 	}
 	return params, nil
 }

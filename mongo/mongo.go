@@ -140,12 +140,12 @@ func RemoveService(namespace string) error {
 // EnsureServerParams is a parameter struct for EnsureServer.
 type EnsureServerParams struct {
 	APIPort    int
-        StatePort  int
-        Cert       string
-        PrivateKey string
-        // this will be passed as the KeyFile argument to MongoDB
-        SharedSecret   string
-        SystemIdentity string
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret   string
+	SystemIdentity string
 
 	// DataDir is the machine agent data directory.
 	DataDir string

@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -33,7 +33,7 @@ var attributeParams = AgentConfigParams{
 	Nonce:             "a nonce",
 }
 
-var servingInfo = params.StateServingInfo{
+var servingInfo = state.StateServingInfo{
 	Cert:           "old cert",
 	PrivateKey:     "old key",
 	StatePort:      69,

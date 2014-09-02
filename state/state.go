@@ -101,13 +101,13 @@ type State struct {
 // This type is a copy of the type of the same name from the api/params package.
 // It is replicated here to avoid the state pacakge depending on api/params.
 type StateServingInfo struct {
-        APIPort    int
-        StatePort  int
-        Cert       string
-        PrivateKey string
-        // this will be passed as the KeyFile argument to MongoDB
-        SharedSecret   string
-        SystemIdentity string
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret   string
+	SystemIdentity string
 }
 
 // EnvironTag() returns the environment tag for the environment controlled by

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
