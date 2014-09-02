@@ -202,11 +202,6 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 		inst := newServer(c)
 		instances[i] = inst
 		defer inst.Destroy()
-		defer func() {
-			attemptLoop(c, strategy, "Remove()", func() error {
-				return Remove(session, getAddr(inst))
-			})
-		}()
 		key := fmt.Sprintf("key%d", i)
 		val := fmt.Sprintf("val%d", i)
 		tags := map[string]string{key: val}
