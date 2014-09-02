@@ -6,8 +6,8 @@ package main
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/api/usermanager"
 )
 
 type UserCommand struct {

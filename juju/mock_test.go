@@ -1,9 +1,9 @@
 package juju_test
 
 import (
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
 )
 
 type mockAPIState struct {

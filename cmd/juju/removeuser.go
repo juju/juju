@@ -39,8 +39,17 @@ func (c *RemoveUserCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
+type removeUserAPI interface {
+	RemoveUser(user string) error
+	Close() error
+}
+
+var getRemoveUserAPI = func(c *RemoveUserCommand) (removeUserAPI, error) {
+	return c.NewUserManagerClient()
+}
+
 func (c *RemoveUserCommand) Run(_ *cmd.Context) error {
-	client, err := c.NewUserManagerClient()
+	client, err := getRemoveUserAPI(c)
 	if err != nil {
 		return err
 	}

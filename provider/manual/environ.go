@@ -138,15 +138,6 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 		if err := environs.FinishMachineConfig(mcfg, e.Config()); err != nil {
 			return err
 		}
-		// If the tools are on the machine already, get a file:// scheme tools URL.
-		// TODO(axw) this can go once environs/bootstrap.Bootstrap takes care of
-		// serialising tools through cloudconfig/sshinit.
-		storageDir := e.StorageDir()
-		toolsStorageName := envtools.StorageName(mcfg.Tools.Version)
-		bootstrapStorage := e.Storage()
-		if url, _ := bootstrapStorage.URL(toolsStorageName); url == mcfg.Tools.URL {
-			mcfg.Tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
-		}
 		for k, v := range agentEnv {
 			mcfg.AgentEnvironment[k] = v
 		}

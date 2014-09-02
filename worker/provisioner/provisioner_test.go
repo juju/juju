@@ -16,6 +16,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
+	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
@@ -30,10 +34,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	apiprovisioner "github.com/juju/juju/state/api/provisioner"
-	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -456,7 +456,10 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, envStorage, availableVersions...)
 
 	// Extract the tools that we expect to actually match.
-	expectedList, err := tools.FindInstanceTools(s.Environ, currentVersion.Number, currentVersion.Series, nil)
+	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
+		Number: currentVersion.Number,
+		Series: currentVersion.Series,
+	}, tools.DoNotAllowRetry)
 	c.Assert(err, gc.IsNil)
 
 	// Create the machine and check the tools that get passed into StartInstance.

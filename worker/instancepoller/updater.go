@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -272,10 +272,14 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 
 func addressesEqual(a0, a1 []network.Address) bool {
 	if len(a0) != len(a1) {
+		logger.Tracef("address lists have different lengths %d != %d for %v != %v",
+			len(a0), len(a1), a0, a1)
 		return false
 	}
 	for i := range a0 {
 		if a0[i] != a1[i] {
+			logger.Tracef("address entry at offset %d has a different value for %v != %v",
+				i, a0, a1)
 			return false
 		}
 	}

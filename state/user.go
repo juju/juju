@@ -55,7 +55,7 @@ func (st *State) AddAdminUser(password string) (*User, error) {
 
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
-	if !names.IsValidUser(name) {
+	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
 	salt, err := utils.RandomSalt()

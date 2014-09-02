@@ -11,8 +11,8 @@ import (
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/version"
 )
 

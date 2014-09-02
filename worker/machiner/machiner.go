@@ -10,10 +10,10 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/machiner"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -80,6 +80,10 @@ func setMachineAddresses(m *machiner.Machine) error {
 			continue
 		}
 		address := network.NewAddress(ip.String(), network.ScopeUnknown)
+		// Filter out link-local addresses as we cannot reliably use them.
+		if address.Scope == network.ScopeLinkLocal {
+			continue
+		}
 		hostAddresses = append(hostAddresses, address)
 	}
 	if len(hostAddresses) == 0 {

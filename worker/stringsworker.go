@@ -6,7 +6,7 @@ package worker
 import (
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/state/api/watcher"
+	apiWatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state/watcher"
 )
 
