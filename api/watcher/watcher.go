@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-var logger = loggo.GetLogger("juju.state.api.watcher")
+var logger = loggo.GetLogger("juju.api.watcher")
 
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;

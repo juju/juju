@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.upgrader")
+var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
 func init() {
 	common.RegisterStandardFacade("Upgrader", 0, upgraderFacade)

@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.keymanager")
+var logger = loggo.GetLogger("juju.apiserver.keymanager")
 
 func init() {
 	common.RegisterStandardFacade("KeyManager", 0, NewKeyManagerAPI)

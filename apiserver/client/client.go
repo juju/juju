@@ -32,7 +32,7 @@ func init() {
 	common.RegisterStandardFacade("Client", 0, NewClient)
 }
 
-var logger = loggo.GetLogger("juju.state.apiserver.client")
+var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
 	state     *state.State
