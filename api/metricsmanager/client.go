@@ -8,9 +8,9 @@ package metricsmanager
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Client provides access to the metrics manager api
@@ -30,7 +30,7 @@ func NewClient(st *api.State) *Client {
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
 	p := params.Entities{Entities: []params.Entity{
-		params.Entity{c.st.EnvironTag()},
+		{c.st.EnvironTag()},
 	}}
 	results := new(params.ErrorResults)
 	err := c.facade.FacadeCall("CleanupOldMetrics", p, results)

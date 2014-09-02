@@ -11,8 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/api/metricsmanager"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/metricworker"

@@ -6,17 +6,15 @@
 package metricsmanager
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/apiserver/common"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.metricsmanager")
+var logger = loggo.GetLogger("juju.apiserver.metricsmanager")
 
 func init() {
 	common.RegisterStandardFacade("MetricsManager", 0, NewMetricsManagerAPI)
@@ -62,15 +60,13 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 	}
 	for i, arg := range args.Entities {
 		if arg.Tag != api.state.EnvironTag().String() {
-			err := fmt.Errorf("invalid environment uuid")
-			result.Results[i].Error = common.ServerError(err)
-			return result, err
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 		err := api.state.CleanupOldMetrics()
 		if err != nil {
 			err = errors.Annotate(err, "failed to cleanup old metrics")
 			result.Results[i].Error = common.ServerError(err)
-			return result, err
 		}
 	}
 	return result, nil

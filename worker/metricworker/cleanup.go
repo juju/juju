@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/state/api/metricsmanager"
+	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/worker"
 )
 
