@@ -458,62 +458,62 @@ var configTests = []configTest{
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
-			config.ProvisionerHarvestModeKey,
-			config.HarvestAll.Description(),
+			"provisioner-harvest-mode",
+			config.HarvestAll.String(),
 		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			config.ProvisionerHarvestModeKey: config.HarvestAll.Description(),
+			"provisioner-harvest-mode": config.HarvestAll.String(),
 		},
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
-			config.ProvisionerHarvestModeKey,
-			config.HarvestDestroyed.Description(),
+			"provisioner-harvest-mode",
+			config.HarvestDestroyed.String(),
 		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			config.ProvisionerHarvestModeKey: config.HarvestDestroyed.Description(),
+			"provisioner-harvest-mode": config.HarvestDestroyed.String(),
 		},
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
-			config.ProvisionerHarvestModeKey,
-			config.HarvestUnknown.Description(),
+			"provisioner-harvest-mode",
+			config.HarvestUnknown.String(),
 		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			config.ProvisionerHarvestModeKey: config.HarvestUnknown.Description(),
+			"provisioner-harvest-mode": config.HarvestUnknown.String(),
 		},
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
-			config.ProvisionerHarvestModeKey,
-			config.HarvestNone.Description(),
+			"provisioner-harvest-mode",
+			config.HarvestNone.String(),
 		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			config.ProvisionerHarvestModeKey: config.HarvestNone.Description(),
+			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	}, {
 		about: fmt.Sprintf(
 			"%s: %s",
-			config.ProvisionerHarvestModeKey,
+			"provisioner-harvest-mode",
 			"incorrect",
 		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
-			config.ProvisionerHarvestModeKey: "yes please",
+			"provisioner-harvest-mode": "yes please",
 		},
 		err: `unknown harvesting method: yes please`,
 	}, {
@@ -768,10 +768,10 @@ var configTests = []configTest{
 		about:       "Deprecated safe-mode failover",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			//			config.ProvisionerSafeModeKey:    true,
-			config.ProvisionerHarvestModeKey: config.HarvestNone.Description(),
+			"type":                     "my-type",
+			"name":                     "my-name",
+			"provisioner-safe-mode":    true,
+			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	},
 }
@@ -931,29 +931,29 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
 
 	cfg, err := config.New(config.UseDefaults, testing.Attrs{
-		"name": "name",
-		"type": "type",
-		config.ProvisionerSafeModeKey: false,
+		"name":                  "name",
+		"type":                  "type",
+		"provisioner-safe-mode": false,
 	})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(
-		cfg.ProvisionerHarvestMode().Description(),
+		cfg.ProvisionerHarvestMode().String(),
 		gc.Equals,
-		config.HarvestAll.Description(),
+		config.HarvestAll.String(),
 	)
 
 	cfg, err = config.New(config.UseDefaults, testing.Attrs{
-		"name": "name",
-		"type": "type",
-		config.ProvisionerSafeModeKey: true,
+		"name":                  "name",
+		"type":                  "type",
+		"provisioner-safe-mode": true,
 	})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(
-		cfg.ProvisionerHarvestMode().Description(),
+		cfg.ProvisionerHarvestMode().String(),
 		gc.Equals,
-		config.HarvestDestroyed.Description(),
+		config.HarvestDestroyed.String(),
 	)
 }
 
@@ -1070,7 +1070,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
-	if v, ok := test.attrs[config.ProvisionerHarvestModeKey]; ok {
+	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
 		hvstMeth, err := config.ParseHarvestMode(v.(string))
 		c.Assert(err, gc.IsNil)
 		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)

@@ -35,10 +35,10 @@ type ProvisionerTask interface {
 	Dying() <-chan struct{}
 	Err() error
 
-	// SetHarvestMode sets a flag to indicate how the provisioner
-	// task should harvest machines. See config.HarvestMode for
+	// SetHarvestMode sets a flag to indicate how the provisioner task
+	// should harvest machines. See config.HarvestMode for
 	// documentation of behavior.
-	SetHarvestMode(method config.HarvestMode)
+	SetHarvestMode(mode config.HarvestMode)
 }
 
 type MachineGetter interface {
@@ -133,10 +133,10 @@ func (task *provisionerTask) loop() error {
 	logger.Infof("Starting up provisioner task %s", task.machineTag)
 	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
-	// Don't allow the harvesting method to change until we have read
-	// at least one set of changes, which will populate the
-	// task.machines map. Otherwise we will potentially see all
-	// legitimate instances as unknown.
+	// Don't allow the harvesting mode to change until we have read at
+	// least one set of changes, which will populate the task.machines
+	// map. Otherwise we will potentially see all legitimate instances
+	// as unknown.
 	var harvestModeChan chan config.HarvestMode
 
 	// Not all provisioners have a retry channel.
@@ -161,14 +161,14 @@ func (task *provisionerTask) loop() error {
 				return errors.Annotate(err, "failed to process updated machines")
 			}
 			// We've seen a set of changes. Enable modification of
-			// harvesting method.
+			// harvesting mode.
 			harvestModeChan = task.harvestModeChan
 		case harvestMode := <-harvestModeChan:
 			if harvestMode == task.harvestMode {
 				break
 			}
 
-			logger.Infof("harvesting method changed to %s", harvestMode.Description())
+			logger.Infof("harvesting mode changed to %s", harvestMode)
 			task.harvestMode = harvestMode
 
 			if harvestMode.HarvestUnknown() {
@@ -187,9 +187,9 @@ func (task *provisionerTask) loop() error {
 }
 
 // SetHarvestMode implements ProvisionerTask.SetHarvestMode().
-func (task *provisionerTask) SetHarvestMode(method config.HarvestMode) {
+func (task *provisionerTask) SetHarvestMode(mode config.HarvestMode) {
 	select {
-	case task.harvestModeChan <- method:
+	case task.harvestModeChan <- mode:
 	case <-task.Dying():
 	}
 }
@@ -243,7 +243,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		logger.Infof(
 			"%s is set to %s; unknown instances not stopped %v",
 			config.ProvisionerHarvestModeKey,
-			task.harvestMode.Description(),
+			task.harvestMode.String(),
 			instanceIds(unknown),
 		)
 		unknown = nil
@@ -252,7 +252,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		logger.Infof(
 			`%s is set to "%s"; will not harvest %s`,
 			config.ProvisionerHarvestModeKey,
-			task.harvestMode.Description(),
+			task.harvestMode.String(),
 			instanceIds(stopping),
 		)
 		stopping = nil
@@ -293,8 +293,8 @@ func instanceIds(instances []instance.Instance) []string {
 	return ids
 }
 
-// Update task.instances. Update task.machines map if a list of IDs is
-// given.
+// populateMachineMaps updates task.instances. Also updates
+// task.machines map if a list of IDs is given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instance.Instance)
 

@@ -908,7 +908,7 @@ func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
 
 	// Switch to reaping on Destroyed machines.
 	attrs := map[string]interface{}{
-		config.ProvisionerHarvestModeKey: config.HarvestDestroyed.Description(),
+		"provisioner-harvest-mode": config.HarvestDestroyed.String(),
 	}
 	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
@@ -919,9 +919,9 @@ func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
 	select {
 	case newCfg := <-cfgObserver:
 		c.Assert(
-			newCfg.ProvisionerHarvestMode().Description(),
+			newCfg.ProvisionerHarvestMode().String(),
 			gc.Equals,
-			config.HarvestDestroyed.Description(),
+			config.HarvestDestroyed.String(),
 		)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("PA did not action config change")

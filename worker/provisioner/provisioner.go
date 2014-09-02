@@ -107,7 +107,7 @@ var getToolsFinder = func(st *apiprovisioner.State) ToolsFinder {
 }
 
 // getStartTask creates a new worker for the provisioner,
-func (p *provisioner) getStartTask(harvestingMethod config.HarvestMode) (ProvisionerTask, error) {
+func (p *provisioner) getStartTask(harvestMode config.HarvestMode) (ProvisionerTask, error) {
 	auth, err := authentication.NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func (p *provisioner) getStartTask(harvestingMethod config.HarvestMode) (Provisi
 
 	task := NewProvisionerTask(
 		machineTag,
-		harvestingMethod,
+		harvestMode,
 		p.st,
 		getToolsFinder(p.st),
 		machineWatcher,
@@ -181,8 +181,8 @@ func (p *environProvisioner) loop() error {
 	}
 	p.broker = p.environ
 
-	harvestingMethod := p.environ.Config().ProvisionerHarvestMode()
-	task, err := p.getStartTask(harvestingMethod)
+	harvestMode := p.environ.Config().ProvisionerHarvestMode()
+	task, err := p.getStartTask(harvestMode)
 	if err != nil {
 		return err
 	}

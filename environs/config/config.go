@@ -64,6 +64,7 @@ const (
 	fallbackLtsSeries string = "precise"
 )
 
+// TODO(katco-): Please grow this over time.
 // Centralized place to store values of config keys. This transitions
 // mistakes in referencing key-values to a compile-time error.
 const (
@@ -95,16 +96,17 @@ func ParseHarvestMode(description string) (HarvestMode, error) {
 type HarvestMode uint32
 
 const (
-	// None signifies that Juju should not harvest any machines.
+	// HarvestNone signifies that Juju should not harvest any
+	// machines.
 	HarvestNone HarvestMode = 1 << iota
-	// Unknown signifies that Juju should only harvest machines which
-	// exist, but we don't know about.
+	// HarvestUnknown signifies that Juju should only harvest machines
+	// which exist, but we don't know about.
 	HarvestUnknown
-	// Destroyed signifies that Juju should only harvest machines
-	// which have been explicitly released by the user through a
-	// destroy of a service/environment/unit.
+	// HarvestDestroyed signifies that Juju should only harvest
+	// machines which have been explicitly released by the user
+	// through a destroy of a service/environment/unit.
 	HarvestDestroyed
-	// All signifies that Juju should harvest both unknown and
+	// HarvestAll signifies that Juju should harvest both unknown and
 	// destroyed instances. ♫ Don't fear the reaper. ♫
 	HarvestAll HarvestMode = HarvestUnknown | HarvestDestroyed
 )
@@ -118,8 +120,8 @@ var harvestingMethodToFlag = map[HarvestMode]string{
 	HarvestDestroyed: "destroyed",
 }
 
-// Description returns the description of the harvesting method.
-func (method HarvestMode) Description() string {
+// String returns the description of the harvesting mode.
+func (method HarvestMode) String() string {
 	if description, ok := harvestingMethodToFlag[method]; ok {
 		return description
 	}
@@ -356,15 +358,15 @@ func (cfg *Config) processDeprecatedAttributes() {
 
 			var harvestModeDescr string
 			if safeMode {
-				harvestModeDescr = HarvestDestroyed.Description()
+				harvestModeDescr = HarvestDestroyed.String()
 			} else {
-				harvestModeDescr = HarvestAll.Description()
+				harvestModeDescr = HarvestAll.String()
 			}
 
 			cfg.defined[ProvisionerHarvestModeKey] = harvestModeDescr
 
 			logger.Infof(
-				`Based on your "%s" setting, configuring "%s" to "%s" for this session.`,
+				`Based on your "%s" setting, configuring "%s" to "%s".`,
 				ProvisionerSafeModeKey,
 				ProvisionerHarvestModeKey,
 				harvestModeDescr,
@@ -841,7 +843,7 @@ func (c *Config) CharmStoreAuth() (string, bool) {
 	return auth, auth != ""
 }
 
-// ProvisionerHarvestMethod reports the harvesting methodology the
+// ProvisionerHarvestMode reports the harvesting methodology the
 // provisioner should take.
 func (c *Config) ProvisionerHarvestMode() HarvestMode {
 	if v, ok := c.defined[ProvisionerHarvestModeKey].(string); ok {

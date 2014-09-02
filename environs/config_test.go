@@ -441,11 +441,11 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarning(c *gc.C) {
 
 	// Test that the warning is logged.
-	attrs := testing.Attrs{config.ProvisionerSafeModeKey: true}
+	attrs := testing.Attrs{"provisioner-safe-mode": true}
 	expected := fmt.Sprintf(
 		`Config attribute "%s" has been deprecated. Please utilize the "%s" config attribute instead.`,
-		config.ProvisionerSafeModeKey,
-		config.ProvisionerHarvestModeKey,
+		"provisioner-safe-mode",
+		"provisioner-harvest-mode",
 	)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
@@ -463,7 +463,7 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 
 func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 	attrs := testing.Attrs{"type": "null"}
-	expected := `Provider type "null" has been renamed to "manual".\nPlease update your environment configuration.`
+	expected := `Provider type "null" has been renamed to "manual".Please update your environment configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
