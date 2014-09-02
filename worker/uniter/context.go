@@ -40,8 +40,6 @@ type missingHookError struct {
 	hookName string
 }
 
-type actionParams map[string]interface{}
-
 func (e *missingHookError) Error() string {
 	return e.hookName + " does not exist"
 }
@@ -54,6 +52,13 @@ func IsMissingHookError(err error) bool {
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
+
+	// state is the handle to the uniter State so that HookContext can make
+	// API calls on the stateservice.
+	// NOTE: We would like to be rid of the fake-remote-Unit and switch
+	// over fully to API calls on State.  This adds that ability, but we're
+	// not fully there yet.
+	state *uniter.State
 
 	// privateAddress is the cached value of the unit's private
 	// address.
@@ -69,15 +74,9 @@ type HookContext struct {
 	// id identifies the context.
 	id string
 
-	// actionTag is the handle to the action, if the hook was an action.
-	// This is necessary for calling back for ActionFailed / ActionCompleted.
-	actionTag *names.ActionTag
-
-	// actionParams holds the set of arguments passed with the action.
-	actionParams map[string]interface{}
-
-	// actionResults holds the values set by action-set and action-fail.
-	actionResults actionResults
+	// actionData contains the values relevant to the run of an Action:
+	// its tag, its parameters, and its results.
+	actionData *actionData
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -113,10 +112,6 @@ type HookContext struct {
 
 	// canAddMetrics specifies whether the hook allows recording metrics
 	canAddMetrics bool
-
-	// state is the handle to the uniter State so that HookContext can make
-	// API calls on the stateservice.
-	state *uniter.State
 }
 
 func NewHookContext(
@@ -131,9 +126,8 @@ func NewHookContext(
 	apiAddrs []string,
 	serviceOwner string,
 	proxySettings proxy.Settings,
-	actionParams map[string]interface{},
-	actionTag *names.ActionTag,
 	canAddMetrics bool,
+	actionData *actionData,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
@@ -147,9 +141,8 @@ func NewHookContext(
 		apiAddrs:       apiAddrs,
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
-		actionParams:   actionParams,
-		actionTag:      actionTag,
 		canAddMetrics:  canAddMetrics,
+		actionData:     actionData,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -162,10 +155,6 @@ func NewHookContext(
 		return nil, err
 	}
 
-	ctx.actionResults = actionResults{
-		Results: map[string]interface{}{},
-		Status:  actionStatusInit,
-	}
 	return ctx, nil
 }
 
@@ -208,15 +197,23 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+// ActionParams simply returns the arguments to the Action.
 func (ctx *HookContext) ActionParams() map[string]interface{} {
-	return ctx.actionParams
+	if ctx.actionData != nil {
+		return ctx.actionData.ActionParams
+	}
+	// if ActionData was nil, it wasn't an Action, so this is meaningless.
+	return map[string]interface{}{}
 }
 
 // SetActionFailed sets the state of the action to "fail" and sets the results
 // message to the string argument.
 func (ctx *HookContext) SetActionFailed(message string) {
-	ctx.actionResults.Message = message
-	ctx.actionResults.Status = actionStatusFailed
+	// if ActionData was nil, it wasn't an Action, so this is meaningless.
+	if ctx.actionData != nil {
+		ctx.actionData.ResultsMessage = message
+		ctx.actionData.ActionFailed = true
+	}
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -384,20 +381,16 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 	}
 
 	// If it was not an Action, just short-circuit to return err.
-	if ctx.actionTag == nil {
+	if ctx.actionData == nil {
 		return err
 	}
 
-	// If the state handle was nil, we cannot call home and this will panic.
-	if ctx.state == nil {
-		return errors.New("action cannot call home, state handle undefined")
-	}
-
-	// Otherwise, set up for handling ActionFinish
-	message := ctx.actionResults.Message
-	results := ctx.actionResults.Results
+	// Otherwise, set up for handling ActionFinish.
+	message := ctx.actionData.ResultsMessage
+	results := ctx.actionData.ResultsMap
+	tag := ctx.actionData.ActionTag
 	status := params.ActionCompleted
-	if ctx.actionResults.Status == actionStatusFailed {
+	if ctx.actionFailed() {
 		status = params.ActionFailed
 	}
 
@@ -411,7 +404,7 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		status = params.ActionFailed
 	}
 
-	callErr := ctx.state.ActionFinish(*ctx.actionTag, status, results, message)
+	callErr := ctx.state.ActionFinish(tag, status, results, message)
 	if callErr != nil {
 		if err != nil {
 			err = errors.Wrap(err, callErr)
@@ -457,7 +450,7 @@ func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmD
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
-	} else if ctx.actionResults.Status != actionStatusFailed {
+	} else if !ctx.actionFailed() {
 		// If the action has already failed before it is run, there's
 		// a bigger problem, probably validation failure.
 		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
@@ -718,15 +711,31 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationS
 	return settings, nil
 }
 
-// actionResults contains the results of an action, and any response message.
-type actionResults struct {
-	Message string
-	Status  string
-	Results map[string]interface{}
+// actionData contains the tag, parameters, and results of an Action.
+type actionData struct {
+	ActionTag      names.ActionTag
+	ActionParams   map[string]interface{}
+	ActionFailed   bool
+	ResultsMessage string
+	ResultsMap     map[string]interface{}
 }
 
-// actionStatus messages define the possible states of a completed Action.
-const (
-	actionStatusInit   = "init"
-	actionStatusFailed = "fail"
-)
+// newActionData builds a suitable actionData struct with no nil members.
+// this should only be called in the event that an Action hook is being requested.
+func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionData {
+	return &actionData{
+		ActionTag:    *tag,
+		ActionParams: params,
+		ResultsMap:   map[string]interface{}{},
+	}
+}
+
+// actionFailed resolves the status of an Action without forcing the user to
+// dive into the actionData state.  If the hook wasn't an Action, then it
+// cannot be a failed Action.
+func (ctx *HookContext) actionFailed() bool {
+	if ctx.actionData != nil {
+		return ctx.actionData.ActionFailed
+	}
+	return false
+}
