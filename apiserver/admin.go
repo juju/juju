@@ -11,11 +11,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 )
 

@@ -17,11 +17,11 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/apiserver/params"
 )
 
 var logger = loggo.GetLogger("juju.state.api")

@@ -12,6 +12,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
@@ -19,8 +21,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/apiserver/client"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 

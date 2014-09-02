@@ -18,10 +18,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

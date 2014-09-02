@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
 )
 

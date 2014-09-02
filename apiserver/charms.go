@@ -25,8 +25,8 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.

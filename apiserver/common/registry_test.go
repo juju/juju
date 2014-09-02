@@ -10,10 +10,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 

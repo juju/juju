@@ -14,8 +14,8 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )

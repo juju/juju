@@ -9,13 +9,13 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/networker"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/networker"
-	"github.com/juju/juju/apiserver/params"
 	statetesting "github.com/juju/juju/state/testing"
 )
 

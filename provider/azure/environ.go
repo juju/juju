@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/apiserver/params"
 )
 
 const (

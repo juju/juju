@@ -15,6 +15,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -24,8 +26,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

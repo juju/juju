@@ -20,12 +20,12 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 

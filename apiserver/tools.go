@@ -16,12 +16,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

@@ -15,9 +15,9 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/utils/ssh"
 )
 

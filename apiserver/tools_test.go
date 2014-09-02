@@ -15,11 +15,11 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/apiserver/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

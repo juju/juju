@@ -11,15 +11,15 @@ import (
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 

@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/instance"
 )
 
 // State provides access to an agent's view of the state.

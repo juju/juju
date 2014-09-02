@@ -6,10 +6,10 @@ package rsyslog
 import (
 	"fmt"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 const rsyslogAPI = "Rsyslog"

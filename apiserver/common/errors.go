@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/txn"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 type notSupportedError struct {

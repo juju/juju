@@ -9,11 +9,11 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"

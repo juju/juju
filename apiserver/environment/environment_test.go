@@ -6,12 +6,12 @@ package environment_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/environment"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 )
 
 type environmentSuite struct {

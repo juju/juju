@@ -18,6 +18,7 @@ import (
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"

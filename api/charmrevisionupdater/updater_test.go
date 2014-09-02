@@ -8,10 +8,10 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 )
 
 type versionUpdaterSuite struct {

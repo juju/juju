@@ -13,11 +13,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/api"
 )
 
 var logger = loggo.GetLogger("juju.api")

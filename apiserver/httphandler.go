@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // errorSender implementations send errors back to the caller.

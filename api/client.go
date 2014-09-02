@@ -23,11 +23,11 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 
+	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

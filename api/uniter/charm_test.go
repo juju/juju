@@ -7,8 +7,8 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/api/uniter"
+	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type charmSuite struct {

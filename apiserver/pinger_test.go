@@ -11,10 +11,10 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/rpc"
 	coretesting "github.com/juju/juju/testing"
 )
 

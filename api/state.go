@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charmrevisionupdater"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 // Login authenticates as the entity with the given name and password.

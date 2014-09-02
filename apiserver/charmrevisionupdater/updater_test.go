@@ -9,12 +9,12 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 )
 
 type charmVersionSuite struct {

@@ -6,11 +6,11 @@ package upgrader
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 )

@@ -9,11 +9,11 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

@@ -6,9 +6,9 @@ package testing
 import (
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api/watcher"
 	statetesting "github.com/juju/juju/state/testing"
 )
 

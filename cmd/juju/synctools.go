@@ -11,11 +11,11 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/apiserver/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

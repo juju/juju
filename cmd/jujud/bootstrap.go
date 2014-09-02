@@ -22,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"

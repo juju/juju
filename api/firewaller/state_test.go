@@ -6,9 +6,9 @@ package firewaller_test
 import (
 	gc "launchpad.net/gocheck"
 
+	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	apitesting "github.com/juju/juju/api/testing"
 	statetesting "github.com/juju/juju/state/testing"
 )
 

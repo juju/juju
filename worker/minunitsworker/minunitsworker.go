@@ -6,8 +6,8 @@ package minunitsworker
 import (
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
 )
 

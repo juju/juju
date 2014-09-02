@@ -6,8 +6,8 @@ package client
 import (
 	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 )
 
 // ServiceGet returns the configuration for a service.

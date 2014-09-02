@@ -8,9 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	statetesting "github.com/juju/juju/state/testing"
 )
 

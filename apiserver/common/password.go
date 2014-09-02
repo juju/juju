@@ -8,8 +8,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.common")

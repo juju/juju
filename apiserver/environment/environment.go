@@ -4,8 +4,8 @@
 package environment
 
 import (
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/state"
 )
 
 func init() {

@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 // Unit represents a juju unit as seen by a firewaller worker.

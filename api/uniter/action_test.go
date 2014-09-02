@@ -7,9 +7,9 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 type actionSuite struct {

@@ -4,8 +4,8 @@
 package authentication
 
 import (
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/state"
 )
 
 // FindEntityAuthenticator looks up the authenticator for the entity identified tag.

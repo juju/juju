@@ -9,8 +9,8 @@ import (
 
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/state"
 )
 
 func init() {

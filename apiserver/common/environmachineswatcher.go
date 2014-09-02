@@ -6,8 +6,8 @@ package common
 import (
 	"fmt"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 

@@ -13,11 +13,11 @@ import (
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/charm.v3"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
 )
 

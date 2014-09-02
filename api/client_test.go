@@ -23,10 +23,10 @@ import (
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/constraints"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
+	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 type clientSuite struct {

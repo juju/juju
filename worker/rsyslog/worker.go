@@ -16,9 +16,9 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cert"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/cert"
 	"github.com/juju/juju/utils/syslog"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"

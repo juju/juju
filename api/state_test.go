@@ -8,9 +8,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/api"
 	coretesting "github.com/juju/juju/testing"
 )
 

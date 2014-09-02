@@ -5,8 +5,8 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/names"
 )

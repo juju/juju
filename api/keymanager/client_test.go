@@ -8,12 +8,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/api/keymanager"
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )

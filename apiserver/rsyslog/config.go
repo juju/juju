@@ -3,9 +3,9 @@ package rsyslog
 import (
 	"net"
 
+	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
-	apirsyslog "github.com/juju/juju/api/rsyslog"
 )
 
 // newRsyslogConfig creates a new instance of the RsyslogConfig.

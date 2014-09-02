@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 

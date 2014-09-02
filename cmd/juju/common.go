@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v3"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/api"
 )
 
 // destroyPreparedEnviron destroys the environment and logs an error if it fails.

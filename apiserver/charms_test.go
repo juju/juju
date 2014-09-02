@@ -21,10 +21,10 @@ import (
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing/factory"
 )
 

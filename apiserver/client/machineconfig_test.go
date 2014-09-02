@@ -10,12 +10,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/apiserver/client"
-	"github.com/juju/juju/apiserver/params"
 	coretools "github.com/juju/juju/tools"
 )
 

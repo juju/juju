@@ -9,8 +9,8 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/constraints"
 )
 
 type getSuite struct {

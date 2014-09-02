@@ -6,9 +6,9 @@ package state
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )

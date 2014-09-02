@@ -7,10 +7,10 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/logger"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
 

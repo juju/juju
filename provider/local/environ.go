@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"

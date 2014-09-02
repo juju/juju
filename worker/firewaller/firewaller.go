@@ -9,13 +9,13 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
+	apifirewaller "github.com/juju/juju/api/firewaller"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	apifirewaller "github.com/juju/juju/api/firewaller"
-	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )

@@ -14,10 +14,10 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/ssh"
 )
 

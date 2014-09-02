@@ -6,11 +6,11 @@ package rsyslog_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/rsyslog"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )

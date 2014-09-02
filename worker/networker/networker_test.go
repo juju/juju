@@ -17,11 +17,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apinetworker "github.com/juju/juju/api/networker"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/api"
-	apinetworker "github.com/juju/juju/api/networker"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/networker"

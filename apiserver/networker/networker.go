@@ -7,10 +7,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
 
