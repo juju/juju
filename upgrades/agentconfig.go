@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 var (

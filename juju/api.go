@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 )
 
 var logger = loggo.GetLogger("juju.api")

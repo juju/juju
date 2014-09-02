@@ -15,7 +15,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // RunCommand is responsible for running arbitrary commands on remote machines.

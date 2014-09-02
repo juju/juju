@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/utils/ssh"
 )
 

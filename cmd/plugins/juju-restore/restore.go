@@ -33,8 +33,8 @@ import (
 	"github.com/juju/juju/juju"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/utils/ssh"
 )
 

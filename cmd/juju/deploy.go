@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 )
 
 type DeployCommand struct {

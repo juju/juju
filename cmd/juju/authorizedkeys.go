@@ -8,7 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/api/keymanager"
+	"github.com/juju/juju/api/keymanager"
 )
 
 var authKeysDoc = `

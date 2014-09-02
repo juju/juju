@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 

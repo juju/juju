@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	ucharm "github.com/juju/juju/worker/uniter/charm"

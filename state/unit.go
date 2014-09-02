@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -64,7 +64,7 @@ const (
 )
 
 // unitDoc represents the internal state of a unit in MongoDB.
-// Note the correspondence with UnitInfo in state/apiserver/params.
+// Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
 	Name         string `bson:"_id"`
 	Service      string

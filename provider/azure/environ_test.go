@@ -36,8 +36,8 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/api"
-	apiparams "github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/api"
+	apiparams "github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )

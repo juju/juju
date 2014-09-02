@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/juju/charm.v3/hooks"
 
-	apiuniter "github.com/juju/juju/state/api/uniter"
+	apiuniter "github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )

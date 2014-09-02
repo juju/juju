@@ -9,7 +9,7 @@ import (
 	"os"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/api/keymanager"
+	"github.com/juju/juju/api/keymanager"
 	"github.com/juju/juju/utils/ssh"
 )
 

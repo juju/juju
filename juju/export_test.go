@@ -2,7 +2,7 @@ package juju
 
 import (
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 )
 
 var (

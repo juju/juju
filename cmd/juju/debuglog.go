@@ -12,7 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 )
 
 type DebugLogCommand struct {

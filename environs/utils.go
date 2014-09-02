@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 )
 
 // GetStorage creates an Environ from the config in state and returns

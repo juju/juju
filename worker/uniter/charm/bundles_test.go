@@ -22,8 +22,8 @@ import (
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/uniter"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )

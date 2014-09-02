@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 	coretesting "github.com/juju/juju/testing"
 )
 

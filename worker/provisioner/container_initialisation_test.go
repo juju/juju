@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	apiprovisioner "github.com/juju/juju/state/api/provisioner"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"

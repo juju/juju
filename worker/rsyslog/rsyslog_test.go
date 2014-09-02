@@ -20,7 +20,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/syslog"
 	"github.com/juju/juju/worker/rsyslog"

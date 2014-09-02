@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/api"
 )
 
 var logger = loggo.GetLogger("juju.cmd.envcmd")

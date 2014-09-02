@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	apifirewaller "github.com/juju/juju/state/api/firewaller"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
-	"github.com/juju/juju/state/apiserver/params"
+	apifirewaller "github.com/juju/juju/api/firewaller"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )

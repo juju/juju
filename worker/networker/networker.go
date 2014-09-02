@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/network"
-	apinetworker "github.com/juju/juju/state/api/networker"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
+	apinetworker "github.com/juju/juju/api/networker"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
