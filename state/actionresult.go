@@ -20,9 +20,6 @@ const (
 
 	// ActionCompleted indicates that the action ran to completion as intended.
 	ActionCompleted ActionStatus = "complete"
-
-	// ActionUnknown is used to show an indeterminate result state.
-	ActionUnknown ActionStatus = "unknown"
 )
 
 const actionResultMarker string = "_ar_"

@@ -828,25 +828,29 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		// this Unit must match the Action's prefix.
 		actionTag, err := names.ParseActionTag(actionQuery.Tag)
 		if err != nil {
-			return nothing, err
+			results.ActionsQueryResults[i].Error = common.ServerError(err)
+			continue
 		}
 		unitTag := actionTag.PrefixTag()
 
 		// The Unit is querying for another Unit's Action.
 		if unitTag != whichUnit {
-			return nothing, common.ErrPerm
+			results.ActionsQueryResults[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 
 		// The Unit does not have access.
 		if !canAccess(unitTag) {
-			return nothing, common.ErrPerm
+			results.ActionsQueryResults[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 
 		action, err := u.st.ActionByTag(actionTag)
 		if err != nil {
-			results.ActionsQueryResults[i] = params.ActionsQueryResult{Error: common.ServerError(err)}
+			results.ActionsQueryResults[i].Error = common.ServerError(err)
 		} else {
-			results.ActionsQueryResults[i] = params.ActionsQueryResult{Action: params.Action{Name: action.Name(), Params: action.Parameters()}}
+			results.ActionsQueryResults[i].Action.Name = action.Name()
+			results.ActionsQueryResults[i].Action.Params = action.Parameters()
 		}
 	}
 
@@ -869,19 +873,22 @@ func (u *UniterAPI) FinishActions(args params.ActionResults) (params.BoolResults
 
 	results := params.BoolResults{Results: make([]params.BoolResult, len(args.Results))}
 
-	for ix, res := range args.Results {
+	for i, res := range args.Results {
 		actionTag, err := names.ParseActionTag(res.ActionTag)
 		if err != nil {
-			return nothing, err
+			results.Results[i].Error = common.ServerError(err)
+			continue
 		}
 
 		unitTag := actionTag.PrefixTag()
 		if unitTag != whichUnit {
-			return nothing, common.ErrPerm
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 
 		if !canAccess(unitTag) {
-			return nothing, common.ErrPerm
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 
 		action, err := u.st.ActionByTag(actionTag)
@@ -893,7 +900,8 @@ func (u *UniterAPI) FinishActions(args params.ActionResults) (params.BoolResults
 			case "fail":
 				status = state.ActionFailed
 			default:
-				status = state.ActionUnknown
+				results.Results[i].Error = common.ServerError(errors.Errorf("unrecognized action status '%s'", res.Status))
+				continue
 			}
 			actionResults := state.ActionResults{
 				Status:  status,
@@ -901,8 +909,12 @@ func (u *UniterAPI) FinishActions(args params.ActionResults) (params.BoolResults
 				Message: res.Message,
 			}
 			err = action.Finish(actionResults)
+			if err != nil {
+				results.Results[i].Error = common.ServerError(err)
+				continue
+			}
 		}
-		results.Results[ix] = params.BoolResult{Error: common.ServerError(err), Result: err == nil}
+		results.Results[i].Result = (err == nil)
 	}
 
 	return results, nil

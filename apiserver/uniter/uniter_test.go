@@ -1083,10 +1083,11 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 			Tag: names.JoinActionTag("wordpress/0", 0).String(),
 		}},
 	}
-	// exercises line 738 of apiserver/uniter/uniter.go
-	_, err = s.uniter.Actions(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+	actions, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions.ActionsQueryResults), gc.Equals, 1)
+	c.Assert(actions.ActionsQueryResults[0].Error, gc.NotNil)
+	c.Assert(actions.ActionsQueryResults[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
@@ -1096,9 +1097,11 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 			Tag: names.JoinActionTag("mysql/0", 0).String(),
 		}},
 	}
-	_, err := s.uniter.Actions(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+	actions, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions.ActionsQueryResults), gc.Equals, 1)
+	c.Assert(actions.ActionsQueryResults[0].Error, gc.NotNil)
+	c.Assert(actions.ActionsQueryResults[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionComplete(c *gc.C) {
