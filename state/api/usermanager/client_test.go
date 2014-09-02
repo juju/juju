@@ -10,8 +10,8 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/usermanager"
+	"github.com/juju/juju/state/apiserver/params"
 	ums "github.com/juju/juju/state/apiserver/usermanager"
 	"github.com/juju/juju/testing/factory"
 )

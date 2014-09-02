@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.

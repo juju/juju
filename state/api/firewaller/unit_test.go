@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/firewaller"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	statetesting "github.com/juju/juju/state/testing"
 )
 

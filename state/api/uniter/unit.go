@@ -11,8 +11,8 @@ import (
 	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/state/api/common"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.

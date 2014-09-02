@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 

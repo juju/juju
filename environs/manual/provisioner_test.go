@@ -19,8 +19,8 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/version"
 )
 

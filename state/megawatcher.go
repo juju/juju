@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )

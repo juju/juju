@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/tailer"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // debugLogHandler takes requests to watch the debug log.

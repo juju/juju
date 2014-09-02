@@ -9,8 +9,8 @@ import (
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 )

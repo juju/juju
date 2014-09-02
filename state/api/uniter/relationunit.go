@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // This module implements a subset of the interface provided by
