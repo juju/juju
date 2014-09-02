@@ -4,8 +4,10 @@
 package machine_test
 
 import (
-	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/machine"
@@ -49,6 +51,33 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *machinerSuite) TestClearReboot(c *gc.C) {
+	err := s.machine1.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machine0.Tag().String()},
+		{Tag: s.machine1.Tag().String()},
+	}}
+
+	rFlag, err := s.machine1.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
+
+	result, err := s.machiner.ClearReboot(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+		},
+	})
+
+	rFlag, err = s.machine1.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsFalse)
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
