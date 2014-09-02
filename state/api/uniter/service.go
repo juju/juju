@@ -10,8 +10,8 @@ import (
 	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/state/api/common"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // This module implements a subset of the interface provided by

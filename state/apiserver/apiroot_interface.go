@@ -2,8 +2,8 @@ package apiserver
 
 import (
 	"github.com/juju/juju/rpc"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // apiRoot describes an API root after login.

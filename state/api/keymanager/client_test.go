@@ -11,9 +11,9 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/keymanager"
-	"github.com/juju/juju/state/apiserver/params"
 	keymanagerserver "github.com/juju/juju/state/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/state/apiserver/keymanager/testing"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )

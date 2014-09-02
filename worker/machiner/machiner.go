@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/machiner"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 

@@ -20,11 +20,11 @@ import (
 	apilogger "github.com/juju/juju/state/api/logger"
 	"github.com/juju/juju/state/api/machiner"
 	"github.com/juju/juju/state/api/networker"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/provisioner"
 	"github.com/juju/juju/state/api/rsyslog"
 	"github.com/juju/juju/state/api/uniter"
 	"github.com/juju/juju/state/api/upgrader"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // Login authenticates as the entity with the given name and password.

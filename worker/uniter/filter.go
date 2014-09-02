@@ -12,9 +12,9 @@ import (
 	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/hook"

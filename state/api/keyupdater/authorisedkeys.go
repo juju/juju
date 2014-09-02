@@ -8,8 +8,8 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // State provides access to a worker's view of the state.

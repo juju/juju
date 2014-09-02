@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/common"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 // Unit represents a juju unit as seen by a firewaller worker.

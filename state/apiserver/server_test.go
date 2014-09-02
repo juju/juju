@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 )

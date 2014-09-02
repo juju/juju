@@ -12,8 +12,8 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/apiserver/params"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.usermanager")

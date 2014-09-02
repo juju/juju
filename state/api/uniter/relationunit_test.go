@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/state/apiserver/params"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
