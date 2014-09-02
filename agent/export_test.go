@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 func Password(config Config) string {

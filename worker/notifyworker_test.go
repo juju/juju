@@ -12,7 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	apiWatcher "github.com/juju/juju/state/api/watcher"
+	apiWatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"

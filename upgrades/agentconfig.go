@@ -13,8 +13,8 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/apiserver/params"
 )
 
 var (

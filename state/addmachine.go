@@ -13,11 +13,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
-	"github.com/juju/juju/state/apiserver/params"
 )
 
 // MachineTemplate holds attributes that are to be associated

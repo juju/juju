@@ -9,12 +9,12 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/apiserver/params"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")

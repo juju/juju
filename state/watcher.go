@@ -17,10 +17,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 )
 

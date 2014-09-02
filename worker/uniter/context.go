@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/state/api/uniter"
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"

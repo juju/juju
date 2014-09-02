@@ -10,7 +10,7 @@ import (
 
 	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Context is the interface that all hook helper commands

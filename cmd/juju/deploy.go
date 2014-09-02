@@ -14,12 +14,12 @@ import (
 	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/apiserver/params"
 )
 
 type DeployCommand struct {

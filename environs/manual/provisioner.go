@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/tools"
 )
 

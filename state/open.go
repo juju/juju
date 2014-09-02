@@ -12,10 +12,10 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/apiserver/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )

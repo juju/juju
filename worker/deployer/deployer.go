@@ -13,9 +13,9 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
-	apideployer "github.com/juju/juju/state/api/deployer"
-	"github.com/juju/juju/state/api/watcher"
-	"github.com/juju/juju/state/apiserver/params"
+	apideployer "github.com/juju/juju/api/deployer"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker"
 )
 

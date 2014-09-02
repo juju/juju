@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/apiserver/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit
