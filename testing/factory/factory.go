@@ -85,7 +85,7 @@ type RelationParams struct {
 type MetricParams struct {
 	Unit    *state.Unit
 	Time    *time.Time
-	Metrics []*state.Metric
+	Metrics []state.Metric
 	Sent    bool
 }
 
@@ -298,10 +298,10 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []*state.Metric{state.NewMetric(factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds"))}
+		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds")}}
 	}
 
-	metric, err := params.Unit.AddMetrics(params.Metrics)
+	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
 	c.Assert(err, gc.IsNil)
 	if params.Sent {
 		err := metric.SetSent()
