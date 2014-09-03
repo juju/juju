@@ -67,6 +67,8 @@ type srvAdmin struct {
 }
 
 var UpgradeInProgressError = errors.New("upgrade in progress")
+var AboutToRestoreError = errors.New("restore preparation in progress")
+var RestoreInProgressError = errors.New("restore in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
 // Login logs in with the provided credentials.
@@ -78,18 +80,6 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
 		return params.LoginResult{}, errAlreadyLoggedIn
-	}
-
-	// Use the login validation function, if one was specified.
-	inUpgrade := false
-	if a.validator != nil {
-		if err := a.validator(c); err != nil {
-			if err == UpgradeInProgressError {
-				inUpgrade = true
-			} else {
-				return params.LoginResult{}, errors.Trace(err)
-			}
-		}
 	}
 
 	// Users are not rate limited, all other entities are
@@ -110,11 +100,28 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
 	var newRoot apiRoot
-	if inUpgrade {
-		newRoot = newUpgradingRoot(a.root, entity)
+
+	// Use the login validation function, if one was specified.
+	if a.validator != nil {
+		err := a.validator(c)
+		switch err {
+		case UpgradeInProgressError:
+			newRoot = newUpgradingRoot(a.root, entity)
+		case AboutToRestoreError:
+			newRoot = newAboutToRestoreRoot(a.root, entity)
+		case RestoreInProgressError:
+			newRoot = newRestoreInProgressRoot(a.root, entity)
+		case nil:
+			newRoot = newSrvRoot(a.root, entity)
+			// in this case rootFunc is srvRoot so we do nothing
+		default:
+			return params.LoginResult{}, errors.Trace(err)
+		}
 	} else {
+
 		newRoot = newSrvRoot(a.root, entity)
 	}
+
 	if err := a.startPingerIfAgent(newRoot, entity); err != nil {
 		return params.LoginResult{}, err
 	}
