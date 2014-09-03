@@ -400,6 +400,7 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	if inst.floatingIP != nil {
 		floatingIP = inst.floatingIP.IP
 	}
+	logger.Infof("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
@@ -1116,6 +1117,24 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(found) == 0 {
 		return nil, environs.ErrNoInstances
 	}
+
+	// Update the instance structs with any floating IP address that has been assigned to the instance.
+	if e.ecfg().useFloatingIP() {
+		fips, err := e.nova().ListFloatingIPs()
+		if err != nil {
+			return nil, err
+		}
+		for _, fip := range fips {
+			if fip.InstanceId != nil && *fip.InstanceId != "" {
+				instId := instance.Id(*fip.InstanceId)
+				if _, ok := found[instId]; ok {
+					instFip := fip
+					found[instId].(*openstackInstance).floatingIP = &instFip
+				}
+			}
+		}
+	}
+
 	insts := make([]instance.Instance, len(ids))
 	var err error
 	for i, id := range ids {

@@ -64,6 +64,10 @@ func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
 	return inst.(*openstackInstance).serverDetail
 }
 
+func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
+	return inst.(*openstackInstance).floatingIP
+}
+
 var (
 	NovaListAvailabilityZones   = &novaListAvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations

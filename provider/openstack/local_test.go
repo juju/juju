@@ -226,17 +226,17 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 // bootstrapping fails if an address cannot be allocated.
 func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"addFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			return fmt.Errorf("failed on purpose")
-		},
+			"addFloatingIP",
+			func(sc hook.ServiceControl, args ...interface{}) error {
+				return fmt.Errorf("failed on purpose")
+			},
 	)
 	defer cleanup()
 
 	// Create a config that matches s.TestConfig but with use-floating-ip set to true
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": true,
-	}))
+			"use-floating-ip": true,
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -251,20 +251,20 @@ func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
 		addr, err := inst.Addresses()
 		c.Assert(err, gc.IsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
-			{Value: "10.0.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
-			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
-			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
-			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
-			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
-		})
+				{Value: "10.0.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+				{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
+				{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
+				{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+				{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+			})
 		bootstrapFinished = true
 		return nil
 	})
 
 	// Create a config that matches s.TestConfig but with use-floating-ip set to true
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": true,
-	}))
+			"use-floating-ip": true,
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -279,18 +279,18 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 		addr, err := inst.Addresses()
 		c.Assert(err, gc.IsNil)
 		c.Assert(addr, jc.SameContents, []network.Address{
-			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
-			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
-			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
-			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
-		})
+				{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
+				{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
+				{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+				{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+			})
 		bootstrapFinished = true
 		return nil
 	})
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": false,
-	}))
+			"use-floating-ip": false,
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -304,23 +304,23 @@ func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"addFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			return fmt.Errorf("add floating IP should not have been called")
-		},
+			"addFloatingIP",
+			func(sc hook.ServiceControl, args ...interface{}) error {
+				return fmt.Errorf("add floating IP should not have been called")
+			},
 	)
 	defer cleanup()
 	cleanup = s.srv.Service.Nova.RegisterControlPoint(
-		"addServerFloatingIP",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			return fmt.Errorf("add server floating IP should not have been called")
-		},
+			"addServerFloatingIP",
+			func(sc hook.ServiceControl, args ...interface{}) error {
+				return fmt.Errorf("add server floating IP should not have been called")
+			},
 	)
 	defer cleanup()
 
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"use-floating-ip": false,
-	}))
+			"use-floating-ip": false,
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, coretesting.Context(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
@@ -352,9 +352,9 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		// A label that corresponds to a nova test service network
-		"network": "net",
-	}))
+			// A label that corresponds to a nova test service network
+			"network": "net",
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -365,9 +365,9 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		// A label that has no related network in the nova test service
-		"network": "no-network-with-this-label",
-	}))
+			// A label that has no related network in the nova test service
+			"network": "no-network-with-this-label",
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -378,18 +378,18 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceNetworkUnknownId(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		// A valid UUID but no related network in the nova test service
-		"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
-	}))
+			// A valid UUID but no related network in the nova test service
+			"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
+		}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
 	inst, _, _, err := testing.StartInstance(env, "100")
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot run instance: (\\n|.)*"+
-		"caused by: "+
-		"request \\(.*/servers\\) returned unexpected status: "+
-		"404; error info: .*itemNotFound.*")
+				"caused by: "+
+				"request \\(.*/servers\\) returned unexpected status: "+
+				"404; error info: .*itemNotFound.*")
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
@@ -424,7 +424,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+			"firewall-mode": "instance"}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -447,14 +447,14 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	// Force an error when a security group is deleted.
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"removeSecurityGroup",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			return fmt.Errorf("failed on purpose")
-		},
+			"removeSecurityGroup",
+			func(sc hook.ServiceControl, args ...interface{}) error {
+				return fmt.Errorf("failed on purpose")
+			},
 	)
 	defer cleanup()
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+			"firewall-mode": "instance"}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -469,7 +469,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+			"firewall-mode": "instance"}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -484,7 +484,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobal(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "global"}))
+			"firewall-mode": "global"}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -553,8 +553,15 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
-	env := s.Prepare(c)
+func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool) {
+	// Create a config that matches s.TestConfig but with use-floating-ip
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+			"use-floating-ip": withFloatingIP,
+		}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+
 	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
@@ -585,6 +592,11 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 		for j, inst := range insts {
 			if ids[j] != "" {
 				c.Assert(inst.Id(), gc.Equals, ids[j])
+				if withFloatingIP {
+					c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+				} else {
+					c.Assert(openstack.InstanceFloatingIP(inst), gc.IsNil)
+				}
 			} else {
 				c.Assert(inst, gc.IsNil)
 			}
@@ -592,15 +604,23 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	}
 }
 
+func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
+	s.assertInstancesGathering(c, false)
+}
+
+func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
+	s.assertInstancesGathering(c, true)
+}
+
 func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 	env := s.Prepare(c)
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			details := args[0].(*nova.ServerDetail)
-			details.Status = "BUILD(networking)"
-			return nil
-		},
+			"addServer",
+			func(sc hook.ServiceControl, args ...interface{}) error {
+				details := args[0].(*nova.ServerDetail)
+				details.Status = "BUILD(networking)"
+				return nil
+			},
 	)
 	defer cleanup()
 	stateInst, _ := testing.AssertStartInstance(c, env, "100")
@@ -620,12 +640,12 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	env := s.Prepare(c)
 	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
-		"addServer",
-		func(sc hook.ServiceControl, args ...interface{}) error {
-			details := args[0].(*nova.ServerDetail)
-			details.Status = nova.StatusBuildSpawning
-			return nil
-		},
+			"addServer",
+			func(sc hook.ServiceControl, args ...interface{}) error {
+				details := args[0].(*nova.ServerDetail)
+				details.Status = nova.StatusBuildSpawning
+				return nil
+			},
 	)
 	defer cleanup()
 	stateInst, _ := testing.AssertStartInstance(c, env, "100")
@@ -1059,7 +1079,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Check(customURL[:8], gc.Equals, "https://")
 
 	config, err := s.env.Config().Apply(
-		map[string]interface{}{"image-metadata-url": customURL},
+	map[string]interface{}{"image-metadata-url": customURL},
 	)
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
@@ -1123,7 +1143,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Check(customURL[:8], gc.Equals, "https://")
 
 	config, err := s.env.Config().Apply(
-		map[string]interface{}{"tools-metadata-url": customURL},
+	map[string]interface{}{"tools-metadata-url": customURL},
 	)
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
@@ -1340,7 +1360,7 @@ type mockAvailabilityZoneAllocations struct {
 }
 
 func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
-	e common.ZonedEnviron, group []instance.Id,
+e common.ZonedEnviron, group []instance.Id,
 ) ([]common.AvailabilityZoneInstances, error) {
 	t.group = group
 	return t.result, t.err
