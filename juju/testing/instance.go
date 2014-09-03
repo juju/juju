@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -18,15 +18,15 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 // FakeStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func FakeStateInfo(machineId string) *authentication.MongoInfo {
-	return &authentication.MongoInfo{
+func FakeStateInfo(machineId string) *mongo.MongoInfo {
+	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: testing.CACert,
@@ -157,8 +157,15 @@ func StartInstanceWithParams(
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("missing agent version in environment config")
 	}
-	possibleTools, err := tools.FindInstanceTools(
-		env, agentVersion, series, params.Constraints.Arch,
+	filter := coretools.Filter{
+		Number: agentVersion,
+		Series: series,
+	}
+	if params.Constraints.Arch != nil {
+		filter.Arch = *params.Constraints.Arch
+	}
+	possibleTools, err := tools.FindTools(
+		env, -1, -1, filter, tools.DoNotAllowRetry,
 	)
 	if err != nil {
 		return nil, nil, nil, err

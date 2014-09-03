@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -28,12 +29,10 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -410,44 +409,4 @@ func (s *localJujuTestSuite) TestStateServerInstances(c *gc.C) {
 	instances, err = env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"localhost"})
-}
-
-func (s *localJujuTestSuite) TestToolsInCloudConfigForLXC(c *gc.C) {
-	s.testToolsInCloudConfig(c, "lxc")
-}
-
-func (s *localJujuTestSuite) TestToolsInCloudConfigForKVM(c *gc.C) {
-	s.testToolsInCloudConfig(c, "kvm")
-}
-
-func (s *localJujuTestSuite) testToolsInCloudConfig(c *gc.C, containerType string) {
-	dir := c.MkDir()
-	toolsDir := filepath.Join(dir, "storage", "tools", "releases")
-	err := os.MkdirAll(toolsDir, 0755)
-	c.Assert(err, gc.IsNil)
-	config := localConfig(c, map[string]interface{}{
-		"root-dir":  dir,
-		"container": containerType,
-	})
-	ctx := coretesting.Context(c)
-	env, err := local.Provider.Prepare(ctx, config)
-	c.Assert(err, gc.IsNil)
-
-	machineId := "1"
-	stateInfo := jujutesting.FakeStateInfo(machineId)
-	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig, err := environs.NewMachineConfig(machineId, "", "", "precise", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
-	params := environs.StartInstanceParams{
-		MachineConfig: machineConfig,
-		Tools: coretools.List{{
-			Version: version.MustParseBinary("5.4.5-precise-amd64"),
-			URL:     "whatevers",
-		}},
-	}
-
-	local.PatchCreateContainer(&s.CleanupSuite, c, "file://"+filepath.Join(toolsDir, "juju-5.4.5-precise-amd64.tgz"))
-	inst, _, _, err := env.StartInstance(params)
-	c.Assert(err, gc.IsNil)
-	c.Assert(inst.Id(), gc.Equals, instance.Id("mock"))
 }

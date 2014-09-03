@@ -20,11 +20,11 @@ import (
 	"github.com/juju/utils/apt"
 	"gopkg.in/mgo.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
 

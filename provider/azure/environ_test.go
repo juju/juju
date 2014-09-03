@@ -22,8 +22,9 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju/api"
+	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -37,8 +38,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/api"
-	apiparams "github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -1548,7 +1547,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	machineTag := names.NewMachineTag("1")
-	stateInfo := &authentication.MongoInfo{
+	stateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			CACert: coretesting.CACert,
 			Addrs:  []string{"localhost:123"},

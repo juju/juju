@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -42,7 +43,6 @@ import (
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
@@ -375,14 +375,6 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
-
-	// The local provider's user-data size is only limited by the
-	// host's disk, so it's safe to serialise tools in cloud-config.
-	toolsPath := filepath.Join(
-		env.config.storageDir(),
-		envtools.StorageName(args.Tools[0].Version),
-	)
-	args.MachineConfig.Tools.URL = fmt.Sprintf("file://%s", toolsPath)
 
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)

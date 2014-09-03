@@ -13,7 +13,6 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -46,7 +45,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	policy := statetesting.MockPolicy{}
 
-	info := &authentication.MongoInfo{
+	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{jtesting.MgoServer.Addr()},
 			CACert: testing.CACert,

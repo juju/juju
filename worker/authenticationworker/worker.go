@@ -13,8 +13,8 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state/api/keyupdater"
-	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/api/keyupdater"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"

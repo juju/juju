@@ -288,7 +288,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	CheckPackage(c, userDataMap, "aria2", true)
+	CheckPackage(c, userDataMap, "curl", true)
 	CheckPackage(c, userDataMap, "mongodb-server", false)
 	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
 	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)

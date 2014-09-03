@@ -144,9 +144,9 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		}
 	}
 
-	// If the user hasn't specified a value, don't perform updates on
-	// manual providers.
-	defineIfNot("enable-os-refresh-update", false)
+	// If the user hasn't specified a value, refresh the
+	// available updates, but don't upgrade.
+	defineIfNot("enable-os-refresh-update", true)
 	defineIfNot("enable-os-upgrade", false)
 
 	return envConfig, nil

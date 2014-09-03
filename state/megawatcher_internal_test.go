@@ -12,13 +12,14 @@ import (
 
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
@@ -1039,7 +1040,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	// reasonable time.
 	var deltas []params.Delta
 	for {
-		d, err := getNext(c, w, 100*time.Millisecond)
+		d, err := getNext(c, w, 1*time.Second)
 		if err == errTimeout {
 			break
 		}
@@ -1047,6 +1048,17 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		deltas = append(deltas, d...)
 	}
 	checkDeltasEqual(c, b, deltas, []params.Delta{{
+		Entity: &params.MachineInfo{
+			Id:                      "0",
+			InstanceId:              "i-0",
+			Status:                  params.StatusPending,
+			Life:                    params.Alive,
+			Series:                  "quantal",
+			Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+			Addresses:               []network.Address{},
+			HardwareCharacteristics: hc,
+		},
+	}, {
 		Removed: true,
 		Entity: &params.MachineInfo{
 			Id:        "1",
@@ -1058,23 +1070,13 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &params.MachineInfo{
-			Id:        "2",
-			Status:    params.StatusPending,
-			Life:      params.Alive,
-			Series:    "trusty",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.Address{},
-		},
-	}, {
-		Entity: &params.MachineInfo{
-			Id:                      "0",
-			InstanceId:              "i-0",
-			Status:                  params.StatusPending,
-			Life:                    params.Alive,
-			Series:                  "quantal",
-			Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
-			Addresses:               []network.Address{},
-			HardwareCharacteristics: hc,
+			Id:         "2",
+			Status:     params.StatusPending,
+			Life:       params.Alive,
+			Series:     "trusty",
+			Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
+			Addresses:  []network.Address{},
+			StatusData: params.StatusData{},
 		},
 	}})
 
@@ -1082,7 +1084,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = w.Next()
-	c.Assert(err, gc.Equals, multiwatcher.ErrWatcherStopped)
+	c.Assert(err, gc.ErrorMatches, multiwatcher.ErrWatcherStopped.Error())
 }
 
 type entityInfoSlice []params.EntityInfo
@@ -1115,7 +1117,7 @@ func getNext(c *gc.C, w *multiwatcher.Watcher, timeout time.Duration) ([]params.
 	select {
 	case <-ch:
 		return deltas, err
-	case <-time.After(1 * time.Second):
+	case <-time.After(timeout):
 	}
 	return nil, errTimeout
 }
@@ -1132,16 +1134,13 @@ func checkNext(c *gc.C, w *multiwatcher.Watcher, b multiwatcher.Backing, deltas 
 // deltas are returns in arbitrary order, so we compare
 // them as sets.
 func checkDeltasEqual(c *gc.C, b multiwatcher.Backing, d0, d1 []params.Delta) {
-	c.Check(deltaMap(d0, b), gc.DeepEquals, deltaMap(d1, b))
+	c.Check(deltaMap(d0, b), jc.DeepEquals, deltaMap(d1, b))
 }
 
 func deltaMap(deltas []params.Delta, b multiwatcher.Backing) map[multiwatcher.InfoId]params.EntityInfo {
 	m := make(map[multiwatcher.InfoId]params.EntityInfo)
 	for _, d := range deltas {
 		id := d.Entity.EntityId()
-		if _, ok := m[id]; ok {
-			panic(fmt.Errorf("%v mentioned twice in delta set", id))
-		}
 		if d.Removed {
 			m[id] = nil
 		} else {

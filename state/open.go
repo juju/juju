@@ -12,11 +12,10 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
@@ -30,7 +29,7 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	st, err := open(info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -44,19 +43,19 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 	return st, nil
 }
 
-func open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("connection established")
 
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
@@ -64,10 +63,10 @@ func open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := open(info, opts, policy)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
@@ -80,11 +79,11 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 	if _, err := st.Environment(); err == nil {
 		return st, nil
 	} else if !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Infof("initializing environment")
 	if err := checkEnvironConfig(cfg); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	uuid, ok := cfg.UUID()
 	if !ok {
@@ -118,7 +117,7 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
@@ -160,7 +159,7 @@ func maybeUnauthorized(err error, msg string) error {
 	if isUnauthorized(err) {
 		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
 	}
-	return fmt.Errorf("%s: %v", msg, err)
+	return errors.Annotatef(err, "%s: %v", msg, err)
 }
 
 func isUnauthorized(err error) bool {
@@ -181,7 +180,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (_ *State, resultErr error) {
+func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
 	authenticated := false
 	if mongoInfo.Tag != nil {
@@ -246,7 +245,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
+func (st *State) MongoConnectionInfo() *mongo.MongoInfo {
 	return st.mongoInfo
 }
 
@@ -255,7 +254,8 @@ func (st *State) CACert() string {
 	return st.mongoInfo.CACert
 }
 
-func (st *State) Close() error {
+func (st *State) Close() (err error) {
+	defer errors.Contextf(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()
@@ -265,8 +265,17 @@ func (st *State) Close() error {
 	}
 	st.mu.Unlock()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2, err3} {
+	var i int
+	for i, err = range []error{err1, err2, err3} {
 		if err != nil {
+			switch i {
+			case 0:
+				err = errors.Annotatef(err, "failed to stop state watcher")
+			case 1:
+				err = errors.Annotatef(err, "failed to stop presence watcher")
+			case 2:
+				err = errors.Annotatef(err, "failed to stop all manager")
+			}
 			return err
 		}
 	}

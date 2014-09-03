@@ -24,15 +24,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -347,7 +346,8 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, first, second, first).Check()
 
 	_, err = s.State.PrepareStoreCharmUpload(curl)
-	c.Assert(err, gc.Equals, txn.ErrExcessiveContention)
+	cause := errors.Cause(err)
+	c.Assert(cause, gc.Equals, txn.ErrExcessiveContention)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
@@ -2089,7 +2089,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(info *authentication.MongoInfo) error {
+func tryOpenState(info *mongo.MongoInfo) error {
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
@@ -2782,7 +2782,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	}()
 	select {
 	case err := <-done:
-		c.Assert(err, gc.Equals, state.ErrStateClosed)
+		c.Assert(err, gc.ErrorMatches, state.ErrStateClosed.Error())
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher %T did not exit when state closed", watcher)
 	}
@@ -3390,7 +3390,7 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 	// fail the middle one
 	action, err := s.State.Action(fa2.Id())
 	c.Assert(err, gc.IsNil)
-	err = action.Fail("die scum")
+	err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
 	c.Assert(err, gc.IsNil)
 
 	// expect the first and last one in the watcher
@@ -3493,7 +3493,7 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer inst.DestroyWithLog()
 
-	mongoInfo := &authentication.MongoInfo{
+	mongoInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{inst.Addr()},
 			CACert: testing.CACert,

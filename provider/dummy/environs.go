@@ -39,8 +39,10 @@ import (
 	gitjujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -55,9 +57,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -96,7 +95,7 @@ func SampleConfig() testing.Attrs {
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
 // will be added as primary.
-func stateInfo(preferIPv6 bool) *authentication.MongoInfo {
+func stateInfo(preferIPv6 bool) *mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
@@ -110,7 +109,7 @@ func stateInfo(preferIPv6 bool) *authentication.MongoInfo {
 	} else {
 		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
 	}
-	return &authentication.MongoInfo{
+	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  addrs,
 			CACert: testing.CACert,
@@ -159,7 +158,7 @@ type OpStartInstance struct {
 	Constraints   constraints.Value
 	Networks      []string
 	NetworkInfo   []network.Info
-	Info          *authentication.MongoInfo
+	Info          *mongo.MongoInfo
 	Jobs          []params.MachineJob
 	APIInfo       *api.Info
 	Secret        string
