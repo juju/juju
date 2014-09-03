@@ -651,7 +651,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
-	found := make(map[instance.Id]instance.Instance)
+	found := make(map[string]instance.Instance)
 	missing := []instance.Id{stateInst.Id()}
 
 	resultMissing := openstack.CollectInstances(env, missing, found)

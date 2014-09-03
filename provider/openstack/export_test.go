@@ -308,7 +308,7 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 	return e.(*environ).ensureGroup(name, rules)
 }
 
-func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
+func CollectInstances(e environs.Environ, ids []instance.Id, out map[string]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
 }
 
