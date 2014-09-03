@@ -1167,15 +1167,33 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	if err != nil {
 		return nil, err
 	}
+	instsById := make(map[string]*openstackInstance)
 	for _, server := range servers {
 		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 			var s = server
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-			insts = append(insts, &openstackInstance{
-				e:            e,
-				serverDetail: &s,
-			})
+			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}
 		}
+	}
+
+	// Update the instance structs with any floating IP address that has been assigned to the instance.
+	if e.ecfg().useFloatingIP() {
+		fips, err := e.nova().ListFloatingIPs()
+		if err != nil {
+			return nil, err
+		}
+		for _, fip := range fips {
+			if fip.InstanceId != nil && *fip.InstanceId != "" {
+				if _, ok := instsById[*fip.InstanceId]; ok {
+					instFip := fip
+					instsById[*fip.InstanceId].floatingIP = &instFip
+				}
+			}
+		}
+	}
+
+	for _, inst := range instsById {
+		insts = append(insts, inst)
 	}
 	return insts, err
 }

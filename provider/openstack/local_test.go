@@ -553,6 +553,29 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
+	// Create a config that matches s.TestConfig but with use-floating-ip
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": true,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+
+	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	inst1, _ := testing.AssertStartInstance(c, env, "101")
+	defer func() {
+		err := env.StopInstances(inst0.Id(), inst1.Id())
+		c.Assert(err, gc.IsNil)
+	}()
+
+	insts, err := env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	for _, inst := range insts {
+		c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+	}
+}
+
 func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool) {
 	// Create a config that matches s.TestConfig but with use-floating-ip
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
