@@ -83,12 +83,13 @@ def remove_leftover_virtualbox(series, arch):
     left_over_name = 'ubuntu-cloudimg-%s-juju-vagrant-%s' % (series, arch)
     instances = subprocess.check_output(['vboxmanage', 'list', 'vms'])
     for line in instances.split('\n'):
-        name, uid = line.split(' ')
-        name = name.strip('"')
-        if name == left_over_name:
-            subprocess.check_call([
-                'vboxmanage', 'unregistervm', name, '--delete'])
-            break
+        if line != '':
+            name, uid = line.split(' ')
+            name = name.strip('"')
+            if name == left_over_name:
+                subprocess.check_call([
+                    'vboxmanage', 'unregistervm', name, '--delete'])
+                break
 
 
 def build_vagrant_box(series, arch, jenkins_kvm, workspace, package_info=None):
