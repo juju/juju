@@ -457,7 +457,11 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Check(err, gc.IsNil)
+			c.Check(
+				err,
+				gc.IsNil,
+				gc.Commentf("closing api state failed, testing server %q is alive", testServer),
+			)
 		}
 	}
 	dummy.Reset()

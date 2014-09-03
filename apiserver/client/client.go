@@ -997,7 +997,9 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 	// Finally, update the charm data in state and mark it as no longer pending.
 	_, err = c.api.state.UpdateUploadedCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	cause := errors.Cause(err)
 	if err == state.ErrCharmRevisionAlreadyModified ||
+		cause == state.ErrCharmRevisionAlreadyModified ||
 		state.IsCharmAlreadyUploadedError(err) {
 		// This is not an error, it just signifies somebody else
 		// managed to upload and update the charm in state before
