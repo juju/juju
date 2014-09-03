@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state/api/machiner"
 	"github.com/juju/juju/state/api/params"
 	apitesting "github.com/juju/juju/state/api/testing"
+	// "github.com/juju/juju/state/apiserver/common"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -50,6 +51,16 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.machiner = s.st.Machiner()
 	c.Assert(s.machiner, gc.NotNil)
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
+}
+
+func (s *machinerSuite) TestAPIServerV0(c *gc.C) {
+	restore := api.SetBestFacadeVersion("Machine", 0)
+	defer restore()
+
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
+	c.Assert(err, gc.IsNil)
+	isManual := machine.IsManual()
+	c.Assert(isManual, gc.Equals, false)
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {

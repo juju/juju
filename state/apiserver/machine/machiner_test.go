@@ -19,8 +19,9 @@ import (
 type machinerSuite struct {
 	commonSuite
 
-	resources *common.Resources
-	machiner  *machine.MachinerAPI
+	resources  *common.Resources
+	machiner   *machine.MachinerAPI
+	machinerV1 *machine.MachinerAPIV1
 }
 
 var _ = gc.Suite(&machinerSuite{})
@@ -40,34 +41,43 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	s.machiner = machiner
+
+	// Same but with V1 of the API.
+	machinerV1, err := machine.NewMachinerAPIV1(
+		s.State,
+		s.resources,
+		s.authorizer,
+	)
+	c.Assert(err, gc.IsNil)
+	s.machinerV1 = machinerV1
 }
 
 func (s *machinerSuite) TestGetMachinesOK(c *gc.C) {
-	args := params.GetMachinesV0{
+	args := params.GetMachinesV1{
 		Tags: []string{
 			"machine-1",
 		},
 	}
-	result, err := s.machiner.GetMachines(args)
+	result, err := s.machinerV1.GetMachines(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
-		Machines: []params.GetMachinesResultV0{
+	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV1{
+		Machines: []params.GetMachinesResultV1{
 			{"machine-1", params.Alive, false, nil},
 		},
 	})
 }
 
 func (s *machinerSuite) TestGetMachinesNotFoundOrNotAuthorized(c *gc.C) {
-	args := params.GetMachinesV0{
+	args := params.GetMachinesV1{
 		Tags: []string{
 			"machine-0",
 			"machine-42",
 		},
 	}
-	result, err := s.machiner.GetMachines(args)
+	result, err := s.machinerV1.GetMachines(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV0{
-		Machines: []params.GetMachinesResultV0{
+	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV1{
+		Machines: []params.GetMachinesResultV1{
 			{"machine-0", "", false, apiservertesting.ErrUnauthorized},
 			{"machine-42", "", false, apiservertesting.ErrUnauthorized},
 		},

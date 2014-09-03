@@ -13,7 +13,7 @@ var facadeVersions = map[string]int{
 	"AllWatcher":           0,
 	"Deployer":             0,
 	"KeyUpdater":           0,
-	"Machiner":             0,
+	"Machiner":             1,
 	"Networker":            0,
 	"StringsWatcher":       0,
 	"Environment":          0,
@@ -42,4 +42,16 @@ func bestVersion(desiredVersion int, versions []int) int {
 		}
 	}
 	return best
+}
+
+// SetBestFacadeVersion allows to change the best available facade version
+// for testing puposes. A restore func is returned, it can be called with
+// defer.
+func SetBestFacadeVersion(facade string, version int) func() {
+	currentBestVersion := facadeVersions[facade]
+	restore := func() {
+		facadeVersions[facade] = currentBestVersion
+	}
+	facadeVersions[facade] = version
+	return restore
 }
