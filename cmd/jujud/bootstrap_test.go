@@ -78,10 +78,12 @@ func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 	f.ensureCount++
 	f.dataDir, f.namespace, f.oplogSize = args.DataDir, args.Namespace, args.OplogSize
 	f.info = params.StateServingInfo{
-		StatePort:    args.StatePort,
-		Cert:         args.Cert,
-		PrivateKey:   args.PrivateKey,
-		SharedSecret: args.SharedSecret,
+		APIPort:        args.APIPort,
+		StatePort:      args.StatePort,
+		Cert:           args.Cert,
+		PrivateKey:     args.PrivateKey,
+		SharedSecret:   args.SharedSecret,
+		SystemIdentity: args.SystemIdentity,
 	}
 	return f.err
 }
