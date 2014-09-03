@@ -73,24 +73,19 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	if name == "" {
 		name = envs.Default
 	}
-	// TODO(rog) 2013-10-04 https://bugs.github.com/juju/juju/+bug/1235217
-	// Don't fall back to reading from environments.yaml
-	// when we can be sure that everyone has a
-	// .jenv file for their currently bootstrapped environments.
-	if name != "" {
-		info, err := store.ReadInfo(name)
-		if err == nil {
-			if len(info.BootstrapConfig()) == 0 {
-				return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("environment has no bootstrap configuration data")}
-			}
-			logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
-			cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-			return cfg, ConfigFromInfo, err
+
+	info, err := store.ReadInfo(name)
+	if err == nil {
+		if len(info.BootstrapConfig()) == 0 {
+			return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("environment has no bootstrap configuration data")}
 		}
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
-		}
+		logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
+		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+		return cfg, ConfigFromInfo, err
+	} else if !errors.IsNotFound(err) {
+		return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
 	}
+
 	cfg, err := envs.Config(name)
 	return cfg, ConfigFromEnvirons, err
 }
@@ -137,7 +132,7 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // and environment information is created using the
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
-func PrepareFromName(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
+var PrepareFromName = func(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err

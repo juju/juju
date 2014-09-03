@@ -34,7 +34,7 @@ func destroyPreparedEnviron(
 // clean up in case we need to further up the stack. If an error has
 // occurred, the environment and cleanup function will be nil, and the
 // error will be filled in.
-func environFromName(
+var environFromName = func(
 	ctx *cmd.Context,
 	envName string,
 	action string,
@@ -56,17 +56,16 @@ func environFromName(
 		return nil, nil, err
 	}
 
-	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
-		return nil, nil, err
-	}
-
 	cleanup = func() {
-		if !envExisted {
+		// Only clean up if the environment didn't exist or the error
+		// wasn't nil from preparing the environment.
+		if !envExisted || err != nil {
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
 
-	return env, cleanup, nil
+	env, err = environs.PrepareFromName(envName, ctx, store)
+	return env, cleanup, err
 }
 
 // resolveCharmURL returns a resolved charm URL, given a charm location string.
