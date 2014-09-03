@@ -427,6 +427,7 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	if inst.floatingIP != nil {
 		floatingIP = inst.floatingIP.IP
 	}
+	logger.Infof("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
@@ -1090,7 +1091,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 // collectInstances tries to get information on each instance id in ids.
 // It fills the slots in the given map for known servers with status
 // either ACTIVE or BUILD. Returns a list of missing ids.
-func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
+func (e *environ) collectInstances(ids []instance.Id, out map[string]instance.Instance) []instance.Id {
 	var err error
 	serversById := make(map[string]nova.ServerDetail)
 	if len(ids) == 1 {
@@ -1117,7 +1118,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 			switch server.Status {
 			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-				out[id] = &openstackInstance{e: e, serverDetail: &server}
+				out[string(id)] = &openstackInstance{e: e, serverDetail: &server}
 				continue
 			}
 		}
@@ -1126,12 +1127,31 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 	return missing
 }
 
+// updateFloatingIPAddresses updates the instances with any floating IP address
+// that have been assigned to those instances.
+func (e *environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
+	fips, err := e.nova().ListFloatingIPs()
+	if err != nil {
+		return err
+	}
+	for _, fip := range fips {
+		if fip.InstanceId != nil && *fip.InstanceId != "" {
+			instId := *fip.InstanceId
+			if inst, ok := instances[instId]; ok {
+				instFip := fip
+				inst.(*openstackInstance).floatingIP = &instFip
+			}
+		}
+	}
+	return nil
+}
+
 func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	missing := ids
-	found := make(map[instance.Id]instance.Instance)
+	found := make(map[string]instance.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -1143,10 +1163,18 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(found) == 0 {
 		return nil, environs.ErrNoInstances
 	}
+
+	// Update the instance structs with any floating IP address that has been assigned to the instance.
+	if e.ecfg().useFloatingIP() {
+		if err := e.updateFloatingIPAddresses(found); err != nil {
+			return nil, err
+		}
+	}
+
 	insts := make([]instance.Instance, len(ids))
 	var err error
 	for i, id := range ids {
-		if inst := found[id]; inst != nil {
+		if inst := found[string(id)]; inst != nil {
 			insts[i] = inst
 		} else {
 			err = environs.ErrPartialInstances
@@ -1175,15 +1203,23 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	if err != nil {
 		return nil, err
 	}
+	instsById := make(map[string]instance.Instance)
 	for _, server := range servers {
 		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 			var s = server
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-			insts = append(insts, &openstackInstance{
-				e:            e,
-				serverDetail: &s,
-			})
+			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}
 		}
+	}
+
+	if e.ecfg().useFloatingIP() {
+		if err := e.updateFloatingIPAddresses(instsById); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, inst := range instsById {
+		insts = append(insts, inst)
 	}
 	return insts, err
 }
