@@ -1476,3 +1476,8 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
+
+func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	testAgentTools(c, s.unit, `unit "wordpress/0"`)
+}

@@ -24,10 +24,11 @@ import (
 )
 
 var (
-	GetBackupMetadata   = getBackupMetadata
-	AddBackupMetadata   = addBackupMetadata
-	AddBackupMetadataID = addBackupMetadataID
-	SetBackupStored     = setBackupStored
+	GetBackupMetadata     = getBackupMetadata
+	AddBackupMetadata     = addBackupMetadata
+	AddBackupMetadataID   = addBackupMetadataID
+	SetBackupStored       = setBackupStored
+	ToolstorageNewStorage = &toolstorageNewStorage
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

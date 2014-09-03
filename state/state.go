@@ -67,6 +67,7 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
+	toolsmetadataC     = "toolsmetadata"
 
 	// This collection is used just for storing metadata.
 	backupsMetaC = "backupsmetadata"
@@ -75,7 +76,11 @@ const (
 	txnLogC = "txns.log"
 	txnsC   = "txns"
 
+	// AdminUser is the mongo admin username.
 	AdminUser = "admin"
+
+	// blobstoreDB is the name of the blobstore GridFS database.
+	blobstoreDB = "blobstore"
 )
 
 // State represents the state of an environment
@@ -175,6 +180,12 @@ func (st *State) txnRunner() (_ jujutxn.Runner, closer func()) {
 		closer = session.Close
 	}
 	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb}), closer
+}
+
+// txnRunnerWith returns a jujutxn.Runner using the specified session.
+func (st *State) txnRunnerWith(session *mgo.Session) jujutxn.Runner {
+	runnerDb := st.db.With(session)
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb})
 }
 
 // runTransaction is a convenience method delegating to transactionRunner.
