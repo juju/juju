@@ -63,6 +63,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		}
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
+
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),

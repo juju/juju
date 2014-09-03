@@ -180,7 +180,15 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 // ActionFinish captures the structured output of an action.
 func (st *State) ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
 	var outcome params.BoolResults
-	args := params.ActionResults{Results: []params.ActionResult{{ActionTag: tag.String(), Status: status, Results: results, Message: message}}}
+
+	args := params.ActionResults{
+		Results: []params.ActionResult{
+			{
+				ActionTag: tag.String(),
+				Status:    status,
+				Results:   results,
+				Message:   message}}}
+
 	err := st.facade.FacadeCall("FinishActions", args, &outcome)
 	if err != nil {
 		return err
