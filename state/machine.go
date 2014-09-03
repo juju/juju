@@ -1232,7 +1232,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // Status returns the status of the machine.
-func (m *Machine) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (m *Machine) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(m.st, m.globalKey())
 	if err != nil {
 		return "", "", nil, err
@@ -1244,7 +1244,7 @@ func (m *Machine) Status() (status params.Status, info string, data params.Statu
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
+func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
@@ -1362,7 +1362,7 @@ func (m *Machine) markInvalidContainers() error {
 			if status == params.StatusPending {
 				containerType := ContainerTypeFromId(containerId)
 				container.SetStatus(
-					params.StatusError, "unsupported container", params.StatusData{"type": containerType})
+					params.StatusError, "unsupported container", map[string]interface{}{"type": containerType})
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, status)
 			}

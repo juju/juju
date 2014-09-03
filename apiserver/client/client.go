@@ -1057,7 +1057,7 @@ func CharmArchiveName(name string, revision int) (string, error) {
 func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
-		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
+		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
 	}
 	return c.api.statusSetter.UpdateStatus(params.SetStatus{
 		Entities: entityStatus,

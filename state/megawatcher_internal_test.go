@@ -711,7 +711,7 @@ var allWatcherChangedTests = []struct {
 			&params.UnitInfo{
 				Name:       "wordpress/0",
 				Status:     params.StatusStarted,
-				StatusData: params.StatusData{},
+				StatusData: make(map[string]interface{}),
 			},
 		},
 	}, {
@@ -724,7 +724,7 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
+			err = u.SetStatus(params.StatusError, "hook error", map[string]interface{}{
 				"1st-key": "one",
 				"2nd-key": 2,
 				"3rd-key": true,
@@ -740,7 +740,7 @@ var allWatcherChangedTests = []struct {
 				Name:       "wordpress/0",
 				Status:     params.StatusError,
 				StatusInfo: "hook error",
-				StatusData: params.StatusData{
+				StatusData: map[string]interface{}{
 					"1st-key": "one",
 					"2nd-key": 2,
 					"3rd-key": true,
@@ -794,7 +794,7 @@ var allWatcherChangedTests = []struct {
 			&params.MachineInfo{
 				Id:         "0",
 				Status:     params.StatusStarted,
-				StatusData: params.StatusData{},
+				StatusData: make(map[string]interface{}),
 			},
 		},
 	},
@@ -1076,7 +1076,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Series:     "trusty",
 			Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
 			Addresses:  []network.Address{},
-			StatusData: params.StatusData{},
+			StatusData: make(map[string]interface{}),
 		},
 	}})
 

@@ -50,7 +50,7 @@ type NetworksSpecification struct {
 type AgentStatus struct {
 	Status  params.Status
 	Info    string
-	Data    params.StatusData
+	Data    map[string]interface{}
 	Version string
 	Life    string
 	Err     error
