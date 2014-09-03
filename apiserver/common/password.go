@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.common")
+var logger = loggo.GetLogger("juju.apiserver.common")
 
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.

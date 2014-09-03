@@ -456,7 +456,10 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, envStorage, availableVersions...)
 
 	// Extract the tools that we expect to actually match.
-	expectedList, err := tools.FindInstanceTools(s.Environ, currentVersion.Number, currentVersion.Series, nil)
+	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
+		Number: currentVersion.Number,
+		Series: currentVersion.Series,
+	}, tools.DoNotAllowRetry)
 	c.Assert(err, gc.IsNil)
 
 	// Create the machine and check the tools that get passed into StartInstance.

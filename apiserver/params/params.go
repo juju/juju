@@ -137,7 +137,7 @@ type AddMachinesResults struct {
 }
 
 // AddMachinesResults holds the name of a machine added by the
-// state.api.client.AddMachine call for a single machine.
+// api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
 	Machine string
 	Error   *Error
