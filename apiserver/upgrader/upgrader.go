@@ -76,8 +76,9 @@ func NewUpgraderAPI(
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	urlGetter := common.NewToolsURLGetter(st, st)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		resources:   resources,

@@ -72,7 +72,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	}
 
 	// Create the resource registry separately to track invocations to
-	// Register.
+	// Register, and to register the root for tools URLs.
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
@@ -1317,4 +1317,26 @@ func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 	result, err := aProvisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
+}
+
+func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Port:    1234,
+	}}}
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
+	args := params.FindToolsParams{
+		MajorVersion: -1,
+		MinorVersion: -1,
+	}
+	result, err := s.provisioner.FindTools(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.Not(gc.HasLen), 0)
+	for _, tools := range result.List {
+		url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", tools.Version)
+		c.Assert(tools.URL, gc.Equals, url)
+	}
 }
