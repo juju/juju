@@ -22,7 +22,32 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
-const aria2Command = "aria2c"
+const (
+	// curlCommand is the base curl command used to download tools.
+	curlCommand = "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+
+	// toolsDownloadAttempts is the number of attempts to make for
+	// each tools URL when downloading tools.
+	toolsDownloadAttempts = 5
+
+	// toolsDownloadWaitTime is the number of seconds to wait between
+	// each iterations of download attempts.
+	toolsDownloadWaitTime = 15
+
+	// toolsDownloadTemplate is a bash template that generates a
+	// bash command to cycle through a list of URLs to download tools.
+	toolsDownloadTemplate = `{{$curl := .ToolsDownloadCommand}}
+for n in $(seq {{.ToolsDownloadAttempts}}); do
+{{range .URLs}}
+    printf "Attempt $n to download tools from %s...\n" {{shquote .}}
+    {{$curl}} {{shquote .}} && echo "Tools downloaded successfully." && break
+{{end}}
+    if [ $n -lt {{.ToolsDownloadAttempts}} ]; then
+        echo "Download failed..... wait {{.ToolsDownloadWaitTime}}s"
+    fi
+    sleep {{.ToolsDownloadWaitTime}}
+done`
+)
 
 type ubuntuConfigure struct {
 	mcfg     *MachineConfig
@@ -153,35 +178,30 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		}
 		w.conf.AddBinaryFile(path.Join(w.mcfg.jujuTools(), "tools.tar.gz"), []byte(toolsData), 0644)
 	} else {
-		var copyCmd string
-		// Retry indefinitely.
-		aria2Command := aria2Command + " --max-tries=0 --retry-wait=3"
+		curlCommand := curlCommand
+		var urls []string
 		if w.mcfg.Bootstrap {
+			curlCommand += " --retry 10"
 			if w.mcfg.DisableSSLHostnameVerification {
-				aria2Command += " --check-certificate=false"
+				curlCommand += " --insecure"
 			}
-			copyCmd = fmt.Sprintf("%s -d $bin -o tools.tar.gz %s", aria2Command, shquote(w.mcfg.Tools.URL))
+			urls = append(urls, w.mcfg.Tools.URL)
 		} else {
-			var urls []string
 			for _, addr := range w.mcfg.apiHostAddrs() {
 				// TODO(axw) encode env UUID in URL when EnvironTag
 				// is guaranteed to be available in APIInfo.
 				url := fmt.Sprintf("https://%s/tools/%s", addr, w.mcfg.Tools.Version)
-				urls = append(urls, shquote(url))
+				urls = append(urls, url)
 			}
-
-			// Our certificates are unusable by aria2c (invalid subject name),
+			// Our API server certificates are unusable by curl (invalid subject name),
 			// so we must disable certificate validation. It doesn't actually
 			// matter, because there is no sensitive information being transmitted
 			// and we verify the tools' hash after.
-			copyCmd = fmt.Sprintf(
-				"%s --check-certificate=false -d $bin -o tools.tar.gz %s",
-				aria2Command,
-				strings.Join(urls, " "),
-			)
+			curlCommand += " --insecure"
 		}
-		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s", copyCmd))
-		w.conf.AddRunCmd(toolsDownloadCommandWithRetry(copyCmd))
+		curlCommand += " -o $bin/tools.tar.gz"
+		w.conf.AddRunCmd(cloudinit.LogProgressCmd("Fetching tools: %s <%s>", curlCommand, urls))
+		w.conf.AddRunCmd(toolsDownloadCommand(curlCommand, urls))
 	}
 	toolsJson, err := json.Marshal(w.mcfg.Tools)
 	if err != nil {
@@ -248,23 +268,22 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	return w.addMachineAgentToBoot(machineTag.String())
 }
 
-// toolsDownloadTemplate is a bash template that attempts up to 5 times
-// to run the tools download command.
-const toolsDownloadTemplate = `
-for n in $(seq 1 5); do
-    echo "Attempt $n to download tools..."
-    {{.ToolsDownloadCommand}} && echo "Tools downloaded successfully." && break
-    if [ $n -lt 5 ]; then
-        echo "Download failed..... wait 15s"
-    fi
-    sleep 15
-done
-`
-
-func toolsDownloadCommandWithRetry(command string) string {
-	parsedTemplate := template.Must(template.New("").Parse(toolsDownloadTemplate))
+// toolsDownloadCommand takes a curl command minus the source URL,
+// and generates a command that will cycle through the URLs until
+// one succeeds.
+func toolsDownloadCommand(curlCommand string, urls []string) string {
+	parsedTemplate := template.Must(
+		template.New("ToolsDownload").Funcs(
+			template.FuncMap{"shquote": shquote},
+		).Parse(toolsDownloadTemplate),
+	)
 	var buf bytes.Buffer
-	err := parsedTemplate.Execute(&buf, map[string]interface{}{"ToolsDownloadCommand": command})
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+		"ToolsDownloadCommand":  curlCommand,
+		"ToolsDownloadAttempts": toolsDownloadAttempts,
+		"ToolsDownloadWaitTime": toolsDownloadWaitTime,
+		"URLs":                  urls,
+	})
 	if err != nil {
 		panic(errors.Annotate(err, "tools download template error"))
 	}
