@@ -1110,9 +1110,9 @@ func (e *environ) updateFloatingIPAddresses(instances map[string]instance.Instan
 	for _, fip := range fips {
 		if fip.InstanceId != nil && *fip.InstanceId != "" {
 			instId := *fip.InstanceId
-			if _, ok := instances[instId]; ok {
+			if inst, ok := instances[instId]; ok {
 				instFip := fip
-				instances[instId].(*openstackInstance).floatingIP = &instFip
+				inst.(*openstackInstance).floatingIP = &instFip
 			}
 		}
 	}
