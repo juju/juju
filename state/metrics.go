@@ -112,7 +112,8 @@ func (st *State) DeleteMetricBatch(UUID string) error {
 		Id:     UUID,
 		Remove: true,
 	}}
-	return st.runTransaction(ops)
+	err := st.runTransaction(ops)
+	return errors.Annotatef(err, "cannot delete metric batch %q %v", UUID, err)
 }
 
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
