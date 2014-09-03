@@ -378,14 +378,14 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 
-	var actData *actionData
+	var actionData *actionData
 	if actionTag != nil {
-		actData = newActionData(actionTag, actionParams)
+		actionData = newActionData(actionTag, actionParams)
 	}
 
 	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		canAddMetrics, actData)
+		canAddMetrics, actionData)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

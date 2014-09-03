@@ -390,7 +390,7 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.ActionTag
 	status := params.ActionCompleted
-	if ctx.actionFailed() {
+	if ctx.actionData.ActionFailed {
 		status = params.ActionFailed
 	}
 
@@ -450,7 +450,7 @@ func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmD
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
-	} else if !ctx.actionFailed() {
+	} else if ctx.actionData != nil && !ctx.actionData.ActionFailed {
 		// If the action has already failed before it is run, there's
 		// a bigger problem, probably validation failure.
 		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
@@ -728,14 +728,4 @@ func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionD
 		ActionParams: params,
 		ResultsMap:   map[string]interface{}{},
 	}
-}
-
-// actionFailed resolves the status of an Action without forcing the user to
-// dive into the actionData state.  If the hook wasn't an Action, then it
-// cannot be a failed Action.
-func (ctx *HookContext) actionFailed() bool {
-	if ctx.actionData != nil {
-		return ctx.actionData.ActionFailed
-	}
-	return false
 }
