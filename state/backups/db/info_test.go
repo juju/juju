@@ -53,7 +53,7 @@ func (s *connInfoSuite) TestNewMongoConnInfoMissingTag(c *gc.C) {
 }
 
 func (s *connInfoSuite) TestDBConnInfoCheckOkay(c *gc.C) {
-	connInfo := db.NewConnInfo("a", "b", "c")
+	connInfo := &db.ConnInfo{"a", "b", "c"}
 	addr, user, pw, err := connInfo.Check()
 	c.Assert(err, gc.IsNil)
 
@@ -62,8 +62,22 @@ func (s *connInfoSuite) TestDBConnInfoCheckOkay(c *gc.C) {
 	c.Check(pw, gc.Equals, "c")
 }
 
-func (s *connInfoSuite) TestDBConnInfoCheckMissing(c *gc.C) {
-	connInfo := db.NewConnInfo("a", "b", "")
+func (s *connInfoSuite) TestDBConnInfoCheckMissingAddress(c *gc.C) {
+	connInfo := &db.ConnInfo{"", "b", "c"}
+	_, _, _, err := connInfo.Check()
+
+	c.Check(err, gc.ErrorMatches, "missing address")
+}
+
+func (s *connInfoSuite) TestDBConnInfoCheckMissingUsername(c *gc.C) {
+	connInfo := &db.ConnInfo{"a", "", "c"}
+	_, _, _, err := connInfo.Check()
+
+	c.Check(err, gc.ErrorMatches, "missing username")
+}
+
+func (s *connInfoSuite) TestDBConnInfoCheckMissingPassword(c *gc.C) {
+	connInfo := &db.ConnInfo{"a", "b", ""}
 	_, _, _, err := connInfo.Check()
 
 	c.Check(err, gc.ErrorMatches, "missing password")

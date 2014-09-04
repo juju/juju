@@ -35,18 +35,18 @@ var getMongodumpPath = func() (string, error) {
 }
 
 type mongoDumper struct {
-	connInfo
+	ConnInfo
 }
 
 // NewDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDumper(info connInfo) *mongoDumper {
+func NewDumper(info ConnInfo) *mongoDumper {
 	return &mongoDumper{info}
 }
 
 // Dump dumps the juju state database.
 func (md *mongoDumper) Dump(dumpDir string) error {
-	address, username, password, err := md.connInfo.Check()
+	address, username, password, err := md.ConnInfo.Check()
 	if err != nil {
 		return errors.Trace(err)
 	}

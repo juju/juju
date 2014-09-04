@@ -32,7 +32,7 @@ func (s *dumpSuite) patch(c *gc.C) {
 func (s *dumpSuite) TestDump(c *gc.C) {
 	s.patch(c)
 
-	dumper := db.NewDumper(*db.NewConnInfo("a", "b", "c"))
+	dumper := db.NewDumper(db.ConnInfo{"a", "b", "c"})
 	err := dumper.Dump("spam")
 	c.Assert(err, gc.IsNil)
 
