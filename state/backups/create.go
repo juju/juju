@@ -316,6 +316,18 @@ func (b *builder) buildAll() error {
 	return nil
 }
 
+// result returns a "create" result relative to the current state of the
+// builder.  create() uses this method to get the final backup result
+// from the builder it used.
+//
+// Note that create() calls builder.cleanUp() after it calls
+// builder.result().  cleanUp() causes the builder's workspace directory
+// to be deleted.  This means that while the file in the result is still
+// open, it no longer corresponds to any filename on the filesystem.
+// We do this to avoid leaving any temporary files around.  The
+// consequence is that we cannot simply return the temp filename, we
+// must leave the file open, and the caller is responsible for closing
+// the file (hence io.ReadCloser).
 func (b *builder) result() (*createResult, error) {
 	// Open the file in read-only mode.
 	file, err := os.Open(b.archive.Filename)
