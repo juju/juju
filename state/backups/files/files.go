@@ -11,7 +11,7 @@ import (
 
 // TODO(ericsnow) Pull these from authoritative sources (see
 // github.com/juju/juju/juju/paths, etc.):
-var (
+const (
 	dataDir        = "/var/lib/juju"
 	startupDir     = "/etc/init"
 	loggingConfDir = "/etc/rsyslog.d"
