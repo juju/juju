@@ -6,7 +6,9 @@ package state_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type PortsDocSuite struct {
@@ -33,13 +35,13 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	err = s.unit.AssignToMachine(s.machine)
 	c.Assert(err, gc.IsNil)
 
-	s.ports, err = state.GetOrCreatePorts(s.State, s.machine.Id())
+	s.ports, err = state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.ports, gc.NotNil)
 }
 
 func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
-	ports, err := state.GetOrCreatePorts(s.State, s.machine.Id())
+	ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 	err = ports.OpenPorts(state.PortRange{
@@ -50,7 +52,7 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	ports, err = state.GetPorts(s.State, s.machine.Id())
+	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 
@@ -58,7 +60,6 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 }
 
 func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
-
 	testCases := []struct {
 		about    string
 		existing []state.PortRange
@@ -140,13 +141,12 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			Protocol: "TCP",
 		},
 		expected: "mismatched port ranges 100-200/tcp and 100-300/tcp",
-	},
-	}
+	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 
-		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id())
+		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
 		c.Assert(err, gc.IsNil)
 		c.Assert(ports, gc.NotNil)
 
@@ -182,6 +182,22 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 		err = ports.Remove()
 		c.Check(err, gc.IsNil)
 	}
+}
+
+func (s *PortsDocSuite) TestAllPortRanges(c *gc.C) {
+	portRange := state.PortRange{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: s.unit.Name(),
+		Protocol: "TCP",
+	}
+	err := s.ports.OpenPorts(portRange)
+	c.Assert(err, gc.IsNil)
+
+	ranges := s.ports.AllPortRanges()
+	c.Assert(ranges, gc.HasLen, 1)
+
+	c.Assert(ranges[network.PortRange{100, 200, "TCP"}], gc.Equals, s.unit.Tag())
 }
 
 func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
@@ -226,11 +242,11 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
 
-	ports, err := state.GetPorts(s.State, s.machine.Id())
+	ports, err := state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 
-	allPorts, err := s.machine.OpenedPorts(s.State)
+	allPorts, err := s.machine.AllPorts()
 	c.Assert(err, gc.IsNil)
 
 	for _, prt := range allPorts {
@@ -238,9 +254,35 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 
-	ports, err = state.GetPorts(s.State, s.machine.Id())
+	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(ports, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "ports document for machine .* not found")
+}
+
+func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
+	w := s.State.WatchOpenedPorts()
+	c.Assert(w, gc.NotNil)
+
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	portRange := state.PortRange{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: s.unit.Name(),
+		Protocol: "TCP",
+	}
+	err := s.ports.OpenPorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange("0:juju-public")
+
+	err = s.ports.Refresh()
+	c.Assert(err, gc.IsNil)
+	err = s.ports.ClosePorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange("0:juju-public")
 }
 
 type PortRangeSuite struct{}

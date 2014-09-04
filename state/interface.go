@@ -196,3 +196,11 @@ var _ ActionsWatcher = (*Unit)(nil)
 
 // TODO(jcw4): when we implement service level Actions
 // var _ ActionsWatcher = (*Service)(nil)
+
+// PortsWatcher defines an interface implemented by *State
+// that has a single method - WatchOpenedPorts
+type PortsWatcher interface {
+	WatchOpenedPorts() StringsWatcher
+}
+
+var _ PortsWatcher = (*State)(nil)

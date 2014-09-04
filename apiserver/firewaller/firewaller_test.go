@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -409,6 +410,57 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 			{Result: s.machines[0].Tag().String()},
 		},
 	})
+}
+
+func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
+	// open ports on units
+	for i := 0; i <= 2; i++ {
+		err := s.units[i].OpenPort("tcp", (i+1)*10)
+		c.Assert(err, gc.IsNil)
+	}
+
+	args := params.MachinePortsParams{Params: []params.MachinePortsParam{
+		{Machine: s.machines[0].Tag().String(), Network: names.NewNetworkTag(network.DefaultPublic).String()},
+		{Machine: s.machines[1].Tag().String(), Network: names.NewNetworkTag(network.DefaultPublic).String()},
+		{Machine: s.machines[2].Tag().String(), Network: names.NewNetworkTag(network.DefaultPublic).String()},
+	}}
+
+	results, err := s.firewaller.GetMachinePorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+
+	for i := 0; i <= 2; i++ {
+		portRange := network.PortRange{
+			FromPort: (i + 1) * 10,
+			ToPort:   (i + 1) * 10,
+			Protocol: "tcp",
+		}
+		c.Check(results.Results[i].Ports[0].Range, gc.Equals, portRange)
+		c.Check(results.Results[i].Ports[0].Unit.Tag, gc.Equals, s.units[i].Tag().String())
+	}
+}
+
+func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
+	// open ports on units
+	for i := 0; i <= 2; i++ {
+		err := s.units[i].OpenPort("tcp", (i+1)*10)
+		c.Assert(err, gc.IsNil)
+	}
+
+	args := params.Entities{Entities: []params.Entity{
+		{s.machines[0].Tag().String()},
+		{s.machines[1].Tag().String()},
+		{s.machines[2].Tag().String()},
+	}}
+
+	results, err := s.firewaller.GetMachineActiveNetworks(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 3)
+
+	for i := 0; i <= 2; i++ {
+		c.Check(results.Results[i].Result, gc.HasLen, 1)
+		c.Check(results.Results[i].Result[0], gc.Equals, network.DefaultPublic)
+	}
 }
 
 func (s *firewallerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {

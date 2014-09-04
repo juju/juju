@@ -22,6 +22,11 @@ type Unit struct {
 	life params.Life
 }
 
+// Tag returns the tag of the unit.
+func (u *Unit) Tag() names.UnitTag {
+	return u.tag
+}
+
 // Name returns the name of the unit.
 func (u *Unit) Name() string {
 	return u.tag.Id()
