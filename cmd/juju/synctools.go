@@ -119,7 +119,11 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 			writeMirrors = envtools.WriteMirrors
 		}
 		sctx.TargetToolsFinder = sync.StorageToolsFinder{Storage: stor}
-		sctx.TargetToolsUploader = sync.StorageToolsUploader{Storage: stor, WriteMirrors: writeMirrors}
+		sctx.TargetToolsUploader = sync.StorageToolsUploader{
+			Storage:       stor,
+			WriteMetadata: true,
+			WriteMirrors:  writeMirrors,
+		}
 	} else {
 		if c.public {
 			logger.Warningf("--public is ignored unless --local-dir is specified")

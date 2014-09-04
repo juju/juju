@@ -136,6 +136,10 @@ func (src List) Match(f Filter) (List, error) {
 	return result, nil
 }
 
+func (l List) Len() int           { return len(l) }
+func (l List) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
+func (l List) Less(i, j int) bool { return l[i].Version.String() < l[j].Version.String() }
+
 // Filter holds criteria for choosing tools.
 type Filter struct {
 
