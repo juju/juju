@@ -32,7 +32,7 @@ func init() {
 	common.RegisterStandardFacade("Client", 0, NewClient)
 }
 
-var logger = loggo.GetLogger("juju.state.apiserver.client")
+var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
 	state     *state.State
@@ -997,7 +997,9 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 	// Finally, update the charm data in state and mark it as no longer pending.
 	_, err = c.api.state.UpdateUploadedCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	cause := errors.Cause(err)
 	if err == state.ErrCharmRevisionAlreadyModified ||
+		cause == state.ErrCharmRevisionAlreadyModified ||
 		state.IsCharmAlreadyUploadedError(err) {
 		// This is not an error, it just signifies somebody else
 		// managed to upload and update the charm in state before
@@ -1057,7 +1059,7 @@ func CharmArchiveName(name string, revision int) (string, error) {
 func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
-		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
+		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
 	}
 	return c.api.statusSetter.UpdateStatus(params.SetStatus{
 		Entities: entityStatus,

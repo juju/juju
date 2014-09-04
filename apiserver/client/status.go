@@ -606,7 +606,7 @@ type stateAgent interface {
 	lifer
 	AgentPresence() (bool, error)
 	AgentTools() (*tools.Tools, error)
-	Status() (params.Status, string, params.StatusData, error)
+	Status() (params.Status, string, map[string]interface{}, error)
 }
 
 // processAgent retrieves version and status information from the given entity.
@@ -666,8 +666,8 @@ func processAgent(entity stateAgent) (
 
 // filterStatusData limits what agent StatusData data is passed over
 // the API. This prevents unintended leakage of internal-only data.
-func filterStatusData(status params.StatusData) params.StatusData {
-	out := make(params.StatusData)
+func filterStatusData(status map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{})
 	for name, value := range status {
 		// use a set here if we end up with a larger whitelist
 		if name == "relation-id" {

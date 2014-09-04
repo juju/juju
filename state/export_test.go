@@ -256,3 +256,22 @@ var (
 	GetPorts         = getPorts
 	NowToTheSecond   = nowToTheSecond
 )
+
+var CurrentUpgradeId = currentUpgradeId
+
+func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
+	upgradeInfos, closer := st.getCollection(upgradeInfoC)
+	defer closer()
+
+	var out []*UpgradeInfo
+	var doc upgradeInfoDoc
+	iter := upgradeInfos.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		out = append(out, &UpgradeInfo{st: st, doc: doc})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

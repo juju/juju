@@ -111,7 +111,7 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
-	err = apiMachine.SetStatus(params.StatusError, "blah", params.StatusData{"foo": "bar"})
+	err = apiMachine.SetStatus(params.StatusError, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
 	status, info, err := apiMachine.Status()
@@ -120,13 +120,13 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	c.Assert(info, gc.Equals, "blah")
 	_, _, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(data, gc.DeepEquals, params.StatusData{"foo": "bar"})
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }
 
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetStatus(params.StatusError, "blah", params.StatusData{"transient": true})
+	err = machine.SetStatus(params.StatusError, "blah", map[string]interface{}{"transient": true})
 	c.Assert(err, gc.IsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, gc.IsNil)
@@ -138,7 +138,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 		Life:   "alive",
 		Status: "error",
 		Info:   "blah",
-		Data:   params.StatusData{"transient": true},
+		Data:   map[string]interface{}{"transient": true},
 	})
 }
 

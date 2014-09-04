@@ -812,7 +812,7 @@ var statusTests = []testCase{
 
 		setUnitStatus{"wordpress/0", params.StatusError,
 			"hook failed: some-relation-changed",
-			params.StatusData{"relation-id": 0}},
+			map[string]interface{}{"relation-id": 0}},
 
 		expect{
 			"a unit with a hook relation error",
@@ -879,7 +879,7 @@ var statusTests = []testCase{
 
 		setUnitStatus{"wordpress/0", params.StatusError,
 			"hook failed: some-relation-changed",
-			params.StatusData{"relation-id": 0}},
+			map[string]interface{}{"relation-id": 0}},
 
 		expect{
 			"a unit with a hook relation error when the agent is down",
@@ -1963,7 +1963,7 @@ type setUnitStatus struct {
 	unitName   string
 	status     params.Status
 	statusInfo string
-	statusData params.StatusData
+	statusData map[string]interface{}
 }
 
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {

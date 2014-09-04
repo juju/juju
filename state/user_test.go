@@ -28,6 +28,8 @@ func (s *UserSuite) TestAddInvalidNames(c *gc.C) {
 		"b^b",
 		"a.",
 		"a-",
+		"user@local",
+		"@ubuntuone",
 	} {
 		c.Logf("check invalid name %q", name)
 		user, err := s.State.AddUser(name, "ignored", "ignored", "ignored")

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 // FakeStateInfo holds information about no state - it will always
@@ -156,8 +157,15 @@ func StartInstanceWithParams(
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("missing agent version in environment config")
 	}
-	possibleTools, err := tools.FindInstanceTools(
-		env, agentVersion, series, params.Constraints.Arch,
+	filter := coretools.Filter{
+		Number: agentVersion,
+		Series: series,
+	}
+	if params.Constraints.Arch != nil {
+		filter.Arch = *params.Constraints.Arch
+	}
+	possibleTools, err := tools.FindTools(
+		env, -1, -1, filter, tools.DoNotAllowRetry,
 	)
 	if err != nil {
 		return nil, nil, nil, err

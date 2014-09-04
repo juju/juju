@@ -233,16 +233,16 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 	}
 
 	params := mongo.EnsureServerParams{
-		APIPort:    si.APIPort,
-		StatePort:  si.StatePort,
-		Cert:       si.Cert,
-		PrivateKey: si.PrivateKey,
-		// this will be passed as the KeyFile argument to MongoDB
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
-		DataDir:        agentConfig.DataDir(),
-		Namespace:      agentConfig.Value(agent.Namespace),
-		OplogSize:      oplogSize,
+
+		DataDir:   agentConfig.DataDir(),
+		Namespace: agentConfig.Value(agent.Namespace),
+		OplogSize: oplogSize,
 	}
 	return params, nil
 }

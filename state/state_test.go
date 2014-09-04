@@ -346,7 +346,8 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, first, second, first).Check()
 
 	_, err = s.State.PrepareStoreCharmUpload(curl)
-	c.Assert(err, gc.Equals, txn.ErrExcessiveContention)
+	cause := errors.Cause(err)
+	c.Assert(cause, gc.Equals, txn.ErrExcessiveContention)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
@@ -2781,7 +2782,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 	}()
 	select {
 	case err := <-done:
-		c.Assert(err, gc.Equals, state.ErrStateClosed)
+		c.Assert(err, gc.ErrorMatches, state.ErrStateClosed.Error())
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher %T did not exit when state closed", watcher)
 	}

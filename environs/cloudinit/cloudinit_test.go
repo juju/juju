@@ -209,7 +209,7 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
 echo 'Fetching tools.*
-aria2c --max-tries=0 --retry-wait=3 -d \$bin -o tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz'
+curl .* -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-precise-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -262,7 +262,7 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 		inexactMatch: true,
 		expectScripts: `
 bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
-aria2c --max-tries=0 --retry-wait=3 -d \$bin -o tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz'
+curl .* -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
@@ -315,7 +315,7 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
 mkdir -p \$bin
 echo 'Fetching tools.*
-aria2c --max-tries=0 --retry-wait=3 --check-certificate=false -d \$bin -o tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
@@ -404,7 +404,7 @@ start jujud-machine-2-lxc-1
 		},
 		inexactMatch: true,
 		expectScripts: `
-aria2c --max-tries=0 --retry-wait=3 --check-certificate=false -d \$bin -o tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
+curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid:54321/tools/1\.2\.3-quantal-amd64'
 `,
 	}, {
 		// empty contraints.
@@ -543,7 +543,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.cfg.Config != nil {
 			checkEnvConfig(c, test.cfg.Config, configKeyValues, scripts)
 		}
-		checkPackage(c, configKeyValues, "aria2", test.cfg.EnableOSRefreshUpdate)
+		checkPackage(c, configKeyValues, "curl", test.cfg.EnableOSRefreshUpdate)
 
 		tag := names.NewMachineTag(test.cfg.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
@@ -1096,4 +1096,27 @@ func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
 		c.Assert(stringData, gc.Equals, compareString)
 
 	}
+}
+
+func (*cloudinitSuite) TestToolsDownloadCommand(c *gc.C) {
+	command := cloudinit.ToolsDownloadCommand("download", []string{"a", "b", "c"})
+
+	expected := `
+for n in $(seq 5); do
+
+    printf "Attempt $n to download tools from %s...\n" 'a'
+    download 'a' && echo "Tools downloaded successfully." && break
+
+    printf "Attempt $n to download tools from %s...\n" 'b'
+    download 'b' && echo "Tools downloaded successfully." && break
+
+    printf "Attempt $n to download tools from %s...\n" 'c'
+    download 'c' && echo "Tools downloaded successfully." && break
+
+    if [ $n -lt 5 ]; then
+        echo "Download failed..... wait 15s"
+    fi
+    sleep 15
+done`
+	c.Assert(command, gc.Equals, expected)
 }

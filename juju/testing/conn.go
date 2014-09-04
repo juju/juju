@@ -422,7 +422,8 @@ type GetStater interface {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
-	serverAlive := gitjujutesting.MgoServer.Addr() != ""
+	testServer := gitjujutesting.MgoServer.Addr()
+	serverAlive := testServer != ""
 
 	// Bootstrap will set the admin password, and render non-authorized use
 	// impossible. s.State may still hold the right password, so try to reset
@@ -435,7 +436,13 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		}
 		err := s.State.Close()
 		if serverAlive {
-			c.Check(err, gc.IsNil)
+			// This happens way too often with failing tests,
+			// so add some context in case of an error.
+			c.Check(
+				err,
+				gc.IsNil,
+				gc.Commentf("closing state failed, testing server %q is alive", testServer),
+			)
 		}
 		s.State = nil
 	}
@@ -450,7 +457,11 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Check(err, gc.IsNil)
+			c.Check(
+				err,
+				gc.IsNil,
+				gc.Commentf("closing api state failed, testing server %q is alive", testServer),
+			)
 		}
 	}
 	dummy.Reset()

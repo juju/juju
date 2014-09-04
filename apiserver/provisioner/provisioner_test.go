@@ -322,7 +322,7 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
 			{Tag: s.machines[0].Tag().String(), Status: params.StatusError, Info: "not really",
-				Data: params.StatusData{"foo": "bar"}},
+				Data: map[string]interface{}{"foo": "bar"}},
 			{Tag: s.machines[1].Tag().String(), Status: params.StatusStopped, Info: "foobar"},
 			{Tag: s.machines[2].Tag().String(), Status: params.StatusStarted, Info: "again"},
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
@@ -343,24 +343,24 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertStatus(c, 0, params.StatusError, "not really", params.StatusData{"foo": "bar"})
-	s.assertStatus(c, 1, params.StatusStopped, "foobar", params.StatusData{})
-	s.assertStatus(c, 2, params.StatusStarted, "again", params.StatusData{})
+	s.assertStatus(c, 0, params.StatusError, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertStatus(c, 1, params.StatusStopped, "foobar", map[string]interface{}{})
+	s.assertStatus(c, 2, params.StatusStarted, "again", map[string]interface{}{})
 }
 
 func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].SetStatus(params.StatusError, "transient error",
-		params.StatusData{"transient": true, "foo": "bar"})
+		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "error", params.StatusData{"transient": false})
+	err = s.machines[2].SetStatus(params.StatusError, "error", map[string]interface{}{"transient": false})
 	c.Assert(err, gc.IsNil)
 	err = s.machines[3].SetStatus(params.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
 	// Machine 4 is provisioned but error not reset yet.
 	err = s.machines[4].SetStatus(params.StatusError, "transient error",
-		params.StatusData{"transient": true, "foo": "bar"})
+		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, gc.IsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.machines[4].SetProvisioned("i-am", "fake_nonce", &hwChars)
@@ -371,7 +371,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
-				Data: params.StatusData{"transient": true, "foo": "bar"}},
+				Data: map[string]interface{}{"transient": true, "foo": "bar"}},
 		},
 	})
 }
@@ -386,9 +386,9 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *g
 	err = s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].SetStatus(params.StatusError, "transient error",
-		params.StatusData{"transient": true, "foo": "bar"})
+		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "error", params.StatusData{"transient": false})
+	err = s.machines[2].SetStatus(params.StatusError, "error", map[string]interface{}{"transient": false})
 	c.Assert(err, gc.IsNil)
 	err = s.machines[3].SetStatus(params.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
@@ -398,7 +398,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *g
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
 			{Id: "1", Life: "alive", Status: "error", Info: "transient error",
-				Data: params.StatusData{"transient": true, "foo": "bar"}},
+				Data: map[string]interface{}{"transient": true, "foo": "bar"}},
 		},
 	})
 }
@@ -444,7 +444,7 @@ func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife stat
 }
 
 func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string,
-	expectData params.StatusData) {
+	expectData map[string]interface{}) {
 
 	status, info, data, err := s.machines[index].Status()
 	c.Assert(err, gc.IsNil)
@@ -544,7 +544,7 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really", params.StatusData{"foo": "bar"})
+	err = s.machines[2].SetStatus(params.StatusError, "not really", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -559,9 +559,9 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StatusResults{
 		Results: []params.StatusResult{
-			{Status: params.StatusStarted, Info: "blah", Data: params.StatusData{}},
-			{Status: params.StatusStopped, Info: "foo", Data: params.StatusData{}},
-			{Status: params.StatusError, Info: "not really", Data: params.StatusData{"foo": "bar"}},
+			{Status: params.StatusStarted, Info: "blah", Data: map[string]interface{}{}},
+			{Status: params.StatusStopped, Info: "foo", Data: map[string]interface{}{}},
+			{Status: params.StatusError, Info: "not really", Data: map[string]interface{}{"foo": "bar"}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

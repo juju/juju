@@ -19,7 +19,6 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
@@ -44,7 +43,12 @@ type MongoSuite struct {
 
 var _ = gc.Suite(&MongoSuite{})
 
-var testInfo = params.StateServingInfo{
+var testInfo = struct {
+	StatePort    int
+	Cert         string
+	PrivateKey   string
+	SharedSecret string
+}{
 	StatePort:    25252,
 	Cert:         "foobar-cert",
 	PrivateKey:   "foobar-privkey",

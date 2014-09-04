@@ -21,7 +21,7 @@ func init() {
 	common.RegisterStandardFacade("Networker", 0, NewNetworkerAPI)
 }
 
-var logger = loggo.GetLogger("juju.state.apiserver.networker")
+var logger = loggo.GetLogger("juju.apiserver.networker")
 
 // NetworkerAPI provides access to the Networker API facade.
 type NetworkerAPI struct {

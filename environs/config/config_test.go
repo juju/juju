@@ -196,25 +196,7 @@ var configTests = []configTest{
 			"ca-cert-path":        "~/othercert.pem",
 			"ca-private-key-path": "~/otherkey.pem",
 		},
-	}, /* {
-		about: "CA cert only from ~ path",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert-path":   "~/othercert.pem",
-			"ca-private-key": "",
-		},
 	}, {
-		about: "CA cert only as attribute",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        caCert,
-			"ca-private-key": "",
-		},
-	}, */{
 		about:       "CA cert and key as attributes",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -252,36 +234,7 @@ var configTests = []configTest{
 			"ca-private-key": invalidCAKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, /* {
-		about: "No CA cert or key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": "",
-		},
 	}, {
-		about: "CA key but no cert",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": caKey,
-		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, {
-		about: "No CA key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "foo",
-			"ca-private-key": "",
-		},
-		err: "bad CA certificate/key in configuration: no certificates found",
-	}, */{
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -503,30 +456,66 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
-		about:       "provisioner-safe-mode off",
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestAll.String(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": false,
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestAll.String(),
 		},
 	}, {
-		about:       "provisioner-safe-mode on",
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestDestroyed.String(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": true,
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestDestroyed.String(),
 		},
 	}, {
-		about:       "provisioner-safe-mode incorrect",
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestUnknown.String(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": "yes please",
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestUnknown.String(),
 		},
-		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
+	}, {
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestNone.String(),
+		),
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestNone.String(),
+		},
+	}, {
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			"incorrect",
+		),
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": "yes please",
+		},
+		err: `unknown harvesting method: yes please`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -775,6 +764,16 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
+	{
+		about:       "Deprecated safe-mode failover",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                     "my-type",
+			"name":                     "my-name",
+			"provisioner-safe-mode":    true,
+			"provisioner-harvest-mode": config.HarvestNone.String(),
+		},
+	},
 }
 
 // authTokenConfigTest returns a config test that checks
@@ -929,6 +928,35 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	}
 }
 
+func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
+
+	cfg, err := config.New(config.UseDefaults, testing.Attrs{
+		"name":                  "name",
+		"type":                  "type",
+		"provisioner-safe-mode": false,
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(
+		cfg.ProvisionerHarvestMode().String(),
+		gc.Equals,
+		config.HarvestAll.String(),
+	)
+
+	cfg, err = config.New(config.UseDefaults, testing.Attrs{
+		"name":                  "name",
+		"type":                  "type",
+		"provisioner-safe-mode": true,
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(
+		cfg.ProvisionerHarvestMode().String(),
+		gc.Equals,
+		config.HarvestDestroyed.String(),
+	)
+}
+
 func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
@@ -1042,10 +1070,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
-	if v, ok := test.attrs["provisioner-safe-mode"]; ok {
-		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
+	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
+		hvstMeth, err := config.ParseHarvestMode(v.(string))
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)
 	} else {
-		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
 	sshOpts := cfg.BootstrapSSHOpts()
 	test.assertDuration(
@@ -1144,7 +1174,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"provisioner-safe-mode":     false,
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
@@ -1174,6 +1203,9 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+
+	// Verify that default provisioner-harvest-mode is good.
+	c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
