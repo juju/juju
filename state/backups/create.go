@@ -326,6 +326,11 @@ func (b *builder) result() (*createResult, error) {
 	// Get the size.
 	stat, err := file.Stat()
 	if err != nil {
+		if err := file.Close(); err != nil {
+			// We don't want to just throw the error away.
+			err = errors.Annotate(err, "while closing file during handling of another error")
+			logger.Errorf(err.Error())
+		}
 		return nil, errors.Annotate(err, "while reading archive file info")
 	}
 	size := stat.Size()
