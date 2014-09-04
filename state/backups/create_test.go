@@ -27,16 +27,25 @@ type createSuite struct {
 
 var _ = gc.Suite(&createSuite{}) // Register the suite.
 
+type TestDBDumper struct {
+	DumpDir string
+}
+
+func (d *TestDBDumper) Dump(dumpDir string) error {
+	d.DumpDir = dumpDir
+	return nil
+}
+
 func (s *createSuite) TestCreateLegacy(c *gc.C) {
 	_, testFiles, expected := s.createTestFiles(c)
 
-	dumper := backups.NewTestDBDumper()
+	dumper := &TestDBDumper{}
 	args := backups.NewTestCreateArgs(testFiles, dumper)
 	result, err := backups.Create(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.NotNil)
 
-	archiveFile, size, checksum := backups.DumpCreateResult(result)
+	archiveFile, size, checksum := backups.ExposeCreateResult(result)
 	c.Assert(archiveFile, gc.NotNil)
 
 	// Check the result.
