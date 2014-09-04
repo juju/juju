@@ -5,9 +5,9 @@ package juju
 
 import (
 	"fmt"
-	"github.com/juju/errors"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v3"
 

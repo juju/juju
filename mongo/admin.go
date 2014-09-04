@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
+// AdminUser is the name of the user that is initially created in mongo.
 const AdminUser = "admin"
 
 var (
