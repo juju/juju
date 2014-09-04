@@ -64,6 +64,85 @@ const (
 	fallbackLtsSeries string = "precise"
 )
 
+// TODO(katco-): Please grow this over time.
+// Centralized place to store values of config keys. This transitions
+// mistakes in referencing key-values to a compile-time error.
+const (
+	// ProvisionerHarvestModeKey stores the key for this setting.
+	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
+
+	//
+	// Deprecated Settings
+	//
+
+	// ProvisionerSafeModeKey stores the key for this setting.
+	ProvisionerSafeModeKey = "provisioner-safe-mode"
+)
+
+// ParseHarvestMode parses description of harvesting method and
+// returns the representation.
+func ParseHarvestMode(description string) (HarvestMode, error) {
+	description = strings.ToLower(description)
+	for method, descr := range harvestingMethodToFlag {
+		if description == descr {
+			return method, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown harvesting method: %s", description)
+}
+
+// HarvestMode is a bit field which is used to store the harvesting
+// behavior for Juju.
+type HarvestMode uint32
+
+const (
+	// HarvestNone signifies that Juju should not harvest any
+	// machines.
+	HarvestNone HarvestMode = 1 << iota
+	// HarvestUnknown signifies that Juju should only harvest machines
+	// which exist, but we don't know about.
+	HarvestUnknown
+	// HarvestDestroyed signifies that Juju should only harvest
+	// machines which have been explicitly released by the user
+	// through a destroy of a service/environment/unit.
+	HarvestDestroyed
+	// HarvestAll signifies that Juju should harvest both unknown and
+	// destroyed instances. ♫ Don't fear the reaper. ♫
+	HarvestAll HarvestMode = HarvestUnknown | HarvestDestroyed
+)
+
+// A mapping from method to description. Going this way will be the
+// more common operation, so we want this type of lookup to be O(1).
+var harvestingMethodToFlag = map[HarvestMode]string{
+	HarvestAll:       "all",
+	HarvestNone:      "none",
+	HarvestUnknown:   "unknown",
+	HarvestDestroyed: "destroyed",
+}
+
+// String returns the description of the harvesting mode.
+func (method HarvestMode) String() string {
+	if description, ok := harvestingMethodToFlag[method]; ok {
+		return description
+	}
+	panic("Unknown harvesting method.")
+}
+
+// None returns whether or not the None harvesting flag is set.
+func (method HarvestMode) HarvestNone() bool {
+	return method&HarvestNone != 0
+}
+
+// Destroyed returns whether or not the Destroyed harvesting flag is set.
+func (method HarvestMode) HarvestDestroyed() bool {
+	return method&HarvestDestroyed != 0
+}
+
+// Unknown returns whether or not the Unknown harvesting flag is set.
+func (method HarvestMode) HarvestUnknown() bool {
+	return method&HarvestUnknown != 0
+}
+
 var latestLtsSeries string
 
 type HasDefaultSeries interface {
@@ -273,6 +352,27 @@ func (cfg *Config) processDeprecatedAttributes() {
 	if cfg.Type() == "null" {
 		cfg.defined["type"] = "manual"
 	}
+
+	if _, ok := cfg.defined[ProvisionerHarvestModeKey]; !ok {
+		if safeMode, ok := cfg.defined[ProvisionerSafeModeKey].(bool); ok {
+
+			var harvestModeDescr string
+			if safeMode {
+				harvestModeDescr = HarvestDestroyed.String()
+			} else {
+				harvestModeDescr = HarvestAll.String()
+			}
+
+			cfg.defined[ProvisionerHarvestModeKey] = harvestModeDescr
+
+			logger.Infof(
+				`Based on your "%s" setting, configuring "%s" to "%s".`,
+				ProvisionerSafeModeKey,
+				ProvisionerHarvestModeKey,
+				harvestModeDescr,
+			)
+		}
+	}
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -341,6 +441,13 @@ func Validate(cfg, old *Config) error {
 	if !validAuthToken.MatchString(authToken) {
 		return fmt.Errorf("charm store auth token needs to be a set"+
 			" of key-value pairs, not %q", authToken)
+	}
+
+	// Ensure that the given harvesting method is valid.
+	if hvstMeth, ok := cfg.defined[ProvisionerHarvestModeKey].(string); ok {
+		if _, err := ParseHarvestMode(hvstMeth); err != nil {
+			return err
+		}
 	}
 
 	// Check the immutable config values.  These can't change
@@ -736,11 +843,20 @@ func (c *Config) CharmStoreAuth() (string, bool) {
 	return auth, auth != ""
 }
 
-// ProvisionerSafeMode reports whether the provisioner should not
-// destroy machines it does not know about.
-func (c *Config) ProvisionerSafeMode() bool {
-	v, _ := c.defined["provisioner-safe-mode"].(bool)
-	return v
+// ProvisionerHarvestMode reports the harvesting methodology the
+// provisioner should take.
+func (c *Config) ProvisionerHarvestMode() HarvestMode {
+	if v, ok := c.defined[ProvisionerHarvestModeKey].(string); ok {
+		if method, err := ParseHarvestMode(v); err != nil {
+			// This setting should have already been validated. Don't
+			// burden the caller with handling any errors.
+			panic(err)
+		} else {
+			return method
+		}
+	} else {
+		return HarvestDestroyed
+	}
 }
 
 // ImageStream returns the simplestreams stream
@@ -846,7 +962,7 @@ var fields = schema.Fields{
 	"rsyslog-ca-cert":            schema.String(),
 	"logging-config":             schema.String(),
 	"charm-store-auth":           schema.String(),
-	"provisioner-safe-mode":      schema.Bool(),
+	ProvisionerHarvestModeKey:    schema.String(),
 	"http-proxy":                 schema.String(),
 	"https-proxy":                schema.String(),
 	"ftp-proxy":                  schema.String(),
@@ -867,8 +983,9 @@ var fields = schema.Fields{
 	"disable-network-management": schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":     schema.String(),
-	"lxc-use-clone": schema.Bool(),
+	"tools-url":            schema.String(),
+	"lxc-use-clone":        schema.Bool(),
+	ProvisionerSafeModeKey: schema.Bool(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -887,7 +1004,7 @@ var alwaysOptional = schema.Defaults{
 	"ca-cert-path":               schema.Omit,
 	"ca-private-key-path":        schema.Omit,
 	"logging-config":             schema.Omit,
-	"provisioner-safe-mode":      schema.Omit,
+	ProvisionerHarvestModeKey:    schema.Omit,
 	"bootstrap-timeout":          schema.Omit,
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
@@ -903,8 +1020,9 @@ var alwaysOptional = schema.Defaults{
 	"disable-network-management": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":     "",
-	"lxc-use-clone": schema.Omit,
+	"tools-url":            "",
+	"lxc-use-clone":        schema.Omit,
+	ProvisionerSafeModeKey: schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
