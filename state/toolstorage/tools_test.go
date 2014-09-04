@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"strings"
 	stdtesting "testing"
 
 	"github.com/juju/blobstore"
@@ -30,9 +31,11 @@ func TestPackage(t *stdtesting.T) {
 
 type ToolsSuite struct {
 	testing.BaseSuite
-	mongo   *gitjujutesting.MgoInstance
-	session *mgo.Session
-	storage toolstorage.Storage
+	mongo              *gitjujutesting.MgoInstance
+	session            *mgo.Session
+	storage            toolstorage.Storage
+	managedStorage     blobstore.ManagedStorage
+	metadataCollection *mgo.Collection
 }
 
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
@@ -45,10 +48,10 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rs := blobstore.NewGridFS("blobstore", "my-uuid", s.session)
 	catalogue := s.session.DB("catalogue")
-	managedStorage := blobstore.NewManagedStorage(catalogue, rs)
-	metadataCollection := catalogue.C("toolsmetadata")
+	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
+	s.metadataCollection = catalogue.C("toolsmetadata")
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
-	s.storage = toolstorage.NewStorage("my-uuid", managedStorage, metadataCollection, txnRunner)
+	s.storage = toolstorage.NewStorage("my-uuid", s.managedStorage, s.metadataCollection, txnRunner)
 }
 
 func (s *ToolsSuite) TearDownTest(c *gc.C) {
@@ -140,7 +143,7 @@ func (s *ToolsSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 
-	s.testAddTools(c, "abc")
+	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 1)
@@ -170,7 +173,7 @@ func (s *ToolsSuite) TestMetadata(c *gc.C) {
 	metadata, err := s.storage.Metadata(version.Current)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	s.testAddTools(c, "abc")
+	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
 	metadata, err = s.storage.Metadata(version.Current)
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.Equals, toolstorage.Metadata{
@@ -178,4 +181,49 @@ func (s *ToolsSuite) TestMetadata(c *gc.C) {
 		Size:    3,
 		SHA256:  "hash(abc)",
 	})
+}
+
+func (s *ToolsSuite) TestTools(c *gc.C) {
+	_, _, err := s.storage.Tools(version.Current)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `.* tools metadata not found`)
+
+	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
+	_, _, err = s.storage.Tools(version.Current)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `resource at path "environs/my-uuid/path" not found`)
+
+	err = s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	c.Assert(err, gc.IsNil)
+
+	metadata, r, err := s.storage.Tools(version.Current)
+	c.Assert(err, gc.IsNil)
+	defer r.Close()
+	c.Assert(metadata, gc.Equals, toolstorage.Metadata{
+		Version: version.Current,
+		Size:    3,
+		SHA256:  "hash(abc)",
+	})
+
+	data, err := ioutil.ReadAll(r)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, "blah")
+}
+
+func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
+	doc := struct {
+		Id      string         `bson:"_id"`
+		Version version.Binary `bson:"version"`
+		Size    int64          `bson:"size"`
+		SHA256  string         `bson:"sha256,omitempty"`
+		Path    string         `bson:"path"`
+	}{
+		Id:      v.String(),
+		Version: v,
+		Size:    size,
+		SHA256:  hash,
+		Path:    path,
+	}
+	err := s.metadataCollection.Insert(&doc)
+	c.Assert(err, gc.IsNil)
 }

@@ -17,45 +17,6 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// Metadata describes a Juju tools tarball.
-type Metadata struct {
-	Version version.Binary
-	Size    int64
-	SHA256  string
-}
-
-// Storage provides methods for storing and retrieving tools by version.
-type Storage interface {
-	// AddTools adds the tools tarball and metadata into state,
-	// failing if there already exist tools with the specified
-	// version, replacing existing metadata if any exist with
-	// the specified version.
-	AddTools(io.Reader, Metadata) error
-
-	// AddToolsAlias adds an alias for the tools with the specified version,
-	// failing if metadata already exists for the alias version.
-	AddToolsAlias(alias, version version.Binary) error
-
-	// AllMetadata returns metadata for the full list of tools in
-	// the catalogue.
-	AllMetadata() ([]Metadata, error)
-
-	// Tools returns the Metadata and tools tarball contents
-	// for the specified version if it exists, else an error
-	// satisfying errors.IsNotFound.
-	Tools(version.Binary) (Metadata, io.ReadCloser, error)
-
-	// Metadata returns the Metadata for the specified version
-	// if it exists, else an error satisfying errors.IsNotFound.
-	Metadata(v version.Binary) (Metadata, error)
-}
-
-// StorageCloser extends the Storage interface with a Close method.
-type StorageCloser interface {
-	Storage
-	Close() error
-}
-
 type toolsStorage struct {
 	envUUID            string
 	managedStorage     blobstore.ManagedStorage
@@ -86,7 +47,7 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) error {
 	// Add the tools tarball to storage.
 	path := toolsPath(metadata.Version, metadata.SHA256)
 	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
-		return err
+		return errors.Annotate(err, "cannot store tools tarball")
 	}
 
 	// Add or replace metadata.
@@ -112,11 +73,15 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) error {
 			},
 		}},
 	}}
-	return s.txnRunner.RunTransaction(ops)
+	// TODO(axw) if replacing existing metadata, remove the blob if
+	// there are no other metadata (e.g. aliases) still referencing it.
+	err := s.txnRunner.RunTransaction(ops)
+	if err != nil {
+		return errors.Annotate(err, "cannot store tools metadata")
+	}
+	return nil
 }
 
-// AddToolsAlias adds an alias for the tools with the specified version,
-// failing if metadata already exists for the alias version.
 func (s *toolsStorage) AddToolsAlias(alias, version version.Binary) error {
 	existingDoc, err := s.toolsMetadata(version)
 	if err != nil {
@@ -142,9 +107,6 @@ func (s *toolsStorage) AddToolsAlias(alias, version version.Binary) error {
 	return err
 }
 
-// Tools returns the Metadata and tools tarball contents
-// for the specified version if it exists, else an error
-// satisfying errors.IsNotFound.
 func (s *toolsStorage) Tools(v version.Binary) (Metadata, io.ReadCloser, error) {
 	metadataDoc, err := s.toolsMetadata(v)
 	if err != nil {
@@ -162,8 +124,6 @@ func (s *toolsStorage) Tools(v version.Binary) (Metadata, io.ReadCloser, error) 
 	return metadata, tools, nil
 }
 
-// Metadata returns the Metadata for the specified version
-// if it exists, else an error satisfying errors.IsNotFound.
 func (s *toolsStorage) Metadata(v version.Binary) (Metadata, error) {
 	metadataDoc, err := s.toolsMetadata(v)
 	if err != nil {
@@ -177,8 +137,6 @@ func (s *toolsStorage) Metadata(v version.Binary) (Metadata, error) {
 	return metadata, nil
 }
 
-// AllMetadata returns metadata for the full list of tools in
-// the catalogue.
 func (s *toolsStorage) AllMetadata() ([]Metadata, error) {
 	var docs []toolsMetadataDoc
 	if err := s.metadataCollection.Find(nil).All(&docs); err != nil {
