@@ -811,14 +811,9 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
 	nothing := params.ActionsQueryResults{}
 
-	canAccess, err := u.accessUnit()
+	actionFn, err := u.authAndActionFromTagFn()
 	if err != nil {
 		return nothing, err
-	}
-
-	whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
-	if !ok {
-		return nothing, fmt.Errorf("entity is not a unit")
 	}
 
 	results := params.ActionsQueryResults{
@@ -826,33 +821,13 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 	}
 
 	for i, actionQuery := range args.Entities {
-		// this Unit must match the Action's prefix.
-		actionTag, err := names.ParseActionTag(actionQuery.Tag)
+		action, err := actionFn(actionQuery.Tag)
 		if err != nil {
 			results.ActionsQueryResults[i].Error = common.ServerError(err)
 			continue
 		}
-		unitTag := actionTag.PrefixTag()
-
-		// The Unit is querying for another Unit's Action.
-		if unitTag != whichUnit {
-			results.ActionsQueryResults[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		// The Unit does not have access.
-		if !canAccess(unitTag) {
-			results.ActionsQueryResults[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		action, err := u.st.ActionByTag(actionTag)
-		if err != nil {
-			results.ActionsQueryResults[i].Error = common.ServerError(err)
-		} else {
-			results.ActionsQueryResults[i].Action.Name = action.Name()
-			results.ActionsQueryResults[i].Action.Params = action.Parameters()
-		}
+		results.ActionsQueryResults[i].Action.Name = action.Name()
+		results.ActionsQueryResults[i].Action.Params = action.Parameters()
 	}
 
 	return results, nil
@@ -862,63 +837,75 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 func (u *UniterAPI) FinishActions(args params.ActionResults) (params.BoolResults, error) {
 	nothing := params.BoolResults{}
 
-	canAccess, err := u.accessUnit()
+	actionFn, err := u.authAndActionFromTagFn()
 	if err != nil {
 		return nothing, err
-	}
-
-	whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
-	if !ok {
-		return nothing, fmt.Errorf("entity is not a unit")
 	}
 
 	results := params.BoolResults{Results: make([]params.BoolResult, len(args.Results))}
 
 	for i, res := range args.Results {
-		actionTag, err := names.ParseActionTag(res.ActionTag)
+		action, err := actionFn(res.ActionTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-
-		unitTag := actionTag.PrefixTag()
-		if unitTag != whichUnit {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
+		var status state.ActionStatus
+		switch res.Status {
+		case "complete":
+			status = state.ActionCompleted
+		case "fail":
+			status = state.ActionFailed
+		default:
+			results.Results[i].Error = common.ServerError(errors.Errorf("unrecognized action status '%s'", res.Status))
 			continue
 		}
-
-		if !canAccess(unitTag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+		actionResults := state.ActionResults{
+			Status:  status,
+			Results: res.Results,
+			Message: res.Message,
 		}
-
-		action, err := u.st.ActionByTag(actionTag)
-		if err == nil {
-			var status state.ActionStatus
-			switch res.Status {
-			case "complete":
-				status = state.ActionCompleted
-			case "fail":
-				status = state.ActionFailed
-			default:
-				results.Results[i].Error = common.ServerError(errors.Errorf("unrecognized action status '%s'", res.Status))
-				continue
-			}
-			actionResults := state.ActionResults{
-				Status:  status,
-				Results: res.Results,
-				Message: res.Message,
-			}
-			err = action.Finish(actionResults)
-			if err != nil {
-				results.Results[i].Error = common.ServerError(err)
-				continue
-			}
+		err = action.Finish(actionResults)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
 		}
 		results.Results[i].Result = (err == nil)
 	}
 
 	return results, nil
+}
+
+// authAndActionFromTagFn first authenticates the request, and then returns
+// a function with which to authenticate and retrieve each action in the
+// request.
+func (u *UniterAPI) authAndActionFromTagFn() (func(string) (*state.Action, error), error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return nil, err
+	}
+	unit, ok := u.auth.GetAuthTag().(names.UnitTag)
+	if !ok {
+		return nil, fmt.Errorf("calling entity is not a unit")
+	}
+
+	return func(tag string) (*state.Action, error) {
+		actionTag, err := names.ParseActionTag(tag)
+		if err != nil {
+			return nil, err
+		}
+
+		unitTag := actionTag.PrefixTag()
+		if unitTag != unit {
+			return nil, common.ErrPerm
+		}
+
+		if !canAccess(unitTag) {
+			return nil, common.ErrPerm
+		}
+
+		return u.st.ActionByTag(actionTag)
+	}, nil
 }
 
 // RelationById returns information about all given relations,
