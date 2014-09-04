@@ -5,6 +5,8 @@ package backups
 
 import (
 	"io"
+
+	"github.com/juju/juju/state/backups/db"
 )
 
 var (
@@ -15,7 +17,7 @@ func DumpCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 	return result.archiveFile, result.size, result.checksum
 }
 
-func NewTestCreateArgs(filesToBackUp []string, db dumper) *createArgs {
+func NewTestCreateArgs(filesToBackUp []string, db db.Dumper) *createArgs {
 	args := createArgs{
 		filesToBackUp: filesToBackUp,
 		db:            db,

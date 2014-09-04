@@ -15,6 +15,12 @@ import (
 
 const dumpName = "mongodump"
 
+// Dumper is any type that dumps something to a dump dir.
+type Dumper interface {
+	// Dump something to dumpDir.
+	Dump(dumpDir string) error
+}
+
 var getMongodumpPath = func() (string, error) {
 	mongod, err := mongo.Path()
 	if err != nil {
@@ -40,7 +46,7 @@ type mongoDumper struct {
 
 // NewDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDumper(info ConnInfo) *mongoDumper {
+func NewDumper(info ConnInfo) Dumper {
 	return &mongoDumper{info}
 }
 
