@@ -85,8 +85,8 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	action, err := s.uniterSuite.wordpressUnit.AddAction("gabloxi", nil)
 	c.Assert(err, gc.IsNil)
 
-	output := map[string]interface{}{"output": "it worked!"}
-	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, output, "")
+	actionResult := map[string]interface{}{"output": "it worked!"}
+	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
 	c.Assert(err, gc.IsNil)
 
 	results, err = s.uniterSuite.wordpressUnit.ActionResults()
@@ -95,7 +95,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, "")
-	c.Assert(res, gc.DeepEquals, output)
+	c.Assert(res, gc.DeepEquals, actionResult)
 	c.Assert(results[0].ActionName(), gc.Equals, "gabloxi")
 }
 
