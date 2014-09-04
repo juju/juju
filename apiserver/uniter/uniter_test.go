@@ -1174,6 +1174,43 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	c.Assert(results[0].ActionName(), gc.Equals, testName)
 }
 
+func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
+	var tests = []struct {
+		unit *state.Unit
+	}{
+		{unit: s.mysqlUnit},
+		{unit: s.wordpressUnit},
+		{unit: s.mysqlUnit},
+	}
+
+	// Queue up actions from tests
+	actionResults := params.ActionResults{Results: make([]params.ActionResult, len(tests))}
+	for i, test := range tests {
+		action, err := test.unit.AddAction("fakeaction", nil)
+		c.Assert(err, gc.IsNil)
+
+		actionResults.Results[i] = params.ActionResult{
+			ActionTag: action.ActionTag().String(),
+			Status:    params.ActionCompleted,
+			Results:   map[string]interface{}{},
+		}
+	}
+
+	// Invoke FinishActions
+	res, err := s.uniter.FinishActions(actionResults)
+	c.Assert(err, gc.IsNil)
+
+	// Verify permissions errors for actions queued on different unit
+	for i, result := range res.Results {
+		if tests[i].unit != s.wordpressUnit {
+			isErrPerm(c, result.Error)
+		} else {
+			c.Assert(result.Error, gc.IsNil)
+		}
+
+	}
+}
+
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)
