@@ -14,6 +14,7 @@ LP_BUGS = (
     'https://api.launchpad.net/devel/{}'
     '?ws.op=searchTasks'
     '&status%3Alist=Triaged&status%3Alist=In+Progress'
+    '&status%3Alist=Fix+Committed'
     '&importance%3Alist=Critical'
     '&tags%3Alist=regression&tags%3Alist=ci&tags_combinator=All'
     )
