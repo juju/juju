@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -87,6 +88,10 @@ func (s *openstackstorage) ShouldRetry(err error) bool {
 }
 
 func (s *openstackstorage) Remove(file string) error {
+	if s.containerName == "" && file == "" {
+		return errors.New("containerName and file cannot be empty")
+	}
+
 	err := s.swift.DeleteObject(s.containerName, file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.
