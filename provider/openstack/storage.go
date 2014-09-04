@@ -88,6 +88,9 @@ func (s *openstackstorage) ShouldRetry(err error) bool {
 }
 
 func (s *openstackstorage) Remove(file string) error {
+	// Prevent a double blank containerName/file combo, which
+	// can result in erroneously deleting the Swift account
+	// container itself.
 	if s.containerName == "" && file == "" {
 		return errors.New("containerName and file cannot be empty")
 	}
