@@ -54,6 +54,21 @@ func (m *Machine) SetStatus(status params.Status, info string, data map[string]i
 	return result.OneError()
 }
 
+// ClearReboot clears the reboot flag of the machine.
+func (m *Machine) ClearReboot() error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: m.tag.String()},
+		},
+	}
+	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // SetMachineAddresses sets the machine determined addresses of the machine.
 func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 	var result params.ErrorResults
