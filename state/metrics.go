@@ -105,35 +105,16 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	return &MetricBatch{st: st, doc: doc}, nil
 }
 
-// DeleteMetricBatch deletes a metricBatch from the collection
-func (st *State) DeleteMetricBatch(UUID string) error {
-	ops := []txn.Op{{
-		C:      metricsC,
-		Id:     UUID,
-		Remove: true,
-	}}
-	err := st.runTransaction(ops)
-	return errors.Annotatef(err, "cannot delete metric batch %q %v", UUID, err)
-}
-
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(time.Hour * 24))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
-	iter := c.Find(bson.M{
+	return c.Remove(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
-	}).Select(bson.M{"_id": 1}).Iter()
-	var doc metricBatchDoc
-	for iter.Next(&doc) {
-		err := st.DeleteMetricBatch(doc.UUID)
-		if err != nil {
-			return err
-		}
-	}
-	return iter.Close()
+	})
 }
 
 // UUID returns to uuid of the metric.
