@@ -11,9 +11,8 @@ import (
 // getManagedStorage returns a blobstore.ManagedStorage, and an associated
 // mgo.Session that must be closed when the user is finished with the
 // ManagedStorage.
-func (st *State) getManagedStorage(uuid string) (blobstore.ManagedStorage, *mgo.Session) {
-	session := st.MongoSession().Copy()
+func (st *State) getManagedStorage(uuid string, session *mgo.Session) blobstore.ManagedStorage {
 	rs := blobstore.NewGridFS(blobstoreDB, uuid, session)
 	db := st.db.With(session)
-	return blobstore.NewManagedStorage(db, rs), session
+	return blobstore.NewManagedStorage(db, rs)
 }

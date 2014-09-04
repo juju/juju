@@ -4,8 +4,6 @@
 package state
 
 import (
-	"gopkg.in/mgo.v2"
-
 	"github.com/juju/juju/state/toolstorage"
 )
 
@@ -22,19 +20,19 @@ func (st *State) ToolsStorage() (toolstorage.StorageCloser, error) {
 		return nil, err
 	}
 	uuid := environ.UUID()
-	managedStorage, session := st.getManagedStorage(uuid)
-	txnRunner := st.txnRunnerWith(session)
+	txnRunner, session, closer := st.txnRunner()
+	managedStorage := st.getManagedStorage(uuid, session)
 	metadataCollection := st.db.With(session).C(toolsmetadataC)
 	storage := toolstorageNewStorage(uuid, managedStorage, metadataCollection, txnRunner)
-	return &toolsStorageCloser{storage, session}, nil
+	return &toolsStorageCloser{storage, closer}, nil
 }
 
 type toolsStorageCloser struct {
 	toolstorage.Storage
-	session *mgo.Session
+	closer closeFunc
 }
 
 func (t *toolsStorageCloser) Close() error {
-	t.session.Close()
+	t.closer()
 	return nil
 }
