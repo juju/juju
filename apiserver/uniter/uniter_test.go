@@ -1039,9 +1039,9 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 		}
 		results, err := s.uniter.Actions(args)
 		c.Assert(err, gc.IsNil)
-		c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
+		c.Assert(results.Results, gc.HasLen, 1)
 
-		actionsQueryResult := results.ActionsQueryResults[0]
+		actionsQueryResult := results.Results[0]
 
 		c.Assert(actionsQueryResult.Error, gc.IsNil)
 		c.Assert(actionsQueryResult.Action, jc.DeepEquals, actionTest.action)
@@ -1057,8 +1057,8 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	results, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
-	actionsQueryResult := results.ActionsQueryResults[0]
+	c.Assert(results.Results, gc.HasLen, 1)
+	actionsQueryResult := results.Results[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
 	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
 }
@@ -1085,9 +1085,9 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	}
 	actions, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(actions.ActionsQueryResults), gc.Equals, 1)
-	c.Assert(actions.ActionsQueryResults[0].Error, gc.NotNil)
-	c.Assert(actions.ActionsQueryResults[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
+	c.Assert(len(actions.Results), gc.Equals, 1)
+	c.Assert(actions.Results[0].Error, gc.NotNil)
+	c.Assert(actions.Results[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
@@ -1099,9 +1099,9 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	}
 	actions, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(actions.ActionsQueryResults), gc.Equals, 1)
-	c.Assert(actions.ActionsQueryResults[0].Error, gc.NotNil)
-	c.Assert(actions.ActionsQueryResults[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
+	c.Assert(len(actions.Results), gc.Equals, 1)
+	c.Assert(actions.Results[0].Error, gc.NotNil)
+	c.Assert(actions.Results[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionComplete(c *gc.C) {
@@ -1125,7 +1125,7 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 
 	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res, gc.DeepEquals, params.BoolResults{Results: []params.BoolResult{{Error: nil, Result: true}}})
+	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
 	results, err = s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
@@ -1159,7 +1159,7 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 
 	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res, gc.DeepEquals, params.BoolResults{Results: []params.BoolResult{{Error: nil, Result: true}}})
+	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
 	results, err = s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)

@@ -817,60 +817,59 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 	}
 
 	results := params.ActionsQueryResults{
-		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.Entities)),
+		Results: make([]params.ActionsQueryResult, len(args.Entities)),
 	}
 
-	for i, actionQuery := range args.Entities {
-		action, err := actionFn(actionQuery.Tag)
+	for i, arg := range args.Entities {
+		action, err := actionFn(arg.Tag)
 		if err != nil {
-			results.ActionsQueryResults[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.ActionsQueryResults[i].Action.Name = action.Name()
-		results.ActionsQueryResults[i].Action.Params = action.Parameters()
+		results.Results[i].Action.Name = action.Name()
+		results.Results[i].Action.Params = action.Parameters()
 	}
 
 	return results, nil
 }
 
 // FinishActions saves the result of a completed Action
-func (u *UniterAPI) FinishActions(args params.ActionResults) (params.BoolResults, error) {
-	nothing := params.BoolResults{}
+func (u *UniterAPI) FinishActions(args params.ActionResults) (params.ErrorResults, error) {
+	nothing := params.ErrorResults{}
 
 	actionFn, err := u.authAndActionFromTagFn()
 	if err != nil {
 		return nothing, err
 	}
 
-	results := params.BoolResults{Results: make([]params.BoolResult, len(args.Results))}
+	results := params.ErrorResults{Results: make([]params.ErrorResult, len(args.Results))}
 
-	for i, res := range args.Results {
-		action, err := actionFn(res.ActionTag)
+	for i, arg := range args.Results {
+		action, err := actionFn(arg.ActionTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		var status state.ActionStatus
-		switch res.Status {
+		switch arg.Status {
 		case "complete":
 			status = state.ActionCompleted
 		case "fail":
 			status = state.ActionFailed
 		default:
-			results.Results[i].Error = common.ServerError(errors.Errorf("unrecognized action status '%s'", res.Status))
+			results.Results[i].Error = common.ServerError(errors.Errorf("unrecognized action status '%s'", arg.Status))
 			continue
 		}
 		actionResults := state.ActionResults{
 			Status:  status,
-			Results: res.Results,
-			Message: res.Message,
+			Results: arg.Results,
+			Message: arg.Message,
 		}
 		err = action.Finish(actionResults)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Result = (err == nil)
 	}
 
 	return results, nil

@@ -80,12 +80,12 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, 
 		return nothing, err
 	}
 
-	if len(results.ActionsQueryResults) > 1 {
-		return nothing, fmt.Errorf("expected only 1 action query result, got %d", len(results.ActionsQueryResults))
+	if len(results.Results) > 1 {
+		return nothing, fmt.Errorf("expected only 1 action query result, got %d", len(results.Results))
 	}
 
 	// handle server errors
-	result := results.ActionsQueryResults[0]
+	result := results.Results[0]
 	if err := result.Error; err != nil {
 		return nothing, err
 	}

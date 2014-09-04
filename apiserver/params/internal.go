@@ -249,7 +249,7 @@ type RelationResults struct {
 
 // ActionResults holds a slice of responses from the Actions query.
 type ActionsQueryResults struct {
-	ActionsQueryResults []ActionsQueryResult `json:"actionsqueryresults,omitempty"`
+	Results []ActionsQueryResult `json:"results,omitempty"`
 }
 
 // Action holds the name and parameters of an Actions query.
