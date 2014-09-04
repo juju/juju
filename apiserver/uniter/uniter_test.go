@@ -1175,22 +1175,30 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 }
 
 func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
+
+	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	bad, err := s.mysqlUnit.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
 	var tests = []struct {
-		unit *state.Unit
+		actionTag string
+		err       error
 	}{
-		{unit: s.mysqlUnit},
-		{unit: s.wordpressUnit},
-		{unit: s.mysqlUnit},
+		{actionTag: "", err: errors.Errorf(`"" is not a valid tag`)},
+		{actionTag: s.machine0.Tag().String(), err: errors.Errorf(`"machine-0" is not a valid action tag`)},
+		{actionTag: s.mysql.Tag().String(), err: errors.Errorf(`"service-mysql" is not a valid action tag`)},
+		{actionTag: good.Tag().String(), err: nil},
+		{actionTag: bad.Tag().String(), err: common.ErrPerm},
+		{actionTag: "asdf", err: errors.Errorf(`"asdf" is not a valid tag`)},
 	}
 
 	// Queue up actions from tests
 	actionResults := params.ActionResults{Results: make([]params.ActionResult, len(tests))}
 	for i, test := range tests {
-		action, err := test.unit.AddAction("fakeaction", nil)
-		c.Assert(err, gc.IsNil)
-
 		actionResults.Results[i] = params.ActionResult{
-			ActionTag: action.ActionTag().String(),
+			ActionTag: test.actionTag,
 			Status:    params.ActionCompleted,
 			Results:   map[string]interface{}{},
 		}
@@ -1202,12 +1210,13 @@ func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
 
 	// Verify permissions errors for actions queued on different unit
 	for i, result := range res.Results {
-		if tests[i].unit != s.wordpressUnit {
-			isErrPerm(c, result.Error)
+		expected := tests[i].err
+		if expected != nil {
+			c.Assert(result.Error, gc.NotNil)
+			c.Assert(result.Error.Error(), gc.Equals, expected.Error())
 		} else {
 			c.Assert(result.Error, gc.IsNil)
 		}
-
 	}
 }
 
