@@ -60,16 +60,18 @@ func (p *MockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDist
 // mockMachineInfoGetter helps to test the RequiresSafeNetworker
 // environment capability.
 type mockMachineInfoGetter struct {
-	id       string
-	isManual bool
+	id                  string
+	isManual            bool
+	isManualNotProvided bool
 }
 
 // NewMachineInfoGetter creates a mock implementing the
 // state.MachineInfoGetter interface.
-func NewMachineInfoGetter(id string, isManual bool) state.MachineInfoGetter {
+func NewMachineInfoGetter(id string, isManual, isManualNotProvided bool) state.MachineInfoGetter {
 	return &mockMachineInfoGetter{
-		id:       id,
-		isManual: isManual,
+		id:                  id,
+		isManual:            isManual,
+		isManualNotProvided: isManualNotProvided,
 	}
 }
 
@@ -79,8 +81,8 @@ func (mig *mockMachineInfoGetter) Id() string {
 }
 
 // IsManual returns the manually provisioning flag of the simulated machine.
-func (mig *mockMachineInfoGetter) IsManual() bool {
-	return mig.isManual
+func (mig *mockMachineInfoGetter) IsManual() (bool, bool) {
+	return mig.isManual, mig.isManualNotProvided
 }
 
 // CommonRequiresSafeNetworkerTest tests the RequiresSafeNetworker environ capability
@@ -99,17 +101,19 @@ func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements
 		mig                      state.MachineInfoGetter
 		disableNetworkManagement bool
 	}{
-		{&mockMachineInfoGetter{"0", false}, false},
-		{&mockMachineInfoGetter{"0", false}, true},
-		{&mockMachineInfoGetter{"0", true}, false},
-		{&mockMachineInfoGetter{"0", true}, true},
-		{&mockMachineInfoGetter{"1", false}, false},
-		{&mockMachineInfoGetter{"1", false}, true},
-		{&mockMachineInfoGetter{"1", true}, false},
-		{&mockMachineInfoGetter{"1", true}, true},
+		{&mockMachineInfoGetter{"0", false, true}, false},
+		{&mockMachineInfoGetter{"0", false, true}, true},
+		{&mockMachineInfoGetter{"0", true, true}, false},
+		{&mockMachineInfoGetter{"0", true, true}, true},
+		{&mockMachineInfoGetter{"1", false, true}, false},
+		{&mockMachineInfoGetter{"1", false, true}, true},
+		{&mockMachineInfoGetter{"1", true, true}, false},
+		{&mockMachineInfoGetter{"1", true, true}, true},
 	}
 	for i, test := range tests {
-		c.Logf("test %d: machine: %q, is manual: %v, disable networking: %v", i, test.mig.Id(), test.mig.IsManual(), test.disableNetworkManagement)
+		isManual, ok := test.mig.IsManual()
+		c.Logf("test %d: machine: %q, is manual: %v, ok: %v, disable networking: %v",
+			i, test.mig.Id(), isManual, ok, test.disableNetworkManagement)
 		// TODO(mue) Set the disableNetworkManager flag.
 		attrs := env.Config().AllAttrs()
 		attrs["disable-network-management"] = test.disableNetworkManagement

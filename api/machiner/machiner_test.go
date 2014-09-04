@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -52,13 +53,11 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
 }
 
-func (s *machinerSuite) TestAPIServerV0(c *gc.C) {
-	restore := api.SetBestFacadeVersion("Machine", 0)
-	defer restore()
-
+func (s *machinerSuite) TestMachineWithV1Server(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
-	isManual := machine.IsManual()
+	isManual, ok := machine.IsManual()
+	c.Assert(ok, gc.Equals, true)
 	c.Assert(isManual, gc.Equals, false)
 }
 
@@ -183,4 +182,54 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+type machinerVersioningSuite struct {
+	testing.JujuConnSuite
+	*apitesting.APIAddresserTests
+
+	restore func()
+	st      *api.State
+	machine *state.Machine
+
+	machiner *machiner.State
+}
+
+var _ = gc.Suite(&machinerVersioningSuite{})
+
+func (s *machinerVersioningSuite) SetUpTest(c *gc.C) {
+	// Manipulate version registry before setting up test.
+	restoreAPI := api.SetBestFacadeVersion("Machiner", 0)
+	restoreFacades := common.Facades.DiscardRestorable("Machiner", 1)
+
+	s.restore = func() {
+		restoreFacades()
+		restoreAPI()
+	}
+
+	// Standard test setup.
+	s.JujuConnSuite.SetUpTest(c)
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = m.SetAddresses(network.NewAddress("10.0.0.1", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+
+	s.st, s.machine = s.OpenAPIAsNewMachine(c)
+	// Create the machiner API facade.
+	s.machiner = s.st.Machiner()
+	c.Assert(s.machiner, gc.NotNil)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
+}
+
+func (s *machinerVersioningSuite) TearDownTest(c *gc.C) {
+	s.restore()
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *machinerVersioningSuite) TestMachineWithV0Server(c *gc.C) {
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
+	c.Assert(err, gc.IsNil)
+	isManual, ok := machine.IsManual()
+	c.Assert(ok, gc.Equals, false)
+	c.Assert(isManual, gc.Equals, false)
 }

@@ -231,6 +231,29 @@ func (f *FacadeRegistry) List() []FacadeDescription {
 	return descriptions
 }
 
+// DiscardRestorable gets rid of a registration that has already been done.
+// Calling discard on an entry that is not present is not considered an error.
+// It returns function for restoring the current registration.
+func (f *FacadeRegistry) DiscardRestorable(name string, version int) func() {
+	if discardVersions, ok := f.facades[name]; ok {
+		if record, ok := discardVersions[version]; ok {
+			restore := func() {
+				if restoreVersions, ok := f.facades[name]; ok {
+					restoreVersions[version] = record
+				} else {
+					f.facades[name] = versions{version: record}
+				}
+			}
+			delete(discardVersions, version)
+			if len(discardVersions) == 0 {
+				delete(f.facades, name)
+			}
+			return restore
+		}
+	}
+	return func() {}
+}
+
 // Discard gets rid of a registration that has already been done. Calling
 // discard on an entry that is not present is not considered an error.
 func (f *FacadeRegistry) Discard(name string, version int) {

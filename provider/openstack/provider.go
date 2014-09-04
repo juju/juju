@@ -551,8 +551,12 @@ func (e *environ) SupportNetworks() bool {
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
 func (e *environ) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	isManual, ok := mig.IsManual()
+	if !ok {
+		return true
+	}
 	disableNetworkManagement, _ := e.Config().DisableNetworkManagement()
-	return disableNetworkManagement || mig.IsManual()
+	return disableNetworkManagement || isManual
 }
 
 var unsupportedConstraints = []string{

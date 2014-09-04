@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/rpc"
 )
 
 const machinerFacade = "Machiner"
@@ -42,18 +41,18 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	args := params.GetMachinesV1{[]string{tag.String()}}
 	err := st.facade.FacadeCall("GetMachines", args, &result)
 	if err != nil {
-		if isCallNotImplementedError(err) {
+		if params.IsCodeNotImplemented(err) {
 			// Version is lower than expected.
 			life, err := st.machineLife(tag)
 			if err != nil {
 				return nil, err
 			}
-			// TODO(mue) Retrieve "isManual" in a V0 compatible way.
 			return &Machine{
-				tag:      tag,
-				life:     life,
-				isManual: false,
-				st:       st,
+				tag:                 tag,
+				life:                life,
+				isManual:            false,
+				isManualNotProvided: true,
+				st:                  st,
 			}, nil
 		}
 		return nil, err
@@ -67,19 +66,10 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 		return nil, machineResult.Error
 	}
 	return &Machine{
-		tag:      tag,
-		life:     machineResult.Life,
-		isManual: machineResult.IsManual,
-		st:       st,
+		tag:                 tag,
+		life:                machineResult.Life,
+		isManual:            machineResult.IsManual,
+		isManualNotProvided: false,
+		st:                  st,
 	}, nil
-}
-
-// isCallNotImplementedError checks if a returned error shows, that
-// the performed facade call is not implemented on the server.
-func isCallNotImplementedError(err error) bool {
-	perr, ok := err.(*params.Error)
-	if !ok {
-		return false
-	}
-	return perr.Code == rpc.CodeNotImplemented
 }

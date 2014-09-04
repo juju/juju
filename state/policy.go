@@ -70,7 +70,7 @@ type MachineInfoGetter interface {
 	Id() string
 
 	// IsManual returns true if the machine is provisioned manually.
-	IsManual() bool
+	IsManual() (bool, bool)
 }
 
 // EnvironCapability implements access to metadata about the capabilities
