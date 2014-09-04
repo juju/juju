@@ -26,19 +26,20 @@ type EntityFinderEnvironConfigGetter interface {
 	EnvironConfigGetter
 }
 
+// ToolsURLGetter is an interface providing the ToolsURL method.
 type ToolsURLGetter interface {
+	// ToolsURL returns a URL for the tools with
+	// the specified binary version.
 	ToolsURL(v version.Binary) (string, error)
-}
-
-type EnvironmentGetter interface {
-	Environment() (*state.Environment, error)
 }
 
 type EnvironConfigGetter interface {
 	EnvironConfig() (*config.Config, error)
 }
 
+// APIHostPortsGetter is an interface providing the APIHostPorts method.
 type APIHostPortsGetter interface {
+	// APIHostPorst returns the HostPorts for each API server.
 	APIHostPorts() ([][]network.HostPort, error)
 }
 
@@ -215,12 +216,13 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 	}
 	result.List, err = envtoolsFindTools(env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry)
 	if err != nil {
+		result.List = nil
 		result.Error = ServerError(err)
 	} else {
-		for i, tools := range result.List {
+		for _, tools := range result.List {
 			url, err := f.urlGetter.ToolsURL(tools.Version)
 			if err != nil {
-				result.List[i] = nil
+				result.List = nil
 				result.Error = ServerError(err)
 				return result, nil
 			} else {
@@ -232,21 +234,17 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 }
 
 type toolsURLGetter struct {
-	environmentGetter  EnvironmentGetter
+	envUUID            string
 	apiHostPortsGetter APIHostPortsGetter
 }
 
 // NewToolsURLGetter creates a new ToolsURLGetter that
 // returns tools URLs pointing at an API server.
-func NewToolsURLGetter(e EnvironmentGetter, a APIHostPortsGetter) *toolsURLGetter {
-	return &toolsURLGetter{e, a}
+func NewToolsURLGetter(envUUID string, a APIHostPortsGetter) *toolsURLGetter {
+	return &toolsURLGetter{envUUID, a}
 }
 
 func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
-	environ, err := t.environmentGetter.Environment()
-	if err != nil {
-		return "", err
-	}
 	apiHostPorts, err := t.apiHostPortsGetter.APIHostPorts()
 	if err != nil {
 		return "", err
@@ -265,6 +263,6 @@ func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
 	// is the upgrader, and that is cloud-local.
 	hostPorts := apiHostPorts[rand.Int()%len(apiHostPorts)]
 	apiAddress := network.SelectInternalHostPort(hostPorts, false)
-	url := fmt.Sprintf("https://%s/environment/%s/tools/%s", apiAddress, environ.UUID(), v)
+	url := fmt.Sprintf("https://%s/environment/%s/tools/%s", apiAddress, t.envUUID, v)
 	return url, nil
 }

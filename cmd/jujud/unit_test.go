@@ -166,8 +166,8 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
 
-	// The machine agent downloads the tools; emulate this by
-	// creating the tools on disk.
+	// The machine agent downloads the tools; fake this by
+	// creating downloaded-tools.txt in data-dir/tools/<version>.
 	toolsDir := agenttools.SharedToolsDir(s.DataDir(), newVers)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, gc.IsNil)

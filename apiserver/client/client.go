@@ -54,7 +54,11 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
-	urlGetter := common.NewToolsURLGetter(st, st)
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &Client{api: &API{
 		state:        st,
 		auth:         authorizer,

@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -169,8 +170,43 @@ func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
+func (s *toolsSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
+	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{})
+	_, err := g.ToolsURL(version.Current)
+	c.Assert(err, gc.ErrorMatches, "no API host ports")
+}
+
+func (s *toolsSuite) TestToolsURLGetterAPIHostPortsError(c *gc.C) {
+	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{err: errors.New("oh noes")})
+	_, err := g.ToolsURL(version.Current)
+	c.Assert(err, gc.ErrorMatches, "oh noes")
+}
+
+func (s *toolsSuite) TestToolsURLGetter(c *gc.C) {
+	g := common.NewToolsURLGetter("my-uuid", mockAPIHostPortsGetter{
+		hostPorts: [][]network.HostPort{
+			network.AddressesWithPort(
+				network.NewAddresses("0.1.2.3"),
+				1234,
+			),
+		},
+	})
+	url, err := g.ToolsURL(version.Current)
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, "https://0.1.2.3:1234/environment/my-uuid/tools/"+version.Current.String())
+}
+
 type sprintfURLGetter string
 
 func (s sprintfURLGetter) ToolsURL(v version.Binary) (string, error) {
 	return fmt.Sprintf(string(s), v), nil
+}
+
+type mockAPIHostPortsGetter struct {
+	hostPorts [][]network.HostPort
+	err       error
+}
+
+func (g mockAPIHostPortsGetter) APIHostPorts() ([][]network.HostPort, error) {
+	return g.hostPorts, g.err
 }

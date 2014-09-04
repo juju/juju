@@ -76,7 +76,11 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			}
 		}, nil
 	}
-	urlGetter := common.NewToolsURLGetter(st, st)
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
