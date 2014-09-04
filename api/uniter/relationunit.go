@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/watcher"
@@ -135,6 +136,9 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, error) {
+	if !names.IsValidUnit(uname) {
+		return nil, errors.Errorf("%q is not a valid unit", uname)
+	}
 	tag := names.NewUnitTag(uname)
 	var results params.RelationSettingsResults
 	args := params.RelationUnitPairs{

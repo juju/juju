@@ -239,6 +239,21 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	})
 }
 
+func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
+	// First try to read the settings which are not set.
+	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
+	c.Assert(err, gc.IsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertInScope(c, myRelUnit, true)
+
+	// Try reading - should be ok.
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	s.assertInScope(c, wpRelUnit, false)
+	_, err = apiRelUnit.ReadSettings("mysql")
+	c.Assert(err, gc.ErrorMatches, "\"mysql\" is not a valid unit")
+}
+
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	// Enter scope with mysqlUnit.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
