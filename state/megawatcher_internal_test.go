@@ -1084,7 +1084,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = w.Next()
-	c.Assert(err, gc.Equals, multiwatcher.ErrWatcherStopped)
+	c.Assert(err, gc.ErrorMatches, multiwatcher.ErrWatcherStopped.Error())
 }
 
 type entityInfoSlice []params.EntityInfo
