@@ -46,10 +46,11 @@ func NewDumper(info ConnInfo) *mongoDumper {
 
 // Dump dumps the juju state database.
 func (md *mongoDumper) Dump(dumpDir string) error {
-	address, username, password, err := md.ConnInfo.Check()
+	err := md.ConnInfo.Validate()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	address, username, password := md.Address, md.Username, md.Password
 
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {

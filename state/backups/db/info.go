@@ -10,7 +10,9 @@ import (
 )
 
 // ConnInfo is a simplification of authentication.MongoInfo, focused
-// on the needs of juju state backups.
+// on the needs of juju state backups.  To ensure that the info is valid
+// for use in backups, use the Check() method to get the contained
+// values.
 type ConnInfo struct {
 	// Address is the DB system's host address.
 	Address string
@@ -36,8 +38,14 @@ func NewMongoConnInfo(mgoInfo *mongo.MongoInfo) *ConnInfo {
 	return &info
 }
 
-// Check returns the DB connection info, ensuring it is valid.
-func (ci *ConnInfo) Check() (address, username, password string, err error) {
+// Validate checks the DB connection info.  If it isn't valid for use in
+// juju state backups, it returns an error.  Make sure that the ConnInfo
+// values do not change between the time you call this method and when
+// you actually need the values.
+func (ci *ConnInfo) Validate() error {
+	var err error
+	var address, username, password string
+
 	address = ci.Address
 	username = ci.Username
 	password = ci.Password
@@ -50,5 +58,5 @@ func (ci *ConnInfo) Check() (address, username, password string, err error) {
 		err = errors.New("missing password")
 	}
 
-	return address, username, password, err
+	return err
 }
