@@ -96,20 +96,19 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
-	cleanup := usermanager.PatchResponses(s.usermanager,
+	usermanager.PatchResponses(s, s.usermanager,
 		func(interface{}) error {
 			// do nothing, we get an empty result with no error
 			return nil
 		},
 	)
-	defer cleanup()
 	tag := names.NewUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
-	cleanup := usermanager.PatchResponses(s.usermanager,
+	usermanager.PatchResponses(s, s.usermanager,
 		func(result interface{}) error {
 			if result, ok := result.(*ums.UserInfoResults); ok {
 				result.Results = make([]ums.UserInfoResult, 2)
@@ -117,7 +116,6 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 			return nil
 		},
 	)
-	defer cleanup()
 	tag := names.NewUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")

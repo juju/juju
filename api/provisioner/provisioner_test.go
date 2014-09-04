@@ -4,7 +4,6 @@
 package provisioner_test
 
 import (
-	"fmt"
 	stdtesting "testing"
 
 	"github.com/juju/errors"
@@ -16,10 +15,10 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -645,26 +644,60 @@ func (s *provisionerSuite) TestSupportsNoContainers(c *gc.C) {
 	c.Assert(containers, gc.DeepEquals, []instance.ContainerType{})
 }
 
-func (s *provisionerSuite) TestFindTools(c *gc.C) {
-	list, err := envtools.FindTools(s.Environ, -1, -1, coretools.Filter{
-		Number: version.Current.Number,
-		Series: version.Current.Series,
-		Arch:   version.Current.Arch,
-	}, false)
-	c.Assert(err, gc.IsNil)
-	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, &version.Current.Arch)
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiList, gc.HasLen, len(list))
+func (s *provisionerSuite) TestFindToolsNoArch(c *gc.C) {
+	s.testFindTools(c, false, nil, nil)
+}
 
-	listStrings := make([]string, len(list))
-	for i, tools := range list {
-		listStrings[i] = fmt.Sprintf("%+v", tools)
+func (s *provisionerSuite) TestFindToolsArch(c *gc.C) {
+	s.testFindTools(c, true, nil, nil)
+}
+
+func (s *provisionerSuite) TestFindToolsAPIError(c *gc.C) {
+	apiError := errors.New("everything's broken")
+	s.testFindTools(c, false, apiError, nil)
+}
+
+func (s *provisionerSuite) TestFindToolsLogicError(c *gc.C) {
+	logicError := errors.NotFoundf("tools")
+	s.testFindTools(c, false, nil, logicError)
+}
+
+func (s *provisionerSuite) testFindTools(c *gc.C, matchArch bool, apiError, logicError error) {
+	var toolsList = coretools.List{&coretools.Tools{Version: version.Current}}
+	var called bool
+	provisioner.PatchFacadeCall(s, s.provisioner, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "FindTools")
+		expected := params.FindToolsParams{
+			Number:       version.Current.Number,
+			Series:       version.Current.Series,
+			MinorVersion: -1,
+			MajorVersion: -1,
+		}
+		if matchArch {
+			expected.Arch = version.Current.Arch
+		}
+		c.Assert(args, gc.Equals, expected)
+		result := response.(*params.FindToolsResult)
+		result.List = toolsList
+		if logicError != nil {
+			result.Error = common.ServerError(logicError)
+		}
+		return apiError
+	})
+
+	var arch *string
+	if matchArch {
+		arch = &version.Current.Arch
 	}
-
-	apiListStrings := make([]string, len(apiList))
-	for i, tools := range apiList {
-		apiListStrings[i] = fmt.Sprintf("%+v", tools)
+	apiList, err := s.provisioner.FindTools(version.Current.Number, version.Current.Series, arch)
+	c.Assert(called, jc.IsTrue)
+	if apiError != nil {
+		c.Assert(err, gc.Equals, apiError)
+	} else if logicError != nil {
+		c.Assert(err.Error(), gc.Equals, logicError.Error())
+	} else {
+		c.Assert(err, gc.IsNil)
+		c.Assert(apiList, jc.SameContents, toolsList)
 	}
-
-	c.Assert(apiListStrings, jc.SameContents, listStrings)
 }

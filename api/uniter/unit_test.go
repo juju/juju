@@ -387,19 +387,18 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsError(c *gc.C) {
-	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit,
 		func(result interface{}) error {
 			return fmt.Errorf("Test error")
 		},
 	)
-	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "Test error")
 }
 
 func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
-	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit,
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 1)
@@ -413,26 +412,24 @@ func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
 			return nil
 		},
 	)
-	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
 }
 
 func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
-	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit,
 		func(results interface{}) error {
 			return nil
 		},
 	)
-	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
 }
 
 func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
-	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit,
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 2)
@@ -440,7 +437,6 @@ func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
 			return nil
 		},
 	)
-	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
