@@ -69,7 +69,7 @@ type fakeEnsure struct {
 	dataDir        string
 	namespace      string
 	oplogSize      int
-	info           params.StateServingInfo
+	info           state.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
@@ -77,7 +77,7 @@ type fakeEnsure struct {
 func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 	f.ensureCount++
 	f.dataDir, f.namespace, f.oplogSize = args.DataDir, args.Namespace, args.OplogSize
-	f.info = params.StateServingInfo{
+	f.info = state.StateServingInfo{
 		APIPort:        args.APIPort,
 		StatePort:      args.StatePort,
 		Cert:           args.Cert,
@@ -177,7 +177,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 			agent.MongoOplogSize: s.mongoOplogSize,
 		},
 	}
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:       "some cert",
 		PrivateKey: "some key",
 		APIPort:    3737,

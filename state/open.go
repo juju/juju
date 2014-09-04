@@ -12,7 +12,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -110,7 +109,7 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 			C:      stateServersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
-			Insert: &params.StateServingInfo{},
+			Insert: &StateServingInfo{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {

@@ -357,7 +357,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
 		},
-		params.StateServingInfo{
+		state.StateServingInfo{
 			Cert:       coretesting.ServerCert,
 			PrivateKey: coretesting.ServerKey,
 			StatePort:  gitjujutesting.MgoServer.Port(),

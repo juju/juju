@@ -26,7 +26,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -97,6 +96,19 @@ type State struct {
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
 	environTag names.EnvironTag
+}
+
+// StateServingInfo holds information needed by a state server.
+// This type is a copy of the type of the same name from the api/params package.
+// It is replicated here to avoid the state pacakge depending on api/params.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret   string
+	SystemIdentity string
 }
 
 // EnvironTag() returns the environment tag for the environment controlled by
@@ -1694,23 +1706,23 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 const stateServingInfoKey = "stateServingInfo"
 
 // StateServingInfo returns information for running a state server machine
-func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+func (st *State) StateServingInfo() (StateServingInfo, error) {
 	stateServers, closer := st.getCollection(stateServersC)
 	defer closer()
 
-	var info params.StateServingInfo
+	var info StateServingInfo
 	err := stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
 	if info.StatePort == 0 {
-		return params.StateServingInfo{}, errors.NotFoundf("state serving info")
+		return StateServingInfo{}, errors.NotFoundf("state serving info")
 	}
 	return info, nil
 }
 
 // SetStateServingInfo stores information needed for running a state server
-func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")

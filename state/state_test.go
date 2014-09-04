@@ -3126,7 +3126,7 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "state serving info not found")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	data := params.StateServingInfo{
+	data := state.StateServingInfo{
 		APIPort:      69,
 		StatePort:    80,
 		Cert:         "Some cert",
@@ -3141,15 +3141,15 @@ func (s *StateSuite) TestStateServingInfo(c *gc.C) {
 	c.Assert(info, jc.DeepEquals, data)
 }
 
-var setStateServingInfoWithInvalidInfoTests = []func(info *params.StateServingInfo){
-	func(info *params.StateServingInfo) { info.APIPort = 0 },
-	func(info *params.StateServingInfo) { info.StatePort = 0 },
-	func(info *params.StateServingInfo) { info.Cert = "" },
-	func(info *params.StateServingInfo) { info.PrivateKey = "" },
+var setStateServingInfoWithInvalidInfoTests = []func(info *state.StateServingInfo){
+	func(info *state.StateServingInfo) { info.APIPort = 0 },
+	func(info *state.StateServingInfo) { info.StatePort = 0 },
+	func(info *state.StateServingInfo) { info.Cert = "" },
+	func(info *state.StateServingInfo) { info.PrivateKey = "" },
 }
 
 func (s *StateSuite) TestSetStateServingInfoWithInvalidInfo(c *gc.C) {
-	origData := params.StateServingInfo{
+	origData := state.StateServingInfo{
 		APIPort:      69,
 		StatePort:    80,
 		Cert:         "Some cert",

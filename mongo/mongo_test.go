@@ -57,12 +57,13 @@ var testInfo = struct {
 
 func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams {
 	return mongo.EnsureServerParams{
-		StatePort:    25252,
-		Cert:         "foobar-cert",
-		PrivateKey:   "foobar-privkey",
-		SharedSecret: "foobar-sharedsecret",
-		DataDir:      dataDir,
-		Namespace:    namespace,
+		StatePort:    testInfo.StatePort,
+		Cert:         testInfo.Cert,
+		PrivateKey:   testInfo.PrivateKey,
+		SharedSecret: testInfo.SharedSecret,
+
+		DataDir:   dataDir,
+		Namespace: namespace,
 	}
 }
 
