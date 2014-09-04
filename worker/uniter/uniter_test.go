@@ -1066,6 +1066,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		template := "echo juju run ${JUJU_UNIT_NAME} > %s.tmp; mv %s.tmp %s"
 		return fmt.Sprintf(template, path, path, path)
 	}
+	adminTag := s.AdminUserTag(c)
 	tests := []uniterTest{
 		ut(
 			"run commands: environment",
@@ -1082,7 +1083,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			},
 			verifyFile{
 				testFile("jujuc.output"),
-				"user-admin\nprivate.address.example.com\npublic.address.example.com\n",
+				adminTag.String() + "\nprivate.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
 			"run commands: proxy settings set",

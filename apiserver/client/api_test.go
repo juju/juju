@@ -327,7 +327,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User(state.AdminUser)
+	u, err := s.State.User(s.AdminUserTag(c).Name())
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)

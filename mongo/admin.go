@@ -17,6 +17,8 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
+const AdminUser = "admin"
+
 var (
 	processSignal = (*os.Process).Signal
 )

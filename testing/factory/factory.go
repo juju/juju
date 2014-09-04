@@ -129,7 +129,9 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Password = "password"
 	}
 	if params.Creator == "" {
-		params.Creator = "admin"
+		env, err := factory.st.Environment()
+		c.Assert(err, gc.IsNil)
+		params.Creator = env.Owner().Name()
 	}
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, params.Creator)

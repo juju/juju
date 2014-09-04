@@ -1181,7 +1181,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-foo-0"},
 		{Relation: "relation-blah", Unit: "unit-wordpress-0"},
-		{Relation: "service-foo", Unit: "user-admin"},
+		{Relation: "service-foo", Unit: "user-foo"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: "unit-wordpress-0", Unit: rel.Tag().String()},
 	}}
@@ -1279,7 +1279,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.EnterScope(args)
 	c.Assert(err, gc.IsNil)
@@ -1330,7 +1330,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.LeaveScope(args)
 	c.Assert(err, gc.IsNil)
@@ -1417,7 +1417,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, gc.IsNil)
@@ -1484,12 +1484,12 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-mysql-0"},
 		{Relation: "relation-42", LocalUnit: "unit-wordpress-0", RemoteUnit: ""},
 		{Relation: "relation-foo", LocalUnit: "", RemoteUnit: ""},
-		{Relation: "service-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-admin"},
+		{Relation: "service-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
 		{Relation: "foo", LocalUnit: "bar", RemoteUnit: "baz"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-mysql-0", RemoteUnit: "unit-wordpress-0"},
 		{Relation: rel.Tag().String(), LocalUnit: "service-wordpress", RemoteUnit: "service-mysql"},
 		{Relation: rel.Tag().String(), LocalUnit: "service-mysql", RemoteUnit: "foo"},
-		{Relation: rel.Tag().String(), LocalUnit: "user-admin", RemoteUnit: "unit-wordpress-0"},
+		{Relation: rel.Tag().String(), LocalUnit: "user-foo", RemoteUnit: "unit-wordpress-0"},
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
 
@@ -1607,7 +1607,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "service-mysql", Settings: nil},
-		{Relation: rel.Tag().String(), Unit: "user-admin", Settings: nil},
+		{Relation: rel.Tag().String(), Unit: "user-foo", Settings: nil},
 	}}
 	result, err := s.uniter.UpdateSettings(args)
 	c.Assert(err, gc.IsNil)
@@ -1658,7 +1658,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.WatchRelationUnits(args)
 	c.Assert(err, gc.IsNil)
@@ -1734,7 +1734,7 @@ func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
 	result, err := s.uniter.GetOwnerTag(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{
-		Result: "user-admin",
+		Result: s.AdminUserTag(c).String(),
 	})
 }
 
