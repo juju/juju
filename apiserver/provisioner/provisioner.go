@@ -34,6 +34,7 @@ type ProvisionerAPI struct {
 	*common.EnvironWatcher
 	*common.EnvironMachinesWatcher
 	*common.InstanceIdGetter
+	*common.ToolsFinder
 
 	st          *state.State
 	resources   *common.Resources
@@ -75,6 +76,11 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			}
 		}, nil
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),
@@ -86,6 +92,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
+		ToolsFinder:            common.NewToolsFinder(st, urlGetter),
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
@@ -643,9 +650,4 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 		return result, watcher.MustErr(watch)
 	}
 	return result, nil
-}
-
-// FindTools returns a List containing all tools matching the given parameters.
-func (p *ProvisionerAPI) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	return common.FindTools(p.st, args)
 }

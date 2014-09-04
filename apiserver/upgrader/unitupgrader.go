@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
@@ -154,32 +152,7 @@ func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
 		result.Error = common.ServerError(err)
 		return result
 	}
-	// For older 1.16 upgrader workers, we need to supply a tools URL since the worker will attempt to
-	// download the tools even though they already have been fetched by the machine agent. Newer upgrader
-	// workers do not have this problem. So to be compatible across all versions, we return the full
-	// tools metadata.
-	// TODO (wallyworld) - remove in 1.20, just return machineTools
-	cfg, err := u.st.EnvironConfig()
-	if err != nil {
-		result.Error = common.ServerError(err)
-		return result
-	}
-	// SSLHostnameVerification defaults to true, so we need to
-	// invert that, for backwards-compatibility (older versions
-	// will have DisableSSLHostnameVerification: false by default).
-	result.DisableSSLHostnameVerification = !cfg.SSLHostnameVerification()
-	env, err := environs.New(cfg)
-	if err != nil {
-		result.Error = common.ServerError(err)
-		return result
-	}
-	agentTools, err := envtools.FindExactTools(
-		env, machineTools.Version.Number, machineTools.Version.Series, machineTools.Version.Arch)
-	if err != nil {
-		result.Error = common.ServerError(err)
-		return result
-	}
-	result.Tools = agentTools
+	result.Tools = machineTools
 	return result
 }
 

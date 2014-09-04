@@ -41,6 +41,7 @@ type API struct {
 	client    *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
+	toolsFinder  *common.ToolsFinder
 }
 
 // Client serves client-specific API methods.
@@ -53,11 +54,17 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &Client{api: &API{
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
+		toolsFinder:  common.NewToolsFinder(st, urlGetter),
 	}}, nil
 }
 
@@ -905,7 +912,7 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	return common.FindTools(c.api.state, args)
+	return c.api.toolsFinder.FindTools(args)
 }
 
 func destroyErr(desc string, ids, errs []string) error {
