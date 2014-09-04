@@ -67,6 +67,7 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
+	toolsmetadataC     = "toolsmetadata"
 
 	// This collection is used just for storing metadata.
 	backupsMetaC = "backupsmetadata"
@@ -75,7 +76,11 @@ const (
 	txnLogC = "txns.log"
 	txnsC   = "txns"
 
+	// AdminUser is the mongo admin username.
 	AdminUser = "admin"
+
+	// blobstoreDB is the name of the blobstore GridFS database.
+	blobstoreDB = "blobstore"
 )
 
 // State represents the state of an environment
@@ -86,7 +91,6 @@ type State struct {
 	// is used. However, for tests, a value may be assigned and this will
 	// be used instead of creating a new runnner each time.
 	transactionRunner jujutxn.Runner
-	authenticated     bool
 	mongoInfo         *mongo.MongoInfo
 	policy            Policy
 	db                *mgo.Database
@@ -121,10 +125,7 @@ func (st *State) EnvironTag() names.EnvironTag {
 // database has previously been logged in to.
 // It returns the collection and a closer function for the session.
 func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
-	if st.authenticated {
-		return mongo.CollectionFromName(st.db, coll)
-	}
-	return st.db.C(coll), emptycloser
+	return mongo.CollectionFromName(st.db, coll)
 }
 
 // getPresence returns the presence collection.
@@ -155,47 +156,45 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
 }
 
-func emptycloser() {}
+type closeFunc func()
 
 // txnRunner returns a jujutxn.Runner instance.
-// If a runner has been assigned to st, that instance is returned.
-// Otherwise a new instance is created.
-// If st has been authenticated by having it's database logged in,
-// a new mgo.Session is used.
-func (st *State) txnRunner() (_ jujutxn.Runner, closer func()) {
-	closer = emptycloser
+//
+// If st.transactionRunner is non-nil, then that will be
+// returned and the session argument will be ignored. This
+// is the case in tests only, when we want to test concurrent
+// operations.
+//
+// If st.transactionRunner is nil, then we create a new
+// transaction runner with the provided session and return
+// that.
+func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
 	if st.transactionRunner != nil {
-		return st.transactionRunner, closer
+		return st.transactionRunner
 	}
-	// If not authenticated, just use the unaltered db and a no-op closer.
-	runnerDb := st.db
-	if st.authenticated {
-		session := runnerDb.Session.Copy()
-		runnerDb = runnerDb.With(session)
-		closer = session.Close
-	}
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb}), closer
+	runnerDb := st.db.With(session)
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb})
 }
 
 // runTransaction is a convenience method delegating to transactionRunner.
 func (st *State) runTransaction(ops []txn.Op) error {
-	runner, closer := st.txnRunner()
-	defer closer()
-	return runner.RunTransaction(ops)
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).RunTransaction(ops)
 }
 
 // run is a convenience method delegating to transactionRunner.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	runner, closer := st.txnRunner()
-	defer closer()
-	return runner.Run(transactions)
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
-	runner, closer := st.txnRunner()
-	defer closer()
-	return runner.ResumeTransactions()
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).ResumeTransactions()
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {

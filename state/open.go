@@ -181,26 +181,22 @@ func isUnauthorized(err error) bool {
 
 func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
-	authenticated := false
 	if mongoInfo.Tag != nil {
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-		authenticated = true
 	} else if mongoInfo.Password != "" {
 		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
-		authenticated = true
 	}
 
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	st := &State{
-		mongoInfo:     mongoInfo,
-		policy:        policy,
-		authenticated: authenticated,
-		db:            db,
+		mongoInfo: mongoInfo,
+		policy:    policy,
+		db:        db,
 	}
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
