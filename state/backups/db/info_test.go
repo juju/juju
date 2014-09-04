@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/testing"
@@ -22,7 +21,7 @@ type connInfoSuite struct {
 func (s *connInfoSuite) TestNewMongoConnInfoOkay(c *gc.C) {
 	tag, err := names.ParseTag("machine-0")
 	c.Assert(err, gc.IsNil)
-	mgoInfo := authentication.MongoInfo{
+	mgoInfo := mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs: []string{"localhost:8080"},
 		},
@@ -40,7 +39,7 @@ func (s *connInfoSuite) TestNewMongoConnInfoOkay(c *gc.C) {
 }
 
 func (s *connInfoSuite) TestNewMongoConnInfoMissingTag(c *gc.C) {
-	mgoInfo := authentication.MongoInfo{
+	mgoInfo := mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs: []string{"localhost:8080"},
 		},

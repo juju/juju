@@ -6,7 +6,7 @@ package db
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/mongo"
 )
 
 // ConnInfo is a simplification of authentication.MongoInfo.
@@ -28,7 +28,7 @@ func NewConnInfo(addr, user, pw string) *connInfo {
 
 // NewMongoConnInfo returns a new DB connection info value based on the
 // mongo info.
-func NewMongoConnInfo(mgoInfo *authentication.MongoInfo) *connInfo {
+func NewMongoConnInfo(mgoInfo *mongo.MongoInfo) *connInfo {
 	info := connInfo{
 		address:  mgoInfo.Addrs[0],
 		password: mgoInfo.Password,
