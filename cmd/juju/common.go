@@ -34,7 +34,9 @@ func destroyPreparedEnviron(
 // clean up in case we need to further up the stack. If an error has
 // occurred, the environment and cleanup function will be nil, and the
 // error will be filled in.
-var environFromName = func(
+var environFromName = environFromNameProductionFunc
+
+func environFromNameProductionFunc(
 	ctx *cmd.Context,
 	envName string,
 	action string,
@@ -59,7 +61,7 @@ var environFromName = func(
 	cleanup = func() {
 		// Only clean up if the environment didn't exist or the error
 		// wasn't nil from preparing the environment.
-		if !envExisted || err != nil {
+		if !envExisted {
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}

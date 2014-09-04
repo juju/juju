@@ -132,7 +132,9 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // and environment information is created using the
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
-var PrepareFromName = func(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
+var PrepareFromName = prepareFromNameProductionFunc
+
+func prepareFromNameProductionFunc(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
