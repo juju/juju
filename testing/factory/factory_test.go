@@ -396,10 +396,10 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
 	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
-	c.Assert(saved.Metrics()[0].Key(), gc.Equals, metric.Metrics()[0].Key())
-	c.Assert(saved.Metrics()[0].Value(), gc.Equals, metric.Metrics()[0].Value())
-	c.Assert(saved.Metrics()[0].Time().Equal(metric.Metrics()[0].Time()), jc.IsTrue)
-	c.Assert(saved.Metrics()[0].Credentials(), gc.DeepEquals, []byte("creds"))
+	c.Assert(saved.Metrics()[0].Key, gc.Equals, metric.Metrics()[0].Key)
+	c.Assert(saved.Metrics()[0].Value, gc.Equals, metric.Metrics()[0].Value)
+	c.Assert(saved.Metrics()[0].Time.Equal(metric.Metrics()[0].Time), jc.IsTrue)
+	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("creds"))
 }
 
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
@@ -409,7 +409,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 		Unit:    unit,
 		Time:    &now,
 		Sent:    true,
-		Metrics: []*state.Metric{state.NewMetric("itemA", "foo", now, []byte("somecreds"))},
+		Metrics: []state.Metric{state.Metric{"itemA", "foo", now, []byte("somecreds")}},
 	})
 	c.Assert(metric, gc.NotNil)
 
@@ -422,8 +422,8 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(metric.Sent(), jc.IsTrue)
 	c.Assert(saved.Sent(), jc.IsTrue)
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
-	c.Assert(saved.Metrics()[0].Key(), gc.Equals, "itemA")
-	c.Assert(saved.Metrics()[0].Value(), gc.Equals, "foo")
-	c.Assert(saved.Metrics()[0].Time().Equal(now), jc.IsTrue)
-	c.Assert(saved.Metrics()[0].Credentials(), gc.DeepEquals, []byte("somecreds"))
+	c.Assert(saved.Metrics()[0].Key, gc.Equals, "itemA")
+	c.Assert(saved.Metrics()[0].Value, gc.Equals, "foo")
+	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
+	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("somecreds"))
 }
