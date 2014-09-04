@@ -99,7 +99,7 @@ func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
 		username = info.User
 	}
 	userTag := names.NewUserTag(username)
-	result, err := client.UserInfo(userTag.Id())
+	result, err := client.UserInfo(userTag.Name())
 	if err != nil {
 		return err
 	}

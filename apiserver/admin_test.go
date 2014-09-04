@@ -59,13 +59,15 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
+	adminUser := s.AdminUserTag(c)
+
 	for i, t := range []struct {
 		tag      string
 		password string
 		err      string
 		code     string
 	}{{
-		tag:      "user-admin",
+		tag:      adminUser.String(),
 		password: "wrong password",
 		err:      "invalid entity name or password",
 		code:     params.CodeUnauthorized,
@@ -384,7 +386,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 	}
 
 	userInfo := *info
-	userInfo.Tag = names.NewUserTag("admin")
+	userInfo.Tag = s.AdminUserTag(c)
 	userInfo.Password = "dummy-secret"
 	userResults, userWG := startNLogins(c, apiserver.LoginRateLimit+1, &userInfo)
 	// all of them should have started, and none of them in TryAgain state
@@ -417,7 +419,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	info, cleanup := s.setupServer(c)
-	info.Tag = names.NewUserTag("admin")
+	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	defer cleanup()
 	delayChan, cleanup := apiserver.DelayLogins()
@@ -450,12 +452,13 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	// We Login without passing an EnvironTag, to show that it still lets
 	// us in, and that we can find out the real EnvironTag from the
 	// response.
+	adminUser := s.AdminUserTag(c)
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
-		AuthTag:  "user-admin",
+		AuthTag:  adminUser.String(),
 		Password: "dummy-secret",
 	}
 	err = st.APICall("Admin", 0, "", "Login", creds, &result)
@@ -524,8 +527,9 @@ func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginV
 	_, err = st.Machiner().Machine(names.NewMachineTag("0"))
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
+	adminUser := s.AdminUserTag(c)
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login("user-admin", "dummy-secret", "")
+	err = st.Login(adminUser.String(), "dummy-secret", "")
 
 	checker(c, err, st)
 }
@@ -565,8 +569,9 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	var result params.LoginResult
+	adminUser := s.AdminUserTag(c)
 	creds := &params.Creds{
-		AuthTag:  "user-admin",
+		AuthTag:  adminUser.String(),
 		Password: "dummy-secret",
 	}
 	err = st.APICall("Admin", 0, "", "Login", creds, &result)

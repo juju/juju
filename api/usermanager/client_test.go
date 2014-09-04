@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	ums "github.com/juju/juju/apiserver/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -73,7 +72,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
-	err := s.usermanager.RemoveUser(state.AdminUser)
+	err := s.usermanager.RemoveUser(s.AdminUserTag(c).Name())
 	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate admin user")
 }
 
@@ -87,7 +86,7 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 		Result: &ums.UserInfo{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
-			CreatedBy:   "admin",
+			CreatedBy:   s.AdminUserTag(c).Name(),
 			DateCreated: user.DateCreated(),
 		},
 	}
@@ -122,9 +121,10 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
-	err := s.usermanager.SetPassword("admin", "new-password")
+	name := s.AdminUserTag(c).Name()
+	err := s.usermanager.SetPassword(name, "new-password")
 	c.Assert(err, gc.IsNil)
-	user, err := s.State.User("admin")
+	user, err := s.State.User(name)
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.PasswordValid("new-password"), gc.Equals, true)
 }

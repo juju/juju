@@ -153,6 +153,7 @@ func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 		// We return the same error when an entity does not exist as for a bad
 		// password, so that we don't allow unauthenticated users to find
 		// information about existing entities.
+		logger.Debugf("entity %q not found", tag)
 		return nil, common.ErrBadCreds
 	}
 	if err != nil {
@@ -165,6 +166,7 @@ func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 	}
 
 	if err = authenticator.Authenticate(entity, c.Password, c.Nonce); err != nil {
+		logger.Debugf("bad credentials")
 		return nil, err
 	}
 

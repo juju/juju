@@ -107,6 +107,10 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
+func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
+	return names.NewUserTag(state.AdminUser)
+}
+
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 	info := s.State.MongoConnectionInfo()
 	info.Password = "dummy-secret"
@@ -116,7 +120,7 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	apiInfo, err := environs.APIInfo(s.Environ)
 	c.Assert(err, gc.IsNil)
-	apiInfo.Tag = names.NewUserTag("admin")
+	apiInfo.Tag = s.AdminUserTag(c)
 	apiInfo.Password = "dummy-secret"
 
 	env, err := s.State.Environment()
