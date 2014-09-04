@@ -179,7 +179,7 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 
 // ActionFinish captures the structured output of an action.
 func (st *State) ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
-	var outcome params.BoolResults
+	var outcome params.ErrorResults
 
 	args := params.ActionResults{
 		Results: []params.ActionResult{
