@@ -17,14 +17,16 @@ const firewallerFacade = "Firewaller"
 
 // State provides access to the Firewaller API facade.
 type State struct {
-	facade base.FacadeCaller
+	environTag string
+	facade     base.FacadeCaller
 	*common.EnvironWatcher
 }
 
 // NewState creates a new client-side Firewaller facade.
-func NewState(caller base.APICaller) *State {
+func NewState(caller base.APICaller, environTag string) *State {
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &State{
+		environTag:     environTag,
 		facade:         facadeCaller,
 		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 	}
@@ -84,7 +86,7 @@ func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResults
 
 	// use empty string for the id of the current env
-	args := params.Entities{[]params.Entity{{""}}}
+	args := params.Entities{[]params.Entity{{st.environTag}}}
 
 	err := st.facade.FacadeCall("WatchOpenedPorts", args, &result)
 	if err != nil {

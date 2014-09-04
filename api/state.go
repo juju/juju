@@ -140,7 +140,7 @@ func (st *State) Uniter() *uniter.State {
 // Firewaller returns a version of the state that provides functionality
 // required by the firewaller worker.
 func (st *State) Firewaller() *firewaller.State {
-	return firewaller.NewState(st)
+	return firewaller.NewState(st, st.EnvironTag())
 }
 
 // Agent returns a version of the state that provides
