@@ -159,39 +159,42 @@ func (st *State) MongoSession() *mgo.Session {
 type closeFunc func()
 
 // txnRunner returns a jujutxn.Runner instance.
-// If a runner has been assigned to st, that instance is returned.
-// Otherwise the session is copied and a new instance is created
-// using that.
-func (st *State) txnRunner() (jujutxn.Runner, *mgo.Session, closeFunc) {
+//
+// If st.transactionRunner is non-nil, then that will be
+// returned and the session argument will be ignored. This
+// is the case in tests only, when we want to test concurrent
+// operations.
+//
+// If st.transactionRunner is nil, then we create a new
+// transaction runner with the provided session and return
+// that.
+func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
 	if st.transactionRunner != nil {
-		return st.transactionRunner, st.db.Session, func() {}
+		return st.transactionRunner
 	}
-	// If not authenticated, just use the unaltered db and a no-op closer.
-	runnerDb := st.db
-	session := runnerDb.Session.Copy()
-	runnerDb = runnerDb.With(session)
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb}), session, session.Close
+	runnerDb := st.db.With(session)
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb})
 }
 
 // runTransaction is a convenience method delegating to transactionRunner.
 func (st *State) runTransaction(ops []txn.Op) error {
-	runner, _, closer := st.txnRunner()
-	defer closer()
-	return runner.RunTransaction(ops)
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).RunTransaction(ops)
 }
 
 // run is a convenience method delegating to transactionRunner.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	runner, _, closer := st.txnRunner()
-	defer closer()
-	return runner.Run(transactions)
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
-	runner, _, closer := st.txnRunner()
-	defer closer()
-	return runner.ResumeTransactions()
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).ResumeTransactions()
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
