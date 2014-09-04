@@ -22,22 +22,6 @@ type ConnInfo struct {
 	Password string
 }
 
-// NewMongoConnInfo returns a new DB connection info value based on the
-// mongo info.
-func NewMongoConnInfo(mgoInfo *mongo.MongoInfo) *ConnInfo {
-	info := ConnInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		info.Username = mgoInfo.Tag.String()
-	}
-
-	return &info
-}
-
 // Validate checks the DB connection info.  If it isn't valid for use in
 // juju state backups, it returns an error.  Make sure that the ConnInfo
 // values do not change between the time you call this method and when
@@ -59,4 +43,20 @@ func (ci *ConnInfo) Validate() error {
 	}
 
 	return err
+}
+
+// NewMongoConnInfo returns a new DB connection info value based on the
+// mongo info.
+func NewMongoConnInfo(mgoInfo *mongo.MongoInfo) *ConnInfo {
+	info := ConnInfo{
+		Address:  mgoInfo.Addrs[0],
+		Password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		info.Username = mgoInfo.Tag.String()
+	}
+
+	return &info
 }
