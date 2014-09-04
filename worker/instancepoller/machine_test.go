@@ -357,11 +357,11 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 }
 
 // This is stubbed out for testing.
-var MachineStatus = func(m *testMachine) (status params.Status, info string, data params.StatusData, err error) {
+var MachineStatus = func(m *testMachine) (status params.Status, info string, data map[string]interface{}, err error) {
 	return m.status, "", nil, nil
 }
 
-func (m *testMachine) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (m *testMachine) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	return MachineStatus(m)
 }
 

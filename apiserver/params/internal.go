@@ -422,7 +422,7 @@ type EntityStatus struct {
 	Tag    string
 	Status Status
 	Info   string
-	Data   StatusData
+	Data   map[string]interface{}
 }
 
 // SetStatus holds the parameters for making a SetStatus/UpdateStatus call.
@@ -438,7 +438,7 @@ type StatusResult struct {
 	Life   Life
 	Status Status
 	Info   string
-	Data   StatusData
+	Data   map[string]interface{}
 }
 
 // StatusResults holds multiple status results.

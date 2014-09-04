@@ -693,7 +693,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit.
-func (u *Unit) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (u *Unit) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", nil, err
@@ -706,7 +706,7 @@ func (u *Unit) Status() (status params.Status, info string, data params.StatusDa
 
 // SetStatus sets the status of the unit. The optional values
 // allow to pass additional helpful status data.
-func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
+func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,

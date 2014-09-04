@@ -1084,7 +1084,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-thatsAllFolks:
 				return
 			case <-time.After(coretesting.ShortWait):
-				err := m3.SetStatus(params.StatusError, "info", params.StatusData{"transient": true})
+				err := m3.SetStatus(params.StatusError, "info", map[string]interface{}{"transient": true})
 				c.Assert(err, gc.IsNil)
 			}
 		}

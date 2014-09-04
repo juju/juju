@@ -319,7 +319,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())
 	// Create error information for status.
-	data := params.StatusData{"hook": u.currentHookName()}
+	data := map[string]interface{}{"hook": u.currentHookName()}
 	if u.s.Hook.Kind.IsRelation() {
 		data["relation-id"] = u.s.Hook.RelationId
 		if u.s.Hook.RemoteUnit != "" {

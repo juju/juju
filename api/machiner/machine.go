@@ -40,7 +40,7 @@ func (m *Machine) Refresh() error {
 }
 
 // SetStatus sets the status of the machine.
-func (m *Machine) SetStatus(status params.Status, info string, data params.StatusData) error {
+func (m *Machine) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
