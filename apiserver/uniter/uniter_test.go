@@ -1086,8 +1086,7 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	actions, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions.Results), gc.Equals, 1)
-	c.Assert(actions.Results[0].Error, gc.NotNil)
-	c.Assert(actions.Results[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
+	isErrPerm(c, actions.Results[0].Error)
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
@@ -1100,8 +1099,12 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	actions, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions.Results), gc.Equals, 1)
-	c.Assert(actions.Results[0].Error, gc.NotNil)
-	c.Assert(actions.Results[0].Error.Error(), gc.Equals, common.ErrPerm.Error())
+	isErrPerm(c, actions.Results[0].Error)
+}
+
+func isErrPerm(c *gc.C, err *params.Error) {
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionComplete(c *gc.C) {
