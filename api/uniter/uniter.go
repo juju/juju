@@ -187,7 +187,10 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 				ActionTag: tag.String(),
 				Status:    status,
 				Results:   results,
-				Message:   message}}}
+				Message:   message,
+			},
+		},
+	}
 
 	err := st.facade.FacadeCall("FinishActions", args, &outcome)
 	if err != nil {
