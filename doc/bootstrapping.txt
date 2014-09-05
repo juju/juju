@@ -17,8 +17,6 @@ Further checks are then done as part of the bootstrap command:
  * validating the constaints
  * checking to make sure the environment is already bootstrapped
 
-Tools are then uploaded to the environment storage if needed or requested.
-
 The code then moves on to the Bootstrap function defined in environs/bootstrap/bootstrap.go.
 
 bootstrap.Bootstrap starts with sanity checks:
@@ -27,7 +25,10 @@ bootstrap.Bootstrap starts with sanity checks:
  * that there is at least one authorised SSH key
  * that there is a CA Cert and CA Key
  * that the environment storage is writable (by writing the bootstrap-init file)
- * generates the system SSH identity file
+ * finds available tools
+   - locate tools available externally (matching constraints)
+   - determine which tools can be built and uploaded to make up shortfall in above
+   - if the best tools are made locally, and we can upload tools, they get uploaded
 
 This code then calls into the Bootstrap function on the environ instance (backed by a provider), which returns arch, series, and a finalizer function.
 
@@ -37,13 +38,14 @@ Now things diverge here a little:
  * dummy, local and manual all do their own thing
 
 Firstly, common.Bootstrap:
- * sets the package global in network just to be sure...
- * ensures that there are tools available
  * creates machine config for the bootstrap machine
  * starts an instance for the bootstrap machine
  * writes the instance id (as yaml) into the the "provider-state" file in environ storage
+   - this step will go away soon, or at least become provider specific
 
 The finalizer function, is run after the following checks from bootstrap.Bootstrap:
+ * selects tools from the previously calculated set based on the architecture and series
+   of the instance that the provider started
  * makes sure that the tools are available
  * creates the machine config struct for the bootstrap machine
  * sets the tools in that structure to the tools bootstap knows about
@@ -72,9 +74,10 @@ jujud bootstrap-state
 
  * creates a *config.Config object from the base64 encoded yaml from the command line
  * sets the package global in the network package for prefer IPv6
- * writes the system identity from (retrieved from agent config)
+ * generates and writes out the system SSH identity file
  * generates a (long) shared secret for mongo
  * mongo is then started
  * the database is then initialized (state.Initialize)
-
-
+ * copies the tools into environment storage
+   - also clones the tools for each series of the same OS
+     (for the time being at least, while each series' tools are equivalent)
