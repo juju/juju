@@ -322,35 +322,18 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
 }
 
-func (s *BootstrapSuite) TestCleanupIfPrepareFails(c *gc.C) {
-
-	// We want the MockEnvironFromName to error out when preparing an
-	// environment. WARNING: Heavily relies on implementation due to
-	// lack of IoC.
-	s.PatchValue(
-		&environs.PrepareFromName,
-		func(
-			string,
-			environs.BootstrapContext,
-			configstore.Storage,
-		) (environs.Environ, error) {
-			return nil, fmt.Errorf("mock")
-		},
-	)
-
-	env, cleanup, err := environFromName(coretesting.Context(c), "peckham", "Bootstrap")
-	c.Check(err, gc.ErrorMatches, "mock")
-	c.Check(env, gc.IsNil)
-	c.Check(cleanup, gc.Not(gc.IsNil))
-}
-
 func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 
 	cleanupRan := false
 
 	s.PatchValue(
 		&environFromName,
-		func(*cmd.Context, string, string) (environs.Environ, func(), error) {
+		func(
+			*cmd.Context,
+			string,
+			string,
+			func(environs.Environ) error,
+		) (environs.Environ, func(), error) {
 			return nil, func() { cleanupRan = true }, fmt.Errorf("mock")
 		},
 	)
@@ -359,6 +342,71 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Check(<-errc, gc.Not(gc.IsNil))
 	c.Check(cleanupRan, gc.Equals, true)
+}
+
+// When attempting to bootstrap, check that when prepare errors out,
+// the code cleans up the created jenv file, but *not* the existing
+// environment.
+func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
+
+	destroyedEnvRan := false
+	destroyedInfoRan := false
+
+	// Mock functions
+	mockDestroyPreparedEnviron := func(
+		*cmd.Context,
+		environs.Environ,
+		configstore.Storage,
+		string,
+	) {
+		destroyedEnvRan = true
+	}
+
+	mockDestroyEnvInfo := func(
+		ctx *cmd.Context,
+		cfgName string,
+		store configstore.Storage,
+		action string,
+	) {
+		destroyedInfoRan = true
+	}
+
+	mockEnvironFromName := func(
+		ctx *cmd.Context,
+		envName string,
+		action string,
+		_ func(environs.Environ) error,
+	) (environs.Environ, func(), error) {
+		// Always show that the environment is bootstrapped.
+		return environFromNameProductionFunc(
+			ctx,
+			envName,
+			action,
+			func(env environs.Environ) error {
+				return environs.ErrAlreadyBootstrapped
+			})
+	}
+
+	mockPrepare := func(
+		string,
+		environs.BootstrapContext,
+		configstore.Storage,
+	) (environs.Environ, error) {
+		return nil, fmt.Errorf("mock-prepare")
+	}
+
+	// Simulation: prepare should fail and we should only clean up the
+	// jenv file. Any existing environment should not be destroyed.
+	s.PatchValue(&destroyPreparedEnviron, mockDestroyPreparedEnviron)
+	s.PatchValue(&environFromName, mockEnvironFromName)
+	s.PatchValue(&environs.PrepareFromName, mockPrepare)
+	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)
+
+	ctx := coretesting.Context(c)
+	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
+	c.Check(destroyedEnvRan, gc.Equals, false)
+	c.Check(destroyedInfoRan, gc.Equals, true)
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
@@ -578,6 +626,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 Bootstrapping environment "peckham"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
+Bootstrap failed, destroying environment
 `[1:], version.Current.Arch))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }

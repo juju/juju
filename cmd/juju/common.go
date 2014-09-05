@@ -16,8 +16,11 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// destroyPreparedEnviron destroys the environment and logs an error if it fails.
-func destroyPreparedEnviron(
+// destroyPreparedEnviron destroys the environment and logs an error
+// if it fails.
+var destroyPreparedEnviron = destroyPreparedEnvironProductionFunc
+
+func destroyPreparedEnvironProductionFunc(
 	ctx *cmd.Context,
 	env environs.Environ,
 	store configstore.Storage,
@@ -25,7 +28,21 @@ func destroyPreparedEnviron(
 ) {
 	ctx.Infof("%s failed, destroying environment", action)
 	if err := environs.Destroy(env, store); err != nil {
-		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
+		logger.Errorf("the environment could not be destroyed: %v", err)
+	}
+}
+
+var destroyEnvInfo = destroyEnvInfoProductionFunc
+
+func destroyEnvInfoProductionFunc(
+	ctx *cmd.Context,
+	cfgName string,
+	store configstore.Storage,
+	action string,
+) {
+	ctx.Infof("%s failed, cleaning up jenv file.", action)
+	if err := environs.DestroyInfo(cfgName, store); err != nil {
+		logger.Errorf("the environment jenv file could not be cleaned up: %v", err)
 	}
 }
 
@@ -40,6 +57,7 @@ func environFromNameProductionFunc(
 	ctx *cmd.Context,
 	envName string,
 	action string,
+	ensureNotBootstrapped func(environs.Environ) error,
 ) (env environs.Environ, cleanup func(), err error) {
 
 	store, err := configstore.Default()
@@ -59,14 +77,23 @@ func environFromNameProductionFunc(
 	}
 
 	cleanup = func() {
-		// Only clean up if the environment didn't exist or the error
-		// wasn't nil from preparing the environment.
-		if !envExisted {
+		// Distinguish b/t removing the jenv file or tearing down the
+		// environment. We want to remove the jenv file if preparation
+		// was not successful. We want to tear down the environment
+		// only in the case where we have an env to tear down.
+		if env == nil {
+			destroyEnvInfo(ctx, envName, store, action)
+		} else if !envExisted {
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
 
-	env, err = environs.PrepareFromName(envName, ctx, store)
+	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
+		return nil, cleanup, err
+	}
+
+	envExisted = ensureNotBootstrapped(env) == environs.ErrAlreadyBootstrapped
+	logger.Debugf("envExisted: %v", envExisted)
 	return env, cleanup, err
 }
 
