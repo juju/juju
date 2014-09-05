@@ -43,6 +43,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 		return err
 	}
 	logger.Debugf("environment %q supports service/machine networks: %v", environ.Name(), environ.SupportNetworks())
+	disableNetworkManagement, _ := cfg.DisableNetworkManagement()
+	logger.Debugf("network management by juju enabled: %v", disableNetworkManagement)
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	return environ.Bootstrap(ctx, args)
 }
