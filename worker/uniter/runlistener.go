@@ -18,11 +18,18 @@ import (
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"
 
+// RunCommandsArgs holds the arguments for RunCommands
+type RunCommandsArgs struct {
+	Commands   string
+	Relation   string
+	RemoteUnit string
+}
+
 // A CommandRunner is something that will actually execute the commands and
 // return the results of that execution in the exec.ExecResponse (which
 // contains stdout, stderr, and return code).
 type CommandRunner interface {
-	RunCommands(commands string) (results *exec.ExecResponse, err error)
+	RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error)
 }
 
 // RunListener is responsible for listening on the network connection and
@@ -44,11 +51,17 @@ type JujuRunServer struct {
 
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
-func (r *JujuRunServer) RunCommands(commands string, result *exec.ExecResponse) error {
-	logger.Debugf("RunCommands: %q", commands)
-	runResult, err := r.runner.RunCommands(commands)
+func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
+	logger.Debugf("RunCommands: %q", args.Commands)
+	logger.Debugf("Runner: %+v", r.runner)
+
+	runResult, err := r.runner.RunCommands(args)
+	if err != nil {
+		return err
+	}
+
 	*result = *runResult
-	return err
+	return nil
 }
 
 // NewRunListener returns a new RunListener that is listening on given

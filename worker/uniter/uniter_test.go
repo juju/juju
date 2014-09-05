@@ -2787,7 +2787,10 @@ type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	result, err := ctx.uniter.RunCommands(commands)
+	args := uniter.RunCommandsArgs{
+		Commands: commands,
+	}
+	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Code, gc.Equals, 0)
 	c.Check(string(result.Stdout), gc.Equals, "")
@@ -2807,7 +2810,10 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer client.Close()
 
 		var result utilexec.ExecResponse
-		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
+		args := uniter.RunCommandsArgs{
+			Commands: commands,
+		}
+		err = client.Call(uniter.JujuRunEndpoint, args, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)
 		c.Check(string(result.Stdout), gc.Equals, "")

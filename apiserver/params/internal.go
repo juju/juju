@@ -607,11 +607,13 @@ type CharmsResponse struct {
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Services, or Units slices.
 type RunParams struct {
-	Commands string
-	Timeout  time.Duration
-	Machines []string
-	Services []string
-	Units    []string
+	Commands   string
+	Timeout    time.Duration
+	Machines   []string
+	Services   []string
+	Units      []string
+	Relation   []string
+	RemoteUnit string
 }
 
 // RunResult contains the result from an individual run call on a machine.

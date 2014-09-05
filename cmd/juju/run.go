@@ -21,13 +21,15 @@ import (
 // RunCommand is responsible for running arbitrary commands on remote machines.
 type RunCommand struct {
 	envcmd.EnvCommandBase
-	out      cmd.Output
-	all      bool
-	timeout  time.Duration
-	machines []string
-	services []string
-	units    []string
-	commands string
+	out        cmd.Output
+	all        bool
+	timeout    time.Duration
+	machines   []string
+	services   []string
+	units      []string
+	relation   []string
+	remoteUnit string
+	commands   string
 }
 
 const runDoc = `
@@ -52,9 +54,15 @@ is equivalent to
 Commands run for services or units are executed in a 'hook context' for
 the unit.
 
+--relation allows you to ensure the command is executed on the specified
+targets with the correct relation context. For example "db" or "cache".
+
+--remote-unit is used to specifiy a unit with --relation in cases where
+more than one relation exists.
+
 --all is provided as a simple way to run the command on all the machines
 in the environment.  If you specify --all you cannot provide additional
-targets.
+targets or a relation.
 
 `
 
@@ -74,6 +82,8 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "one or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.services), "service", "one or more service names")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "one or more unit ids")
+	f.Var(cmd.NewStringsValue(nil, &c.relation), "relation", "relation context to run the command under")
+	f.StringVar(&c.remoteUnit, "remote-unit", "", "run the command for a specific remote unit for a given relation")
 }
 
 func (c *RunCommand) Init(args []string) error {
@@ -91,6 +101,9 @@ func (c *RunCommand) Init(args []string) error {
 		}
 		if len(c.units) != 0 {
 			return fmt.Errorf("You cannot specify --all and individual units")
+		}
+		if len(c.relation) != 0 {
+			return fmt.Errorf("You cannot specify --all and individual realtions")
 		}
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
@@ -113,6 +126,9 @@ func (c *RunCommand) Init(args []string) error {
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
+	}
+	if len(c.remoteUnit) > 0 && !names.IsValidUnit(c.remoteUnit) {
+		nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid remote-unit name", c.remoteUnit))
 	}
 	if len(nameErrors) > 0 {
 		return fmt.Errorf("The following run targets are not valid:\n%s",
@@ -183,11 +199,13 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
 	} else {
 		params := params.RunParams{
-			Commands: c.commands,
-			Timeout:  c.timeout,
-			Machines: c.machines,
-			Services: c.services,
-			Units:    c.units,
+			Commands:   c.commands,
+			Timeout:    c.timeout,
+			Machines:   c.machines,
+			Services:   c.services,
+			Units:      c.units,
+			Relation:   c.relation,
+			RemoteUnit: c.remoteUnit,
 		}
 		runResults, err = client.Run(params)
 	}

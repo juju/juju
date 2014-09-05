@@ -72,6 +72,26 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
+func getRemoteUnit(st *state.State, remoteUnit string) (*state.Unit, error) {
+	unit, err := st.Unit(remoteUnit)
+	if err != nil {
+		return nil, err
+	}
+	return unit, nil
+}
+
+func getRelation(st *state.State, inRelation []string) (*state.Relation, error) {
+	endpoints, err := st.InferEndpoints(inRelation)
+	if err != nil {
+		return nil, err
+	}
+	relation, err := st.EndpointsRelation(endpoints...)
+	if err != nil {
+		return nil, err
+	}
+	return relation, nil
+}
+
 func (c *Client) getDataDir() string {
 	dataResource, ok := c.api.resources.Get("dataDir").(common.StringResource)
 	if !ok {
@@ -101,11 +121,32 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if err != nil {
 			return results, err
 		}
-		command := fmt.Sprintf("juju-run %s %s", unit.Name(), quotedCommands)
+		command := "juju-run"
+
+		if len(run.Relation) > 0 {
+			relation, err := getRelation(c.api.state, run.Relation)
+			if err != nil {
+				return results, err
+			}
+			command += fmt.Sprintf(" --relation %d", relation.Id())
+
+			if len(run.RemoteUnit) > 0 {
+				remoteUnit, err := getRemoteUnit(c.api.state, run.RemoteUnit)
+				if err != nil {
+					return results, err
+				}
+				command += fmt.Sprintf(" --remote-unit %s", remoteUnit.Name())
+			} else {
+
+			}
+		}
+
+		command += fmt.Sprintf(" %s %s", unit.Name(), quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		execParam.UnitId = unit.Name()
 		params = append(params, execParam)
 	}
+
 	for _, machineId := range run.Machines {
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {

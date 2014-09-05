@@ -415,6 +415,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
+
 	osVars := ctx.osDependentEnvVars(charmDir, toolsDir)
 	vars = append(vars, osVars...)
 
@@ -426,6 +427,9 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	}
 	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
 	vars = append(vars, ctx.meterStatusEnvVars()...)
+
+	logger.Debugf("hookVars: %+v", vars)
+
 	return vars
 }
 

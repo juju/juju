@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -387,6 +388,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	if err != nil {
 		return nil, err
 	}
+
 	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
@@ -449,8 +451,8 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 }
 
 // RunCommands executes the supplied commands in a hook context.
-func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
-	logger.Tracef("run commands: %s", commands)
+func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	logger.Tracef("run commands: %s", args.Commands)
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
@@ -458,18 +460,62 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", nil, nil)
+	relationId, err := parseRelationId(args.Relation)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("run args: %+v", args)
+	logger.Debugf("relationId: %v", relationId)
+
+	var remoteUnit string
+
+	logger.Debugf("args.RemoteUnit: %+v", args.Relation)
+	if relationId != -1 && len(args.RemoteUnit) == 0 {
+		relationer, found := u.relationers[relationId]
+		logger.Debugf("relationer: %+v", relationer)
+		if !found {
+			return nil, fmt.Errorf("unable to find any relations for %v", args.Relation)
+		}
+
+		remoteUnits := relationer.Context().UnitNames()
+		numRemoteUnits := len(remoteUnits)
+
+		logger.Debugf("remoteUnits: %+v", remoteUnits)
+		logger.Debugf("numRemoteUnits: %d", numRemoteUnits)
+
+		switch numRemoteUnits {
+		case 0:
+			err = fmt.Errorf("no remote unit foud for relation: %s", args.Relation)
+		case 1:
+			remoteUnit = remoteUnits[0]
+		default:
+			err = fmt.Errorf("unalbe to determine remote-unit, please disambiguate: %+v", remoteUnits)
+		}
+
+		logger.Debugf("switchErr: %+v", err)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		remoteUnit = args.RemoteUnit
+	}
+
+	logger.Debugf("remoteUnit: %+v", remoteUnit)
+	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), relationId, remoteUnit, map[string]interface{}(nil))
 
 	if err != nil {
 		return nil, err
 	}
+	logger.Debugf("hook context: %+v", hctx)
+
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return nil, err
 	}
 	defer srv.Close()
 
-	result, err := hctx.RunCommands(commands, u.charmPath, u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(args.Commands, u.charmPath, u.toolsDir, socketPath)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -926,4 +972,18 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 			}
 		}
 	}()
+}
+
+// parseRelationId converts the relation ID in string format from juju-run
+// to an int format for use with getHookContext. If relation string is empty
+// then parseRelationId returns -1 which is a valid value for getHookContext.
+func parseRelationId(relation string) (int, error) {
+	if len(relation) > 0 {
+		id, err := strconv.ParseInt(relation, 0, 0)
+		if err != nil {
+			return -1, err
+		}
+		return int(id), nil
+	}
+	return -1, nil
 }

@@ -58,7 +58,10 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	defer client.Close()
 
 	var result exec.ExecResponse
-	err = client.Call(uniter.JujuRunEndpoint, "some-command", &result)
+	args := uniter.RunCommandsArgs{
+		Commands: "some-command",
+	}
+	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(string(result.Stdout), gc.Equals, "some-command stdout")
@@ -72,11 +75,11 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *exec.ExecResponse, err error) {
-	r.c.Log("mock runner: " + commands)
+func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	r.c.Log("mock runner: " + args.Commands)
 	return &exec.ExecResponse{
 		Code:   42,
-		Stdout: []byte(commands + " stdout"),
-		Stderr: []byte(commands + " stderr"),
+		Stdout: []byte(args.Commands + " stdout"),
+		Stderr: []byte(args.Commands + " stderr"),
 	}, nil
 }
