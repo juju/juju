@@ -390,8 +390,8 @@ func (s *backupMetadataStorage) New() filestorage.Metadata {
 	return metadata.NewMetadata(*origin, "", nil)
 }
 
-func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
-	err := setBackupStored(s.state, meta.ID())
+func (s *backupMetadataStorage) SetStored(id string) error {
+	err := setBackupStored(s.state, id)
 	if err != nil {
 		return errors.Trace(err)
 	}
