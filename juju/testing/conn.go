@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
+	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 
@@ -429,27 +430,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	testServer := gitjujutesting.MgoServer.Addr()
 	serverAlive := testServer != ""
 
-	// Bootstrap will set the admin password, and render non-authorized use
-	// impossible. s.State may still hold the right password, so try to reset
-	// the password so that the MgoSuite soft-resetting works. If that fails,
-	// it will still work, but it will take a while since it has to kill the
-	// whole database and start over.
-	if s.State != nil {
-		if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
-			c.Logf("cannot reset admin password: %v", err)
-		}
-		err := s.State.Close()
-		if serverAlive {
-			// This happens way too often with failing tests,
-			// so add some context in case of an error.
-			c.Check(
-				err,
-				gc.IsNil,
-				gc.Commentf("closing state failed, testing server %q is alive", testServer),
-			)
-		}
-		s.State = nil
-	}
+	// Close any api connections we know about first.
 	for _, st := range s.apiStates {
 		err := st.Close()
 		if serverAlive {
@@ -461,13 +442,38 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Check(
-				err,
-				gc.IsNil,
-				gc.Commentf("closing api state failed, testing server %q is alive", testServer),
+			c.Check(err, gc.IsNil,
+				gc.Commentf("closing api state failed\n%s\n", errors.ErrorStack(err)),
 			)
 		}
 	}
+	// Close close state.
+	var dbSession *mgo.Session
+	if s.State != nil {
+		// Copy the mongo session so we can reset the mongo password below.
+		dbSession = s.State.MongoSession().Copy()
+		err := s.State.Close()
+		if serverAlive {
+			// This happens way too often with failing tests,
+			// so add some context in case of an error.
+			c.Check(err, gc.IsNil,
+				gc.Commentf("closing state failed\n%s\n", errors.ErrorStack(err)),
+			)
+		}
+		s.State = nil
+	}
+
+	// Bootstrap will set the admin password, and render non-authorized use
+	// impossible. s.State may still hold the right password, so try to reset
+	// the password so that the MgoSuite soft-resetting works. If that fails,
+	// it will still work, but it will take a while since it has to kill the
+	// whole database and start over.
+	if dbSession != nil {
+		err := mongo.SetAdminMongoPassword(dbSession, mongo.AdminUser, "")
+		c.Check(err, gc.IsNil)
+		dbSession.Close()
+	}
+
 	dummy.Reset()
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuHome(s.oldJujuHome)
