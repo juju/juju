@@ -14,11 +14,14 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag                 names.MachineTag
-	life                params.Life
-	isManual            bool
-	isManualNotProvided bool
-	st                  *State
+	tag      names.MachineTag
+	life     params.Life
+	isManual bool
+
+	// isManualNotSupported is set to true if the Machiner API
+	// facade is V0 and doesn't support IsManual().
+	isManualNotSupported bool
+	st                   *State
 }
 
 // Id returns the machine's id.
@@ -38,7 +41,7 @@ func (m *Machine) Life() params.Life {
 
 // IsManual returns true if the machine was manually provisioned.
 func (m *Machine) IsManual() (bool, bool) {
-	if m.isManualNotProvided {
+	if m.isManualNotSupported {
 		return false, false
 	}
 	return m.isManual, true

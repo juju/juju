@@ -80,12 +80,12 @@ func (mig *mockMachineInfoGetter) Id() string {
 	return mig.id
 }
 
-// IsManual returns the manually provisioning flag of the simulated machine.
+// IsManual returns whether the simulated machine was manually provisioned.
 func (mig *mockMachineInfoGetter) IsManual() (bool, bool) {
 	return mig.isManual, mig.isManualNotProvided
 }
 
-// CommonRequiresSafeNetworkerTest tests the RequiresSafeNetworker environ capability
+// RequiresSafeNetworkerTest tests the RequiresSafeNetworker environ capability
 // for machine 0 and 1, for each regular and manual provisioning, and for each then
 // without and with disabled network management. The same turn is done then with no
 // information about manual provisioning due to a lower server API version. In this
@@ -99,7 +99,7 @@ func (mig *mockMachineInfoGetter) IsManual() (bool, bool) {
 // Machine 1: true, true, true, true,
 //
 // Only local, maas, and manual provider behave different.
-func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements [16]bool) {
+func RequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements [16]bool) {
 	tests := []struct {
 		mig                      state.MachineInfoGetter
 		disableNetworkManagement bool
@@ -134,4 +134,17 @@ func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements
 		c.Check(err, gc.IsNil)
 		c.Check(env.RequiresSafeNetworker(test.mig), gc.Equals, requirements[i])
 	}
+}
+
+// RequiresSafeNetworkerTestDefault represents the standard where
+// a safe networker is required for disabled network management or
+// manual provisioning. Of the latter information isn't available due
+// to API V0 it is required too.
+var RequiresSafeNetworkerTestDefault = [16]bool{
+	// API v1 or higher, machines 0 and 1.
+	false, true, true, true,
+	false, true, true, true,
+	// API v0, machines 0 and 1.
+	true, true, true, true,
+	true, true, true, true,
 }

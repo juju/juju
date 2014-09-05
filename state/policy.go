@@ -69,7 +69,7 @@ type MachineInfoGetter interface {
 	// Id return the identifier of the machine.
 	Id() string
 
-	// IsManual returns true if the machine is provisioned manually.
+	// IsManual returns true if the machine is manually provisioned.
 	IsManual() (bool, bool)
 }
 

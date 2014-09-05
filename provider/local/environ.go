@@ -48,11 +48,14 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 )
 
-// boostrapInstanceId is just the name we give to the bootstrap machine.
-// Using "localhost" because it is, and it makes sense.
 const (
+	// boostrapInstanceId is just the name we give to the bootstrap machine.
+	// Using "localhost" because it is, and it makes sense.
 	bootstrapInstanceId instance.Id = "localhost"
-	bootstrapMachineId              = "0"
+
+	// bootstrapMachineId is the id of the bootstrap machine and
+	// used to check if a safe networker is required.
+	bootstrapMachineId = "0"
 )
 
 // localEnviron implements Environ.
@@ -93,12 +96,9 @@ func (*localEnviron) SupportNetworks() bool {
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
 func (env *localEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
-	isManual, ok := mig.IsManual()
-	if !ok {
-		return true
-	}
+	isManual, haveManual := mig.IsManual()
 	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
-	return disableNetworkManagement || mig.Id() == bootstrapMachineId || isManual
+	return !haveManual || disableNetworkManagement || mig.Id() == bootstrapMachineId || isManual
 }
 
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {

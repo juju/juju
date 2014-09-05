@@ -320,12 +320,12 @@ func environCapability(st *api.State) (caps state.EnvironCapability, err error) 
 	var cfg *config.Config
 	cfg, err = st.Environment().EnvironConfig()
 	if err != nil {
-		return nil, fmt.Errorf("getting environment configuration failed: %v", err)
+		return nil, errors.Annotatef(err, "failed to get environment config")
 	}
 	var env environs.Environ
 	env, err = environs.New(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("creating environment failed: %v", err)
+		return nil, errors.Annotatef(err, "invalid environment config")
 	}
 	return env, nil
 }

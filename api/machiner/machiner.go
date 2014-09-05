@@ -48,11 +48,11 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 				return nil, err
 			}
 			return &Machine{
-				tag:                 tag,
-				life:                life,
-				isManual:            false,
-				isManualNotProvided: true,
-				st:                  st,
+				tag:                  tag,
+				life:                 life,
+				isManual:             false,
+				isManualNotSupported: true,
+				st:                   st,
 			}, nil
 		}
 		return nil, err
@@ -66,10 +66,10 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 		return nil, machineResult.Error
 	}
 	return &Machine{
-		tag:                 tag,
-		life:                machineResult.Life,
-		isManual:            machineResult.IsManual,
-		isManualNotProvided: false,
-		st:                  st,
+		tag:                  tag,
+		life:                 machineResult.Life,
+		isManual:             machineResult.IsManual,
+		isManualNotSupported: false,
+		st:                   st,
 	}, nil
 }

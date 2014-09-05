@@ -113,7 +113,7 @@ func (*environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	// Special: required for machine 0 || disabledNetworkManagement || isManual.
-	statetesting.CommonRequiresSafeNetworkerTest(c, environ, [16]bool{
+	statetesting.RequiresSafeNetworkerTest(c, environ, [16]bool{
 		// API v1 or higher, machines 0 and 1.
 		true, true, true, true,
 		false, true, true, true,

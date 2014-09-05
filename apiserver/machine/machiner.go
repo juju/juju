@@ -65,8 +65,7 @@ func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
 	return entity.(*state.Machine), nil
 }
 
-// SetMachineAddresses sets the addresses for each given machine tag
-// and list of addresses.
+// SetMachineAddresses sets the given list of addresses for each given machine tag.
 func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
@@ -133,9 +132,6 @@ func (api *MachinerAPIV1) GetMachines(args params.GetMachinesV1) (params.GetMach
 		}
 		m, err := api.getMachine(tag)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				err = common.ErrPerm
-			}
 			results.Machines[i].Error = common.ServerError(err)
 			continue
 		}

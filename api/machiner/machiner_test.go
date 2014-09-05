@@ -184,7 +184,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	wc.AssertClosed()
 }
 
-type machinerVersioningSuite struct {
+type machinerV0OnlySuite struct {
 	testing.JujuConnSuite
 	*apitesting.APIAddresserTests
 
@@ -195,11 +195,11 @@ type machinerVersioningSuite struct {
 	machiner *machiner.State
 }
 
-var _ = gc.Suite(&machinerVersioningSuite{})
+var _ = gc.Suite(&machinerV0OnlySuite{})
 
-func (s *machinerVersioningSuite) SetUpTest(c *gc.C) {
-	// Manipulate version registry before setting up test.
-	s.restore = common.Facades.DiscardRestorable("Machiner", 1)
+func (s *machinerV0OnlySuite) SetUpTest(c *gc.C) {
+	// Simulate version Machiner v1 is not available.
+	s.restore = common.Facades.Discard("Machiner", 1)
 
 	// Standard test setup.
 	s.JujuConnSuite.SetUpTest(c)
@@ -215,12 +215,12 @@ func (s *machinerVersioningSuite) SetUpTest(c *gc.C) {
 	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.machiner, s.BackingState)
 }
 
-func (s *machinerVersioningSuite) TearDownTest(c *gc.C) {
+func (s *machinerV0OnlySuite) TearDownTest(c *gc.C) {
 	s.restore()
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *machinerVersioningSuite) TestMachineWithV0Server(c *gc.C) {
+func (s *machinerV0OnlySuite) TestMachineWithV0Server(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 	isManual, ok := machine.IsManual()

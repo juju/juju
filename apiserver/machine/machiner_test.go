@@ -52,25 +52,11 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.machinerV1 = machinerV1
 }
 
-func (s *machinerSuite) TestGetMachinesOK(c *gc.C) {
-	args := params.GetMachinesV1{
-		Tags: []string{
-			"machine-1",
-		},
-	}
-	result, err := s.machinerV1.GetMachines(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV1{
-		Machines: []params.GetMachinesResultV1{
-			{"machine-1", params.Alive, false, nil},
-		},
-	})
-}
-
-func (s *machinerSuite) TestGetMachinesNotFoundOrNotAuthorized(c *gc.C) {
+func (s *machinerSuite) TestGetMachinesV1(c *gc.C) {
 	args := params.GetMachinesV1{
 		Tags: []string{
 			"machine-0",
+			"machine-1",
 			"machine-42",
 		},
 	}
@@ -79,6 +65,7 @@ func (s *machinerSuite) TestGetMachinesNotFoundOrNotAuthorized(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV1{
 		Machines: []params.GetMachinesResultV1{
 			{"machine-0", "", false, apiservertesting.ErrUnauthorized},
+			{"machine-1", params.Alive, false, nil},
 			{"machine-42", "", false, apiservertesting.ErrUnauthorized},
 		},
 	})

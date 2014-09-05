@@ -168,12 +168,9 @@ func (env *maasEnviron) SupportNetworks() bool {
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
 func (env *maasEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
-	isManual, ok := mig.IsManual()
-	if !ok {
-		return true
-	}
+	isManual, haveManual := mig.IsManual()
 	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
-	return disableNetworkManagement || isManual
+	return !haveManual || disableNetworkManagement || isManual
 }
 
 func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
