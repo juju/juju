@@ -35,7 +35,7 @@ In case a value starts with an at sign (@) the rest of the value is interpreted
 as a filename. The value itself is then read out of the named file. The maximum
 size of this value is 5M.
 
-Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command 
+Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command
 line and in configuration files.
 `
 
@@ -89,6 +89,12 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	}
 	settings := map[string]string{}
 	for k, v := range c.SettingsStrings {
+		//empty string is also valid as a setting value
+		if v == "" {
+			settings[k] = v
+			continue
+		}
+
 		if v[0] != '@' {
 			if !utf8.ValidString(v) {
 				return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
