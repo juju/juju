@@ -93,27 +93,30 @@ def remove_leftover_virtualbox(series, arch):
 
 
 def build_vagrant_box(series, arch, jenkins_kvm, workspace, package_info=None):
-    env = {
-        'BUILD_FOR': '%s:%s' % (series, arch),
-    }
+    env = os.environ.copy()
+    env['BUILD_FOR'] = '%s:%s' % (series, arch)
     if package_info is not None:
         env['JUJU_CORE_PKG'] = package_info['core']
         env['JUJU_LOCAL_PKG'] = package_info['local']
     builder_path = os.path.join(jenkins_kvm, 'build-juju-local.sh')
+    build_dir = '%s-%s' % (series, arch)
     logging.info('Building Vagrant box for %s %s' % (series, arch))
     try:
         subprocess.check_call(builder_path, env=env)
         boxname = '%s-server-cloudimg-%s-juju-vagrant-disk1.box' % (
             series, arch)
-        build_dir = '%s-%s' % (series, arch)
         os.rename(
             os.path.join(jenkins_kvm, build_dir, boxname),
             os.path.join(workspace, boxname))
     finally:
         remove_leftover_virtualbox(series, arch)
-        shutil.rmtree(os.path.join(jenkins_kvm, build_dir))
-        os.unlink(os.path.join(
-            jenkins_kvm, '%s-builder-%s.img' % (series, arch)))
+        full_build_dir_path = os.path.join(jenkins_kvm, build_dir)
+        if os.path.exists(full_build_dir_path):
+            shutil.rmtree(full_build_dir_path)
+        builder_image = os.path.join(
+            jenkins_kvm, '%s-builder-%s.img' % (series, arch))
+        if os.path.exists(builder_image):
+            os.unlink(builder_image)
 
 
 def clean_workspace(workspace):
