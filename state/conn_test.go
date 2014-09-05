@@ -39,6 +39,7 @@ type ConnSuite struct {
 	policy       statetesting.MockPolicy
 	factory      *factory.Factory
 	envTag       names.EnvironTag
+	owner        names.UserTag
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -57,6 +58,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
 	cfg := testing.EnvironConfig(c)
+	cs.owner = names.NewUserTag("admin")
 	cs.State = TestingInitialize(c, cfg, &cs.policy)
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
@@ -87,11 +89,11 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return state.AddTestingService(c, s.State, name, ch)
+	return state.AddTestingService(c, s.State, name, ch, s.owner)
 }
 
 func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
-	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, networks)
+	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, s.owner, networks)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
