@@ -451,7 +451,9 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	var dbSession *mgo.Session
 	if s.State != nil {
 		// Copy the mongo session so we can reset the mongo password below.
-		dbSession = s.State.MongoSession().Copy()
+		if serverAlive {
+			dbSession = s.State.MongoSession().Copy()
+		}
 		err := s.State.Close()
 		if serverAlive {
 			// This happens way too often with failing tests,
