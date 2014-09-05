@@ -6,7 +6,6 @@ package common
 import (
 	"fmt"
 	"math/rand"
-	"path"
 	"sort"
 
 	"github.com/juju/errors"
@@ -91,15 +90,10 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 		}
 		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
 		if err == nil {
-			var url string
-			url, err = t.urlGetter.ToolsURL(agentTools.Version)
-			if err == nil {
-				agentTools.URL = url
-				result.Results[i].Tools = agentTools
-				// TODO(axw) Get rid of this in 1.22, when all clients
-				// are known to ignore the flag.
-				result.Results[i].DisableSSLHostnameVerification = true
-			}
+			result.Results[i].Tools = agentTools
+			// TODO(axw) Get rid of this in 1.22, when all clients
+			// are known to ignore the flag.
+			result.Results[i].DisableSSLHostnameVerification = true
 		}
 		result.Results[i].Error = ServerError(err)
 	}
@@ -226,15 +220,32 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 	return result, nil
 }
 
-// findTools searches toolstorage and simplestreams for tools matching the
-// given parameters. If an exact match is specified (number, series and arch)
-// and is found in toolstorage, then simplestreams will not be searched.
+// findTools calls findMatchingTools and then rewrites the URLs
+// using the provided ToolsURLGetter.
 func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, error) {
-	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
-	storageList, err := f.matchingStorageTools(args)
+	// Rewrite the URLs so they point at the API server. If the
+	// tools are not in toolstorage, then the API server will
+	// download and cache them if the client requests that version.
+	list, err := f.findMatchingTools(args)
 	if err != nil {
 		return nil, err
 	}
+	for _, tools := range list {
+		url, err := f.urlGetter.ToolsURL(tools.Version)
+		if err != nil {
+			return nil, err
+		}
+		tools.URL = url
+	}
+	return list, nil
+}
+
+// findMatchingTools searches toolstorage and simplestreams for tools matching the
+// given parameters. If an exact match is specified (number, series and arch)
+// and is found in toolstorage, then simplestreams will not be searched.
+func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.List, error) {
+	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
+	storageList, err := f.matchingStorageTools(args)
 	if err == nil && exactMatch {
 		return storageList, nil
 	}
@@ -250,7 +261,7 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 		return nil, err
 	}
 	filter := toolsFilter(args)
-	simplestreamsList, err := envtools.FindTools(
+	simplestreamsList, err := envtoolsFindTools(
 		env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry,
 	)
 	if len(storageList) == 0 && err != nil {
@@ -268,17 +279,6 @@ func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, er
 		}
 	}
 	sort.Sort(list)
-
-	// Rewrite the URLs so they point at the API server. If the
-	// tools are not in toolstorage, then the API server will
-	// download and cache them if the client requests that version.
-	for _, tools := range list {
-		url, err := f.urlGetter.ToolsURL(tools.Version)
-		if err != nil {
-			return nil, err
-		}
-		tools.URL = url
-	}
 	return list, nil
 }
 
@@ -367,5 +367,5 @@ func (t *toolsURLGetter) ToolsURL(v version.Binary) (string, error) {
 // ToolsURL returns a tools URL pointing the API server
 // specified by the "serverRoot".
 func ToolsURL(serverRoot string, v version.Binary) string {
-	return path.Join(serverRoot, "tools", v.String())
+	return fmt.Sprintf("%s/tools/%s", serverRoot, v.String())
 }
