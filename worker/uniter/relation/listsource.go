@@ -9,6 +9,7 @@ import (
 )
 
 type listSource struct {
+	NoUpdates
 	hooks []hook.Info
 }
 
@@ -17,19 +18,33 @@ func (q *listSource) Empty() bool {
 }
 
 func (q *listSource) Next() hook.Info {
+	if q.Empty() {
+		panic("HookSource is empty")
+	}
 	return q.hooks[0]
 }
 
 func (q *listSource) Pop() {
+	if q.Empty() {
+		panic("HookSource is empty")
+	}
 	q.hooks = q.hooks[1:]
 }
 
-func newDyingSource(initial *State) HookSource {
-	source := &listSource{}
+// NewListSource returns a HookSource that generates only the supplied hooks, in
+// order; and which cannot be updated.
+func NewListSource(list []hook.Info) HookSource {
+	source := &listSource{hooks: make([]hook.Info, len(list))}
+	copy(source.hooks, list)
+	return source
+}
 
-	//  * Honour any expected relation-changed hook.
+func NewDyingHookSource(initial *State) HookSource {
+	var list []hook.Info
+
+	// Honour any expected relation-changed hook.
 	if initial.ChangedPending != "" {
-		source.hooks = append(source.hooks, hook.Info{
+		list = append(list, hook.Info{
 			Kind:          hooks.RelationChanged,
 			RelationId:    initial.RelationId,
 			RemoteUnit:    initial.ChangedPending,
@@ -37,14 +52,14 @@ func newDyingSource(initial *State) HookSource {
 		})
 	}
 
-	// * Depart in consistent order, mainly for testing purposes.
+	// Depart in consistent order, mainly for testing purposes.
 	departs := []string{}
 	for name := range initial.Members {
 		departs = append(departs, name)
 	}
 	sort.Strings(departs)
 	for _, name := range departs {
-		source.hooks = append(source.hooks, hook.Info{
+		list = append(list, hook.Info{
 			Kind:          hooks.RelationDeparted,
 			RelationId:    initial.RelationId,
 			RemoteUnit:    name,
@@ -52,11 +67,11 @@ func newDyingSource(initial *State) HookSource {
 		})
 	}
 
-	// * Finally break the relation.
-	source.hooks = append(source.hooks, hook.Info{
+	// Finally break the relation.
+	list = append(list, hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: initial.RelationId,
 	})
 
-	return source
+	return NewListSource(list)
 }

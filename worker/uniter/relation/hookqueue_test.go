@@ -4,7 +4,6 @@
 package relation_test
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"gopkg.in/juju/charm.v2/hooks"
@@ -15,8 +14,6 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
-
-func Test(t *stdtesting.T) { coretesting.MgoTestPackage(t) }
 
 type HookQueueSuite struct{}
 

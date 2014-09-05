@@ -13,6 +13,32 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
+// liveSource maintains a minimal queue of hooks that need to be run to reflect
+// relation state changes exposed via a RelationUnitsWatcher.
+type liveSource struct {
+	relationId int
+
+	// info holds information about all units that were added to the
+	// queue and haven't had a "relation-departed" event popped. This
+	// means the unit may be in info and not currently in the queue
+	// itself.
+	info map[string]*unitInfo
+
+	// head and tail are the ends of the queue.
+	head, tail *unitInfo
+
+	// changedPending, if not empty, indicates that the most recently
+	// popped event was a "relation-joined" for the named unit, and
+	// therefore that the next event must be a "relation-changed"
+	// for that same unit.
+	// If changedPending is not empty, the queue is considered non-
+	// empty, even if head is nil.
+	changedPending string
+
+	started bool
+	watcher RelationUnitsWatcher
+}
+
 // unitInfo holds unit information for management by liveSource.
 type unitInfo struct {
 	// unit holds the name of the unit.
@@ -35,30 +61,7 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
-type liveSource struct {
-	watcher    RelationUnitsWatcher
-	started    bool
-	relationId int
-
-	// info holds information about all units that were added to the
-	// queue and haven't had a "relation-departed" event popped. This
-	// means the unit may be in info and not currently in the queue
-	// itself.
-	info map[string]*unitInfo
-
-	// head and tail are the ends of the queue.
-	head, tail *unitInfo
-
-	// changedPending, if not empty, indicates that the most recently
-	// popped event was a "relation-joined" for the named unit, and
-	// therefore that the next event must be a "relation-changed"
-	// for that same unit.
-	// If changedPending is not empty, the queue is considered non-
-	// empty, even if head is nil.
-	changedPending string
-}
-
-func newLiveSource(initial *State, w RelationUnitsWatcher) HookSource {
+func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
 	info := map[string]*unitInfo{}
 	for unit, version := range initial.Members {
 		info[unit] = &unitInfo{
@@ -75,8 +78,54 @@ func newLiveSource(initial *State, w RelationUnitsWatcher) HookSource {
 	}
 }
 
+// Changes returns a channel sending a stream of RelationUnitsChange events
+// that need to be delivered to Update in order for the source to function
+// correctly. In particular, the first event represents the ideal state of
+// the relation, and must be delivered for the source to be able to calculate
+// the desired hooks.
+func (q *liveSource) Changes() <-chan params.RelationUnitsChange {
+	return q.watcher.Changes()
+}
+
+// Stop cleans up the liveSource's resources and stops sending changes.
+func (q *liveSource) Stop() error {
+	return q.watcher.Stop()
+}
+
+// Update modifies the queue such that the hook.Info values it sends will
+// reflect the supplied change.
+func (q *liveSource) Update(change params.RelationUnitsChange) error {
+	if !q.started {
+		q.started = true
+		// The first event represents the ideal final state of the system.
+		// If it contains any Departed notifications, it cannot be one of
+		// those -- most likely the watcher was not a fresh one -- and we're
+		// completely hosed.
+		if len(change.Departed) != 0 {
+			return errors.Errorf("hook source watcher sent bad event: %#v", change)
+		}
+		// Anyway, before we can generate actual hooks, we have to generate
+		// departed hooks for any previously-known members not reflected in
+		// the ideal state, and insert those at the head of the queue. The
+		// easiest way to do this is to inject a departure update for those
+		// missing members before processing the ideal state.
+		departs := params.RelationUnitsChange{}
+		for unit := range q.info {
+			if _, found := change.Changed[unit]; !found {
+				departs.Departed = append(departs.Departed, unit)
+			}
+		}
+		q.update(departs)
+	}
+	q.update(change)
+	return nil
+}
+
 // Empty returns true if the queue is empty.
 func (q *liveSource) Empty() bool {
+	// If the first event has not yet been delivered, we cannot correctly
+	// determine the schedule, so we pretend to be empty rather than expose
+	// an incorrect hook.
 	if !q.started {
 		return true
 	}
@@ -130,43 +179,16 @@ func (q *liveSource) Pop() {
 	}
 }
 
-// Update modifies the queue such that the hook.Info values it sends will
-// reflect the supplied change.
-func (q *liveSource) Update(ruc params.RelationUnitsChange) error {
-	if !q.started {
-		// The first event represents the ideal final state of the system.
-		// If it contains any Departed notifications, it cannot be one of
-		// those -- most likely the watcher was not a fresh one -- and we're
-		// completely hosed.
-		if len(ruc.Departed) != 0 {
-			return errors.New("hook source watcher sent bad event")
-		}
-		// Anyway, before we can generate actual hooks, we have to reconcile
-		// with initial state to ensure that we generate departed hooks for
-		// any previously-known members not reflected in the ideal state.
-		departs := params.RelationUnitsChange{}
-		for unit := range q.info {
-			if _, found := ruc.Changed[unit]; !found {
-				departs.Departed = append(departs.Departed, unit)
-			}
-		}
-		q.update(departs)
-		q.started = true
-	}
-	q.update(ruc)
-	return nil
-}
-
-func (q *liveSource) update(ruc params.RelationUnitsChange) {
+func (q *liveSource) update(change params.RelationUnitsChange) {
 	// Enforce consistent addition order, mainly for testing purposes.
 	changedUnits := []string{}
-	for unit := range ruc.Changed {
+	for unit := range change.Changed {
 		changedUnits = append(changedUnits, unit)
 	}
 	sort.Strings(changedUnits)
 
 	for _, unit := range changedUnits {
-		settings := ruc.Changed[unit]
+		settings := change.Changed[unit]
 		info, found := q.info[unit]
 		if !found {
 			info = &unitInfo{unit: unit}
@@ -182,7 +204,7 @@ func (q *liveSource) update(ruc params.RelationUnitsChange) {
 		info.version = settings.Version
 	}
 
-	for _, unit := range ruc.Departed {
+	for _, unit := range change.Departed {
 		if q.info[unit].hookKind == hooks.RelationJoined {
 			q.unqueue(unit)
 		} else {

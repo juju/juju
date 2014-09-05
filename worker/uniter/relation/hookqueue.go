@@ -3,6 +3,11 @@
 
 package relation
 
+import (
+	"github.com/juju/juju/worker/uniter/hook"
+)
+
+// HookQueue exists to keep the package interface stable.
 type HookQueue interface {
 	HookSender
 }
@@ -14,25 +19,14 @@ type HookQueue interface {
 // have previously been received from w's Changes channel, the HookQueue's
 // behaviour is undefined.
 func NewAliveHookQueue(initial *State, out chan<- hook.Info, w RelationUnitsWatcher) HookQueue {
-	q := &hookSender{
-		out: out,
-	}
-	go func() {
-		defer q.tomb.Done()
-		source := newLiveSource(initial, w)
-		q.tomb.Kill(q.loop(source))
-	}()
-	return q
+	source := NewLiveHookSource(initial, w)
+	return NewHookSender(out, source)
 }
 
+// NewDyingHookQueue returns a new HookQueue that sends all hooks necessary
+// to clean up the supplied initial relation hook state, while preserving the
+// guarantees Juju makes about hook execution order.
 func NewDyingHookQueue(initial *State, out chan<- hook.Info) HookQueue {
-	q := &hookSender{
-		out: out,
-	}
-	go func() {
-		defer q.tomb.Done()
-		source := newDyingSource(initial)
-		q.tomb.Kill(q.loop(source))
-	}()
-	return q
+	source := NewDyingHookSource(initial)
+	return NewHookSender(out, source)
 }
