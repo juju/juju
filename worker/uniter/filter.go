@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2"
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/uniter"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/api/uniter"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/hook"

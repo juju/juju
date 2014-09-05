@@ -128,7 +128,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	t.UploadFakeTools(c, e.Storage())
 	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	stateServerInstances, err := e.StateServerInstances()
@@ -157,7 +157,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e3, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e3, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	err = bootstrap.EnsureNotBootstrapped(e3)

@@ -13,15 +13,15 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -64,7 +64,7 @@ const (
 )
 
 // unitDoc represents the internal state of a unit in MongoDB.
-// Note the correspondence with UnitInfo in state/api/params.
+// Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
 	Name         string `bson:"_id"`
 	Service      string
@@ -195,17 +195,10 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	u.doc.Tools = tools
 	return nil
-}
-
-// SetMongoPassword sets the password the agent responsible for the unit
-// should use to communicate with the state servers.  Previous passwords
-// are invalidated.
-func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -228,7 +221,7 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 	}}
 	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
+		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, ErrDead))
 	}
 	u.doc.PasswordHash = passwordHash
 	return nil
@@ -700,7 +693,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit.
-func (u *Unit) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (u *Unit) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", nil, err
@@ -713,7 +706,7 @@ func (u *Unit) Status() (status params.Status, info string, data params.StatusDa
 
 // SetStatus sets the status of the unit. The optional values
 // allow to pass additional helpful status data.
-func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
+func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
@@ -731,7 +724,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 	}
 	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
+		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, ErrDead))
 	}
 	return nil
 }
@@ -791,7 +784,7 @@ func (u *Unit) openUnitPort(protocol string, number int) (err error) {
 	}}
 	err = u.st.runTransaction(ops)
 	if err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	found := false
 	for _, p := range u.doc.Ports {
@@ -820,7 +813,7 @@ func (u *Unit) closeUnitPort(protocol string, number int) (err error) {
 	}}
 	err = u.st.runTransaction(ops)
 	if err != nil {
-		return onAbort(err, errDead)
+		return onAbort(err, ErrDead)
 	}
 	newPorts := make([]network.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
@@ -1707,7 +1700,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	if ok, err := isNotDead(u.st.db, unitsC, u.doc.Name); err != nil {
 		return err
 	} else if !ok {
-		return errDead
+		return ErrDead
 	}
 	// For now, the only remaining assert is that resolved was unset.
 	return fmt.Errorf("already resolved")
@@ -1739,4 +1732,14 @@ func (u *Unit) WatchActions() StringsWatcher {
 // when actionresults with Id prefixes matching this Unit are added
 func (u *Unit) WatchActionResults() StringsWatcher {
 	return u.st.WatchActionResultsFilteredBy(u)
+}
+
+// AddMetric adds a new batch of metrics to the database.
+// A UUID for the metric will be generated and the new MetricBatch will be returned
+func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, error) {
+	charmUrl, ok := u.CharmURL()
+	if !ok {
+		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+	}
+	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics)
 }

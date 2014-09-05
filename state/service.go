@@ -13,13 +13,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/state/api/params"
 )
 
 // Service represents the state of a service.
@@ -30,7 +30,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
-// Note the correspondence with ServiceInfo in state/api/params.
+// Note the correspondence with ServiceInfo in apiserver/params.
 type serviceDoc struct {
 	Name          string `bson:"_id"`
 	Series        string

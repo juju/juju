@@ -36,13 +36,26 @@ func (st *State) checkUserExists(name string) (bool, error) {
 	return count > 0, nil
 }
 
+// AddAdminUser adds a user with name 'admin' and the given password to the
+// state server. It then adds that user as an environment user with
+// username 'admin@local', indicating that the user's provider is 'local' i.e.
+// the state server.
 func (st *State) AddAdminUser(password string) (*User, error) {
-	return st.AddUser(AdminUser, "", password, "")
+	admin, err := st.AddUser(AdminUser, "", password, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	adminTag := admin.UserTag()
+	_, err = st.AddEnvironmentUser(adminTag, adminTag, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to create admin environment user")
+	}
+	return admin, nil
 }
 
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
-	if !names.IsValidUser(name) {
+	if !names.IsValidUserName(name) {
 		return nil, errors.Errorf("invalid user name %q", name)
 	}
 	salt, err := utils.RandomSalt()
@@ -143,6 +156,11 @@ func (u *User) DateCreated() time.Time {
 
 // Tag returns the Tag for the User.
 func (u *User) Tag() names.Tag {
+	return u.UserTag()
+}
+
+// UserTag returns the Tag for the User.
+func (u *User) UserTag() names.UserTag {
 	return names.NewUserTag(u.doc.Name)
 }
 

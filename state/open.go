@@ -5,18 +5,16 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 )
@@ -30,19 +28,33 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+	st, err := open(info, opts, policy)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ssInfo, err := st.StateServerInfo()
+	if err != nil {
+		st.Close()
+		return nil, errors.Annotate(err, "could not access state server info")
+	}
+	st.environTag = ssInfo.EnvironmentTag
+	return st, nil
+}
+
+func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	logger.Debugf("dialing mongo")
 	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("connection established")
 
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
@@ -50,10 +62,10 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
-	st, err := Open(info, opts, policy)
+func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+	st, err := open(info, opts, policy)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
@@ -66,11 +78,11 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 	if _, err := st.Environment(); err == nil {
 		return st, nil
 	} else if !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	logger.Infof("initializing environment")
 	if err := checkEnvironConfig(cfg); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	uuid, ok := cfg.UUID()
 	if !ok {
@@ -84,18 +96,27 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 		{
 			C:      stateServersC,
 			Id:     environGlobalKey,
-			Insert: &stateServersDoc{},
+			Assert: txn.DocMissing,
+			Insert: &stateServersDoc{
+				EnvUUID: uuid,
+			},
 		}, {
 			C:      stateServersC,
 			Id:     apiHostPortsKey,
+			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
+		}, {
+			C:      stateServersC,
+			Id:     stateServingInfoKey,
+			Assert: txn.DocMissing,
+			Insert: &StateServingInfo{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
@@ -137,7 +158,7 @@ func maybeUnauthorized(err error, msg string) error {
 	if isUnauthorized(err) {
 		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
 	}
-	return fmt.Errorf("%s: %v", msg, err)
+	return errors.Annotatef(err, "%s: %v", msg, err)
 }
 
 func isUnauthorized(err error) bool {
@@ -146,45 +167,36 @@ func isUnauthorized(err error) bool {
 	}
 	// Some unauthorized access errors have no error code,
 	// just a simple error string.
-	if err.Error() == "auth fails" {
+	if strings.HasPrefix(err.Error(), "auth fail") {
 		return true
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized"
+			err.Message == "unauthorized" ||
+			strings.HasPrefix(err.Message, "not authorized")
 	}
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (_ *State, resultErr error) {
-	db := session.DB("juju")
-	pdb := session.DB("presence")
+func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
-	authenticated := false
 	if mongoInfo.Tag != nil {
-		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
-		}
-		if err := pdb.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", mongoInfo.Tag))
-		}
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-		authenticated = true
 	} else if mongoInfo.Password != "" {
 		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
-		authenticated = true
 	}
 
+	db := session.DB("juju")
+	pdb := session.DB("presence")
 	st := &State{
-		mongoInfo:     mongoInfo,
-		policy:        policy,
-		authenticated: authenticated,
-		db:            db,
+		mongoInfo: mongoInfo,
+		policy:    policy,
+		db:        db,
 	}
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -224,103 +236,12 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		}
 	}
 
-	// TODO(rog) delete this when we can assume there are no
-	// pre-1.18 environments running.
-	if err := st.createStateServersDoc(); err != nil {
-		return nil, errors.Annotate(err, "cannot create state servers document")
-	}
-	if err := st.createAPIAddressesDoc(); err != nil {
-		return nil, errors.Annotate(err, "cannot create API addresses document")
-	}
-	if err := st.createStateServingInfoDoc(); err != nil {
-		return nil, errors.Annotate(err, "cannot create state serving info document")
-	}
 	return st, nil
 }
 
-// createStateServersDoc creates the state servers document
-// if it does not already exist. This is necessary to cope with
-// legacy environments that have not created the document
-// at initialization time.
-func (st *State) createStateServersDoc() error {
-	// Quick check to see if we need to do anything so
-	// that we can avoid transaction overhead in most cases.
-	// We don't care what the error is - if it's something
-	// unexpected, it'll be picked up again below.
-	if info, err := st.StateServerInfo(); err == nil {
-		if len(info.MachineIds) > 0 && len(info.VotingMachineIds) > 0 {
-			return nil
-		}
-	}
-	logger.Infof("adding state server info to legacy environment")
-	// Find all current state servers and add the state servers
-	// record containing them. We don't need to worry about
-	// this being concurrent-safe, because in the juju versions
-	// we're concerned about, there is only ever one state connection
-	// (from the single bootstrap machine).
-	var machineDocs []machineDoc
-	err := st.db.C(machinesC).Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
-	if err != nil {
-		return err
-	}
-	var doc stateServersDoc
-	for _, m := range machineDocs {
-		doc.MachineIds = append(doc.MachineIds, m.Id)
-	}
-	doc.VotingMachineIds = doc.MachineIds
-	logger.Infof("found existing state servers %v", doc.MachineIds)
-
-	// We update the document before inserting it because
-	// an earlier version of this code did not insert voting machine
-	// ids or maintain the ids correctly. If that was the case,
-	// the insert will be a no-op.
-	ops := []txn.Op{{
-		C:  stateServersC,
-		Id: environGlobalKey,
-		Update: bson.D{{"$set", bson.D{
-			{"machineids", doc.MachineIds},
-			{"votingmachineids", doc.VotingMachineIds},
-		}}},
-	}, {
-		C:      stateServersC,
-		Id:     environGlobalKey,
-		Insert: &doc,
-	}}
-
-	return st.runTransaction(ops)
-}
-
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
+func (st *State) MongoConnectionInfo() *mongo.MongoInfo {
 	return st.mongoInfo
-}
-
-// createAPIAddressesDoc creates the API addresses document
-// if it does not already exist. This is necessary to cope with
-// legacy environments that have not created the document
-// at initialization time.
-func (st *State) createAPIAddressesDoc() error {
-	var doc apiHostPortsDoc
-	ops := []txn.Op{{
-		C:      stateServersC,
-		Id:     apiHostPortsKey,
-		Assert: txn.DocMissing,
-		Insert: &doc,
-	}}
-	return onAbort(st.runTransaction(ops), nil)
-}
-
-// createStateServingInfoDoc creates the state serving info document
-// if it does not already exist
-func (st *State) createStateServingInfoDoc() error {
-	var info params.StateServingInfo
-	ops := []txn.Op{{
-		C:      stateServersC,
-		Id:     stateServingInfoKey,
-		Assert: txn.DocMissing,
-		Insert: &info,
-	}}
-	return onAbort(st.runTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.
@@ -328,7 +249,8 @@ func (st *State) CACert() string {
 	return st.mongoInfo.CACert
 }
 
-func (st *State) Close() error {
+func (st *State) Close() (err error) {
+	defer errors.Contextf(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()
@@ -338,8 +260,17 @@ func (st *State) Close() error {
 	}
 	st.mu.Unlock()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2, err3} {
+	var i int
+	for i, err = range []error{err1, err2, err3} {
 		if err != nil {
+			switch i {
+			case 0:
+				err = errors.Annotatef(err, "failed to stop state watcher")
+			case 1:
+				err = errors.Annotatef(err, "failed to stop presence watcher")
+			case 2:
+				err = errors.Annotatef(err, "failed to stop all manager")
+			}
 			return err
 		}
 	}

@@ -5,29 +5,27 @@ package state_test
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn"
+	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
 type tooler interface {
+	lifer
 	AgentTools() (*tools.Tools, error)
 	SetAgentVersion(v version.Binary) error
-	Life() state.Life
 	Refresh() error
-	Destroy() error
-	EnsureDead() error
-}
-
-var _ = gc.Suite(&ToolsSuite{})
-
-type ToolsSuite struct {
-	ConnSuite
 }
 
 func newTools(vers, url string) *tools.Tools {
@@ -65,17 +63,56 @@ func testAgentTools(c *gc.C, obj tooler, agent string) {
 	})
 }
 
-func (s *ToolsSuite) TestMachineAgentTools(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	testAgentTools(c, m, "machine 0")
+var _ = gc.Suite(&ToolsSuite{})
+
+type ToolsSuite struct {
+	ConnSuite
 }
 
-func (s *ToolsSuite) TestUnitAgentTools(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	svc := s.AddTestingService(c, "wordpress", charm)
-	unit, err := svc.AddUnit()
+func (s *ToolsSuite) TestStorage(c *gc.C) {
+	session := s.State.MongoSession()
+	collectionNames, err := session.DB("juju").CollectionNames()
 	c.Assert(err, gc.IsNil)
-	preventUnitDestroyRemove(c, unit)
-	testAgentTools(c, unit, `unit "wordpress/0"`)
+	nameSet := set.NewStrings(collectionNames...)
+	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsFalse)
+
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer func() {
+		err := storage.Close()
+		c.Assert(err, gc.IsNil)
+	}()
+
+	err = storage.AddTools(strings.NewReader(""), toolstorage.Metadata{})
+	c.Assert(err, gc.IsNil)
+
+	collectionNames, err = session.DB("juju").CollectionNames()
+	c.Assert(err, gc.IsNil)
+	nameSet = set.NewStrings(collectionNames...)
+	c.Assert(nameSet.Contains("toolsmetadata"), jc.IsTrue)
+}
+
+func (s *ToolsSuite) TestStorageParams(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+
+	var called bool
+	s.PatchValue(state.ToolstorageNewStorage, func(
+		envUUID string,
+		managedStorage blobstore.ManagedStorage,
+		metadataCollection *mgo.Collection,
+		runner jujutxn.Runner,
+	) toolstorage.Storage {
+		called = true
+		c.Assert(envUUID, gc.Equals, env.UUID())
+		c.Assert(managedStorage, gc.NotNil)
+		c.Assert(metadataCollection.Name, gc.Equals, "toolsmetadata")
+		c.Assert(runner, gc.NotNil)
+		return nil
+	})
+
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	storage.Close()
+	c.Assert(called, jc.IsTrue)
 }

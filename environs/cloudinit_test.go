@@ -4,27 +4,28 @@
 package environs_test
 
 import (
+	"path"
 	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cert"
 	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -45,34 +46,64 @@ type CloudInitSuite struct {
 
 var _ = gc.Suite(&CloudInitSuite{})
 
-func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
-	userTag := names.NewUserTag("not touched")
-	attrs := dummySampleConfig().Merge(testing.Attrs{
-		"authorized-keys": "we-are-the-keys",
-	})
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	mcfg := &cloudinit.MachineConfig{
-		MongoInfo: &authentication.MongoInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: userTag},
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
-	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
+	return s
+}
+
+var logDir = must(paths.LogDir("precise"))
+var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+
+func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
+
+	userTag := names.NewUserTag("not-touched")
+
+	expectedMcfg := &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
 		PreferIPv6:                     true,
-	})
+		EnableOSRefreshUpdate:          true,
+		EnableOSUpgrade:                true,
+	}
+
+	cfg, err := config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
+		"authorized-keys": "we-are-the-keys",
+	}))
+	c.Assert(err, gc.IsNil)
+
+	mcfg := &cloudinit.MachineConfig{
+		MongoInfo: &mongo.MongoInfo{Tag: userTag},
+		APIInfo:   &api.Info{Tag: userTag},
+	}
+	err = environs.FinishMachineConfig(mcfg, cfg)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
+
+	// Test when updates/upgrades are set to false.
+	cfg, err = config.New(config.NoDefaults, dummySampleConfig().Merge(testing.Attrs{
+		"authorized-keys":          "we-are-the-keys",
+		"enable-os-refresh-update": false,
+		"enable-os-upgrade":        false,
+	}))
+	c.Assert(err, gc.IsNil)
+	err = environs.FinishMachineConfig(mcfg, cfg)
+	c.Assert(err, gc.IsNil)
+	expectedMcfg.EnableOSRefreshUpdate = false
+	expectedMcfg.EnableOSUpgrade = false
+	c.Assert(mcfg, jc.DeepEquals, expectedMcfg)
 }
 
 func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
-	userTag := names.NewUserTag("not touched")
+	userTag := names.NewUserTag("not-touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
@@ -80,10 +111,10 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
+	err = environs.FinishMachineConfig(mcfg, cfg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
@@ -91,10 +122,12 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		MongoInfo: &mongo.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
 		PreferIPv6:                     true,
+		EnableOSRefreshUpdate:          true,
+		EnableOSUpgrade:                true,
 	})
 }
 
@@ -111,8 +144,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	mcfg := &cloudinit.MachineConfig{
 		Bootstrap: true,
 	}
-	cons := constraints.MustParse("mem=1T cpu-power=999999999")
-	err = environs.FinishMachineConfig(mcfg, cfg, cons)
+	err = environs.FinishMachineConfig(mcfg, cfg)
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
@@ -120,12 +152,11 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 	})
-	c.Check(mcfg.MongoInfo, gc.DeepEquals, &authentication.MongoInfo{
+	c.Check(mcfg.MongoInfo, gc.DeepEquals, &mongo.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
 	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
-	c.Check(mcfg.Constraints, gc.DeepEquals, cons)
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
@@ -169,7 +200,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
-		MongoInfo: &authentication.MongoInfo{
+		Series:       "quantal",
+		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
 				CACert: "CA CERT\n" + testing.CACert,
@@ -186,15 +218,16 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    allJobs,
-		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		CloudInitOutputLog:      cloudInitOutputLog,
 		Config:                  envConfig,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
 		MachineAgentServiceName: "jujud-machine-10",
+		EnableOSUpgrade:         true,
 	}
 	if bootstrap {
 		cfg.Bootstrap = true
-		cfg.StateServingInfo = &params.StateServingInfo{
+		cfg.StateServingInfo = &state.StateServingInfo{
 			StatePort:  envConfig.StatePort(),
 			APIPort:    envConfig.APIPort(),
 			Cert:       testing.ServerCert,

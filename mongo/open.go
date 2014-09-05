@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
@@ -74,6 +75,20 @@ type Info struct {
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
 	CACert string
+}
+
+// MongoInfo encapsulates information about cluster of
+// servers holding juju state and can be used to make a
+// connection to that cluster.
+type MongoInfo struct {
+	// mongo.Info contains the addresses and cert of the mongo cluster.
+	Info
+	// Tag holds the name of the entity that is connecting.
+	// It should be nil when connecting as an administrator.
+	Tag names.Tag
+
+	// Password holds the password for the connecting entity.
+	Password string
 }
 
 // DialInfo returns information on how to dial

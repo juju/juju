@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -44,7 +43,12 @@ type MongoSuite struct {
 
 var _ = gc.Suite(&MongoSuite{})
 
-var testInfo = params.StateServingInfo{
+var testInfo = struct {
+	StatePort    int
+	Cert         string
+	PrivateKey   string
+	SharedSecret string
+}{
 	StatePort:    25252,
 	Cert:         "foobar-cert",
 	PrivateKey:   "foobar-privkey",
@@ -53,9 +57,13 @@ var testInfo = params.StateServingInfo{
 
 func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams {
 	return mongo.EnsureServerParams{
-		StateServingInfo: testInfo,
-		DataDir:          dataDir,
-		Namespace:        namespace,
+		StatePort:    testInfo.StatePort,
+		Cert:         testInfo.Cert,
+		PrivateKey:   testInfo.PrivateKey,
+		SharedSecret: testInfo.SharedSecret,
+
+		DataDir:   dataDir,
+		Namespace: namespace,
 	}
 }
 

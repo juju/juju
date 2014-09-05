@@ -12,12 +12,11 @@ import (
 	"time"
 
 	"github.com/juju/utils"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
-	coreCloudinit "github.com/juju/juju/cloudinit"
+	corecloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 )
@@ -53,32 +52,41 @@ func templateUserData(
 	series string,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
+	enablePackageUpdates bool,
+	enableOSUpgrades bool,
 ) ([]byte, error) {
-	config := coreCloudinit.New()
+	config := corecloudinit.New()
 	config.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
 	config.AddSSHAuthorizedKeys(authorizedKeys)
-	cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
-	cloudinit.AddAptCommands(aptProxy, config)
+	if enablePackageUpdates {
+		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
+	}
+	cloudinit.AddAptCommands(aptProxy, config, enablePackageUpdates, enableOSUpgrades)
 	config.AddScripts(
 		fmt.Sprintf(
 			"printf '%%s\n' %s > %s",
 			utils.ShQuote(templateShutdownUpstartScript),
 			templateShutdownUpstartFilename,
 		))
-	data, err := config.Render()
+
+	renderer, err := corecloudinit.NewRenderer(series)
+	if err != nil {
+		return nil, err
+	}
+	data, err := renderer.Render(config)
 	if err != nil {
 		return nil, err
 	}
 	return data, nil
 }
 
-func AcquireTemplateLock(name, message string) (*fslock.Lock, error) {
-	logger.Infof("wait for fslock on %v", name)
-	lock, err := fslock.NewLock(TemplateLockDir, name)
+func AcquireTemplateLock(name, message string) (*container.Lock, error) {
+	logger.Infof("wait for flock on %v", name)
+	lock, err := container.NewLock(TemplateLockDir, name)
 	if err != nil {
-		logger.Tracef("failed to create fslock for template: %v", err)
+		logger.Tracef("failed to create flock for template: %v", err)
 		return nil, err
 	}
 	err = lock.Lock(message)
@@ -96,8 +104,10 @@ func EnsureCloneTemplate(
 	network *container.NetworkConfig,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
+	enablePackageUpdates bool,
+	enableOSUpgrades bool,
 ) (golxc.Container, error) {
-	name := fmt.Sprintf("juju-%s-template", series)
+	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
 	if err != nil {
 		return nil, err
@@ -117,7 +127,13 @@ func EnsureCloneTemplate(
 	}
 	logger.Infof("template does not exist, creating")
 
-	userData, err := templateUserData(series, authorizedKeys, aptProxy)
+	userData, err := templateUserData(
+		series,
+		authorizedKeys,
+		aptProxy,
+		enablePackageUpdates,
+		enableOSUpgrades,
+	)
 	if err != nil {
 		logger.Tracef("failed to create template user data for template: %v", err)
 		return nil, err

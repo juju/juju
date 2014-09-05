@@ -15,7 +15,7 @@ func SetSeriesVersions(value map[string]string) func() {
 	origVersions := seriesVersions
 	origUpdated := updatedseriesVersions
 	seriesVersions = value
-	updatedseriesVersions = false
+	updatedseriesVersions = len(value) != 0
 	return func() {
 		seriesVersions = origVersions
 		updatedseriesVersions = origUpdated

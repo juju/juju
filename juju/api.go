@@ -13,11 +13,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
 )
 
 var logger = loggo.GetLogger("juju.api")
@@ -238,10 +238,14 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		// valid UUID.
 		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
 	}
+	username := info.APICredentials().User
+	if username == "" {
+		username = "admin"
+	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.NewUserTag(info.APICredentials().User),
+		Tag:        names.NewUserTag(username),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}

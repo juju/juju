@@ -40,17 +40,17 @@ func (kvm *kvmInstance) Addresses() ([]network.Address, error) {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (kvm *kvmInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (kvm *kvmInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (kvm *kvmInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (kvm *kvmInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Ports implements instance.Instance.Ports.
-func (kvm *kvmInstance) Ports(machineId string) ([]network.Port, error) {
+func (kvm *kvmInstance) Ports(machineId string) ([]network.PortRange, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

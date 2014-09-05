@@ -7,9 +7,9 @@ import (
 	"bytes"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"

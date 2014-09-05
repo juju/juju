@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
@@ -588,13 +588,13 @@ func (s *ServiceSuite) TestRiakEndpoints(c *gc.C) {
 		},
 	})
 
-	adminEP, err := riak.Endpoint(state.AdminUser)
+	adminEP, err := riak.Endpoint("admin")
 	c.Assert(err, gc.IsNil)
 	c.Assert(adminEP, gc.DeepEquals, state.Endpoint{
 		ServiceName: "myriak",
 		Relation: charm.Relation{
 			Interface: "http",
-			Name:      state.AdminUser,
+			Name:      "admin",
 			Role:      charm.RoleProvider,
 			Scope:     charm.ScopeGlobal,
 		},

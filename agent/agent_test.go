@@ -12,11 +12,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -354,7 +354,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
 		params        agent.AgentConfigParams
-		servingInfo   params.StateServingInfo
+		servingInfo   state.StateServingInfo
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
@@ -363,20 +363,20 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state server cert not found in configuration",
 	}, {
 		about: "missing state server key",
-		servingInfo: params.StateServingInfo{
+		servingInfo: state.StateServingInfo{
 			Cert: "server cert",
 		},
 		checkErr: "state server key not found in configuration",
 	}, {
 		about: "missing state port",
-		servingInfo: params.StateServingInfo{
+		servingInfo: state.StateServingInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
 		},
 		checkErr: "state port not found in configuration",
 	}, {
 		about: "params api port",
-		servingInfo: params.StateServingInfo{
+		servingInfo: state.StateServingInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
 			StatePort:  69,
@@ -387,7 +387,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		tests = append(tests, testStruct{
 			about:  test.about,
 			params: test.params,
-			servingInfo: params.StateServingInfo{
+			servingInfo: state.StateServingInfo{
 				Cert:       "server cert",
 				PrivateKey: "server key",
 				StatePort:  3171,
@@ -434,7 +434,7 @@ func (*suite) TestAttributes(c *gc.C) {
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -447,7 +447,7 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	gotInfo, ok := conf.StateServingInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
-	newInfo := params.StateServingInfo{
+	newInfo := state.StateServingInfo{
 		APIPort:        147,
 		StatePort:      169,
 		Cert:           "new cert",
@@ -497,7 +497,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -522,7 +522,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *gc.C) {
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -548,7 +548,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *g
 func (*suite) TestMongoInfoHonorsPreferIPv6(c *gc.C) {
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -590,7 +590,7 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C
 
 func (*suite) TestSetPassword(c *gc.C) {
 	attrParams := attributeParams
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      1234,
@@ -610,7 +610,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
-	expectStateInfo := &authentication.MongoInfo{
+	expectStateInfo := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: attrParams.CACert,

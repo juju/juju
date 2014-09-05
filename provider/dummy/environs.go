@@ -39,9 +39,12 @@ import (
 	gitjujutesting "github.com/juju/testing"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -54,9 +57,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -95,7 +95,7 @@ func SampleConfig() testing.Attrs {
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
 // will be added as primary.
-func stateInfo(preferIPv6 bool) *authentication.MongoInfo {
+func stateInfo(preferIPv6 bool) *mongo.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
@@ -109,7 +109,7 @@ func stateInfo(preferIPv6 bool) *authentication.MongoInfo {
 	} else {
 		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
 	}
-	return &authentication.MongoInfo{
+	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  addrs,
 			CACert: testing.CACert,
@@ -124,6 +124,12 @@ type OpBootstrap struct {
 	Context environs.BootstrapContext
 	Env     string
 	Args    environs.BootstrapParams
+}
+
+type OpFinalizeBootstrap struct {
+	Context       environs.BootstrapContext
+	Env           string
+	MachineConfig *cloudinit.MachineConfig
 }
 
 type OpDestroy struct {
@@ -152,7 +158,7 @@ type OpStartInstance struct {
 	Constraints   constraints.Value
 	Networks      []string
 	NetworkInfo   []network.Info
-	Info          *authentication.MongoInfo
+	Info          *mongo.MongoInfo
 	Jobs          []params.MachineJob
 	APIInfo       *api.Info
 	Secret        string
@@ -167,14 +173,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.Port
+	Ports      []network.PortRange
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.Port
+	Ports      []network.PortRange
 }
 
 type OpPutFile struct {
@@ -209,7 +215,7 @@ type environState struct {
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
 	insts        map[instance.Id]*dummyInstance
-	globalPorts  map[network.Port]bool
+	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
 	storageDelay time.Duration
 	storage      *storageServer
@@ -326,7 +332,7 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		ops:         ops,
 		statePolicy: policy,
 		insts:       make(map[instance.Id]*dummyInstance),
-		globalPorts: make(map[network.Port]bool),
+		globalPorts: make(map[network.PortRange]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
 	s.listenStorage()
@@ -612,40 +618,41 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, config.PreferredSeries(e.Config()), args.Constraints.Arch)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+	series = config.PreferredSeries(e.Config())
+	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
-	series := selectedTools.OneSeries()
+	arch = availableTools.Arches()[0]
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
-		return err
+		return "", "", nil, err
 	}
 	network.InitializeFromConfig(e.Config())
 	password := e.Config().AdminSecret()
 	if password == "" {
-		return fmt.Errorf("admin-secret is required for bootstrap")
+		return "", "", nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return fmt.Errorf("no CA certificate in environment configuration")
+		return "", "", nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	logger.Infof("would pick tools from %s", selectedTools)
+	logger.Infof("would pick tools from %s", availableTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
-		return fmt.Errorf("cannot make bootstrap config: %v", err)
+		return "", "", nil, fmt.Errorf("cannot make bootstrap config: %v", err)
 	}
 
 	estate, err := e.state()
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return fmt.Errorf("environment is already bootstrapped")
+		return "", "", nil, fmt.Errorf("environment is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
@@ -654,7 +661,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewAddresses("localhost"),
-		ports:        make(map[network.Port]bool),
+		ports:        make(map[network.PortRange]bool),
 		machineId:    agent.BootstrapMachineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -678,6 +685,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetAdminMongoPassword(password); err != nil {
 			panic(err)
 		}
+		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
+			panic(err)
+		}
 		_, err = st.AddAdminUser(password)
 		if err != nil {
 			panic(err)
@@ -695,7 +705,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
-	return nil
+	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, MachineConfig: mcfg}
+		return nil
+	}
+	return arch, series, finalize, nil
 }
 
 func (e *environ) StateServerInstances() ([]instance.Id, error) {
@@ -809,7 +823,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	i := &dummyInstance{
 		id:           instance.Id(idString),
 		addresses:    addrs,
-		ports:        make(map[network.Port]bool),
+		ports:        make(map[network.PortRange]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1014,7 +1028,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []network.Port) error {
+func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
 	}
@@ -1030,7 +1044,7 @@ func (e *environ) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.Port) error {
+func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
 	}
@@ -1046,7 +1060,7 @@ func (e *environ) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() (ports []network.Port, err error) {
+func (e *environ) Ports() (ports []network.PortRange, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
 	}
@@ -1059,7 +1073,7 @@ func (e *environ) Ports() (ports []network.Port, err error) {
 	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
-	network.SortPorts(ports)
+	network.SortPortRanges(ports)
 	return
 }
 
@@ -1069,7 +1083,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state        *environState
-	ports        map[network.Port]bool
+	ports        map[network.PortRange]bool
 	id           instance.Id
 	status       string
 	machineId    string
@@ -1117,7 +1131,7 @@ func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	defer delay()
 	logger.Infof("openPorts %s, %#v", machineId, ports)
 	if inst.firewallMode != config.FwInstance {
@@ -1141,7 +1155,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.Port) err
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1164,7 +1178,7 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.Port) er
 	return nil
 }
 
-func (inst *dummyInstance) Ports(machineId string) (ports []network.Port, err error) {
+func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
@@ -1178,7 +1192,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.Port, err er
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
-	network.SortPorts(ports)
+	network.SortPortRanges(ports)
 	return
 }
 

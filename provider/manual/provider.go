@@ -16,6 +16,9 @@ import (
 
 type manualProvider struct{}
 
+// Verify that we conform to the interface.
+var _ environs.EnvironProvider = (*manualProvider)(nil)
+
 func init() {
 	p := manualProvider{}
 	environs.RegisterProvider("manual", p, "null")
@@ -26,7 +29,7 @@ var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 var initUbuntuUser = manual.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), "", ctx.GetStdin(), ctx.GetStdout())
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -131,6 +134,21 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 			return nil, fmt.Errorf("cannot change use-sshstorage from %v to %v", oldUseSSHStorage, newUseSSHStorage)
 		}
 	}
+
+	// If the user hasn't already specified a value, set it to the
+	// given value.
+	defineIfNot := func(keyName string, value interface{}) {
+		if _, defined := cfg.AllAttrs()[keyName]; !defined {
+			logger.Infof("%s was not defined. Defaulting to %v.", keyName, value)
+			envConfig.attrs[keyName] = value
+		}
+	}
+
+	// If the user hasn't specified a value, refresh the
+	// available updates, but don't upgrade.
+	defineIfNot("enable-os-refresh-update", true)
+	defineIfNot("enable-os-upgrade", false)
+
 	return envConfig, nil
 }
 
@@ -149,23 +167,35 @@ manual:
     # bootstrap-host holds the host name of the machine where the
     # bootstrap machine agent will be started.
     bootstrap-host: somehost.example.com
-    
+
     # bootstrap-user specifies the user to authenticate as when
     # connecting to the bootstrap machine. It defaults to
     # the current user.
     # bootstrap-user: joebloggs
-    
+
     # storage-listen-ip specifies the IP address that the
     # bootstrap machine's Juju storage server will listen
     # on. By default, storage will be served on all
     # network interfaces.
     # storage-listen-ip:
-    
+
     # storage-port specifes the TCP port that the
     # bootstrap machine's Juju storage server will listen
     # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
     # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
 
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of false is set so that Juju
+    # does not subsume any other way the system might be
+    # maintained.
+    #
+    # enable-os-upgrade: false
 
 `[1:]
 }

@@ -18,14 +18,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiagent "github.com/juju/juju/api/agent"
+	apideployer "github.com/juju/juju/api/deployer"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	apiagent "github.com/juju/juju/state/api/agent"
-	apideployer "github.com/juju/juju/state/api/deployer"
-	"github.com/juju/juju/state/api/params"
-	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/deployer"
@@ -152,7 +152,6 @@ type AgentState interface {
 	// currently running.
 	SetAgentVersion(v version.Binary) error
 	Tag() string
-	SetMongoPassword(password string) error
 	Life() state.Life
 }
 

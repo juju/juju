@@ -5,19 +5,21 @@ package azure
 
 import (
 	"encoding/base64"
+	"path"
 
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 type customDataSuite struct {
@@ -25,6 +27,16 @@ type customDataSuite struct {
 }
 
 var _ = gc.Suite(&customDataSuite{})
+
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+var logDir = must(paths.LogDir("precise"))
+var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // makeMachineConfig produces a valid cloudinit machine config.
 func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
@@ -36,9 +48,13 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		DataDir:            environs.DataDir,
 		LogDir:             agent.DefaultLogDir,
 		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
-		CloudInitOutputLog: environs.CloudInitOutputLog,
-		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
-		MongoInfo: &authentication.MongoInfo{
+		CloudInitOutputLog: cloudInitOutputLog,
+		Tools: &tools.Tools{
+			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+			URL:     "http://testing.invalid/tools.tar.gz",
+		},
+		Series: "quantal",
+		MongoInfo: &mongo.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,
 				Addrs:  []string{"127.0.0.1:123"},
@@ -59,7 +75,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 // will reject as invalid.
 func makeBadMachineConfig() *cloudinit.MachineConfig {
 	// As it happens, a default-initialized config is invalid.
-	return &cloudinit.MachineConfig{}
+	return &cloudinit.MachineConfig{Series: "quantal"}
 }
 
 func (*customDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {

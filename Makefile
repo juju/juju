@@ -18,6 +18,7 @@ else
 endif
 
 define DEPENDENCIES
+  ca-certificates
   bzr
   distro-info-data
   git-core
@@ -82,10 +83,9 @@ simplify:
 	gofmt -w -l -s .
 
 # Install packages required to develop Juju and run tests. The stable
-# PPA includes the required mongodb-server binaries. However, neither
-# PPA works on Saucy just yet.
+# PPA includes the required mongodb-server binaries.
 install-dependencies:
-ifeq ($(shell lsb_release -cs|sed -r 's/precise|quantal|raring/old/'),old)
+ifeq ($(shell lsb_release -cs|sed -r 's/precise/old/'),old)
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable

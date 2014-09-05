@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/api/charmrevisionupdater"
+	"github.com/juju/juju/api/charmrevisionupdater"
 	"github.com/juju/juju/worker"
 )
 

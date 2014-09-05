@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // statusDoc represents a entity status in Mongodb.  The implicit
@@ -21,7 +21,7 @@ import (
 type statusDoc struct {
 	Status     params.Status
 	StatusInfo string
-	StatusData params.StatusData
+	StatusData map[string]interface{}
 }
 
 // validateSet returns an error if the statusDoc does not represent a sane

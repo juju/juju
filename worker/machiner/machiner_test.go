@@ -13,12 +13,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apimachiner "github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	apimachiner "github.com/juju/juju/state/api/machiner"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machiner"
@@ -146,6 +146,8 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 			&net.IPAddr{IP: net.IPv6loopback},
 			&net.UnixAddr{}, // not IP, ignored
 			&net.IPNet{IP: net.ParseIP("2001:db8::1")},
+			&net.IPAddr{IP: net.IPv4(169, 254, 1, 20)}, // LinkLocal Ignored
+			&net.IPNet{IP: net.ParseIP("fe80::1")},     // LinkLocal Ignored
 		}
 		return addrs, nil
 	})

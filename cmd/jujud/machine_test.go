@@ -21,10 +21,16 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apideployer "github.com/juju/juju/api/deployer"
+	apinetworker "github.com/juju/juju/api/networker"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
+	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
+	"github.com/juju/juju/apiserver/params"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -36,11 +42,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	apideployer "github.com/juju/juju/state/api/deployer"
-	"github.com/juju/juju/state/api/params"
-	apirsyslog "github.com/juju/juju/state/api/rsyslog"
-	charmtesting "github.com/juju/juju/state/apiserver/charmrevisionupdater/testing"
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -53,6 +54,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machineenvironmentworker"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -248,6 +250,8 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	defer func() {
 		c.Check(a.Stop(), gc.IsNil)
 	}()
+	// Wait for configuration to be finished
+	<-a.WorkersStarted()
 	err := m.Destroy()
 	c.Assert(err, gc.IsNil)
 	select {
@@ -694,6 +698,41 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 	})
 }
 
+func (s *MachineSuite) assertAgentSetsToolsVersion(c *gc.C, job state.MachineJob) {
+	vers := version.Current
+	vers.Minor = version.Current.Minor + 1
+	m, _, _ := s.primeAgent(c, vers, job)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	timeout := time.After(coretesting.LongWait)
+	for done := false; !done; {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for agent version to be set")
+		case <-time.After(coretesting.ShortWait):
+			err := m.Refresh()
+			c.Assert(err, gc.IsNil)
+			agentTools, err := m.AgentTools()
+			c.Assert(err, gc.IsNil)
+			if agentTools.Version.Minor != version.Current.Minor {
+				continue
+			}
+			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			done = true
+		}
+	}
+}
+
+func (s *MachineSuite) TestAgentSetsToolsVersionManageEnviron(c *gc.C) {
+	s.assertAgentSetsToolsVersion(c, state.JobManageEnviron)
+}
+
+func (s *MachineSuite) TestAgentSetsToolsVersionHostUnits(c *gc.C) {
+	s.assertAgentSetsToolsVersion(c, state.JobHostUnits)
+}
+
 func (s *MachineSuite) TestManageEnvironRunsCleaner(c *gc.C) {
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
@@ -951,6 +990,42 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 		}
 	}
 	c.Fatalf("timeout while waiting for agent config to change")
+}
+
+func (s *MachineSuite) TestMachineAgentRunsSafeNetworkerWhenNetworkManagementIsDisabled(c *gc.C) {
+	attrs := coretesting.Attrs{"disable-network-management": true}
+	err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+
+	started := make(chan struct{}, 1)
+	nonSafeStarted := make(chan struct{}, 1)
+	s.agentSuite.PatchValue(&newSafeNetworker, func(st *apinetworker.State, conf agent.Config, confDir string) (*networker.Networker, error) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return networker.NewSafeNetworker(st, conf, confDir)
+	})
+	s.agentSuite.PatchValue(&newNetworker, func(st *apinetworker.State, conf agent.Config, confDir string) (*networker.Networker, error) {
+		select {
+		case nonSafeStarted <- struct{}{}:
+		default:
+		}
+		return networker.NewNetworker(st, conf, confDir)
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+	case <-nonSafeStarted:
+		c.Fatalf("expected to start safe networker, but started a normal one")
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for the safe networker worker to be started")
+	}
 }
 
 func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {

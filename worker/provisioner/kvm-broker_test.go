@@ -65,10 +65,6 @@ func (s *kvmSuite) TearDownTest(c *gc.C) {
 
 func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	s.kvmSuite.SetUpTest(c)
-	tools := &coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -82,7 +78,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -90,9 +86,13 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
 	kvm, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
@@ -211,10 +211,8 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
 	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig, managerConfig)
+	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
 }

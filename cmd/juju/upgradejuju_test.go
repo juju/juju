@@ -23,6 +23,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -97,10 +98,10 @@ var upgradeJujuTests = []struct {
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
 	about:          "latest supported stable release",
-	tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+	tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.2.3",
+	expectVersion:  "2.1.3",
 }, {
 	about:          "latest current release",
 	tools:          []string{"2.0.5-quantal-amd64", "2.0.1-quantal-i386", "2.3.3-quantal-amd64"},
@@ -127,16 +128,16 @@ var upgradeJujuTests = []struct {
 	expectErr:      "no compatible tools available",
 }, {
 	about:          "no next supported available",
-	tools:          []string{"2.1.0-quantal-amd64", "2.1.5-quantal-i386", "2.3.3-quantal-amd64"},
+	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectErr:      "no more recent supported versions available",
 }, {
 	about:          "latest supported stable, when client is dev",
-	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
+	tools:          []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.1-dev0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.2.0",
+	expectVersion:  "2.1.0",
 }, {
 	about:          "latest current, when agent is dev",
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
@@ -391,17 +392,25 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
+
+	// Set API host ports so FindTools works.
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Port:    1234,
+	}}}
+	err = s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, "--upload-tools")
+	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
+	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	tools, err := envtools.FindInstanceTools(s.Environ, vers.Number, vers.Series, &vers.Arch)
+	_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(tools), gc.Equals, 1)
 }
 
 type DryRunTest struct {
@@ -418,39 +427,45 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 		DryRunTest{
 			about:          "dry run outputs and doesn't change anything when uploading tools",
 			cmdArgs:        []string{"--upload-tools", "--dry-run"},
-			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `available tools:
-    2.2.0-quantal-amd64
-    2.2.2-quantal-i386
+    2.1-dev1-quantal-amd64
+    2.1.0-quantal-amd64
+    2.1.2-quantal-i386
+    2.1.3-quantal-amd64
     2.2.3-quantal-amd64
 best version:
-    2.2.3
+    2.1.3
 upgrade to this version by running
-    juju upgrade-juju --version="2.2.3"
+    juju upgrade-juju --version="2.1.3"
 `,
 		},
 		DryRunTest{
 			about:          "dry run outputs and doesn't change anything",
 			cmdArgs:        []string{"--dry-run"},
-			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `available tools:
-    2.2.0-quantal-amd64
-    2.2.2-quantal-i386
+    2.1-dev1-quantal-amd64
+    2.1.0-quantal-amd64
+    2.1.2-quantal-i386
+    2.1.3-quantal-amd64
     2.2.3-quantal-amd64
 best version:
-    2.2.3
+    2.1.3
 upgrade to this version by running
-    juju upgrade-juju --version="2.2.3"
+    juju upgrade-juju --version="2.1.3"
 `,
 		},
 	}
 
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
+		s.Reset(c)
+
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &UpgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(com), test.cmdArgs)

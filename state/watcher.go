@@ -17,10 +17,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -1197,6 +1197,12 @@ func (e *Environment) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, environmentsC, e.doc.UUID)
 }
 
+// WatchUpgradeInfo returns a watcher for observing changes to upgrade
+// synchronisation state.
+func (st *State) WatchUpgradeInfo() NotifyWatcher {
+	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
+}
+
 // WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
@@ -1693,7 +1699,7 @@ func (w *idPrefixWatcher) initial() (set.Strings, error) {
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		if w.filterFn(doc.Id) {
+		if w.filterFn == nil || w.filterFn(doc.Id) {
 			ids.Add(doc.Id)
 		}
 	}

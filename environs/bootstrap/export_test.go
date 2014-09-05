@@ -4,5 +4,10 @@
 package bootstrap
 
 var (
-	NewInterruptibleStorage = newInterruptibleStorage
+	ValidateUploadAllowed = validateUploadAllowed
+	SetBootstrapTools     = setBootstrapTools
+	EnvironsVerifyStorage = &environsVerifyStorage
+	FindTools             = &findTools
+	FindBootstrapTools    = findBootstrapTools
+	FindAvailableTools    = findAvailableTools
 )

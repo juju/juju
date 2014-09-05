@@ -20,11 +20,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -32,16 +34,10 @@ var logger = loggo.GetLogger("juju.agent")
 
 // logDir returns a filesystem path to the location where juju
 // may create a folder containing its logs
-//
-// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
-// Use the target series to decide the path.
-var logDir = "/var/log"
+var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
 // dataDir returns the default data directory for this running system
-//
-// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
-// Use the target series to decide the path.
-var dataDir = "/var/lib/juju"
+var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
 // DefaultLogDir defines the default log directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
@@ -112,19 +108,19 @@ type Config interface {
 	// WriteCommands returns shell commands to write the agent configuration.
 	// It returns an error if the configuration does not have all the right
 	// elements.
-	WriteCommands() ([]string, error)
+	WriteCommands(series string) ([]string, error)
 
 	// StateServingInfo returns the details needed to run
 	// a state server and reports whether those details
 	// are available
-	StateServingInfo() (params.StateServingInfo, bool)
+	StateServingInfo() (state.StateServingInfo, bool)
 
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
 	// MongoInfo returns details for connecting to the state server's mongo
 	// database and reports whether those details are available
-	MongoInfo() (*authentication.MongoInfo, bool)
+	MongoInfo() (*mongo.MongoInfo, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -161,7 +157,7 @@ type ConfigSetterOnly interface {
 	// SetValue updates the value for the specified key.
 	SetValue(key, value string)
 
-	// SetUpgradedToVerson sets the version that
+	// SetUpgradedToVersion sets the version that
 	// the agent has successfully upgraded to.
 	SetUpgradedToVersion(newVersion version.Number)
 
@@ -186,7 +182,7 @@ type ConfigSetterOnly interface {
 
 	// SetStateServingInfo sets the information needed
 	// to run a state server
-	SetStateServingInfo(info params.StateServingInfo)
+	SetStateServingInfo(info state.StateServingInfo)
 }
 
 type ConfigWriter interface {
@@ -245,7 +241,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	servingInfo       *params.StateServingInfo
+	servingInfo       *state.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
 }
@@ -329,7 +325,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo state.StateServingInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
 		return nil, errors.Trace(requiredError("state server cert"))
 	}
@@ -555,14 +551,14 @@ func (c *configInternal) PreferIPv6() bool {
 	return c.preferIPv6
 }
 
-func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+func (c *configInternal) StateServingInfo() (state.StateServingInfo, bool) {
 	if c.servingInfo == nil {
-		return params.StateServingInfo{}, false
+		return state.StateServingInfo{}, false
 	}
 	return *c.servingInfo, true
 }
 
-func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
+func (c *configInternal) SetStateServingInfo(info state.StateServingInfo) {
 	c.servingInfo = &info
 }
 
@@ -627,13 +623,17 @@ func (c *configInternal) fileContents() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *configInternal) WriteCommands() ([]string, error) {
+func (c *configInternal) WriteCommands(series string) ([]string, error) {
+	renderer, err := cloudinit.NewRenderer(series)
+	if err != nil {
+		return nil, err
+	}
 	data, err := c.fileContents()
 	if err != nil {
 		return nil, err
 	}
-	commands := []string{"mkdir -p " + utils.ShQuote(c.Dir())}
-	commands = append(commands, writeFileCommands(c.File(agentConfigFilename), data, 0600)...)
+	commands := renderer.Mkdir(c.Dir())
+	commands = append(commands, renderer.WriteFile(c.File(agentConfigFilename), string(data), 0600)...)
 	return commands, nil
 }
 
@@ -666,7 +666,7 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) MongoInfo() (info *authentication.MongoInfo, ok bool) {
+func (c *configInternal) MongoInfo() (info *mongo.MongoInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false
@@ -675,7 +675,7 @@ func (c *configInternal) MongoInfo() (info *authentication.MongoInfo, ok bool) {
 	if c.preferIPv6 {
 		addr = net.JoinHostPort("::1", strconv.Itoa(ssi.StatePort))
 	}
-	return &authentication.MongoInfo{
+	return &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: c.caCert,

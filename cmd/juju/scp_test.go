@@ -12,10 +12,11 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -130,7 +131,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd := &SCPCommand{}
 		scpcmd.proxy = t.proxy
 
-		err := scpcmd.Init(t.args)
+		err := envcmd.Wrap(scpcmd).Init(t.args)
 		c.Check(err, gc.IsNil)
 		err = scpcmd.Run(ctx)
 		if t.error != "" {

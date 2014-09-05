@@ -8,19 +8,18 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
-	apiprovisioner "github.com/juju/juju/state/api/provisioner"
-	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -86,7 +85,7 @@ func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 		return nil
 	}
 
-	logger.Tracef("initial container setup with ids: %v", containerIds)
+	logger.Infof("initial container setup with ids: %v", containerIds)
 	for _, id := range containerIds {
 		containerType := state.ContainerTypeFromId(id)
 		// If this container type has been dealt with, do nothing.
@@ -106,30 +105,31 @@ func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 	return resultError
 }
 
-func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) error {
+func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.ContainerType) (resultError error) {
 	// Flag that this container type has been handled.
 	atomic.StoreInt32(cs.setupDone[containerType], 1)
 
-	if atomic.AddInt32(&cs.numberProvisioners, 1) == int32(len(cs.supportedContainers)) {
-		// We only care about the initial container creation.
-		// This worker has done its job so stop it.
-		// We do not expect there will be an error, and there's not much we can do anyway.
-		if err := cs.runner.StopWorker(cs.workerName); err != nil {
-			logger.Warningf("stopping machine agent container watcher: %v", err)
+	defer func() {
+		if resultError != nil {
+			logger.Warningf("not stopping machine agent container watcher due to error: %v", resultError)
+			return
 		}
-	}
+		if atomic.AddInt32(&cs.numberProvisioners, 1) == int32(len(cs.supportedContainers)) {
+			// We only care about the initial container creation.
+			// This worker has done its job so stop it.
+			// We do not expect there will be an error, and there's not much we can do anyway.
+			if err := cs.runner.StopWorker(cs.workerName); err != nil {
+				logger.Warningf("stopping machine agent container watcher: %v", err)
+			}
+		}
+	}()
 
-	// We only care about the initial container creation.
-	// This worker has done its job so stop it.
-	// We do not expect there will be an error, and there's not much we can do anyway.
-	if err := cs.runner.StopWorker(cs.workerName); err != nil {
-		logger.Warningf("stopping machine agent container watcher: %v", err)
-	}
+	logger.Debugf("setup and start provisioner for %s containers", containerType)
 	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
-		return fmt.Errorf("initialising container infrastructure on host machine: %v", err)
+		return errors.Annotate(err, "initialising container infrastructure on host machine")
 	} else {
 		if err := cs.runInitialiser(containerType, initialiser); err != nil {
-			return fmt.Errorf("setting up container dependencies on host machine: %v", err)
+			return errors.Annotate(err, "setting up container dependencies on host machine")
 		}
 		return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker)
 	}
@@ -137,8 +137,9 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 
 // runInitialiser runs the container initialiser with the initialisation hook held.
 func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+	logger.Debugf("running initialiser for %s containers", containerType)
 	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
-		return fmt.Errorf("failed to acquire initialization lock: %v", err)
+		return errors.Annotate(err, "failed to acquire initialization lock")
 	}
 	defer cs.initLock.Unlock()
 	return initialiser.Initialise()
@@ -151,18 +152,6 @@ func (cs *ContainerSetup) TearDown() error {
 }
 
 func (cs *ContainerSetup) getContainerArtifacts(containerType instance.ContainerType) (container.Initialiser, environs.InstanceBroker, error) {
-	tag := cs.config.Tag()
-	machineTag, ok := tag.(names.MachineTag)
-	if !ok {
-		return nil, nil, errors.Errorf("expected names.MachineTag, got %T", tag)
-	}
-	// TODO(fwereade): 2014-07-24 bug 1347984
-	// This may give us a subtly incorrect version. See bug for details.
-	tools, err := cs.provisioner.Tools(machineTag)
-	if err != nil {
-		logger.Errorf("cannot get tools from machine for %s container", containerType)
-		return nil, nil, err
-	}
 	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
 
@@ -179,13 +168,13 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(cs.provisioner, tools, cs.config, managerConfig)
+		broker, err = NewLxcBroker(cs.provisioner, cs.config, managerConfig)
 		if err != nil {
 			return nil, nil, err
 		}
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
-		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config, managerConfig)
+		broker, err = NewKvmBroker(cs.provisioner, cs.config, managerConfig)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
 			return nil, nil, err

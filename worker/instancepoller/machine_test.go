@@ -17,10 +17,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -357,11 +357,11 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 }
 
 // This is stubbed out for testing.
-var MachineStatus = func(m *testMachine) (status params.Status, info string, data params.StatusData, err error) {
+var MachineStatus = func(m *testMachine) (status params.Status, info string, data map[string]interface{}, err error) {
 	return m.status, "", nil, nil
 }
 
-func (m *testMachine) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (m *testMachine) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	return MachineStatus(m)
 }
 

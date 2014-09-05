@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/state/api"
 )
 
 // destroyPreparedEnviron destroys the environment and logs an error if it fails.
@@ -34,7 +34,9 @@ func destroyPreparedEnviron(
 // clean up in case we need to further up the stack. If an error has
 // occurred, the environment and cleanup function will be nil, and the
 // error will be filled in.
-func environFromName(
+var environFromName = environFromNameProductionFunc
+
+func environFromNameProductionFunc(
 	ctx *cmd.Context,
 	envName string,
 	action string,
@@ -56,42 +58,41 @@ func environFromName(
 		return nil, nil, err
 	}
 
-	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
-		return nil, nil, err
-	}
-
 	cleanup = func() {
+		// Only clean up if the environment didn't exist or the error
+		// wasn't nil from preparing the environment.
 		if !envExisted {
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
 
-	return env, cleanup, nil
+	env, err = environs.PrepareFromName(envName, ctx, store)
+	return env, cleanup, err
 }
 
 // resolveCharmURL returns a resolved charm URL, given a charm location string.
 // If the series is not resolved, the environment default-series is used, or if
 // not set, the series is resolved with the state server.
 func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*charm.URL, error) {
-	ref, series, err := charm.ParseReference(url)
+	ref, err := charm.ParseReference(url)
 	if err != nil {
 		return nil, err
 	}
 	// If series is not set, use configured default series
-	if series == "" {
+	if ref.Series == "" {
 		if defaultSeries, ok := conf.DefaultSeries(); ok {
-			series = defaultSeries
+			ref.Series = defaultSeries
 		}
+	}
+	if ref.Series != "" {
+		return ref.URL("")
 	}
 	// Otherwise, look up the best supported series for this charm
-	if series == "" {
-		if ref.Schema == "local" {
-			possibleUrl := &charm.URL{Reference: ref, Series: "precise"}
-			logger.Errorf(`The series is not specified in the environment (default-series) or with the charm. Did you mean:
-	%s`, possibleUrl.String())
-			return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
-		}
+	if ref.Schema != "local" {
 		return client.ResolveCharm(ref)
 	}
-	return &charm.URL{Reference: ref, Series: series}, nil
+	possibleURL := *ref
+	possibleURL.Series = "precise"
+	logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
+	return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
 }

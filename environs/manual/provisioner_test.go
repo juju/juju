@@ -5,27 +5,22 @@ package manual_test
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/version"
 )
 
@@ -41,8 +36,9 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	client := s.APIState.Client()
 	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
-		Host:   hostname,
-		Client: client,
+		Host:           hostname,
+		Client:         client,
+		UpdateBehavior: &params.UpdateBehavior{true, true},
 	}
 }
 
@@ -152,16 +148,26 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 		Arch:           arch,
 		InitUbuntuUser: true,
 	}.install(c).Restore()
+
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
+	err = s.State.UpdateEnvironConfig(
+		map[string]interface{}{
+			"enable-os-upgrade": false,
+		}, nil, nil)
+	c.Assert(err, gc.IsNil)
+
 	mcfg, err := client.MachineConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
+
 	c.Assert(err, gc.IsNil)
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)
 
 	cloudcfg := coreCloudinit.New()
-	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
+	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.ConfigureJuju()
 	c.Assert(err, gc.IsNil)
 	cloudcfg.SetAptUpgrade(false)
 	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)
@@ -170,113 +176,4 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	removeLogFile := "rm -f '/var/log/cloud-init-output.log'\n"
 	expectedScript := removeLogFile + shell.DumpFileOnErrorScript("/var/log/cloud-init-output.log") + sshinitScript
 	c.Assert(script, gc.Equals, expectedScript)
-}
-
-func (s *provisionerSuite) TestProvisioningNoPubFile(c *gc.C) {
-	const series = "precise"
-	const arch = "amd64"
-	defer fakeSSH{
-		Series:         series,
-		Arch:           arch,
-		InitUbuntuUser: true,
-	}.install(c).Restore()
-
-	args := s.getArgs(c)
-	args.SSHKeyPath = "/path/to/custom/identity/file/used/to/login"
-	_, err := manual.ProvisionMachine(args)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *provisionerSuite) TestInitUbuntuUserArgs(c *gc.C) {
-	old := utils.Home()
-	newhome := c.MkDir()
-	utils.SetHome(newhome)
-	s.AddCleanup(func(*gc.C) { utils.SetHome(old) })
-	var dotssh string
-	dotssh = filepath.Join(newhome, ".ssh")
-	err := os.Mkdir(dotssh, 0755)
-	c.Assert(err, gc.IsNil)
-	otherKeyDir := filepath.Join(newhome, "otherKeys")
-	err = os.Mkdir(otherKeyDir, 0755)
-	c.Assert(err, gc.IsNil)
-
-	writeFile(c, filepath.Join(dotssh, "bobsKey.pub"), "bobsKey")
-	writeFile(c, filepath.Join(otherKeyDir, "zoesKey.pub"), "zoesKey")
-	writeFile(c, filepath.Join(dotssh, "bellasKey"), "bellasKey")
-	writeFile(c, filepath.Join(dotssh, "id_rsa.pub"), "id_rsa")
-	writeFile(c, filepath.Join(dotssh, "identity.pub"), "identity")
-	writeFile(c, filepath.Join(dotssh, "test.pub"), "test")
-
-	keys, err := config.ReadAuthorizedKeys("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(keys, gc.Equals, "id_rsa\nidentity\n")
-	keys, err = config.ReadAuthorizedKeys("test.pub") // relative to ~/.ssh
-	c.Assert(err, gc.IsNil)
-	c.Assert(keys, gc.Equals, "test\n")
-
-	type resultArgs struct{ AuthorizedKeys, IdentityFile string }
-	var rArgs resultArgs
-
-	s.PatchValue(manual.InitUbuntuUserFunc, func(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error {
-		rArgs.AuthorizedKeys = authorizedKeys
-		rArgs.IdentityFile = identityFile
-		return nil
-	})
-
-	type testCase struct {
-		about, authKeys, identFile, SSHKeyPath string
-	}
-
-	testCases := []testCase{{
-		about:      "No SSHKeyPath used, default public SSH keys added to known hosts",
-		authKeys:   "id_rsa\nidentity\n",
-		identFile:  "",
-		SSHKeyPath: "",
-	}, {
-		about:      "Custom SSHKeyPath, no corresponding public key exists, default keys added to known hosts",
-		authKeys:   "id_rsa\nidentity\n",
-		identFile:  "~/bellasKey",
-		SSHKeyPath: "~/bellasKey",
-	}, {
-		about:      "Custom relative Non-existant  SSHKeyPath outside .ssh, custom key added to known hosts",
-		authKeys:   "id_rsa\nidentity\n",
-		identFile:  "~/notAKey",
-		SSHKeyPath: "~/notAKey",
-	}, {
-		about:      "Custom relative SSHKeyPath outside .ssh, custom key added to known hosts",
-		authKeys:   "zoesKey\n",
-		identFile:  "~/otherKeys/zoesKey",
-		SSHKeyPath: "~/otherKeys/zoesKey",
-	}, {
-		about:      "Custom relative SSHKeyPath, custom key added to known hosts",
-		authKeys:   "bobsKey\n",
-		identFile:  "~/.ssh/bobsKey",
-		SSHKeyPath: "~/.ssh/bobsKey",
-	}, {
-		about:      "Custom SSHKeyPath used, custom key added to known hosts",
-		authKeys:   "bobsKey\n",
-		identFile:  dotssh + "/bobsKey",
-		SSHKeyPath: dotssh + "/bobsKey",
-	}, {
-		about:      "Non-existant SSHKeyPath, default keys added to known hosts",
-		authKeys:   "id_rsa\nidentity\n",
-		identFile:  "/this/is/not/a/key",
-		SSHKeyPath: "/this/is/not/a/key",
-	}}
-
-	for i, t := range testCases {
-		c.Logf("test %d: %s", i, t.about)
-
-		args := s.getArgs(c)
-		args.SSHKeyPath = t.SSHKeyPath
-		manual.ProvisionMachine(args)
-
-		c.Check(rArgs.AuthorizedKeys, gc.Equals, t.authKeys)
-		c.Check(rArgs.IdentityFile, gc.Equals, t.identFile)
-	}
-}
-
-func writeFile(c *gc.C, filename string, contents string) {
-	err := ioutil.WriteFile(filename, []byte(contents), 0644)
-	c.Assert(err, gc.IsNil)
 }

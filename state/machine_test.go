@@ -14,12 +14,12 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -344,9 +344,59 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	testSetMongoPassword(c, func(st *state.State) (entity, error) {
-		return st.Machine(s.machine.Id())
-	})
+	info := state.TestingMongoInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminMongoPassword("admin-secret")
+	c.Assert(err, gc.IsNil)
+	err = st.MongoSession().DB("admin").Login("admin", "admin-secret")
+	c.Assert(err, gc.IsNil)
+
+	// Set the password for the entity
+	ent, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.Tag = ent.Tag()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st1.Close()
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	ent, err = st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("bar")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Check that the administrator can still log in.
+	info.Tag, info.Password = nil, "admin-secret"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Remove the admin password so that the test harness can reset the state.
+	err = st.SetAdminMongoPassword("")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MachineSuite) TestSetPassword(c *gc.C) {
@@ -744,7 +794,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
 	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
-	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag().String())
+	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
 }
 
@@ -1349,7 +1399,7 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
@@ -1357,7 +1407,7 @@ func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -1410,7 +1460,7 @@ func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+	err = s.machine.SetStatus(params.StatusError, "provisioning failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1420,7 +1470,7 @@ func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1434,7 +1484,7 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.machine.SetStatus(params.StatusError, "mongo", params.StatusData{
+	err = s.machine.SetStatus(params.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -1445,7 +1495,7 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -1460,7 +1510,7 @@ func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Status setting and changing data afterwards.
-	data := params.StatusData{
+	data := map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1473,7 +1523,7 @@ func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1768,7 +1818,7 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "unsupported container")
-	c.Assert(data, gc.DeepEquals, params.StatusData{"type": "lxc"})
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{"type": "lxc"})
 }
 
 func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
@@ -1797,7 +1847,7 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		c.Assert(status, gc.Equals, params.StatusError)
 		c.Assert(info, gc.Equals, "unsupported container")
 		containerType := state.ContainerTypeFromId(container.Id())
-		c.Assert(data, gc.DeepEquals, params.StatusData{"type": string(containerType)})
+		c.Assert(data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})
 	}
 }
 
@@ -1846,34 +1896,34 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Disable the first interface.
-	err = ifaces[0].SetDisabled(true)
+	err = ifaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Disable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(true)
+	err = ifaces[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
 	// Enable the second interface, should report, because it was initially disabled.
-	err = ifaces[1].SetDisabled(false)
+	err = ifaces[1].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Disable two interfaces at once, check that both are reported.
-	err = ifaces[1].SetDisabled(true)
+	err = ifaces[1].Disable()
 	c.Assert(err, gc.IsNil)
-	err = ifaces[2].SetDisabled(true)
+	err = ifaces[2].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Enable the first interface.
-	err = ifaces[0].SetDisabled(false)
+	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
 	// Enable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(false)
+	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1919,7 +1969,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(ifaces2, gc.HasLen, 3)
 
 	// Disable the first interface on the second machine, should not report.
-	err = ifaces2[0].SetDisabled(true)
+	err = ifaces2[0].Disable()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1941,4 +1991,10 @@ func (s *MachineSuite) TestWatchInterfacesDiesOnStateClose(c *gc.C) {
 		<-w.Changes()
 		return w
 	})
+}
+
+func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	testAgentTools(c, m, "machine "+m.Id())
 }

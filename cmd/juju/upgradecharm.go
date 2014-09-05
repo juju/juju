@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -131,7 +131,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newURL = oldURL.WithRevision(c.Revision)
 	}
 
-	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(newURL.Reference(), ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}

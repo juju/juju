@@ -19,7 +19,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -27,8 +28,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -287,6 +286,17 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 	worker.RestartDelay = s.oldRestartDelay
 }
 
+func (s *agentSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	// Set API host ports so FindTools/Tools API calls succeed.
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Port:    1234,
+	}}}
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+}
+
 // primeAgent writes the configuration file and tools with version vers
 // for an agent with the given entity name.  It returns the agent's
 // configuration and the current tools.
@@ -344,7 +354,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *authentication.MongoInfo, dataDir string, tag names.Tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, tag names.Tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
@@ -358,7 +368,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *authentication.MongoInfo, dataDir
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
 		},
-		params.StateServingInfo{
+		state.StateServingInfo{
 			Cert:       coretesting.ServerCert,
 			PrivateKey: coretesting.ServerKey,
 			StatePort:  gitjujutesting.MgoServer.Port(),

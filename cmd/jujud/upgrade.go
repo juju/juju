@@ -9,14 +9,15 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/wrench"
 )
 
 type upgradingMachineAgent interface {
@@ -44,13 +45,21 @@ type upgradeWorkerContext struct {
 	st              *state.State
 }
 
-// Initialise a upgradeWorkerContext once the agent configuration is available.
-func (c *upgradeWorkerContext) InitializeFromConfig(config agent.Config) {
-	if config.UpgradedToVersion() == version.Current.Number {
-		logger.Infof("No need for upgrade: upgrade steps for %v have already been run.",
-			version.Current.Number)
-		close(c.UpgradeComplete)
-	}
+// InitialiseUsingAgent sets up a upgradeWorkerContext from a machine agent instance.
+// It may update the agent's configuration.
+func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) error {
+	return a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
+			logger.Infof("no upgrade steps required or upgrade steps for %v "+
+				"have already been run.", version.Current.Number)
+			close(c.UpgradeComplete)
+
+			// Even if no upgrade is required the version number in
+			// the agent's config still needs to be bumped.
+			agentConfig.SetUpgradedToVersion(version.Current.Number)
+		}
+		return nil
+	})
 }
 
 func (c *upgradeWorkerContext) Worker(
@@ -62,6 +71,15 @@ func (c *upgradeWorkerContext) Worker(
 	c.apiState = apiState
 	c.jobs = jobs
 	return worker.NewSimpleWorker(c.run)
+}
+
+func (c *upgradeWorkerContext) IsUpgradeRunning() bool {
+	select {
+	case <-c.UpgradeComplete:
+		return false
+	default:
+		return true
+	}
 }
 
 type apiLostDuringUpgrade struct {
@@ -149,15 +167,17 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		if err := waitForOtherStateServers(c.st, isMaster); err != nil {
 			logger.Errorf(`other state servers failed to come up for upgrade `+
 				`to %s - aborting: %v`, version.Current, err)
-
 			a.setMachineStatus(c.apiState, params.StatusError,
 				fmt.Sprintf("upgrade to %v aborted while waiting for other "+
 					"state servers: %v", version.Current, err))
-
-			// TODO(menn0): if master, roll agent-version back to
-			// previous version, once the upgrader allows downgrades
-			// to previous version.
-
+			// If master, trigger a rollback to the previous agent version.
+			if isMaster {
+				logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+					from.Number)
+				if rollbackErr := c.st.SetEnvironAgentVersion(from.Number); rollbackErr != nil {
+					return errors.Annotate(rollbackErr, "failed to roll back desired agent version")
+				}
+			}
 			return err
 		}
 	}
@@ -256,6 +276,9 @@ var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) 
 }
 
 var waitForOtherStateServers = func(st *state.State, isMaster bool) error {
+	if wrench.IsActive("machine-agent", "fail-state-server-upgrade-wait") {
+		return errors.New("failing other state servers check due to wrench")
+	}
 	// TODO(mjs) - for now, assume that the other state servers are
 	// ready. This function will be fleshed out once the UpgradeInfo
 	// work is done.

@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/mock"
@@ -25,7 +26,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -67,10 +67,6 @@ func (s *lxcSuite) TearDownTest(c *gc.C) {
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
-		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
-	}
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -84,7 +80,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -92,9 +88,13 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
 	lxc, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
@@ -244,10 +244,8 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
 	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag().(names.MachineTag))
-	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig, managerConfig)
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
@@ -304,6 +302,7 @@ type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
+		UpdateBehavior:          &params.UpdateBehavior{true, true},
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
 		SSLHostnameVerification: true}, nil

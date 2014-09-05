@@ -6,8 +6,8 @@ package maas
 import (
 	"fmt"
 
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -37,18 +37,13 @@ func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
 
 func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
-	filename := "path/to/file"
-	old_MAASInstanceFilename := _MAASInstanceFilename
-	_MAASInstanceFilename = filename
-	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 	info := machineInfo{hostname}
-
-	script, err := info.cloudinitRunCmd()
-
+	filename := "/var/lib/juju/MAASmachine.txt"
+	script, err := info.cloudinitRunCmd("quantal")
 	c.Assert(err, gc.IsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, gc.IsNil)
-	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", environs.DataDir, yaml, filename)
+	expected := fmt.Sprintf("mkdir -p '%s'\ninstall -m 755 /dev/null '%s'\nprintf '%%s\\n' ''\"'\"'%s'\"'\"'' > '%s'", environs.DataDir, filename, yaml, filename)
 	c.Check(script, gc.Equals, expected)
 }
 

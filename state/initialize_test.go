@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -56,10 +55,13 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
+	uuid, _ := cfg.UUID()
 	initial := cfg.AllAttrs()
 	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
+	envTag := st.EnvironTag()
+	c.Assert(envTag.Id(), gc.Equals, uuid)
 	err = st.Close()
 	c.Assert(err, gc.IsNil)
 
@@ -71,8 +73,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(st.EnvironTag(), gc.Equals, names.NewEnvironTag(env.UUID()))
-	entity, err := s.State.FindEntity("environment-" + env.UUID())
+	c.Assert(env.Tag(), gc.Equals, envTag)
+	entity, err := s.State.FindEntity(envTag)
 	c.Assert(err, gc.IsNil)
 	annotator := entity.(state.Annotator)
 	annotations, err := annotator.Annotations()
@@ -88,7 +90,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{EnvironmentTag: envTag})
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {

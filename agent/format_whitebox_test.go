@@ -11,7 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -47,12 +48,23 @@ func newTestConfig(c *gc.C) *configInternal {
 
 func (*formatSuite) TestWriteCommands(c *gc.C) {
 	config := newTestConfig(c)
-	commands, err := config.WriteCommands()
+	commands, err := config.WriteCommands("quantal")
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 3)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
 	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/machine-1/agent.conf'`)
 	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/machine-1/agent.conf'`)
+}
+
+func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
+	config := newTestConfig(c)
+	commands, err := config.WriteCommands("win8")
+	c.Assert(err, gc.IsNil)
+	c.Assert(commands, gc.HasLen, 2)
+	c.Assert(commands[0], gc.Matches, `mkdir \S+\\agents\\machine-1`)
+	c.Assert(commands[1], gc.Matches, `Set-Content '\S+/agents/machine-1/agent.conf' @"
+(.|\n)*
+"@`)
 }
 
 func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
@@ -72,7 +84,7 @@ func (*formatSuite) TestRead(c *gc.C) {
 }
 
 func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:       "some special cert",
 		PrivateKey: "a special key",
 		StatePort:  12345,

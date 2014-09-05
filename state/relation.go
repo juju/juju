@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -35,7 +35,7 @@ func relationKey(endpoints []Endpoint) string {
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
-// Note the correspondence with RelationInfo in state/api/params.
+// Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
 	Key       string `bson:"_id"`
 	Id        int

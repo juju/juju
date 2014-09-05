@@ -4,6 +4,10 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -12,12 +16,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
-	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -161,8 +166,20 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
 
+	// The machine agent downloads the tools; fake this by
+	// creating downloaded-tools.txt in data-dir/tools/<version>.
+	toolsDir := agenttools.SharedToolsDir(s.DataDir(), newVers)
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := tools.Tools{Version: newVers, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
+	c.Assert(err, gc.IsNil)
+
 	// Set the machine agent version to trigger an upgrade.
-	err := machine.SetAgentVersion(newVers)
+	err = machine.SetAgentVersion(newVers)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
@@ -260,6 +277,36 @@ func (s *UnitSuite) TestRsyslogConfigWorker(c *gc.C) {
 		c.Fatalf("timeout while waiting for rsyslog worker to be created")
 	case mode := <-created:
 		c.Assert(mode, gc.Equals, rsyslog.RsyslogModeForwarding)
+	}
+}
+
+func (s *UnitSuite) TestAgentSetsToolsVersion(c *gc.C) {
+	_, unit, _, _ := s.primeAgent(c)
+	vers := version.Current
+	vers.Minor = version.Current.Minor + 1
+	err := unit.SetAgentVersion(vers)
+	c.Assert(err, gc.IsNil)
+
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+
+	timeout := time.After(coretesting.LongWait)
+	for done := false; !done; {
+		select {
+		case <-timeout:
+			c.Fatalf("timeout while waiting for agent version to be set")
+		case <-time.After(coretesting.ShortWait):
+			err := unit.Refresh()
+			c.Assert(err, gc.IsNil)
+			agentTools, err := unit.AgentTools()
+			c.Assert(err, gc.IsNil)
+			if agentTools.Version.Minor != version.Current.Minor {
+				continue
+			}
+			c.Assert(agentTools.Version, gc.DeepEquals, version.Current)
+			done = true
+		}
 	}
 }
 

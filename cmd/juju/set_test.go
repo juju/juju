@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -64,6 +64,12 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 		"username=@valid.txt",
 	}, charm.Settings{
 		"username": validSetTestValue,
+		"outlook":  "hello@world.tld",
+	})
+	assertSetSuccess(c, s.dir, s.svc, []string{
+		"username=",
+	}, charm.Settings{
+		"username": "",
 		"outlook":  "hello@world.tld",
 	})
 }
