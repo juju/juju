@@ -182,12 +182,12 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	// Now try uploading them. The "series" parameter is accepted
-	// but ignored; the API server will expand the tools for all
-	// supported series.
-	params := "?binaryVersion=" + vers.String() + "&series=nonsense"
+	// Now try uploading them. The tools will be cloned for
+	// each additional series specified.
+	params := "?binaryVersion=" + vers.String() + "&series=quantal"
 	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
 	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
 	stor := s.Environ.Storage()

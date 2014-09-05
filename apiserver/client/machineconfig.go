@@ -50,7 +50,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 	urlGetter := common.NewToolsURLGetter(environment.UUID(), st)
-	toolsFinder := common.NewToolsFinder(st, urlGetter)
+	toolsFinder := common.NewToolsFinder(st, st, urlGetter)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,

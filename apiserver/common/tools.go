@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
@@ -135,20 +136,14 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	allMetadata, err := storage.AllMetadata()
-	if err != nil {
-		return nil, err
-	}
-	list, err := findMatchingTools(allMetadata, t.urlGetter, params.FindToolsParams{
+	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorager, t.urlGetter)
+	list, err := toolsFinder.findTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,
 		MinorVersion: -1,
 		Series:       existingTools.Version.Series,
 		Arch:         existingTools.Version.Arch,
 	})
-	if err == coretools.ErrNoMatches {
-		err = errors.NewNotFound(err, "tools not found")
-	}
 	if err != nil {
 		return nil, err
 	}
@@ -208,32 +203,21 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
+	configGetter  EnvironConfigGetter
 	toolsStorager ToolsStorager
 	urlGetter     ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(s ToolsStorager, t ToolsURLGetter) *ToolsFinder {
-	return &ToolsFinder{s, t}
+func NewToolsFinder(c EnvironConfigGetter, s ToolsStorager, t ToolsURLGetter) *ToolsFinder {
+	return &ToolsFinder{c, s, t}
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	result := params.FindToolsResult{}
-	storage, err := f.toolsStorager.ToolsStorage()
-	if err != nil {
-		return result, err
-	}
-	defer storage.Close()
-	allMetadata, err := storage.AllMetadata()
-	if err != nil {
-		return result, err
-	}
-	list, err := findMatchingTools(allMetadata, f.urlGetter, args)
-	if err == coretools.ErrNoMatches {
-		err = errors.NewNotFound(err, "tools not found")
-	}
+	list, err := f.findTools(args)
 	if err != nil {
 		result.Error = ServerError(err)
 	} else {
@@ -242,28 +226,83 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 	return result, nil
 }
 
-func findMatchingTools(metadata []toolstorage.Metadata, urlGetter ToolsURLGetter, args params.FindToolsParams) (coretools.List, error) {
-	list := make(coretools.List, len(metadata))
-	for i, m := range metadata {
-		url, err := urlGetter.ToolsURL(m.Version)
+// findTools searches toolstorage and simplestreams for tools matching the
+// given parameters. If an exact match is specified (number, series and arch)
+// and is found in toolstorage, then simplestreams will not be searched.
+func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, error) {
+	exactMatch := args.Number != version.Zero && args.Series != "" && args.Arch != ""
+	storageList, err := f.matchingStorageTools(args)
+	if err != nil {
+		return nil, err
+	}
+	if err == nil && exactMatch {
+		return storageList, nil
+	}
+
+	// Look for tools in simplestreams too, but don't replace
+	// any versions found in storage.
+	cfg, err := f.configGetter.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	filter := toolsFilter(args)
+	simplestreamsList, err := envtools.FindTools(
+		env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry,
+	)
+	if len(storageList) == 0 && err != nil {
+		return nil, err
+	}
+
+	list := storageList
+	found := make(map[version.Binary]bool)
+	for _, tools := range storageList {
+		found[tools.Version] = true
+	}
+	for _, tools := range simplestreamsList {
+		if !found[tools.Version] {
+			list = append(list, tools)
+		}
+	}
+	sort.Sort(list)
+
+	// Rewrite the URLs so they point at the API server. If the
+	// tools are not in toolstorage, then the API server will
+	// download and cache them if the client requests that version.
+	for _, tools := range list {
+		url, err := f.urlGetter.ToolsURL(tools.Version)
 		if err != nil {
 			return nil, err
 		}
-		tools := &coretools.Tools{
+		tools.URL = url
+	}
+	return list, nil
+}
+
+// matchingStorageTools returns a coretools.List, with an entry for each
+// metadata entry in the toolstorage that matches the given parameters.
+func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
+	storage, err := f.toolsStorager.ToolsStorage()
+	if err != nil {
+		return nil, err
+	}
+	defer storage.Close()
+	allMetadata, err := storage.AllMetadata()
+	if err != nil {
+		return nil, err
+	}
+	list := make(coretools.List, len(allMetadata))
+	for i, m := range allMetadata {
+		list[i] = &coretools.Tools{
 			Version: m.Version,
 			Size:    m.Size,
 			SHA256:  m.SHA256,
-			URL:     url,
 		}
-		list[i] = tools
 	}
-	sort.Sort(list)
-	filter := coretools.Filter{
-		Number: args.Number,
-		Arch:   args.Arch,
-		Series: args.Series,
-	}
-	list, err := list.Match(filter)
+	list, err = list.Match(toolsFilter(args))
 	if err != nil {
 		return nil, err
 	}
@@ -281,6 +320,14 @@ func findMatchingTools(metadata []toolstorage.Metadata, urlGetter ToolsURLGetter
 		return nil, coretools.ErrNoMatches
 	}
 	return matching, nil
+}
+
+func toolsFilter(args params.FindToolsParams) coretools.Filter {
+	return coretools.Filter{
+		Number: args.Number,
+		Arch:   args.Arch,
+		Series: args.Series,
+	}
 }
 
 type toolsURLGetter struct {

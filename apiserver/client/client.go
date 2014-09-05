@@ -64,7 +64,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
-		toolsFinder:  common.NewToolsFinder(st, urlGetter),
+		toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
 	}}, nil
 }
 
