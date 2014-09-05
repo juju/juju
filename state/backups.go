@@ -395,7 +395,6 @@ func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	meta.SetStored()
 	return nil
 }
 
