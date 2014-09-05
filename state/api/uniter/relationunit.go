@@ -136,7 +136,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, error) {
-	if !names.IsValidUnit(uname) {
+	if !names.IsUnit(uname) {
 		return nil, errors.Errorf("%q is not a valid unit", uname)
 	}
 	tag := names.NewUnitTag(uname)
