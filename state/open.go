@@ -12,7 +12,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -110,7 +109,7 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 			C:      stateServersC,
 			Id:     stateServingInfoKey,
 			Assert: txn.DocMissing,
-			Insert: &params.StateServingInfo{},
+			Insert: &StateServingInfo{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
@@ -182,26 +181,22 @@ func isUnauthorized(err error) bool {
 
 func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
-	authenticated := false
 	if mongoInfo.Tag != nil {
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-		authenticated = true
 	} else if mongoInfo.Password != "" {
 		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
-		authenticated = true
 	}
 
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	st := &State{
-		mongoInfo:     mongoInfo,
-		policy:        policy,
-		authenticated: authenticated,
-		db:            db,
+		mongoInfo: mongoInfo,
+		policy:    policy,
+		db:        db,
 	}
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}

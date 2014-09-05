@@ -85,7 +85,7 @@ type RelationParams struct {
 type MetricParams struct {
 	Unit    *state.Unit
 	Time    *time.Time
-	Metrics []*state.Metric
+	Metrics []state.Metric
 	Sent    bool
 }
 
@@ -129,7 +129,9 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Password = "password"
 	}
 	if params.Creator == "" {
-		params.Creator = "admin"
+		env, err := factory.st.Environment()
+		c.Assert(err, gc.IsNil)
+		params.Creator = env.Owner().Name()
 	}
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, params.Creator)
@@ -298,10 +300,10 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []*state.Metric{state.NewMetric(factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds"))}
+		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds")}}
 	}
 
-	metric, err := params.Unit.AddMetrics(params.Metrics)
+	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
 	c.Assert(err, gc.IsNil)
 	if params.Sent {
 		err := metric.SetSent()

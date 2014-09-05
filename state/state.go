@@ -26,7 +26,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -67,6 +66,8 @@ const (
 	stateServersC      = "stateServers"
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
+	upgradeInfoC       = "upgradeInfo"
+	toolsmetadataC     = "toolsmetadata"
 
 	// This collection is used just for storing metadata.
 	backupsMetaC = "backupsmetadata"
@@ -75,7 +76,11 @@ const (
 	txnLogC = "txns.log"
 	txnsC   = "txns"
 
+	// AdminUser is the mongo admin username.
 	AdminUser = "admin"
+
+	// blobstoreDB is the name of the blobstore GridFS database.
+	blobstoreDB = "blobstore"
 )
 
 // State represents the state of an environment
@@ -86,7 +91,6 @@ type State struct {
 	// is used. However, for tests, a value may be assigned and this will
 	// be used instead of creating a new runnner each time.
 	transactionRunner jujutxn.Runner
-	authenticated     bool
 	mongoInfo         *mongo.MongoInfo
 	policy            Policy
 	db                *mgo.Database
@@ -96,6 +100,19 @@ type State struct {
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
 	environTag names.EnvironTag
+}
+
+// StateServingInfo holds information needed by a state server.
+// This type is a copy of the type of the same name from the api/params package.
+// It is replicated here to avoid the state pacakge depending on api/params.
+type StateServingInfo struct {
+	APIPort    int
+	StatePort  int
+	Cert       string
+	PrivateKey string
+	// this will be passed as the KeyFile argument to MongoDB
+	SharedSecret   string
+	SystemIdentity string
 }
 
 // EnvironTag() returns the environment tag for the environment controlled by
@@ -108,10 +125,7 @@ func (st *State) EnvironTag() names.EnvironTag {
 // database has previously been logged in to.
 // It returns the collection and a closer function for the session.
 func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
-	if st.authenticated {
-		return mongo.CollectionFromName(st.db, coll)
-	}
-	return st.db.C(coll), emptycloser
+	return mongo.CollectionFromName(st.db, coll)
 }
 
 // getPresence returns the presence collection.
@@ -142,47 +156,45 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
 }
 
-func emptycloser() {}
+type closeFunc func()
 
 // txnRunner returns a jujutxn.Runner instance.
-// If a runner has been assigned to st, that instance is returned.
-// Otherwise a new instance is created.
-// If st has been authenticated by having it's database logged in,
-// a new mgo.Session is used.
-func (st *State) txnRunner() (_ jujutxn.Runner, closer func()) {
-	closer = emptycloser
+//
+// If st.transactionRunner is non-nil, then that will be
+// returned and the session argument will be ignored. This
+// is the case in tests only, when we want to test concurrent
+// operations.
+//
+// If st.transactionRunner is nil, then we create a new
+// transaction runner with the provided session and return
+// that.
+func (st *State) txnRunner(session *mgo.Session) jujutxn.Runner {
 	if st.transactionRunner != nil {
-		return st.transactionRunner, closer
+		return st.transactionRunner
 	}
-	// If not authenticated, just use the unaltered db and a no-op closer.
-	runnerDb := st.db
-	if st.authenticated {
-		session := runnerDb.Session.Copy()
-		runnerDb = runnerDb.With(session)
-		closer = session.Close
-	}
-	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb}), closer
+	runnerDb := st.db.With(session)
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb})
 }
 
 // runTransaction is a convenience method delegating to transactionRunner.
 func (st *State) runTransaction(ops []txn.Op) error {
-	runner, closer := st.txnRunner()
-	defer closer()
-	return runner.RunTransaction(ops)
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).RunTransaction(ops)
 }
 
 // run is a convenience method delegating to transactionRunner.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	runner, closer := st.txnRunner()
-	defer closer()
-	return runner.Run(transactions)
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
-	runner, closer := st.txnRunner()
-	defer closer()
-	return runner.ResumeTransactions()
+	session := st.db.Session.Copy()
+	defer session.Close()
+	return st.txnRunner(session).ResumeTransactions()
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -1693,23 +1705,23 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 const stateServingInfoKey = "stateServingInfo"
 
 // StateServingInfo returns information for running a state server machine
-func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+func (st *State) StateServingInfo() (StateServingInfo, error) {
 	stateServers, closer := st.getCollection(stateServersC)
 	defer closer()
 
-	var info params.StateServingInfo
+	var info StateServingInfo
 	err := stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return info, errors.Trace(err)
 	}
 	if info.StatePort == 0 {
-		return params.StateServingInfo{}, errors.NotFoundf("state serving info")
+		return StateServingInfo{}, errors.NotFoundf("state serving info")
 	}
 	return info, nil
 }
 
 // SetStateServingInfo stores information needed for running a state server
-func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
+func (st *State) SetStateServingInfo(info StateServingInfo) error {
 	if info.StatePort == 0 || info.APIPort == 0 ||
 		info.Cert == "" || info.PrivateKey == "" {
 		return errors.Errorf("incomplete state serving info set in state")

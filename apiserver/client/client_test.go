@@ -1647,6 +1647,14 @@ func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
+	// Set API host ports for tools URL.
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Port:    1234,
+	}}}
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
@@ -1656,6 +1664,8 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
+	url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", result.List[0].Version)
+	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {

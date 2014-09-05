@@ -24,10 +24,11 @@ import (
 )
 
 var (
-	GetBackupMetadata   = getBackupMetadata
-	AddBackupMetadata   = addBackupMetadata
-	AddBackupMetadataID = addBackupMetadataID
-	SetBackupStored     = setBackupStored
+	GetBackupMetadata     = getBackupMetadata
+	AddBackupMetadata     = addBackupMetadata
+	AddBackupMetadataID   = addBackupMetadataID
+	SetBackupStored       = setBackupStored
+	ToolstorageNewStorage = &toolstorageNewStorage
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -91,14 +92,14 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
 	c.Assert(ch, gc.NotNil)
-	return AddTestingServiceWithNetworks(c, st, name, ch, nil)
+	return AddTestingServiceWithNetworks(c, st, name, ch, owner, nil)
 }
 
-func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, networks []string) *Service {
+func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(name, "user-admin", ch, networks)
+	service, err := st.AddService(name, owner.String(), ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -256,3 +257,22 @@ var (
 	GetPorts         = getPorts
 	NowToTheSecond   = nowToTheSecond
 )
+
+var CurrentUpgradeId = currentUpgradeId
+
+func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
+	upgradeInfos, closer := st.getCollection(upgradeInfoC)
+	defer closer()
+
+	var out []*UpgradeInfo
+	var doc upgradeInfoDoc
+	iter := upgradeInfos.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		out = append(out, &UpgradeInfo{st: st, doc: doc})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}

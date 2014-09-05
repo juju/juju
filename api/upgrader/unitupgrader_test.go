@@ -87,14 +87,14 @@ func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestToolsWrongUnit(c *gc.C) {
-	tools, _, err := s.st.Tools("unit-wordpress-42")
+	tools, err := s.st.Tools("unit-wordpress-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
 }
 
 func (s *unitUpgraderSuite) TestToolsNotUnit(c *gc.C) {
-	tools, _, err := s.st.Tools("foo-42")
+	tools, err := s.st.Tools("foo-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(tools, gc.IsNil)
@@ -107,7 +107,7 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// UnitUpgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, _, err := s.st.Tools(s.rawUnit.Tag().String())
+	stateTools, err := s.st.Tools(s.rawUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Check(stateTools.Version.Number, gc.DeepEquals, version.Current.Number)
 	c.Assert(stateTools.URL, gc.NotNil)

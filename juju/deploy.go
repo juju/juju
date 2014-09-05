@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v3"
 
@@ -52,7 +53,11 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		}
 	}
 	if args.ServiceOwner == "" {
-		args.ServiceOwner = "user-admin"
+		env, err := st.Environment()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		args.ServiceOwner = env.Owner().String()
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).

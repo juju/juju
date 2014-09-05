@@ -558,8 +558,38 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
-	env := s.Prepare(c)
+func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
+	// Create a config that matches s.TestConfig but with use-floating-ip
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": true,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+
+	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	inst1, _ := testing.AssertStartInstance(c, env, "101")
+	defer func() {
+		err := env.StopInstances(inst0.Id(), inst1.Id())
+		c.Assert(err, gc.IsNil)
+	}()
+
+	insts, err := env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	for _, inst := range insts {
+		c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+	}
+}
+
+func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool) {
+	// Create a config that matches s.TestConfig but with use-floating-ip
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": withFloatingIP,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+
 	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
@@ -590,11 +620,24 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 		for j, inst := range insts {
 			if ids[j] != "" {
 				c.Assert(inst.Id(), gc.Equals, ids[j])
+				if withFloatingIP {
+					c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+				} else {
+					c.Assert(openstack.InstanceFloatingIP(inst), gc.IsNil)
+				}
 			} else {
 				c.Assert(inst, gc.IsNil)
 			}
 		}
 	}
+}
+
+func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
+	s.assertInstancesGathering(c, false)
+}
+
+func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
+	s.assertInstancesGathering(c, true)
 }
 
 func (s *localServerSuite) TestCollectInstances(c *gc.C) {
@@ -613,7 +656,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
-	found := make(map[instance.Id]instance.Instance)
+	found := make(map[string]instance.Instance)
 	missing := []instance.Id{stateInst.Id()}
 
 	resultMissing := openstack.CollectInstances(env, missing, found)

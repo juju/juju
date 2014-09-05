@@ -67,9 +67,6 @@ type ErrorResult struct {
 	Error *Error
 }
 
-// StatusData contains additional information for a status.
-type StatusData map[string]interface{}
-
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
@@ -525,7 +522,7 @@ type MachineInfo struct {
 	InstanceId               string
 	Status                   Status
 	StatusInfo               string
-	StatusData               StatusData
+	StatusData               map[string]interface{}
 	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
@@ -571,7 +568,7 @@ type UnitInfo struct {
 	Ports          []network.Port
 	Status         Status
 	StatusInfo     string
-	StatusData     StatusData
+	StatusData     map[string]interface{}
 }
 
 func (i *UnitInfo) EntityId() EntityId {

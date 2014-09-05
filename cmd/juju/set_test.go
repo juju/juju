@@ -66,6 +66,12 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 		"username": validSetTestValue,
 		"outlook":  "hello@world.tld",
 	})
+	assertSetSuccess(c, s.dir, s.svc, []string{
+		"username=",
+	}, charm.Settings{
+		"username": "",
+		"outlook":  "hello@world.tld",
+	})
 }
 
 func (s *SetSuite) TestSetOptionFail(c *gc.C) {

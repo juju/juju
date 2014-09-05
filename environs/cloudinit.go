@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -176,7 +177,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		return errors.Annotate(err, "cannot generate state server certificate")
 	}
 
-	srvInfo := params.StateServingInfo{
+	srvInfo := state.StateServingInfo{
 		StatePort:  cfg.StatePort(),
 		APIPort:    cfg.APIPort(),
 		Cert:       string(cert),

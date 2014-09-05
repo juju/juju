@@ -153,12 +153,15 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 	if svc.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
-
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	info := &params.ServiceInfo{
 		Name:     svc.Name,
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
-		OwnerTag: svc.fixOwnerTag(),
+		OwnerTag: svc.fixOwnerTag(env),
 		Life:     params.Life(svc.Life.String()),
 		MinUnits: svc.MinUnits,
 	}
@@ -208,11 +211,11 @@ func (svc *backingService) removed(st *State, store *multiwatcher.Store, id inte
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-func (svc *backingService) fixOwnerTag() string {
+func (svc *backingService) fixOwnerTag(env *Environment) string {
 	if svc.OwnerTag != "" {
 		return svc.OwnerTag
 	}
-	return "user-admin"
+	return env.Owner().String()
 }
 
 func (m *backingService) mongoId() interface{} {

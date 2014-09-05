@@ -76,22 +76,23 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm, nil)
+	owner := s.AdminUserTag(c)
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm, nil)
+	notAssigned, err := s.State.AddService("not-assigned", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddService("no-units", "user-admin", charm, nil)
+	_, err = s.State.AddService("no-units", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 
-	wordpress, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
+	wordpress, err := s.State.AddService("wordpress", owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, gc.IsNil)
 	wordpress0 := s.addUnit(c, wordpress)
-	_, err = s.State.AddService("logging", "user-admin", s.AddTestingCharm(c, "logging"), nil)
+	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil)
 	c.Assert(err, gc.IsNil)
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -261,7 +262,9 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	s.addMachineWithAddress(c, "10.3.2.1")
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm, nil)
+	owner := s.Factory.MakeUser(c, nil).Tag()
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	c.Assert(err, gc.IsNil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 

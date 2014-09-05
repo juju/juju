@@ -82,3 +82,11 @@ func (status Status) Valid() bool {
 	}
 	return true
 }
+
+const (
+	// ActionCompleted signifies a succesful Action completion
+	ActionCompleted string = "complete"
+
+	// ActionFailed represents an unsuccessful Action completion
+	ActionFailed string = "fail"
+)

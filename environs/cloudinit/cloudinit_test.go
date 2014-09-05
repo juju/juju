@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -114,7 +115,7 @@ func must(s string, err error) string {
 	return s
 }
 
-var stateServingInfo = &params.StateServingInfo{
+var stateServingInfo = &state.StateServingInfo{
 	Cert:       string(serverCert),
 	PrivateKey: string(serverKey),
 	StatePort:  37017,

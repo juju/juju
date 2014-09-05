@@ -369,7 +369,7 @@ var installHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "install",
 			},
 		},
@@ -410,7 +410,7 @@ var startHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "start",
 			},
 		},
@@ -440,7 +440,7 @@ var multipleErrorsTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "install"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "install",
 			},
 		},
@@ -448,7 +448,7 @@ var multipleErrorsTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "config-changed",
 			},
 		},
@@ -456,7 +456,7 @@ var multipleErrorsTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "start",
 			},
 		},
@@ -495,7 +495,7 @@ var configChangedHookTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "config-changed"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "config-changed",
 			},
 		},
@@ -661,7 +661,7 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "upgrade-charm",
 			},
 			charm: 1,
@@ -685,7 +685,7 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "upgrade-charm",
 			},
 			charm: 1,
@@ -698,7 +698,7 @@ var steadyUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "upgrade-charm"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "upgrade-charm",
 			},
 			charm: 1,
@@ -835,7 +835,7 @@ var errorUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "start",
 			},
 		},
@@ -864,7 +864,7 @@ var errorUpgradeTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "start"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook": "start",
 			},
 			charm: 1,
@@ -1066,6 +1066,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 		template := "echo juju run ${JUJU_UNIT_NAME} > %s.tmp; mv %s.tmp %s"
 		return fmt.Sprintf(template, path, path, path)
 	}
+	adminTag := s.AdminUserTag(c)
 	tests := []uniterTest{
 		ut(
 			"run commands: environment",
@@ -1082,7 +1083,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			},
 			verifyFile{
 				testFile("jujuc.output"),
-				"user-admin\nprivate.address.example.com\npublic.address.example.com\n",
+				adminTag.String() + "\nprivate.address.example.com\npublic.address.example.com\n",
 			},
 		), ut(
 			"run commands: proxy settings set",
@@ -1245,7 +1246,7 @@ var relationsErrorTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "db-relation-joined"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook":        "db-relation-joined",
 				"relation-id": 0,
 				"remote-unit": "mysql/0",
@@ -1257,7 +1258,7 @@ var relationsErrorTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "db-relation-changed"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook":        "db-relation-changed",
 				"relation-id": 0,
 				"remote-unit": "mysql/0",
@@ -1271,7 +1272,7 @@ var relationsErrorTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "db-relation-departed"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook":        "db-relation-departed",
 				"relation-id": 0,
 				"remote-unit": "mysql/0",
@@ -1286,7 +1287,7 @@ var relationsErrorTests = []uniterTest{
 		waitUnit{
 			status: params.StatusError,
 			info:   `hook failed: "db-relation-broken"`,
-			data: params.StatusData{
+			data: map[string]interface{}{
 				"hook":        "db-relation-broken",
 				"relation-id": 0,
 			},
@@ -1869,7 +1870,7 @@ func (s resolveError) step(c *gc.C, ctx *context) {
 type waitUnit struct {
 	status   params.Status
 	info     string
-	data     params.StatusData
+	data     map[string]interface{}
 	charm    int
 	resolved state.ResolvedMode
 }
