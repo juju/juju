@@ -302,10 +302,6 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	if err != nil {
 		return err
 	}
-	if !strings.HasPrefix(tools.URL, "file://") {
-		// Nothing to do since the tools were not uploaded.
-		return nil
-	}
 
 	f, err := os.Open(filepath.Join(
 		agenttools.SharedToolsDir(dataDir, version.Current),
@@ -322,24 +318,28 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 	}
 	defer storage.Close()
 
-	metadata := toolstorage.Metadata{
-		Version: tools.Version,
-		Size:    tools.Size,
-		SHA256:  tools.SHA256,
-	}
-	if err := storage.AddTools(f, metadata); err != nil {
-		return err
+	var toolsVersions []version.Binary
+	if strings.HasPrefix(tools.URL, "file://") {
+		// Tools were uploaded: clone for each series of the same OS.
+		osSeries := version.OSSupportedSeries(tools.Version.OS)
+		for _, series := range osSeries {
+			toolsVersion := tools.Version
+			toolsVersion.Series = series
+			toolsVersions = append(toolsVersions, toolsVersion)
+		}
+	} else {
+		// Tools were downloaded from an external source: don't clone.
+		toolsVersions = []version.Binary{tools.Version}
 	}
 
-	osSeries := version.OSSupportedSeries(tools.Version.OS)
-	for _, series := range osSeries {
-		if series == metadata.Version.Series {
-			continue
+	for _, toolsVersion := range toolsVersions {
+		metadata := toolstorage.Metadata{
+			Version: toolsVersion,
+			Size:    tools.Size,
+			SHA256:  tools.SHA256,
 		}
-		vers := metadata.Version
-		vers.Series = series
-		logger.Debugf("Adding tools alias: %v", vers)
-		if err := storage.AddToolsAlias(vers, metadata.Version); err != nil {
+		logger.Debugf("Adding tools: %v", toolsVersion)
+		if err := storage.AddTools(f, metadata); err != nil {
 			return err
 		}
 	}
