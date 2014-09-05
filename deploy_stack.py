@@ -65,8 +65,6 @@ def prepare_environment(env, already_bootstrapped, machines):
 def destroy_environment(environment):
     if environment.config['type'] == 'manual':
         destroy_job_instances(os.environ['JOB_NAME'])
-    elif environment.config['type'] == 'azure':
-        destroy_job_instances(os.environ['BUILD_TAG'])
     else:
         environment.destroy_environment()
 
