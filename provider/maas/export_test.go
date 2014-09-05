@@ -9,14 +9,15 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/network"
 )
 
 var (
-	ShortAttempt       = &shortAttempt
-	APIVersion         = apiVersion
-	NewCloudinitConfig = newCloudinitConfig
+	ShortAttempt = &shortAttempt
+	APIVersion   = apiVersion
 )
 
 func MAASAgentName(env environs.Environ) string {
@@ -25,6 +26,10 @@ func MAASAgentName(env environs.Environ) string {
 
 func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 	return env.(*maasEnviron).getMAASClient()
+}
+
+func NewCloudinitConfig(env environs.Environ, hostname string, networkInfo []network.Info, iface string) (*cloudinit.Config, error) {
+	return env.(*maasEnviron).newCloudinitConfig(hostname, networkInfo, iface)
 }
 
 var indexData = `

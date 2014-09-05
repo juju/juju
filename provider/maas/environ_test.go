@@ -195,64 +195,88 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "testenv")
 }
 
+var expectedCloudinitConfig = []interface{}{
+	"set -xe",
+	"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+	"ifdown eth0",
+	"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
+	`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
+	"ifup br0",
+	// Networking/VLAN stuff.
+	"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",
+	"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
+	"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
+	"vconfig add eth0 99",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth0.99\niface eth0.99 inet dhcp\nEOF\n",
+	"ifup eth0.99",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth1\niface eth1 inet dhcp\nEOF\n",
+	"ifup eth1",
+	"vconfig add eth1 42",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth1.42\niface eth1.42 inet dhcp\nEOF\n",
+	"ifup eth1.42",
+	"vconfig add eth1 69",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth1.69\niface eth1.69 inet dhcp\nEOF\n",
+	"ifup eth1.69",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth2\niface eth2 inet dhcp\nEOF\n",
+	"ifup eth2",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth3\niface eth3 inet dhcp\nEOF\n",
+	"ifup eth3",
+	"vconfig add eth3 123",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
+	"ifup eth3.123",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth4\niface eth4 inet dhcp\nEOF\n",
+	"ifup eth4",
+	"vconfig add eth4 12",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth4.12\niface eth4.12 inet dhcp\nEOF\n",
+	"ifup eth4.12",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth5\niface eth5 inet dhcp\nEOF\n",
+	"ifup eth5",
+	"vconfig add eth5 66",
+	"cat >> /etc/network/interfaces << EOF\n\nauto eth5.66\niface eth5.66 inet dhcp\nEOF\n",
+	"ifup eth5.66",
+}
+
+var nwInfo = []network.Info{
+	// physical eth0 won't be touched, but it can have VLANs on it.
+	{InterfaceName: "eth0", VLANTag: 0, Disabled: false},
+	{InterfaceName: "eth0", VLANTag: 99, Disabled: false},
+	// physical NIC given explicitly, then a couple of virtual ones using it.
+	{InterfaceName: "eth1", VLANTag: 0, Disabled: false},
+	{InterfaceName: "eth1", VLANTag: 42, Disabled: false},
+	{InterfaceName: "eth1", VLANTag: 69, Disabled: false},
+	{InterfaceName: "eth2", VLANTag: 0, Disabled: false},
+	// physical NIC not given, ensure it gets brought up first, before the virtual one.
+	{InterfaceName: "eth3", VLANTag: 123, Disabled: false},
+	// disabled NICs should still be configured (for now)
+	{InterfaceName: "eth4", VLANTag: 0, Disabled: true},
+	{InterfaceName: "eth4", VLANTag: 12, Disabled: true},
+	{InterfaceName: "eth5", VLANTag: 66, Disabled: true},
+}
+
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
-	nwInfo := []network.Info{
-		// physical eth0 won't be touched, but it can have VLANs on it.
-		{InterfaceName: "eth0", VLANTag: 0, Disabled: false},
-		{InterfaceName: "eth0", VLANTag: 99, Disabled: false},
-		// physical NIC given explicitly, then a couple of virtual ones using it.
-		{InterfaceName: "eth1", VLANTag: 0, Disabled: false},
-		{InterfaceName: "eth1", VLANTag: 42, Disabled: false},
-		{InterfaceName: "eth1", VLANTag: 69, Disabled: false},
-		{InterfaceName: "eth2", VLANTag: 0, Disabled: false},
-		// physical NIC not given, ensure it gets brought up first, before the virtual one.
-		{InterfaceName: "eth3", VLANTag: 123, Disabled: false},
-		// disabled NICs should still be configured (for now)
-		{InterfaceName: "eth4", VLANTag: 0, Disabled: true},
-		{InterfaceName: "eth4", VLANTag: 12, Disabled: true},
-		{InterfaceName: "eth5", VLANTag: 66, Disabled: true},
-	}
-	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo, "eth0")
+	cfg := getSimpleTestConfig(c, nil)
+	env, err := maas.NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", nwInfo, "eth0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, []interface{}{
-		"set -xe",
-		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
-		"ifdown eth0",
-		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
-		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
-		"ifup br0",
-		// Networking/VLAN stuff.
-		"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",
-		"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
-		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
-		"vconfig add eth0 99",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth0.99\niface eth0.99 inet dhcp\nEOF\n",
-		"ifup eth0.99",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth1\niface eth1 inet dhcp\nEOF\n",
-		"ifup eth1",
-		"vconfig add eth1 42",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.42\niface eth1.42 inet dhcp\nEOF\n",
-		"ifup eth1.42",
-		"vconfig add eth1 69",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.69\niface eth1.69 inet dhcp\nEOF\n",
-		"ifup eth1.69",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth2\niface eth2 inet dhcp\nEOF\n",
-		"ifup eth2",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth3\niface eth3 inet dhcp\nEOF\n",
-		"ifup eth3",
-		"vconfig add eth3 123",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
-		"ifup eth3.123",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth4\niface eth4 inet dhcp\nEOF\n",
-		"ifup eth4",
-		"vconfig add eth4 12",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth4.12\niface eth4.12 inet dhcp\nEOF\n",
-		"ifup eth4.12",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth5\niface eth5 inet dhcp\nEOF\n",
-		"ifup eth5",
-		"vconfig add eth5 66",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth5.66\niface eth5.66 inet dhcp\nEOF\n",
-		"ifup eth5.66",
-	})
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
+}
+
+var expectedCloudinitConfigWithoutNetworking = []interface{}{
+	"set -xe",
+	"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+}
+
+func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C) {
+	attrs := coretesting.Attrs{
+		"disable-network-management": true,
+	}
+	cfg := getSimpleTestConfig(c, attrs)
+	env, err := maas.NewEnviron(cfg)
+	c.Assert(err, gc.IsNil)
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", nwInfo, "eth0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfigWithoutNetworking)
 }
