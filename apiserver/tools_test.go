@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
@@ -19,6 +21,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -33,6 +36,16 @@ var _ = gc.Suite(&toolsSuite{})
 func (s *toolsSuite) SetUpSuite(c *gc.C) {
 	s.authHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/x-tar-gz"
+}
+
+func (s *toolsSuite) SetUpTest(c *gc.C) {
+	s.authHttpSuite.SetUpTest(c)
+	s.State.SetAPIHostPorts([][]network.HostPort{
+		network.AddressesWithPort(
+			network.NewAddresses("0.1.2.3"),
+			1234,
+		),
+	})
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
@@ -121,17 +134,18 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	r, err := stor.Get(tools.StorageName(vers))
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	_, r, err := storage.Tools(vers)
 	c.Assert(err, gc.IsNil)
 	uploadedData, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
+	r.Close()
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
@@ -146,10 +160,8 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -163,10 +175,8 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -184,30 +194,37 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	// Now try uploading them. The tools will be cloned for
 	// each additional series specified.
-	params := "?binaryVersion=" + vers.String() + "&series=quantal"
+	params := "?binaryVersion=" + vers.String() + "&series=quantal,precise"
 	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	for _, series := range version.OSSupportedSeries(version.Ubuntu) {
-		toolsVersion := vers
-		toolsVersion.Series = series
-		r, err := stor.Get(tools.StorageName(toolsVersion))
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	expectedData, err := ioutil.ReadFile(toolPath)
+	c.Assert(err, gc.IsNil)
+	for _, series := range []string{"precise", "quantal"} {
+		vers := vers
+		vers.Series = series
+		_, r, err := storage.Tools(vers)
 		c.Assert(err, gc.IsNil)
 		uploadedData, err := ioutil.ReadAll(r)
-		c.Assert(err, gc.IsNil)
-		expectedData, err := ioutil.ReadFile(toolPath)
+		r.Close()
 		c.Assert(err, gc.IsNil)
 		c.Assert(uploadedData, gc.DeepEquals, expectedData)
 	}
+
+	// ensure other series *aren't* there.
+	vers.Series = "trusty"
+	_, err = storage.Metadata(vers)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {

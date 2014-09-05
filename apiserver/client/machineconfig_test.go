@@ -39,6 +39,12 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 
+	// Set API host port addresses for tools URL construction.
+	err = s.State.SetAPIHostPorts([][]network.HostPort{
+		network.AddressesWithPort(network.NewAddresses("0.1.2.3"), 1234),
+	})
+	c.Assert(err, gc.IsNil)
+
 	machineId := machines[0].Machine
 	machineConfig, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
 	c.Assert(err, gc.IsNil)
@@ -50,7 +56,8 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 
 	c.Check(machineConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
 	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
-	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
+	toolsURL := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", machineConfig.Tools.Version)
+	c.Assert(machineConfig.Tools.URL, gc.Equals, toolsURL)
 }
 
 func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {

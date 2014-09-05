@@ -21,6 +21,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 )
 
@@ -29,6 +30,16 @@ type provisionerSuite struct {
 }
 
 var _ = gc.Suite(&provisionerSuite{})
+
+func (s *provisionerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	// Set API host ports for tools URL construction.
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.AddressesWithPort(network.NewAddresses("0.1.2.3"), 1234),
+	})
+	c.Assert(err, gc.IsNil)
+}
 
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()

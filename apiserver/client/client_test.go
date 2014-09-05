@@ -52,6 +52,16 @@ type Killer interface {
 
 var _ = gc.Suite(&clientSuite{})
 
+func (s *clientSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	// Set API host port addresses for tools URL construction.
+	err := s.State.SetAPIHostPorts([][]network.HostPort{
+		network.AddressesWithPort(network.NewAddresses("0.1.2.3"), 1234),
+	})
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
@@ -1826,14 +1836,6 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	// Set API host ports for tools URL.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
@@ -2626,10 +2628,6 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
-	apiHostPorts, err := s.APIState.Client().APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.HasLen, 0)
-
 	server1Addresses := []network.Address{{
 		Value: "server-1",
 		Type:  network.HostName,
@@ -2651,9 +2649,9 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 		network.AddressesWithPort(server2Addresses, 456),
 	}
 
-	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, gc.IsNil)
-	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
