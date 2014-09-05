@@ -465,40 +465,9 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		return nil, err
 	}
 
-	logger.Debugf("run args: %+v", args)
-	logger.Debugf("relationId: %v", relationId)
-
-	var remoteUnit string
-
-	logger.Debugf("args.RemoteUnit: %+v", args.Relation)
-	if relationId != -1 && len(args.RemoteUnit) == 0 {
-		relationer, found := u.relationers[relationId]
-		logger.Debugf("relationer: %+v", relationer)
-		if !found {
-			return nil, fmt.Errorf("unable to find any relations for %v", args.Relation)
-		}
-
-		remoteUnits := relationer.Context().UnitNames()
-		numRemoteUnits := len(remoteUnits)
-
-		logger.Debugf("remoteUnits: %+v", remoteUnits)
-		logger.Debugf("numRemoteUnits: %d", numRemoteUnits)
-
-		switch numRemoteUnits {
-		case 0:
-			err = fmt.Errorf("no remote unit foud for relation: %s", args.Relation)
-		case 1:
-			remoteUnit = remoteUnits[0]
-		default:
-			err = fmt.Errorf("unalbe to determine remote-unit, please disambiguate: %+v", remoteUnits)
-		}
-
-		logger.Debugf("switchErr: %+v", err)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		remoteUnit = args.RemoteUnit
+	remoteUnit, err := parseRemoteUnit(u.relationers, relationId, args)
+	if err != nil {
+		return nil, err
 	}
 
 	logger.Debugf("remoteUnit: %+v", remoteUnit)
@@ -507,7 +476,6 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("hook context: %+v", hctx)
 
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
@@ -976,7 +944,8 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 
 // parseRelationId converts the relation ID in string format from juju-run
 // to an int format for use with getHookContext. If relation string is empty
-// then parseRelationId returns -1 which is a valid value for getHookContext.
+// then parseRelationId returns -1 which is a valid value for getHookContext
+// that informs getHookContext to run in the anonymous context.
 func parseRelationId(relation string) (int, error) {
 	if len(relation) > 0 {
 		id, err := strconv.ParseInt(relation, 0, 0)
@@ -986,4 +955,36 @@ func parseRelationId(relation string) (int, error) {
 		return int(id), nil
 	}
 	return -1, nil
+}
+
+// parseRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
+// remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
+// the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
+// a given relationId an error is returned for display to the user.
+func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCommandsArgs) (string, error) {
+	remoteUnit := args.RemoteUnit
+	if relationId != -1 && len(remoteUnit) == 0 {
+		relationer, found := relationers[relationId]
+		if !found {
+			return "", fmt.Errorf("unable to find any relations for %v", args.Relation)
+		}
+
+		var err error
+		remoteUnits := relationer.Context().UnitNames()
+		numRemoteUnits := len(remoteUnits)
+
+		switch numRemoteUnits {
+		case 0:
+			err = fmt.Errorf("no remote unit found for relation: %s", args.Relation)
+		case 1:
+			remoteUnit = remoteUnits[0]
+		default:
+			err = fmt.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
+		}
+
+		if err != nil {
+			return "", err
+		}
+	}
+	return remoteUnit, nil
 }
