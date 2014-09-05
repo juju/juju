@@ -155,7 +155,11 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 
 func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	// Special: always.
-	statetesting.CommonRequiresSafeNetworkerTest(c, s.env, [8]bool{
+	statetesting.CommonRequiresSafeNetworkerTest(c, s.env, [16]bool{
+		// API v1 or higher, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
+		// API v0, machines 0 and 1.
 		true, true, true, true,
 		true, true, true, true,
 	})

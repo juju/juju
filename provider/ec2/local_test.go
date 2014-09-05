@@ -709,9 +709,13 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 func (t *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := t.Prepare(c)
 	// Standard: required for disabledNetworkManagement || isManual.
-	statetesting.CommonRequiresSafeNetworkerTest(c, env, [8]bool{
+	statetesting.CommonRequiresSafeNetworkerTest(c, env, [16]bool{
+		// API v1 or higher, machines 0 and 1.
 		false, true, true, true,
 		false, true, true, true,
+		// API v0, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
 	})
 }
 

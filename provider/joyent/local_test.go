@@ -442,8 +442,12 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 func (s *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := s.Prepare(c)
 	// Standard: required for for disabledNetworkManagement || isManual.
-	statetesting.CommonRequiresSafeNetworkerTest(c, env, [8]bool{
+	statetesting.CommonRequiresSafeNetworkerTest(c, env, [16]bool{
+		// API v1 or higher, machines 0 and 1.
 		false, true, true, true,
 		false, true, true, true,
+		// API v0, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
 	})
 }

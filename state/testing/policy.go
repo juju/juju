@@ -86,17 +86,20 @@ func (mig *mockMachineInfoGetter) IsManual() (bool, bool) {
 }
 
 // CommonRequiresSafeNetworkerTest tests the RequiresSafeNetworker environ capability
-// for machine 0 and 1, for each regular and manual provisioning, and for
-// each then without and with disabled network management. So eight
-// boolean values have to be past.
+// for machine 0 and 1, for each regular and manual provisioning, and for each then
+// without and with disabled network management. The same turn is done then with no
+// information about manual provisioning due to a lower server API version. In this
+// case the safe networker is always required.
 //
-// So a standard pattern is
+// So a standard pattern of 16 boolean results is
 //
 // Machine 0: false, true, true, true,
 // Machine 1: false, true, true, true,
+// Machine 0: true, true, true, true,
+// Machine 1: true, true, true, true,
 //
 // Only local, maas, and manual provider behave different.
-func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements [8]bool) {
+func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements [16]bool) {
 	tests := []struct {
 		mig                      state.MachineInfoGetter
 		disableNetworkManagement bool
@@ -109,12 +112,20 @@ func CommonRequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements
 		{&mockMachineInfoGetter{"1", false, true}, true},
 		{&mockMachineInfoGetter{"1", true, true}, false},
 		{&mockMachineInfoGetter{"1", true, true}, true},
+		{&mockMachineInfoGetter{"0", false, false}, false},
+		{&mockMachineInfoGetter{"0", false, false}, true},
+		{&mockMachineInfoGetter{"0", true, false}, false},
+		{&mockMachineInfoGetter{"0", true, false}, true},
+		{&mockMachineInfoGetter{"1", false, false}, false},
+		{&mockMachineInfoGetter{"1", false, false}, true},
+		{&mockMachineInfoGetter{"1", true, false}, false},
+		{&mockMachineInfoGetter{"1", true, false}, true},
 	}
 	for i, test := range tests {
 		isManual, ok := test.mig.IsManual()
 		c.Logf("test %d: machine: %q, is manual: %v, ok: %v, disable networking: %v",
 			i, test.mig.Id(), isManual, ok, test.disableNetworkManagement)
-		// TODO(mue) Set the disableNetworkManager flag.
+
 		attrs := env.Config().AllAttrs()
 		attrs["disable-network-management"] = test.disableNetworkManagement
 		newCfg, err := config.New(config.NoDefaults, attrs)

@@ -830,8 +830,12 @@ func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 func (suite *environSuite) TestRequiresSafeNetworker(c *gc.C) {
 	env := suite.makeEnviron()
 	// Standard: disabledNetworkManagement || isManual.
-	statetesting.CommonRequiresSafeNetworkerTest(c, env, [8]bool{
+	statetesting.CommonRequiresSafeNetworkerTest(c, env, [16]bool{
+		// API v1 or higher, machines 0 and 1.
 		false, true, true, true,
 		false, true, true, true,
+		// API v0, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
 	})
 }

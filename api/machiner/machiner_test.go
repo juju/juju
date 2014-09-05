@@ -199,13 +199,7 @@ var _ = gc.Suite(&machinerVersioningSuite{})
 
 func (s *machinerVersioningSuite) SetUpTest(c *gc.C) {
 	// Manipulate version registry before setting up test.
-	restoreAPI := api.SetBestFacadeVersion("Machiner", 0)
-	restoreFacades := common.Facades.DiscardRestorable("Machiner", 1)
-
-	s.restore = func() {
-		restoreFacades()
-		restoreAPI()
-	}
+	s.restore = common.Facades.DiscardRestorable("Machiner", 1)
 
 	// Standard test setup.
 	s.JujuConnSuite.SetUpTest(c)

@@ -43,15 +43,3 @@ func bestVersion(desiredVersion int, versions []int) int {
 	}
 	return best
 }
-
-// SetBestFacadeVersion allows to change the best available facade version
-// for testing puposes. A restore func is returned, it can be called with
-// defer.
-func SetBestFacadeVersion(facade string, version int) func() {
-	currentBestVersion := facadeVersions[facade]
-	restore := func() {
-		facadeVersions[facade] = currentBestVersion
-	}
-	facadeVersions[facade] = version
-	return restore
-}
