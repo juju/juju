@@ -62,8 +62,8 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showHelp, "h", false, "show help on juju-run")
 	f.BoolVar(&c.showHelp, "help", false, "")
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
-	f.StringVar(&c.relation, "relation", "", "run the commands for a specific relation context")
-	f.StringVar(&c.remoteUnit, "remote-unit", "", "run the command for a specific remote unit in a relation context")
+	f.StringVar(&c.relation, "relation", "", "run the commands for a specific relation context on a unit")
+	f.StringVar(&c.remoteUnit, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
 }
 
 func (c *RunCommand) Init(args []string) error {

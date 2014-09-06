@@ -55,10 +55,10 @@ Commands run for services or units are executed in a 'hook context' for
 the unit.
 
 --relation allows you to ensure the command is executed on the specified
-targets with the correct relation context. For example "db" or "cache".
+service or unit targets with a specific relation context.
 
---remote-unit is used to specifiy a unit with --relation in cases where
-more than one relation exists.
+--remote-unit is used with --relation to specifiy a remote-unit in cases where
+more than one exists. If only one remote-unit exists there is no need to specify this.
 
 --all is provided as a simple way to run the command on all the machines
 in the environment.  If you specify --all you cannot provide additional
@@ -103,11 +103,24 @@ func (c *RunCommand) Init(args []string) error {
 			return fmt.Errorf("You cannot specify --all and individual units")
 		}
 		if len(c.relation) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual realtions")
+			return fmt.Errorf("You cannot specify --all and individual relations")
 		}
+		if len(c.remoteUnit) != 0 {
+			return fmt.Errorf("You cannot specify --all and a remote-unit")
+		}
+
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
 			return fmt.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
+		}
+	}
+
+	if len(c.machines) != 0 {
+		if len(c.relation) != 0 {
+			return fmt.Errorf("You cannot specify --machine and individual relations")
+		}
+		if len(c.remoteUnit) != 0 {
+			return fmt.Errorf("You cannot specify --machine and a remote-unit")
 		}
 	}
 

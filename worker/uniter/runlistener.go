@@ -53,7 +53,6 @@ type JujuRunServer struct {
 // response structure.
 func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
 	logger.Debugf("RunCommands: %q", args.Commands)
-	logger.Debugf("Runner: %+v", r.runner)
 
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {
