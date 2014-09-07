@@ -4,6 +4,10 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -12,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -161,8 +166,20 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	newVers.Patch++
 	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
 
+	// The machine agent downloads the tools; fake this by
+	// creating downloaded-tools.txt in data-dir/tools/<version>.
+	toolsDir := agenttools.SharedToolsDir(s.DataDir(), newVers)
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := tools.Tools{Version: newVers, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
+	c.Assert(err, gc.IsNil)
+
 	// Set the machine agent version to trigger an upgrade.
-	err := machine.SetAgentVersion(newVers)
+	err = machine.SetAgentVersion(newVers)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{

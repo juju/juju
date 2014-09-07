@@ -69,7 +69,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertSettings(c, service, charm.Settings{})
 	s.assertConstraints(c, service, constraints.Value{})
 	s.assertMachines(c, service, constraints.Value{})
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
+	c.Assert(service.GetOwnerTag(), gc.Equals, s.AdminUserTag(c).String())
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {

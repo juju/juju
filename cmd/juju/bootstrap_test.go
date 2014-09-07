@@ -322,6 +322,45 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
 }
 
+func (s *BootstrapSuite) TestCleanupIfPrepareFails(c *gc.C) {
+
+	// We want the MockEnvironFromName to error out when preparing an
+	// environment. WARNING: Heavily relies on implementation due to
+	// lack of IoC.
+	s.PatchValue(
+		&environs.PrepareFromName,
+		func(
+			string,
+			environs.BootstrapContext,
+			configstore.Storage,
+		) (environs.Environ, error) {
+			return nil, fmt.Errorf("mock")
+		},
+	)
+
+	env, cleanup, err := environFromName(coretesting.Context(c), "peckham", "Bootstrap")
+	c.Check(err, gc.ErrorMatches, "mock")
+	c.Check(env, gc.IsNil)
+	c.Check(cleanup, gc.Not(gc.IsNil))
+}
+
+func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
+
+	cleanupRan := false
+
+	s.PatchValue(
+		&environFromName,
+		func(*cmd.Context, string, string) (environs.Environ, func(), error) {
+			return nil, func() { cleanupRan = true }, fmt.Errorf("mock")
+		},
+	)
+
+	ctx := coretesting.Context(c)
+	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.Not(gc.IsNil))
+	c.Check(cleanupRan, gc.Equals, true)
+}
+
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current

@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.upgrader")
+var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
 func init() {
 	common.RegisterStandardFacade("Upgrader", 0, upgraderFacade)
@@ -76,8 +76,13 @@ func NewUpgraderAPI(
 	getCanReadWrite := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		resources:   resources,

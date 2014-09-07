@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver.usermanager")
+var logger = loggo.GetLogger("juju.apiserver.usermanager")
 
 func init() {
 	common.RegisterStandardFacade("UserManager", 0, NewUserManagerAPI)

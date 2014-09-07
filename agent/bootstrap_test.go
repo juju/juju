@@ -57,7 +57,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		APIPort:        1234,
@@ -133,7 +133,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
+	c.Assert(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
@@ -191,7 +191,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
-	cfg.SetStateServingInfo(params.StateServingInfo{
+	cfg.SetStateServingInfo(state.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           "foo",

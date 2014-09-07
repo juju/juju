@@ -21,7 +21,7 @@ import (
 type statusDoc struct {
 	Status     params.Status
 	StatusInfo string
-	StatusData params.StatusData
+	StatusData map[string]interface{}
 }
 
 // validateSet returns an error if the statusDoc does not represent a sane

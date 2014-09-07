@@ -21,7 +21,7 @@ type userManagerSuite struct {
 
 	usermanager *usermanager.UserManagerAPI
 	authorizer  apiservertesting.FakeAuthorizer
-	user        *state.User
+	adminName   string
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -29,11 +29,12 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	user, err := s.State.User("admin")
-	c.Assert(err, gc.IsNil)
+	adminTag := s.AdminUserTag(c)
+	s.adminName = adminTag.Name()
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
+		Tag: adminTag,
 	}
+	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 }
@@ -139,7 +140,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 				Result: &usermanager.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
-					CreatedBy:      "admin",
+					CreatedBy:      s.adminName,
 					DateCreated:    userFoo.DateCreated(),
 					LastConnection: userFoo.LastLogin(),
 				},
@@ -147,7 +148,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 				Result: &usermanager.UserInfo{
 					Username:       "barfoo",
 					DisplayName:    "Bar Foo",
-					CreatedBy:      "admin",
+					CreatedBy:      s.adminName,
 					DateCreated:    userBar.DateCreated(),
 					LastConnection: userBar.LastLogin(),
 				},
@@ -173,7 +174,7 @@ func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 				Result: &usermanager.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
-					CreatedBy:      "admin",
+					CreatedBy:      s.adminName,
 					DateCreated:    user.DateCreated(),
 					LastConnection: user.LastLogin(),
 				},
@@ -264,7 +265,7 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{{
-			Username: "admin",
+			Username: s.adminName,
 			Password: "new-password",
 		}}}
 	results, err := s.usermanager.SetPassword(args)
@@ -272,7 +273,7 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User("admin")
+	adminUser, err := s.State.User(s.adminName)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
@@ -292,11 +293,11 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{
 			{
-				Username: "admin",
+				Username: s.adminName,
 				Password: "new-password1",
 			},
 			{
-				Username: "admin",
+				Username: s.adminName,
 				Password: "new-password2",
 			}}}
 	results, err := s.usermanager.SetPassword(args)
@@ -305,7 +306,7 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	c.Assert(results.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User("admin")
+	adminUser, err := s.State.User(s.adminName)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password2"), gc.Equals, true)

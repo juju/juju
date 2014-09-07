@@ -693,7 +693,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit.
-func (u *Unit) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (u *Unit) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", nil, err
@@ -706,7 +706,7 @@ func (u *Unit) Status() (status params.Status, info string, data params.StatusDa
 
 // SetStatus sets the status of the unit. The optional values
 // allow to pass additional helpful status data.
-func (u *Unit) SetStatus(status params.Status, info string, data params.StatusData) error {
+func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
@@ -1736,10 +1736,10 @@ func (u *Unit) WatchActionResults() StringsWatcher {
 
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
-func (u *Unit) AddMetrics(metrics []*Metric) (*MetricBatch, error) {
+func (u *Unit) AddMetrics(created time.Time, metrics []Metric) (*MetricBatch, error) {
 	charmUrl, ok := u.CharmURL()
 	if !ok {
 		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
 	}
-	return u.st.addMetrics(u.UnitTag(), charmUrl, metrics)
+	return u.st.addMetrics(u.UnitTag(), charmUrl, created, metrics)
 }

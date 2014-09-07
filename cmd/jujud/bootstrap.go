@@ -92,6 +92,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	agentConfig := c.CurrentConfig()
+	if err := setupLogging(agentConfig); err != nil {
+		return err
+	}
 	network.InitializeFromConfig(agentConfig)
 
 	// agent.Jobs is an optional field in the agent config, and was
@@ -227,16 +230,22 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		}
 	}
 
-	servingInfo, ok := agentConfig.StateServingInfo()
+	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
 	}
 
 	params := mongo.EnsureServerParams{
-		StateServingInfo: servingInfo,
-		DataDir:          agentConfig.DataDir(),
-		Namespace:        agentConfig.Value(agent.Namespace),
-		OplogSize:        oplogSize,
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
+
+		DataDir:   agentConfig.DataDir(),
+		Namespace: agentConfig.Value(agent.Namespace),
+		OplogSize: oplogSize,
 	}
 	return params, nil
 }

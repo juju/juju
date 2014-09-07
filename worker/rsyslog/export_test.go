@@ -8,5 +8,7 @@ var (
 	LogDir                  = &logDir
 	RsyslogConfDir          = &rsyslogConfDir
 	LookupUser              = &lookupUser
+	DialSyslog              = &dialSyslog
+	SyslogTargets           = &syslogTargets
 	NewRsyslogConfigHandler = newRsyslogConfigHandler
 )

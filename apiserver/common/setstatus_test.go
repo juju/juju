@@ -23,23 +23,23 @@ type fakeStatusSetter struct {
 	state.Entity
 	status params.Status
 	info   string
-	data   params.StatusData
+	data   map[string]interface{}
 	err    error
 	fetchError
 }
 
-func (s *fakeStatusSetter) SetStatus(status params.Status, info string, data params.StatusData) error {
+func (s *fakeStatusSetter) SetStatus(status params.Status, info string, data map[string]interface{}) error {
 	s.status = status
 	s.info = info
 	s.data = data
 	return s.err
 }
 
-func (s *fakeStatusSetter) Status() (status params.Status, info string, data params.StatusData, err error) {
+func (s *fakeStatusSetter) Status() (status params.Status, info string, data map[string]interface{}, err error) {
 	return s.status, s.info, s.data, nil
 }
 
-func (s *fakeStatusSetter) UpdateStatus(data params.StatusData) error {
+func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
 	for k, v := range data {
 		s.data[k] = v
 	}
@@ -123,7 +123,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
 			m("0"): &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			m("1"): &fakeStatusSetter{status: params.StatusError, info: "foo", data: params.StatusData{"foo": "blah"}},
+			m("1"): &fakeStatusSetter{status: params.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
 			m("2"): &fakeStatusSetter{status: params.StatusError, info: "some info"},
 			m("3"): &fakeStatusSetter{fetchError: "x3 error"},
 			m("4"): &fakeStatusSetter{status: params.StatusStarted},
@@ -145,10 +145,10 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 		Entities: []params.EntityStatus{
 			{Tag: "machine-0", Data: nil},
 			{Tag: "machine-1", Data: nil},
-			{Tag: "machine-2", Data: params.StatusData{"foo": "bar"}},
-			{Tag: "machine-3", Data: params.StatusData{"foo": "bar"}},
-			{Tag: "machine-4", Data: params.StatusData{"foo": "bar"}},
-			{Tag: "machine-5", Data: params.StatusData{"foo": "bar"}},
+			{Tag: "machine-2", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "machine-3", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "machine-4", Data: map[string]interface{}{"foo": "bar"}},
+			{Tag: "machine-5", Data: map[string]interface{}{"foo": "bar"}},
 			{Tag: "machine-6", Data: nil},
 		},
 	}
@@ -170,8 +170,8 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	}
 	c.Assert(get(m("1")).status, gc.Equals, params.StatusError)
 	c.Assert(get(m("1")).info, gc.Equals, "foo")
-	c.Assert(get(m("1")).data, gc.DeepEquals, params.StatusData{"foo": "blah"})
+	c.Assert(get(m("1")).data, gc.DeepEquals, map[string]interface{}{"foo": "blah"})
 	c.Assert(get(m("2")).status, gc.Equals, params.StatusError)
 	c.Assert(get(m("2")).info, gc.Equals, "some info")
-	c.Assert(get(m("2")).data, gc.DeepEquals, params.StatusData{"foo": "bar"})
+	c.Assert(get(m("2")).data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }

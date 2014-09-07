@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.state.apiserver")
+var logger = loggo.GetLogger("juju.apiserver")
 
 // loginRateLimit defines how many concurrent Login requests we will
 // accept

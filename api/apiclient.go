@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/rpc/jsoncodec"
 )
 
-var logger = loggo.GetLogger("juju.state.api")
+var logger = loggo.GetLogger("juju.api")
 
 // PingPeriod defines how often the internal connection health check
 // will run. It's a variable so it can be changed in tests.

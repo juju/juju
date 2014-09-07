@@ -42,7 +42,7 @@ type machine interface {
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (status params.Status, info string, data params.StatusData, err error)
+	Status() (status params.Status, info string, data map[string]interface{}, err error)
 	IsManual() (bool, error)
 }
 

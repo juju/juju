@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -44,7 +45,7 @@ type MachineConfig struct {
 	// This must only be set if the Bootstrap field is true
 	// (state servers started subsequently will acquire their serving info
 	// from another server)
-	StateServingInfo *params.StateServingInfo
+	StateServingInfo *state.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
 	// juju state database. Unless the new machine is running a state server
@@ -192,7 +193,7 @@ func AddAptCommands(
 	// If we're not doing an update, adding these packages is
 	// meaningless.
 	if addUpdateScripts {
-		c.AddPackage("aria2")
+		c.AddPackage("curl")
 		c.AddPackage("cpu-checker")
 		// TODO(axw) 2014-07-02 #1277359
 		// Don't install bridge-utils in cloud-init;

@@ -416,14 +416,17 @@ environments:
 	defer restore()
 
 	envs, err := environs.ReadEnvironsBytes([]byte(content))
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	environs.UpdateEnvironAttrs(envs, "deprecated", attrs)
 	_, err = envs.Config("deprecated")
-	c.Check(err, gc.IsNil)
-	log := s.writer.Log()
-	c.Assert(log, gc.HasLen, 1)
-	stripped := strings.Replace(log[0].Message, "\n", "", -1)
-	c.Assert(stripped, gc.Matches, expectedMsg)
+	c.Assert(err, gc.IsNil)
+
+	var stripped string
+	if log := s.writer.Log(); len(log) == 1 {
+		stripped = strings.Replace(log[0].Message, "\n", "", -1)
+	}
+
+	c.Check(stripped, gc.Matches, expectedMsg)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
@@ -432,6 +435,18 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 	}
 	expected := fmt.Sprintf(`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated\.` +
 		`The location to find tools is now specified using the "tools-metadata-url" attribute.*`)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarning(c *gc.C) {
+
+	// Test that the warning is logged.
+	attrs := testing.Attrs{"provisioner-safe-mode": true}
+	expected := fmt.Sprintf(
+		`Config attribute "%s" has been deprecated. Please utilize the "%s" config attribute instead.`,
+		"provisioner-safe-mode",
+		"provisioner-harvest-mode",
+	)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -448,12 +463,12 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 
 func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 	attrs := testing.Attrs{"type": "null"}
-	expected := `Provider type \"null\" has been renamed to \"manual\"\.Please update your environment configuration\.`
+	expected := `Provider type "null" has been renamed to "manual".Please update your environment configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
 	attrs := testing.Attrs{"lxc-use-clone": true}
-	expected := `Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".Please update your environment configuration\.`
+	expected := `Config attribute "lxc-use-clone" has been renamed to "lxc-clone".Please update your environment configuration.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }

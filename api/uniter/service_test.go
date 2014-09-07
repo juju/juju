@@ -123,5 +123,5 @@ func (s *serviceSuite) TestCharmURL(c *gc.C) {
 func (s *serviceSuite) TestGetOwnerTag(c *gc.C) {
 	tag, err := s.apiService.GetOwnerTag()
 	c.Assert(err, gc.IsNil)
-	c.Assert(tag, gc.Equals, "user-admin")
+	c.Assert(tag, gc.Equals, s.AdminUserTag(c).String())
 }

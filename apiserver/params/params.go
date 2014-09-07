@@ -67,9 +67,6 @@ type ErrorResult struct {
 	Error *Error
 }
 
-// StatusData contains additional information for a status.
-type StatusData map[string]interface{}
-
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
@@ -137,7 +134,7 @@ type AddMachinesResults struct {
 }
 
 // AddMachinesResults holds the name of a machine added by the
-// state.api.client.AddMachine call for a single machine.
+// api.client.AddMachine call for a single machine.
 type AddMachinesResult struct {
 	Machine string
 	Error   *Error
@@ -506,7 +503,7 @@ type MachineInfo struct {
 	InstanceId               string
 	Status                   Status
 	StatusInfo               string
-	StatusData               StatusData
+	StatusData               map[string]interface{}
 	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
@@ -552,7 +549,7 @@ type UnitInfo struct {
 	Ports          []network.Port
 	Status         Status
 	StatusInfo     string
-	StatusData     StatusData
+	StatusData     map[string]interface{}
 }
 
 func (i *UnitInfo) EntityId() EntityId {
