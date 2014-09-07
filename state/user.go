@@ -46,7 +46,7 @@ func (st *State) AddAdminUser(password string) (*User, error) {
 		return nil, errors.Trace(err)
 	}
 	adminTag := admin.UserTag()
-	_, err = st.AddEnvironmentUser(adminTag, adminTag, "")
+	_, err = st.AddEnvironmentUser(adminTag, adminTag)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create admin environment user")
 	}
