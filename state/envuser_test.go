@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -56,6 +57,25 @@ func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
 	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewUserTag("createdby"))
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
+}
+
+func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
+	_, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.RemoveEnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
+	user := s.factory.MakeUser(c, nil)
+	err := s.State.RemoveEnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
