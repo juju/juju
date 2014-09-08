@@ -609,6 +609,7 @@ func (*environ) SupportNetworks() bool {
 
 // RequiresSafeNetworker is specified on the EnvironCapability interface.
 func (*environ) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	// TODO(mue) Make the requirement configurable for tests.
 	return true
 }
 

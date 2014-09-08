@@ -15,12 +15,12 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Machiner", 0, NewMachinerAPI)
+	common.RegisterStandardFacade("Machiner", 0, NewMachinerAPIV0)
 	common.RegisterStandardFacade("Machiner", 1, NewMachinerAPIV1)
 }
 
-// MachinerAPI implements the API used by the machiner worker.
-type MachinerAPI struct {
+// MachinerAPIV0 implements version 0 of the Machiner API.
+type MachinerAPIV0 struct {
 	*common.LifeGetter
 	*common.StatusSetter
 	*common.DeadEnsurer
@@ -33,8 +33,8 @@ type MachinerAPI struct {
 	getCanRead   common.GetAuthFunc
 }
 
-// NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPI, error) {
+// NewMachinerAPIV0 creates a new instance of the Machiner API V0.
+func NewMachinerAPIV0(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPIV0, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -44,7 +44,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	getCanRead := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	return &MachinerAPI{
+	return &MachinerAPIV0{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
 		StatusSetter:       common.NewStatusSetter(st, getCanModify),
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
@@ -57,7 +57,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	}, nil
 }
 
-func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
+func (api *MachinerAPIV0) getMachine(tag names.Tag) (*state.Machine, error) {
 	entity, err := api.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
 }
 
 // SetMachineAddresses sets the given list of addresses for each given machine tag.
-func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
+func (api *MachinerAPIV0) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
 	}
@@ -97,12 +97,12 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 
 // MachinerAPIV1 implements version 1 of the Machiner API.
 type MachinerAPIV1 struct {
-	*MachinerAPI
+	*MachinerAPIV0
 }
 
 // NewMachinerAPIV1 creates a new instance of the Machiner API V1.
 func NewMachinerAPIV1(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPIV1, error) {
-	m0, err := NewMachinerAPI(st, resources, authorizer)
+	m0, err := NewMachinerAPIV0(st, resources, authorizer)
 	if err != nil {
 		return nil, err
 	}

@@ -40,21 +40,20 @@ func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	var result params.GetMachinesResultsV1
 	args := params.GetMachinesV1{[]string{tag.String()}}
 	err := st.facade.FacadeCall("GetMachines", args, &result)
-	if err != nil {
-		if params.IsCodeNotImplemented(err) {
-			// Version is lower than expected.
-			life, err := st.machineLife(tag)
-			if err != nil {
-				return nil, err
-			}
-			return &Machine{
-				tag:                  tag,
-				life:                 life,
-				isManual:             false,
-				isManualNotSupported: true,
-				st:                   st,
-			}, nil
+	if params.IsCodeNotImplemented(err) {
+		// Version is lower than expected.
+		life, err := st.machineLife(tag)
+		if err != nil {
+			return nil, err
 		}
+		return &Machine{
+			tag:                  tag,
+			life:                 life,
+			isManual:             false,
+			isManualNotSupported: true,
+			st:                   st,
+		}, nil
+	} else if err != nil {
 		return nil, err
 	}
 	// Server runs V1 or higher.

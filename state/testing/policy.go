@@ -60,18 +60,18 @@ func (p *MockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDist
 // mockMachineInfoGetter helps to test the RequiresSafeNetworker
 // environment capability.
 type mockMachineInfoGetter struct {
-	id                  string
-	isManual            bool
-	isManualNotProvided bool
+	id                   string
+	isManual             bool
+	isManualNotSupported bool
 }
 
 // NewMachineInfoGetter creates a mock implementing the
 // state.MachineInfoGetter interface.
-func NewMachineInfoGetter(id string, isManual, isManualNotProvided bool) state.MachineInfoGetter {
+func NewMachineInfoGetter(id string, isManual, isManualNotSupported bool) state.MachineInfoGetter {
 	return &mockMachineInfoGetter{
-		id:                  id,
-		isManual:            isManual,
-		isManualNotProvided: isManualNotProvided,
+		id:                   id,
+		isManual:             isManual,
+		isManualNotSupported: isManualNotSupported,
 	}
 }
 
@@ -82,7 +82,7 @@ func (mig *mockMachineInfoGetter) Id() string {
 
 // IsManual returns whether the simulated machine was manually provisioned.
 func (mig *mockMachineInfoGetter) IsManual() (bool, bool) {
-	return mig.isManual, mig.isManualNotProvided
+	return mig.isManual, mig.isManualNotSupported
 }
 
 // RequiresSafeNetworkerTest tests the RequiresSafeNetworker environ capability
@@ -136,7 +136,7 @@ func RequiresSafeNetworkerTest(c *gc.C, env environs.Environ, requirements [16]b
 	}
 }
 
-// RequiresSafeNetworkerTestDefault represents the standard where
+// RequiresSafeNetworkerTestDefault represents the the usual case where
 // a safe networker is required for disabled network management or
 // manual provisioning. Of the latter information isn't available due
 // to API V0 it is required too.

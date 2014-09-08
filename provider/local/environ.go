@@ -53,8 +53,7 @@ const (
 	// Using "localhost" because it is, and it makes sense.
 	bootstrapInstanceId instance.Id = "localhost"
 
-	// bootstrapMachineId is the id of the bootstrap machine and
-	// used to check if a safe networker is required.
+	// bootstrapMachineId is the id of the bootstrap machine.
 	bootstrapMachineId = "0"
 )
 
