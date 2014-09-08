@@ -114,9 +114,8 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 // AddEnvironmentUser adds a new user to the database.
 func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*EnvironmentUser, error) {
 	var displayName string
-
 	// Ensure local user exists in state before adding them as an environment user.
-	if user.Provider() == names.LocalProvider {
+	if user.IsLocal() {
 		localUser, err := st.User(user.Name())
 		if err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", user.Name()))
@@ -125,38 +124,41 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 	}
 
 	// Ensure local createdBy user exists.
-	if createdBy.Provider() == names.LocalProvider {
+	if createdBy.IsLocal() {
 		if _, err := st.User(createdBy.Name()); err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("createdBy user %q does not exist locally", createdBy.Name()))
 		}
 	}
 
-	username := user.Username()
 	envuuid := st.EnvironTag().Id()
-	id := envUserID(envuuid, username)
-	envUser := &EnvironmentUser{
-		st: st,
-		doc: envUserDoc{
-			ID:          id,
-			EnvUUID:     envuuid,
-			UserName:    username,
-			DisplayName: displayName,
-			CreatedBy:   createdBy.Username(),
-			DateCreated: nowToTheSecond(),
-		}}
-
-	ops := []txn.Op{{
-		C:      envUsersC,
-		Id:     id,
-		Assert: txn.DocMissing,
-		Insert: &envUser.doc,
-	}}
-	err := st.runTransaction(ops)
+	op, doc := createEnvUserOpAndDoc(envuuid, user, createdBy, displayName)
+	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
 		err = errors.New("env user already exists")
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return envUser, nil
+	return &EnvironmentUser{st: st, doc: *doc}, nil
+}
+
+func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displayName string) (txn.Op, *envUserDoc) {
+	username := user.Username()
+	creatorname := createdBy.Username()
+	id := envUserID(envuuid, username)
+	doc := &envUserDoc{
+		ID:          id,
+		EnvUUID:     envuuid,
+		UserName:    username,
+		DisplayName: displayName,
+		CreatedBy:   creatorname,
+		DateCreated: nowToTheSecond(),
+	}
+	op := txn.Op{
+		C:      envUsersC,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}
+	return op, doc
 }

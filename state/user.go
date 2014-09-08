@@ -36,23 +36,6 @@ func (st *State) checkUserExists(name string) (bool, error) {
 	return count > 0, nil
 }
 
-// AddAdminUser adds a user with name 'admin' and the given password to the
-// state server. It then adds that user as an environment user with
-// username 'admin@local', indicating that the user's provider is 'local' i.e.
-// the state server.
-func (st *State) AddAdminUser(password string) (*User, error) {
-	admin, err := st.AddUser(AdminUser, "", password, "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	adminTag := admin.UserTag()
-	_, err = st.AddEnvironmentUser(adminTag, adminTag)
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to create admin environment user")
-	}
-	return admin, nil
-}
-
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
 	if !names.IsValidUserName(name) {
@@ -87,6 +70,23 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 		return nil, errors.Trace(err)
 	}
 	return user, nil
+}
+
+func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op {
+	doc := userDoc{
+		Name:         user.Name(),
+		DisplayName:  user.Name(),
+		PasswordHash: password,
+		// Empty PasswordSalt means utils.CompatSalt
+		CreatedBy:   user.Name(),
+		DateCreated: nowToTheSecond(),
+	}
+	return txn.Op{
+		C:      usersC,
+		Id:     doc.Name,
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}
 }
 
 // getUser fetches information about the user with the
