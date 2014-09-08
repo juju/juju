@@ -4,10 +4,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -303,14 +304,13 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		return err
 	}
 
-	f, err := os.Open(filepath.Join(
+	data, err := ioutil.ReadFile(filepath.Join(
 		agenttools.SharedToolsDir(dataDir, version.Current),
 		"tools.tar.gz",
 	))
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
 	storage, err := st.ToolsStorage()
 	if err != nil {
@@ -339,7 +339,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 			SHA256:  tools.SHA256,
 		}
 		logger.Debugf("Adding tools: %v", toolsVersion)
-		if err := storage.AddTools(f, metadata); err != nil {
+		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
 			return err
 		}
 	}
