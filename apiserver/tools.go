@@ -169,7 +169,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolsto
 		return nil, errors.Errorf("size mismatch for %s", tools.URL)
 	}
 	if sha256 != tools.SHA256 {
-		return nil, errors.Errorf("SHA-256 mismatch for %s", tools.URL)
+		return nil, errors.Errorf("hash mismatch for %s", tools.URL)
 	}
 
 	// Cache tarball in toolstorage before returning.

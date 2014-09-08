@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -19,10 +20,11 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/environs/tools"
+	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -121,7 +123,7 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
-	toolsFile := tools.StorageName(vers)
+	toolsFile := envtools.StorageName(vers)
 	return expectedTools, vers, path.Join(localStorage, toolsFile)
 }
 
@@ -139,13 +141,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	storage, err := s.State.ToolsStorage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-	_, r, err := storage.Tools(vers)
-	c.Assert(err, gc.IsNil)
-	uploadedData, err := ioutil.ReadAll(r)
-	r.Close()
+	_, uploadedData := s.getToolsFromStorage(c, vers)
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
@@ -230,18 +226,101 @@ func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	s.testDownload(c, environ.UUID())
+	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
+		Version: version.Current,
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	s.testDownload(c, tools, environ.UUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
-	s.testDownload(c, "")
+	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
+		Version: version.Current,
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	s.testDownload(c, tools, "")
 }
 
-func (s *toolsSuite) testDownload(c *gc.C, uuid string) {
+func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
+	// The tools are not in toolstorage, so the download request causes
+	// the API server to search for the tools in simplestreams, fetch
+	// them, and then cache them in toolstorage.
+	vers := version.MustParseBinary("1.23.0-trusty-amd64")
+	stor := s.Environ.Storage()
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, vers)[0]
+	data := s.testDownload(c, tools, "")
+
+	metadata, cachedData := s.getToolsFromStorage(c, tools.Version)
+	c.Assert(metadata.Size, gc.Equals, tools.Size)
+	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
+	c.Assert(string(cachedData), gc.Equals, string(data))
+}
+
+func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
+	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	stor := s.Environ.Storage()
 	envtesting.RemoveTools(c, stor)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
+	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader("!"), 1)
 
+	resp, err := s.downloadRequest(c, tools.Version, "")
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "size mismatch for .*")
+	s.assertToolsNotStored(c, tools.Version)
+}
+
+func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
+	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
+	stor := s.Environ.Storage()
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
+	sameSize := strings.Repeat("!", int(tools.Size))
+	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader(sameSize), tools.Size)
+	c.Assert(err, gc.IsNil)
+
+	resp, err := s.downloadRequest(c, tools.Version, "")
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "hash mismatch for .*")
+	s.assertToolsNotStored(c, tools.Version)
+}
+
+func (s *toolsSuite) storeFakeTools(c *gc.C, content string, metadata toolstorage.Metadata) *coretools.Tools {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	err = storage.AddTools(strings.NewReader(content), metadata)
+	c.Assert(err, gc.IsNil)
+	return &coretools.Tools{
+		Version: metadata.Version,
+		Size:    metadata.Size,
+		SHA256:  metadata.SHA256,
+	}
+}
+
+func (s *toolsSuite) getToolsFromStorage(c *gc.C, vers version.Binary) (toolstorage.Metadata, []byte) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	metadata, r, err := storage.Tools(vers)
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadAll(r)
+	r.Close()
+	c.Assert(err, gc.IsNil)
+	return metadata, data
+}
+
+func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	_, err = storage.Metadata(vers)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
 	resp, err := s.downloadRequest(c, tools.Version, uuid)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
@@ -252,6 +331,7 @@ func (s *toolsSuite) testDownload(c *gc.C, uuid string) {
 	hash := sha256.New()
 	hash.Write(data)
 	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+	return data
 }
 
 func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {
