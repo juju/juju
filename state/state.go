@@ -116,6 +116,17 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
+// ForEnviron returns a connection to mongo for the specified environment. The
+// connection uses the same credentails and policy as the existing connection.
+func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
+	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newState.environTag = env
+	return newState, nil
+}
+
 // EnvironTag() returns the environment tag for the environment controlled by
 // this state instance.
 func (st *State) EnvironTag() names.EnvironTag {
