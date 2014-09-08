@@ -1,8 +1,0 @@
-#!/bin/bash
-: ${SCRIPTS=$(readlink -f $(dirname $0))}
-set -eux
-export JUJU_HOME=$HOME/cloud-city
-: ${JUJU_REPOSITORY=$HOME/repository}
-export JUJU_REPOSITORY
-unset ENV CHARM_PREFIX WORKSPACE UPGRADE SERIES
-$SCRIPTS/deploy_job.py --run-startup $@
