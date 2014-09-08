@@ -98,7 +98,7 @@ func SampleConfig() testing.Attrs {
 // tests a way to get to the user name that was used to initialise the
 // database, and as such, is the owner of the initial environment.
 func AdminUserTag() names.UserTag {
-	return names.NewUserTag("admin")
+	return names.NewLocalUserTag("admin")
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -701,8 +701,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		// TODO(thumper): make the state.User method require a names.UserTag.
-		owner, err := st.User(env.Owner().Name())
+		owner, err := st.User(env.Owner())
 		if err != nil {
 			panic(err)
 		}

@@ -106,7 +106,7 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	id := envUserID(st.EnvironTag().Id(), user.Username())
 	err := envUsers.FindId(id).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("envUser %q", user.Username())
+		return nil, errors.NotFoundf("environment user %q", user.Username())
 	}
 	return envUser, nil
 }
@@ -116,7 +116,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 	var displayName string
 	// Ensure local user exists in state before adding them as an environment user.
 	if user.IsLocal() {
-		localUser, err := st.User(user.Name())
+		localUser, err := st.User(user)
 		if err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("user %q does not exist locally", user.Name()))
 		}
@@ -125,7 +125,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 
 	// Ensure local createdBy user exists.
 	if createdBy.IsLocal() {
-		if _, err := st.User(createdBy.Name()); err != nil {
+		if _, err := st.User(createdBy); err != nil {
 			return nil, errors.Annotate(err, fmt.Sprintf("createdBy user %q does not exist locally", createdBy.Name()))
 		}
 	}
