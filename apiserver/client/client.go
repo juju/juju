@@ -64,7 +64,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
-		toolsFinder:  common.NewToolsFinder(st, urlGetter),
+		toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
 	}}, nil
 }
 
@@ -805,14 +805,20 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share environment"))
 			continue
 		}
-		if arg.Action == params.AddEnvUser {
-			_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
+		switch arg.Action {
+		case params.AddEnvUser:
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)
-				continue
 			}
-		} else {
+		case params.RemoveEnvUser:
+			err := c.api.state.RemoveEnvironmentUser(user)
+			if err != nil {
+				err = errors.Annotate(err, "could not unshare environment")
+				result.Results[i].Error = common.ServerError(err)
+			}
+		default:
 			result.Results[i].Error = common.ServerError(errors.Errorf("unknown action %q", arg.Action))
 		}
 	}

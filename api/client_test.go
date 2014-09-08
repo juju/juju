@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -191,6 +192,26 @@ func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
 	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
+	client := s.APIState.Client()
+	user := names.NewUserTag("foo@ubuntuone")
+	_, err := client.ShareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+
+	result, err := client.UnshareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {

@@ -260,7 +260,8 @@ func (context *upgradeContext) uploadTools() (err error) {
 		return err
 	}
 	defer f.Close()
-	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version)
+	additionalSeries := version.OSSupportedSeries(builtTools.Version.OS)
+	uploaded, err = context.apiClient.UploadTools(f, builtTools.Version, additionalSeries...)
 	if err != nil {
 		return err
 	}

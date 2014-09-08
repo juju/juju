@@ -80,7 +80,9 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("initializing environment")
+	owner := names.NewUserTag("admin")
+	logger.Infof("initializing environment, owner: %q", owner.Username())
+	logger.Infof("info: %#v", info)
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,10 +91,13 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
 	st.environTag = names.NewEnvironTag(uuid)
+	newEnvUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
+		createInitialUserOp(st, owner, info.Password),
 		createEnvironmentOp(st, cfg.Name(), uuid),
+		newEnvUserOp,
 		{
 			C:      stateServersC,
 			Id:     environGlobalKey,
@@ -186,7 +191,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
 	} else if mongoInfo.Password != "" {
-		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
+		if err := admin.Login(mongo.AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}

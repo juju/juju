@@ -42,6 +42,10 @@ type BootstrapParams struct {
 	// UploadTools reports whether we should upload the local tools and
 	// override the environment's specified agent-version.
 	UploadTools bool
+
+	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
+	// if there is an error during bootstrap.
+	KeepBroken bool
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -102,6 +106,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
+		KeepBroken:     args.KeepBroken,
 		AvailableTools: availableTools,
 	})
 	if err != nil {

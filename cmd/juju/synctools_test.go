@@ -247,7 +247,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
 	fake := fakeSyncToolsAPI{
-		uploadTools: func(r io.Reader, v version.Binary) (*coretools.Tools, error) {
+		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
 			data, err := ioutil.ReadAll(r)
 			c.Assert(err, gc.IsNil)
 			c.Assert(string(data), gc.Equals, "abc")
@@ -262,15 +262,15 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 
 type fakeSyncToolsAPI struct {
 	findTools   func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
-	uploadTools func(r io.Reader, v version.Binary) (*coretools.Tools, error)
+	uploadTools func(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error)
 }
 
 func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
 	return f.findTools(majorVersion, minorVersion, series, arch)
 }
 
-func (f *fakeSyncToolsAPI) UploadTools(r io.Reader, v version.Binary) (*coretools.Tools, error) {
-	return f.uploadTools(r, v)
+func (f *fakeSyncToolsAPI) UploadTools(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
+	return f.uploadTools(r, v, additionalSeries...)
 }
 
 func (f *fakeSyncToolsAPI) Close() error {

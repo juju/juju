@@ -333,7 +333,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add(u)
 
 	u = s.Factory.MakeUser(c, &factory.UserParams{Name: "other"})
-	s.Factory.MakeEnvUser(c, &factory.EnvUserParams{User: u.UserTag().Username()})
 	setDefaultPassword(c, u)
 	add(u)
 

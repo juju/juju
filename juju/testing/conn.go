@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -242,7 +244,40 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
+	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
+	c.Assert(err, gc.IsNil)
+
 	s.Environ = environ
+}
+
+// AddToolsToState adds tools to tools storage.
+func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	for _, v := range versions {
+		content := v.String()
+		hash := fmt.Sprintf("sha256(%s)", content)
+		err := storage.AddTools(strings.NewReader(content), toolstorage.Metadata{
+			Version: v,
+			Size:    int64(len(content)),
+			SHA256:  hash,
+		})
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+// AddDefaultToolsToState adds tools to tools storage for
+// {Number: version.Current.Number, Arch: amd64}, for the
+// "precise" series and the environment's preferred series.
+// The preferred series is default-series if specified,
+// otherwise the latest LTS.
+func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
+	preferredVersion := version.Current
+	preferredVersion.Arch = "amd64"
+	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
+	versions = append(versions, version.Current)
+	s.AddToolsToState(c, versions...)
 }
 
 var redialStrategy = utils.AttemptStrategy{
