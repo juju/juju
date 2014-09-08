@@ -80,6 +80,10 @@ type BootstrapParams struct {
 	// AvailableTools is a collection of tools which the Bootstrap method
 	// may use to decide which architecture/series to instantiate.
 	AvailableTools tools.List
+
+	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
+	// if there is an error during bootstrap.
+	KeepBroken bool
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.

@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api
@@ -502,6 +502,22 @@ func (c *Client) EnvironmentUUID() string {
 		return tag.Id()
 	}
 	return ""
+}
+
+// ShareEnvironment allows the given user in ModifyEnvironUsers to access the environment.
+func (c *Client) ShareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
+	var args params.ModifyEnvironUsers
+	for _, user := range users {
+		if &user != nil {
+			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+				UserTag: user.String(),
+				Action:  params.AddEnvUser,
+			})
+		}
+	}
+
+	err = c.facade.FacadeCall("ShareEnvironment", args, &result)
+	return result, err
 }
 
 // WatchAll holds the id of the newly-created AllWatcher.
