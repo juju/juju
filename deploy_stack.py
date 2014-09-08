@@ -366,7 +366,7 @@ def deploy_job():
     series = args.series
     if series is None:
         series = 'precise'
-    charm_prefix = 'local:${}/'.format(series)
+    charm_prefix = 'local:{}/'.format(series)
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, new_path, args.series, log_dir,
                        args.debug)
