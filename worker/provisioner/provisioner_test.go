@@ -115,14 +115,6 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = s.st.Provisioner()
 	c.Assert(s.provisioner, gc.NotNil)
-
-	// Set API host ports for tools URLs.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err = s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
 }
 
 // breakDummyProvider changes the environment config in state in a way
@@ -223,7 +215,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 
 				if checkPossibleTools != nil {
 					for _, t := range o.PossibleTools {
-						url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", t.Version)
+						url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.st.Addr(), t.Version)
 						c.Check(t.URL, gc.Equals, url)
 						t.URL = ""
 					}

@@ -22,7 +22,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
@@ -38,16 +37,6 @@ var _ = gc.Suite(&toolsSuite{})
 func (s *toolsSuite) SetUpSuite(c *gc.C) {
 	s.authHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/x-tar-gz"
-}
-
-func (s *toolsSuite) SetUpTest(c *gc.C) {
-	s.authHttpSuite.SetUpTest(c)
-	s.State.SetAPIHostPorts([][]network.HostPort{
-		network.AddressesWithPort(
-			network.NewAddresses("0.1.2.3"),
-			1234,
-		),
-	})
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {

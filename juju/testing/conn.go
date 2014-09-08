@@ -245,6 +245,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
+	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
+	c.Assert(err, gc.IsNil)
+
 	s.Environ = environ
 }
 

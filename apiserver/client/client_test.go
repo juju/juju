@@ -52,16 +52,6 @@ type Killer interface {
 
 var _ = gc.Suite(&clientSuite{})
 
-func (s *clientSuite) SetUpTest(c *gc.C) {
-	s.baseSuite.SetUpTest(c)
-
-	// Set API host port addresses for tools URL construction.
-	err := s.State.SetAPIHostPorts([][]network.HostPort{
-		network.AddressesWithPort(network.NewAddresses("0.1.2.3"), 1234),
-	})
-	c.Assert(err, gc.IsNil)
-}
-
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status(nil)
@@ -1845,7 +1835,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
-	url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", result.List[0].Version)
+	url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 
