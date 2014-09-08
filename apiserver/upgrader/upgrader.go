@@ -82,7 +82,7 @@ func NewUpgraderAPI(
 	}
 	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &UpgraderAPI{
-		ToolsGetter: common.NewToolsGetter(st, st, urlGetter, getCanReadWrite),
+		ToolsGetter: common.NewToolsGetter(st, st, st, urlGetter, getCanReadWrite),
 		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
 		st:          st,
 		resources:   resources,

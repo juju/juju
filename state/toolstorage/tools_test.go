@@ -95,49 +95,6 @@ func bumpVersion(v version.Binary) version.Binary {
 	return v
 }
 
-func (s *ToolsSuite) TestAddToolsAlias(c *gc.C) {
-	s.testAddTools(c, "abc")
-	alias := bumpVersion(version.Current)
-	err := s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, gc.IsNil)
-
-	md1, r1, err := s.storage.Tools(version.Current)
-	c.Assert(err, gc.IsNil)
-	defer r1.Close()
-	c.Assert(md1.Version, gc.Equals, version.Current)
-
-	md2, r2, err := s.storage.Tools(alias)
-	c.Assert(err, gc.IsNil)
-	defer r2.Close()
-	c.Assert(md2.Version, gc.Equals, alias)
-
-	c.Assert(md1.Size, gc.Equals, md2.Size)
-	c.Assert(md1.SHA256, gc.Equals, md2.SHA256)
-	data1, err := ioutil.ReadAll(r1)
-	c.Assert(err, gc.IsNil)
-	data2, err := ioutil.ReadAll(r2)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data1), gc.Equals, string(data2))
-}
-
-func (s *ToolsSuite) TestAddToolsAliasDoesNotReplace(c *gc.C) {
-	s.testAddTools(c, "abc")
-	alias := bumpVersion(version.Current)
-	err := s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, gc.IsNil)
-	err = s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
-}
-
-func (s *ToolsSuite) TestAddToolsAliasNotExist(c *gc.C) {
-	// try to alias a non-existent version
-	alias := bumpVersion(version.Current)
-	err := s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, _, err = s.storage.Tools(alias)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *ToolsSuite) TestAllMetadata(c *gc.C) {
 	metadata, err := s.storage.AllMetadata()
 	c.Assert(err, gc.IsNil)
@@ -155,8 +112,7 @@ func (s *ToolsSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, jc.SameContents, expected)
 
 	alias := bumpVersion(version.Current)
-	err = s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, gc.IsNil)
+	s.addMetadataDoc(c, alias, 3, "hash(abc)", "path")
 
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, gc.IsNil)

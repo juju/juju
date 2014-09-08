@@ -87,7 +87,7 @@ func (c *SyncToolsCommand) Init(args []string) error {
 // api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
-	UploadTools(r io.Reader, v version.Binary) (*coretools.Tools, error)
+	UploadTools(r io.Reader, v version.Binary, series ...string) (*coretools.Tools, error)
 	Close() error
 }
 
@@ -119,7 +119,11 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 			writeMirrors = envtools.WriteMirrors
 		}
 		sctx.TargetToolsFinder = sync.StorageToolsFinder{Storage: stor}
-		sctx.TargetToolsUploader = sync.StorageToolsUploader{Storage: stor, WriteMirrors: writeMirrors}
+		sctx.TargetToolsUploader = sync.StorageToolsUploader{
+			Storage:       stor,
+			WriteMetadata: true,
+			WriteMirrors:  writeMirrors,
+		}
 	} else {
 		if c.public {
 			logger.Warningf("--public is ignored unless --local-dir is specified")

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -34,6 +35,7 @@ func (s *toolsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
+	s.AddDefaultToolsToState(c)
 }
 
 func (s *toolsSuite) TestTools(c *gc.C) {
@@ -42,7 +44,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 			return tag == names.NewMachineTag("0") || tag == names.NewMachineTag("42")
 		}, nil
 	}
-	tg := common.NewToolsGetter(s.State, s.State, sprintfURLGetter("tools:%s"), getCanRead)
+	tg := common.NewToolsGetter(s.State, s.State, s.State, sprintfURLGetter("tools:%s"), getCanRead)
 	c.Assert(tg, gc.NotNil)
 
 	err := s.machine0.SetAgentVersion(version.Current)
@@ -57,6 +59,7 @@ func (s *toolsSuite) TestTools(c *gc.C) {
 	result, err := tg.Tools(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 	c.Assert(result.Results[0].Tools, gc.NotNil)
 	c.Assert(result.Results[0].Tools.Version, gc.DeepEquals, version.Current)
 	c.Assert(result.Results[0].Tools.URL, gc.Equals, "tools:"+version.Current.String())
@@ -69,7 +72,7 @@ func (s *toolsSuite) TestToolsError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
-	tg := common.NewToolsGetter(s.State, s.State, sprintfURLGetter("%s"), getCanRead)
+	tg := common.NewToolsGetter(s.State, s.State, s.State, sprintfURLGetter("%s"), getCanRead)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-42"}},
 	}
@@ -138,36 +141,117 @@ func (s *toolsSuite) TestToolsSetError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindTools(c *gc.C) {
-	list := coretools.List{&coretools.Tools{Version: version.Current}}
+	envtoolsList := coretools.List{
+		&coretools.Tools{
+			Version: version.MustParseBinary("123.456.0-win81-alpha"),
+			Size:    2048,
+			SHA256:  "badf00d",
+		},
+		&coretools.Tools{
+			Version: version.MustParseBinary("123.456.1-win81-alpha"),
+		},
+	}
+	storageMetadata := []toolstorage.Metadata{{
+		Version: version.MustParseBinary("123.456.0-win81-alpha"),
+		Size:    1024,
+		SHA256:  "feedface",
+	}}
+
 	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (coretools.List, error) {
 		c.Assert(major, gc.Equals, 123)
 		c.Assert(minor, gc.Equals, 456)
-		c.Assert(filter.Number, gc.Equals, version.Current.Number)
 		c.Assert(filter.Series, gc.Equals, "win81")
 		c.Assert(filter.Arch, gc.Equals, "alpha")
-		return list, nil
+		return envtoolsList, nil
 	})
-	toolsFinder := common.NewToolsFinder(s.State, sprintfURLGetter("tools:%s"))
+	toolsFinder := common.NewToolsFinder(s.State, &mockToolsStorage{metadata: storageMetadata}, sprintfURLGetter("tools:%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{
-		Number:       version.Current.Number,
 		MajorVersion: 123,
 		MinorVersion: 456,
 		Series:       "win81",
 		Arch:         "alpha",
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.List, gc.DeepEquals, list)
-	c.Assert(result.List[0].URL, gc.Equals, "tools:"+version.Current.String())
+	c.Assert(result.Error, gc.IsNil)
+	c.Assert(result.List, gc.DeepEquals, coretools.List{
+		&coretools.Tools{
+			Version: storageMetadata[0].Version,
+			Size:    storageMetadata[0].Size,
+			SHA256:  storageMetadata[0].SHA256,
+			URL:     "tools:" + storageMetadata[0].Version.String(),
+		},
+		envtoolsList[1],
+	})
 }
 
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
 	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	toolsFinder := common.NewToolsFinder(s.State, sprintfURLGetter("%s"))
+	toolsFinder := common.NewToolsFinder(s.State, s.State, sprintfURLGetter("%s"))
 	result, err := toolsFinder.FindTools(params.FindToolsParams{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
+}
+
+func (s *toolsSuite) TestFindToolsExactInStorage(c *gc.C) {
+	mockToolsStorage := &mockToolsStorage{
+		metadata: []toolstorage.Metadata{{Version: version.Current}},
+	}
+	s.testFindToolsExact(c, mockToolsStorage, true)
+}
+
+func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
+	mockToolsStorage := &mockToolsStorage{}
+	s.testFindToolsExact(c, mockToolsStorage, false)
+}
+
+func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool) {
+	var called bool
+	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+		called = true
+		c.Assert(filter.Number, gc.Equals, version.Current.Number)
+		c.Assert(filter.Series, gc.Equals, version.Current.Series)
+		c.Assert(filter.Arch, gc.Equals, version.Current.Arch)
+		return nil, errors.NotFoundf("tools")
+	})
+	toolsFinder := common.NewToolsFinder(s.State, t, sprintfURLGetter("tools:%s"))
+	result, err := toolsFinder.FindTools(params.FindToolsParams{
+		Number:       version.Current.Number,
+		MajorVersion: -1,
+		MinorVersion: -1,
+		Series:       version.Current.Series,
+		Arch:         version.Current.Arch,
+	})
+	c.Assert(err, gc.IsNil)
+	if inStorage {
+		c.Assert(result.Error, gc.IsNil)
+		c.Assert(called, jc.IsFalse)
+	} else {
+		c.Assert(result.Error, gc.ErrorMatches, "tools not found")
+		c.Assert(called, jc.IsTrue)
+	}
+}
+
+func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
+	var called bool
+	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+		called = true
+		return nil, errors.NotFoundf("tools")
+	})
+	toolsFinder := common.NewToolsFinder(s.State, &mockToolsStorage{
+		err: errors.New("AllMetadata failed"),
+	}, sprintfURLGetter("tools:%s"))
+	result, err := toolsFinder.FindTools(params.FindToolsParams{
+		MajorVersion: 1,
+		MinorVersion: -1,
+	})
+	c.Assert(err, gc.IsNil)
+	// ToolsStorage errors always cause FindTools to bail. Only
+	// if AllMetadata succeeds but returns nothing that matches
+	// do we continue on to searching simplestreams.
+	c.Assert(result.Error, gc.ErrorMatches, "AllMetadata failed")
+	c.Assert(called, jc.IsFalse)
 }
 
 func (s *toolsSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
@@ -209,4 +293,22 @@ type mockAPIHostPortsGetter struct {
 
 func (g mockAPIHostPortsGetter) APIHostPorts() ([][]network.HostPort, error) {
 	return g.hostPorts, g.err
+}
+
+type mockToolsStorage struct {
+	toolstorage.Storage
+	metadata []toolstorage.Metadata
+	err      error
+}
+
+func (s *mockToolsStorage) ToolsStorage() (toolstorage.StorageCloser, error) {
+	return s, nil
+}
+
+func (s *mockToolsStorage) Close() error {
+	return nil
+}
+
+func (s *mockToolsStorage) AllMetadata() ([]toolstorage.Metadata, error) {
+	return s.metadata, s.err
 }

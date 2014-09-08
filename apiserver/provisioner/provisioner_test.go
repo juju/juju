@@ -1320,13 +1320,6 @@ func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
 	args := params.FindToolsParams{
 		MajorVersion: -1,
 		MinorVersion: -1,
@@ -1336,7 +1329,7 @@ func (s *withoutStateServerSuite) TestFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.Not(gc.HasLen), 0)
 	for _, tools := range result.List {
-		url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", tools.Version)
+		url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), tools.Version)
 		c.Assert(tools.URL, gc.Equals, url)
 	}
 }

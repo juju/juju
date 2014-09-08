@@ -4,14 +4,14 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
 )
 
@@ -41,20 +41,36 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 	}
 
 	// Find the appropriate tools information.
+	agentVersion, ok := environConfig.AgentVersion()
+	if !ok {
+		return nil, errors.New("no agent version set in environment configuration")
+	}
+	environment, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(environment.UUID(), st)
+	toolsFinder := common.NewToolsFinder(st, st, urlGetter)
+	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
+		Number:       agentVersion,
+		MajorVersion: -1,
+		MinorVersion: -1,
+		Series:       machine.Series(),
+		Arch:         *hc.Arch,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if findToolsResult.Error != nil {
+		return nil, findToolsResult.Error
+	}
+	tools := findToolsResult.List[0]
+
+	// Find the API endpoints.
 	env, err := environs.New(environConfig)
 	if err != nil {
 		return nil, err
 	}
-	agentVersion, ok := env.Config().AgentVersion()
-	if !ok {
-		return nil, errors.New("no agent version set in environment configuration")
-	}
-	tools, err := envtools.FindExactTools(env, agentVersion, machine.Series(), *hc.Arch)
-	if err != nil {
-		return nil, err
-	}
-
-	// Find the API endpoints.
 	apiInfo, err := environs.APIInfo(env)
 	if err != nil {
 		return nil, err
