@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/wrench"
 )
 
 type upgradingMachineAgent interface {
@@ -67,6 +68,11 @@ type upgradeWorkerContext struct {
 // InitialiseUsingAgent sets up a upgradeWorkerContext from a machine agent instance.
 // It may update the agent's configuration.
 func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) error {
+	if wrench.IsActive("machine-agent", "always-try-upgrade") {
+		// Always enter upgrade mode. This allows test of upgrades
+		// even when there's actually no upgrade steps to run.
+		return nil
+	}
 	return a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
 			logger.Infof("no upgrade steps required or upgrade steps for %v "+
@@ -115,6 +121,10 @@ func isAPILostDuringUpgrade(err error) bool {
 }
 
 func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
+	if wrench.IsActive("machine-agent", "fail-upgrade-start") {
+		return nil // Make the worker stop
+	}
+
 	select {
 	case <-c.UpgradeComplete:
 		// Our work is already done (we're probably being restarted
@@ -323,6 +333,14 @@ func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo,
 }
 
 func getUpgradeStartTimeout(isMaster bool) time.Duration {
+	if wrench.IsActive("machine-agent", "short-upgrade-timeout") {
+		// This duration is fairly arbitrary. During manual testing it
+		// avoids the normal long wait but still provides a small
+		// window to check the environment status and logs before the
+		// timeout is triggered.
+		return time.Minute
+	}
+
 	if isMaster {
 		return upgradeStartTimeoutMaster
 	}
