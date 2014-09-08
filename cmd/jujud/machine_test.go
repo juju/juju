@@ -126,10 +126,27 @@ func (s *commonMachineSuite) primeAgent(
 	c *gc.C, vers version.Binary,
 	jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 
-	// Add a machine and ensure it is provisioned.
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, m.Id())
+
+	pinger, err := m.SetAgentPresence()
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := pinger.Stop()
+		c.Check(err, gc.IsNil)
+	})
+
+	return s.configureMachine(c, m.Id(), vers)
+}
+
+func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
+	machine *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
+) {
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+
+	// Add a machine and ensure it is provisioned.
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), gc.IsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
