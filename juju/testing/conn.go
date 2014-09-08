@@ -268,10 +268,13 @@ func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
 	}
 }
 
-// AddPreferredToolsToState adds preferred tools to tools storage.
-func (s *JujuConnSuite) AddPreferredToolsToState(c *gc.C) {
+// AddDefaultToolsToState adds tools to tools storage for
+// {Number: version.Current.Number, Arch: amd64}, for the
+// "precise" series and the environment's preferred series.
+// The preferred series is default-series if specified,
+// otherwise the latest LTS.
+func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
 	preferredVersion := version.Current
-	preferredVersion.Series = "precise"
 	preferredVersion.Arch = "amd64"
 	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
 	versions = append(versions, version.Current)

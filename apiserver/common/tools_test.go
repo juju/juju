@@ -35,7 +35,7 @@ func (s *toolsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.AddPreferredToolsToState(c)
+	s.AddDefaultToolsToState(c)
 }
 
 func (s *toolsSuite) TestTools(c *gc.C) {
@@ -251,6 +251,7 @@ func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	// if AllMetadata succeeds but returns nothing that matches
 	// do we continue on to searching simplestreams.
 	c.Assert(result.Error, gc.ErrorMatches, "AllMetadata failed")
+	c.Assert(called, jc.IsFalse)
 }
 
 func (s *toolsSuite) TestToolsURLGetterNoAPIHostPorts(c *gc.C) {
