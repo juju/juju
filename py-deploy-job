@@ -9,7 +9,7 @@ fi
 if [ "${DEBUG-}" == "true" ]; then
   cmd="$cmd --debug"
 fi
-if [ ${SERIES-} != "" ]; then
+if [ "${SERIES-}" != "" ]; then
   cmd="$cmd --series $SERIES"
 fi
 unset NEW_JUJU_BIN ENV CHARM_PREFIX WORKSPACE UPGRADE SERIES
