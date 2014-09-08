@@ -11,6 +11,8 @@ import (
 
 var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
 
+// NewSender creates a new periodic worker that sends metrics
+// to a collection service
 func NewSender(client *metricsmanager.Client) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.SendMetrics()

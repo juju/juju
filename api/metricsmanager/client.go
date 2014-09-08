@@ -40,6 +40,7 @@ func (c *Client) CleanupOldMetrics() error {
 	return results.OneError()
 }
 
+// SendMetrics will send any unsent metrics to the collection service.
 func (c *Client) SendMetrics() error {
 	results := new(params.ErrorResult)
 	err := c.facade.FacadeCall("SendMetrics", nil, results)

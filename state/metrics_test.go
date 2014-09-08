@@ -211,3 +211,19 @@ func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	c.Assert(unsent, gc.Equals, 2)
 	c.Assert(unsent+sent, gc.Equals, 3)
 }
+
+// TestDontSendWithNilSender check that if the default sender
+// is nil we don't send anything, but still mark the items as sent
+func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+	now := time.Now()
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	err := s.State.SendMetrics()
+	c.Assert(err, gc.IsNil)
+	sent, err := s.State.CountofSentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 3)
+
+}

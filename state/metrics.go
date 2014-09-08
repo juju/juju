@@ -143,6 +143,8 @@ func (st *State) CleanupOldMetrics() error {
 	})
 }
 
+// MetricSender defines the interface used to send metrics
+// to a collection service.
 type MetricSender interface {
 	Send([]*MetricBatch) error
 }
@@ -167,11 +169,14 @@ func (st *State) SendMetrics() error {
 	doc := metricBatchDoc{}
 	batch := make([]*MetricBatch, MaxBatchesPerSend)
 	for s := 0; s < MaxSendsPerCall; s++ {
-		i := 0
-		for i = 0; i < MaxBatchesPerSend; i++ {
+		var i int
+		for ; i < MaxBatchesPerSend; i++ {
 			if iter.Next(&doc) {
 				batch[i] = &MetricBatch{st: st, doc: doc}
 			} else {
+				if iter.Err() != nil {
+					return iter.Err()
+				}
 				break
 			}
 		}
@@ -186,6 +191,10 @@ func (st *State) SendMetrics() error {
 			return err
 		}
 	}
+	err := iter.Close()
+	if err != nil {
+		return err
+	}
 	unsent, err := st.CountofUnsentMetrics()
 	if err != nil {
 		return err
@@ -199,6 +208,8 @@ func (st *State) SendMetrics() error {
 	return nil
 }
 
+// CountofUnsentMetrics returns the number of metrics that
+// haven't been sent to the collection service.
 func (st *State) CountofUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
@@ -207,6 +218,9 @@ func (st *State) CountofUnsentMetrics() (int, error) {
 	}).Count()
 }
 
+// CountofSentMetrics returns the number of metrics that
+// have been sent to the collection service and have not
+// been removed by the cleanup worker.
 func (st *State) CountofSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
@@ -215,13 +229,14 @@ func (st *State) CountofSentMetrics() (int, error) {
 	}).Count()
 }
 
+// sendBatch send metrics over the MetricSender interface and
+// sets the metric's sent attribute.
 func (st *State) sendBatch(batch []*MetricBatch) error {
-	if MetricSend == nil {
-		return nil
-	}
-	err := MetricSend.Send(batch)
-	if err != nil {
-		return err
+	if MetricSend != nil {
+		err := MetricSend.Send(batch)
+		if err != nil {
+			return err
+		}
 	}
 	for _, m := range batch {
 		err := m.SetSent()
