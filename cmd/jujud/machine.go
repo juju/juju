@@ -202,6 +202,12 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
+// Dying returns the channel that can be used to see if the machine
+// agent is terminating.
+func (a *MachineAgent) Dying() <-chan struct{} {
+	return a.tomb.Dying()
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old

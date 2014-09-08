@@ -38,6 +38,7 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 			fmt.Sprintf("nonce-%s", machineId),
 			nil,
 		)
+		c.Assert(err, gc.IsNil)
 	}
 }
 

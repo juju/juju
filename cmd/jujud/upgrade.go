@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
-	"github.com/juju/juju/wrench"
 )
 
 type upgradingMachineAgent interface {
@@ -25,9 +24,29 @@ type upgradingMachineAgent interface {
 	setMachineStatus(*api.State, params.Status, string) error
 	CurrentConfig() agent.Config
 	ChangeConfig(AgentConfigMutator) error
+	Dying() <-chan struct{}
 }
 
-var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
+var (
+	upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching
+
+	// The maximum time a master state server will wait for other
+	// state servers to come up and indicate they are ready to begin
+	// running upgrade steps.
+	upgradeStartTimeoutMaster = time.Minute * 15
+
+	// The maximum time a secondary state server will wait for other
+	// state servers to come up and indicate they are ready to begin
+	// running upgrade steps. This is effectively "forever" because we
+	// don't really want secondaries to ever give up once they've
+	// indicated that they're ready to upgrade. It's up to the master
+	// to abort the upgrade if required.
+	//
+	// This should get reduced when/if master re-elections are
+	// introduce in the case a master that failing to come up for
+	// upgrade.
+	upgradeStartTimeoutSecondary = time.Hour * 4
+)
 
 func NewUpgradeWorkerContext() *upgradeWorkerContext {
 	return &upgradeWorkerContext{
@@ -143,6 +162,8 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	return nil
 }
 
+var agentTerminating = errors.New("machine agent is terminating")
+
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
 func (c *upgradeWorkerContext) runUpgrades() error {
@@ -154,28 +175,44 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 	}
 
 	a := c.agent
-	tag := c.agentConfig.Tag().(names.MachineTag)
+	tag, ok := c.agentConfig.Tag().(names.MachineTag)
+	if !ok {
+		return errors.New("machine agent's tag is not a MachineTag")
+	}
+	machineId := tag.Id()
 
-	isMaster, err := isMachineMaster(c.st, tag)
+	isMaster, err := isMachineMaster(c.st, machineId)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	var upgradeInfo *state.UpgradeInfo
 	if c.isStateServer {
+		upgradeInfo, err = c.st.EnsureUpgradeInfo(machineId, from.Number, version.Current.Number)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// State servers need to wait for other state servers to be
 		// ready to run the upgrade.
-		if err := waitForOtherStateServers(c.st, isMaster); err != nil {
-			logger.Errorf(`other state servers failed to come up for upgrade `+
-				`to %s - aborting: %v`, version.Current, err)
-			a.setMachineStatus(c.apiState, params.StatusError,
-				fmt.Sprintf("upgrade to %v aborted while waiting for other "+
-					"state servers: %v", version.Current, err))
-			// If master, trigger a rollback to the previous agent version.
-			if isMaster {
-				logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
-					from.Number)
-				if rollbackErr := c.st.SetEnvironAgentVersion(from.Number); rollbackErr != nil {
-					return errors.Annotate(rollbackErr, "failed to roll back desired agent version")
+		logger.Infof("waiting for other state servers to be ready for upgrade")
+		if err := c.waitForOtherStateServers(upgradeInfo, isMaster); err != nil {
+			if err == agentTerminating {
+				logger.Warningf(`stopped waiting for other state servers: %v`, err)
+			} else {
+				logger.Errorf(`other state servers failed to come up for upgrade `+
+					`to %s - aborting: %v`, version.Current, err)
+				a.setMachineStatus(c.apiState, params.StatusError,
+					fmt.Sprintf("upgrade to %v aborted while waiting for other "+
+						"state servers: %v", version.Current, err))
+				// If master, trigger a rollback to the previous agent version.
+				if isMaster {
+					logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+						from.Number)
+					if rollbackErr := c.st.SetEnvironAgentVersion(from.Number); rollbackErr != nil {
+						logger.Errorf("rollback failed: %v", rollbackErr)
+						return errors.Annotate(rollbackErr, "failed to roll back desired agent version")
+					}
 				}
 			}
 			return err
@@ -228,9 +265,68 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		return err
 	}
 
+	if c.isStateServer {
+		if isMaster {
+			if err := upgradeInfo.SetStatus(state.UpgradeFinishing); err != nil {
+				logger.Errorf("upgrade done but failed to set status: %v", err)
+				return err
+			}
+		}
+		if err := upgradeInfo.SetStateServerDone(machineId); err != nil {
+			logger.Errorf("upgrade done but failed to synchronise: %v", err)
+			return err
+		}
+	}
+
 	logger.Infof("upgrade to %v completed successfully.", version.Current)
 	a.setMachineStatus(c.apiState, params.StatusStarted, "")
 	return nil
+}
+
+func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo, isMaster bool) error {
+	watcher := info.Watch()
+
+	maxWait := getUpgradeStartTimeout(isMaster)
+	timeout := time.After(maxWait)
+	for {
+		select {
+		case <-watcher.Changes():
+			if err := info.Refresh(); err != nil {
+				return errors.Trace(err)
+			}
+			if isMaster {
+				if ready, err := info.AllProvisionedStateServersReady(); err != nil {
+					return errors.Trace(err)
+				} else if ready {
+					// All state servers ready to start upgrade
+					err := info.SetStatus(state.UpgradeRunning)
+					return errors.Trace(err)
+				}
+			} else {
+				if info.Status() == state.UpgradeFinishing {
+					// Master is done, ok to proceed
+					return nil
+				}
+			}
+		case <-timeout:
+			if isMaster {
+				if err := info.Abort(); err != nil {
+					return errors.Annotate(err, "unable to abort upgrade")
+				}
+			}
+			return errors.Errorf("timed out after %s", maxWait)
+		case <-c.agent.Dying():
+			return agentTerminating
+		}
+
+	}
+}
+
+func getUpgradeStartTimeout(isMaster bool) time.Duration {
+	if isMaster {
+		return upgradeStartTimeoutMaster
+	}
+	return upgradeStartTimeoutSecondary
 }
 
 var openStateForUpgrade = func(
@@ -252,7 +348,7 @@ var openStateForUpgrade = func(
 	return st, nil
 }
 
-var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) {
+var isMachineMaster = func(st *state.State, machineId string) (bool, error) {
 	if st == nil {
 		// If there is no state, we aren't a master.
 		return false, nil
@@ -260,7 +356,7 @@ var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) 
 	// Not calling the agent openState method as it does other checks
 	// we really don't care about here.  All we need here is the machine
 	// so we can determine if we are the master or not.
-	machine, err := st.Machine(tag.Id())
+	machine, err := st.Machine(machineId)
 	if err != nil {
 		// This shouldn't happen, and if it does, the state worker will have
 		// found out before us, and already errored, or is likely to error out
@@ -273,16 +369,6 @@ var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) 
 		return false, errors.Trace(err)
 	}
 	return isMaster, nil
-}
-
-var waitForOtherStateServers = func(st *state.State, isMaster bool) error {
-	if wrench.IsActive("machine-agent", "fail-state-server-upgrade-wait") {
-		return errors.New("failing other state servers check due to wrench")
-	}
-	// TODO(mjs) - for now, assume that the other state servers are
-	// ready. This function will be fleshed out once the UpgradeInfo
-	// work is done.
-	return nil
 }
 
 var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
