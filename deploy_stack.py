@@ -367,7 +367,10 @@ def deploy_job():
         juju_path = args.new_juju_bin
     else:
         env = dict(os.environ)
-        env['ENV'] = args.env
+        env.update({
+            'ENV': args.env,
+            'WORKSPACE': args.workspace,
+            })
         scripts = os.path.dirname(os.path.abspath(sys.argv[0]))
         subprocess.check_call(
             ['bash', '{}/common-startup.sh'.format(scripts)], env=env)
