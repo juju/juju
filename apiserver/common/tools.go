@@ -91,7 +91,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, toolsStorage)
 		if err == nil {
 			result.Results[i].Tools = agentTools
-			// TODO(axw) Get rid of this in 1.22, when all clients
+			// TODO(axw) Get rid of this in 1.22, when all upgraders
 			// are known to ignore the flag.
 			result.Results[i].DisableSSLHostnameVerification = true
 		}
@@ -223,13 +223,13 @@ func (f *ToolsFinder) FindTools(args params.FindToolsParams) (params.FindToolsRe
 // findTools calls findMatchingTools and then rewrites the URLs
 // using the provided ToolsURLGetter.
 func (f *ToolsFinder) findTools(args params.FindToolsParams) (coretools.List, error) {
-	// Rewrite the URLs so they point at the API server. If the
-	// tools are not in toolstorage, then the API server will
-	// download and cache them if the client requests that version.
 	list, err := f.findMatchingTools(args)
 	if err != nil {
 		return nil, err
 	}
+	// Rewrite the URLs so they point at the API server. If the
+	// tools are not in toolstorage, then the API server will
+	// download and cache them if the client requests that version.
 	for _, tools := range list {
 		url, err := f.urlGetter.ToolsURL(tools.Version)
 		if err != nil {
@@ -248,6 +248,8 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	storageList, err := f.matchingStorageTools(args)
 	if err == nil && exactMatch {
 		return storageList, nil
+	} else if err != nil && err != coretools.ErrNoMatches {
+		return nil, err
 	}
 
 	// Look for tools in simplestreams too, but don't replace
