@@ -23,10 +23,6 @@ type Storage interface {
 	// version.
 	AddTools(io.Reader, Metadata) error
 
-	// AddToolsAlias adds an alias for the tools with the specified version,
-	// failing if metadata already exists for the alias version.
-	AddToolsAlias(alias, version version.Binary) error
-
 	// Tools returns the Metadata and tools tarball contents
 	// for the specified version if it exists, else an error
 	// satisfying errors.IsNotFound.

@@ -64,7 +64,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
-		toolsFinder:  common.NewToolsFinder(st, urlGetter),
+		toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
 	}}, nil
 }
 
@@ -807,7 +807,7 @@ func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params
 		}
 		switch arg.Action {
 		case params.AddEnvUser:
-			_, err := c.api.state.AddEnvironmentUser(user, createdBy, "")
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
 			if err != nil {
 				err = errors.Annotate(err, "could not share environment")
 				result.Results[i].Error = common.ServerError(err)

@@ -1847,14 +1847,6 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
-	// Set API host ports for tools URL.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
@@ -1864,7 +1856,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
-	url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", result.List[0].Version)
+	url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), result.List[0].Version)
 	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 
@@ -2647,10 +2639,6 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
-	apiHostPorts, err := s.APIState.Client().APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.HasLen, 0)
-
 	server1Addresses := []network.Address{{
 		Value: "server-1",
 		Type:  network.HostName,
@@ -2672,9 +2660,9 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 		network.AddressesWithPort(server2Addresses, 456),
 	}
 
-	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, gc.IsNil)
-	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }

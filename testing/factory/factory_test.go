@@ -138,37 +138,32 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "foobar",
-		DisplayName: "displayName",
-		Creator:     "created-by",
+		Name:    "foobar",
+		Creator: "created-by",
 	})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:        "foobar",
-		DisplayName: "displayName",
-		CreatedBy:   "created-by",
+		User:      "foobar",
+		CreatedBy: "created-by",
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
-	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
 	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
 }
 
 func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:        "foobar@ubuntuone",
-		DisplayName: "displayName",
-		CreatedBy:   "created-by",
+		User:      "foobar@ubuntuone",
+		CreatedBy: "created-by",
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
-	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
 	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
 }
 

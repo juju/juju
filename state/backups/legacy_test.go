@@ -1,105 +1,83 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backups_test
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&legacySuite{})
-
-type legacySuite struct {
+type LegacySuite struct {
 	testing.BaseSuite
-	cwd       string
-	testFiles []string
 }
 
-func (s *legacySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.cwd = c.MkDir()
+type tarContent struct {
+	Name   string
+	Body   string
+	Nested []tarContent
 }
 
-func (s *legacySuite) createTestFiles(c *gc.C) {
-	tarDirE := path.Join(s.cwd, "TarDirectoryEmpty")
-	err := os.Mkdir(tarDirE, os.FileMode(0755))
-	c.Check(err, gc.IsNil)
-
-	tarDirP := path.Join(s.cwd, "TarDirectoryPopulated")
-	err = os.Mkdir(tarDirP, os.FileMode(0755))
-	c.Check(err, gc.IsNil)
-
-	tarSubFile1 := path.Join(tarDirP, "TarSubFile1")
-	tarSubFile1Handle, err := os.Create(tarSubFile1)
-	c.Check(err, gc.IsNil)
-	tarSubFile1Handle.WriteString("TarSubFile1")
-	tarSubFile1Handle.Close()
-
-	tarSubDir := path.Join(tarDirP, "TarDirectoryPopulatedSubDirectory")
-	err = os.Mkdir(tarSubDir, os.FileMode(0755))
-	c.Check(err, gc.IsNil)
-
-	tarFile1 := path.Join(s.cwd, "TarFile1")
-	tarFile1Handle, err := os.Create(tarFile1)
-	c.Check(err, gc.IsNil)
-	tarFile1Handle.WriteString("TarFile1")
-	tarFile1Handle.Close()
-
-	tarFile2 := path.Join(s.cwd, "TarFile2")
-	tarFile2Handle, err := os.Create(tarFile2)
-	c.Check(err, gc.IsNil)
-	tarFile2Handle.WriteString("TarFile2")
-	tarFile2Handle.Close()
-	s.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
-
+var expectedContents = map[string]string{
+	"TarDirectoryEmpty":                     "",
+	"TarDirectoryPopulated":                 "",
+	"TarDirectoryPopulated/TarSubFile1":     "TarSubFile1",
+	"TarDirectoryPopulated/TarSubDirectory": "",
+	"TarFile1":                              "TarFile1",
+	"TarFile2":                              "TarFile2",
 }
 
-type expectedTarContents struct {
-	Name string
-	Body string
-}
+func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) {
+	var expected []tarContent
+	var tempFiles []string
 
-var testExpectedTarContents = []expectedTarContents{
-	{"TarDirectoryEmpty", ""},
-	{"TarDirectoryPopulated", ""},
-	{"TarDirectoryPopulated/TarSubFile1", "TarSubFile1"},
-	{"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory", ""},
-	{"TarFile1", "TarFile1"},
-	{"TarFile2", "TarFile2"},
-}
+	rootDir := c.MkDir()
 
-// Assert thar contents checks that the tar[.gz] file provided contains the
-// Expected files
-// expectedContents: is a slice of the filenames with relative paths that are
-// expected to be on the tar file
-// tarFile: is the path of the file to be checked
-func (s *legacySuite) assertTarContents(
-	c *gc.C, expected []expectedTarContents, tarFile string, compressed bool,
-) {
-	f, err := os.Open(tarFile)
-	c.Assert(err, gc.IsNil)
-	defer f.Close()
-	var r io.Reader = f
-	if compressed {
-		r, err = gzip.NewReader(r)
-		c.Assert(err, gc.IsNil)
+	for name, body := range expectedContents {
+		filename := filepath.Join(rootDir, filepath.FromSlash(name))
+
+		top := (path.Dir(name) == ".")
+
+		if body == "" {
+			err := os.MkdirAll(filename, os.FileMode(0755))
+			c.Check(err, gc.IsNil)
+		} else {
+			if !top {
+				err := os.MkdirAll(filepath.Dir(filename), os.FileMode(0755))
+				c.Check(err, gc.IsNil)
+			}
+			file, err := os.Create(filename)
+			c.Assert(err, gc.IsNil)
+			file.WriteString(body)
+			file.Close()
+		}
+
+		if top {
+			tempFiles = append(tempFiles, filename)
+		}
+		content := tarContent{filepath.ToSlash(filename), body, nil}
+		expected = append(expected, content)
 	}
 
-	tr := tar.NewReader(r)
+	return rootDir, tempFiles, expected
+}
 
-	tarContents := make(map[string]string)
+func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
+	tr := tar.NewReader(tarFile)
+	contents := make(map[string]string)
+
 	// Iterate through the files in the archive.
 	for {
 		hdr, err := tr.Next()
@@ -110,61 +88,86 @@ func (s *legacySuite) assertTarContents(
 		c.Assert(err, gc.IsNil)
 		buf, err := ioutil.ReadAll(tr)
 		c.Assert(err, gc.IsNil)
-		tarContents[hdr.Name] = string(buf)
+		contents[hdr.Name] = string(buf)
 	}
-	for _, expectedContent := range expected {
-		fullExpectedContent := strings.TrimPrefix(expectedContent.Name, string(os.PathSeparator))
-		body, ok := tarContents[fullExpectedContent]
-		c.Log(tarContents)
-		c.Log(expected)
-		c.Log(fmt.Sprintf("checking for presence of %q on tar file", fullExpectedContent))
-		c.Assert(ok, gc.Equals, true)
-		if expectedContent.Body != "" {
+
+	return contents
+}
+
+func (s *LegacySuite) checkTarContents(
+	c *gc.C, tarFile io.Reader, allExpected []tarContent,
+) {
+	contents := readTarFile(c, tarFile)
+
+	// Check that the expected entries are there.
+	// XXX Check for unexpected entries.
+	for _, expected := range allExpected {
+		relPath := strings.TrimPrefix(expected.Name, string(os.PathSeparator))
+
+		c.Log(fmt.Sprintf("checking for presence of %q on tar file", relPath))
+		body, found := contents[relPath]
+		if !found {
+			c.Errorf("%q not found", expected.Name)
+			continue
+		}
+
+		if expected.Body != "" {
 			c.Log("Also checking the file contents")
-			c.Assert(body, gc.Equals, expectedContent.Body)
+			c.Check(body, gc.Equals, expected.Body)
+		}
+
+		if expected.Nested != nil {
+			c.Log("Also checking the nested tar file")
+			nestedFile := bytes.NewBufferString(body)
+			s.checkTarContents(c, nestedFile, expected.Nested)
 		}
 	}
 
-}
-
-func (s *legacySuite) TestBackup(c *gc.C) {
-	s.createTestFiles(c)
-
-	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
-		return "bogusmongodump", nil
-	})
-	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
-		return s.testFiles, nil
-	})
-	ranCommand := false
-	s.PatchValue(backups.RunCommand, func(command string, args ...string) error {
-		ranCommand = true
-		return nil
-	})
-
-	bkpFile, shaSum, err := backups.Backup("boguspassword", "bogus-user", s.cwd, "localhost:8080")
-	c.Check(err, gc.IsNil)
-	c.Assert(ranCommand, gc.Equals, true)
-
-	// It is important that the filename uses non-special characters
-	// only because it is returned in a header (unencoded) by the
-	// backup API call. This also avoids compatibility problems with
-	// client side filename conventions.
-	c.Check(bkpFile, gc.Matches, `^[a-z0-9_.-]+$`)
-
-	fileShaSum := shaSumFile(c, path.Join(s.cwd, bkpFile))
-	c.Assert(shaSum, gc.Equals, fileShaSum)
-
-	bkpExpectedContents := []expectedTarContents{
-		{"juju-backup", ""},
-		{"juju-backup/dump", ""},
-		{"juju-backup/root.tar", ""},
+	if c.Failed() {
+		c.Log("-----------------------")
+		c.Log("expected:")
+		for _, expected := range allExpected {
+			c.Log(fmt.Sprintf("%s -> %q", expected.Name, expected.Body))
+		}
+		c.Log("got:")
+		for name, body := range contents {
+			if len(body) > 200 {
+				body = body[:200] + "...(truncated)"
+			}
+			c.Log(fmt.Sprintf("%s -> %q", name, body))
+		}
 	}
-	s.assertTarContents(c, bkpExpectedContents, path.Join(s.cwd, bkpFile), true)
 }
 
-func (s *legacySuite) TestStorageName(c *gc.C) {
-	c.Check(backups.StorageName("foo"), gc.Equals, "/backups/foo")
-	c.Check(backups.StorageName("/foo/bar"), gc.Equals, "/backups/bar")
-	c.Check(backups.StorageName("foo/bar"), gc.Equals, "/backups/bar")
+func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum string) {
+	fileShaSum := shaSumFile(c, file)
+	c.Check(fileShaSum, gc.Equals, checksum)
+	resetFile(c, file)
+}
+
+func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size int64) {
+	stat, err := file.Stat()
+	c.Assert(err, gc.IsNil)
+	c.Check(stat.Size(), gc.Equals, size)
+}
+
+func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) {
+	expected := []tarContent{
+		{"juju-backup", "", nil},
+		{"juju-backup/dump", "", nil},
+		{"juju-backup/root.tar", "", bundle},
+	}
+
+	tarFile, err := gzip.NewReader(file)
+	c.Assert(err, gc.IsNil)
+
+	s.checkTarContents(c, tarFile, expected)
+	resetFile(c, file)
+}
+
+func resetFile(c *gc.C, reader io.Reader) {
+	file, ok := reader.(*os.File)
+	c.Assert(ok, gc.Equals, true)
+	_, err := file.Seek(0, os.SEEK_SET)
+	c.Assert(err, gc.IsNil)
 }

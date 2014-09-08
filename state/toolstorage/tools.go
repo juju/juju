@@ -82,31 +82,6 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) error {
 	return nil
 }
 
-func (s *toolsStorage) AddToolsAlias(alias, version version.Binary) error {
-	existingDoc, err := s.toolsMetadata(version)
-	if err != nil {
-		return err
-	}
-	newDoc := toolsMetadataDoc{
-		Id:      alias.String(),
-		Version: alias,
-		Size:    existingDoc.Size,
-		SHA256:  existingDoc.SHA256,
-		Path:    existingDoc.Path,
-	}
-	ops := []txn.Op{{
-		C:      s.metadataCollection.Name,
-		Id:     newDoc.Id,
-		Assert: txn.DocMissing,
-		Insert: &newDoc,
-	}}
-	err = s.txnRunner.RunTransaction(ops)
-	if err == txn.ErrAborted {
-		return errors.AlreadyExistsf("%v tools metadata", alias)
-	}
-	return err
-}
-
 func (s *toolsStorage) Tools(v version.Binary) (Metadata, io.ReadCloser, error) {
 	metadataDoc, err := s.toolsMetadata(v)
 	if err != nil {

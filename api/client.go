@@ -747,14 +747,14 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.Reader, vers version.Binary) (*tools.Tools, error) {
-	// Older versions of Juju expect to be told which series to expand
-	// the uploaded tools to on the server-side. In new versions we
-	// do this automatically, and the parameter will be ignored.
-	fakeSeries := version.OSSupportedSeries(vers.OS)
-
+func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
-	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
+	url := fmt.Sprintf(
+		"%s/tools?binaryVersion=%s&series=%s",
+		c.st.serverRoot,
+		vers,
+		strings.Join(additionalSeries, ","),
+	)
 	req, err := http.NewRequest("POST", url, r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")

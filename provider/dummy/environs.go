@@ -92,6 +92,15 @@ func SampleConfig() testing.Attrs {
 	}
 }
 
+// AdminUser returns the name used to bootstrap the dummy environment. The
+// dummy bootstrapping is handled slightly differently, and the user is
+// created as part of the bootstrap process.  This method is used to provide
+// tests a way to get to the user name that was used to initialise the
+// database, and as such, is the owner of the initial environment.
+func AdminUserTag() names.UserTag {
+	return names.NewUserTag("admin")
+}
+
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
 // will be added as primary.
@@ -688,10 +697,21 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
 			panic(err)
 		}
-		_, err = st.AddAdminUser(password)
+		env, err := st.Environment()
 		if err != nil {
 			panic(err)
 		}
+		// TODO(thumper): make the state.User method require a names.UserTag.
+		owner, err := st.User(env.Owner().Name())
+		if err != nil {
+			panic(err)
+		}
+		// We log this out for test purposes only. No one in real life can use
+		// a dummy provider for anything other than testing, so logging the password
+		// here is fine.
+		logger.Debugf("setting password for %q to %q", owner.Name(), password)
+		owner.SetPassword(password)
+
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),
