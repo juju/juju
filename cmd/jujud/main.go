@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -122,7 +123,9 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 func Main(args []string) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Criticalf("Unhandled panic: \n%v", r)
+			buf := make([]byte, 4096)
+			buf = buf[:runtime.Stack(buf, false)]
+			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
 			os.Exit(exit_panic)
 		}
 	}()
