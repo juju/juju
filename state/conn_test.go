@@ -70,7 +70,6 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
-	cs.State.AddAdminUser("pass")
 	cs.factory = factory.NewFactory(cs.State)
 	c.Log("SetUpTest done")
 }

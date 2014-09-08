@@ -108,17 +108,14 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
 		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
-	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
+	m, err := initConstraintsAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
 		return nil, nil, err
 	}
 	return st, m, nil
 }
 
-func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := initBootstrapUser(st, c.OldPassword()); err != nil {
-		return nil, fmt.Errorf("cannot initialize bootstrap user: %v", err)
-	}
+func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
 		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
 	}
@@ -129,30 +126,6 @@ func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg Bootstrap
 	return m, nil
 }
 
-// initBootstrapUser creates the initial admin user for the database, and sets
-// the initial password.
-func initBootstrapUser(st *state.State, passwordHash string) error {
-	logger.Debugf("adding admin user")
-	// Set up initial authentication.
-	u, err := st.AddAdminUser("") // empty initial passowrd
-	if err != nil {
-		return err
-	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-	logger.Debugf("setting password hash for admin user")
-	// TODO(jam): http://pad.lv/1248839
-	// We could teach bootstrap how to generate a custom salt and apply
-	// that to the hash that was generated. At which point we'd need to set
-	// it here. For now, we pass "" so that on first login we will create a
-	// new salt, but the fixed-salt password is still available from
-	// cloud-init.
-	return u.SetPasswordHash(passwordHash, "")
-}
-
 // initMongoAdminUser adds the admin user with the specified
 // password to the admin database in Mongo.
 func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
@@ -161,7 +134,7 @@ func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password strin
 		return err
 	}
 	defer session.Close()
-	return mongo.SetAdminMongoPassword(session, "admin", password)
+	return mongo.SetAdminMongoPassword(session, mongo.AdminUser, password)
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
