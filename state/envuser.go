@@ -141,7 +141,6 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 			CreatedBy:   createdBy.Username(),
 			DateCreated: nowToTheSecond(),
 		}}
-
 	ops := []txn.Op{{
 		C:      envUsersC,
 		Id:     id,
@@ -156,4 +155,22 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag, displayName s
 		return nil, errors.Trace(err)
 	}
 	return envUser, nil
+}
+
+// RemoveEnvironmentUser adds a new user to the database.
+func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
+	ops := []txn.Op{{
+		C:      envUsersC,
+		Id:     envUserID(st.EnvironTag().Id(), user.Username()),
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	err := st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		err = errors.NewNotFound(err, fmt.Sprintf("env user %q does not exist", user.Username()))
+	}
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

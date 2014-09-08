@@ -504,7 +504,7 @@ func (c *Client) EnvironmentUUID() string {
 	return ""
 }
 
-// ShareEnvironment allows the given user in ModifyEnvironUsers to access the environment.
+// ShareEnvironment allows the given users access to the environment.
 func (c *Client) ShareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
 	var args params.ModifyEnvironUsers
 	for _, user := range users {
@@ -512,6 +512,22 @@ func (c *Client) ShareEnvironment(users []names.UserTag) (result params.ErrorRes
 			args.Changes = append(args.Changes, params.ModifyEnvironUser{
 				UserTag: user.String(),
 				Action:  params.AddEnvUser,
+			})
+		}
+	}
+
+	err = c.facade.FacadeCall("ShareEnvironment", args, &result)
+	return result, err
+}
+
+// UnshareEnvironment removes access to the environment for the given users.
+func (c *Client) UnshareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
+	var args params.ModifyEnvironUsers
+	for _, user := range users {
+		if &user != nil {
+			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+				UserTag: user.String(),
+				Action:  params.RemoveEnvUser,
 			})
 		}
 	}
