@@ -67,6 +67,10 @@ const (
 	// upgrade logic.
 	UpgradeComplete UpgradeStatus = "complete"
 
+	// UpgradeAborted indicates that the upgrade wasn't completed due
+	// to some problem.
+	UpgradeAborted UpgradeStatus = "aborted"
+
 	// currentUpgradeId is the mongo _id of the current upgrade info document.
 	currentUpgradeId = "current"
 )
@@ -184,8 +188,8 @@ func (info *UpgradeInfo) AllProvisionedStateServersReady() (bool, error) {
 func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 	var assertSane bson.D
 	switch status {
-	case UpgradePending, UpgradeComplete:
-		return errors.Errorf("cannot explicitly set upgrade %s", status)
+	case UpgradePending, UpgradeComplete, UpgradeAborted:
+		return errors.Errorf("cannot explicitly set upgrade status to \"%s\"", status)
 	case UpgradeRunning:
 		assertSane = bson.D{{"status", bson.D{{"$in",
 			[]UpgradeStatus{UpgradePending, UpgradeRunning},
@@ -356,22 +360,9 @@ func (info *UpgradeInfo) SetStateServerDone(machineId string) error {
 		stateServersNotDone := stateServersReady.Difference(stateServersDone)
 		if stateServersNotDone.IsEmpty() {
 			// This is the last state server. Archive the current
-			// upgradeInfo document by setting its status to the final
-			// value and changing its id.
+			// upgradeInfo document.
 			doc.StateServersDone = stateServersDone.SortedValues()
-			doc.Status = UpgradeComplete
-			doc.Id = bson.NewObjectId().String()
-			return []txn.Op{{
-				C:      upgradeInfoC,
-				Id:     currentUpgradeId,
-				Assert: assertSanity,
-				Remove: true,
-			}, {
-				C:      upgradeInfoC,
-				Id:     doc.Id,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}}, nil
+			return info.makeArchiveOps(doc, UpgradeComplete), nil
 		}
 
 		return []txn.Op{{
@@ -387,6 +378,38 @@ func (info *UpgradeInfo) SetStateServerDone(machineId string) error {
 	}
 	err = info.st.run(buildTxn)
 	return errors.Annotate(err, "cannot complete upgrade")
+}
+
+// Abort marks the current upgrade as aborted. It should be called if
+// the upgrade can't be completed for some reason.
+func (info *UpgradeInfo) Abort() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		doc, err := currentUpgradeInfoDoc(info.st)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return info.makeArchiveOps(doc, UpgradeAborted), nil
+	}
+	err := info.st.run(buildTxn)
+	return errors.Annotate(err, "cannot abort upgrade")
+}
+
+func (info *UpgradeInfo) makeArchiveOps(doc *upgradeInfoDoc, status UpgradeStatus) []txn.Op {
+	doc.Status = status
+	doc.Id = bson.NewObjectId().String() // change id to archive value
+	return []txn.Op{{
+		C:      upgradeInfoC,
+		Id:     currentUpgradeId,
+		Assert: assertExpectedVersions(doc.PreviousVersion, doc.TargetVersion),
+		Remove: true,
+	}, {
+		C:      upgradeInfoC,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
 }
 
 // IsUpgrading returns true if an upgrade is currently in progress.
@@ -425,12 +448,15 @@ func checkUpgradeInfoSanity(st *State, machineId string, previousVersion, target
 	if !validIds.Contains(machineId) {
 		return nil, errors.Errorf("machine %q is not a state server", machineId)
 	}
-	assertSanity := bson.D{{
+	return assertExpectedVersions(previousVersion, targetVersion), nil
+}
+
+func assertExpectedVersions(previousVersion, targetVersion version.Number) bson.D {
+	return bson.D{{
 		"previousVersion", previousVersion,
 	}, {
 		"targetVersion", targetVersion,
 	}}
-	return assertSanity, nil
 }
 
 // ClearUpgradeInfo clears information about an upgrade in progress. It returns

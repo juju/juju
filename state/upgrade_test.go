@@ -413,15 +413,22 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 		c.Assert(info.Status(), gc.Equals, expect)
 	}
 	err = info.SetStatus(state.UpgradePending)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade pending")
+	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade status to \"pending\"")
 	assertStatus(state.UpgradePending)
+
 	err = info.SetStatus(state.UpgradeFinishing)
 	c.Assert(err, gc.ErrorMatches, "cannot set upgrade status to \"finishing\": "+
 		"Another status change may have occurred concurrently")
 	assertStatus(state.UpgradePending)
+
 	err = info.SetStatus(state.UpgradeComplete)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade complete")
+	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade status to \"complete\"")
 	assertStatus(state.UpgradePending)
+
+	err = info.SetStatus(state.UpgradeAborted)
+	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade status to \"aborted\"")
+	assertStatus(state.UpgradePending)
+
 	err = info.SetStatus(state.UpgradeStatus("lol"))
 	c.Assert(err, gc.ErrorMatches, "unknown upgrade status: lol")
 	assertStatus(state.UpgradePending)
@@ -463,7 +470,7 @@ func (s *UpgradeSuite) TestSetStateServerDone(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertUpgrading(c, false)
 
-	s.checkUpgradeInfoArchived(c, 1, info)
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeComplete, 1)
 }
 
 func (s *UpgradeSuite) TestSetStateServerDoneMultipleServers(c *gc.C) {
@@ -496,7 +503,7 @@ func (s *UpgradeSuite) TestSetStateServerDoneMultipleServers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertUpgrading(c, false)
 
-	s.checkUpgradeInfoArchived(c, 3, info)
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeComplete, 3)
 }
 
 func (s *UpgradeSuite) TestSetStateServerDoneMultipleServersRace(c *gc.C) {
@@ -531,22 +538,53 @@ func (s *UpgradeSuite) TestSetStateServerDoneMultipleServersRace(c *gc.C) {
 	c.Assert(info.StateServersDone(), jc.SameContents, []string{"0", "1", "2"})
 }
 
-func (s *UpgradeSuite) getOneUpgradeInfo(c *gc.C) *state.UpgradeInfo {
-	upgradeInfos, err := state.GetAllUpgradeInfos(s.State)
+func (s *UpgradeSuite) TestAbort(c *gc.C) {
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.3.4"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(upgradeInfos), gc.Equals, 1)
-	return upgradeInfos[0]
+
+	err = info.Abort()
+	c.Assert(err, gc.IsNil)
+
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeAborted, 0)
 }
 
-func (s *UpgradeSuite) checkUpgradeInfoArchived(c *gc.C, expectedStateServers int, initialInfo *state.UpgradeInfo) {
+func (s *UpgradeSuite) TestAbortRace(c *gc.C) {
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.3.4"))
+	c.Assert(err, gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err = info.Abort()
+		c.Assert(err, gc.IsNil)
+	}).Check()
+	err = info.Abort()
+	c.Assert(err, gc.IsNil)
+
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeAborted, 0)
+}
+
+func (s *UpgradeSuite) checkUpgradeInfoArchived(
+	c *gc.C,
+	initialInfo *state.UpgradeInfo,
+	expectedStatus state.UpgradeStatus,
+	expectedStateServers int,
+) {
 	info := s.getOneUpgradeInfo(c)
-	c.Assert(info.Status(), gc.Equals, state.UpgradeComplete)
+	c.Assert(info.Status(), gc.Equals, expectedStatus)
 	c.Assert(info.PreviousVersion(), gc.Equals, initialInfo.PreviousVersion())
 	c.Assert(info.TargetVersion(), gc.Equals, initialInfo.TargetVersion())
 	// Truncate because mongo only stores times down to millisecond resolution.
 	c.Assert(info.Started().Equal(initialInfo.Started().Truncate(time.Millisecond)), jc.IsTrue)
 	c.Assert(len(info.StateServersDone()), gc.Equals, expectedStateServers)
-	c.Assert(info.StateServersDone(), jc.SameContents, info.StateServersReady())
+	if expectedStateServers > 0 {
+		c.Assert(info.StateServersDone(), jc.SameContents, info.StateServersReady())
+	}
+}
+
+func (s *UpgradeSuite) getOneUpgradeInfo(c *gc.C) *state.UpgradeInfo {
+	upgradeInfos, err := state.GetAllUpgradeInfos(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(upgradeInfos), gc.Equals, 1)
+	return upgradeInfos[0]
 }
 
 func (s *UpgradeSuite) TestClearUpgradeInfo(c *gc.C) {
