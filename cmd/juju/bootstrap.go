@@ -253,6 +253,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
+		KeepBroken:  c.KeepBrokenEnvironment,
 	})
 }
 

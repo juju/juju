@@ -177,6 +177,42 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	}})
 }
 
+func (s *BootstrapSuite) TestKeepBrokenDoesNoStop(c *gc.C) {
+	innerStorage := newStorage(s, c)
+	stor := &mockStorage{Storage: innerStorage}
+
+	s.PatchValue(&common.FinishBootstrap, func(
+		environs.BootstrapContext, ssh.Client, instance.Instance, *cloudinit.MachineConfig,
+	) error {
+		return fmt.Errorf("bootstrap error")
+	})
+
+	checkInstanceId := "i-success"
+	checkHardware := instance.MustParseHardware("mem=2T")
+	startInstance := func(
+		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
+	) (
+		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	) {
+		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+	}
+	stopInstances := func(instances []instance.Id) error {
+		c.Errorf("unexpected call to StopInstances")
+		return nil
+	}
+
+	env := &mockEnviron{
+		storage:       stor,
+		startInstance: startInstance,
+		stopInstances: stopInstances,
+		config:        configGetter(c),
+	}
+
+	ctx := coretesting.Context(c)
+	err := common.Bootstrap(ctx, env, environs.BootstrapParams{KeepBroken: true})
+	c.Assert(err, gc.ErrorMatches, "bootstrap error")
+}
+
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	stor := newStorage(s, c)
 	checkInstanceId := "i-success"

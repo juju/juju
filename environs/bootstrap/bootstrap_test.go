@@ -105,6 +105,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
+	c.Assert(env.args.KeepBroken, gc.DeepEquals, false)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
@@ -115,6 +116,16 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
+	c.Assert(env.args.KeepBroken, gc.DeepEquals, false)
+}
+
+func (s *bootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{KeepBroken: true})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.KeepBroken, gc.DeepEquals, true)
 }
 
 var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
