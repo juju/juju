@@ -180,6 +180,9 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	info, cleanup := s.setupMachineAndServer(c)
 	defer cleanup()
 
+	err := s.State.SetAPIHostPorts(nil)
+	c.Assert(err, gc.IsNil)
+
 	// Initially just the address we connect with is returned,
 	// despite there being no APIHostPorts in state.
 	connectedAddr, hostPorts := s.loginHostPorts(c, info)
