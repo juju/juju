@@ -172,6 +172,7 @@ type bootstrapTest struct {
 	constraints constraints.Value
 	placement   string
 	hostArch    string
+	keepBroken  bool
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -250,6 +251,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
+	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -362,6 +364,10 @@ var bootstrapTests = []bootstrapTest{{
 	info:      "placement",
 	args:      []string{"--to", "something"},
 	placement: "something",
+}, {
+	info:       "keep broken",
+	args:       []string{"--keep-broken"},
+	keepBroken: true,
 }, {
 	info: "additional args",
 	args: []string{"anything", "else"},

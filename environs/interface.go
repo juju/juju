@@ -75,6 +75,10 @@ type BootstrapParams struct {
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string
+
+	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
+	// if there is an error during bootstrap.
+	KeepBroken bool
 }
 
 // An Environ represents a juju environment as specified
