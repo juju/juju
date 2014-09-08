@@ -107,6 +107,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	if a.reqNotifier != nil {
 		a.reqNotifier.login(entity.Tag().String())
 	}
+
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
 	var newRoot apiRoot
@@ -168,6 +169,14 @@ func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 	if err = authenticator.Authenticate(entity, c.Password, c.Nonce); err != nil {
 		logger.Debugf("bad credentials")
 		return nil, err
+	}
+
+	// For user logins, ensure the user is allowed to access the environment.
+	if user, ok := entity.Tag().(names.UserTag); ok {
+		_, err := st.EnvironmentUser(user)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	return entity, nil

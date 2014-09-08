@@ -5,6 +5,7 @@ package apiserver_test
 
 import (
 	"net"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -442,6 +443,16 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	for err := range errResults {
 		c.Check(err, gc.IsNil)
 	}
+}
+
+func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password"})
+	info.Password = "dummy-password"
+	info.Tag = user.UserTag()
+	_, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, `envUser "`+regexp.QuoteMeta(user.UserTag().Username())+`" not found`)
 }
 
 func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
