@@ -139,7 +139,7 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoDowngrade(c *gc.C) {
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoNonStateServer(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo("2345678", vers("1.2.3"), vers("2.3.4"))
-	c.Assert(err, gc.ErrorMatches, "machine \"2345678\" is not a state server")
+	c.Assert(err, gc.ErrorMatches, `machine "2345678" is not a state server`)
 	c.Assert(info, gc.IsNil)
 }
 
@@ -413,20 +413,20 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 		c.Assert(info.Status(), gc.Equals, expect)
 	}
 	err = info.SetStatus(state.UpgradePending)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade status to \"pending\"")
+	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "pending"`)
 	assertStatus(state.UpgradePending)
 
 	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, gc.ErrorMatches, "cannot set upgrade status to \"finishing\": "+
+	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "finishing": `+
 		"Another status change may have occurred concurrently")
 	assertStatus(state.UpgradePending)
 
 	err = info.SetStatus(state.UpgradeComplete)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade status to \"complete\"")
+	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "complete"`)
 	assertStatus(state.UpgradePending)
 
 	err = info.SetStatus(state.UpgradeAborted)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade status to \"aborted\"")
+	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "aborted"`)
 	assertStatus(state.UpgradePending)
 
 	err = info.SetStatus(state.UpgradeStatus("lol"))
@@ -447,7 +447,7 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	assertStatus(state.UpgradeFinishing)
 	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, gc.ErrorMatches, "cannot set upgrade status to \"running\": "+
+	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "running": `+
 		"Another status change may have occurred concurrently")
 	assertStatus(state.UpgradeFinishing)
 }
