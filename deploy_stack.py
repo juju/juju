@@ -350,7 +350,7 @@ def bootstrap_from_env(juju_home, env):
 def deploy_job():
     from argparse import ArgumentParser
     parser = ArgumentParser('deploy_job')
-    parser.add_argument('new_juju_bin',
+    parser.add_argument('--new-juju-bin', default=False,
                         help='Dirctory containing the new Juju binary.')
     parser.add_argument('env', help='Base Juju environment.')
     parser.add_argument('workspace', help='Workspace directory.')
@@ -360,8 +360,25 @@ def deploy_job():
     parser.add_argument('--debug', action="store_true", default=False,
                         help='Use --debug juju logging.')
     parser.add_argument('--series', help='Name of the Ubuntu series to use.')
+    parser.add_argument('--run-startup', help='Run common-startup.sh.',
+                        action='store_true', default=False)
     args = parser.parse_args()
-    new_path = '%s:%s' % (args.new_juju_bin, os.environ['PATH'])
+    if not args.run_startup:
+        juju_path = args.new_juju_bin
+    else:
+        env = dict(os.environ)
+        env['ENV'] = args.env
+        scripts = os.path.dirname(os.path.abspath(sys.argv[0]))
+        subprocess.check_call(
+            ['bash', '{}/common-startup.sh'.format(scripts)], env=env)
+        bin_path = subprocess.check_output(['find', 'extracted-bin', '-name',
+                                            'juju'])
+        juju_path = os.path.abspath(os.path.dirname(bin_path))
+    if juju_path is None:
+        raise Exception('Either --new-juju-bin or --run-startup must be'
+                        ' supplied.')
+
+    new_path = '%s:%s' % (juju_path, os.environ['PATH'])
     log_dir = os.path.join(args.workspace, 'artifacts')
     series = args.series
     if series is None:
