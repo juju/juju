@@ -84,7 +84,7 @@ def parse_euca(euca_output):
         yield fields[1], fields[3]
 
 
-def run_instances(count):
+def run_instances(count, job_name):
     environ = dict(os.environ)
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
@@ -92,7 +92,7 @@ def run_instances(count):
     run_output = subprocess.check_output(command, env=environ).strip()
     machine_ids = dict(parse_euca(run_output)).keys()
     subprocess.call(
-        ['euca-create-tags', '--tag', 'job_name=%s' % os.environ['JOB_NAME']]
+        ['euca-create-tags', '--tag', 'job_name=%s' % job_name]
         + machine_ids, env=environ)
     for remaining in until_timeout(300):
         names = dict(describe_instances(machine_ids, env=environ))
@@ -348,31 +348,29 @@ def bootstrap_from_env(juju_home, env):
 
 
 def deploy_job():
-    required = set(['NEW_JUJU_BIN', 'WORKSPACE', 'NEW_JUJU_BIN', 'ENV',
-                    'JOB_NAME', 'CHARM_PREFIX'])
-    missing = required.difference(os.environ.keys())
-    if len(missing) > 0:
-        raise Exception('Missing environment variables: %s' %
-                        ', '.join(sorted(missing)))
-    base_env = os.environ['ENV']
-    if 'azure' in base_env:
-        num = int(os.environ['BUILD_NUMBER']) % 3
-        job_name = "{}-{}".format(os.environ['JOB_NAME'], num)
-    else:
-        job_name = os.environ['JOB_NAME']
-    charm_prefix = os.environ['CHARM_PREFIX']
-    machines = os.environ.get('MANUAL_MACHINES', '').split()
-    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
-    upgrade = bool(os.environ.get('UPGRADE') == 'true')
-    debug = bool(os.environ.get('DEBUG') == 'true')
-    log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
-    bootstrap_host = os.environ.get('BOOTSTRAP_HOST')
-    series = os.environ.get('SERIES')
-    return _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                       bootstrap_host, machines, series, log_dir, debug)
+    from argparse import ArgumentParser
+    parser = ArgumentParser('deploy_job')
+    parser.add_argument('new_juju_bin',
+                        help='Dirctory containing the new Juju binary.')
+    parser.add_argument('env', help='Base Juju environment.')
+    parser.add_argument('charm_prefix', help='Charm path prefix.')
+    parser.add_argument('workspace', help='Workspace directory.')
+    parser.add_argument('job_name', help='Name of the Jenkins job.')
+    parser.add_argument('--upgrade', action="store_true", default=False,
+                        help='Perform an upgrade test.')
+    parser.add_argument('--debug', action="store_true", default=False,
+                        help='Use --debug juju logging.')
+    parser.add_argument('--series', help='Name of the Ubuntu series to use.')
+    args = parser.parse_args()
+    new_path = '%s:%s' % (args.new_juju_bin, os.environ['PATH'])
+    log_dir = os.path.join(args.workspace, 'artifacts')
+    return _deploy_job(args.job_name, args.env, args.upgrade,
+                       args.charm_prefix, new_path, args.series, log_dir,
+                       args.debug)
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                bootstrap_host, machines, series, log_dir, debug):
+                series, log_dir, debug):
+    machines = []
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -388,10 +386,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         env.client.debug = debug
         # Rename to the job name.
         env.environment = job_name
-        if bootstrap_host is not None:
-            env.config['bootstrap-host'] = bootstrap_host
-        elif env.config['type'] == 'manual':
-            instances = run_instances(3)
+        if env.config['type'] == 'manual':
+            instances = run_instances(3, job_name)
             created_machines = True
             env.config['bootstrap-host'] = instances[0][1]
             bootstrap_id = instances[0][0]

@@ -1,4 +1,16 @@
 #!/bin/bash
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 source $SCRIPTS/common-startup.sh
-deploy_job.py
+set -eux
+cmd="deploy_job.py $NEW_JUJU_BIN $ENV $CHARM_PREFIX $WORKSPACE $JOB_NAME"
+if [ "${UPGRADE-}" == "true" ]; then
+  cmd="$cmd --upgrade"
+fi
+if [ "${DEBUG-}" == "true" ]; then
+  cmd="$cmd --debug"
+fi
+if [ ${SERIES-} != "" ]; then
+  cmd="$cmd --series $SERIES"
+fi
+unset NEW_JUJU_BIN ENV CHARM_PREFIX WORKSPACE UPGRADE SERIES
+$cmd
