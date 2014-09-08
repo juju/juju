@@ -122,7 +122,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{KeepBroken: true})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{KeepBroken: true})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.KeepBroken, gc.DeepEquals, true)
