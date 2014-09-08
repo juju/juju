@@ -39,7 +39,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	// no way to make sure that only one succeeds.
 
 	var inst instance.Instance
-	defer func() { handleBootstrapError(err, ctx, inst, args.KeepBroken, env) }()
+	// If we have not been asked to keep a broken bootstrap, make sure we clean up.
+	if !args.KeepBroken {
+		defer func() { handleBootstrapError(err, ctx, inst, env) }()
+	}
 
 	// First thing, ensure we have tools otherwise there's no point.
 	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), args.Constraints.Arch)
@@ -111,7 +114,7 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 }
 
 // handleBootstrapError cleans up after a failed bootstrap.
-func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instance.Instance, keepInst bool, env environs.Environ) {
+func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instance.Instance, env environs.Environ) {
 	if err == nil {
 		return
 	}
@@ -127,9 +130,7 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 		}
 	}()
 
-	if inst != nil && keepInst {
-		fmt.Fprintln(ctx.GetStderr(), "Not stopping instance", inst.Id())
-	} else if inst != nil && !keepInst {
+	if inst != nil {
 		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
 		if stoperr := env.StopInstances(inst.Id()); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
