@@ -130,8 +130,8 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 	}, nil
 }
 
-func (c *Context) ActionParams() map[string]interface{} {
-	return c.actionParams
+func (c *Context) ActionParams() (map[string]interface{}, error) {
+	return c.actionParams, nil
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {

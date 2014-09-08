@@ -435,7 +435,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", map[string]interface{}(nil), nil)
+	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", nil, nil)
 
 	if err != nil {
 		return nil, err
@@ -495,44 +495,91 @@ func (u *Uniter) validateAction(name string, params map[string]interface{}) (boo
 	return spec.ValidateParams(params)
 }
 
-// runHook executes the supplied hook.Info in an appropriate hook context. If
-// the hook itself fails to execute, it returns errHookFailed.
-func (u *Uniter) runHook(hi hook.Info) (err error) {
-	// Prepare context.
+// runAction executes the supplied hook.Info as an Action.
+func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err = hi.Validate(); err != nil {
 		return err
 	}
 
-	hookName := string(hi.Kind)
-	actionParams := map[string]interface{}(nil)
-	var actionTag *names.ActionTag
+	tag := names.NewActionTag(hi.ActionId)
+	action, err := u.st.Action(tag)
+	if err != nil {
+		return err
+	}
 
-	// This value is needed to pass results of Action param validation
-	// in case of error or invalidation.  This is probably bad form; it
-	// will be corrected in PR refactoring HookContext.
-	// TODO(binary132): handle errors before grabbing hook context.
-	var actionParamsErr error = nil
+	actionParams := action.Params()
+	hookName := action.Name()
+	_, actionParamsErr := u.validateAction(hookName, actionParams)
+	if actionParamsErr != nil {
+		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", hookName)
+	}
 
+	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
+
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
+
+	hctx, err := u.getHookContext(hctxId, -1, "", actionParams, &tag)
+	if err != nil {
+		return err
+	}
+
+	srv, socketPath, err := u.startJujucServer(hctx)
+	if err != nil {
+		return err
+	}
+	defer srv.Close()
+
+	// Run the hook.
+	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
+		return err
+	}
+	logger.Infof("running %q action", hookName)
+
+	if actionParamsErr != nil {
+		// If we already had a param validation error, no need
+		// to run the Action.  Simply finalize the context.
+		err = hctx.finalizeContext(hookName, actionParamsErr)
+	} else {
+		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
+	}
+
+	if err != nil {
+		// The only case in which an Action run will return an
+		// error is if the API call-home failed.  This should
+		// trigger a unit failure.
+		err = errors.Annotatef(err, "action %q had unexpected failure", hookName)
+		logger.Errorf("action failed: %s", err.Error())
+		u.notifyHookFailed(hookName, hctx)
+		return errHookFailed
+	}
+	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
+		return err
+	}
+	logger.Infof(hctx.actionData.ResultsMessage)
+	u.notifyHookCompleted(hookName, hctx)
+	return u.commitHook(hi)
+}
+
+// runHook executes the supplied hook.Info in an appropriate hook context. If
+// the hook itself fails to execute, it returns errHookFailed.
+func (u *Uniter) runHook(hi hook.Info) (err error) {
+	if err = hi.Validate(); err != nil {
+		return err
+	}
+
+	// If it wasn't an Action, continue as normal.
 	relationId := -1
+	hookName := string(hi.Kind)
+
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
 			return err
 		}
-	} else if hi.Kind == hooks.ActionRequested {
-		tag := names.NewActionTag(hi.ActionId)
-		action, err := u.st.Action(tag)
-		if err != nil {
-			return err
-		}
-		actionParams = action.Params()
-		hookName = action.Name()
-		_, actionParamsErr = u.validateAction(hookName, actionParams)
-		if actionParamsErr != nil {
-			actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", hookName)
-		}
-
-		actionTag = &tag
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -542,8 +589,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, actionParams, actionTag)
-
+	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -561,38 +607,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookName)
 
 	ranHook := true
-	// The reason for the conditional at this point is that once inside
-	// RunHook, we don't know whether we're running an Action or a regular
-	// Hook.  RunAction simply calls the exact same method as RunHook, but
-	// with the location as "actions" instead of "hooks".
-	if hi.Kind == hooks.ActionRequested {
-		if actionParamsErr != nil {
-			hctx.SetActionFailed(actionParamsErr.Error())
-		}
-		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
-
-		if err != nil {
-			err = errors.Annotatef(err, "action %q had unexpected failure", hookName)
-			if IsMissingHookError(err) {
-				err = errors.Annotatef(err, "action %q not implemented on the charm", hookName)
-			}
-			logger.Errorf("action failed: %s", err.Error())
-			u.notifyHookFailed(hookName, hctx)
-			return errHookFailed
-		}
-		if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
-			return err
-		}
-		logger.Infof(hctx.actionData.ResultsMessage)
-		u.notifyHookCompleted(hookName, hctx)
-		return u.commitHook(hi)
-	}
-
-	// Otherwise, treat it as a normal hook.
 	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 
-	// Since the Action validation error was separated, regular error pathways
-	// will still occur correctly.
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
@@ -642,7 +658,7 @@ func (u *Uniter) currentHookName() string {
 		relationer := u.relationers[hookInfo.RelationId]
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
-	} else if hookInfo.Kind == hooks.ActionRequested {
+	} else if hookInfo.Kind == hooks.Action {
 		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
 	return hookName

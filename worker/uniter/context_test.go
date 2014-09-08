@@ -773,6 +773,14 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	return unit
 }
 
+func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
+	ctx := uniter.HookContext{}
+	_, err := ctx.ActionParams()
+	c.Check(err, gc.ErrorMatches, "actionparams cannot be retrieved, hook context had no action")
+	err = ctx.SetActionFailed("oops")
+	c.Check(err, gc.ErrorMatches, "action cannot be failed, hook context had no action")
+}
+
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.AddTestingService(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)

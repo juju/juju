@@ -198,22 +198,22 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 }
 
 // ActionParams simply returns the arguments to the Action.
-func (ctx *HookContext) ActionParams() map[string]interface{} {
-	if ctx.actionData != nil {
-		return ctx.actionData.ActionParams
+func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
+	if ctx.actionData == nil {
+		return nil, fmt.Errorf("actionparams cannot be retrieved, hook context had no action")
 	}
-	// if ActionData was nil, it wasn't an Action, so this is meaningless.
-	return map[string]interface{}{}
+	return ctx.actionData.ActionParams, nil
 }
 
 // SetActionFailed sets the state of the action to "fail" and sets the results
 // message to the string argument.
-func (ctx *HookContext) SetActionFailed(message string) {
-	// if ActionData was nil, it wasn't an Action, so this is meaningless.
-	if ctx.actionData != nil {
-		ctx.actionData.ResultsMessage = message
-		ctx.actionData.ActionFailed = true
+func (ctx *HookContext) SetActionFailed(message string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("action cannot be failed, hook context had no action")
 	}
+	ctx.actionData.ResultsMessage = message
+	ctx.actionData.ActionFailed = true
+	return nil
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -394,25 +394,18 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		status = params.ActionFailed
 	}
 
+	// If we had a RunHook error, we'll simply encapsulate it in the response
+	// and discard the error state.  Actions should not error out the unit
+	// except in the case of State call failure of ActionFinish per @fwereade.
 	if err != nil {
 		message = err.Error()
-		// If it was a missing hook error, the action implementation
-		// is missing, and that's a problem with the unit.
 		if IsMissingHookError(err) {
 			message = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
 		}
 		status = params.ActionFailed
 	}
 
-	callErr := ctx.state.ActionFinish(tag, status, results, message)
-	if callErr != nil {
-		if err != nil {
-			err = errors.Wrap(err, callErr)
-		} else {
-			err = callErr
-		}
-	}
-	return err
+	return ctx.state.ActionFinish(tag, status, results, message)
 }
 
 // RunCommands executes the commands in an environment which allows it to to
@@ -450,9 +443,7 @@ func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmD
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
-	} else if ctx.actionData != nil && !ctx.actionData.ActionFailed {
-		// If the action has already failed before it is run, there's
-		// a bigger problem, probably validation failure.
+	} else {
 		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
 	}
 	return ctx.finalizeContext(hookName, err)

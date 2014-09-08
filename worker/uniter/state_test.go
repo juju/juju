@@ -102,7 +102,7 @@ var stateTests = []struct {
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
 			Hook: &hook.Info{
-				Kind:     hooks.ActionRequested,
+				Kind:     hooks.Action,
 				ActionId: "wordpress/0_a_1",
 			},
 		},
@@ -111,7 +111,7 @@ var stateTests = []struct {
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
 			Hook: &hook.Info{
-				Kind:     hooks.ActionRequested,
+				Kind:     hooks.Action,
 				ActionId: "foo",
 			},
 		},
