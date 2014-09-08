@@ -41,25 +41,25 @@ type APIHostPortsGetter interface {
 	APIHostPorts() ([][]network.HostPort, error)
 }
 
-// ToolsStorager is an interface providing the ToolsStorage method.
-type ToolsStorager interface {
-	// ToolsStorage returns a toolstorage.ToolsStorage.
+// ToolsStorageGetter is an interface providing the ToolsStorage method.
+type ToolsStorageGetter interface {
+	// ToolsStorage returns a toolstorage.StorageCloser.
 	ToolsStorage() (toolstorage.StorageCloser, error)
 }
 
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
-	entityFinder  state.EntityFinder
-	configGetter  EnvironConfigGetter
-	toolsStorager ToolsStorager
-	urlGetter     ToolsURLGetter
-	getCanRead    GetAuthFunc
+	entityFinder       state.EntityFinder
+	configGetter       EnvironConfigGetter
+	toolsStorageGetter ToolsStorageGetter
+	urlGetter          ToolsURLGetter
+	getCanRead         GetAuthFunc
 }
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c EnvironConfigGetter, s ToolsStorager, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
+func NewToolsGetter(f state.EntityFinder, c EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
 	return &ToolsGetter{f, c, s, t, getCanRead}
 }
 
@@ -76,7 +76,7 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 	if err != nil {
 		return result, err
 	}
-	toolsStorage, err := t.toolsStorager.ToolsStorage()
+	toolsStorage, err := t.toolsStorageGetter.ToolsStorage()
 	if err != nil {
 		return result, err
 	}
@@ -130,7 +130,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorager, t.urlGetter)
+	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter)
 	list, err := toolsFinder.findTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,
@@ -197,14 +197,14 @@ func (t *ToolsSetter) setOneAgentVersion(tag names.Tag, vers version.Binary, can
 }
 
 type ToolsFinder struct {
-	configGetter  EnvironConfigGetter
-	toolsStorager ToolsStorager
-	urlGetter     ToolsURLGetter
+	configGetter       EnvironConfigGetter
+	toolsStorageGetter ToolsStorageGetter
+	urlGetter          ToolsURLGetter
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c EnvironConfigGetter, s ToolsStorager, t ToolsURLGetter) *ToolsFinder {
+func NewToolsFinder(c EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
 	return &ToolsFinder{c, s, t}
 }
 
@@ -285,7 +285,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 // matchingStorageTools returns a coretools.List, with an entry for each
 // metadata entry in the toolstorage that matches the given parameters.
 func (f *ToolsFinder) matchingStorageTools(args params.FindToolsParams) (coretools.List, error) {
-	storage, err := f.toolsStorager.ToolsStorage()
+	storage, err := f.toolsStorageGetter.ToolsStorage()
 	if err != nil {
 		return nil, err
 	}
