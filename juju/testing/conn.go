@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
-	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 
@@ -447,13 +446,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
-	// Close close state.
-	var dbSession *mgo.Session
+	// Close state.
 	if s.State != nil {
-		// Copy the mongo session so we can reset the mongo password below.
-		if serverAlive {
-			dbSession = s.State.MongoSession().Copy()
-		}
 		err := s.State.Close()
 		if serverAlive {
 			// This happens way too often with failing tests,
@@ -463,17 +457,6 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 		s.State = nil
-	}
-
-	// Bootstrap will set the admin password, and render non-authorized use
-	// impossible. s.State may still hold the right password, so try to reset
-	// the password so that the MgoSuite soft-resetting works. If that fails,
-	// it will still work, but it will take a while since it has to kill the
-	// whole database and start over.
-	if dbSession != nil {
-		err := mongo.SetAdminMongoPassword(dbSession, mongo.AdminUser, "")
-		c.Check(err, gc.IsNil)
-		dbSession.Close()
 	}
 
 	dummy.Reset()
