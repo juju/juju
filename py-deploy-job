@@ -6,7 +6,7 @@ export JUJU_HOME=$HOME/cloud-city
 : ${JUJU_REPOSITORY=$HOME/repository}
 export JUJU_REPOSITORY
 juju_path=$(readlink -f $(dirname $(find extracted-bin -name juju)))
-cmd="$SCRIPTS/deploy_job.py $juju_path $ENV $CHARM_PREFIX $WORKSPACE $JOB_NAME"
+cmd="$SCRIPTS/deploy_job.py $juju_path $ENV $WORKSPACE $JOB_NAME"
 if [ "${UPGRADE-}" == "true" ]; then
   cmd="$cmd --upgrade"
 fi

@@ -353,7 +353,6 @@ def deploy_job():
     parser.add_argument('new_juju_bin',
                         help='Dirctory containing the new Juju binary.')
     parser.add_argument('env', help='Base Juju environment.')
-    parser.add_argument('charm_prefix', help='Charm path prefix.')
     parser.add_argument('workspace', help='Workspace directory.')
     parser.add_argument('job_name', help='Name of the Jenkins job.')
     parser.add_argument('--upgrade', action="store_true", default=False,
@@ -364,9 +363,14 @@ def deploy_job():
     args = parser.parse_args()
     new_path = '%s:%s' % (args.new_juju_bin, os.environ['PATH'])
     log_dir = os.path.join(args.workspace, 'artifacts')
+    series = args.series
+    if series is None:
+        series = 'precise'
+    charm_prefix = 'local:${}/'.format(series)
     return _deploy_job(args.job_name, args.env, args.upgrade,
-                       args.charm_prefix, new_path, args.series, log_dir,
+                       charm_prefix, new_path, args.series, log_dir,
                        args.debug)
+
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 series, log_dir, debug):
