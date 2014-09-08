@@ -1,8 +1,9 @@
 #!/bin/bash
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
-source $SCRIPTS/common-startup.sh
+bash $SCRIPTS/common-startup.sh
 set -eux
-cmd="deploy_job.py $NEW_JUJU_BIN $ENV $CHARM_PREFIX $WORKSPACE $JOB_NAME"
+juju_path=$(readlink -f $(dirname $(find extracted-bin -name juju)))
+cmd="deploy_job.py $juju_path $ENV $CHARM_PREFIX $WORKSPACE $JOB_NAME"
 if [ "${UPGRADE-}" == "true" ]; then
   cmd="$cmd --upgrade"
 fi
@@ -12,5 +13,5 @@ fi
 if [ "${SERIES-}" != "" ]; then
   cmd="$cmd --series $SERIES"
 fi
-unset NEW_JUJU_BIN ENV CHARM_PREFIX WORKSPACE UPGRADE SERIES
+unset ENV CHARM_PREFIX WORKSPACE UPGRADE SERIES
 $cmd
