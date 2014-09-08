@@ -4,6 +4,7 @@
 package api
 
 import (
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/network"
 )
 
@@ -54,4 +55,32 @@ func NewTestingState(params TestingStateParams) *State {
 		serverRoot:     params.ServerRoot,
 	}
 	return st
+}
+
+// PatchClientFacadeCall changes the internal FacadeCaller to one that lets
+// you mock out the FacadeCall method. The function returned by
+// PatchClientFacadeCall is a cleanup function that returns the client to its
+// original state.
+func PatchClientFacadeCall(c *Client, mockCall func(request string, params interface{}, response interface{}) error) func() {
+	orig := c.facade
+	c.facade = &resultCaller{mockCall}
+	return func() {
+		c.facade = orig
+	}
+}
+
+type resultCaller struct {
+	mockCall func(request string, params interface{}, response interface{}) error
+}
+
+func (f *resultCaller) FacadeCall(request string, params, response interface{}) error {
+	return f.mockCall(request, params, response)
+}
+
+func (f *resultCaller) BestAPIVersion() int {
+	return 0
+}
+
+func (f *resultCaller) RawAPICaller() base.APICaller {
+	return nil
 }

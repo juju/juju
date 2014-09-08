@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
-	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 
@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -243,7 +244,40 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
+	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
+	c.Assert(err, gc.IsNil)
+
 	s.Environ = environ
+}
+
+// AddToolsToState adds tools to tools storage.
+func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	for _, v := range versions {
+		content := v.String()
+		hash := fmt.Sprintf("sha256(%s)", content)
+		err := storage.AddTools(strings.NewReader(content), toolstorage.Metadata{
+			Version: v,
+			Size:    int64(len(content)),
+			SHA256:  hash,
+		})
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+// AddDefaultToolsToState adds tools to tools storage for
+// {Number: version.Current.Number, Arch: amd64}, for the
+// "precise" series and the environment's preferred series.
+// The preferred series is default-series if specified,
+// otherwise the latest LTS.
+func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
+	preferredVersion := version.Current
+	preferredVersion.Arch = "amd64"
+	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
+	versions = append(versions, version.Current)
+	s.AddToolsToState(c, versions...)
 }
 
 var redialStrategy = utils.AttemptStrategy{
@@ -447,13 +481,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
-	// Close close state.
-	var dbSession *mgo.Session
+	// Close state.
 	if s.State != nil {
-		// Copy the mongo session so we can reset the mongo password below.
-		if serverAlive {
-			dbSession = s.State.MongoSession().Copy()
-		}
 		err := s.State.Close()
 		if serverAlive {
 			// This happens way too often with failing tests,
@@ -463,17 +492,6 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 		s.State = nil
-	}
-
-	// Bootstrap will set the admin password, and render non-authorized use
-	// impossible. s.State may still hold the right password, so try to reset
-	// the password so that the MgoSuite soft-resetting works. If that fails,
-	// it will still work, but it will take a while since it has to kill the
-	// whole database and start over.
-	if dbSession != nil {
-		err := mongo.SetAdminMongoPassword(dbSession, mongo.AdminUser, "")
-		c.Check(err, gc.IsNil)
-		dbSession.Close()
 	}
 
 	dummy.Reset()

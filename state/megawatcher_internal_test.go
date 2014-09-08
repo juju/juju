@@ -53,9 +53,9 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.State = st
-	user, err := s.State.AddAdminUser("pass")
+	env, err := st.Environment()
 	c.Assert(err, gc.IsNil)
-	s.owner = user.UserTag()
+	s.owner = env.Owner()
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {

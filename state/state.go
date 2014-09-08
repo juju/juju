@@ -1654,7 +1654,7 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	err := mongo.SetAdminMongoPassword(st.db.Session, AdminUser, password)
+	err := mongo.SetAdminMongoPassword(st.db.Session, mongo.AdminUser, password)
 	return errors.Trace(err)
 }
 

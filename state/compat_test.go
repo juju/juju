@@ -42,8 +42,6 @@ func (s *compatSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.state = st
-	_, err = s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env

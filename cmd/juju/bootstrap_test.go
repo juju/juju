@@ -96,6 +96,7 @@ type bootstrapTest struct {
 	constraints constraints.Value
 	placement   string
 	hostArch    string
+	keepBroken  bool
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -145,6 +146,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
+	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
@@ -235,6 +237,10 @@ var bootstrapTests = []bootstrapTest{{
 	info:      "placement",
 	args:      []string{"--to", "something"},
 	placement: "something",
+}, {
+	info:       "keep broken",
+	args:       []string{"--keep-broken"},
+	keepBroken: true,
 }, {
 	info: "additional args",
 	args: []string{"anything", "else"},
@@ -345,8 +351,8 @@ func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
 }
 
 // When attempting to bootstrap, check that when prepare errors out,
-// the code cleans up the created jenv file, but *not* the existing
-// environment.
+// the code cleans up the created jenv file, but *not* any existing
+// environment that may have previously been bootstrapped.
 func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
 
 	destroyedEnvRan := false
@@ -612,11 +618,12 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
-func buildToolsTarballAlwaysFails(forceVersion *version.Number) (*sync.BuiltTools, error) {
-	return nil, fmt.Errorf("an error")
-}
-
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
+
+	buildToolsTarballAlwaysFails := func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+		return nil, fmt.Errorf("an error")
+	}
+
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
 
@@ -626,7 +633,6 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 Bootstrapping environment "peckham"
 Starting new instance for initial state server
 Building tools to upload (1.7.3.1-raring-%s)
-Bootstrap failed, destroying environment
 `[1:], version.Current.Arch))
 	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }

@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package client
@@ -64,7 +64,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
-		toolsFinder:  common.NewToolsFinder(st, urlGetter),
+		toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
 	}}, nil
 }
 
@@ -781,6 +781,42 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 		UUID:          env.UUID(),
 	}
 	return info, nil
+}
+
+// ShareEnvironment allows the given user(s) access to the environment.
+func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
+	var createdBy names.UserTag
+	var ok bool
+	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
+		return result, errors.Errorf("api connection is not through a user")
+	}
+
+	result = params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	for i, arg := range args.Changes {
+		userTagString := arg.UserTag
+		user, err := names.ParseUserTag(userTagString)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share environment"))
+			continue
+		}
+		if arg.Action == params.AddEnvUser {
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
+			if err != nil {
+				err = errors.Annotate(err, "could not share environment")
+				result.Results[i].Error = common.ServerError(err)
+				continue
+			}
+		} else {
+			result.Results[i].Error = common.ServerError(errors.Errorf("unknown action %q", arg.Action))
+		}
+	}
+	return result, nil
 }
 
 // GetAnnotations returns annotations about a given entity.

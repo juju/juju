@@ -40,7 +40,7 @@ func destroyEnvInfoProductionFunc(
 	store configstore.Storage,
 	action string,
 ) {
-	ctx.Infof("%s failed, cleaning up jenv file.", action)
+	ctx.Infof("%s failed, cleaning up the environment.", action)
 	if err := environs.DestroyInfo(cfgName, store); err != nil {
 		logger.Errorf("the environment jenv file could not be cleaned up: %v", err)
 	}
@@ -80,10 +80,13 @@ func environFromNameProductionFunc(
 		// Distinguish b/t removing the jenv file or tearing down the
 		// environment. We want to remove the jenv file if preparation
 		// was not successful. We want to tear down the environment
-		// only in the case where we have an env to tear down.
+		// only in the case where the environment didn't already
+		// exist.
 		if env == nil {
+			logger.Debugf("Destroying environment info.")
 			destroyEnvInfo(ctx, envName, store, action)
-		} else if !envExisted {
+		} else if !envExisted && ensureNotBootstrapped(env) != environs.ErrAlreadyBootstrapped {
+			logger.Debugf("Destroying environment.")
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
@@ -92,8 +95,6 @@ func environFromNameProductionFunc(
 		return nil, cleanup, err
 	}
 
-	envExisted = ensureNotBootstrapped(env) == environs.ErrAlreadyBootstrapped
-	logger.Debugf("envExisted: %v", envExisted)
 	return env, cleanup, err
 }
 

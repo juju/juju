@@ -256,6 +256,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,
+		KeepBroken:  c.KeepBrokenEnvironment,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")

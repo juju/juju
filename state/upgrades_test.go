@@ -6,6 +6,7 @@ package state
 import (
 	"time"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/mgo.v2/bson"
@@ -90,15 +91,11 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
-	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
-	c.Assert(err, gc.IsNil)
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, gc.IsNil)
-	adminTag := stateAdmin.UserTag()
+	adminTag := names.NewUserTag("admin")
 	bobTag := stateBob.UserTag()
 
-	_, err = s.state.EnvironmentUser(adminTag)
-	c.Assert(err, gc.ErrorMatches, `envUser "admin@local" not found`)
 	_, err = s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.ErrorMatches, `envUser "bob@local" not found`)
 
@@ -114,11 +111,9 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
-	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
-	c.Assert(err, gc.IsNil)
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, gc.IsNil)
-	adminTag := stateAdmin.UserTag()
+	adminTag := names.NewUserTag("admin")
 	bobTag := stateBob.UserTag()
 
 	err = AddStateUsersAsEnvironUsers(s.state)
