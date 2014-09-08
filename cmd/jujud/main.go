@@ -182,6 +182,10 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
 }
 
+// setupLogging redirects logging to rolled log files.
+//
+// NOTE: do not use this in the bootstrap agent, or
+// if you do, change the bootstrap error reporting.
 func setupLogging(conf agent.Config) error {
 	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
 

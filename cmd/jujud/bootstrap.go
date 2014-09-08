@@ -92,9 +92,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	agentConfig := c.CurrentConfig()
-	if err := setupLogging(agentConfig); err != nil {
-		return err
-	}
 	network.InitializeFromConfig(agentConfig)
 
 	// agent.Jobs is an optional field in the agent config, and was
