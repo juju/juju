@@ -37,7 +37,6 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
-	_ = config.LatestLtsSeries()
 	c.Assert(m.Series(), gc.DeepEquals, config.LatestLtsSeries())
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
