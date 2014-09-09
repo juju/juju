@@ -1374,7 +1374,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 
 	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      "West US",
-		Series:      "precise",
+		Series:      coretesting.FakeDefaultSeries,
 		Constraints: cons,
 	})
 	c.Assert(err, gc.IsNil)
@@ -1399,7 +1399,7 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 			Endpoint:   "https://management.core.windows.net/",
 		},
 	}
-	makeTestMetadata(c, env, "precise", "North Europe", images)
+	makeTestMetadata(c, env, coretesting.FakeDefaultSeries, "North Europe", images)
 	return env
 }
 
@@ -1413,7 +1413,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(
 	}
 	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      "North Europe",
-		Series:      "precise",
+		Series:      coretesting.FakeDefaultSeries,
 		Constraints: cons,
 	})
 	c.Assert(err, gc.IsNil)
@@ -1679,7 +1679,7 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 		return nil, fmt.Errorf("no instance for you")
 	})
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
-	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
+	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120t...)
 	err = env.Bootstrap(coretesting.Context(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

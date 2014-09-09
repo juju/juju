@@ -176,7 +176,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      "precise", // precise requires special apt parameters, so we use that series here.
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})
