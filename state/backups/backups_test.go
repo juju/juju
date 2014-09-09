@@ -62,9 +62,9 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	})
 
 	// Run the backup.
-	dbInfo := &db.ConnInfo{"a", "b", "c"}
+	dbInfo := db.ConnInfo{"a", "b", "c"}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	meta, err := s.api.Create(dbInfo, origin, "some notes")
+	meta, err := s.api.Create(dbInfo, *origin, "some notes")
 
 	// Test the call values.
 	filesToBackUp, _ := backups.ExposeCreateArgs(received)

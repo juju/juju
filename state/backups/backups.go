@@ -27,7 +27,7 @@ var (
 type Backups interface {
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
-	Create(dbInfo *db.ConnInfo, origin *metadata.Origin, notes string) (*metadata.Metadata, error)
+	Create(dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
 }
 
 type backups struct {
@@ -45,16 +45,16 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *backups) Create(dbInfo *db.ConnInfo, origin *metadata.Origin, notes string) (*metadata.Metadata, error) {
+func (b *backups) Create(dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
 	// Prep the metadata.
-	meta := metadata.NewMetadata(*origin, notes, nil)
+	meta := metadata.NewMetadata(origin, notes, nil)
 
 	// Create the archive.
 	filesToBackUp, err := getFilesToBackUp("")
 	if err != nil {
 		return nil, errors.Annotate(err, "error listing files to back up")
 	}
-	dumper := getDBDumper(*dbInfo)
+	dumper := getDBDumper(dbInfo)
 	args := createArgs{filesToBackUp, dumper}
 	result, err := runCreate(&args)
 	if err != nil {
