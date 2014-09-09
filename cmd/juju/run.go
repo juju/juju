@@ -27,7 +27,7 @@ type RunCommand struct {
 	machines   []string
 	services   []string
 	units      []string
-	relation   []string
+	relation   string
 	remoteUnit string
 	commands   string
 }
@@ -82,7 +82,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "one or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.services), "service", "one or more service names")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "one or more unit ids")
-	f.Var(cmd.NewStringsValue(nil, &c.relation), "relation", "relation context to run the command under")
+	f.StringVar(&c.relation, "relation", "", "relation context to run the command under")
 	f.StringVar(&c.remoteUnit, "remote-unit", "", "run the command for a specific remote unit for a given relation")
 }
 

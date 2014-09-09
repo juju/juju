@@ -72,24 +72,12 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
-func getRemoteUnit(st *state.State, remoteUnit string) (*state.Unit, error) {
-	unit, err := st.Unit(remoteUnit)
+func getRelation(st *state.State, inRelation string) (*state.Relation, error) {
+	endpoints, err := st.InferEndpoints([]string{inRelation})
 	if err != nil {
 		return nil, err
 	}
-	return unit, nil
-}
-
-func getRelation(st *state.State, inRelation []string) (*state.Relation, error) {
-	endpoints, err := st.InferEndpoints(inRelation)
-	if err != nil {
-		return nil, err
-	}
-	relation, err := st.EndpointsRelation(endpoints...)
-	if err != nil {
-		return nil, err
-	}
-	return relation, nil
+	return st.EndpointsRelation(endpoints...)
 }
 
 func (c *Client) getDataDir() string {
@@ -116,11 +104,16 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	for _, unit := range units {
 		// We know that the unit is both a principal unit, and that it has an
 		// assigned machine.
-		machineId, _ := unit.AssignedMachineId()
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			return results, err
+		}
+
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {
 			return results, err
 		}
+
 		command := "juju-run"
 
 		if len(run.Relation) > 0 {
@@ -131,7 +124,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 			command += fmt.Sprintf(" --relation %d", relation.Id())
 
 			if len(run.RemoteUnit) > 0 {
-				remoteUnit, err := getRemoteUnit(c.api.state, run.RemoteUnit)
+				remoteUnit, err := c.api.state.Unit(run.RemoteUnit)
 				if err != nil {
 					return results, err
 				}

@@ -612,7 +612,7 @@ type RunParams struct {
 	Machines   []string
 	Services   []string
 	Units      []string
-	Relation   []string
+	Relation   string
 	RemoteUnit string
 }
 
