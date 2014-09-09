@@ -57,6 +57,8 @@ func NewUpgradeWorkerContext() *upgradeWorkerContext {
 
 type upgradeWorkerContext struct {
 	UpgradeComplete chan struct{}
+	fromVersion     version.Number
+	toVersion       version.Number
 	agent           upgradingMachineAgent
 	apiState        *api.State
 	jobs            []params.MachineJob
@@ -134,6 +136,12 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	}
 
 	c.agentConfig = c.agent.CurrentConfig()
+	c.fromVersion = c.agentConfig.UpgradedToVersion()
+	c.toVersion = version.Current.Number
+	if c.fromVersion == c.toVersion {
+		logger.Infof("upgrade to %v already completed.", c.toVersion)
+		return nil
+	}
 
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
@@ -177,13 +185,6 @@ var agentTerminating = errors.New("machine agent is terminating")
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
 func (c *upgradeWorkerContext) runUpgrades() error {
-	from := version.Current
-	from.Number = c.agentConfig.UpgradedToVersion()
-	if from == version.Current {
-		logger.Infof("upgrade to %v already completed.", version.Current)
-		return nil
-	}
-
 	a := c.agent
 	tag, ok := c.agentConfig.Tag().(names.MachineTag)
 	if !ok {
@@ -198,7 +199,7 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 
 	var upgradeInfo *state.UpgradeInfo
 	if c.isStateServer {
-		upgradeInfo, err = c.st.EnsureUpgradeInfo(machineId, from.Number, version.Current.Number)
+		upgradeInfo, err = c.st.EnsureUpgradeInfo(machineId, c.fromVersion, c.toVersion)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -211,15 +212,15 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 				logger.Warningf(`stopped waiting for other state servers: %v`, err)
 			} else {
 				logger.Errorf(`other state servers failed to come up for upgrade `+
-					`to %s - aborting: %v`, version.Current, err)
+					`to %s - aborting: %v`, c.toVersion, err)
 				a.setMachineStatus(c.apiState, params.StatusError,
 					fmt.Sprintf("upgrade to %v aborted while waiting for other "+
-						"state servers: %v", version.Current, err))
+						"state servers: %v", c.toVersion, err))
 				// If master, trigger a rollback to the previous agent version.
 				if isMaster {
 					logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
-						from.Number)
-					if rollbackErr := c.st.SetEnvironAgentVersion(from.Number); rollbackErr != nil {
+						c.fromVersion)
+					if rollbackErr := c.st.SetEnvironAgentVersion(c.fromVersion); rollbackErr != nil {
 						logger.Errorf("rollback failed: %v", rollbackErr)
 						return errors.Annotate(rollbackErr, "failed to roll back desired agent version")
 					}
@@ -232,7 +233,7 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 	err = a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var upgradeErr error
 		a.setMachineStatus(c.apiState, params.StatusStarted,
-			fmt.Sprintf("upgrading to %v", version.Current))
+			fmt.Sprintf("upgrading to %v", c.toVersion))
 
 		context := upgrades.NewContext(agentConfig, c.apiState, c.st)
 		for _, job := range c.jobs {
@@ -241,11 +242,11 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 				continue
 			}
 			logger.Infof("starting upgrade from %v to %v for %v %q",
-				from, version.Current, target, tag)
+				c.fromVersion, c.toVersion, target, tag)
 
 			attempts := getUpgradeRetryStrategy()
 			for attempt := attempts.Start(); attempt.Next(); {
-				upgradeErr = upgradesPerformUpgrade(from.Number, target, context)
+				upgradeErr = upgradesPerformUpgrade(c.fromVersion, target, context)
 				if upgradeErr == nil {
 					break
 				}
@@ -258,20 +259,20 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 					retryText = "giving up"
 				}
 				logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
-					from, version.Current, target, tag, retryText, upgradeErr)
+					c.fromVersion, c.toVersion, target, tag, retryText, upgradeErr)
 				a.setMachineStatus(c.apiState, params.StatusError,
 					fmt.Sprintf("upgrade to %v failed (%s): %v",
-						version.Current, retryText, upgradeErr))
+						c.toVersion, retryText, upgradeErr))
 			}
 		}
 		if upgradeErr != nil {
 			return upgradeErr
 		}
-		agentConfig.SetUpgradedToVersion(version.Current.Number)
+		agentConfig.SetUpgradedToVersion(c.toVersion)
 		return nil
 	})
 	if err != nil {
-		logger.Errorf("upgrade to %v failed: %v", version.Current, err)
+		logger.Errorf("upgrade to %v failed: %v", c.toVersion, err)
 		return err
 	}
 
@@ -288,7 +289,7 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		}
 	}
 
-	logger.Infof("upgrade to %v completed successfully.", version.Current)
+	logger.Infof("upgrade to %v completed successfully.", c.toVersion)
 	a.setMachineStatus(c.apiState, params.StatusStarted, "")
 	return nil
 }
