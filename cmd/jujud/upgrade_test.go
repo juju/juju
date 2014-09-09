@@ -185,12 +185,10 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// agent keep running.
 	c.Check(workerErr, gc.IsNil)
 
-	c.Check(*attemptsP, gc.Equals, numTestUpgradeRetries)
+	c.Check(*attemptsP, gc.Equals, maxUpgradeRetries)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(numTestUpgradeRetries))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(numTestUpgradeRetries, "hostMachine"))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(maxUpgradeRetries))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(maxUpgradeRetries, "hostMachine"))
 	assertUpgradeNotComplete(c, context)
 }
 
@@ -217,10 +215,8 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attempts, gc.Equals, 2)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(1))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(1, "hostMachine"))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(1))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(1, "hostMachine"))
 	assertUpgradeComplete(c, context)
 }
 
@@ -345,8 +341,8 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.generateExpectedStatusCalls(0))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.generateExpectedUpgradeLogs(0, target))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, target))
 	assertUpgradeComplete(c, context)
 
 	err = info.Refresh()
@@ -581,18 +577,18 @@ func waitForUpgradeToStart(upgradeCh chan bool) bool {
 	}
 }
 
-const numTestUpgradeRetries = 3
+const maxUpgradeRetries = 3
 
 func (s *UpgradeSuite) setInstantRetryStrategy() {
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
 		return utils.AttemptStrategy{
 			Delay: 0,
-			Min:   numTestUpgradeRetries,
+			Min:   maxUpgradeRetries,
 		}
 	})
 }
 
-func (s *UpgradeSuite) generateExpectedStatusCalls(failCount int) []MachineStatusCall {
+func (s *UpgradeSuite) makeExpectedStatusCalls(failCount int) []MachineStatusCall {
 	calls := []MachineStatusCall{{
 		params.StatusStarted,
 		fmt.Sprintf("upgrading to %s", version.Current),
@@ -603,7 +599,7 @@ func (s *UpgradeSuite) generateExpectedStatusCalls(failCount int) []MachineStatu
 			fmt.Sprintf("upgrade to %s failed (will retry): boom", version.Current),
 		})
 	}
-	if failCount >= numTestUpgradeRetries {
+	if failCount >= maxUpgradeRetries {
 		calls = append(calls, MachineStatusCall{
 			params.StatusError,
 			fmt.Sprintf("upgrade to %s failed (giving up): boom", version.Current),
@@ -614,7 +610,7 @@ func (s *UpgradeSuite) generateExpectedStatusCalls(failCount int) []MachineStatu
 	return calls
 }
 
-func (s *UpgradeSuite) generateExpectedUpgradeLogs(failCount int, target string) []jc.SimpleMessage {
+func (s *UpgradeSuite) makeExpectedUpgradeLogs(failCount int, target string) []jc.SimpleMessage {
 	outLogs := []jc.SimpleMessage{}
 
 	if target == "databaseMaster" || target == "stateServer" {
@@ -636,7 +632,7 @@ func (s *UpgradeSuite) generateExpectedUpgradeLogs(failCount int, target string)
 	for i := 0; i < calcNumRetries(failCount); i++ {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "will retry")})
 	}
-	if failCount >= numTestUpgradeRetries {
+	if failCount >= maxUpgradeRetries {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "giving up")})
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR,
 			fmt.Sprintf(`upgrade to %s failed.`, version.Current)})
@@ -649,7 +645,7 @@ func (s *UpgradeSuite) generateExpectedUpgradeLogs(failCount int, target string)
 
 func calcNumRetries(failCount int) int {
 	n := failCount
-	if failCount >= numTestUpgradeRetries {
+	if failCount >= maxUpgradeRetries {
 		n--
 	}
 	return n
