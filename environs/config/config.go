@@ -104,7 +104,7 @@ func distroLtsSeriesFunc() (string, error) {
 	if !charm.IsValidSeries(series) {
 		return "", fmt.Errorf("not a valid LTS series: %q", series)
 	}
-	return "", fmt.Errorf("error")
+	return series, nil
 }
 
 // Config holds an immutable environment configuration.
