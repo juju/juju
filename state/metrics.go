@@ -107,6 +107,9 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
+// Nothing else in the system will interact with sent metrics, and nothing needs
+// to watch them either; so in this instance it's safe to do an end run around the
+// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(time.Hour * 24))
 	c, closer := st.getCollection(metricsC)
