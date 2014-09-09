@@ -893,7 +893,9 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 
 	service, err := s.State.Service("service")
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag().String())
+	tag, err := service.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, user.Tag())
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCharmStore) {

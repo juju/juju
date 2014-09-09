@@ -1484,7 +1484,9 @@ func (s *ServiceSuite) TestOwnerTagSchemaProtection(c *gc.C) {
 	service := s.AddTestingService(c, "foobar", s.charm)
 	state.SetServiceOwnerTag(service, "")
 	c.Assert(state.GetServiceOwnerTag(service), gc.Equals, "")
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-admin")
+	tag, err := service.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, s.owner)
 }
 
 func (s *ServiceSuite) TestNetworks(c *gc.C) {

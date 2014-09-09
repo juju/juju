@@ -620,14 +620,18 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-func (s *Service) GetOwnerTag() string {
+func (s *Service) GetOwnerTag() (names.UserTag, error) {
 	owner := s.doc.OwnerTag
 	if owner == "" {
 		// We know that if there was no owner, it was created with an early
 		// version of juju, and that admin was the only user.
-		owner = names.NewUserTag("admin").String()
+		return names.NewUserTag("admin"), nil
 	}
-	return owner
+	tag, err := names.ParseUserTag(s.doc.OwnerTag)
+	if err != nil {
+		return names.UserTag{}, errors.Trace(err)
+	}
+	return tag, nil
 }
 
 // AddUnit adds a new principal unit to the service.

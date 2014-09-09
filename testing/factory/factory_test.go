@@ -285,7 +285,9 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 	c.Assert(service, gc.NotNil)
 
 	c.Assert(service.Name(), gc.Equals, "wordpress")
-	c.Assert(service.GetOwnerTag(), gc.Equals, creator)
+	tag, err := service.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag.String(), gc.Equals, creator)
 	curl, _ := service.CharmURL()
 	c.Assert(curl, gc.DeepEquals, charm.URL())
 

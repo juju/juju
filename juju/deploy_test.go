@@ -69,11 +69,13 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 	s.assertSettings(c, service, charm.Settings{})
 	s.assertConstraints(c, service, constraints.Value{})
 	s.assertMachines(c, service, constraints.Value{})
-	c.Assert(service.GetOwnerTag(), gc.Equals, s.AdminUserTag(c).String())
+	tag, err := service.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, s.AdminUserTag(c))
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
 			ServiceName:  "bobwithowner",
@@ -81,7 +83,9 @@ func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
 			ServiceOwner: "user-foobar",
 		})
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
+	tag, err := service.GetOwnerTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, user.Tag())
 }
 
 func (s *DeployLocalSuite) TestDeploySettings(c *gc.C) {
