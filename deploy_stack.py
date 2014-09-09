@@ -362,6 +362,10 @@ def deploy_job():
     parser.add_argument('--series', help='Name of the Ubuntu series to use.')
     parser.add_argument('--run-startup', help='Run common-startup.sh.',
                         action='store_true', default=False)
+    parser.add_argument('--bootstrap-host',
+                        help='The host to use for bootstrap.')
+    parser.add_argument('--machine', help='A machine to add.',
+                        action='append', default=[])
     args = parser.parse_args()
     if not args.run_startup:
         juju_path = args.new_juju_bin
@@ -388,13 +392,12 @@ def deploy_job():
         series = 'precise'
     charm_prefix = 'local:{}/'.format(series)
     return _deploy_job(args.job_name, args.env, args.upgrade,
-                       charm_prefix, new_path, args.series, log_dir,
-                       args.debug)
+                       charm_prefix, new_path, bootstrap_host, machines,
+                       args.series, log_dir, args.debug)
 
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                series, log_dir, debug):
-    machines = []
+                bootstrap_host, machines, series, log_dir, debug):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -410,8 +413,10 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         env.client.debug = debug
         # Rename to the job name.
         env.environment = job_name
-        if env.config['type'] == 'manual':
-            instances = run_instances(3, job_name)
+        if bootstrap_host is not None:
+            env.config['bootstrap-host'] = bootstrap_host
+        elif env.config['type'] == 'manual':
+            instances = run_instances(3)
             created_machines = True
             env.config['bootstrap-host'] = instances[0][1]
             bootstrap_id = instances[0][0]
