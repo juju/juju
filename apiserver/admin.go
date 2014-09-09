@@ -26,7 +26,7 @@ type adminApiV0 struct {
 	admin *adminV0
 }
 
-// adminV0 is the only object that unlogged-in clients can access. It holds any
+// admin is the only object that unlogged-in clients can access. It holds any
 // methods that are needed to log in.
 type admin struct {
 	srv         *Server
