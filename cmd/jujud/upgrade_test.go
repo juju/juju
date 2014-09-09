@@ -198,7 +198,6 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	// This test checks what happens when the first upgrade attempt
 	// fails but the following on succeeds. The final state should be
 	// the same as a successful upgrade which worked first go.
-
 	attempts := 0
 	fail := true
 	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
@@ -306,50 +305,26 @@ func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
 	// This test checks what happens when an upgrade works on the
 	// first attempt on a master state server.
-	_, machineIdB, machineIdC := s.createUpgradingStateServers(c)
-
-	// Indicate that machine B and C are ready to upgrade
-	vPrevious := s.oldVersion.Number
-	vNext := version.Current.Number
-	info, err := s.State.EnsureUpgradeInfo(machineIdB, vPrevious, vNext)
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.EnsureUpgradeInfo(machineIdC, vPrevious, vNext)
-	c.Assert(err, gc.IsNil)
-
-	attempts := 0
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
-		err = info.Refresh()
-		c.Assert(err, gc.IsNil)
-		c.Assert(info.Status(), gc.Equals, state.UpgradeRunning)
-		attempts++
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-	s.captureLogs(c)
-
-	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobManageEnviron)
-
-	c.Check(workerErr, gc.IsNil)
-	c.Check(attempts, gc.Equals, 1)
-	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(0))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(0, "databaseMaster"))
-	assertUpgradeComplete(c, context)
-
-	err = info.Refresh()
-	c.Assert(err, gc.IsNil)
+	s.machineIsMaster = true
+	info := s.checkSuccess(c, "databaseMaster", func(*state.UpgradeInfo) {})
 	c.Assert(info.Status(), gc.Equals, state.UpgradeFinishing)
-	c.Assert(info.StateServersDone(), jc.DeepEquals, []string{"0"})
-
 }
 
 func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 	// This test checks what happens when an upgrade works on the
 	// first attempt on a secondary state server.
 	s.machineIsMaster = false
+	mungeInfo := func(info *state.UpgradeInfo) {
+		// Indicate that the master is done
+		err := info.SetStatus(state.UpgradeRunning)
+		c.Assert(err, gc.IsNil)
+		err = info.SetStatus(state.UpgradeFinishing)
+		c.Assert(err, gc.IsNil)
+	}
+	s.checkSuccess(c, "stateServer", mungeInfo)
+}
 
+func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*state.UpgradeInfo)) *state.UpgradeInfo {
 	_, machineIdB, machineIdC := s.createUpgradingStateServers(c)
 
 	// Indicate that machine B and C are ready to upgrade
@@ -360,11 +335,7 @@ func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machineIdC, vPrevious, vNext)
 	c.Assert(err, gc.IsNil)
 
-	// Indicate that the master is done
-	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, gc.IsNil)
-	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, gc.IsNil)
+	mungeInfo(info)
 
 	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
@@ -374,15 +345,14 @@ func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(0))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(0, "stateServer"))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.generateExpectedStatusCalls(0))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.generateExpectedUpgradeLogs(0, target))
 	assertUpgradeComplete(c, context)
 
 	err = info.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.StateServersDone(), jc.DeepEquals, []string{"0"})
+	return info
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
