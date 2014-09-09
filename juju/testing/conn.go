@@ -183,7 +183,9 @@ func PreferredDefaultVersions(conf *config.Config, template version.Binary) []ve
 	prefVersion := template
 	prefVersion.Series = config.PreferredSeries(conf)
 	defaultVersion := template
-	defaultVersion.Series = testing.FakeDefaultSeries
+	if prefVersion.Series != testing.FakeDefaultSeries {
+		defaultVersion.Series = testing.FakeDefaultSeries
+	}
 	return []version.Binary{prefVersion, defaultVersion}
 }
 

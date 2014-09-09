@@ -275,7 +275,7 @@ local:
     # Make sure to uncomment the following option and set the value to
     # precise or trusty as desired.
     #
-    # default-series: precise
+    # default-series: trusty
 
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in

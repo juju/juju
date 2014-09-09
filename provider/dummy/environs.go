@@ -84,7 +84,7 @@ func SampleConfig() testing.Attrs {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
-		"default-series":            "precise",
+		"default-series":            config.LatestLtsSeries(),
 
 		"secret":       "pork",
 		"state-server": true,
