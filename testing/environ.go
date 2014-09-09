@@ -27,7 +27,7 @@ func init() {
 	}
 }
 
-const FakeDefaultSeries = "precise"
+const FakeDefaultSeries = "trusty"
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.

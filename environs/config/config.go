@@ -61,7 +61,7 @@ const (
 
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
-	fallbackLtsSeries string = "precise"
+	fallbackLtsSeries string = "trusty"
 )
 
 var latestLtsSeries string
@@ -91,9 +91,11 @@ func LatestLtsSeries() string {
 	return latestLtsSeries
 }
 
-// distroLtsSeries returns the latest LTS series, if this information is
+var distroLtsSeries = distroLtsSeriesFunc
+
+// distroLtsSeriesFunc returns the latest LTS series, if this information is
 // available on this system.
-func distroLtsSeries() (string, error) {
+func distroLtsSeriesFunc() (string, error) {
 	out, err := exec.Command("distro-info", "--lts").Output()
 	if err != nil {
 		return "", err
@@ -102,7 +104,7 @@ func distroLtsSeries() (string, error) {
 	if !charm.IsValidSeries(series) {
 		return "", fmt.Errorf("not a valid LTS series: %q", series)
 	}
-	return series, nil
+	return "", fmt.Errorf("error")
 }
 
 // Config holds an immutable environment configuration.
