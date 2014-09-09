@@ -219,7 +219,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 }
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
-	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
@@ -244,7 +244,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
-	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")

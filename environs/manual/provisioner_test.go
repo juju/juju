@@ -21,6 +21,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -32,7 +33,7 @@ var _ = gc.Suite(&provisionerSuite{})
 
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
-	c.Assert(err, gc.IsNil)              c
+	c.Assert(err, gc.IsNil)
 	client := s.APIState.Client()
 	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
@@ -43,7 +44,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	const series = testing.FakeDefaultSeries
+	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 	const operatingSystem = version.Ubuntu
 
@@ -117,7 +118,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
-	const series = testing.FakeDefaultSeries
+	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -141,7 +142,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	const series = testing.FakeDefaultSeries
+	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,

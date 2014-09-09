@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	
+
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
