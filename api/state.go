@@ -57,12 +57,22 @@ func (st *State) loginV1(tag, password, nonce string) error {
 			Code:    params.CodeNotImplemented,
 		}
 	}
+	err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	authtag, err := names.ParseTag(tag)
 	if err != nil {
 		return err
 	}
 	st.authTag = authtag
-	hostPorts, err := addAddress(result.Servers, st.addr)
+	st.environTag = environTag
+
+	hostPorts, err := addAddress(servers, st.addr)
 	if err != nil {
 		if clerr := st.Close(); clerr != nil {
 			err = errors.Annotatef(err, "error closing state: %v", clerr)
@@ -70,9 +80,9 @@ func (st *State) loginV1(tag, password, nonce string) error {
 		return err
 	}
 	st.hostPorts = hostPorts
-	st.environTag = result.EnvironTag
-	st.facadeVersions = make(map[string][]int, len(result.Facades))
-	for _, facade := range result.Facades {
+
+	st.facadeVersions = make(map[string][]int, len(facades))
+	for _, facade := range facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
 	return nil
@@ -88,23 +98,9 @@ func (st *State) loginV0(tag, password, nonce string) error {
 	if err != nil {
 		return err
 	}
-	authtag, err := names.ParseTag(tag)
+	err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades)
 	if err != nil {
 		return err
-	}
-	st.authTag = authtag
-	hostPorts, err := addAddress(result.Servers, st.addr)
-	if err != nil {
-		if clerr := st.Close(); clerr != nil {
-			err = errors.Annotatef(err, "error closing state: %v", clerr)
-		}
-		return err
-	}
-	st.hostPorts = hostPorts
-	st.environTag = result.EnvironTag
-	st.facadeVersions = make(map[string][]int, len(result.Facades))
-	for _, facade := range result.Facades {
-		st.facadeVersions[facade.Name] = facade.Versions
 	}
 	return nil
 }
