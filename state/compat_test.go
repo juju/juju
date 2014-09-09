@@ -162,9 +162,9 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	// Check if port conflicts are detected.
+	// Port conflicts should be ignored, OpenPort should not return an error here.
 	err = unit.OpenPort("tcp", 80)
-	c.Assert(err, gc.ErrorMatches, "cannot open ports 80-80/tcp for unit \"mysql/0\": cannot open ports 80-80/tcp on machine 0 due to conflict")
+	c.Assert(err, gc.IsNil)
 
 	err = unit.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
