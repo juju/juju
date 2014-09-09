@@ -265,7 +265,10 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	}
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
 	err = root.getResources().RegisterNamed("pingTimeout", pingTimeout)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // errRoot implements the API that a client first sees
