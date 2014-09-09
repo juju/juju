@@ -38,8 +38,6 @@ type UpgradeSuite struct {
 	commonMachineSuite
 
 	aptCmds         []*exec.Cmd
-	machine0        *state.Machine
-	machine0Config  agent.Config
 	oldVersion      version.Binary
 	logWriter       loggo.TestWriter
 	connectionDead  bool
@@ -384,7 +382,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 
-	stopFunc := s.createAgentAndStartUpgrade(c, state.JobManageEnviron)
+	a, stopFunc := s.createAgentAndStartUpgrade(c, state.JobManageEnviron)
 	defer func() {
 		// stopFunc won't complete unless the upgrade is done
 		select {
@@ -395,28 +393,29 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 		}
 		stopFunc()
 	}()
+	machine0Conf := a.CurrentConfig()
 
 	// Set up a second machine to log in as.
 	// API logins are tested manually so there's no need to actually
 	// start this machine.
-	var machine1Config agent.Config
-	_, machine1Config, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
+	var machine1Conf agent.Config
+	_, machine1Conf, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
 
 	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
 
 	// Only user and local logins are allowed during upgrade. Users get a restricted API.
-	s.checkLoginToAPIAsUser(c, RestrictedAPIExposed)
-	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
-	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, false)
+	checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, false)
 
 	close(upgradeCh) // Allow upgrade to complete
 
-	s.waitForUpgradeToFinish(c)
+	waitForUpgradeToFinish(c, machine0Conf)
 
 	// All logins are allowed after upgrade
-	s.checkLoginToAPIAsUser(c, FullAPIExposed)
-	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
-	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
+	checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
+	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
+	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, true)
 }
 
 func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
@@ -439,8 +438,8 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	// version.Current (so that we can see it change) but not to
 	// trigger upgrade steps.
 	initialVersion := makeBumpedCurrentVersion()
-	s.machine0, s.machine0Config, _ = s.primeAgent(c, initialVersion, state.JobManageEnviron)
-	a := s.newAgent(c, s.machine0)
+	machine, agentConf, _ := s.primeAgent(c, initialVersion, state.JobManageEnviron)
+	a := s.newAgent(c, machine)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() {
 		close(upgradeCh)
@@ -449,9 +448,8 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 
 	// Test that unrestricted API logins are possible (i.e. no
 	// "upgrade mode" in force)
-	s.checkLoginToAPIAsUser(c, FullAPIExposed)
-	// There should have been no attempt to upgrade.
-	c.Assert(attempts, gc.Equals, 0)
+	checkLoginToAPIAsUser(c, agentConf, FullAPIExposed)
+	c.Assert(attempts, gc.Equals, 0) // There should have been no attempt to upgrade.
 
 	// Even though no upgrade was done upgradedToVersion should have been updated.
 	c.Assert(a.CurrentConfig().UpgradedToVersion(), gc.Equals, version.Current.Number)
@@ -652,9 +650,9 @@ func calcNumRetries(failCount int) int {
 }
 
 func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
-	stopFunc := s.createAgentAndStartUpgrade(c, job)
+	agent, stopFunc := s.createAgentAndStartUpgrade(c, job)
 	defer stopFunc()
-	s.waitForUpgradeToFinish(c)
+	waitForUpgradeToFinish(c, agent.CurrentConfig())
 }
 
 func (s *UpgradeSuite) keyFile() string {
@@ -701,41 +699,41 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	// Add other checks as needed...
 }
 
-func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) func() {
-	a := s.createUpgradingAgent(c, job)
+func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) (*MachineAgent, func()) {
+	machine, _, _ := s.primeAgent(c, s.oldVersion, job)
+	a := s.newAgent(c, machine)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	return func() { c.Check(a.Stop(), gc.IsNil) }
+	return a, func() { c.Check(a.Stop(), gc.IsNil) }
 }
 
-func (s *UpgradeSuite) createUpgradingAgent(c *gc.C, job state.MachineJob) *MachineAgent {
-	s.machine0, s.machine0Config, _ = s.primeAgent(c, s.oldVersion, job)
-	return s.newAgent(c, s.machine0)
+func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, expected)
 }
 
-func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
+func waitForUpgradeToFinish(c *gc.C, conf agent.Config) {
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		conf := s.getMachine0Config(c)
-		success = conf.UpgradedToVersion() == version.Current.Number
+		diskConf := readConfigFromDisk(c, conf.DataDir(), conf.Tag())
+		success = diskConf.UpgradedToVersion() == version.Current.Number
 		if success {
 			break
 		}
 	}
-
 	c.Assert(success, jc.IsTrue)
 }
 
-func (s *UpgradeSuite) getMachine0Config(c *gc.C) agent.Config {
-	conf, err := agent.ReadConfig(agent.ConfigPath(
-		s.machine0Config.DataDir(),
-		s.machine0.Tag(),
-	))
+func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
+	conf, err := agent.ReadConfig(agent.ConfigPath(dir, tag))
 	c.Assert(err, gc.IsNil)
 	return conf
 }
 
-func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, expectFullApi exposedAPI) {
-	info := s.machine0Config.APIInfo()
+func checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+	info := conf.APIInfo()
 	info.Tag = names.NewUserTag("admin")
 	info.Password = "dummy-secret"
 	info.Nonce = ""
@@ -758,26 +756,14 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, expectFullApi exposedAPI) 
 	}
 }
 
-func (s *UpgradeSuite) canLoginToAPIAsMachine(c *gc.C, config agent.Config) bool {
-	// Ensure logins are always to the API server (machine-0)
-	info := config.APIInfo()
-	info.Addrs = s.machine0Config.APIInfo().Addrs
+func canLoginToAPIAsMachine(c *gc.C, fromConf, toConf agent.Config) bool {
+	info := fromConf.APIInfo()
+	info.Addrs = toConf.APIInfo().Addrs
 	apiState, err := api.Open(info, upgradeTestDialOpts)
 	if apiState != nil {
 		apiState.Close()
 	}
-	if apiState != nil && err == nil {
-		return true
-	}
-	return false
-}
-
-func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	agentVersion, ok := envConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, expected)
+	return apiState != nil && err == nil
 }
 
 var upgradeTestDialOpts = api.DialOpts{
