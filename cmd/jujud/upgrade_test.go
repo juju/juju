@@ -104,6 +104,15 @@ func (s *UpgradeSuite) captureLogs(c *gc.C) {
 	})
 }
 
+func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
+	count := 0
+	s.PatchValue(&upgradesPerformUpgrade, func(version.Number, upgrades.Target, upgrades.Context) error {
+		count++
+		return upgradeErr
+	})
+	return &count
+}
+
 func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
 	// Set the agent's initial upgradedToVersion to almost the same as
 	// the current version. We want it to be different to
@@ -167,13 +176,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// prevents most of the agent's workers from running and keeps the
 	// API in restricted mode).
 
-	attemptCount := 0
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		return errors.New("boom")
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-
+	attemptsP := s.countUpgradeAttempts(errors.New("boom"))
 	s.captureLogs(c)
 
 	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobHostUnits)
@@ -182,7 +185,7 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// agent keep running.
 	c.Check(workerErr, gc.IsNil)
 
-	c.Check(attemptCount, gc.Equals, numTestUpgradeRetries)
+	c.Check(*attemptsP, gc.Equals, numTestUpgradeRetries)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
 		s.generateExpectedStatusCalls(numTestUpgradeRetries))
@@ -196,10 +199,10 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	// fails but the following on succeeds. The final state should be
 	// the same as a successful upgrade which worked first go.
 
-	attemptCount := 0
+	attempts := 0
 	fail := true
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
+	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
+		attempts++
 		if fail {
 			fail = false
 			return errors.New("boom")
@@ -213,7 +216,7 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobHostUnits)
 
 	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 2)
+	c.Check(attempts, gc.Equals, 2)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
 		s.generateExpectedStatusCalls(1))
@@ -229,19 +232,14 @@ func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
 	// to return immediately without further retries. The error should
 	// be returned by the worker so that the agent will restart.
 
-	attemptCount := 0
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		return errors.New("boom")
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	attemptsP := s.countUpgradeAttempts(errors.New("boom"))
 	s.connectionDead = true // Make the connection to state appear to be dead
 	s.captureLogs(c)
 
 	workerErr, config, _, context := s.runUpgradeWorker(c, params.JobHostUnits)
 
 	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
-	c.Check(attemptCount, gc.Equals, 1)
+	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
 	assertUpgradeNotComplete(c, context)
 }
@@ -256,18 +254,12 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 
 	s.createUpgradingStateServers(c)
 	s.captureLogs(c)
-
-	attemptCount := 0
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	attemptsP := s.countUpgradeAttempts(nil)
 
 	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 0)
+	c.Check(*attemptsP, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
 	assertUpgradeNotComplete(c, context)
 
@@ -293,13 +285,7 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 	s.machineIsMaster = false
 	s.captureLogs(c)
-
-	attemptCount := 0
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
-		attemptCount++
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	attemptsP := s.countUpgradeAttempts(nil)
 
 	s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
 
@@ -309,7 +295,7 @@ func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 	workerErr, context := s.runUpgradeWorkerUsingAgent(c, params.JobManageEnviron, agent)
 
 	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 0)
+	c.Check(*attemptsP, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
 	assertUpgradeNotComplete(c, context)
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
@@ -330,12 +316,12 @@ func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(machineIdC, vPrevious, vNext)
 	c.Assert(err, gc.IsNil)
 
-	attemptCount := 0
+	attempts := 0
 	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
 		err = info.Refresh()
 		c.Assert(err, gc.IsNil)
 		c.Assert(info.Status(), gc.Equals, state.UpgradeRunning)
-		attemptCount++
+		attempts++
 		return nil
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
@@ -344,7 +330,7 @@ func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
 	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 1)
+	c.Check(attempts, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
 		s.generateExpectedStatusCalls(0))
@@ -380,18 +366,13 @@ func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 	err = info.SetStatus(state.UpgradeFinishing)
 	c.Assert(err, gc.IsNil)
 
-	attemptCount := 0
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
-		attemptCount++
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	attemptsP := s.countUpgradeAttempts(nil)
 	s.captureLogs(c)
 
 	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 1)
+	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
 		s.generateExpectedStatusCalls(0))
@@ -430,7 +411,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// ensure that the various components involved with machine agent
 	// upgrades hang together.
 	upgradeCh := make(chan bool)
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
 		upgradeCh <- true // signal that upgrade has started
 		<-upgradeCh       // wait for signal that upgrades should finish
 		return nil
@@ -473,11 +454,11 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
-	attemptCount := 0
+	attempts := 0
 	upgradeCh := make(chan bool)
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
 		// Note: this shouldn't run.
-		attemptCount++
+		attempts++
 		// If execution ends up here, wait so it can be detected (by
 		// checking for restricted API
 		<-upgradeCh
@@ -504,7 +485,7 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	// "upgrade mode" in force)
 	s.checkLoginToAPIAsUser(c, FullAPIExposed)
 	// There should have been no attempt to upgrade.
-	c.Assert(attemptCount, gc.Equals, 0)
+	c.Assert(attempts, gc.Equals, 0)
 
 	// Even though no upgrade was done upgradedToVersion should have been updated.
 	c.Assert(a.CurrentConfig().UpgradedToVersion(), gc.Equals, version.Current.Number)
