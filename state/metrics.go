@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/loggo"
@@ -231,6 +232,12 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 		metricsLogger.Warningf("failed to setsent on metrics", err)
 	}
 	return nil
+}
+
+// MarshalJSON defines how the MetricBatch type should be
+// marhsaled as json
+func (m *MetricBatch) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.doc)
 }
 
 // UUID returns to uuid of the metric.
