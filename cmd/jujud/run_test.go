@@ -196,7 +196,7 @@ type mockRunner struct {
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
 func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
-	r.c.Log("mock runner: " + args.Commands)
+	r.c.Logf("mock runner args: %+v", args)
 	return &exec.ExecResponse{
 		Code:   42,
 		Stdout: []byte(args.Commands + " stdout"),

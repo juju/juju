@@ -136,8 +136,6 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 					return results, err
 				}
 				command += fmt.Sprintf(" --remote-unit %s", remoteUnit.Name())
-			} else {
-
 			}
 		}
 
