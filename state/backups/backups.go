@@ -25,6 +25,7 @@ var (
 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
+
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
 	Create(dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
@@ -46,6 +47,7 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
 func (b *backups) Create(dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
+
 	// Prep the metadata.
 	meta := metadata.NewMetadata(origin, notes, nil)
 
