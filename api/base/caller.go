@@ -24,6 +24,9 @@ type FacadeCaller interface {
 	// also known to the client.
 	FacadeCall(request string, params, response interface{}) error
 
+	// Name returns the facade name.
+	Name() string
+
 	// BestAPIVersion returns the API version that we were able to
 	// determine is supported by both the client and the API Server
 	BestAPIVersion() int
@@ -49,6 +52,11 @@ func (fc facadeCaller) FacadeCall(request string, params, response interface{}) 
 	return fc.caller.APICall(
 		fc.facadeName, fc.bestVersion, "",
 		request, params, response)
+}
+
+// Name returns the facade name.
+func (fc facadeCaller) Name() string {
+	return fc.facadeName
 }
 
 // BestAPIVersion returns the version of the Facade that is going to be used

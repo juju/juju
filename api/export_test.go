@@ -57,6 +57,11 @@ func NewTestingState(params TestingStateParams) *State {
 	return st
 }
 
+// ExposeFacade returns the client's underlying FacadeCaller.
+func ExposeFacade(c *Client) base.FacadeCaller {
+	return c.facade
+}
+
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets
 // you mock out the FacadeCall method. The function returned by
 // PatchClientFacadeCall is a cleanup function that returns the client to its
@@ -75,6 +80,10 @@ type resultCaller struct {
 
 func (f *resultCaller) FacadeCall(request string, params, response interface{}) error {
 	return f.mockCall(request, params, response)
+}
+
+func (f *resultCaller) Name() string {
+	return ""
 }
 
 func (f *resultCaller) BestAPIVersion() int {

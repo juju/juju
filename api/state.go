@@ -105,11 +105,15 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	return result, nil
 }
 
+func (st *State) newClient(facadeName string) *Client {
+	frontend, backend := base.NewClientFacade(st, facadeName)
+	return &Client{ClientFacade: frontend, facade: backend, st: st}
+}
+
 // Client returns an object that can be used
 // to access client-specific functionality.
 func (st *State) Client() *Client {
-	frontend, backend := base.NewClientFacade(st, "Client")
-	return &Client{ClientFacade: frontend, facade: backend, st: st}
+	return st.newClient("Client")
 }
 
 // Machiner returns a version of the state that provides functionality
