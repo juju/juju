@@ -154,9 +154,9 @@ var TestImagesData = map[string]string{
            "datatype": "image-ids",
            "format": "products:1.0",
            "products": [
-            "com.ubuntu.cloud:server:12.04:amd64",
-            "com.ubuntu.cloud:server:12.04:i386",
-            "com.ubuntu.cloud:server:12.04:amd64",
+            "com.ubuntu.cloud:server:14.04:amd64",
+            "com.ubuntu.cloud:server:14.04:i386",
+            "com.ubuntu.cloud:server:14.04:amd64",
             "com.ubuntu.cloud:server:12.10:amd64",
             "com.ubuntu.cloud:server:12.10:i386",
             "com.ubuntu.cloud:server:13.04:i386"
@@ -172,9 +172,9 @@ var TestImagesData = map[string]string{
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
-   "com.ubuntu.cloud:server:12.04:amd64": {
-     "release": "precise",
-     "version": "12.04",
+   "com.ubuntu.cloud:server:14.04:amd64": {
+     "release": "trusty",
+     "version": "14.04",
      "arch": "amd64",
      "versions": {
        "20121218": {
@@ -216,14 +216,14 @@ var TestImagesData = map[string]string{
              "id": "ami-00000035"
            }
          },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "pubname": "ubuntu-trusty-14.04-amd64-server-20121218",
          "label": "release"
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:i386": {
-     "release": "precise",
-     "version": "12.04",
+   "com.ubuntu.cloud:server:14.04:i386": {
+     "release": "trusty",
+     "version": "14.04",
      "arch": "i386",
      "versions": {
        "20121218": {
@@ -241,7 +241,7 @@ var TestImagesData = map[string]string{
              "id": "ami-00000023"
            }
          },
-         "pubname": "ubuntu-precise-12.04-i386-server-20121218",
+         "pubname": "ubuntu-trusty-14.04-i386-server-20121218",
          "label": "release"
        }
      }
