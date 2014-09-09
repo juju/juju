@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"strings"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -69,16 +71,25 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	changes := watcher.Changes()
 
-	change := <-changes
-	c.Assert(change, gc.HasLen, 0)
+	var change []string
+	select {
+	case change = <-changes:
+		c.Assert(change, gc.HasLen, 0)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for port watcher")
+	}
 
 	factory := factory.NewFactory(s.State)
 	unit := factory.MakeUnit(c, nil)
 	err = unit.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 
-	change = <-changes
-	c.Assert(change, gc.HasLen, 1)
+	select {
+	case change = <-changes:
+		c.Assert(change, gc.HasLen, 1)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out while waiting for port watcher")
+	}
 
 	changeComponents := strings.Split(change[0], ":")
 	c.Assert(changeComponents, gc.HasLen, 2)

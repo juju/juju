@@ -41,13 +41,7 @@ func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {
 			u("x/2"): &fakeUnitsWatcher{},
 		},
 	}
-	getCanWatch := func() (common.AuthFunc, error) {
-		x0 := u("x/0")
-		x1 := u("x/1")
-		return func(tag names.Tag) bool {
-			return tag == x0 || tag == x1
-		}, nil
-	}
+	getCanWatch := apiservertesting.FakeAuthFunc([]names.Tag{u("x/0"), u("x/1")})
 	resources := common.NewResources()
 	w := common.NewUnitsWatcher(st, resources, getCanWatch)
 	entities := params.Entities{[]params.Entity{

@@ -5,6 +5,8 @@ package testing
 
 import (
 	"github.com/juju/names"
+
+	"github.com/juju/juju/apiserver/common"
 )
 
 // FakeAuthorizer implements the common.Authorizer interface.
@@ -42,4 +44,19 @@ func (fa FakeAuthorizer) AuthClient() bool {
 
 func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 	return fa.Tag
+}
+
+// FakeAuthFunc returns an authorization function that authorizes access
+// to the supplied tags.
+func FakeAuthFunc(allowed []names.Tag) func() (common.AuthFunc, error) {
+	return func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			for _, t := range allowed {
+				if t == tag {
+					return true
+				}
+			}
+			return false
+		}, nil
+	}
 }
