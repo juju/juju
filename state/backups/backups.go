@@ -18,9 +18,9 @@ import (
 var logger = loggo.GetLogger("juju.state.backups")
 
 var (
-	getFilesToBackUp                               = files.GetFilesToBackUp
-	getDBDumper      (func(db.ConnInfo) db.Dumper) = db.NewDumper
-	runCreate                                      = create
+	getFilesToBackUp = files.GetFilesToBackUp
+	getDBDumper      = db.NewDumper
+	runCreate        = create
 )
 
 // Backups is an abstraction around all juju backup-related functionality.
