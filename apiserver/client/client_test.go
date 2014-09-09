@@ -1706,7 +1706,7 @@ func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
 }
 
 func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{
 			UserTag: user.Tag().String(),

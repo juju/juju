@@ -37,6 +37,7 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     string
+	NoEnvUser   bool
 }
 
 // EnvUserParams defines the parameters for creating an environment user.
@@ -136,6 +137,10 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	c.Assert(err, gc.IsNil)
+	if !params.NoEnvUser {
+		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
+		c.Assert(err, gc.IsNil)
+	}
 	return user
 }
 
@@ -148,7 +153,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		params = &EnvUserParams{}
 	}
 	if params.User == "" {
-		user := factory.MakeUser(c, nil)
+		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
 		params.User = user.UserTag().Username()
 	}
 	if params.CreatedBy == "" {

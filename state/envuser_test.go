@@ -23,7 +23,7 @@ var _ = gc.Suite(&EnvUserSuite{})
 
 func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
 	c.Assert(err, gc.IsNil)
@@ -61,8 +61,7 @@ func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 
 func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	_, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
+	_, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.RemoveEnvironmentUser(user.UserTag())
@@ -73,7 +72,7 @@ func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
 }
 
 func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
-	user := s.factory.MakeUser(c, nil)
+	user := s.factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
 	err := s.State.RemoveEnvironmentUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
@@ -81,8 +80,8 @@ func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
 func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Name()})
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()
 	c.Assert(err, gc.IsNil)
