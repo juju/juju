@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"archive/zip"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -13,7 +14,6 @@ import (
 	"io/ioutil"
 	"mime"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -25,8 +25,8 @@ import (
 	ziputil "github.com/juju/utils/zip"
 	"gopkg.in/juju/charm.v3"
 
+	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
@@ -40,10 +40,6 @@ type charmsHandler struct {
 type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if err := h.authenticate(r); err != nil {
-		h.authError(w, h)
-		return
-	}
 	if err := h.validateEnvironUUID(r); err != nil {
 		h.sendError(w, http.StatusNotFound, err.Error())
 		return
@@ -51,6 +47,10 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
+		if err := h.authenticate(r); err != nil {
+			h.authError(w, h)
+			return
+		}
 		// Add a local charm to the store provider.
 		// Requires a "series" query specifying the series to use for the charm.
 		charmURL, err := h.processPost(r)
@@ -65,13 +65,20 @@ func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// charm file) to be included in the query.
 		if charmArchivePath, filePath, err := h.processGet(r); err != nil {
 			// An error occurred retrieving the charm bundle.
-			h.sendError(w, http.StatusBadRequest, err.Error())
+			if errors.IsNotFound(err) {
+				h.sendError(w, http.StatusNotFound, err.Error())
+			} else {
+				h.sendError(w, http.StatusBadRequest, err.Error())
+			}
 		} else if filePath == "" {
 			// The client requested the list of charm files.
 			sendBundleContent(w, r, charmArchivePath, h.manifestSender)
+		} else if filePath == "*" {
+			// The client requested the archive.
+			sendBundleContent(w, r, charmArchivePath, h.archiveSender)
 		} else {
 			// The client requested a specific file.
-			sendBundleContent(w, r, charmArchivePath, h.fileSender(filePath))
+			sendBundleContent(w, r, charmArchivePath, h.archiveEntrySender(filePath))
 		}
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
@@ -117,10 +124,10 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 	h.sendJSON(w, http.StatusOK, &params.CharmsResponse{Files: manifest.SortedValues()})
 }
 
-// fileSender returns a bundleContentSenderFunc which is responsible for sending
-// the contents of filePath included in the given charm bundle. If filePath does
-// not identify a file or a symlink, a 403 forbidden error is returned.
-func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
+// archiveEntrySender returns a bundleContentSenderFunc which is responsible for
+// sending the contents of filePath included in the given charm bundle. If filePath
+// does not identify a file or a symlink, a 403 forbidden error is returned.
+func (h *charmsHandler) archiveEntrySender(filePath string) bundleContentSenderFunc {
 	return func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) {
 		// TODO(fwereade) 2014-01-27 bug #1285685
 		// This doesn't handle symlinks helpfully, and should be talking in
@@ -163,6 +170,12 @@ func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
 		http.NotFound(w, r)
 		return
 	}
+}
+
+// archiveSender is a bundleContentSenderFunc which is responsible for sending
+// the contents of the given charm bundle.
+func (h *charmsHandler) archiveSender(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) {
+	http.ServeFile(w, r, bundle.Path)
 }
 
 // sendError sends a JSON-encoded error response.
@@ -311,22 +324,15 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 
 // repackageAndUploadCharm expands the given charm archive to a
 // temporary directoy, repackages it with the given curl's revision,
-// then uploads it to providr storage, and finally updates the state.
+// then uploads it to storage, and finally updates the state.
 func (h *charmsHandler) repackageAndUploadCharm(archive *charm.CharmArchive, curl *charm.URL) error {
-	// Create a temp dir to contain the extracted charm
-	// dir and the repackaged archive.
+	// Create a temp dir to contain the extracted charm dir.
 	tempDir, err := ioutil.TempDir("", "charm-download")
 	if err != nil {
 		return errors.Annotate(err, "cannot create temp directory")
 	}
 	defer os.RemoveAll(tempDir)
 	extractPath := filepath.Join(tempDir, "extracted")
-	repackagedPath := filepath.Join(tempDir, "repackaged.zip")
-	repackagedArchive, err := os.Create(repackagedPath)
-	if err != nil {
-		return errors.Annotate(err, "cannot repackage uploaded charm")
-	}
-	defer repackagedArchive.Close()
 
 	// Expand and repack it with the revision specified by curl.
 	archive.SetRevision(curl.Revision)
@@ -338,46 +344,24 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.CharmArchive, cur
 		return errors.Annotate(err, "cannot read extracted charm")
 	}
 
-	// Bundle the charm and calculate its sha256 hash at the
-	// same time.
+	// Bundle the charm and calculate its sha256 hash at the same time.
+	var repackagedArchive bytes.Buffer
 	hash := sha256.New()
-	err = charmDir.ArchiveTo(io.MultiWriter(hash, repackagedArchive))
+	err = charmDir.ArchiveTo(io.MultiWriter(hash, &repackagedArchive))
 	if err != nil {
 		return errors.Annotate(err, "cannot repackage uploaded charm")
 	}
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
-	size, err := repackagedArchive.Seek(0, 2)
-	if err != nil {
-		return errors.Annotate(err, "cannot get charm file size")
-	}
 
-	// Now upload to provider storage.
-	if _, err := repackagedArchive.Seek(0, 0); err != nil {
-		return errors.Annotate(err, "cannot rewind the charm file reader")
-	}
-	storage, err := environs.GetStorage(h.state)
-	if err != nil {
-		return errors.Annotate(err, "cannot access provider storage")
-	}
-	name := charm.Quote(curl.String())
-	if err := storage.Put(name, repackagedArchive, size); err != nil {
-		return errors.Annotate(err, "cannot upload charm to provider storage")
-	}
-	storageURL, err := storage.URL(name)
-	if err != nil {
-		return errors.Annotate(err, "cannot get storage URL for charm")
-	}
-	bundleURL, err := url.Parse(storageURL)
-	if err != nil {
-		return errors.Annotate(err, "cannot parse storage URL")
-	}
-
-	// And finally, update state.
-	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSHA256)
-	if err != nil {
-		return errors.Annotate(err, "cannot update uploaded charm in state")
-	}
-	return nil
+	// Store the charm archive in environment storage.
+	return client.StoreCharmArchive(
+		h.state,
+		curl,
+		archive,
+		&repackagedArchive,
+		int64(repackagedArchive.Len()),
+		bundleSHA256,
+	)
 }
 
 // processGet handles a charm file GET request after authentication.
@@ -386,10 +370,15 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	query := r.URL.Query()
 
 	// Retrieve and validate query parameters.
-	curl := query.Get("url")
-	if curl == "" {
+	curlString := query.Get("url")
+	if curlString == "" {
 		return "", "", fmt.Errorf("expected url=CharmURL query argument")
 	}
+	curl, err := charm.ParseURL(curlString)
+	if err != nil {
+		return "", "", errors.Annotate(err, "cannot parse charm URL")
+	}
+
 	var filePath string
 	file := query.Get("file")
 	if file == "" {
@@ -399,32 +388,37 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	}
 
 	// Prepare the bundle directories.
-	name := charm.Quote(curl)
+	name := charm.Quote(curl.String())
 	charmArchivePath := filepath.Join(h.dataDir, "charm-get-cache", name+".zip")
 
 	// Check if the charm archive is already in the cache.
 	if _, err := os.Stat(charmArchivePath); os.IsNotExist(err) {
 		// Download the charm archive and save it to the cache.
-		if err = h.downloadCharm(name, charmArchivePath); err != nil {
-			return "", "", fmt.Errorf("unable to retrieve and save the charm: %v", err)
+		if err = h.downloadCharm(curl, charmArchivePath); err != nil {
+			return "", "", errors.Annotate(err, "unable to retrieve and save the charm")
 		}
 	} else if err != nil {
-		return "", "", fmt.Errorf("cannot access the charms cache: %v", err)
+		return "", "", errors.Annotate(err, "cannot access the charms cache")
 	}
 	return charmArchivePath, filePath, nil
 }
 
 // downloadCharm downloads the given charm name from the provider storage and
 // saves the corresponding zip archive to the given charmArchivePath.
-func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
-	// Get the provider storage.
-	storage, err := environs.GetStorage(h.state)
+func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) error {
+	storage, err := h.state.Storage()
 	if err != nil {
 		return errors.Annotate(err, "cannot access provider storage")
 	}
+	defer storage.Close()
+
+	ch, err := h.state.Charm(curl)
+	if err != nil {
+		return errors.Annotate(err, "cannot get charm from state")
+	}
 
 	// Use the storage to retrieve and save the charm archive.
-	reader, err := storage.Get(name)
+	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
 		return errors.Annotate(err, "charm not found in the provider storage")
 	}

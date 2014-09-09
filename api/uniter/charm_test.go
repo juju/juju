@@ -4,11 +4,12 @@
 package uniter_test
 
 import (
-	"github.com/juju/utils"
+	"fmt"
+	"net/url"
+
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/api/uniter"
-	envtesting "github.com/juju/juju/environs/testing"
 )
 
 type charmSuite struct {
@@ -46,17 +47,17 @@ func (s *charmSuite) TestURL(c *gc.C) {
 }
 
 func (s *charmSuite) TestArchiveURL(c *gc.C) {
-	archiveURL, hostnameVerification, err := s.apiCharm.ArchiveURL()
+	apiInfo := s.APIInfo(c)
+	url, err := url.Parse(fmt.Sprintf(
+		"https://%s/environment/%s/charms?file=%s&url=%s",
+		apiInfo.Addrs[0],
+		apiInfo.EnvironTag.Id(),
+		url.QueryEscape("*"),
+		url.QueryEscape(s.apiCharm.URL().String()),
+	))
 	c.Assert(err, gc.IsNil)
-	c.Assert(archiveURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
-	c.Assert(hostnameVerification, gc.Equals, utils.VerifySSLHostnames)
-
-	envtesting.SetSSLHostnameVerification(c, s.State, false)
-
-	archiveURL, hostnameVerification, err = s.apiCharm.ArchiveURL()
-	c.Assert(err, gc.IsNil)
-	c.Assert(archiveURL, gc.DeepEquals, s.wordpressCharm.BundleURL())
-	c.Assert(hostnameVerification, gc.Equals, utils.NoVerifySSLHostnames)
+	archiveURL := s.apiCharm.ArchiveURL()
+	c.Assert(archiveURL, gc.DeepEquals, url)
 }
 
 func (s *charmSuite) TestArchiveSha256(c *gc.C) {

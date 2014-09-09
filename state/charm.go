@@ -3,11 +3,7 @@
 
 package state
 
-import (
-	"net/url"
-
-	"gopkg.in/juju/charm.v3"
-)
+import "gopkg.in/juju/charm.v3"
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
@@ -15,8 +11,8 @@ type charmDoc struct {
 	Meta          *charm.Meta
 	Config        *charm.Config
 	Actions       *charm.Actions
-	BundleURL     *url.URL
 	BundleSha256  string
+	StoragePath   string
 	PendingUpload bool
 	Placeholder   bool
 }
@@ -62,10 +58,9 @@ func (c *Charm) Actions() *charm.Actions {
 	return c.doc.Actions
 }
 
-// BundleURL returns the url to the charm bundle in
-// the provider storage.
-func (c *Charm) BundleURL() *url.URL {
-	return c.doc.BundleURL
+// StoragePath returns the storage path of the charm bundle.
+func (c *Charm) StoragePath() string {
+	return c.doc.StoragePath
 }
 
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.
@@ -74,7 +69,7 @@ func (c *Charm) BundleSha256() string {
 }
 
 // IsUploaded returns whether the charm has been uploaded to the
-// provider storage.
+// environment storage.
 func (c *Charm) IsUploaded() bool {
 	return !c.doc.PendingUpload
 }

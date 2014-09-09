@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"path/filepath"
 
 	"github.com/juju/names"
@@ -122,9 +121,7 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
-	c.Assert(err, gc.IsNil)
-	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
 	c.Assert(err, gc.IsNil)
 	return sch
 }

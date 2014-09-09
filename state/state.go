@@ -9,7 +9,6 @@ package state
 import (
 	"fmt"
 	"net"
-	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -623,10 +622,9 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 	return coll, id, nil
 }
 
-// AddCharm adds the ch charm with curl to the state. bundleURL must
-// be set to a URL where the bundle for ch may be downloaded from. On
-// success the newly added charm state is returned.
-func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
+// AddCharm adds the ch charm with curl to the state.
+// On success the newly added charm state is returned.
+func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
 	// The charm may already exist in state as a placeholder, so we
 	// check for that situation and update the existing charm record
 	// if necessary, otherwise add a new record.
@@ -641,8 +639,8 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
 			Actions:      ch.Actions(),
-			BundleURL:    bundleURL,
 			BundleSha256: bundleSha256,
+			StoragePath:  storagePath,
 		}
 		err = charms.Insert(cdoc)
 		if err != nil {
@@ -652,7 +650,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPlaceholder)
+	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPlaceholder)
 }
 
 // Charm returns the charm with the given URL. Charms pending upload
@@ -966,7 +964,7 @@ var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modifie
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
-func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (*Charm, error) {
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
@@ -982,7 +980,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
 	}
 
-	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPending)
+	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPending)
 }
 
 // updateCharmDoc updates the charm with specified URL with the given
@@ -990,13 +988,13 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 // charm is no longer a placeholder or pending (depending on preReq),
 // it returns ErrCharmRevisionAlreadyModified.
 func (st *State) updateCharmDoc(
-	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
+	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
 		{"config", ch.Config()},
 		{"actions", ch.Actions()},
-		{"bundleurl", bundleURL},
+		{"storagepath", storagePath},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
 		{"placeholder", false},

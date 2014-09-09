@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/rpc"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +18,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -58,7 +56,6 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	coretesting.GitSuite
 	testing.JujuConnSuite
-	gitjujutesting.HTTPSuite
 	dataDir  string
 	oldLcAll string
 	unitDir  string
@@ -72,7 +69,6 @@ var _ = gc.Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.GitSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
-	s.HTTPSuite.SetUpSuite(c)
 	s.dataDir = c.MkDir()
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
@@ -89,7 +85,6 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
-	s.HTTPSuite.TearDownSuite(c)
 	s.JujuConnSuite.TearDownSuite(c)
 	s.GitSuite.TearDownSuite(c)
 }
@@ -97,12 +92,10 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
 	s.ResetContext(c)
-	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
@@ -113,7 +106,6 @@ func (s *UniterSuite) Reset(c *gc.C) {
 }
 
 func (s *UniterSuite) ResetContext(c *gc.C) {
-	gitjujutesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, gc.IsNil)
 }
@@ -151,7 +143,7 @@ type context struct {
 	dataDir       string
 	s             *UniterSuite
 	st            *state.State
-	charms        gitjujutesting.ResponseMap
+	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
 	svc           *state.Service
@@ -337,9 +329,7 @@ var bootstrapTests = []uniterTest{
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
-		custom{func(c *gc.C, ctx *context) {
-			gitjujutesting.Server.Response(404, nil, nil)
-		}},
+		// don't serve charm
 		createUniter{},
 		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
 	),
@@ -1485,7 +1475,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				uuid:    env.UUID(),
 				path:    s.unitDir,
 				dataDir: s.dataDir,
-				charms:  gitjujutesting.ResponseMap{},
+				charms:  make(map[string][]byte),
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -1521,7 +1511,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		st:      s.State,
 		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir: s.dataDir,
-		charms:  gitjujutesting.ResponseMap{},
+		charms:  make(map[string][]byte),
 	}
 
 	testing.AddStateServerMachine(c, ctx.st)
@@ -1629,18 +1619,24 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	body := buf.Bytes()
 	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
-	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
-	hurl, err := url.Parse(gitjujutesting.Server.URL + key)
-	c.Assert(err, gc.IsNil)
-	ctx.charms[key] = gitjujutesting.Response{200, nil, body}
-	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
+
+	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
+	ctx.charms[storagePath] = body
+	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, storagePath, hash)
 	c.Assert(err, gc.IsNil)
 }
 
 type serveCharm struct{}
 
-func (serveCharm) step(c *gc.C, ctx *context) {
-	gitjujutesting.Server.ResponseMap(1, ctx.charms)
+func (s serveCharm) step(c *gc.C, ctx *context) {
+	storage, err := ctx.st.Storage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	for storagePath, data := range ctx.charms {
+		err = storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
+		c.Assert(err, gc.IsNil)
+		delete(ctx.charms, storagePath)
+	}
 }
 
 type createServiceAndUnit struct {
@@ -2033,7 +2029,8 @@ type upgradeCharm struct {
 }
 
 func (s upgradeCharm) step(c *gc.C, ctx *context) {
-	sch, err := ctx.st.Charm(curl(s.revision))
+	curl := curl(s.revision)
+	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	err = ctx.svc.SetCharm(sch, s.forced)
 	c.Assert(err, gc.IsNil)

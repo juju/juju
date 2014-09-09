@@ -5,6 +5,7 @@ package api
 
 import (
 	"net"
+	"net/url"
 	"strconv"
 
 	"github.com/juju/names"
@@ -134,7 +135,14 @@ func (st *State) Provisioner() *provisioner.State {
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
 	// TODO(dfc) yes, this can panic, we never checked before
-	return uniter.NewState(st, st.authTag.(names.UnitTag))
+	unitTag := st.authTag.(names.UnitTag)
+	path := "/"
+	if envUUID, err := names.ParseEnvironTag(st.EnvironTag()); err == nil {
+		path += "environment/" + envUUID.Id()
+	}
+	path += "/charms"
+	charmsURL := &url.URL{Scheme: "https", Host: st.Addr(), Path: path}
+	return uniter.NewState(st, unitTag, charmsURL)
 }
 
 // Firewaller returns a version of the state that provides functionality

@@ -260,7 +260,7 @@ func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
 
 	c.Assert(saved.URL(), gc.DeepEquals, charm.URL())
 	c.Assert(saved.Meta(), gc.DeepEquals, charm.Meta())
-	c.Assert(saved.BundleURL(), gc.DeepEquals, charm.BundleURL())
+	c.Assert(saved.StoragePath(), gc.Equals, charm.StoragePath())
 	c.Assert(saved.BundleSha256(), gc.Equals, charm.BundleSha256())
 }
 
@@ -283,7 +283,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	c.Assert(saved.URL(), gc.DeepEquals, ch.URL())
 	c.Assert(saved.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(saved.Meta().Name, gc.Equals, name)
-	c.Assert(saved.BundleURL(), gc.DeepEquals, ch.BundleURL())
+	c.Assert(saved.StoragePath(), gc.Equals, ch.StoragePath())
 	c.Assert(saved.BundleSha256(), gc.Equals, ch.BundleSha256())
 }
 

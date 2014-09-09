@@ -88,21 +88,6 @@ type StringResults struct {
 	Results []StringResult
 }
 
-// CharmArchiveURLResult holds a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResult struct {
-	Error                          *Error
-	Result                         string
-	DisableSSLHostnameVerification bool
-}
-
-// CharmArchiveURLResults holds the bulk operation result of an API
-// call that returns a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResults struct {
-	Results []CharmArchiveURLResult
-}
-
 // EnvironmentResult holds the result of an API call returning a name and UUID
 // for an environment.
 type EnvironmentResult struct {
