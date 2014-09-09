@@ -416,7 +416,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         if bootstrap_host is not None:
             env.config['bootstrap-host'] = bootstrap_host
         elif env.config['type'] == 'manual':
-            instances = run_instances(3)
+            instances = run_instances(3, job_name)
             created_machines = True
             env.config['bootstrap-host'] = instances[0][1]
             bootstrap_id = instances[0][0]
