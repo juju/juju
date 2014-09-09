@@ -54,7 +54,7 @@ func (s *AddUnitSuite) setupService(c *gc.C) *charm.URL {
 	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 	return curl
 }
@@ -84,9 +84,9 @@ func (s *AddUnitSuite) assertForceMachine(c *gc.C, svc *state.Service, expectedN
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine2, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", machine2.Id())
@@ -100,10 +100,10 @@ func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 
 func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	template := state.MachineTemplate{
-		Series: "precise",
+		Series: testing.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
@@ -120,7 +120,7 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", "lxc:"+machine.Id())

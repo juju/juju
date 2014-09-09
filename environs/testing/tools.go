@@ -287,7 +287,12 @@ var (
 	V120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
 	V120q32 = version.MustParseBinary("1.2.0-quantal-i386")
 	V120q   = []version.Binary{V120q64, V120q32}
-	V120all = append(V120p, V120q...)
+
+	V120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
+	V120t32 = version.MustParseBinary("1.2.0-trusty-i386")
+	V120t   = []version.Binary{V120t64, V120t32}
+
+	V120all = append(append(V120p, V120q...), V120t...)
 	V1all   = append(V100Xall, append(V110all, V120all...)...)
 
 	V220    = version.MustParse("2.2.0")

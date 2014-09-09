@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
@@ -40,7 +41,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
-	const series = "precise"
+	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 
 	args := s.getArgs(c)
@@ -113,7 +114,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
-	const series = "precise"
+	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,
@@ -137,7 +138,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
-	const series = "precise"
+	const series = coretesting.FakeDefaultSeries
 	const arch = "amd64"
 	defer fakeSSH{
 		Series:         series,

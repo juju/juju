@@ -56,7 +56,7 @@ var sampleConfig = testing.Attrs{
 	"state-port":                1234,
 	"api-port":                  4321,
 	"syslog-port":               2345,
-	"default-series":            "precise",
+	"default-series":            config.LatestLtsSeries(),
 }
 
 type configTest struct {
@@ -1430,6 +1430,22 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(keyPEM, gc.Equals, "")
 		}
 	}
+}
+
+func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
+	config.ResetCachedLtsSeries()
+	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
+		return "", fmt.Errorf("error")
+	})
+	c.Assert(config.LatestLtsSeries(), gc.Equals, "trusty")
+}
+
+func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
+	config.ResetCachedLtsSeries()
+	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
+		return "series", nil
+	})
+	c.Assert(config.LatestLtsSeries(), gc.Equals, "series")
 }
 
 var caCert = `

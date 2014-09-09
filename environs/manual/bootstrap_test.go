@@ -71,7 +71,7 @@ func (s *bootstrapSuite) getArgs(c *gc.C) manual.BootstrapArgs {
 		DataDir:       "/var/lib/juju",
 		Environ:       s.env,
 		PossibleTools: toolsList,
-		Series:        "precise",
+		Series:        toolsList[0].Version.Series,
 		HardwareCharacteristics: &instance.HardwareCharacteristics{
 			Arch: &arch,
 		},

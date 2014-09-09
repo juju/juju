@@ -42,7 +42,7 @@ var findInstanceSpecTests = []struct {
 	image  string
 }{
 	{
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		itype:  "m1.small",
 		image:  "ami-00000033",
@@ -52,49 +52,49 @@ var findInstanceSpecTests = []struct {
 		itype:  "m1.small",
 		image:  "ami-01000034",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "cpu-cores=4",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "cpu-cores=2 arch=i386",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "mem=10G",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "mem=",
 		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "cpu-power=",
 		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "cpu-power=800",
 		itype:  "m1.xlarge",
 		image:  "ami-00000033",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "cpu-power=500 arch=i386",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: []string{"i386"},
 		cons:   "cpu-power=400",
 		itype:  "c1.medium",
@@ -112,13 +112,13 @@ var findInstanceSpecTests = []struct {
 		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: []string{"i386"},
 		cons:   "instance-type=c1.medium",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: both,
 		cons:   "mem=4G root-disk=16384M",
 		itype:  "m1.large",
@@ -158,9 +158,9 @@ var findInstanceSpecErrorTests = []struct {
 		arches: both,
 		err:    `invalid series "bad"`,
 	}, {
-		series: "precise",
+		series: testing.FakeDefaultSeries,
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches \[arm\]`,
+		err:    `no "trusty" images in test with arches \[arm\]`,
 	}, {
 		series: "raring",
 		arches: both,
