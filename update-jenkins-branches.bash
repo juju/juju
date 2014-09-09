@@ -58,7 +58,7 @@ while [[ "${1-}" != "" ]]; do
     shift
 done
 
-SLAVES=$(juju status *-slave | grep public-address | sed -r 's,^.*: ,,')
+SLAVES=$(juju status '*-slave*' | grep public-address | sed -r 's,^.*: ,,')
 if [[ -z $SLAVES ]]; then
     echo "Set JUJU_HOME to juju-qa's environments and switch to juju-ci."
     exit 1
