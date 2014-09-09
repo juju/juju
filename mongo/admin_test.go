@@ -174,12 +174,12 @@ func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 			string(mgo.RoleClusterAdmin)})
 }
 
-func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
+func (s *adminSuite) assertSetMongoPassword(c *gc.C, dbName string, expectedRoles []interface{}) {
 	dialInfo := s.setUpMongo(c)
 	session, err := mgo.DialWithInfo(dialInfo)
 	c.Assert(err, gc.IsNil)
 	defer session.Close()
-	db := session.DB("juju")
+	db := session.DB(dbName)
 
 	err = db.Login("foo", "bar")
 	c.Assert(err, gc.ErrorMatches, "auth fails")
@@ -188,6 +188,17 @@ func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = db.Login("foo", "bar")
 	c.Assert(err, gc.IsNil)
-	checkRoles(c, db, "foo",
+	checkRoles(c, db, "foo", expectedRoles)
+}
+
+func (s *adminSuite) TestSetMongoPasswordAdmin(c *gc.C) {
+	s.assertSetMongoPassword(
+		c, "admin",
 		[]interface{}{string(mgo.RoleReadWriteAny), string(mgo.RoleUserAdmin), string(mgo.RoleClusterAdmin)})
+}
+
+func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
+	s.assertSetMongoPassword(
+		c, "juju",
+		[]interface{}{string(mgo.RoleUserAdmin)})
 }
