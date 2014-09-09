@@ -5,9 +5,6 @@ package backups_test
 
 import (
 	gc "launchpad.net/gocheck"
-
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	"github.com/juju/juju/testing"
 )
 
 const ExpectedHelp = `
@@ -23,20 +20,16 @@ options:
 "juju backups" is used to manage backups of the state of a juju environment.
 
 commands:
-    help - show help on a command or other topic
+    create - create a backup
+    help   - show help on a command or other topic
 `
 
-type BackupCommandSuite struct {
-	testing.FakeJujuHomeSuite
+type backupsSuite struct {
+	BackupsSuite
 }
 
-var _ = gc.Suite(&BackupCommandSuite{})
+var _ = gc.Suite(&backupsSuite{})
 
-func (s *BackupCommandSuite) TestBackupsHelp(c *gc.C) {
-
-	// Run the command, ensuring it is actually there.
-	args := []string{"juju", "backups", "--help"}
-	out := cmdtesting.BadRun(c, 0, args...)
-
-	c.Check(out, gc.Equals, ExpectedHelp[1:])
+func (s *backupsSuite) TestHelp(c *gc.C) {
+	s.checkHelp(c, "", ExpectedHelp[1:])
 }

@@ -38,6 +38,7 @@ func NewBackupsCommand() cmd.Command {
 			},
 		),
 	}
+	backupsCmd.Register(envcmd.Wrap(&BackupsCreateCommand{}))
 	return &backupsCmd
 }
 
@@ -62,17 +63,17 @@ func (c *BackupsCommandBase) client() (backups, error) {
 }
 
 func (c *BackupsCommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
-	fmt.Fprintf(ctx.Stdout, "backup ID:       %s\n", result.ID)
+	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
 	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
 	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
-	fmt.Fprintf(ctx.Stdout, "checksum:        %s\n", result.Checksum)
-	fmt.Fprintf(ctx.Stdout, "checksum format: %s\n", result.ChecksumFormat)
+	fmt.Fprintf(ctx.Stdout, "checksum:        %q\n", result.Checksum)
+	fmt.Fprintf(ctx.Stdout, "checksum format: %q\n", result.ChecksumFormat)
 	fmt.Fprintf(ctx.Stdout, "size (B):        %d\n", result.Size)
-	fmt.Fprintf(ctx.Stdout, "stored:          %u\n", result.Stored)
-	fmt.Fprintf(ctx.Stdout, "notes:           %s\n", result.Notes)
+	fmt.Fprintf(ctx.Stdout, "stored:          %t\n", result.Stored)
+	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
 
-	fmt.Fprintf(ctx.Stdout, "environment ID:  %s\n", result.Environment)
-	fmt.Fprintf(ctx.Stdout, "machine ID:      %s\n", result.Machine)
-	fmt.Fprintf(ctx.Stdout, "created on host: %s\n", result.Hostname)
+	fmt.Fprintf(ctx.Stdout, "environment ID:  %q\n", result.Environment)
+	fmt.Fprintf(ctx.Stdout, "machine ID:      %q\n", result.Machine)
+	fmt.Fprintf(ctx.Stdout, "created on host: %q\n", result.Hostname)
 	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)
 }
