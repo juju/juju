@@ -10,10 +10,13 @@ import (
 	"github.com/juju/juju/version"
 )
 
+// BackupsCreateArgs holds the args for the API Create method.
 type BackupsCreateArgs struct {
 	Notes string
 }
 
+// BackupsMetadataResult holds the metadata for a backup as returned by
+// an API backups method (such as Create).
 type BackupsMetadataResult struct {
 	ID             string
 	Started        time.Time
@@ -30,6 +33,8 @@ type BackupsMetadataResult struct {
 	Version     version.Number
 }
 
+// UpdateFromMetadata updates the result with the information in the
+// metadata value.
 func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.ID = meta.ID()
 	r.Started = meta.Started()
