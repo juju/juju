@@ -100,6 +100,12 @@ class TestJujuClientDevel(TestCase):
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
+    def test_get_version_path(self):
+        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+            JujuClientDevelFake.get_version('foo/bar/baz')
+        vsn.assert_called_once_with(('foo/bar/baz', '--version'))
+
+
     def test_by_version(self):
         def juju_cmd_iterator():
             yield '1.17'
@@ -109,7 +115,7 @@ class TestJujuClientDevel(TestCase):
 
         context = patch.object(
             JujuClientDevel, 'get_version',
-            side_effect=juju_cmd_iterator().next)
+            side_effect=juju_cmd_iterator().send)
         with context:
             self.assertIs(JujuClientDevel,
                           type(JujuClientDevel.by_version()))
@@ -121,6 +127,13 @@ class TestJujuClientDevel(TestCase):
             client = JujuClientDevel.by_version()
             self.assertIs(JujuClientDevel, type(client))
             self.assertEqual('1.15', client.version)
+
+    def test_by_version_path(self):
+        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+            client = JujuClientDevelFake.by_version('foo/bar/qux')
+        vsn.assert_called_once_with(('foo/bar/qux', '--version'))
+        self.assertNotEqual(client.full_path, 'foo/bar/qux')
+        self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
 
     def test_full_args(self):
         env = Environment('foo', '')
@@ -449,6 +462,26 @@ def fast_timeout(count):
     if False:
         yield
 
+@contextmanager
+def temp_config():
+    home = tempfile.mkdtemp()
+    try:
+        environments_path = os.path.join(home, 'environments.yaml')
+        old_home = os.environ.get('JUJU_HOME')
+        os.environ['JUJU_HOME'] = home
+        try:
+            with open(environments_path, 'w') as environments:
+                yaml.dump({'environments': {
+                    'foo': {'type': 'local'}
+                }}, environments)
+            yield
+        finally:
+            if old_home is None:
+                del os.environ['JUJU_HOME']
+            else:
+                os.environ['JUJU_HOME'] = old_home
+    finally:
+        shutil.rmtree(home)
 
 class TestEnvironment(TestCase):
 
@@ -566,26 +599,16 @@ class TestEnvironment(TestCase):
         self.assertTrue(env.hpcloud, 'Does not respect config type.')
 
     def test_from_config(self):
-        home = tempfile.mkdtemp()
-        try:
-            environments_path = os.path.join(home, 'environments.yaml')
-            old_home = os.environ.get('JUJU_HOME')
-            os.environ['JUJU_HOME'] = home
-            try:
-                with open(environments_path, 'w') as environments:
-                    yaml.dump({'environments': {
-                        'foo': {'type': 'local'}
-                    }}, environments)
-                env = Environment.from_config('foo')
-                self.assertIs(Environment, type(env))
-                self.assertEqual({'type': 'local'}, env.config)
-            finally:
-                if old_home is None:
-                    del os.environ['JUJU_HOME']
-                else:
-                    os.environ['JUJU_HOME'] = old_home
-        finally:
-            shutil.rmtree(home)
+        with temp_config():
+            env = Environment.from_config('foo')
+        self.assertIs(Environment, type(env))
+        self.assertEqual({'type': 'local'}, env.config)
+
+    def test_from_config_path(self):
+        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+            with temp_config():
+                env = Environment.from_config('foo', 'foo/bar/qux')
+        self.assertEqual(env.client.full_path, os.path.abspath('foo/bar/qux'))
 
     def test_upgrade_juju_nonlocal(self):
         env = Environment('foo', MagicMock(), {'type': 'nonlocal'})

@@ -72,8 +72,10 @@ class JujuClientDevel:
         self.debug = False
 
     @classmethod
-    def get_version(cls):
-        return subprocess.check_output(('juju', '--version')).strip()
+    def get_version(cls, juju_path=None):
+        if juju_path is None:
+            juju_path = 'juju'
+        return subprocess.check_output((juju_path, '--version')).strip()
 
     @classmethod
     def get_full_path(cls):
@@ -82,9 +84,12 @@ class JujuClientDevel:
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
-    def by_version(cls):
-        version = cls.get_version()
-        full_path = cls.get_full_path()
+    def by_version(cls, juju_path=None):
+        version = cls.get_version(juju_path)
+        if juju_path is None:
+            full_path = cls.get_full_path()
+        else:
+            full_path = os.path.abspath(juju_path)
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         else:
@@ -227,8 +232,8 @@ class Environment:
             self.hpcloud = False
 
     @classmethod
-    def from_config(cls, name):
-        client = JujuClientDevel.by_version()
+    def from_config(cls, name, juju_path=None):
+        client = JujuClientDevel.by_version(juju_path)
         return cls(name, client, get_selected_environment(name)[0])
 
     def needs_sudo(self):
