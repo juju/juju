@@ -4,31 +4,22 @@
 package main
 
 import (
-	"bytes"
-	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
+	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
-
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 type MainSuite struct {
 	testing.FakeJujuHomeSuite
@@ -36,50 +27,16 @@ type MainSuite struct {
 
 var _ = gc.Suite(&MainSuite{})
 
-var (
-	flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
-)
-
-// Reentrancy point for testing (something as close as possible to) the juju
-// tool itself.
-func TestRunMain(t *stdtesting.T) {
-	if *flagRunMain {
-		Main(flag.Args())
-	}
-}
-
-func badrun(c *gc.C, exit int, args ...string) string {
-	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
-	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
-	output, err := ps.CombinedOutput()
-	c.Logf("command output: %q", output)
-	if exit != 0 {
-		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
-	}
-	return string(output)
-}
-
-func helpText(command cmd.Command, name string) string {
-	buff := &bytes.Buffer{}
-	info := command.Info()
-	info.Name = name
-	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-	command.SetFlags(f)
-	buff.Write(info.Help(f))
-	return buff.String()
-}
-
 func deployHelpText() string {
-	return helpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
+	return cmdtesting.HelpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
 }
 
 func setHelpText() string {
-	return helpText(envcmd.Wrap(&SetCommand{}), "juju set")
+	return cmdtesting.HelpText(envcmd.Wrap(&SetCommand{}), "juju set")
 }
 
 func syncToolsHelpText() string {
-	return helpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
+	return cmdtesting.HelpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
