@@ -189,7 +189,7 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 //
 // NOTE: do not use this in the bootstrap agent, or
 // if you do, change the bootstrap error reporting.
-func setupLogging(conf agent.Config) error {
+func setupAgentLogging(conf agent.Config) error {
 	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
 
 	log := &lumberjack.Logger{
@@ -202,3 +202,5 @@ func setupLogging(conf agent.Config) error {
 	_, err := loggo.ReplaceDefaultWriter(writer)
 	return err
 }
+
+var setupLogging = setupAgentLogging
