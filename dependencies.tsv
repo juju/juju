@@ -6,7 +6,7 @@ github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/blobstore	git	c771cce528f5f0042c4cbdc797532d52226930ca	
+github.com/juju/blobstore	git	2ac660ca30f965cfb487012ba31a863b01bcadbb	
 github.com/juju/cmd	git	7ef40be0cb5a4107d29fcfca5dff3b03ba0644dc	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
 github.com/juju/errors	git	47afc1fe9e066212a601c072c034fceb873bf594	
