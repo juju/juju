@@ -6,6 +6,8 @@
 package backups
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
@@ -21,6 +23,13 @@ var (
 	getFilesToBackUp = files.GetFilesToBackUp
 	getDBDumper      = db.NewDumper
 	runCreate        = create
+	finishMeta       = func(meta *metadata.Metadata, result *createResult) error {
+		return meta.Finish(result.size, result.checksum, "", nil)
+	}
+	storeArchive = func(stor filestorage.FileStorage, meta *metadata.Metadata, file io.Reader) error {
+		_, err := stor.Add(meta, file)
+		return err
+	}
 )
 
 // Backups is an abstraction around all juju backup-related functionality.
@@ -54,24 +63,24 @@ func (b *backups) Create(dbInfo db.ConnInfo, origin metadata.Origin, notes strin
 	// Create the archive.
 	filesToBackUp, err := getFilesToBackUp("")
 	if err != nil {
-		return nil, errors.Annotate(err, "error listing files to back up")
+		return nil, errors.Annotate(err, "while listing files to back up")
 	}
 	dumper := getDBDumper(dbInfo)
 	args := createArgs{filesToBackUp, dumper}
 	result, err := runCreate(&args)
 	if err != nil {
-		return nil, errors.Annotate(err, "error creating backup archive")
+		return nil, errors.Annotate(err, "while creating backup archive")
 	}
 	defer result.archiveFile.Close()
 
 	// Store the archive.
-	err = meta.Finish(result.size, result.checksum, "", nil)
+	err = finishMeta(meta, result)
 	if err != nil {
-		return nil, errors.Annotate(err, "error updating metadata")
+		return nil, errors.Annotate(err, "while updating metadata")
 	}
-	_, err = b.storage.Add(meta, result.archiveFile)
+	err = storeArchive(b.storage, meta, result.archiveFile)
 	if err != nil {
-		return nil, errors.Annotate(err, "error storing backup archive")
+		return nil, errors.Annotate(err, "while storing backup archive")
 	}
 
 	return meta, nil
