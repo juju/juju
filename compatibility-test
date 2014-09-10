@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+from argparse import ArgumentParser
+
+from jujuconfig import get_juju_home
+from jujupy import (
+    Environment,
+    )
+from deploy_stack import (
+    bootstrap_from_env,
+    dump_logs,
+    get_machine_dns_name,
+    update_env,
+    )
+
+
+def test_compatibility(old_juju, base_environment, environment_name):
+    env = Environment.from_config(base_environment)
+    update_env(env, environment_name)
+    juju_home = get_juju_home()
+    bootstrap_from_env(juju_home, env)
+    host = get_machine_dns_name(env, 0)
+    try:
+        pass
+    finally:
+        dump_logs(env, host, '.')
+
+
+def main():
+    parser = ArgumentParser('compatibility-test')
+    parser.add_argument('old_juju', help='The old juju binary')
+    parser.add_argument('new_juju', help='The new juju binary')
+    parser.add_argument('base_environment', help='The environment to base on.')
+    parser.add_argument('environment_name', help='The new environment name.')
+    args = parser.parse_args()
+    test_compatibility(args.old_juju, args.base_environment,
+                       args.environment_name)
+
+
+if __name__ == '__main__':
+    main()

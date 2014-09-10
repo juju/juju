@@ -396,7 +396,7 @@ def deploy_job():
                        args.machine, args.series, log_dir, args.debug)
 
 
-def update_env(env, new_env_name, series=None, boostrap_host=None):
+def update_env(env, new_env_name, series=None, bootstrap_host=None):
     # Rename to the new name.
     env.environment = new_env_name
     # Always bootstrap a matching environment.
