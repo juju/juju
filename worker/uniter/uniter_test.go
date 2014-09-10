@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -1361,6 +1361,7 @@ var actionEventTests = []uniterTest{
 			params: map[string]interface{}{"outfile": 2},
 		},
 		waitHooks{"fail-snapshot"},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not defined in actions.yaml fail without an error",
 		createCharm{
@@ -1378,15 +1379,14 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
 		waitHooks{"fail-snapshot"},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"pending actions get consumed",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeAction(c, path, "action-log-fail")
 				ctx.writeActionsYaml(c, path, []string{
 					"action-log",
-					"action-log-fail",
 				})
 			},
 		},
@@ -1394,9 +1394,8 @@ var actionEventTests = []uniterTest{
 		ensureStateWorker{},
 		createServiceAndUnit{},
 		addAction{"action-log", nil},
-		addAction{"action-log-fail", nil},
 		addAction{"action-log", nil},
-		addAction{"action-log-fail", nil},
+		addAction{"action-log", nil},
 		startUniter{},
 		waitAddresses{},
 		waitUnit{status: params.StatusStarted},
@@ -1404,10 +1403,10 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		waitHooks{
 			"action-log",
-			"fail-action-log-fail",
 			"action-log",
-			"fail-action-log-fail",
+			"action-log",
 		},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not implemented are not errors, similarly to hooks",
 		createCharm{},
@@ -1421,6 +1420,19 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitNoHooks{"action-log", "fail-action-log"},
+		waitUnit{status: params.StatusStarted},
+	), ut(
+		"actions are not attempted from ModeHookError and do not clear the error",
+		startupError{"install"},
+		addAction{"action-log", nil},
+		waitNoHooks{"action-log"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "install"`,
+			data: map[string]interface{}{
+				"remote-unit": "mysql/0",
+			},
+		},
 	),
 }
 
