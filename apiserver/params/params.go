@@ -140,6 +140,25 @@ type AddMachinesResult struct {
 	Error   *Error
 }
 
+// GetMachinesV1 holds a list of tags for the MachinerAPIV1.GetMachines call.
+type GetMachinesV1 struct {
+	Tags []string
+}
+
+// GetMachinesResultsV0 holds the results of a MachinerAPIV1.GetMachines call.
+type GetMachinesResultsV1 struct {
+	Machines []GetMachinesResultV1
+}
+
+// GetMachineResultV1 holds the result of the MachinerAPIV1.GetMachines call
+// for one machine.
+type GetMachinesResultV1 struct {
+	Tag      string
+	Life     Life
+	IsManual bool
+	Error    *Error
+}
+
 // DestroyMachines holds parameters for the DestroyMachines call.
 type DestroyMachines struct {
 	MachineNames []string

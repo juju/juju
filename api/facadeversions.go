@@ -13,7 +13,7 @@ var facadeVersions = map[string]int{
 	"AllWatcher":           0,
 	"Deployer":             0,
 	"KeyUpdater":           0,
-	"Machiner":             0,
+	"Machiner":             1,
 	"Networker":            0,
 	"StringsWatcher":       0,
 	"Environment":          0,

@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -219,6 +220,12 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	// Standard: required for disabledNetworkManagement || isManual.
+	statetesting.RequiresSafeNetworkerTest(c, env, statetesting.RequiresSafeNetworkerTestDefault)
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {

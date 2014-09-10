@@ -16,14 +16,50 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 )
 
+type machinerAPIV0 interface {
+	Life(args params.Entities) (params.LifeResults, error)
+	SetStatus(args params.SetStatus) (params.ErrorResults, error)
+	EnsureDead(args params.Entities) (params.ErrorResults, error)
+	Watch(args params.Entities) (params.NotifyWatchResults, error)
+
+	SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error)
+}
+
+type machinerAPIV1 interface {
+	machinerAPIV0
+
+	GetMachines(args params.GetMachinesV1) (params.GetMachinesResultsV1, error)
+}
+
+type machinerAPIFactory func(st *state.State, resources *common.Resources, authorizer common.Authorizer) (int, machinerAPIV0, error)
+
 type machinerSuite struct {
 	commonSuite
 
 	resources *common.Resources
-	machiner  *machine.MachinerAPI
+	factory   machinerAPIFactory
+	version   int
+	machiner  machinerAPIV0
 }
 
-var _ = gc.Suite(&machinerSuite{})
+var (
+	// Run suite for version 0.
+	factoryV0 = func(st *state.State, resources *common.Resources, authorizer common.Authorizer) (int, machinerAPIV0, error) {
+		api, err := machine.NewMachinerAPIV0(st, resources, authorizer)
+		return 0, api, err
+	}
+	_ = gc.Suite(&machinerSuite{
+		factory: factoryV0,
+	})
+	// Run suite for version 1.
+	factoryV1 = func(st *state.State, resources *common.Resources, authorizer common.Authorizer) (int, machinerAPIV0, error) {
+		api, err := machine.NewMachinerAPIV1(st, resources, authorizer)
+		return 1, api, err
+	}
+	_ = gc.Suite(&machinerSuite{
+		factory: factoryV1,
+	})
+)
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
@@ -32,20 +68,45 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 	// Register.
 	s.resources = common.NewResources()
 
-	// Create a machiner API for machine 1.
-	machiner, err := machine.NewMachinerAPI(
+	// Create a V0 machiner API for machine 1.
+	version, machiner, err := s.factory(
 		s.State,
 		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, gc.IsNil)
+	s.version = version
 	s.machiner = machiner
+}
+
+func (s *machinerSuite) TestGetMachines(c *gc.C) {
+	if s.version < 1 {
+		c.Skip("GetMachines introduced with version 1")
+	}
+
+	machiner := s.machiner.(machinerAPIV1)
+	args := params.GetMachinesV1{
+		Tags: []string{
+			"machine-0",
+			"machine-1",
+			"machine-42",
+		},
+	}
+	result, err := machiner.GetMachines(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.GetMachinesResultsV1{
+		Machines: []params.GetMachinesResultV1{
+			{"machine-0", "", false, apiservertesting.ErrUnauthorized},
+			{"machine-1", params.Alive, false, nil},
+			{"machine-42", "", false, apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
-	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
+	_, aMachiner, err := s.factory(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aMachiner, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

@@ -158,7 +158,6 @@ type MachineAgent struct {
 	restoreMode          bool
 	restoring            bool
 	workersStarted       chan struct{}
-	st                   *state.State
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -397,13 +396,20 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-	writeNetworkConfig := providerType == "maas"
-	if disableNetworkManagement || !writeNetworkConfig {
+	// Start the networker in a mode depending on environment cpability.
+	ecap, err := environCapability(st)
+	if err != nil {
+		return nil, err
+	}
+	m, err := st.Machiner().Machine(a.Tag().(names.MachineTag))
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot retrieve machine")
+	}
+	if ecap.RequiresSafeNetworker(m) {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 			return newSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
 		})
-	} else if !disableNetworkManagement && writeNetworkConfig {
+	} else {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 			return newNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
 		})

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -105,6 +106,21 @@ func (*environSuite) TestSupportNetworks(c *gc.C) {
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.SupportNetworks(), jc.IsFalse)
+}
+
+func (*environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	// Special: required for machine 0 || disabledNetworkManagement || isManual.
+	statetesting.RequiresSafeNetworkerTest(c, environ, [16]bool{
+		// API v1 or higher, machines 0 and 1.
+		true, true, true, true,
+		false, true, true, true,
+		// API v0, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
+	})
 }
 
 type localJujuTestSuite struct {

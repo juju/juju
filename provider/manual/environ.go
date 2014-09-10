@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/terminationworker"
@@ -103,6 +104,13 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportNetworks() bool {
 	return false
+}
+
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (e *manualEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	// Manual provider does not yet support networking config, so
+	// we need a safe networker until it does.
+	return true
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {

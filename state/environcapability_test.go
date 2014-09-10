@@ -22,6 +22,7 @@ type EnvironCapabilitySuite struct {
 var _ = gc.Suite(&EnvironCapabilitySuite{})
 
 type mockEnvironCapability struct {
+	requiresSafeNetworker      bool
 	supportsUnitPlacementError error
 }
 
@@ -31,6 +32,10 @@ func (p *mockEnvironCapability) SupportedArchitectures() ([]string, error) {
 
 func (p *mockEnvironCapability) SupportNetworks() bool {
 	panic("unused")
+}
+
+func (p *mockEnvironCapability) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	return p.requiresSafeNetworker
 }
 
 func (p *mockEnvironCapability) SupportsUnitPlacement() error {

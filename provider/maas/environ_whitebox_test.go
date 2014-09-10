@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -824,4 +825,10 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	env := suite.makeEnviron()
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
+}
+
+func (suite *environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := suite.makeEnviron()
+	// Standard: disabledNetworkManagement || isManual.
+	statetesting.RequiresSafeNetworkerTest(c, env, statetesting.RequiresSafeNetworkerTestDefault)
 }

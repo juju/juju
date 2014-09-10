@@ -23,6 +23,8 @@ import (
 	apideployer "github.com/juju/juju/api/deployer"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -308,6 +310,24 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	}
 
 	return st, entity, nil
+}
+
+// environCapability returns the capabilities of the environment
+// opened with the passed state.
+func environCapability(st *api.State) (caps state.EnvironCapability, err error) {
+	defer errors.Maskf(&err, "cannot get environment capabilities")
+
+	var cfg *config.Config
+	cfg, err = st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to get environment config")
+	}
+	var env environs.Environ
+	env, err = environs.New(cfg)
+	if err != nil {
+		return nil, errors.Annotatef(err, "invalid environment config")
+	}
+	return env, nil
 }
 
 // agentDone processes the error returned by

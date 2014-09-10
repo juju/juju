@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -780,6 +781,12 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := s.Open(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (s *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := s.Open(c)
+	// Standard: required for disabledNetworkManagement || isManual.
+	statetesting.RequiresSafeNetworkerTest(c, env, statetesting.RequiresSafeNetworkerTestDefault)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {

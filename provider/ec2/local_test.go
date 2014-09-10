@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -703,6 +704,12 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (t *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := t.Prepare(c)
+	// Standard: required for disabledNetworkManagement || isManual.
+	statetesting.RequiresSafeNetworkerTest(c, env, statetesting.RequiresSafeNetworkerTestDefault)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

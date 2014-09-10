@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
@@ -26,7 +28,6 @@ func NewState(caller base.APICaller) *State {
 		facade:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
-
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
@@ -36,13 +37,38 @@ func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
 
 // Machine provides access to methods of a state.Machine through the facade.
 func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
-	life, err := st.machineLife(tag)
-	if err != nil {
+	var result params.GetMachinesResultsV1
+	args := params.GetMachinesV1{[]string{tag.String()}}
+	err := st.facade.FacadeCall("GetMachines", args, &result)
+	if params.IsCodeNotImplemented(err) {
+		// Version is lower than expected.
+		life, err := st.machineLife(tag)
+		if err != nil {
+			return nil, err
+		}
+		return &Machine{
+			tag:                  tag,
+			life:                 life,
+			isManual:             false,
+			isManualNotSupported: true,
+			st:                   st,
+		}, nil
+	} else if err != nil {
 		return nil, err
 	}
+	// Server runs V1 or higher.
+	if n := len(result.Machines); n != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", n)
+	}
+	machineResult := result.Machines[0]
+	if machineResult.Error != nil {
+		return nil, machineResult.Error
+	}
 	return &Machine{
-		tag:  tag,
-		life: life,
-		st:   st,
+		tag:                  tag,
+		life:                 machineResult.Life,
+		isManual:             machineResult.IsManual,
+		isManualNotSupported: false,
+		st:                   st,
 	}, nil
 }

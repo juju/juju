@@ -63,6 +63,16 @@ type ConfigValidator interface {
 	Validate(cfg, old *config.Config) (valid *config.Config, err error)
 }
 
+// MachineInfoGetter allows getting information about a machine, including its
+// id and whether it was manually provisioned.
+type MachineInfoGetter interface {
+	// Id return the identifier of the machine.
+	Id() string
+
+	// IsManual returns true if the machine is manually provisioned.
+	IsManual() (bool, bool)
+}
+
 // EnvironCapability implements access to metadata about the capabilities
 // of an environment.
 type EnvironCapability interface {
@@ -73,6 +83,11 @@ type EnvironCapability interface {
 	// SupportNetworks returns whether the environment has support to
 	// specify networks for services and machines.
 	SupportNetworks() bool
+
+	// RequiresSafeNetworker returns whether the safe variant of the networker
+	// is required. In this case the networker doesn't modify local network
+	// configuration files, and does not bring interfaces up or down.
+	RequiresSafeNetworker(mig MachineInfoGetter) bool
 
 	// SupportsUnitAssignment returns an error which, if non-nil, indicates
 	// that the environment does not support unit placement. If the environment

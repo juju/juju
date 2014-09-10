@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/joyent"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -436,4 +437,10 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
+func (s *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := s.Prepare(c)
+	// Standard: required for for disabledNetworkManagement || isManual.
+	statetesting.RequiresSafeNetworkerTest(c, env, statetesting.RequiresSafeNetworkerTestDefault)
 }

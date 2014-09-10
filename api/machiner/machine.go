@@ -14,9 +14,19 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag  names.MachineTag
-	life params.Life
-	st   *State
+	tag      names.MachineTag
+	life     params.Life
+	isManual bool
+
+	// isManualNotSupported is set to true if the Machiner API
+	// facade is V0 and doesn't support IsManual().
+	isManualNotSupported bool
+	st                   *State
+}
+
+// Id returns the machine's id.
+func (m *Machine) Id() string {
+	return m.tag.Id()
 }
 
 // Tag returns the machine's tag.
@@ -27,6 +37,14 @@ func (m *Machine) Tag() names.Tag {
 // Life returns the machine's lifecycle value.
 func (m *Machine) Life() params.Life {
 	return m.life
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, bool) {
+	if m.isManualNotSupported {
+		return false, false
+	}
+	return m.isManual, true
 }
 
 // Refresh updates the cached local copy of the machine's data.

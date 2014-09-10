@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -163,6 +164,13 @@ func (env *maasEnviron) SupportNetworks() bool {
 		return false
 	}
 	return caps.Contains(capNetworksManagement)
+}
+
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (env *maasEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	isManual, haveManual := mig.IsManual()
+	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
+	return !haveManual || disableNetworkManagement || isManual
 }
 
 func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {

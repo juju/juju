@@ -461,6 +461,13 @@ func (env *azureEnviron) SupportNetworks() bool {
 	return false
 }
 
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (env *azureEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	isManual, haveManual := mig.IsManual()
+	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
+	return !haveManual || disableNetworkManagement || isManual
+}
+
 // selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (*instances.InstanceType, string, error) {

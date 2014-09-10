@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -150,6 +151,18 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
+}
+
+func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	// Special: always.
+	statetesting.RequiresSafeNetworkerTest(c, s.env, [16]bool{
+		// API v1 or higher, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
+		// API v0, machines 0 and 1.
+		true, true, true, true,
+		true, true, true, true,
+	})
 }
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {

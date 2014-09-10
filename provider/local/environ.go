@@ -42,14 +42,20 @@ import (
 	"github.com/juju/juju/provider/common"
 	servicecommon "github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
 
-// boostrapInstanceId is just the name we give to the bootstrap machine.
-// Using "localhost" because it is, and it makes sense.
-const bootstrapInstanceId instance.Id = "localhost"
+const (
+	// boostrapInstanceId is just the name we give to the bootstrap machine.
+	// Using "localhost" because it is, and it makes sense.
+	bootstrapInstanceId instance.Id = "localhost"
+
+	// bootstrapMachineId is the id of the bootstrap machine.
+	bootstrapMachineId = "0"
+)
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -85,6 +91,13 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*localEnviron) SupportNetworks() bool {
 	return false
+}
+
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (env *localEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	isManual, haveManual := mig.IsManual()
+	disableNetworkManagement, _ := env.Config().DisableNetworkManagement()
+	return !haveManual || disableNetworkManagement || mig.Id() == bootstrapMachineId || isManual
 }
 
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {

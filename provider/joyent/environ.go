@@ -119,6 +119,13 @@ func (e *joyentEnviron) SupportNetworks() bool {
 	return false
 }
 
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (e *joyentEnviron) RequiresSafeNetworker(mig state.MachineInfoGetter) bool {
+	isManual, haveManual := mig.IsManual()
+	disableNetworkManagement, _ := e.Config().DisableNetworkManagement()
+	return !haveManual || disableNetworkManagement || isManual
+}
+
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
