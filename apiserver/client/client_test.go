@@ -608,7 +608,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
-		err = unit.SetStatus(params.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 		units[i] = unit
 	}
@@ -677,7 +677,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, gc.IsNil)
-	err = u.SetStatus(params.StatusError, "gaaah", nil)
+	err = u.SetStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -2447,7 +2447,7 @@ func getArchiveName(bundleURL *url.URL) string {
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetStatus(params.StatusError, "error", nil)
+	err = machine.SetStatus(state.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().String())
 	c.Assert(err, gc.IsNil)

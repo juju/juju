@@ -38,7 +38,7 @@ func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info
 	if !ok {
 		return NotSupportedError(tag, "setting status")
 	}
-	return entity.SetStatus(status, info, data)
+	return entity.SetStatus(state.Status(status), info, data)
 }
 
 // SetStatus sets the status of each given entity.
@@ -93,7 +93,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatus != params.StatusError {
+	if len(newData) > 0 && existingStatus != state.StatusError {
 		return fmt.Errorf("%q is not in an error state", tag)
 	}
 	return entity.SetStatus(existingStatus, existingInfo, newData)

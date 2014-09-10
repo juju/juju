@@ -18,7 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 )
 
@@ -579,7 +578,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status: params.StatusPending,
+		Status: StatusPending,
 	}
 	ops := []txn.Op{
 		{
