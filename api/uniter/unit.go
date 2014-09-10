@@ -4,10 +4,9 @@
 package uniter
 
 import (
-	"errors"
 	"fmt"
 
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v3"
 
@@ -79,7 +78,7 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 	}
 	err := u.st.facade.FacadeCall("AddMetrics", args, &result)
 	if err != nil {
-		jujuerrors.Annotate(err, "unable to add metric")
+		return errors.Annotate(err, "unable to add metric")
 	}
 	return result.OneError()
 }

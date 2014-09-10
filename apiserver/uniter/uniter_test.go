@@ -1862,6 +1862,11 @@ func (s *uniterSuite) TestAddMetrics(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	metrics, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Metrics(), gc.HasLen, 2)
 }
 
 func (s *uniterSuite) TestAddMetricsIncorrectTag(c *gc.C) {
@@ -1876,6 +1881,9 @@ func (s *uniterSuite) TestAddMetricsIncorrectTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	metrics, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metrics, gc.HasLen, 0)
 }
 
 func (s *uniterSuite) TestAddMetricsUnauthenticated(c *gc.C) {
@@ -1890,4 +1898,7 @@ func (s *uniterSuite) TestAddMetricsUnauthenticated(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	metrics, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metrics, gc.HasLen, 0)
 }

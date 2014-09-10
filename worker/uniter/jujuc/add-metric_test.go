@@ -50,6 +50,13 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"",
 			[]Metric{{"key", "50", time.Now()}},
 		}, {
+			"no parameters error",
+			[]string{"add-metric"},
+			2,
+			"",
+			"error: no metrics specified\n",
+			nil,
+		}, {
 			"invalid metric value",
 			[]string{"add-metric", "key=invalidvalue"},
 			2,

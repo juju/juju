@@ -112,22 +112,6 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	c.Assert(saved.Sent(), jc.IsTrue)
 }
 
-func (s *MetricSuite) TestDeleteMetric(c *gc.C) {
-	now := state.NowToTheSecond()
-	m := state.Metric{"item", "5", now, []byte{}}
-	added, err := s.unit.AddMetrics(now, []state.Metric{m})
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.MetricBatch(added.UUID())
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.DeleteMetricBatch(added.UUID())
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.MetricBatch(added.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	// We check the error explicitly to ensure the error message looks readable
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("metric %v not found", added.UUID()))
-}
-
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	m := state.Metric{"item", "5", oldTime, []byte("creds")}

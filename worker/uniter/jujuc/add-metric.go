@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"launchpad.net/gnuflag"
 )
 
 // Metric represents a single metric set by the charm.
@@ -42,13 +41,12 @@ func (c *AddMetricCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags method implements the Command interface.
-func (c *AddMetricCommand) SetFlags(f *gnuflag.FlagSet) {
-}
-
 // Init parses the command's parameters.
 func (c *AddMetricCommand) Init(args []string) error {
 	now := time.Now()
+	if args == nil {
+		return fmt.Errorf("no metrics specified")
+	}
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", 2)
 		if len(parts) != 2 || len(parts[0]) == 0 {
