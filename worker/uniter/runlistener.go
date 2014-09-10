@@ -11,14 +11,14 @@ import (
 	"net/rpc"
 	"sync"
 
-	"github.com/juju/utils/exec"
-
+	"github.com/juju/errors"
 	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/utils/exec"
 )
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"
 
-// RunCommandsArgs holds the arguments for RunCommands
+// RunCommandsArgs stores the arguments for a RunCommands call.
 type RunCommandsArgs struct {
 	Commands   string
 	Relation   string
@@ -52,11 +52,11 @@ type JujuRunServer struct {
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
 func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
-	logger.Debugf("RunCommands: %q", args.Commands)
+	logger.Debugf("RunCommands: %+v", args)
 
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "r.runner.RunCommands")
 	}
 
 	*result = *runResult
@@ -70,11 +70,11 @@ func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecRespo
 func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, error) {
 	server := rpc.NewServer()
 	if err := server.Register(&JujuRunServer{runner}); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	runListener := &RunListener{
 		listener: listener,

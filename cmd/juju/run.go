@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
@@ -88,39 +89,39 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *RunCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no commands specified")
+		return errors.Errorf("no commands specified")
 	}
 	c.commands, args = args[0], args[1:]
 
 	if c.all {
 		if len(c.machines) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual machines")
+			return errors.Errorf("You cannot specify --all and individual machines")
 		}
 		if len(c.services) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual services")
+			return errors.Errorf("You cannot specify --all and individual services")
 		}
 		if len(c.units) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual units")
+			return errors.Errorf("You cannot specify --all and individual units")
 		}
 		if len(c.relation) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual relations")
+			return errors.Errorf("You cannot specify --all and individual relations")
 		}
 		if len(c.remoteUnit) != 0 {
-			return fmt.Errorf("You cannot specify --all and a remote-unit")
+			return errors.Errorf("You cannot specify --all and a remote-unit")
 		}
 
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
-			return fmt.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
+			return errors.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
 		}
 	}
 
 	if len(c.machines) != 0 {
 		if len(c.relation) != 0 {
-			return fmt.Errorf("You cannot specify --machine and individual relations")
+			return errors.Errorf("You cannot specify --machine and individual relations")
 		}
 		if len(c.remoteUnit) != 0 {
-			return fmt.Errorf("You cannot specify --machine and a remote-unit")
+			return errors.Errorf("You cannot specify --machine and a remote-unit")
 		}
 	}
 
@@ -144,7 +145,7 @@ func (c *RunCommand) Init(args []string) error {
 		nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid remote-unit name", c.remoteUnit))
 	}
 	if len(nameErrors) > 0 {
-		return fmt.Errorf("The following run targets are not valid:\n%s",
+		return errors.Errorf("The following run targets are not valid:\n%s",
 			strings.Join(nameErrors, "\n"))
 	}
 
@@ -235,7 +236,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr.Write(result.Stderr)
 		if result.Error != "" {
 			// Convert the error string back into an error object.
-			return fmt.Errorf("%s", result.Error)
+			return errors.Errorf("%s", result.Error)
 		}
 		if result.Code != 0 {
 			return cmd.NewRcPassthroughError(result.Code)

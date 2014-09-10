@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
@@ -75,7 +76,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 func getRelation(st *state.State, inRelation string) (*state.Relation, error) {
 	endpoints, err := st.InferEndpoints([]string{inRelation})
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st.EndpointsRelation(endpoints...)
 }
@@ -106,12 +107,12 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		// assigned machine.
 		machineId, err := unit.AssignedMachineId()
 		if err != nil {
-			return results, err
+			return results, errors.Trace(err)
 		}
 
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {
-			return results, err
+			return results, errors.Trace(err)
 		}
 
 		command := "juju-run"
@@ -119,14 +120,14 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		if len(run.Relation) > 0 {
 			relation, err := getRelation(c.api.state, run.Relation)
 			if err != nil {
-				return results, err
+				return results, errors.Trace(err)
 			}
 			command += fmt.Sprintf(" --relation %d", relation.Id())
 
 			if len(run.RemoteUnit) > 0 {
 				remoteUnit, err := c.api.state.Unit(run.RemoteUnit)
 				if err != nil {
-					return results, err
+					return results, errors.Trace(err)
 				}
 				command += fmt.Sprintf(" --remote-unit %s", remoteUnit.Name())
 			}
@@ -141,7 +142,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	for _, machineId := range run.Machines {
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {
-			return results, err
+			return results, errors.Trace(err)
 		}
 		command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)

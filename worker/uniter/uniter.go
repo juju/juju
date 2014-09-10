@@ -382,11 +382,11 @@ var errHookFailed = stderrors.New("hook execution failed")
 func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (context *HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	ownerTag, err := u.service.OwnerTag()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	ctxRelations := map[int]*ContextRelation{}
@@ -426,7 +426,7 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 		return nil
 	}
 	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -437,14 +437,14 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 		// TODO: switch to long-running server with single context;
 		// use nonce in place of context id.
 		if ctxId != context.id {
-			return nil, fmt.Errorf("expected context id %q, got %q", context.id, ctxId)
+			return nil, errors.Errorf("expected context id %q, got %q", context.id, ctxId)
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
 	socketPath := u.sockPath("agent.socket", "@")
 	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Trace(err)
 	}
 	go srv.Run()
 	return srv, socketPath, nil
@@ -456,30 +456,30 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
 
 	relationId, err := parseRelationId(args.Relation)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	remoteUnit, err := parseRemoteUnit(u.relationers, relationId, args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	logger.Debugf("remoteUnit: %+v", remoteUnit)
 	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), relationId, remoteUnit, map[string]interface{}(nil))
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer srv.Close()
 
@@ -487,7 +487,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
-	return result, err
+	return result, errors.Trace(err)
 }
 
 func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {
@@ -518,7 +518,7 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
 	ch, err := corecharm.ReadCharm(u.charmPath)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 
 	// Note that ch.Actions() will never be nil, rather an empty struct.
@@ -526,7 +526,7 @@ func (u *Uniter) validateAction(name string, params map[string]interface{}) (boo
 
 	spec, ok := actionSpecs.ActionSpecs[name]
 	if !ok {
-		return false, fmt.Errorf("no spec was defined for action %q", name)
+		return false, errors.Errorf("no spec was defined for action %q", name)
 	}
 
 	return spec.ValidateParams(params)
@@ -610,7 +610,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 
 	if err = hi.Validate(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// If it wasn't an Action, continue as normal.
@@ -620,31 +620,39 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
-			return err
+			return errors.Trace(err)
 		}
+	} else if hi.Kind == hooks.ActionRequested {
+		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
+		if err != nil {
+			return errors.Trace(err)
+		}
+		actionParams = action.Params()
+		hookName = action.Name()
+		_, actionParamsErr = u.validateAction(hookName, actionParams)
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
 
 	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer srv.Close()
 
 	// Run the hook.
 	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Infof("running %q hook", hookName)
 
@@ -659,7 +667,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if ranHook {
 		logger.Infof("ran %q hook", hookName)
@@ -950,7 +958,7 @@ func parseRelationId(relation string) (int, error) {
 	if len(relation) > 0 {
 		id, err := strconv.ParseInt(relation, 0, 0)
 		if err != nil {
-			return -1, err
+			return -1, errors.Trace(err)
 		}
 		return int(id), nil
 	}
@@ -966,7 +974,7 @@ func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCo
 	if relationId != -1 && len(remoteUnit) == 0 {
 		relationer, found := relationers[relationId]
 		if !found {
-			return "", fmt.Errorf("unable to find any relations for %v", args.Relation)
+			return "", errors.Errorf("unable to find any relations for %v", args.Relation)
 		}
 
 		var err error
@@ -975,11 +983,11 @@ func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCo
 
 		switch numRemoteUnits {
 		case 0:
-			err = fmt.Errorf("no remote unit found for relation: %s", args.Relation)
+			err = errors.Errorf("no remote unit found for relation: %s", args.Relation)
 		case 1:
 			remoteUnit = remoteUnits[0]
 		default:
-			err = fmt.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
+			err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
 		}
 
 		if err != nil {
