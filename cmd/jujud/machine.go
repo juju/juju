@@ -660,19 +660,19 @@ func init() {
 
 // limitLogin is called by the API server for each login attempt.
 // it returns an error if upgrads or restore are running.
-func (a *MachineAgent) limitLogins(creds params.Creds) error {
-	err := a.limitLoginsDuringRestore(creds)
+func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
+	err := a.limitLoginsDuringRestore(req)
 	if err != nil {
 		return err
 	}
-	err = a.limitLoginsDuringUpgrade(creds)
+	err = a.limitLoginsDuringUpgrade(req)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *MachineAgent) limitLoginsDuringRestore(creds params.Creds) error {
+func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 	var err error
 	switch {
 	case a.IsRestoreRunning():
@@ -681,7 +681,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(creds params.Creds) error {
 		err = apiserver.AboutToRestoreError
 	}
 	if err != nil {
-		authTag, parseErr := names.ParseTag(creds.AuthTag)
+		authTag, parseErr := names.ParseTag(req.AuthTag)
 		if parseErr != nil {
 			return errors.Annotate(err, "could not parse auth tag")
 		}
