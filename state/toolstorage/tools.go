@@ -53,6 +53,7 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error
 		return errors.Annotate(err, "cannot store tools tarball")
 	}
 	defer func() {
+		logger.Debugf("%s, %s, %s", resultErr, s.envUUID, path)
 		if resultErr == nil {
 			return
 		}
@@ -78,6 +79,7 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error
 			C:  s.metadataCollection.Name,
 			Id: newDoc.Id,
 		}
+
 		// On the first attempt we assume we're adding new tools.
 		// Subsequent attempts to add tools will fetch the existing
 		// doc, record the old path, and attempt to update the

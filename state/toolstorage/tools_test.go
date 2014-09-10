@@ -191,6 +191,79 @@ func (s *ToolsSuite) TestAddToolsRemovesExisting(c *gc.C) {
 	s.assertTools(c, addedMetadata, "xyzzzz")
 }
 
+func (s *ToolsSuite) TestAddToolsRemovesExistingRemoveFails(c *gc.C) {
+	// Add a metadata doc and a blob at a known path, then
+	// call AddTools and ensure that AddTools attempts to remove
+	// the original blob, but does not return an error if it
+	// fails.
+	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
+	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	c.Assert(err, gc.IsNil)
+
+	storage := toolstorage.NewStorage(
+		"my-uuid",
+		removeFailsManagedStorage{s.managedStorage},
+		s.metadataCollection,
+		s.txnRunner,
+	)
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash(xyzzzz)",
+	}
+	err = storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.IsNil)
+
+	// old blob should still be there
+	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", "path")
+	c.Assert(err, gc.IsNil)
+	r.Close()
+
+	s.assertTools(c, addedMetadata, "xyzzzz")
+}
+
+func (s *ToolsSuite) TestAddToolsRemovesBlobOnFailure(c *gc.C) {
+	storage := toolstorage.NewStorage(
+		"my-uuid",
+		s.managedStorage,
+		s.metadataCollection,
+		errorTransactionRunner{s.txnRunner},
+	)
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash",
+	}
+	err := storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.ErrorMatches, "cannot store tools metadata: Run fails")
+
+	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
+	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ToolsSuite) TestAddToolsRemovesBlobOnFailureRemoveFails(c *gc.C) {
+	storage := toolstorage.NewStorage(
+		"my-uuid",
+		removeFailsManagedStorage{s.managedStorage},
+		s.metadataCollection,
+		errorTransactionRunner{s.txnRunner},
+	)
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash",
+	}
+	err := storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.ErrorMatches, "cannot store tools metadata: Run fails")
+
+	// blob should still be there, because the removal failed.
+	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
+	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", path)
+	c.Assert(err, gc.IsNil)
+	r.Close()
+}
+
 func (s *ToolsSuite) TestAddToolsSame(c *gc.C) {
 	metadata := toolstorage.Metadata{Version: version.Current, Size: 1, SHA256: "0"}
 	for i := 0; i < 2; i++ {
@@ -279,4 +352,20 @@ func (s *ToolsSuite) assertTools(c *gc.C, expected toolstorage.Metadata, content
 	data, err := ioutil.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, content)
+}
+
+type removeFailsManagedStorage struct {
+	blobstore.ManagedStorage
+}
+
+func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
+	return errors.Errorf("cannot remove %s:%s", uuid, path)
+}
+
+type errorTransactionRunner struct {
+	jujutxn.Runner
+}
+
+func (errorTransactionRunner) Run(transactions jujutxn.TransactionSource) error {
+	return errors.New("Run fails")
 }
