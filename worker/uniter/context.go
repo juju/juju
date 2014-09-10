@@ -101,6 +101,9 @@ type HookContext struct {
 
 	// metrics are the metrics recorded by calls to add-metric
 	metrics []jujuc.Metric
+
+	// canAddMetrics specifies whether the hook allows recording metrics
+	canAddMetrics bool
 }
 
 func NewHookContext(
@@ -115,6 +118,7 @@ func NewHookContext(
 	serviceOwner string,
 	proxySettings proxy.Settings,
 	actionParams map[string]interface{},
+	canAddMetrics bool,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
@@ -128,6 +132,7 @@ func NewHookContext(
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
 		actionParams:   actionParams,
+		canAddMetrics:  canAddMetrics,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -208,6 +213,9 @@ func (ctx *HookContext) RelationIds() []int {
 
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
+	if !ctx.canAddMetrics {
+		return fmt.Errorf("metrics disabled")
+	}
 	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
 	return nil
 }
@@ -322,7 +330,7 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
-	if len(ctx.metrics) > 0 {
+	if ctx.canAddMetrics && len(ctx.metrics) > 0 {
 		if writeChanges {
 			metrics := make([]params.Metric, len(ctx.metrics))
 			for i, metric := range ctx.metrics {
