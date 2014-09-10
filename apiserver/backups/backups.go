@@ -15,21 +15,21 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Backups", 0, NewBackupsAPI)
+	common.RegisterStandardFacade("Backups", 0, NewAPI)
 }
 
 var logger = loggo.GetLogger("juju.state.apiserver.backups")
 
-// Backups serves backup-specific API methods.
-type BackupsAPI struct {
+// API serves backup-specific API methods.
+type API struct {
 	st      *state.State
 	backups backups.Backups
 }
 
-// NewBackups creates a new instance of the Backups Facade.
-func NewBackupsAPI(
+// NewAPI creates a new instance of the Backups API facade.
+func NewAPI(
 	st *state.State, resources *common.Resources, authorizer common.Authorizer,
-) (*BackupsAPI, error) {
+) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
@@ -39,7 +39,7 @@ func NewBackupsAPI(
 		return nil, errors.Trace(err)
 	}
 
-	b := BackupsAPI{
+	b := API{
 		st:      st,
 		backups: backups.NewBackups(stor),
 	}

@@ -42,7 +42,7 @@ type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *backups.BackupsAPI
+	api        *backups.API
 	meta       *metadata.Metadata
 }
 
@@ -52,7 +52,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	tag := names.NewUserTag("spam")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
-	s.api, err = backups.NewBackupsAPI(s.State, s.resources, s.authorizer)
+	s.api, err = backups.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	origin := metadata.NewOrigin("", "", "")
 	s.meta = metadata.NewMetadata(*origin, "", nil)
@@ -78,8 +78,8 @@ func (s *backupsSuite) TestRegistered(c *gc.C) {
 	c.Check(err, gc.IsNil)
 }
 
-func (s *backupsSuite) TestNewBackupsAPIOkay(c *gc.C) {
-	api, err := backups.NewBackupsAPI(s.State, s.resources, s.authorizer)
+func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
+	api, err := backups.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	st, backupsImpl := backups.APIValues(api)
 
@@ -87,9 +87,9 @@ func (s *backupsSuite) TestNewBackupsAPIOkay(c *gc.C) {
 	c.Check(backupsImpl, gc.NotNil) // XXX Need better tests.
 }
 
-func (s *backupsSuite) TestNewBackupsAPINotAuthorized(c *gc.C) {
+func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewServiceTag("eggs")
-	_, err := backups.NewBackupsAPI(s.State, s.resources, s.authorizer)
+	_, err := backups.NewAPI(s.State, s.resources, s.authorizer)
 
-	c.Check(err, gc.Equals, common.ErrPerm)
+	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }

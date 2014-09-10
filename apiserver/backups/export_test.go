@@ -12,10 +12,10 @@ var (
 	NewBackupsStorage = &newBackupsStorage
 )
 
-func SetImpl(api *BackupsAPI, impl backups.Backups) {
+func SetImpl(api *API, impl backups.Backups) {
 	api.backups = impl
 }
 
-func APIValues(api *BackupsAPI) (*state.State, backups.Backups) {
+func APIValues(api *API) (*state.State, backups.Backups) {
 	return api.st, api.backups
 }
