@@ -33,7 +33,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
-	c.Assert(envUser.DateCreated().Equal(now), jc.IsTrue)
+	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 
 	envUser, err = s.State.EnvironmentUser(user.UserTag())
@@ -43,7 +43,7 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.UserName(), gc.Equals, "validusername@local")
 	c.Assert(envUser.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby@local")
-	c.Assert(envUser.DateCreated().Equal(now), jc.IsTrue)
+	c.Assert(envUser.DateCreated().Equal(now) || envUser.DateCreated().After(now), jc.IsTrue)
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
