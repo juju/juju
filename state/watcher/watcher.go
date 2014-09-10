@@ -112,7 +112,15 @@ func New(changelog *mgo.Collection) *Watcher {
 		request: make(chan interface{}),
 	}
 	go func() {
-		w.tomb.Kill(w.loop())
+		err := w.loop()
+		cause := errors.Cause(err)
+		// tomb expects ErrDying or ErrStillAlive as
+		// exact values, so we need to log and unwrap
+		// the error first.
+		if err != nil && cause != tomb.ErrDying {
+			errors.LoggedErrorf(logger, "watcher loop failed: %v", err)
+		}
+		w.tomb.Kill(cause)
 		w.tomb.Done()
 	}()
 	return w
@@ -121,7 +129,7 @@ func New(changelog *mgo.Collection) *Watcher {
 // Stop stops all the watcher activities.
 func (w *Watcher) Stop() error {
 	w.tomb.Kill(nil)
-	return w.tomb.Wait()
+	return errors.Trace(w.tomb.Wait())
 }
 
 // Dead returns a channel that is closed when the watcher has stopped.
@@ -210,19 +218,19 @@ func (w *Watcher) loop() error {
 	next := time.After(Period)
 	w.needSync = true
 	if err := w.initLastId(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	for {
 		if w.needSync {
 			if err := w.sync(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			w.flush()
 			next = time.After(Period)
 		}
 		select {
 		case <-w.tomb.Dying():
-			return tomb.ErrDying
+			return errors.Trace(tomb.ErrDying)
 		case <-next:
 			next = time.After(Period)
 			w.needSync = true
@@ -333,7 +341,7 @@ func (w *Watcher) initLastId() error {
 	}
 	err := w.log.Find(nil).Sort("-$natural").One(&entry)
 	if err != nil && err != mgo.ErrNotFound {
-		return err
+		return errors.Trace(err)
 	}
 	w.lastId = entry.Id
 	return nil

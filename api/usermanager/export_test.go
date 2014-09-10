@@ -4,7 +4,7 @@
 package usermanager
 
 import (
-	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/base/testing"
 )
 
 // PatchResponses changes the internal FacadeCaller to one that lets you return
@@ -13,26 +13,8 @@ import (
 // It can also return an error to have the FacadeCall return an error.
 // The function returned by PatchResponses is a cleanup function that returns
 // the client to its original state.
-func PatchResponses(client *Client, responseFunc func(interface{}) error) func() {
-	orig := client.facade
-	client.facade = &resultCaller{responseFunc}
-	return func() {
-		client.facade = orig
-	}
-}
-
-type resultCaller struct {
-	setResult func(interface{}) error
-}
-
-func (f *resultCaller) FacadeCall(request string, params, response interface{}) error {
-	return f.setResult(response)
-}
-
-func (f *resultCaller) BestAPIVersion() int {
-	return 0
-}
-
-func (f *resultCaller) RawAPICaller() base.APICaller {
-	return nil
+func PatchResponses(p testing.Patcher, client *Client, responseFunc func(interface{}) error) {
+	testing.PatchFacadeCall(p, &client.facade, func(request string, params, response interface{}) error {
+		return responseFunc(response)
+	})
 }

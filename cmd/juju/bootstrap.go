@@ -176,13 +176,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	environ, cleanup, err := environFromName(ctx, c.ConnectionName(), "Bootstrap")
-	if err != nil {
-		return errors.Annotatef(err, "there was an issue examining the environment")
-	}
 
 	// If we error out for any reason, clean up the environment.
 	defer func() {
-		if resultErr != nil {
+		if resultErr != nil && cleanup != nil {
 			if c.KeepBrokenEnvironment {
 				logger.Warningf("bootstrap failed but --keep-broken was specified so environment is not being destroyed.\n" +
 					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
@@ -192,6 +189,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			}
 		}
 	}()
+
+	// Handle any errors from environFromName(...).
+	if err != nil {
+		return errors.Annotatef(err, "there was an issue examining the environment")
+	}
 
 	// We want to validate constraints early. However, if a custom image metadata
 	// source is specified, we can't validate the arch because that depends on what
@@ -249,6 +251,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,
+		KeepBroken:  c.KeepBrokenEnvironment,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")

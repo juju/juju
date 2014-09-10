@@ -1039,12 +1039,12 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 		}
 		results, err := s.uniter.Actions(args)
 		c.Assert(err, gc.IsNil)
-		c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
+		c.Assert(results.Results, gc.HasLen, 1)
 
-		actionsQueryResult := results.ActionsQueryResults[0]
+		actionsQueryResult := results.Results[0]
 
 		c.Assert(actionsQueryResult.Error, gc.IsNil)
-		c.Assert(actionsQueryResult.Action, jc.DeepEquals, &actionTest.action)
+		c.Assert(actionsQueryResult.Action, jc.DeepEquals, actionTest.action)
 	}
 }
 
@@ -1057,8 +1057,8 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	results, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
-	actionsQueryResult := results.ActionsQueryResults[0]
+	c.Assert(results.Results, gc.HasLen, 1)
+	actionsQueryResult := results.Results[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
 	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
 }
@@ -1083,10 +1083,10 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 			Tag: names.JoinActionTag("wordpress/0", 0).String(),
 		}},
 	}
-	// exercises line 738 of apiserver/uniter/uniter.go
-	_, err = s.uniter.Actions(args)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+	actions, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions.Results), gc.Equals, 1)
+	isErrPerm(c, actions.Results[0].Error)
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
@@ -1096,9 +1096,15 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 			Tag: names.JoinActionTag("mysql/0", 0).String(),
 		}},
 	}
-	_, err := s.uniter.Actions(args)
+	actions, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions.Results), gc.Equals, 1)
+	isErrPerm(c, actions.Results[0].Error)
+}
+
+func isErrPerm(c *gc.C, err *params.Error) {
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+	c.Assert(err.Error(), gc.Equals, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionComplete(c *gc.C) {
@@ -1112,14 +1118,17 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResult := params.ActionResult{
-		ActionTag: action.ActionTag().String(),
-		Results:   testOutput,
+	actionResults := params.ActionResults{
+		Results: []params.ActionResult{{
+			ActionTag: action.ActionTag().String(),
+			Status:    params.ActionCompleted,
+			Results:   testOutput,
+		}},
 	}
 
-	res, err := s.uniter.ActionFinish(actionResult)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
+	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
 	results, err = s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
@@ -1142,15 +1151,18 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResult := params.ActionResult{
-		ActionTag: action.ActionTag().String(),
-		Failed:    true,
-		Message:   testError,
+	actionResults := params.ActionResults{
+		Results: []params.ActionResult{{
+			ActionTag: action.ActionTag().String(),
+			Status:    params.ActionFailed,
+			Results:   nil,
+			Message:   testError,
+		}},
 	}
 
-	res, err := s.uniter.ActionFinish(actionResult)
+	res, err := s.uniter.FinishActions(actionResults)
 	c.Assert(err, gc.IsNil)
-	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
+	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{{Error: nil}}})
 
 	results, err = s.wordpressUnit.ActionResults()
 	c.Assert(err, gc.IsNil)
@@ -1160,6 +1172,52 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	c.Assert(errstr, gc.Equals, testError)
 	c.Assert(res2, gc.DeepEquals, map[string]interface{}{})
 	c.Assert(results[0].ActionName(), gc.Equals, testName)
+}
+
+func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
+
+	good, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	bad, err := s.mysqlUnit.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	var tests = []struct {
+		actionTag string
+		err       error
+	}{
+		{actionTag: "", err: errors.Errorf(`"" is not a valid tag`)},
+		{actionTag: s.machine0.Tag().String(), err: errors.Errorf(`"machine-0" is not a valid action tag`)},
+		{actionTag: s.mysql.Tag().String(), err: errors.Errorf(`"service-mysql" is not a valid action tag`)},
+		{actionTag: good.Tag().String(), err: nil},
+		{actionTag: bad.Tag().String(), err: common.ErrPerm},
+		{actionTag: "asdf", err: errors.Errorf(`"asdf" is not a valid tag`)},
+	}
+
+	// Queue up actions from tests
+	actionResults := params.ActionResults{Results: make([]params.ActionResult, len(tests))}
+	for i, test := range tests {
+		actionResults.Results[i] = params.ActionResult{
+			ActionTag: test.actionTag,
+			Status:    params.ActionCompleted,
+			Results:   map[string]interface{}{},
+		}
+	}
+
+	// Invoke FinishActions
+	res, err := s.uniter.FinishActions(actionResults)
+	c.Assert(err, gc.IsNil)
+
+	// Verify permissions errors for actions queued on different unit
+	for i, result := range res.Results {
+		expected := tests[i].err
+		if expected != nil {
+			c.Assert(result.Error, gc.NotNil)
+			c.Assert(result.Error.Error(), gc.Equals, expected.Error())
+		} else {
+			c.Assert(result.Error, gc.IsNil)
+		}
+	}
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
@@ -1181,7 +1239,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "unit-foo-0"},
 		{Relation: "relation-blah", Unit: "unit-wordpress-0"},
-		{Relation: "service-foo", Unit: "user-admin"},
+		{Relation: "service-foo", Unit: "user-foo"},
 		{Relation: "foo", Unit: "bar"},
 		{Relation: "unit-wordpress-0", Unit: rel.Tag().String()},
 	}}
@@ -1279,7 +1337,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.EnterScope(args)
 	c.Assert(err, gc.IsNil)
@@ -1330,7 +1388,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.LeaveScope(args)
 	c.Assert(err, gc.IsNil)
@@ -1417,7 +1475,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.ReadSettings(args)
 	c.Assert(err, gc.IsNil)
@@ -1484,12 +1542,12 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-mysql-0"},
 		{Relation: "relation-42", LocalUnit: "unit-wordpress-0", RemoteUnit: ""},
 		{Relation: "relation-foo", LocalUnit: "", RemoteUnit: ""},
-		{Relation: "service-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-admin"},
+		{Relation: "service-wordpress", LocalUnit: "unit-foo-0", RemoteUnit: "user-foo"},
 		{Relation: "foo", LocalUnit: "bar", RemoteUnit: "baz"},
 		{Relation: rel.Tag().String(), LocalUnit: "unit-mysql-0", RemoteUnit: "unit-wordpress-0"},
 		{Relation: rel.Tag().String(), LocalUnit: "service-wordpress", RemoteUnit: "service-mysql"},
 		{Relation: rel.Tag().String(), LocalUnit: "service-mysql", RemoteUnit: "foo"},
-		{Relation: rel.Tag().String(), LocalUnit: "user-admin", RemoteUnit: "unit-wordpress-0"},
+		{Relation: rel.Tag().String(), LocalUnit: "user-foo", RemoteUnit: "unit-wordpress-0"},
 	}}
 	result, err := s.uniter.ReadRemoteSettings(args)
 
@@ -1607,7 +1665,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress", Settings: nil},
 		{Relation: rel.Tag().String(), Unit: "service-mysql", Settings: nil},
-		{Relation: rel.Tag().String(), Unit: "user-admin", Settings: nil},
+		{Relation: rel.Tag().String(), Unit: "user-foo", Settings: nil},
 	}}
 	result, err := s.uniter.UpdateSettings(args)
 	c.Assert(err, gc.IsNil)
@@ -1658,7 +1716,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 		{Relation: rel.Tag().String(), Unit: "unit-mysql-0"},
 		{Relation: rel.Tag().String(), Unit: "service-wordpress"},
 		{Relation: rel.Tag().String(), Unit: "service-mysql"},
-		{Relation: rel.Tag().String(), Unit: "user-admin"},
+		{Relation: rel.Tag().String(), Unit: "user-foo"},
 	}}
 	result, err := s.uniter.WatchRelationUnits(args)
 	c.Assert(err, gc.IsNil)
@@ -1734,7 +1792,7 @@ func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
 	result, err := s.uniter.GetOwnerTag(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringResult{
-		Result: "user-admin",
+		Result: s.AdminUserTag(c).String(),
 	})
 }
 

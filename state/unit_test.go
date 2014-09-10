@@ -551,7 +551,7 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
@@ -559,7 +559,7 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -587,7 +587,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -598,7 +598,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -612,7 +612,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.unit.SetStatus(params.StatusError, "mongo", params.StatusData{
+	err = s.unit.SetStatus(params.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -624,7 +624,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -639,7 +639,7 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Status setting and changing data afterwards.
-	data := params.StatusData{
+	data := map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -652,7 +652,7 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1475,4 +1475,9 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 	ann, err := s.unit.Annotations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
+}
+
+func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }

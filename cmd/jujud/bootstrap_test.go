@@ -69,14 +69,22 @@ type fakeEnsure struct {
 	dataDir        string
 	namespace      string
 	oplogSize      int
-	info           params.StateServingInfo
+	info           state.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
 func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info, f.oplogSize = args.DataDir, args.Namespace, args.StateServingInfo, args.OplogSize
+	f.dataDir, f.namespace, f.oplogSize = args.DataDir, args.Namespace, args.OplogSize
+	f.info = state.StateServingInfo{
+		APIPort:        args.APIPort,
+		StatePort:      args.StatePort,
+		Cert:           args.Cert,
+		PrivateKey:     args.PrivateKey,
+		SharedSecret:   args.SharedSecret,
+		SystemIdentity: args.SystemIdentity,
+	}
 	return f.err
 }
 
@@ -169,7 +177,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 			agent.MongoOplogSize: s.mongoOplogSize,
 		},
 	}
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:       "some cert",
 		PrivateKey: "some key",
 		APIPort:    3737,
@@ -553,33 +561,52 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 	env, err := provider.Open(s.envcfg)
 	c.Assert(err, gc.IsNil)
-	oldMetadata, err := envtools.ReadMetadata(env.Storage())
-	c.Assert(err, gc.IsNil)
+	envtesting.RemoveFakeToolsMetadata(c, env.Storage())
 
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	newMetadata, err := envtools.ReadMetadata(env.Storage())
+	// We don't write metadata at bootstrap anymore.
+	simplestreamsMetadata, err := envtools.ReadMetadata(env.Storage())
 	c.Assert(err, gc.IsNil)
-	if !exploded {
-		c.Assert(newMetadata, gc.HasLen, len(oldMetadata))
-	} else {
-		// new metadata should have more tools.
-		c.Assert(len(newMetadata), jc.GreaterThan, len(oldMetadata))
-		var expectedSeries set.Strings
+	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
+
+	// The tools should have been added to state, and
+	// exploded into each of the supported series of
+	// the same operating system if the tools were uploaded.
+	st, err := state.Open(&mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	var expectedSeries set.Strings
+	if exploded {
 		for _, series := range version.SupportedSeries() {
 			os, err := version.GetOSFromSeries(series)
 			c.Assert(err, gc.IsNil)
-			if os == version.Ubuntu {
+			if os == version.Current.OS {
 				expectedSeries.Add(series)
 			}
 		}
-		c.Assert(newMetadata, gc.HasLen, expectedSeries.Size())
-		for _, m := range newMetadata {
-			c.Assert(expectedSeries.Contains(m.Release), jc.IsTrue)
-		}
+	} else {
+		expectedSeries.Add(version.Current.Series)
+	}
+
+	storage, err := st.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	metadata, err := storage.AllMetadata()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
+	for _, m := range metadata {
+		c.Assert(expectedSeries.Contains(m.Version.Series), jc.IsTrue)
 	}
 }
 

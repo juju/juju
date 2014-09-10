@@ -113,3 +113,17 @@ func SetAdminApiVersions(srv *Server, versions ...int) {
 	}
 	srv.adminApiFactories = factories
 }
+
+// TestingRestoreInProgressRoot returns a limited restoreInProgressRoot
+// containing a srvRoot as returned by TestingSrvRoot.
+func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
+	r := TestingApiRoot(st)
+	return newRestoreInProgressRoot(r)
+}
+
+// TestingAboutToRestoreRoot returns a limited aboutToRestoreRoot
+// containing a srvRoot as returned by TestingSrvRoot.
+func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
+	r := TestingApiRoot(st)
+	return newAboutToRestoreRoot(r)
+}

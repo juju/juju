@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -106,6 +107,111 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 
 	client := s.APIState.Client()
 	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
+}
+
+func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
+	client := s.APIState.Client()
+	user := s.Factory.MakeEnvUser(c, nil)
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 1)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[0].UserTag, gc.Equals, user.UserTag().String())
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				err := &params.Error{Message: "failed to create environment user: env user already exists"}
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	result, err := client.ShareEnvironment([]names.UserTag{user.UserTag()})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError().Error(), gc.Matches, "failed to create environment user: env user already exists")
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `failed to create environment user: env user already exists`)
+}
+
+func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
+	client := s.APIState.Client()
+	existingUser := s.Factory.MakeEnvUser(c, nil)
+	localUser := s.Factory.MakeUser(c, nil)
+	newUserTag := names.NewUserTag("foo@bar")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 3)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
+				c.Logf(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
+				c.Logf(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[1].UserTag, gc.Equals, newUserTag.String())
+			} else {
+				c.Log("wrong input structure")
+				c.Fail()
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				err := &params.Error{Message: "failed to create environment user: env user already exists"}
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	result, err := client.ShareEnvironment([]names.UserTag{existingUser.UserTag(), localUser.UserTag(), newUserTag})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, `failed to create environment user: env user already exists`)
+	c.Assert(result.Results[1].Error, gc.IsNil)
+	c.Assert(result.Results[2].Error, gc.IsNil)
+}
+
+func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
+	client := s.APIState.Client()
+	user := names.NewUserTag("foo@ubuntuone")
+	result, err := client.ShareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
+	client := s.APIState.Client()
+	user := names.NewUserTag("foo@ubuntuone")
+	_, err := client.ShareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+
+	result, err := client.UnshareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {

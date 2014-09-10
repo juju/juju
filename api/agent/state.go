@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
 )
 
 // State provides access to an agent's view of the state.
@@ -43,10 +44,23 @@ func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error
 	return &results.Entities[0], nil
 }
 
-func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+func (st *State) StateServingInfo() (state.StateServingInfo, error) {
 	var results params.StateServingInfo
 	err := st.facade.FacadeCall("StateServingInfo", nil, &results)
-	return results, err
+	return paramsStateServingInfoToStateStateServingInfo(&results), err
+}
+
+// convert params.StateServingInfo to a state.StateServingInfo.
+// This avoids state having a dependency on api/params.
+func paramsStateServingInfoToStateStateServingInfo(si *params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
+	}
 }
 
 // IsMaster reports whether the connected machine

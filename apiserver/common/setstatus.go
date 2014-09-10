@@ -29,7 +29,7 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data params.StatusData) error {
+func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
 	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	return result, nil
 }
 
-func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data params.StatusData) error {
+func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]interface{}) error {
 	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err

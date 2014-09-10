@@ -64,6 +64,10 @@ func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
 	return inst.(*openstackInstance).serverDetail
 }
 
+func InstanceFloatingIP(inst instance.Instance) *nova.FloatingIP {
+	return inst.(*openstackInstance).floatingIP
+}
+
 var (
 	NovaListAvailabilityZones   = &novaListAvailabilityZones
 	AvailabilityZoneAllocations = &availabilityZoneAllocations
@@ -84,9 +88,9 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
-			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.04:i386",
-			"com.ubuntu.cloud:server:12.04:ppc64el",
+			"com.ubuntu.cloud:server:14.04:amd64",
+			"com.ubuntu.cloud:server:14.04:i386",
+			"com.ubuntu.cloud:server:14.04:ppc64el",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
@@ -102,9 +106,9 @@ var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
-   "com.ubuntu.cloud:server:12.04:amd64": {
-     "release": "precise",
-     "version": "12.04",
+   "com.ubuntu.cloud:server:14.04:amd64": {
+     "release": "trusty",
+     "version": "14.04",
      "arch": "amd64",
      "versions": {
        "20121218": {
@@ -122,7 +126,7 @@ var imagesData = `
              "id": "2"
            }
          },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "pubname": "ubuntu-trusty-14.04-amd64-server-20121218",
          "label": "release"
        },
        "20121111": {
@@ -134,14 +138,14 @@ var imagesData = `
              "id": "3"
            }
          },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
+         "pubname": "ubuntu-trusty-14.04-amd64-server-20121111",
          "label": "release"
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:i386": {
-     "release": "precise",
-     "version": "12.04",
+   "com.ubuntu.cloud:server:14.04:i386": {
+     "release": "trusty",
+     "version": "14.04",
      "arch": "i386",
      "versions": {
        "20121111": {
@@ -153,14 +157,14 @@ var imagesData = `
              "id": "33"
            }
          },
-         "pubname": "ubuntu-precise-12.04-i386-server-20121111",
+         "pubname": "ubuntu-trusty-14.04-i386-server-20121111",
          "label": "release"
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:ppc64el": {
-     "release": "precise",
-     "version": "12.04",
+   "com.ubuntu.cloud:server:14.04:ppc64el": {
+     "release": "trusty",
+     "version": "14.04",
      "arch": "ppc64el",
      "versions": {
        "20121111": {
@@ -172,7 +176,7 @@ var imagesData = `
              "id": "33"
            }
          },
-         "pubname": "ubuntu-precise-12.04-ppc64el-server-20121111",
+         "pubname": "ubuntu-trusty-14.04-ppc64el-server-20121111",
          "label": "release"
        }
      }
@@ -304,7 +308,7 @@ func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.S
 	return e.(*environ).ensureGroup(name, rules)
 }
 
-func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
+func CollectInstances(e environs.Environ, ids []instance.Id, out map[string]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
 }
 

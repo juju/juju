@@ -48,7 +48,7 @@ var indexData = `
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
-			"com.ubuntu.cloud:server:12.04:amd64",
+			"com.ubuntu.cloud:server:14.04:amd64",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
@@ -67,9 +67,9 @@ var imagesData = `
   "updated": "Fri, 14 Feb 2014 13:39:35 +0000",
   "datatype": "image-ids",
   "products": {
-    "com.ubuntu.cloud:server:12.04:amd64": {
-      "release": "precise",
-      "version": "12.04",
+    "com.ubuntu.cloud:server:14.04:amd64": {
+      "release": "trusty",
+      "version": "14.04",
       "arch": "amd64",
       "versions": {
         "20140214": {
@@ -80,7 +80,7 @@ var imagesData = `
               "virt": "kvm"
             }
           },
-          "pubname": "ubuntu-precise-12.04-amd64-server-20140214",
+          "pubname": "ubuntu-trusty-14.04-amd64-server-20140214",
           "label": "release"
         }
       }

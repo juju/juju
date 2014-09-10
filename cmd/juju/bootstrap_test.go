@@ -96,6 +96,7 @@ type bootstrapTest struct {
 	constraints constraints.Value
 	placement   string
 	hostArch    string
+	keepBroken  bool
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -145,6 +146,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
+	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
@@ -236,6 +238,10 @@ var bootstrapTests = []bootstrapTest{{
 	args:      []string{"--to", "something"},
 	placement: "something",
 }, {
+	info:       "keep broken",
+	args:       []string{"--keep-broken"},
+	keepBroken: true,
+}, {
 	info: "additional args",
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
@@ -320,6 +326,45 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	// The second bootstrap should fail b/c of the propogated error
 	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
 	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
+}
+
+func (s *BootstrapSuite) TestCleanupIfPrepareFails(c *gc.C) {
+
+	// We want the MockEnvironFromName to error out when preparing an
+	// environment. WARNING: Heavily relies on implementation due to
+	// lack of IoC.
+	s.PatchValue(
+		&environs.PrepareFromName,
+		func(
+			string,
+			environs.BootstrapContext,
+			configstore.Storage,
+		) (environs.Environ, error) {
+			return nil, fmt.Errorf("mock")
+		},
+	)
+
+	env, cleanup, err := environFromName(coretesting.Context(c), "peckham", "Bootstrap")
+	c.Check(err, gc.ErrorMatches, "mock")
+	c.Check(env, gc.IsNil)
+	c.Check(cleanup, gc.Not(gc.IsNil))
+}
+
+func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
+
+	cleanupRan := false
+
+	s.PatchValue(
+		&environFromName,
+		func(*cmd.Context, string, string) (environs.Environ, func(), error) {
+			return nil, func() { cleanupRan = true }, fmt.Errorf("mock")
+		},
+	)
+
+	ctx := coretesting.Context(c)
+	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.Not(gc.IsNil))
+	c.Check(cleanupRan, gc.Equals, true)
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {

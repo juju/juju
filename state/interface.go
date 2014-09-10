@@ -38,11 +38,11 @@ var (
 )
 
 type StatusSetter interface {
-	SetStatus(status params.Status, info string, data params.StatusData) error
+	SetStatus(status params.Status, info string, data map[string]interface{}) error
 }
 
 type StatusGetter interface {
-	Status() (status params.Status, info string, data params.StatusData, err error)
+	Status() (status params.Status, info string, data map[string]interface{}, err error)
 }
 
 var (

@@ -159,6 +159,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, gc.IsNil)
+	newTools.URL = fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/5.4.5-precise-amd64", s.APIState.Addr())
 	envtesting.CheckTools(c, foundTools, newTools)
 }
 
@@ -305,6 +306,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, gc.IsNil)
+	downgradeTools.URL = fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/5.4.2-precise-amd64", s.APIState.Addr())
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
@@ -333,6 +335,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgr
 	})
 	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
 	c.Assert(err, gc.IsNil)
+	downgradeTools.URL = fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/5.3.0-precise-amd64", s.APIState.Addr())
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 

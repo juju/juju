@@ -126,10 +126,27 @@ func (s *commonMachineSuite) primeAgent(
 	c *gc.C, vers version.Binary,
 	jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 
-	// Add a machine and ensure it is provisioned.
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
-	inst, md := jujutesting.AssertStartInstance(c, s.Environ, m.Id())
+
+	pinger, err := m.SetAgentPresence()
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(c *gc.C) {
+		err := pinger.Stop()
+		c.Check(err, gc.IsNil)
+	})
+
+	return s.configureMachine(c, m.Id(), vers)
+}
+
+func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers version.Binary) (
+	machine *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools,
+) {
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+
+	// Add a machine and ensure it is provisioned.
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, machineId)
 	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), gc.IsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
@@ -659,6 +676,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	stm, conf, _ := s.primeAgent(c, version.Current, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
+	logger.Debugf("new agent %#v", a)
 
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
@@ -1064,6 +1082,53 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	s.waitStopped(c, state.JobManageEnviron, a, done)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
+}
+
+func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Check(a.IsRestorePreparing(), gc.Equals, false)
+	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	err := a.PrepareRestore()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a.IsRestorePreparing(), gc.Equals, true)
+	c.Assert(a.IsRestoreRunning(), gc.Equals, false)
+	err = a.PrepareRestore()
+	c.Assert(err, gc.ErrorMatches, "already in restore mode")
+}
+
+func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Check(a.IsRestorePreparing(), gc.Equals, false)
+	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	err := a.PrepareRestore()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a.IsRestorePreparing(), gc.Equals, true)
+	err = a.BeginRestore()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a.IsRestoreRunning(), gc.Equals, true)
+	err = a.BeginRestore()
+	c.Assert(err, gc.ErrorMatches, "already restoring")
+}
+
+func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Check(a.IsRestorePreparing(), gc.Equals, false)
+	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	err := a.BeginRestore()
+	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
+	c.Assert(a.IsRestoreRunning(), gc.Equals, false)
 }
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to

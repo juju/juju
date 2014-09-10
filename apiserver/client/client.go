@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package client
@@ -41,6 +41,7 @@ type API struct {
 	client    *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
+	toolsFinder  *common.ToolsFinder
 }
 
 // Client serves client-specific API methods.
@@ -53,11 +54,17 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, err
+	}
+	urlGetter := common.NewToolsURLGetter(env.UUID(), st)
 	return &Client{api: &API{
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
+		toolsFinder:  common.NewToolsFinder(st, st, urlGetter),
 	}}, nil
 }
 
@@ -776,6 +783,48 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 	return info, nil
 }
 
+// ShareEnvironment allows the given user(s) access to the environment.
+func (c *Client) ShareEnvironment(args params.ModifyEnvironUsers) (result params.ErrorResults, err error) {
+	var createdBy names.UserTag
+	var ok bool
+	if createdBy, ok = c.api.auth.GetAuthTag().(names.UserTag); !ok {
+		return result, errors.Errorf("api connection is not through a user")
+	}
+
+	result = params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+
+	for i, arg := range args.Changes {
+		userTagString := arg.UserTag
+		user, err := names.ParseUserTag(userTagString)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "could not share environment"))
+			continue
+		}
+		switch arg.Action {
+		case params.AddEnvUser:
+			_, err := c.api.state.AddEnvironmentUser(user, createdBy)
+			if err != nil {
+				err = errors.Annotate(err, "could not share environment")
+				result.Results[i].Error = common.ServerError(err)
+			}
+		case params.RemoveEnvUser:
+			err := c.api.state.RemoveEnvironmentUser(user)
+			if err != nil {
+				err = errors.Annotate(err, "could not unshare environment")
+				result.Results[i].Error = common.ServerError(err)
+			}
+		default:
+			result.Results[i].Error = common.ServerError(errors.Errorf("unknown action %q", arg.Action))
+		}
+	}
+	return result, nil
+}
+
 // GetAnnotations returns annotations about a given entity.
 func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
 	nothing := params.GetAnnotationsResults{}
@@ -905,7 +954,7 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
-	return common.FindTools(c.api.state, args)
+	return c.api.toolsFinder.FindTools(args)
 }
 
 func destroyErr(desc string, ids, errs []string) error {
@@ -997,7 +1046,9 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 	// Finally, update the charm data in state and mark it as no longer pending.
 	_, err = c.api.state.UpdateUploadedCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
+	cause := errors.Cause(err)
 	if err == state.ErrCharmRevisionAlreadyModified ||
+		cause == state.ErrCharmRevisionAlreadyModified ||
 		state.IsCharmAlreadyUploadedError(err) {
 		// This is not an error, it just signifies somebody else
 		// managed to upload and update the charm in state before
@@ -1057,7 +1108,7 @@ func CharmArchiveName(name string, revision int) (string, error) {
 func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, error) {
 	entityStatus := make([]params.EntityStatus, len(p.Entities))
 	for i, entity := range p.Entities {
-		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: params.StatusData{"transient": true}}
+		entityStatus[i] = params.EntityStatus{Tag: entity.Tag, Data: map[string]interface{}{"transient": true}}
 	}
 	return c.api.statusSetter.UpdateStatus(params.SetStatus{
 		Entities: entityStatus,

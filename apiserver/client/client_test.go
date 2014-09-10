@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package client_test
@@ -6,12 +6,14 @@ package client_test
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
@@ -21,7 +23,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1646,6 +1650,202 @@ func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 	c.Assert(found, jc.IsTrue)
 }
 
+type serverSuite struct {
+	baseSuite
+	client *client.Client
+}
+
+var _ = gc.Suite(&serverSuite{})
+
+func (s *serverSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	var err error
+	auth := testing.FakeAuthorizer{
+		Tag:            names.NewUserTag(state.AdminUser),
+		EnvironManager: true,
+	}
+	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: names.NewUserTag("foobar").String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	expectedErr := `could not share environment: user "foobar" does not exist locally: user "foobar" not found`
+	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
+	user := s.Factory.MakeEnvUser(c, nil)
+	_, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.UserTag().String(),
+			Action:  params.RemoveEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
+	user := names.NewUserTag("foobar@ubuntuone")
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
+	for _, testParam := range []struct {
+		tag      string
+		validTag bool
+	}{{
+		tag:      "unit-foo/0",
+		validTag: true,
+	}, {
+		tag:      "service-foo",
+		validTag: true,
+	}, {
+		tag:      "relation-wordpress:db mysql:db",
+		validTag: true,
+	}, {
+		tag:      "machine-0",
+		validTag: true,
+	}, {
+		tag:      "user@local",
+		validTag: false,
+	}, {
+		tag:      "user-Mua^h^h^h^arh",
+		validTag: true,
+	}, {
+		tag:      "user@",
+		validTag: false,
+	}, {
+		tag:      "user@ubuntuone",
+		validTag: false,
+	}, {
+		tag:      "user@ubuntuone",
+		validTag: false,
+	}, {
+		tag:      "@ubuntuone",
+		validTag: false,
+	}, {
+		tag:      "in^valid.",
+		validTag: false,
+	}, {
+		tag:      "",
+		validTag: false,
+	},
+	} {
+		var expectedErr string
+		errPart := `could not share environment: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
+
+		if testParam.validTag {
+
+			// The string is a valid tag, but not a user tag.
+			expectedErr = errPart + `user tag`
+		} else {
+
+			// The string is not a valid tag of any kind.
+			expectedErr = errPart + `tag`
+		}
+
+		args := params.ModifyEnvironUsers{
+			Changes: []params.ModifyEnvironUser{{
+				UserTag: testParam.tag,
+				Action:  params.AddEnvUser,
+			}}}
+
+		_, err := s.client.ShareEnvironment(args)
+		result, err := s.client.ShareEnvironment(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+		c.Assert(result.Results, gc.HasLen, 1)
+		c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+	}
+}
+
+func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
+	args := params.ModifyEnvironUsers{Changes: []params.ModifyEnvironUser{{}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	expectedErr := `could not share environment: "" is not a valid tag`
+	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
+	var dance params.EnvironAction = "dance"
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: "user-user@local",
+			Action:  dance,
+		}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	expectedErr := `unknown action "dance"`
+	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
@@ -1656,6 +1856,8 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	c.Assert(result.Error, gc.IsNil)
 	c.Assert(result.List, gc.HasLen, 1)
 	c.Assert(result.List[0].Version, gc.Equals, version.MustParseBinary("2.12.0-precise-amd64"))
+	url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), result.List[0].Version)
+	c.Assert(result.List[0].URL, gc.Equals, url)
 }
 
 func (s *clientSuite) checkMachine(c *gc.C, id, series, cons string) {
@@ -2437,10 +2639,6 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
-	apiHostPorts, err := s.APIState.Client().APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.HasLen, 0)
-
 	server1Addresses := []network.Address{{
 		Value: "server-1",
 		Type:  network.HostName,
@@ -2462,9 +2660,9 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 		network.AddressesWithPort(server2Addresses, 456),
 	}
 
-	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
+	err := s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, gc.IsNil)
-	apiHostPorts, err = s.APIState.Client().APIHostPorts()
+	apiHostPorts, err := s.APIState.Client().APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.DeepEquals, stateAPIHostPorts)
 }

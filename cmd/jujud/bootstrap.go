@@ -4,11 +4,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
@@ -26,14 +25,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/sync"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -206,7 +202,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	// Populate the tools catalogue.
-	if err := c.populateTools(env); err != nil {
+	if err := c.populateTools(st, env); err != nil {
 		return err
 	}
 
@@ -227,16 +223,22 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		}
 	}
 
-	servingInfo, ok := agentConfig.StateServingInfo()
+	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
 	}
 
 	params := mongo.EnsureServerParams{
-		StateServingInfo: servingInfo,
-		DataDir:          agentConfig.DataDir(),
-		Namespace:        agentConfig.Value(agent.Namespace),
-		OplogSize:        oplogSize,
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
+
+		DataDir:   agentConfig.DataDir(),
+		Namespace: agentConfig.Value(agent.Namespace),
+		OplogSize: oplogSize,
 	}
 	return params, nil
 }
@@ -291,63 +293,54 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 
 // populateTools stores uploaded tools in provider storage
 // and updates the tools metadata.
-//
-// TODO(axw) store tools in gridfs, catalogue in state.
-func (c *BootstrapCommand) populateTools(env environs.Environ) error {
+func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
 		return err
 	}
-	if !strings.HasPrefix(tools.URL, "file://") {
-		// Nothing to do since the tools were not uploaded.
-		return nil
-	}
 
-	// This is a hack: providers using localstorage (local, manual)
-	// can't use storage during bootstrap as the localstorage worker
-	// isn't running. Use filestorage instead.
-	var stor storage.Storage
-	storageDir := agentConfig.Value(agent.StorageDir)
-	if storageDir != "" {
-		stor, err = filestorage.NewFileStorageWriter(storageDir)
-		if err != nil {
-			return err
-		}
-	} else {
-		stor = env.Storage()
-	}
-
-	// Create a temporary directory to contain source and cloned tools.
-	tempDir, err := ioutil.TempDir("", "juju-sync-tools")
+	data, err := ioutil.ReadFile(filepath.Join(
+		agenttools.SharedToolsDir(dataDir, version.Current),
+		"tools.tar.gz",
+	))
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempDir)
-	destTools := filepath.Join(tempDir, filepath.FromSlash(envtools.StorageName(tools.Version)))
-	if err := os.MkdirAll(filepath.Dir(destTools), 0700); err != nil {
+
+	storage, err := st.ToolsStorage()
+	if err != nil {
 		return err
 	}
-	srcTools := filepath.Join(
-		agenttools.SharedToolsDir(dataDir, version.Current),
-		"tools.tar.gz",
-	)
-	if err := utils.CopyFile(destTools, srcTools); err != nil {
-		return err
+	defer storage.Close()
+
+	var toolsVersions []version.Binary
+	if strings.HasPrefix(tools.URL, "file://") {
+		// Tools were uploaded: clone for each series of the same OS.
+		osSeries := version.OSSupportedSeries(tools.Version.OS)
+		for _, series := range osSeries {
+			toolsVersion := tools.Version
+			toolsVersion.Series = series
+			toolsVersions = append(toolsVersions, toolsVersion)
+		}
+	} else {
+		// Tools were downloaded from an external source: don't clone.
+		toolsVersions = []version.Binary{tools.Version}
 	}
 
-	// Until we catalogue tools in state, we clone the tools
-	// for each of the supported series of the same OS.
-	otherSeries := version.OSSupportedSeries(version.Current.OS)
-	_, err = sync.SyncBuiltTools(stor, &sync.BuiltTools{
-		Version:     tools.Version,
-		Dir:         tempDir,
-		StorageName: envtools.StorageName(tools.Version),
-		Sha256Hash:  tools.SHA256,
-		Size:        tools.Size,
-	}, otherSeries...)
-	return err
+	for _, toolsVersion := range toolsVersions {
+		metadata := toolstorage.Metadata{
+			Version: toolsVersion,
+			Size:    tools.Size,
+			SHA256:  tools.SHA256,
+		}
+		logger.Debugf("Adding tools: %v", toolsVersion)
+		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

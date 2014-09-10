@@ -64,6 +64,8 @@ func (r *adminApiV0) Admin(id string) (*adminV0, error) {
 }
 
 var UpgradeInProgressError = errors.New("upgrade in progress")
+var AboutToRestoreError = errors.New("restore preparation in progress")
+var RestoreInProgressError = errors.New("restore in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
 // Login logs in with the provided credentials.  All subsequent requests on the
@@ -106,12 +108,18 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
-		if err := a.srv.validator(req); err != nil {
-			if err == UpgradeInProgressError {
-				authedApi = newUpgradingRoot(authedApi)
-			} else {
-				return fail, errors.Trace(err)
-			}
+		err := a.srv.validator(req)
+		switch err {
+		case UpgradeInProgressError:
+			authedApi = newUpgradingRoot(authedApi)
+		case AboutToRestoreError:
+			authedApi = newAboutToRestoreRoot(authedApi)
+		case RestoreInProgressError:
+			authedApi = newRestoreInProgressRoot(authedApi)
+		case nil:
+			// in this case no need to wrap authed api so we do nothing
+		default:
+			return fail, errors.Trace(err)
 		}
 	}
 
@@ -189,6 +197,7 @@ func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) 
 		// We return the same error when an entity does not exist as for a bad
 		// password, so that we don't allow unauthenticated users to find
 		// information about existing entities.
+		logger.Debugf("entity %q not found", tag)
 		return nil, common.ErrBadCreds
 	}
 	if err != nil {
@@ -201,7 +210,16 @@ func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) 
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
+		logger.Debugf("bad credentials")
 		return nil, err
+	}
+
+	// For user logins, ensure the user is allowed to access the environment.
+	if user, ok := entity.Tag().(names.UserTag); ok {
+		_, err := st.EnvironmentUser(user)
+		if err != nil {
+			return nil, errors.Wrap(err, common.ErrBadCreds)
+		}
 	}
 
 	return entity, nil

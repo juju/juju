@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -83,7 +84,7 @@ func (*formatSuite) TestRead(c *gc.C) {
 }
 
 func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
-	servingInfo := params.StateServingInfo{
+	servingInfo := state.StateServingInfo{
 		Cert:       "some special cert",
 		PrivateKey: "a special key",
 		StatePort:  12345,

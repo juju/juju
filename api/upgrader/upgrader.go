@@ -6,8 +6,6 @@ package upgrader
 import (
 	"fmt"
 
-	"github.com/juju/utils"
-
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -72,7 +70,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity,
 // along with a flag whether to disable SSL hostname verification.
-func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification, error) {
+func (st *State) Tools(tag string) (*tools.Tools, error) {
 	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -80,21 +78,17 @@ func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification,
 	err := st.facade.FacadeCall("Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
-		return nil, false, err
+		return nil, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	hostnameVerification := utils.VerifySSLHostnames
-	if result.DisableSSLHostnameVerification {
-		hostnameVerification = utils.NoVerifySSLHostnames
-	}
-	return result.Tools, hostnameVerification, nil
+	return result.Tools, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {

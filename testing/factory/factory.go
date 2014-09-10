@@ -37,6 +37,7 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     string
+	NoEnvUser   bool
 }
 
 // EnvUserParams defines the parameters for creating an environment user.
@@ -85,7 +86,7 @@ type RelationParams struct {
 type MetricParams struct {
 	Unit    *state.Unit
 	Time    *time.Time
-	Metrics []*state.Metric
+	Metrics []state.Metric
 	Sent    bool
 }
 
@@ -129,11 +130,17 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Password = "password"
 	}
 	if params.Creator == "" {
-		params.Creator = "admin"
+		env, err := factory.st.Environment()
+		c.Assert(err, gc.IsNil)
+		params.Creator = env.Owner().Name()
 	}
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	c.Assert(err, gc.IsNil)
+	if !params.NoEnvUser {
+		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
+		c.Assert(err, gc.IsNil)
+	}
 	return user
 }
 
@@ -146,18 +153,15 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		params = &EnvUserParams{}
 	}
 	if params.User == "" {
-		user := factory.MakeUser(c, nil)
+		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
 		params.User = user.UserTag().Username()
-	}
-	if params.DisplayName == "" {
-		params.DisplayName = factory.UniqueString("display name")
 	}
 	if params.CreatedBy == "" {
 		user := factory.MakeUser(c, nil)
 		params.CreatedBy = user.UserTag().Username()
 	}
 
-	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), names.NewUserTag(params.CreatedBy), params.DisplayName)
+	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), names.NewUserTag(params.CreatedBy))
 	c.Assert(err, gc.IsNil)
 	return envUser
 }
@@ -298,10 +302,10 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []*state.Metric{state.NewMetric(factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds"))}
+		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds")}}
 	}
 
-	metric, err := params.Unit.AddMetrics(params.Metrics)
+	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
 	c.Assert(err, gc.IsNil)
 	if params.Sent {
 		err := metric.SetSent()

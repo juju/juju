@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -25,24 +26,16 @@ type MetricBatch struct {
 }
 
 type metricBatchDoc struct {
-	UUID     string      `bson:"_id"`
-	Unit     string      `bson:"unit"`
-	CharmUrl string      `bson:"charmurl"`
-	Sent     bool        `bson:"sent"`
-	Metrics  []metricDoc `bson:"metrics"`
+	UUID     string    `bson:"_id"`
+	Unit     string    `bson:"unit"`
+	CharmUrl string    `bson:"charmurl"`
+	Sent     bool      `bson:"sent"`
+	Created  time.Time `bson:"created"`
+	Metrics  []Metric  `bson:"metrics"`
 }
 
 // Metric represents a single Metric.
 type Metric struct {
-	doc metricDoc
-}
-
-func NewMetric(key, value string, time time.Time, cred []byte) *Metric {
-	doc := metricDoc{key, value, time, cred}
-	return &Metric{doc}
-}
-
-type metricDoc struct {
 	Key         string    `bson:"key"`
 	Value       string    `bson:"value"`
 	Time        time.Time `bson:"time"`
@@ -51,7 +44,7 @@ type metricDoc struct {
 
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
-func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, metrics []*Metric) (*MetricBatch, error) {
+func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
 	if len(metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
 	}
@@ -60,15 +53,6 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, metrics 
 		return nil, err
 	}
 
-	metricDocs := make([]metricDoc, len(metrics))
-	for i, m := range metrics {
-		metricDocs[i] = metricDoc{
-			Key:         m.Key(),
-			Value:       m.Value(),
-			Time:        m.Time(),
-			Credentials: m.Credentials(),
-		}
-	}
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
@@ -76,7 +60,8 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, metrics 
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
-			Metrics:  metricDocs,
+			Created:  created,
+			Metrics:  metrics,
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
@@ -111,10 +96,28 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	defer closer()
 	doc := metricBatchDoc{}
 	err := c.Find(bson.M{"_id": id}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("metric %v", id)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return &MetricBatch{st: st, doc: doc}, nil
+}
+
+// CleanupOldMetrics looks for metrics that are 24 hours old (or older)
+// and have been sent. Any metrics it finds are deleted.
+// Nothing else in the system will interact with sent metrics, and nothing needs
+// to watch them either; so in this instance it's safe to do an end run around the
+// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
+func (st *State) CleanupOldMetrics() error {
+	age := time.Now().Add(-(time.Hour * 24))
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	return c.Remove(bson.M{
+		"sent":    true,
+		"created": bson.M{"$lte": age},
+	})
 }
 
 // UUID returns to uuid of the metric.
@@ -144,7 +147,7 @@ func (m *MetricBatch) SetSent() error {
 		C:      metricsC,
 		Id:     m.UUID(),
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"sent", true}}}},
+		Update: bson.M{"$set": bson.M{"sent": true}},
 	}}
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
@@ -157,29 +160,6 @@ func (m *MetricBatch) SetSent() error {
 // Metrics returns the metrics in this batch.
 func (m *MetricBatch) Metrics() []Metric {
 	result := make([]Metric, len(m.doc.Metrics))
-	for i, m := range m.doc.Metrics {
-		result[i] = Metric{m}
-	}
+	copy(result, m.doc.Metrics)
 	return result
-}
-
-// Key returns the key of the metric.
-func (m *Metric) Key() string {
-	return m.doc.Key
-}
-
-// Value returns the value of the metric
-// 'value' in this context is associated with the metric's key.
-func (m *Metric) Value() string {
-	return m.doc.Value
-}
-
-// Time returns the time associated with this metric
-func (m *Metric) Time() time.Time {
-	return m.doc.Time
-}
-
-// Credentials returns the credentials for the metric
-func (m *Metric) Credentials() []byte {
-	return m.doc.Credentials
 }

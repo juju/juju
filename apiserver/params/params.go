@@ -67,9 +67,6 @@ type ErrorResult struct {
 	Error *Error
 }
 
-// StatusData contains additional information for a status.
-type StatusData map[string]interface{}
-
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
@@ -513,7 +510,7 @@ type MachineInfo struct {
 	InstanceId               string
 	Status                   Status
 	StatusInfo               string
-	StatusData               StatusData
+	StatusData               map[string]interface{}
 	Life                     Life
 	Series                   string
 	SupportedContainers      []instance.ContainerType
@@ -559,7 +556,7 @@ type UnitInfo struct {
 	Ports          []network.Port
 	Status         Status
 	StatusInfo     string
-	StatusData     StatusData
+	StatusData     map[string]interface{}
 }
 
 func (i *UnitInfo) EntityId() EntityId {
@@ -668,6 +665,26 @@ type EnvironmentSet struct {
 // call.
 type EnvironmentUnset struct {
 	Keys []string
+}
+
+// ModifyEnvironUsers holds the parameters for making Client ShareEnvironment calls.
+type ModifyEnvironUsers struct {
+	Changes []ModifyEnvironUser
+}
+
+// EnvironAction is an action that can be preformed on an environment.
+type EnvironAction string
+
+// Actions that can be preformed on an environment.
+const (
+	AddEnvUser    EnvironAction = "add"
+	RemoveEnvUser EnvironAction = "remove"
+)
+
+// ModifyEnvironUser stores the parameters used for a Client.ShareEnvironment call.
+type ModifyEnvironUser struct {
+	UserTag string        `json:"user-tag"`
+	Action  EnvironAction `json:"action"`
 }
 
 // SetEnvironAgentVersion contains the arguments for

@@ -101,7 +101,7 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status params.Status, info string, data params.StatusData) error
+	SetStatus(status params.Status, info string, data map[string]interface{}) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
@@ -154,7 +154,7 @@ var scenarioStatus = &api.Status{
 			InstanceId: instance.Id("i-machine-0"),
 			Agent: api.AgentStatus{
 				Status: "started",
-				Data:   params.StatusData{},
+				Data:   make(map[string]interface{}),
 			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
@@ -169,7 +169,7 @@ var scenarioStatus = &api.Status{
 			InstanceId: instance.Id("i-machine-1"),
 			Agent: api.AgentStatus{
 				Status: "started",
-				Data:   params.StatusData{},
+				Data:   make(map[string]interface{}),
 			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
@@ -184,7 +184,7 @@ var scenarioStatus = &api.Status{
 			InstanceId: instance.Id("i-machine-2"),
 			Agent: api.AgentStatus{
 				Status: "started",
-				Data:   params.StatusData{},
+				Data:   make(map[string]interface{}),
 			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
@@ -220,7 +220,7 @@ var scenarioStatus = &api.Status{
 					Agent: api.AgentStatus{
 						Status: "error",
 						Info:   "blam",
-						Data:   params.StatusData{"relation-id": "0"},
+						Data:   map[string]interface{}{"relation-id": "0"},
 					},
 					AgentState:     "down",
 					AgentStateInfo: "(error: blam)",
@@ -229,7 +229,7 @@ var scenarioStatus = &api.Status{
 						"logging/0": api.UnitStatus{
 							Agent: api.AgentStatus{
 								Status: "pending",
-								Data:   params.StatusData{},
+								Data:   make(map[string]interface{}),
 							},
 							AgentState: "pending",
 						},
@@ -238,7 +238,7 @@ var scenarioStatus = &api.Status{
 				"wordpress/1": api.UnitStatus{
 					Agent: api.AgentStatus{
 						Status: "pending",
-						Data:   params.StatusData{},
+						Data:   make(map[string]interface{}),
 					},
 					AgentState: "pending",
 					Machine:    "2",
@@ -246,7 +246,7 @@ var scenarioStatus = &api.Status{
 						"logging/1": api.UnitStatus{
 							Agent: api.AgentStatus{
 								Status: "pending",
-								Data:   params.StatusData{},
+								Data:   make(map[string]interface{}),
 							},
 							AgentState: "pending",
 						},
@@ -327,7 +327,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User(state.AdminUser)
+	u, err := s.State.User(s.AdminUserTag(c).Name())
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)
@@ -384,7 +384,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 		// Put wordpress/0 in error state (with extra status data set)
 		if i == 0 {
-			sd := params.StatusData{
+			sd := map[string]interface{}{
 				"relation-id": "0",
 				// these this should get filtered out
 				// (not in StatusData whitelist)
