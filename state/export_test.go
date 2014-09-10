@@ -287,3 +287,11 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	}
 	return out, nil
 }
+
+func CountofSentMetrics(st *State) (int, error) {
+	return st.countofSentMetrics()
+}
+
+func CountofUnsentMetrics(st *State) (int, error) {
+	return st.countofUnsentMetrics()
+}

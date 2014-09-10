@@ -137,10 +137,15 @@ func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(time.Hour * 24))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
-	return c.Remove(bson.M{
+	err := c.Remove(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
 	})
+	if err == mgo.ErrNotFound {
+		metricsLogger.Infof("no metrics found to cleanup")
+		return nil
+	}
+	return err
 }
 
 // MetricSender defines the interface used to send metrics
@@ -150,7 +155,6 @@ type MetricSender interface {
 }
 
 var (
-	MetricSend        = MetricSender(nil)
 	MaxSendsPerCall   = 50
 	MaxBatchesPerSend = 1000
 )
@@ -160,7 +164,7 @@ var (
 // of no more than 1k. It will attempt to send up
 // to 50 batches in one go. Meaning that 50k batches
 // could be sent in a single call.
-func (st *State) SendMetrics() error {
+func (st *State) SendMetrics(sender MetricSender) error {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	iter := c.Find(bson.M{
@@ -174,8 +178,8 @@ func (st *State) SendMetrics() error {
 			if iter.Next(&doc) {
 				batch[i] = &MetricBatch{st: st, doc: doc}
 			} else {
-				if iter.Err() != nil {
-					return iter.Err()
+				if err := iter.Err(); err != nil {
+					return errors.Trace(err)
 				}
 				break
 			}
@@ -186,31 +190,31 @@ func (st *State) SendMetrics() error {
 			return nil
 		}
 
-		err := st.sendBatch(batch)
+		err := st.sendBatch(sender, batch)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	err := iter.Close()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	unsent, err := st.CountofUnsentMetrics()
+	unsent, err := st.countofUnsentMetrics()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	sent, err := st.CountofSentMetrics()
+	sent, err := st.countofSentMetrics()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	metricsLogger.Infof("metrics collection summary: sent:%d unsent:%d", sent, unsent)
 
 	return nil
 }
 
-// CountofUnsentMetrics returns the number of metrics that
+// countofUnsentMetrics returns the number of metrics that
 // haven't been sent to the collection service.
-func (st *State) CountofUnsentMetrics() (int, error) {
+func (st *State) countofUnsentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
@@ -218,10 +222,10 @@ func (st *State) CountofUnsentMetrics() (int, error) {
 	}).Count()
 }
 
-// CountofSentMetrics returns the number of metrics that
+// countofSentMetrics returns the number of metrics that
 // have been sent to the collection service and have not
 // been removed by the cleanup worker.
-func (st *State) CountofSentMetrics() (int, error) {
+func (st *State) countofSentMetrics() (int, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	return c.Find(bson.M{
@@ -231,18 +235,14 @@ func (st *State) CountofSentMetrics() (int, error) {
 
 // sendBatch send metrics over the MetricSender interface and
 // sets the metric's sent attribute.
-func (st *State) sendBatch(batch []*MetricBatch) error {
-	if MetricSend != nil {
-		err := MetricSend.Send(batch)
-		if err != nil {
-			return err
-		}
+func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
+	err := sender.Send(metrics)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	for _, m := range batch {
-		err := m.SetSent()
-		if err != nil {
-			metricsLogger.Warningf("failed to setsent on metric %v %v", m.UUID(), err)
-		}
+	err = st.SetMetricBatchesSent(metrics)
+	if err != nil {
+		metricsLogger.Warningf("failed to setsent on metrics", err)
 	}
 	return nil
 }
@@ -268,14 +268,16 @@ func (m *MetricBatch) Sent() bool {
 	return m.doc.Sent
 }
 
+// Metrics returns the metrics in this batch.
+func (m *MetricBatch) Metrics() []Metric {
+	result := make([]Metric, len(m.doc.Metrics))
+	copy(result, m.doc.Metrics)
+	return result
+}
+
 // SetSent sets the sent flag to true
 func (m *MetricBatch) SetSent() error {
-	ops := []txn.Op{{
-		C:      metricsC,
-		Id:     m.UUID(),
-		Assert: txn.DocExists,
-		Update: bson.M{"$set": bson.M{"sent": true}},
-	}}
+	ops := setSentOps([]*MetricBatch{m})
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
@@ -284,9 +286,26 @@ func (m *MetricBatch) SetSent() error {
 	return nil
 }
 
-// Metrics returns the metrics in this batch.
-func (m *MetricBatch) Metrics() []Metric {
-	result := make([]Metric, len(m.doc.Metrics))
-	copy(result, m.doc.Metrics)
-	return result
+func setSentOps(metrics []*MetricBatch) []txn.Op {
+	ops := make([]txn.Op, len(metrics))
+	for i, m := range metrics {
+		ops[i] = txn.Op{
+			C:      metricsC,
+			Id:     m.UUID(),
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"sent": true}},
+		}
+	}
+	return ops
+}
+
+func (st *State) SetMetricBatchesSent(metrics []*MetricBatch) error {
+	ops := setSentOps(metrics)
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Annotatef(err, "cannot set metric sent in bulk call")
+	}
+	for _, m := range metrics {
+		m.doc.Sent = true
+	}
+	return nil
 }

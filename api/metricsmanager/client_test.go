@@ -4,17 +4,15 @@
 package metricsmanager_test
 
 import (
-	"time"
+	stdtesting "testing"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/api/metricsmanager"
+	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/testing"
 )
 
 type metricsManagerSuite struct {
@@ -25,6 +23,10 @@ type metricsManagerSuite struct {
 
 var _ = gc.Suite(&metricsManagerSuite{})
 
+func TestAll(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
+}
+
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.manager = metricsmanager.NewClient(s.APIState)
@@ -32,30 +34,30 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	oldTime := time.Now().Add(-(time.Hour * 25))
-	newTime := time.Now()
-	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
-	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
+	var called bool
+	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "CleanupOldMetrics")
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
 	err := s.manager.CleanupOldMetrics()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.MetricBatch(oldMetric.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.MetricBatch(newMetric.UUID())
-	c.Assert(err, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
 }
 
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
-	sender := &statetesting.MockSender{}
-	s.PatchValue(&state.MetricSend, sender)
-	unit := s.Factory.MakeUnit(c, nil)
-	now := time.Now()
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
-	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	// TODO (mattyw) Can remove mock sender from statetesting?
+	var called bool
+	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "SendMetrics")
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
 	err := s.manager.SendMetrics()
 	c.Assert(err, gc.IsNil)
-	c.Assert(sender.Data, gc.HasLen, 1)
-	m, err := s.State.MetricBatch(unsent.UUID())
-	c.Assert(err, gc.IsNil)
-	c.Assert(m.Sent(), jc.IsTrue)
+	c.Assert(called, jc.IsTrue)
 }

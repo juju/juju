@@ -6,15 +6,10 @@ package metricworker_test
 import (
 	"time"
 
-	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/metricworker"
 )
 
@@ -29,18 +24,11 @@ func (s *SenderSuite) SetUpTest(c *gc.C) {
 }
 
 // TestSend create 2 metrics, one sent and one not sent.
-// It confirms that one metric is sent
+// It confirms that one metric is sent.
 func (s *SenderSuite) TestSender(c *gc.C) {
-	sender := &statetesting.MockSender{}
-	s.PatchValue(&state.MetricSend, sender)
-	unit := s.Factory.MakeUnit(c, nil)
-	now := time.Now()
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
-	unsentMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-
 	notify := make(chan struct{})
 	metricworker.PatchNotificationChannel(notify)
-	client := metricsmanager.NewClient(s.APIState)
+	client := &mockClient{}
 	worker := metricworker.NewSender(client)
 	defer worker.Kill()
 	select {
@@ -48,9 +36,18 @@ func (s *SenderSuite) TestSender(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("the cleanup function should have fired by now")
 	}
-	c.Assert(sender.Data, gc.HasLen, 1)
-	metric, err := s.State.MetricBatch(unsentMetric.UUID())
-	c.Assert(err, gc.IsNil)
-	c.Assert(metric.Sent(), jc.IsTrue)
+	c.Assert(client.calls, gc.DeepEquals, []string{"SendMetrics"})
+}
 
+type mockClient struct {
+	calls []string
+}
+
+func (m *mockClient) CleanupOldMetrics() error {
+	m.calls = append(m.calls, "CleanupOldMetrics")
+	return nil
+}
+func (m *mockClient) SendMetrics() error {
+	m.calls = append(m.calls, "SendMetrics")
+	return nil
 }

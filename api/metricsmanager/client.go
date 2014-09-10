@@ -20,6 +20,14 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
+// MetricsManagerClient defines the methods on the metricsmanager API end point.
+type MetricsManagerClient interface {
+	CleanupOldMetrics() error
+	SendMetrics() error
+}
+
+var _ MetricsManagerClient = (*Client)(nil)
+
 // NewClient creates a new client for accessing the metricsmanager api
 func NewClient(st *api.State) *Client {
 	frontend, backend := base.NewClientFacade(st, "MetricsManager")
@@ -42,13 +50,13 @@ func (c *Client) CleanupOldMetrics() error {
 
 // SendMetrics will send any unsent metrics to the collection service.
 func (c *Client) SendMetrics() error {
-	results := new(params.ErrorResult)
-	err := c.facade.FacadeCall("SendMetrics", nil, results)
+	p := params.Entities{Entities: []params.Entity{
+		{c.st.EnvironTag()},
+	}}
+	results := new(params.ErrorResults)
+	err := c.facade.FacadeCall("SendMetrics", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if results.Error != nil {
-		return results.Error
-	}
-	return nil
+	return results.OneError()
 }

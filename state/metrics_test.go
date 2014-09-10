@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/metricsender"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -136,6 +137,11 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
+	err := s.State.CleanupOldMetrics()
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte("creds")}
@@ -152,7 +158,7 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 
 // TestSendMetrics creates 2 unsent metrics and a sent metric
 // and checks that the 2 unsent metrics get sent and have their
-// sent field set to true
+// sent field set to true.
 func (s *MetricSuite) TestSendMetrics(c *gc.C) {
 	unit := s.factory.MakeUnit(c, nil)
 	now := time.Now()
@@ -160,11 +166,12 @@ func (s *MetricSuite) TestSendMetrics(c *gc.C) {
 	unsent2 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
 	sender := &testing.MockSender{}
-	s.PatchValue(&state.MetricSend, sender)
-	err := s.State.SendMetrics()
+	err := s.State.SendMetrics(sender)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(sender.Data, gc.HasLen, 2)
+	c.Assert(sender.Data, gc.HasLen, 1)
+
+	c.Assert(sender.Data[0], gc.HasLen, 2)
 
 	sent1, err := s.State.MetricBatch(unsent1.UUID())
 	c.Assert(err, gc.IsNil)
@@ -178,10 +185,9 @@ func (s *MetricSuite) TestSendMetrics(c *gc.C) {
 // TestSendBulkMetrics tests the logic of splitting sends
 // into batches is done correctly. The batch size is changed
 // to send 10 batches of 10 metrics. If we create 101 metrics
-// then only 100 will be sent in this call
+// then only 100 will be sent in this call.
 func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
 	sender := &testing.MockSender{}
-	s.PatchValue(&state.MetricSend, sender)
 	s.PatchValue(&state.MaxBatchesPerSend, 10)
 	s.PatchValue(&state.MaxSendsPerCall, 10)
 	unit := s.factory.MakeUnit(c, nil)
@@ -189,30 +195,33 @@ func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
 	for i := 0; i < 101; i++ {
 		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
 	}
-	err := s.State.SendMetrics()
+	err := s.State.SendMetrics(sender)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(sender.Data, gc.HasLen, 100)
+	c.Assert(sender.Data, gc.HasLen, 10)
+	for i := 0; i < 10; i++ {
+		c.Assert(sender.Data, gc.HasLen, 10)
+	}
 }
 
 // TestCountMetrics asserts the correct values are returned
-// by CountofUnsentMetrics and CountofSentMetrics
+// by countofUnsentMetrics and countofSentMetrics.
 func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 	unit := s.factory.MakeUnit(c, nil)
 	now := time.Now()
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := state.CountofSentMetrics(s.State)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sent, gc.Equals, 1)
-	unsent, err := s.State.CountofUnsentMetrics()
+	unsent, err := state.CountofUnsentMetrics(s.State)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsent, gc.Equals, 2)
 	c.Assert(unsent+sent, gc.Equals, 3)
 }
 
-// TestDontSendWithNilSender check that if the default sender
+// TestDontSendWithNopSender check that if the default sender
 // is nil we don't send anything, but still mark the items as sent
 func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
 	unit := s.factory.MakeUnit(c, nil)
@@ -220,9 +229,24 @@ func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	err := s.State.SendMetrics()
+	err := s.State.SendMetrics(&metricsender.NopSender{})
 	c.Assert(err, gc.IsNil)
-	sent, err := s.State.CountofSentMetrics()
+	sent, err := state.CountofSentMetrics(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 3)
+
+}
+
+func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
+	unit := s.factory.MakeUnit(c, nil)
+	now := time.Now()
+	ma := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	mb := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	mc := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	metrics := []*state.MetricBatch{ma, mb, mc}
+	err := s.State.SetMetricBatchesSent(metrics)
+	c.Assert(err, gc.IsNil)
+	sent, err := state.CountofSentMetrics(s.State)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sent, gc.Equals, 3)
 

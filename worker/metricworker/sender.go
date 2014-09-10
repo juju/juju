@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package metricworker
 
 import (
@@ -12,8 +15,8 @@ import (
 var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
 
 // NewSender creates a new periodic worker that sends metrics
-// to a collection service
-func NewSender(client *metricsmanager.Client) worker.Worker {
+// to a collection service.
+func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.SendMetrics()
 		if err != nil {

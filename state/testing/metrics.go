@@ -9,10 +9,11 @@ import (
 
 // MockSender implements the metric sender interface.
 type MockSender struct {
-	Data []*state.MetricBatch
+	Data [][]*state.MetricBatch
 }
 
+// Send implements the Send interface.
 func (m *MockSender) Send(d []*state.MetricBatch) error {
-	m.Data = append(m.Data, d...)
+	m.Data = append(m.Data, d)
 	return nil
 }
