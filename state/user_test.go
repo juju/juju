@@ -57,7 +57,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 		user.DateCreated().Equal(now), jc.IsTrue)
 	c.Assert(user.LastLogin(), gc.IsNil)
 
-	user, err = s.State.User(name)
+	user, err = s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, name)
@@ -96,7 +96,7 @@ func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 func (s *UserSuite) TestSetPassword(c *gc.C) {
 	user := s.factory.MakeUser(c, nil)
 	testSetPassword(c, func() (state.Authenticator, error) {
-		return s.State.User(user.Name())
+		return s.State.User(user.UserTag())
 	})
 }
 
@@ -194,7 +194,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestCantDeactivateAdmin(c *gc.C) {
-	user, err := s.State.User(state.AdminUser)
+	user, err := s.State.User(s.owner)
 	c.Assert(err, gc.IsNil)
 	err = user.Deactivate()
 	c.Assert(err, gc.ErrorMatches, "cannot deactivate admin user")

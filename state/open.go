@@ -80,7 +80,7 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	owner := names.NewUserTag("admin")
+	owner := names.NewLocalUserTag("admin")
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
 	if err := checkEnvironConfig(cfg); err != nil {

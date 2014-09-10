@@ -125,7 +125,11 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 		return result, nil
 	}
 	for i, arg := range args.Entities {
-		user, err := api.state.User(arg.Tag)
+		if !names.IsValidUserName(arg.Tag) {
+			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
+			continue
+		}
+		user, err := api.state.User(names.NewLocalUserTag(arg.Tag))
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -151,9 +155,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 			results.Results[0].Error = common.ServerError(err)
 			continue
 		}
-		username := tag.Id()
-
-		user, err := api.state.User(username)
+		user, err := api.state.User(tag)
 		var result UserInfoResult
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -163,7 +165,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 			}
 		} else {
 			info := UserInfo{
-				Username:       username,
+				Username:       tag.Name(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
@@ -185,20 +187,25 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 		return result, nil
 	}
 	for i, arg := range args.Changes {
+		loggedInUser := api.getLoggedInUser()
+		if _, ok := loggedInUser.(names.UserTag); !ok {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Not a user"))
+			continue
+		}
+
 		username := arg.Username
 		if username == "" {
 			username = arg.Tag
 		}
 
-		argUser, err := api.state.User(username)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %v", err))
+		if !names.IsValidUserName(username) {
+			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
 			continue
 		}
 
-		loggedInUser := api.getLoggedInUser()
-		if _, ok := loggedInUser.(names.UserTag); !ok {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Not a user"))
+		argUser, err := api.state.User(names.NewLocalUserTag(username))
+		if err != nil {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %v", err))
 			continue
 		}
 

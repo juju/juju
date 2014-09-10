@@ -76,7 +76,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Tag(), gc.Equals, envTag)
 	// Check that the owner has been created.
-	owner := names.NewUserTag("admin")
+	owner := names.NewLocalUserTag("admin")
 	c.Assert(env.Owner(), gc.Equals, owner)
 	// Check that the owner can be retrieved by the tag.
 	entity, err := s.State.FindEntity(env.Owner())

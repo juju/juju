@@ -94,9 +94,16 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	err = cfg.Write()
 	c.Assert(err, gc.IsNil)
 
+	// Check that the environment has been set up.
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	uuid, ok := envCfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(env.UUID(), gc.Equals, uuid)
+
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
-	user, err := st.User("admin")
+	user, err := st.User(env.Owner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
