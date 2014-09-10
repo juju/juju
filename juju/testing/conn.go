@@ -110,7 +110,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	return names.NewUserTag(state.AdminUser)
+	return names.NewLocalUserTag(state.AdminUser)
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -183,7 +183,9 @@ func PreferredDefaultVersions(conf *config.Config, template version.Binary) []ve
 	prefVersion := template
 	prefVersion.Series = config.PreferredSeries(conf)
 	defaultVersion := template
-	defaultVersion.Series = testing.FakeDefaultSeries
+	if prefVersion.Series != testing.FakeDefaultSeries {
+		defaultVersion.Series = testing.FakeDefaultSeries
+	}
 	return []version.Binary{prefVersion, defaultVersion}
 }
 
@@ -537,7 +539,8 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch, networks)
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(name, owner, ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }

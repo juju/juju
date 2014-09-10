@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -22,7 +23,7 @@ var _ = gc.Suite(&EnvUserSuite{})
 
 func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := state.NowToTheSecond()
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", NoEnvUser: true})
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
 	c.Assert(err, gc.IsNil)
@@ -58,11 +59,29 @@ func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
+func (s *EnvUserSuite) TestRemoveEnvironmentUser(c *gc.C) {
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
+	_, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.RemoveEnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
+	user := s.factory.MakeUser(c, &factory.UserParams{NoEnvUser: true})
+	err := s.State.RemoveEnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	envUser, err := s.State.AddEnvironmentUser(user.UserTag(), createdBy.UserTag())
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Name()})
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()
 	c.Assert(err, gc.IsNil)

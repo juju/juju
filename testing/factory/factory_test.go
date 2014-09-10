@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -73,7 +74,7 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -87,21 +88,21 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	username := "bob"
 	displayName := "Bob the Builder"
-	creator := "eric"
+	creator := s.Factory.MakeUser(c, nil)
 	password := "sekrit"
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        username,
 		DisplayName: displayName,
-		Creator:     creator,
+		Creator:     creator.Name(),
 		Password:    password,
 	})
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 	c.Assert(user.Name(), gc.Equals, username)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
-	c.Assert(user.CreatedBy(), gc.Equals, creator)
+	c.Assert(user.CreatedBy(), gc.Equals, creator.Name())
 	c.Assert(user.PasswordValid(password), jc.IsTrue)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -110,6 +111,28 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
+	username := "bob"
+	displayName := "Bob the Builder"
+	creator := "eric"
+	password := "sekrit"
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        username,
+		DisplayName: displayName,
+		Creator:     creator,
+		Password:    password,
+		NoEnvUser:   true,
+	})
+
+	_, err := s.State.User(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
@@ -123,7 +146,7 @@ func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123", NoEnvUser: true})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User: "foobar123"})
 
@@ -138,8 +161,9 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	s.Factory.MakeUser(c, &factory.UserParams{
-		Name:    "foobar",
-		Creator: "created-by",
+		Name:      "foobar",
+		Creator:   "created-by",
+		NoEnvUser: true,
 	})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User:      "foobar",

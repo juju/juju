@@ -6,7 +6,7 @@ github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/blobstore	git	cb12cc93f02a9b83d4f8cc635b505d8423be4181	
+github.com/juju/blobstore	git	2ac660ca30f965cfb487012ba31a863b01bcadbb	
 github.com/juju/cmd	git	7ef40be0cb5a4107d29fcfca5dff3b03ba0644dc	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
 github.com/juju/errors	git	47afc1fe9e066212a601c072c034fceb873bf594	
@@ -17,7 +17,7 @@ github.com/juju/loggo	git	158009fb40c4a52b3d2c23eb56e72859cfc5321a
 github.com/juju/names	git	78d295c87907ed9e1c11ead38cbd0d91a0caf8c1	
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
-github.com/juju/testing	git	2b5363bbdcd524bb2b0f78d360499c31a29cf768	
+github.com/juju/testing	git	7348fa12e9e4b6b5a8f100f15f76f0a2aaa4d9f8	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	27f6e1b91f3ca1da6789e1641a115f284bf49833	
 gopkg.in/juju/charm.v3	git	eb7dae8ed9dfa44b89e4e8eee6e21f80e31a3b69	

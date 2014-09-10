@@ -1216,7 +1216,7 @@ func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("wordpress", "user-notAuser", charm, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": user notAuser doesn't exist")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {
@@ -2255,6 +2255,11 @@ var findEntityTests = []findEntityTest{{
 	err: `action "ser-vice2_a_0" not found`,
 }, {
 	tag: names.NewUserTag("eric"),
+}, {
+	tag: names.NewUserTag("eric@local"),
+}, {
+	tag: names.NewUserTag("eric@remote"),
+	err: `user "eric@remote" not found`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -2317,6 +2322,10 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
+			} else if kind == "user" {
+				// Test the fully qualified username rather than the tag structure itself.
+				expected := test.tag.(names.UserTag).Username()
+				c.Assert(e.Tag().(names.UserTag).Username(), gc.Equals, expected)
 			} else {
 				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}

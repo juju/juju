@@ -62,3 +62,20 @@ func TestingUpgradingRoot(st *state.State) *upgradingRoot {
 		srvRoot: *TestingSrvRoot(st),
 	}
 }
+
+// TestingRestoreInProgressRoot returns a limited restoreInProgressRoot
+// containing a srvRoot as returned by TestingSrvRoot.
+func TestingRestoreInProgressRoot(st *state.State) *restoreInProgressRoot {
+	return &restoreInProgressRoot{
+		srvRoot: *TestingSrvRoot(st),
+	}
+}
+
+// TestingAboutToRestoreRoot returns a limited aboutToRestoreRoot
+// containing a srvRoot as returned by TestingSrvRoot.
+func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
+	return &aboutToRestoreRoot{
+		srvRoot: *TestingSrvRoot(st),
+	}
+
+}

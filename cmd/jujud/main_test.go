@@ -244,7 +244,7 @@ var argsTests = []struct {
 
 func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 	for _, t := range argsTests {
-		fmt.Println(t.args)
+		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, t.args...)
 		c.Assert(output, gc.Equals, t.output)
 	}

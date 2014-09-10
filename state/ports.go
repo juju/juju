@@ -42,7 +42,7 @@ type PortRange struct {
 	Protocol string
 }
 
-// NewPortRange create a new port range.
+// NewPortRange create a new port range and validate it.
 func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortRange, error) {
 	p := PortRange{
 		UnitName: unitName,
@@ -71,21 +71,28 @@ func (p PortRange) Validate() error {
 	return nil
 }
 
-// ConflictsWith determines if the two port ranges conflict.
-func (a PortRange) ConflictsWith(b PortRange) bool {
-	if a.Protocol != b.Protocol {
-		return false
+// CheckConflicts determines if the two port ranges conflict.
+func (a PortRange) CheckConflicts(b PortRange) error {
+	if err := a.Validate(); err != nil {
+		return err
 	}
-	switch {
-	case a.FromPort >= b.FromPort && a.FromPort <= b.ToPort:
-		return true
-	case a.ToPort >= b.FromPort && a.ToPort <= b.ToPort:
-		return true
-	case a.FromPort <= b.FromPort && a.ToPort >= b.ToPort:
-		return true
+	if err := b.Validate(); err != nil {
+		return err
 	}
 
-	return false
+	// An exact port range match (including the associated unit name) is not
+	// considered a conflict due to the fact that many charms issue commands
+	// to open the same port multiple times.
+	if a == b {
+		return nil
+	}
+	if a.Protocol != b.Protocol {
+		return nil
+	}
+	if a.ToPort >= b.FromPort && b.ToPort >= a.FromPort {
+		return fmt.Errorf("port ranges %v (%s) and %v (%s) conflict", a, a.UnitName, b, b.UnitName)
+	}
+	return nil
 }
 
 func (p PortRange) String() string {
@@ -112,14 +119,15 @@ func (p *Ports) Id() string {
 	return p.doc.Id
 }
 
-// Check if a port range can be opened.
-func (p *Ports) canOpenPorts(newPorts PortRange) bool {
+// Check if a port range can be opened, return the conflict error
+// for more accurate reporting.
+func (p *Ports) canOpenPorts(newPorts PortRange) error {
 	for _, existingPorts := range p.doc.Ports {
-		if existingPorts.ConflictsWith(newPorts) {
-			return false
+		if err := existingPorts.CheckConflicts(newPorts); err != nil {
+			return err
 		}
 	}
-	return true
+	return nil
 }
 
 func (p *Ports) extractPortIdPart(part portIdPart) (string, error) {
@@ -168,8 +176,8 @@ func (p *Ports) OpenPorts(portRange PortRange) error {
 			}
 		}
 
-		if !ports.canOpenPorts(portRange) {
-			return nil, fmt.Errorf("cannot open ports %v on machine %v due to conflict", portRange, machineId)
+		if err := ports.canOpenPorts(portRange); err != nil {
+			return nil, errors.Annotatef(err, "cannot open ports %v on machine %q", portRange, machineId)
 		}
 
 		// a new ports document being created
@@ -222,8 +230,10 @@ func (p *Ports) ClosePorts(portRange PortRange) error {
 			if existingPortsDef == portRange {
 				found = true
 				continue
-			} else if existingPortsDef.UnitName == portRange.UnitName && existingPortsDef.ConflictsWith(portRange) {
-				return nil, fmt.Errorf("mismatched port ranges %v and %v", existingPortsDef, portRange)
+			}
+			portConflictErr := existingPortsDef.CheckConflicts(portRange)
+			if existingPortsDef.UnitName == portRange.UnitName && portConflictErr != nil {
+				return nil, errors.Annotatef(portConflictErr, "mismatched port ranges")
 			}
 			newPorts = append(newPorts, existingPortsDef)
 		}
@@ -274,8 +284,8 @@ func (p *Ports) migratePorts(u *Unit) error {
 			if err != nil {
 				return nil, fmt.Errorf("cannot migrate port %v: %v", port, err)
 			}
-			if !ports.canOpenPorts(portDef) {
-				return nil, fmt.Errorf("cannot migrate port %v due to conflict", port)
+			if err := ports.canOpenPorts(portDef); err != nil {
+				return nil, fmt.Errorf("cannot migrate port %v: %v", port, err)
 			}
 			migratedPorts[i] = portDef
 		}

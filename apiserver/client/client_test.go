@@ -1684,8 +1684,29 @@ func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
+func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
+	user := s.Factory.MakeEnvUser(c, nil)
+	_, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.UserTag().String(),
+			Action:  params.RemoveEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
 func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{
 			UserTag: user.Tag().String(),

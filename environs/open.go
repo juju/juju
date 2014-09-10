@@ -172,10 +172,12 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 		info = store.CreateInfo(cfg.Name())
 		if env, err := prepare(ctx, cfg, info, p); err == nil {
 			return env, decorateAndWriteInfo(info, env.Config())
-		} else if err := info.Destroy(); err != nil {
-			logger.Warningf("cannot destroy newly created environment info: %v", err)
+		} else {
+			if err := info.Destroy(); err != nil {
+				logger.Warningf("cannot destroy newly created environment info: %v", err)
+			}
+			return nil, err
 		}
-		return nil, err
 
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())

@@ -392,7 +392,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check that the admin user has been given an appropriate
 	// password
-	u, err := st.User("admin")
+	u, err := st.User(names.NewLocalUserTag("admin"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.PasswordValid(testPassword), gc.Equals, true)
 
