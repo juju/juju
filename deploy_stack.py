@@ -396,6 +396,17 @@ def deploy_job():
                        args.machine, args.series, log_dir, args.debug)
 
 
+def update_env(env, new_env_name, series=None, boostrap_host=None):
+    # Rename to the new name.
+    env.environment = new_env_name
+    # Always bootstrap a matching environment.
+    env.config['agent-version'] = env.get_matching_agent_version()
+    if series is not None:
+        env.config['default-series'] = series
+    if bootstrap_host is not None:
+        env.config['bootstrap-host'] = bootstrap_host
+
+
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 bootstrap_host, machines, series, log_dir, debug):
     logging.basicConfig(
@@ -411,21 +422,15 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(base_env)
         env.client.debug = debug
-        # Rename to the job name.
-        env.environment = job_name
-        if bootstrap_host is not None:
-            env.config['bootstrap-host'] = bootstrap_host
-        elif env.config['type'] == 'manual':
+        if env.config['type'] == 'manual' and bootstrap_host is None:
             instances = run_instances(3, job_name)
             created_machines = True
-            env.config['bootstrap-host'] = instances[0][1]
+            bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
-        if series:
-            env.config['default-series'] = series
+        update_env(env, job_name, bootstrap_host, series)
         try:
-            host = env.config.get('bootstrap-host')
-            env.config['agent-version'] = env.get_matching_agent_version()
+            host = bootstrap_host
             ssh_machines = [] + machines
             if host is not None:
                 ssh_machines.append(host)
