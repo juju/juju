@@ -257,7 +257,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
 	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "size mismatch for .*")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
 
@@ -272,7 +272,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
 	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "hash mismatch for .*")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
 	s.assertToolsNotStored(c, tools.Version)
 }
 

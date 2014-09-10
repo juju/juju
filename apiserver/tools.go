@@ -52,6 +52,7 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	case "GET":
 		tarball, err := h.processGet(r)
 		if err != nil {
+			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -100,6 +101,7 @@ func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response 
 
 // sendError sends a JSON-encoded error response.
 func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
+	logger.Debugf("sending error: %v %v", statusCode, message)
 	err := common.ServerError(errors.New(message))
 	if err := h.sendJSON(w, statusCode, &params.ToolsResult{Error: err}); err != nil {
 		logger.Errorf("failed to send error: %v", err)
@@ -110,11 +112,11 @@ func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message 
 func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
 	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "error parsing version")
 	}
 	storage, err := h.state.ToolsStorage()
 	if err != nil {
-		return nil, err
+		return nil, errors.Annotate(err, "error getting tools storage")
 	}
 	defer storage.Close()
 	_, reader, err := storage.Tools(version)
@@ -122,7 +124,11 @@ func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
 		// Tools could not be found in toolstorage,
 		// so look for them in simplestreams, fetch
 		// them and cache in toolstorage.
+		logger.Infof("%v tools not found locally, fetching")
 		reader, err = h.fetchAndCacheTools(version, storage)
+		if err != nil {
+			err = errors.Annotate(err, "error fetching tools")
+		}
 	}
 	if err != nil {
 		return nil, err
@@ -153,13 +159,18 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolsto
 	}
 
 	// No need to verify the server's identity because we verify the SHA-256 hash.
+	logger.Infof("fetching %v tools from %v", v, tools.URL)
 	resp, err := utils.GetNonValidatingHTTPClient().Get(tools.URL)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("bad HTTP response: %v", resp.Status)
+		msg := fmt.Sprintf("bad HTTP response: %v", resp.Status)
+		if body, err := ioutil.ReadAll(resp.Body); err == nil {
+			msg += fmt.Sprintf(" (%s)", bytes.TrimSpace(body))
+		}
+		return nil, errors.New(msg)
 	}
 	data, sha256, err := readAndHash(resp.Body)
 	if err != nil {
