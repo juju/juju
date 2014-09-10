@@ -2772,6 +2772,62 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	s.assertAgentVersion(c, envConfig, currentVersion)
 }
 
+func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	nextVersion := agentVersion
+	nextVersion.Minor++
+
+	// Create an unfinished UpgradeInfo instance.
+	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironAgentVersion(nextVersion)
+	c.Assert(errors.Cause(err), gc.Equals, state.UpgradeInProgressError)
+	c.Assert(err, gc.ErrorMatches,
+		"an upgrade is already in progress or the last upgrade did not complete")
+}
+
+func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
+	// Ensure that the correct error is reported if an upgrade is
+	// progress but that isn't the reason for the
+	// SetEnvironAgentVersion call failing.
+
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	nextVersion := agentVersion
+	nextVersion.Minor++
+
+	// Create an unfinished UpgradeInfo instance.
+	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironAgentVersion(nextVersion)
+	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current environment version.+")
+}
+
 type waiter interface {
 	Wait() error
 }
