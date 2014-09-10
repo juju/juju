@@ -26,14 +26,14 @@ type fakeImpl struct {
 
 func (i *fakeImpl) Create(db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
 	if i.err != nil {
-		return nil, i.err
+		return nil, errors.Trace(i.err)
 	}
 	return i.meta, nil
 }
 
 func (i *fakeImpl) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
 	if i.err != nil {
-		return nil, nil, i.err
+		return nil, nil, errors.Trace(i.err)
 	}
 	return i.meta, i.archive, nil
 }

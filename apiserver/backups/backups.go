@@ -31,7 +31,7 @@ func NewBackupsAPI(
 	st *state.State, resources *common.Resources, authorizer common.Authorizer,
 ) (*BackupsAPI, error) {
 	if !authorizer.AuthClient() {
-		return nil, common.ErrPerm
+		return nil, errors.Trace(common.ErrPerm)
 	}
 
 	stor, err := newBackupsStorage(st)
