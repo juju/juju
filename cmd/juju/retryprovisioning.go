@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -47,7 +48,17 @@ func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	results, err := client.RetryProvisioning(c.Machines...)
+
+	var machines []names.MachineTag
+	for _, tag := range c.Machines {
+		machine, err := names.ParseMachineTag(tag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		machines = append(machines, machine)
+	}
+
+	results, err := client.RetryProvisioning(machines...)
 	if err != nil {
 		return err
 	}
