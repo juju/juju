@@ -1852,10 +1852,11 @@ func (s *uniterSuite) TestAddMetrics(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	now := time.Now()
+	sentMetrics := []params.Metric{{"A", "5", now}, {"B", "0.71", now}}
 	args := params.MetricsParams{
 		Metrics: []params.MetricsParam{{
 			Tag:     s.wordpressUnit.Tag().String(),
-			Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
+			Metrics: sentMetrics,
 		}},
 	}
 	result, err := s.uniter.AddMetrics(args)
@@ -1866,7 +1867,14 @@ func (s *uniterSuite) TestAddMetrics(c *gc.C) {
 	metrics, err := s.State.MetricBatches()
 	c.Assert(err, gc.IsNil)
 	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Metrics(), gc.HasLen, 2)
+
+	unitMetrics := metrics[0].Metrics()
+	c.Assert(unitMetrics, gc.HasLen, 2)
+
+	for i, unitMetric := range unitMetrics {
+		c.Assert(unitMetric.Key, gc.Equals, sentMetrics[i].Key)
+		c.Assert(unitMetric.Value, gc.Equals, sentMetrics[i].Value)
+	}
 }
 
 func (s *uniterSuite) TestAddMetricsIncorrectTag(c *gc.C) {
