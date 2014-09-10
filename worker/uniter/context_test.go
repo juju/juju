@@ -252,7 +252,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, t.proxySettings)
+		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, t.proxySettings, false)
 		var charmDir, outPath string
 		var hookExists bool
 		if t.spec.perm == 0 {
@@ -304,7 +304,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -381,9 +381,9 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, true)
 	charmDir, _ := makeCharm(c, hookSpec{
-		name: "something-happened",
+		name: "collect-metrics",
 		perm: 0700,
 	})
 
@@ -391,7 +391,7 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	ctx.AddMetrics("key", "50", now)
 
 	// Run the hook.
-	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
+	err = ctx.RunHook("collect-metrics", charmDir, c.MkDir(), "/path/to/socket")
 	c.Assert(err, gc.IsNil)
 
 	metricBatches, err := s.State.MetricBatches()
@@ -401,6 +401,27 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	c.Assert(metrics, gc.HasLen, 1)
 	c.Assert(metrics[0].Key, gc.Equals, "key")
 	c.Assert(metrics[0].Value, gc.Equals, "50")
+}
+
+func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "some-hook",
+		perm: 0700,
+	})
+
+	now := time.Now()
+	ctx.AddMetrics("key", "50", now)
+
+	// Run the hook.
+	err = ctx.RunHook("some-hook", charmDir, c.MkDir(), "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 0)
 }
 
 type ContextRelationSuite struct {
@@ -619,7 +640,7 @@ func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
 	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies, false)
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
@@ -771,14 +792,14 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 }
 
 func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings) *uniter.HookContext {
+	remote string, proxies proxy.Settings, addMetrics bool) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies, map[string]interface{}(nil))
+		proxies, map[string]interface{}(nil), addMetrics)
 	c.Assert(err, gc.IsNil)
 	return context
 }
@@ -805,14 +826,14 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C) *uniter.HookContext {
+func (s *RunCommandSuite) getHookContext(c *gc.C, addMetrics bool) *uniter.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies, addMetrics)
 }
 
 func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
-	context := s.getHookContext(c)
+	context := s.getHookContext(c, false)
 	charmDir := c.MkDir()
 	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
 	c.Assert(err, gc.IsNil)
@@ -839,7 +860,7 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 }
 
 func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
-	context := s.getHookContext(c)
+	context := s.getHookContext(c, false)
 	charmDir := c.MkDir()
 	commands := `
 echo this is standard out

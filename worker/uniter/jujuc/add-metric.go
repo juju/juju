@@ -63,6 +63,9 @@ func (c *AddMetricCommand) Init(args []string) error {
 
 // Run adds metrics to the hook context.
 func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
+	if !c.ctx.CanAddMetrics() {
+		return fmt.Errorf("cannot add metrics outside of collect-metrics hook")
+	}
 	for _, metric := range c.Metrics {
 		err := c.ctx.AddMetrics(metric.Key, metric.Value, metric.Time)
 		if err != nil {

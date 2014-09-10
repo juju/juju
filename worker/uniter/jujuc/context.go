@@ -63,6 +63,10 @@ type Context interface {
 
 	// AddMetric records a metric to return after hook execution.
 	AddMetrics(string, string, time.Time) error
+
+	// CanAddMetrics returns whether the hook context allows adding metrics.
+	// Currently only the context for the collect-metrics hook allows adding metrics.
+	CanAddMetrics() bool
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
