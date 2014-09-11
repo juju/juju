@@ -34,7 +34,7 @@ var environTag = func(c *Client) string {
 // EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(
 	numStateServers int, cons constraints.Value, series string, placement []*instance.Placement,
-	) (params.StateServersChanges, error) {
+) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{

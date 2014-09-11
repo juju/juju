@@ -762,7 +762,7 @@ type StateServersSpec struct {
 	Constraints     constraints.Value `json:constraints,omitempty`
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
-	Series     string   `json:series,omitempty`
+	Series string `json:series,omitempty`
 	// Placement defines specific machines to become new state server machines.
 	Placement []*instance.Placement `json:placement,omitempty`
 }

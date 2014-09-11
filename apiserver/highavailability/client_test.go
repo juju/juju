@@ -6,8 +6,8 @@ package highavailability_test
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
 	"github.com/juju/names"
+	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/highavailability"
@@ -53,7 +53,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag(state.AdminUser),
+		Tag:            names.NewUserTag(state.AdminUser),
 		EnvironManager: true,
 	}
 
