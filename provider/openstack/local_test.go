@@ -18,6 +18,7 @@ import (
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
+	"launchpad.net/goose/swift"
 	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
 
@@ -921,6 +922,14 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = storage.Get(stor, "a")
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *localServerSuite) TestRemoveBlankContainerNameFails(c *gc.C) {
+	stor := &openstackstorage{
+		containerName: "",
+		containerACL:  swift.PublicRead,
+		swift:         swift.New(e.client)}
+	c.Assert(err, gc.ErrorMatches, "containerName cannot be empty")
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
