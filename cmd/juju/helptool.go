@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
 	"gopkg.in/juju/charm.v3"
@@ -17,6 +18,9 @@ import (
 // as expected by jujuc.NewCommand.
 type dummyHookContext struct{}
 
+func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
+	return nil
+}
 func (dummyHookContext) UnitName() string {
 	return ""
 }
@@ -38,7 +42,9 @@ func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 func (dummyHookContext) ActionParams() map[string]interface{} {
 	return nil
 }
-
+func (dummyHookContext) CanAddMetrics() bool {
+	return false
+}
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false
 }

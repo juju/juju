@@ -98,6 +98,12 @@ type HookContext struct {
 
 	// proxySettings are the current proxy settings that the uniter knows about
 	proxySettings proxy.Settings
+
+	// metrics are the metrics recorded by calls to add-metric
+	metrics []jujuc.Metric
+
+	// canAddMetrics specifies whether the hook allows recording metrics
+	canAddMetrics bool
 }
 
 func NewHookContext(
@@ -112,6 +118,7 @@ func NewHookContext(
 	serviceOwner string,
 	proxySettings proxy.Settings,
 	actionParams map[string]interface{},
+	canAddMetrics bool,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
@@ -125,6 +132,7 @@ func NewHookContext(
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
 		actionParams:   actionParams,
+		canAddMetrics:  canAddMetrics,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -137,6 +145,10 @@ func NewHookContext(
 		return nil, err
 	}
 	return ctx, nil
+}
+
+func (ctx *HookContext) CanAddMetrics() bool {
+	return ctx.canAddMetrics
 }
 
 func (ctx *HookContext) UnitName() string {
@@ -201,6 +213,12 @@ func (ctx *HookContext) RelationIds() []int {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+// AddMetrics adds metrics to the hook context.
+func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
+	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
+	return nil
 }
 
 // mergeEnvironment takes in a string array representing the desired environment
@@ -305,6 +323,23 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 			}
 		}
 		rctx.ClearCache()
+	}
+	if err != nil {
+		return err
+	}
+
+	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
+	//                             changes in one api call to minimize the risk
+	//                             of partial failures.
+	if ctx.canAddMetrics && len(ctx.metrics) > 0 {
+		if writeChanges {
+			metrics := make([]params.Metric, len(ctx.metrics))
+			for i, metric := range ctx.metrics {
+				metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+			}
+			err = ctx.unit.AddMetrics(metrics)
+		}
+		ctx.metrics = nil
 	}
 	return err
 }

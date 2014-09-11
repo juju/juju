@@ -20,7 +20,7 @@ github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d
 github.com/juju/testing	git	87af103ad72f6ef2b391252bab51d217659e0af3	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	27f6e1b91f3ca1da6789e1641a115f284bf49833	
-gopkg.in/juju/charm.v3	git	eb7dae8ed9dfa44b89e4e8eee6e21f80e31a3b69	
+gopkg.in/juju/charm.v3	git	a06606aa4ae97d21e63ba4954b7242198612f076	
 github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
 gopkg.in/natefinch/lumberjack.v2	git	d28785c2f27cd682d872df46ccd8232843629f54	

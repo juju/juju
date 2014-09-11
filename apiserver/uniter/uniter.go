@@ -7,6 +7,7 @@ package uniter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -1301,6 +1302,43 @@ func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatch
 			watcherId, err = u.watchOneUnitAddresses(unit)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// AddMetrics adds the metrics for the specified unit.
+func (u *UniterAPI) AddMetrics(args params.MetricsParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Metrics)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, common.ErrPerm
+	}
+	for i, unitMetrics := range args.Metrics {
+		tag, err := names.ParseUnitTag(unitMetrics.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(tag)
+			if err == nil {
+				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
+				for j, metric := range unitMetrics.Metrics {
+					// TODO (tasdomas) 2014-08-26: set credentials for metrics when available
+					metricBatch[j] = state.Metric{
+						Key:         metric.Key,
+						Value:       metric.Value,
+						Time:        metric.Time,
+						Credentials: nil}
+				}
+				_, err = unit.AddMetrics(time.Now(), metricBatch)
+			}
+		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/juju/charm.v3"
 
@@ -59,6 +60,13 @@ type Context interface {
 
 	// OwnerTag returns the owner of the service the executing units belongs to
 	OwnerTag() string
+
+	// AddMetric records a metric to return after hook execution.
+	AddMetrics(string, string, time.Time) error
+
+	// CanAddMetrics returns whether the hook context allows adding metrics.
+	// Currently only the context for the collect-metrics hook allows adding metrics.
+	CanAddMetrics() bool
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
