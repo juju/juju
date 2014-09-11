@@ -1846,6 +1846,33 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
+func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	// Create a provisioned state server.
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	// Start an upgrade.
+	_, err = s.State.EnsureUpgradeInfo(
+		machine.Id(),
+		version.MustParse("1.2.3"),
+		version.MustParse("9.8.7"),
+	)
+	c.Assert(err, gc.IsNil)
+	isUpgrading, err := s.State.IsUpgrading()
+	c.Assert(err, gc.IsNil)
+	c.Assert(isUpgrading, jc.IsTrue)
+
+	// Abort it.
+	err = s.client.AbortCurrentUpgrade()
+	c.Assert(err, gc.IsNil)
+
+	isUpgrading, err = s.State.IsUpgrading()
+	c.Assert(err, gc.IsNil)
+	c.Assert(isUpgrading, jc.IsFalse)
+}
+
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
