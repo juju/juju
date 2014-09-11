@@ -16,7 +16,7 @@ import (
 // the provisoner that it should try to re-provision the machine.
 type RetryProvisioningCommand struct {
 	envcmd.EnvCommandBase
-	Machines []string
+	Machines []names.MachineTag
 }
 
 func (c *RetryProvisioningCommand) Info() *cmd.Info {
@@ -31,12 +31,12 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machine specified")
 	}
-	c.Machines = make([]string, len(args))
+	c.Machines = make([]names.MachineTag, len(args))
 	for i, arg := range args {
 		if !names.IsValidMachine(arg) {
 			return fmt.Errorf("invalid machine %q", arg)
 		}
-		c.Machines[i] = names.NewMachineTag(arg).String()
+		c.Machines[i] = names.NewMachineTag(arg)
 	}
 	return nil
 }
@@ -47,6 +47,7 @@ func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
 	results, err := client.RetryProvisioning(c.Machines...)
 	if err != nil {
 		return err
