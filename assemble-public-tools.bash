@@ -89,7 +89,7 @@ retract_bad_tools() {
     echo "Phase 2.1: Retracting bad released tools."
     bad_tools=$(find $DEST_TOOLS -name "juju-1.21-alpha1.*")
     for bad_tool in $bad_tools; do
-        echo "rm $bad_tool"
+       rm $bad_tool
     done
 }
 
