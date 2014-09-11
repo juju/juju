@@ -101,6 +101,10 @@ class JujuClientDevel:
         return prefix + ('juju', logging, command,) + e_arg + args
 
     def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
         env = dict(os.environ)
         if self.full_path is not None:
             env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),

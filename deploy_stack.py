@@ -306,7 +306,8 @@ def check_free_disk_space(path, required, purpose):
 
 def bootstrap_from_env(juju_home, env):
     if env.config['type'] == 'local':
-        env.config.setdefault('root-dir', os.path.join(juju_home, 'local'))
+        env.config.setdefault('root-dir', os.path.join(
+            juju_home, env.environment))
     new_config = {'environments': {env.environment: env.config}}
     jenv_path = get_jenv_path(juju_home, env.environment)
     with temp_dir(juju_home) as temp_juju_home:
