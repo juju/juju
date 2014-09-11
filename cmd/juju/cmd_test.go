@@ -4,8 +4,6 @@
 package main
 
 import (
-	"io"
-	"io/ioutil"
 	"os"
 
 	"github.com/juju/cmd"
@@ -15,7 +13,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -117,38 +114,6 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
 		assertEnvName(c, com, "walthamstow")
 	}
-}
-
-func nullContext(c *gc.C) *cmd.Context {
-	ctx, err := cmd.DefaultContext()
-	c.Assert(err, gc.IsNil)
-	ctx.Stdin = io.LimitReader(nil, 0)
-	ctx.Stdout = ioutil.Discard
-	ctx.Stderr = ioutil.Discard
-	return ctx
-}
-
-func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
-	if ctx == nil {
-		panic("ctx == nil")
-	}
-	errc = make(chan error, 1)
-	opc = make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
-	go func() {
-		// signal that we're done with this ops channel.
-		defer dummy.Listen(nil)
-
-		err := coretesting.InitCommand(com, args)
-		if err != nil {
-			errc <- err
-			return
-		}
-
-		err = com.Run(ctx)
-		errc <- err
-	}()
-	return
 }
 
 var deployTests = []struct {
