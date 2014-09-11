@@ -46,6 +46,8 @@ type backupsSuite struct {
 	meta       *metadata.Metadata
 }
 
+var _ = gc.Suite(&backupsSuite{})
+
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
@@ -54,11 +56,13 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.api, err = backups.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
-	origin := metadata.NewOrigin("", "", "")
-	s.meta = metadata.NewMetadata(*origin, "", nil)
+	s.meta = s.newMeta("")
 }
 
-var _ = gc.Suite(&backupsSuite{})
+func (s *backupsSuite) newMeta(notes string) *metadata.Metadata {
+	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
+	return metadata.NewMetadata(*origin, notes, nil)
+}
 
 func (s *backupsSuite) setBackups(c *gc.C, meta *metadata.Metadata, err string) *fakeBackups {
 	fake := fakeBackups{

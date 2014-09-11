@@ -7,7 +7,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {
@@ -22,8 +21,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateNotes(c *gc.C) {
-	origin := metadata.NewOrigin("", "", "")
-	meta := metadata.NewMetadata(*origin, "this backup is important", nil)
+	meta := s.newMeta("this backup is important")
 	s.setBackups(c, meta, "")
 	args := params.BackupsCreateArgs{
 		Notes: "this backup is important",
