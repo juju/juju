@@ -190,7 +190,7 @@ class TestJujuClientDevel(TestCase):
 
     def test_get_juju_output(self):
         env = Environment('foo', '')
-        asdf = lambda x, stderr: 'asdf'
+        asdf = lambda x, stderr, env: 'asdf'
         client = JujuClientDevel(None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output(env, 'bar')
@@ -200,7 +200,7 @@ class TestJujuClientDevel(TestCase):
 
     def test_get_juju_output_accepts_varargs(self):
         env = Environment('foo', '')
-        asdf = lambda x, stderr: 'asdf'
+        asdf = lambda x, stderr, env: 'asdf'
         client = JujuClientDevel(None, None)
         with patch('subprocess.check_output', side_effect=asdf) as mock:
             result = client.get_juju_output(env, 'bar', 'baz', '--qux')
@@ -209,7 +209,7 @@ class TestJujuClientDevel(TestCase):
                            '--qux'),), mock.call_args[0])
 
     def test_get_juju_output_stderr(self):
-        def raise_without_stderr(args, stderr):
+        def raise_without_stderr(args, stderr, env):
             stderr.write('Hello!')
             raise subprocess.CalledProcessError('a', 'b')
         env = Environment('foo', '')
@@ -226,6 +226,14 @@ class TestJujuClientDevel(TestCase):
             client.get_juju_output(env, 'bar', timeout=5)
         self.assertEqual(sco_mock.call_args[0][0],
             ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
+
+    def test_juju_output_supplies_path(self):
+        env = Environment('foo', '')
+        client = JujuClientDevel(None, '/foobar/bar')
+        with patch('subprocess.check_output') as sco_mock:
+            client.get_juju_output(env, 'baz')
+        self.assertRegexpMatches(sco_mock.call_args[1]['env']['PATH'],
+                                 r'/foobar\:')
 
     def test_get_status(self):
         def output_iterator():
@@ -295,7 +303,8 @@ class TestJujuClientDevel(TestCase):
                 env, 'tools-metadata-url', 'https://example.org/juju/tools')
         mock.assert_called_with(
             ('juju', '--show-log', 'set-env', '-e', 'foo',
-             'tools-metadata-url=https://example.org/juju/tools'))
+             'tools-metadata-url=https://example.org/juju/tools'),
+            env=os.environ)
 
     def test_juju(self):
         env = Environment('qux', '')
@@ -304,8 +313,16 @@ class TestJujuClientDevel(TestCase):
             with patch('subprocess.check_call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'))
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), env=os.environ)
         stdout_mock.flush.assert_called_with()
+
+    def test_juju_env(self):
+        env = Environment('qux', '')
+        client = JujuClientDevel(None, '/foobar/baz')
+        with patch('subprocess.check_call') as cc_mock:
+            client.juju(env, 'foo', ('bar', 'baz'))
+        self.assertRegexpMatches(cc_mock.call_args[1]['env']['PATH'],
+                                 r'/foobar\:')
 
     def test_juju_no_check(self):
         env = Environment('qux', '')
@@ -314,9 +331,16 @@ class TestJujuClientDevel(TestCase):
             with patch('subprocess.call') as mock:
                 client.juju(env, 'foo', ('bar', 'baz'), check=False)
         mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
-                                 'bar', 'baz'))
+                                 'bar', 'baz'), env=os.environ)
         stdout_mock.flush.assert_called_with()
 
+    def test_juju_no_check_env(self):
+        env = Environment('qux', '')
+        client = JujuClientDevel(None, '/foobar/baz')
+        with patch('subprocess.call') as call_mock:
+            client.juju(env, 'foo', ('bar', 'baz'), check=False)
+        self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
+                                 r'/foobar\:')
 
 class TestStatus(TestCase):
 

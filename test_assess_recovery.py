@@ -2,7 +2,7 @@ from subprocess import CalledProcessError
 from textwrap import dedent
 from unittest import TestCase
 
-from test_recovery import (
+from assess_recovery import (
     parse_new_state_server_from_error,
 )
 
