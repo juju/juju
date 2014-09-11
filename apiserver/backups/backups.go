@@ -18,7 +18,7 @@ func init() {
 	common.RegisterStandardFacade("Backups", 0, NewAPI)
 }
 
-var logger = loggo.GetLogger("juju.state.apiserver.backups")
+var logger = loggo.GetLogger("juju.apiserver.backups")
 
 // API serves backup-specific API methods.
 type API struct {
