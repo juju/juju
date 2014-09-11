@@ -84,12 +84,21 @@ func SampleConfig() testing.Attrs {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
-		"default-series":            "precise",
+		"default-series":            config.LatestLtsSeries(),
 
 		"secret":       "pork",
 		"state-server": true,
 		"prefer-ipv6":  true,
 	}
+}
+
+// AdminUser returns the name used to bootstrap the dummy environment. The
+// dummy bootstrapping is handled slightly differently, and the user is
+// created as part of the bootstrap process.  This method is used to provide
+// tests a way to get to the user name that was used to initialise the
+// database, and as such, is the owner of the initial environment.
+func AdminUserTag() names.UserTag {
+	return names.NewLocalUserTag("admin")
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -688,10 +697,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
 			panic(err)
 		}
-		_, err = st.AddAdminUser(password)
+		env, err := st.Environment()
 		if err != nil {
 			panic(err)
 		}
+		owner, err := st.User(env.Owner())
+		if err != nil {
+			panic(err)
+		}
+		// We log this out for test purposes only. No one in real life can use
+		// a dummy provider for anything other than testing, so logging the password
+		// here is fine.
+		logger.Debugf("setting password for %q to %q", owner.Name(), password)
+		owner.SetPassword(password)
+
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),

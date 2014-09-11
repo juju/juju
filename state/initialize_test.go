@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -70,11 +71,25 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
-
+	// Check that the environment has been created.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Tag(), gc.Equals, envTag)
-	entity, err := s.State.FindEntity(envTag)
+	// Check that the owner has been created.
+	owner := names.NewLocalUserTag("admin")
+	c.Assert(env.Owner(), gc.Equals, owner)
+	// Check that the owner can be retrieved by the tag.
+	entity, err := s.State.FindEntity(env.Owner())
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.Tag(), gc.Equals, owner)
+	// Check that the owner has an EnvUser created for the bootstrapped environment.
+	envUser, err := s.State.EnvironmentUser(env.Owner())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserTag().Username(), gc.Equals, env.Owner().Username())
+	c.Assert(envUser.EnvironmentTag(), gc.Equals, env.Tag())
+
+	// Check that the environment can be found through the tag.
+	entity, err = s.State.FindEntity(envTag)
 	c.Assert(err, gc.IsNil)
 	annotator := entity.(state.Annotator)
 	annotations, err := annotator.Annotations()

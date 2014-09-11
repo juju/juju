@@ -92,14 +92,14 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
 }
 
-func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
+func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
 	c.Assert(ch, gc.NotNil)
-	return AddTestingServiceWithNetworks(c, st, name, ch, nil)
+	return AddTestingServiceWithNetworks(c, st, name, ch, owner, nil)
 }
 
-func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, networks []string) *Service {
+func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag, networks []string) *Service {
 	c.Assert(ch, gc.NotNil)
-	service, err := st.AddService(name, "user-admin", ch, networks)
+	service, err := st.AddService(name, owner.String(), ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -255,6 +255,7 @@ func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interf
 var (
 	GetOrCreatePorts = getOrCreatePorts
 	GetPorts         = getPorts
+	PortsGlobalKey   = portsGlobalKey
 	NowToTheSecond   = nowToTheSecond
 )
 

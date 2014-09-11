@@ -16,8 +16,11 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// destroyPreparedEnviron destroys the environment and logs an error if it fails.
-func destroyPreparedEnviron(
+// destroyPreparedEnviron destroys the environment and logs an error
+// if it fails.
+var destroyPreparedEnviron = destroyPreparedEnvironProductionFunc
+
+func destroyPreparedEnvironProductionFunc(
 	ctx *cmd.Context,
 	env environs.Environ,
 	store configstore.Storage,
@@ -25,7 +28,21 @@ func destroyPreparedEnviron(
 ) {
 	ctx.Infof("%s failed, destroying environment", action)
 	if err := environs.Destroy(env, store); err != nil {
-		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
+		logger.Errorf("the environment could not be destroyed: %v", err)
+	}
+}
+
+var destroyEnvInfo = destroyEnvInfoProductionFunc
+
+func destroyEnvInfoProductionFunc(
+	ctx *cmd.Context,
+	cfgName string,
+	store configstore.Storage,
+	action string,
+) {
+	ctx.Infof("%s failed, cleaning up the environment.", action)
+	if err := environs.DestroyInfo(cfgName, store); err != nil {
+		logger.Errorf("the environment jenv file could not be cleaned up: %v", err)
 	}
 }
 
@@ -34,10 +51,13 @@ func destroyPreparedEnviron(
 // clean up in case we need to further up the stack. If an error has
 // occurred, the environment and cleanup function will be nil, and the
 // error will be filled in.
-func environFromName(
+var environFromName = environFromNameProductionFunc
+
+func environFromNameProductionFunc(
 	ctx *cmd.Context,
 	envName string,
 	action string,
+	ensureNotBootstrapped func(environs.Environ) error,
 ) (env environs.Environ, cleanup func(), err error) {
 
 	store, err := configstore.Default()
@@ -56,17 +76,26 @@ func environFromName(
 		return nil, nil, err
 	}
 
-	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
-		return nil, nil, err
-	}
-
 	cleanup = func() {
-		if !envExisted {
+		// Distinguish b/t removing the jenv file or tearing down the
+		// environment. We want to remove the jenv file if preparation
+		// was not successful. We want to tear down the environment
+		// only in the case where the environment didn't already
+		// exist.
+		if env == nil {
+			logger.Debugf("Destroying environment info.")
+			destroyEnvInfo(ctx, envName, store, action)
+		} else if !envExisted && ensureNotBootstrapped(env) != environs.ErrAlreadyBootstrapped {
+			logger.Debugf("Destroying environment.")
 			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
 
-	return env, cleanup, nil
+	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
+		return nil, cleanup, err
+	}
+
+	return env, cleanup, err
 }
 
 // resolveCharmURL returns a resolved charm URL, given a charm location string.

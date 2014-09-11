@@ -36,23 +36,6 @@ func (st *State) checkUserExists(name string) (bool, error) {
 	return count > 0, nil
 }
 
-// AddAdminUser adds a user with name 'admin' and the given password to the
-// state server. It then adds that user as an environment user with
-// username 'admin@local', indicating that the user's provider is 'local' i.e.
-// the state server.
-func (st *State) AddAdminUser(password string) (*User, error) {
-	admin, err := st.AddUser(AdminUser, "", password, "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	adminTag := admin.UserTag()
-	_, err = st.AddEnvironmentUser(adminTag, adminTag, "")
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to create admin environment user")
-	}
-	return admin, nil
-}
-
 // AddUser adds a user to the database.
 func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
 	if !names.IsValidUserName(name) {
@@ -89,6 +72,23 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 	return user, nil
 }
 
+func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op {
+	doc := userDoc{
+		Name:         user.Name(),
+		DisplayName:  user.Name(),
+		PasswordHash: password,
+		// Empty PasswordSalt means utils.CompatSalt
+		CreatedBy:   user.Name(),
+		DateCreated: nowToTheSecond(),
+	}
+	return txn.Op{
+		C:      usersC,
+		Id:     doc.Name,
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}
+}
+
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
@@ -103,9 +103,12 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 }
 
 // User returns the state User for the given name,
-func (st *State) User(name string) (*User, error) {
+func (st *State) User(tag names.UserTag) (*User, error) {
+	if !tag.IsLocal() {
+		return nil, errors.NotFoundf("user %q", tag.Username())
+	}
 	user := &User{st: st}
-	if err := st.getUser(name, &user.doc); err != nil {
+	if err := st.getUser(tag.Name(), &user.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return user, nil
@@ -131,7 +134,7 @@ type userDoc struct {
 
 // String returns "<name>@local" where <name> is the Name of the user.
 func (u *User) String() string {
-	return fmt.Sprintf("%s@%s", u.Name(), localUserProviderName)
+	return u.UserTag().Username()
 }
 
 // Name returns the User name.
@@ -161,7 +164,7 @@ func (u *User) Tag() names.Tag {
 
 // UserTag returns the Tag for the User.
 func (u *User) UserTag() names.UserTag {
-	return names.NewUserTag(u.doc.Name)
+	return names.NewLocalUserTag(u.doc.Name)
 }
 
 // LastLogin returns when this User last connected through the API in UTC.

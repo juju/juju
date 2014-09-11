@@ -75,10 +75,9 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	owner := s.env.Owner()
+	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
 	// requested networks collection. We remove it here to test
@@ -111,10 +110,9 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 
 // Check if ports stored on the unit are displayed.
 func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	owner := s.env.Owner()
+	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -141,10 +139,9 @@ func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 
 // Check if opening ports on a unit with ports stored in the unit doc works.
 func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	owner := s.env.Owner()
+	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -165,9 +162,9 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	// Check if port conflicts are detected.
+	// Port conflicts should be ignored, OpenPort should not return an error here.
 	err = unit.OpenPort("tcp", 80)
-	c.Assert(err, gc.ErrorMatches, "cannot open ports 80-80/tcp for unit \"mysql/0\": cannot open ports 80-80/tcp on machine 0 due to conflict")
+	c.Assert(err, gc.IsNil)
 
 	err = unit.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
@@ -178,10 +175,9 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 
 // Check if closing ports on a unit with ports stored in the unit doc works.
 func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	owner := s.env.Owner()
+	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)

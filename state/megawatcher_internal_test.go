@@ -34,6 +34,7 @@ type storeManagerStateSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
 	State *State
+	owner names.UserTag
 }
 
 func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
@@ -52,7 +53,9 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.State = st
-	s.State.AddAdminUser("pass")
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	s.owner = env.Owner()
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
@@ -98,7 +101,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		HardwareCharacteristics: hc,
 	})
 
-	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"))
+	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
 	err = wordpress.SetExposed()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.SetMinUnits(3)
@@ -110,7 +113,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
-		OwnerTag:    "user-admin",
+		OwnerTag:    s.owner.String(),
 		Life:        params.Alive,
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
@@ -124,11 +127,11 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Annotations: pairs,
 	})
 
-	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"))
+	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"), s.owner)
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
-		OwnerTag: "user-admin",
+		OwnerTag: s.owner.String(),
 		Life:     params.Alive,
 		Config:   charm.Settings{},
 	})
@@ -368,7 +371,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, {
 			about: "unit is added if it's in backing but not in Store",
 			setUp: func(c *gc.C, st *State) {
-				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
 				m, err := st.AddMachine("quantal", JobHostUnits)
@@ -403,7 +406,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				StatusInfo: "another failure",
 			}},
 			setUp: func(c *gc.C, st *State) {
-				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
 				m, err := st.AddMachine("quantal", JobHostUnits)
@@ -431,7 +434,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, {
 			about: "unit addresses are read from the assigned machine for recent Juju releases",
 			setUp: func(c *gc.C, st *State) {
-				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
 				m, err := st.AddMachine("quantal", JobHostUnits)
@@ -484,7 +487,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, {
 			about: "service is added if it's in backing but not in Store",
 			setUp: func(c *gc.C, st *State) {
-				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				err := wordpress.SetExposed()
 				c.Assert(err, gc.IsNil)
 				err = wordpress.SetMinUnits(42)
@@ -499,7 +502,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Name:     "wordpress",
 					Exposed:  true,
 					CharmURL: "local:quantal/quantal-wordpress-3",
-					OwnerTag: "user-admin",
+					OwnerTag: s.owner.String(),
 					Life:     params.Alive,
 					MinUnits: 42,
 					Config:   charm.Settings{},
@@ -516,7 +519,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				Config:      charm.Settings{"blog-title": "boring"},
 			}},
 			setUp: func(c *gc.C, st *State) {
-				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				setServiceConfigAttr(c, svc, "blog-title", "boring")
 			},
 			change: watcher.Change{
@@ -527,7 +530,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				&params.ServiceInfo{
 					Name:        "wordpress",
 					CharmURL:    "local:quantal/quantal-wordpress-3",
-					OwnerTag:    "user-admin",
+					OwnerTag:    s.owner.String(),
 					Life:        params.Alive,
 					Constraints: constraints.MustParse("mem=99M"),
 					Config:      charm.Settings{"blog-title": "boring"},
@@ -543,7 +546,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				Config:   charm.Settings{"foo": "bar"},
 			}},
 			setUp: func(c *gc.C, st *State) {
-				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				setServiceConfigAttr(c, svc, "blog-title", "boring")
 			},
 			change: watcher.Change{
@@ -554,7 +557,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				&params.ServiceInfo{
 					Name:     "wordpress",
 					CharmURL: "local:quantal/quantal-wordpress-3",
-					OwnerTag: "user-admin",
+					OwnerTag: s.owner.String(),
 					Life:     params.Alive,
 					Config:   charm.Settings{"blog-title": "boring"},
 				},
@@ -579,9 +582,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		}, {
 			about: "relation is added if it's in backing but not in Store",
 			setUp: func(c *gc.C, st *State) {
-				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 
-				AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
+				AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
 				eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
 				c.Assert(err, gc.IsNil)
 				_, err = st.AddRelation(eps...)
@@ -703,7 +706,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				StatusInfo: "failure",
 			}},
 			setUp: func(c *gc.C, st *State) {
-				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
 				err = u.SetStatus(params.StatusStarted, "", nil)
@@ -727,7 +730,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				Status: params.StatusStarted,
 			}},
 			setUp: func(c *gc.C, st *State) {
-				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
 				err = u.SetStatus(params.StatusError, "hook error", map[string]interface{}{
@@ -834,7 +837,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
 			}},
 			setUp: func(c *gc.C, st *State) {
-				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
 				c.Assert(err, gc.IsNil)
 			},
@@ -880,7 +883,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				Config:   charm.Settings{"foo": "bar"},
 			}},
 			setUp: func(c *gc.C, st *State) {
-				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				setServiceConfigAttr(c, svc, "blog-title", "foo")
 			},
 			change: watcher.Change{
@@ -906,7 +909,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					c, st, "wordpress",
 					"config.yaml", dottedConfig,
 					"quantal", 3)
-				svc := AddTestingService(c, st, "wordpress", testCharm)
+				svc := AddTestingService(c, st, "wordpress", testCharm, s.owner)
 				setServiceConfigAttr(c, svc, "key.dotted", "foo")
 			},
 			change: watcher.Change{
@@ -928,7 +931,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				Config:   charm.Settings{"foo": "bar"},
 			}},
 			setUp: func(c *gc.C, st *State) {
-				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+				svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				setServiceConfigAttr(c, svc, "blog-title", "foo")
 			},
 			change: watcher.Change{

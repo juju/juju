@@ -16,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
+	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -96,6 +97,7 @@ type bootstrapTest struct {
 	constraints constraints.Value
 	placement   string
 	hostArch    string
+	keepBroken  bool
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -125,7 +127,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
 	// Check for remaining operations/errors.
 	if test.err != "" {
 		err := <-errc
@@ -145,6 +147,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
+	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
@@ -236,6 +239,10 @@ var bootstrapTests = []bootstrapTest{{
 	args:      []string{"--to", "something"},
 	placement: "something",
 }, {
+	info:       "keep broken",
+	args:       []string{"--keep-broken"},
+	keepBroken: true,
+}, {
 	info: "additional args",
 	args: []string{"anything", "else"},
 	err:  `unrecognized args: \["anything" "else"\]`,
@@ -322,6 +329,93 @@ func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
 }
 
+func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
+
+	cleanupRan := false
+
+	s.PatchValue(
+		&environFromName,
+		func(
+			*cmd.Context,
+			string,
+			string,
+			func(environs.Environ) error,
+		) (environs.Environ, func(), error) {
+			return nil, func() { cleanupRan = true }, fmt.Errorf("mock")
+		},
+	)
+
+	ctx := coretesting.Context(c)
+	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.Not(gc.IsNil))
+	c.Check(cleanupRan, gc.Equals, true)
+}
+
+// When attempting to bootstrap, check that when prepare errors out,
+// the code cleans up the created jenv file, but *not* any existing
+// environment that may have previously been bootstrapped.
+func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
+
+	destroyedEnvRan := false
+	destroyedInfoRan := false
+
+	// Mock functions
+	mockDestroyPreparedEnviron := func(
+		*cmd.Context,
+		environs.Environ,
+		configstore.Storage,
+		string,
+	) {
+		destroyedEnvRan = true
+	}
+
+	mockDestroyEnvInfo := func(
+		ctx *cmd.Context,
+		cfgName string,
+		store configstore.Storage,
+		action string,
+	) {
+		destroyedInfoRan = true
+	}
+
+	mockEnvironFromName := func(
+		ctx *cmd.Context,
+		envName string,
+		action string,
+		_ func(environs.Environ) error,
+	) (environs.Environ, func(), error) {
+		// Always show that the environment is bootstrapped.
+		return environFromNameProductionFunc(
+			ctx,
+			envName,
+			action,
+			func(env environs.Environ) error {
+				return environs.ErrAlreadyBootstrapped
+			})
+	}
+
+	mockPrepare := func(
+		string,
+		environs.BootstrapContext,
+		configstore.Storage,
+	) (environs.Environ, error) {
+		return nil, fmt.Errorf("mock-prepare")
+	}
+
+	// Simulation: prepare should fail and we should only clean up the
+	// jenv file. Any existing environment should not be destroyed.
+	s.PatchValue(&destroyPreparedEnviron, mockDestroyPreparedEnviron)
+	s.PatchValue(&environFromName, mockEnvironFromName)
+	s.PatchValue(&environs.PrepareFromName, mockPrepare)
+	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)
+
+	ctx := coretesting.Context(c)
+	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
+	c.Check(destroyedEnvRan, gc.Equals, false)
+	c.Check(destroyedInfoRan, gc.Equals, true)
+}
+
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
@@ -342,7 +436,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
@@ -500,7 +594,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "quantal")
 	// Run command and check for that upload has been run for tools matching
 	// the current juju version.
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	c.Assert(<-errc, gc.IsNil)
 	c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham") // verify storage
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "peckham")
@@ -511,7 +605,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
+	_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches,
 		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
@@ -525,11 +619,12 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
-func buildToolsTarballAlwaysFails(forceVersion *version.Number) (*sync.BuiltTools, error) {
-	return nil, fmt.Errorf("an error")
-}
-
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
+
+	buildToolsTarballAlwaysFails := func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+		return nil, fmt.Errorf("an error")
+	}
+
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
 
@@ -551,7 +646,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	// upload is only enabled for dev versions.
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
@@ -578,7 +673,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	// upload is only enabled for dev versions.
 	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv", "--keep-broken")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv", "--keep-broken")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	done := false
@@ -621,7 +716,7 @@ func resetJujuHome(c *gc.C) environs.Environ {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName("peckham", nullContext(c), store)
+	env, err := environs.PrepareFromName("peckham", cmdtesting.NullContext(c), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env

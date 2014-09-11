@@ -30,14 +30,12 @@ var _ = gc.Suite(&metricsManagerSuite{})
 
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	user, err := s.State.User("admin")
-	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: user.Tag(),
+		Tag: s.AdminUserTag(c),
 	}
-	s.metricsmanager, err = metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
+	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
+	s.metricsmanager = manager
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
@@ -79,6 +77,9 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) 
 }
 
 func (s *metricsManagerSuite) TestCleanupArgsIndependant(c *gc.C) {
+	unit := s.Factory.MakeUnit(c, nil)
+	oldTime := time.Now().Add(-(time.Hour * 25))
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	args := params.Entities{Entities: []params.Entity{
 		params.Entity{"invalid"},
 		params.Entity{s.State.EnvironTag().String()},

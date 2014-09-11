@@ -1137,19 +1137,19 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", "user-admin", charm, nil)
+	_, err := s.State.AddService("haha/borken", s.owner.String(), charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddService("umadbro", "user-admin", nil, nil)
+	_, err = s.State.AddService("umadbro", s.owner.String(), nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", "user-admin", charm, nil)
+	wordpress, err := s.State.AddService("wordpress", s.owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", "user-admin", charm, nil)
+	mysql, err := s.State.AddService("mysql", s.owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -1176,7 +1176,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("s1", "user-admin", charm, nil)
+	_, err = s.State.AddService("s1", s.owner.String(), charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1191,7 +1191,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddService("s1", "user-admin", charm, nil)
+	_, err = s.State.AddService("s1", s.owner.String(), charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1203,7 +1203,7 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", state.AdminUser, charm, nil)
+	_, err := s.State.AddService("wordpress", "admin", charm, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin: \"admin\" is not a valid tag")
 }
 
@@ -1216,7 +1216,7 @@ func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("wordpress", "user-notAuser", charm, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": user notAuser doesn't exist")
+	c.Assert(err, gc.ErrorMatches, `cannot add service "wordpress": environment user "notAuser@local" not found`)
 }
 
 func (s *StateSuite) TestAllServices(c *gc.C) {
@@ -1226,13 +1226,13 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.State.AddService("wordpress", "user-admin", charm, nil)
+	_, err = s.State.AddService("wordpress", s.owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddService("mysql", "user-admin", charm, nil)
+	_, err = s.State.AddService("mysql", s.owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
@@ -2253,6 +2253,13 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: names.NewActionTag("ser-vice2_a_0"),
 	err: `action "ser-vice2_a_0" not found`,
+}, {
+	tag: names.NewUserTag("eric"),
+}, {
+	tag: names.NewUserTag("eric@local"),
+}, {
+	tag: names.NewUserTag("eric@remote"),
+	err: `user "eric@remote" not found`,
 }}
 
 var entityTypes = map[string]interface{}{
@@ -2267,6 +2274,7 @@ var entityTypes = map[string]interface{}{
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
+	s.factory.MakeUser(c, &factory.UserParams{Name: "eric"})
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
@@ -2314,6 +2322,10 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
+			} else if kind == "user" {
+				// Test the fully qualified username rather than the tag structure itself.
+				expected := test.tag.(names.UserTag).Username()
+				c.Assert(e.Tag().(names.UserTag).Username(), gc.Equals, expected)
 			} else {
 				c.Assert(e.Tag(), gc.Equals, test.tag)
 			}
@@ -2634,7 +2646,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
+	service, err := s.State.AddService("wordpress", s.owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -2684,7 +2696,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
+	service, err := s.State.AddService("wordpress", s.owner.String(), s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -2758,6 +2770,62 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	s.assertAgentVersion(c, envConfig, currentVersion)
+}
+
+func (s *StateSuite) TestSetEnvironAgentFailsIfUpgrading(c *gc.C) {
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	nextVersion := agentVersion
+	nextVersion.Minor++
+
+	// Create an unfinished UpgradeInfo instance.
+	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironAgentVersion(nextVersion)
+	c.Assert(errors.Cause(err), gc.Equals, state.UpgradeInProgressError)
+	c.Assert(err, gc.ErrorMatches,
+		"an upgrade is already in progress or the last upgrade did not complete")
+}
+
+func (s *StateSuite) TestSetEnvironAgentFailsReportsCorrectError(c *gc.C) {
+	// Ensure that the correct error is reported if an upgrade is
+	// progress but that isn't the reason for the
+	// SetEnvironAgentVersion call failing.
+
+	// Get the agent-version set in the environment.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	nextVersion := agentVersion
+	nextVersion.Minor++
+
+	// Create an unfinished UpgradeInfo instance.
+	_, err = s.State.EnsureUpgradeInfo(machine.Tag().Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetEnvironAgentVersion(nextVersion)
+	c.Assert(err, gc.ErrorMatches, "some agents have not upgraded to the current environment version.+")
 }
 
 type waiter interface {

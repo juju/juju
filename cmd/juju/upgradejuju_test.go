@@ -17,10 +17,8 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -336,20 +334,26 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		for _, uploaded := range test.expectUploaded {
 			// Substitute latest LTS for placeholder in expected series for uploaded tools
 			uploaded = strings.Replace(uploaded, "%LTS%", config.LatestLtsSeries(), 1)
-
 			vers := version.MustParseBinary(uploaded)
-			r, err := storage.Get(s.Environ.Storage(), envtools.StorageName(vers))
-			if !c.Check(err, gc.IsNil) {
-				continue
-			}
-			data, err := ioutil.ReadAll(r)
-			r.Close()
-			c.Check(err, gc.IsNil)
-			expectContent := version.Current
-			expectContent.Number = agentVersion
-			checkToolsContent(c, data, "jujud contents "+expectContent.String())
+			s.checkToolsUploaded(c, vers, agentVersion)
 		}
 	}
+}
+
+func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	_, r, err := storage.Tools(vers)
+	if !c.Check(err, gc.IsNil) {
+		return
+	}
+	data, err := ioutil.ReadAll(r)
+	r.Close()
+	c.Check(err, gc.IsNil)
+	expectContent := version.Current
+	expectContent.Number = agentVersion
+	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }
 
 func checkToolsContent(c *gc.C, data []byte, uploaded string) {
@@ -409,8 +413,9 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
-	c.Assert(err, gc.IsNil)
+	s.checkToolsUploaded(c, vers, vers.Number)
+	//_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
+	//c.Assert(err, gc.IsNil)
 }
 
 type DryRunTest struct {
