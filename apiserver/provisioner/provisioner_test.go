@@ -638,7 +638,7 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 
 	// Create a logging service, subordinate to mysql.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

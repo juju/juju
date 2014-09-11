@@ -136,7 +136,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Config:   charm.Settings{},
 	})
 
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -585,7 +585,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 
 				AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
-				eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
+				eps, err := st.InferEndpoints("logging", "wordpress")
 				c.Assert(err, gc.IsNil)
 				_, err = st.AddRelation(eps...)
 				c.Assert(err, gc.IsNil)
