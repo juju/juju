@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -17,7 +16,7 @@ import (
 // the provisoner that it should try to re-provision the machine.
 type RetryProvisioningCommand struct {
 	envcmd.EnvCommandBase
-	Machines []string
+	Machines []names.MachineTag
 }
 
 func (c *RetryProvisioningCommand) Info() *cmd.Info {
@@ -32,12 +31,12 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machine specified")
 	}
-	c.Machines = make([]string, len(args))
+	c.Machines = make([]names.MachineTag, len(args))
 	for i, arg := range args {
 		if !names.IsValidMachine(arg) {
 			return fmt.Errorf("invalid machine %q", arg)
 		}
-		c.Machines[i] = names.NewMachineTag(arg).String()
+		c.Machines[i] = names.NewMachineTag(arg)
 	}
 	return nil
 }
@@ -49,16 +48,7 @@ func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var machines []names.MachineTag
-	for _, tag := range c.Machines {
-		machine, err := names.ParseMachineTag(tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		machines = append(machines, machine)
-	}
-
-	results, err := client.RetryProvisioning(machines...)
+	results, err := client.RetryProvisioning(c.Machines...)
 	if err != nil {
 		return err
 	}
