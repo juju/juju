@@ -807,6 +807,8 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
+// DEPRECATED: remove when we stop supporting 1.20 and earlier servers.
+// This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
