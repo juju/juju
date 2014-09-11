@@ -85,17 +85,11 @@ type Context struct {
 	relid        int
 	remote       string
 	rels         map[int]*ContextRelation
-	metrics      []Metric
-}
-
-type Metric struct {
-	Key   string
-	Value string
-	Time  time.Time
+	metrics      []jujuc.Metric
 }
 
 func (c *Context) AddMetrics(key, value string, created time.Time) error {
-	c.metrics = append(c.metrics, Metric{key, value, created})
+	c.metrics = append(c.metrics, jujuc.Metric{key, value, created})
 	return nil
 }
 

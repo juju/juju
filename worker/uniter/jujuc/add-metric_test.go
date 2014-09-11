@@ -40,7 +40,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		result int
 		stdout string
 		stderr string
-		expect []Metric
+		expect []jujuc.Metric
 	}{
 		{
 			"add single metric",
@@ -48,7 +48,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]Metric{{"key", "50", time.Now()}},
+			[]jujuc.Metric{{"key", "50", time.Now()}},
 		}, {
 			"no parameters error",
 			[]string{"add-metric"},
@@ -83,14 +83,14 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			0,
 			"",
 			"",
-			[]Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
+			[]jujuc.Metric{{"key", "60", time.Now()}, {"key2", "50.4", time.Now()}},
 		}, {
 			"multiple metrics, matching keys",
 			[]string{"add-metric", "key=60", "key=50.4"},
 			0,
 			"",
 			"",
-			[]Metric{{"key", "60", time.Now()}, {"key", "50.4", time.Now()}},
+			[]jujuc.Metric{{"key", "60", time.Now()}, {"key", "50.4", time.Now()}},
 		},
 	}
 	for i, t := range testCases {

@@ -1314,7 +1314,7 @@ func (u *UniterAPI) AddMetrics(args params.MetricsParams) (params.ErrorResults, 
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.ErrorResults{}, common.ErrPerm
 	}
 	for i, unitMetrics := range args.Metrics {
 		tag, err := names.ParseUnitTag(unitMetrics.Tag)
@@ -1330,7 +1330,11 @@ func (u *UniterAPI) AddMetrics(args params.MetricsParams) (params.ErrorResults, 
 				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
 				for j, metric := range unitMetrics.Metrics {
 					// TODO (tasdomas) 2014-08-26: set credentials for metrics when available
-					metricBatch[j] = state.Metric{metric.Key, metric.Value, metric.Time, nil}
+					metricBatch[j] = state.Metric{
+						Key:         metric.Key,
+						Value:       metric.Value,
+						Time:        metric.Time,
+						Credentials: nil}
 				}
 				_, err = unit.AddMetrics(time.Now(), metricBatch)
 			}

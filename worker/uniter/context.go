@@ -49,14 +49,6 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
-// Metric represents a single metric recorded by the add-metric
-// command.
-type Metric struct {
-	Key   string
-	Value string
-	Time  time.Time
-}
-
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
@@ -108,7 +100,7 @@ type HookContext struct {
 	proxySettings proxy.Settings
 
 	// metrics are the metrics recorded by calls to add-metric
-	metrics []Metric
+	metrics []jujuc.Metric
 }
 
 func NewHookContext(
@@ -216,7 +208,7 @@ func (ctx *HookContext) RelationIds() []int {
 
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
-	ctx.metrics = append(ctx.metrics, Metric{key, value, created})
+	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
 	return nil
 }
 
