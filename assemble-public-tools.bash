@@ -85,6 +85,15 @@ retrieve_released_tools() {
 }
 
 
+retract_bad_tools() {
+    echo "Phase 2.1: Retracting bad released tools."
+    bad_tools=$(find $DEST_TOOLS -name "juju-1.21-alpha1.*")
+    for bad_tool in $bad_tools; do
+        echo "rm $bad_tool"
+    done
+}
+
+
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
@@ -371,6 +380,7 @@ source /etc/lsb-release
 check_deps
 build_tool_tree
 retrieve_released_tools
+retract_bad_tools
 retrieve_packages
 archive_tools
 generate_streams
