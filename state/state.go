@@ -299,6 +299,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
+var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
@@ -325,16 +327,30 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 			return nil, errors.Trace(err)
 		}
 
-		ops := []txn.Op{{
-			C:      settingsC,
-			Id:     environGlobalKey,
-			Assert: bson.D{{"txn-revno", settings.txnRevno}},
-			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
-		}}
+		ops := []txn.Op{
+			// Can't set agent-version if there's an active upgradeInfo doc.
+			{
+				C:      upgradeInfoC,
+				Id:     currentUpgradeId,
+				Assert: txn.DocMissing,
+			}, {
+				C:      settingsC,
+				Id:     environGlobalKey,
+				Assert: bson.D{{"txn-revno", settings.txnRevno}},
+				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
+			},
+		}
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
-		err = errors.Annotate(err, "cannot set agent version")
+		// Although there is a small chance of a race here, try to
+		// return a more helpful error message in the case of an
+		// active upgradeInfo document being in place.
+		if upgrading, _ := st.IsUpgrading(); upgrading {
+			err = UpgradeInProgressError
+		} else {
+			err = errors.Annotate(err, "cannot set agent version")
+		}
 	}
 	return errors.Trace(err)
 }
