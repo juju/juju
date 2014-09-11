@@ -3683,6 +3683,12 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
+	t := state.NowToTheSecond()
+	rounded := t.Round(time.Second)
+	c.Assert(t, gc.DeepEquals, rounded)
+}
+
 type SetAdminMongoPasswordSuite struct {
 	testing.BaseSuite
 }

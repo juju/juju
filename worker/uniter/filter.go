@@ -429,7 +429,6 @@ func (f *filter) loop(unitTag names.UnitTag) (err error) {
 				}
 			}
 			f.relationsChanged(ids)
-
 		// Send events on active out chans.
 		case f.outUpgrade <- f.upgrade:
 			filterLogger.Debugf("sent upgrade event")

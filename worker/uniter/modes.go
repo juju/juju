@@ -6,6 +6,7 @@ package uniter
 import (
 	stderrors "errors"
 	"fmt"
+	"time"
 
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
@@ -240,6 +241,7 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
+		collectMetricsSignal := collectMetricsAt(time.Now(), time.Unix(u.s.CollectMetricsTime, 0), metricsPollInterval)
 		hi := hook.Info{}
 		select {
 		case <-u.tomb.Dying():
@@ -253,6 +255,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 		case info := <-u.f.ActionEvents():
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
+		case <-collectMetricsSignal:
+			hi = hook.Info{Kind: hooks.CollectMetrics}
 		case ids := <-u.f.RelationsEvents():
 			added, err := u.updateRelations(ids)
 			if err != nil {
