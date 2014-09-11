@@ -86,7 +86,7 @@ func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
 	st, backupsImpl := backups.APIValues(api)
 
 	c.Check(st, gc.Equals, s.State)
-	c.Check(backupsImpl, gc.NotNil) // XXX Need better tests.
+	c.Check(backupsImpl, gc.NotNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {

@@ -13,14 +13,11 @@ import (
 
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
-func (a *API) Create(args params.BackupsCreateArgs) (
-	p params.BackupsMetadataResult, err error,
-) {
+func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataResult, err error) {
 	mgoInfo := a.st.MongoConnectionInfo()
 	dbInfo := db.NewMongoConnInfo(mgoInfo)
 
-	// XXX Get from state.
-	machine := ""
+	machine := "0" // We *could* pull this from state.
 	origin := state.NewBackupsOrigin(a.st, machine)
 
 	meta, err := a.backups.Create(*dbInfo, *origin, args.Notes)
