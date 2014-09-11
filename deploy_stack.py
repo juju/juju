@@ -119,10 +119,12 @@ def deploy_dummy_stack(env, charm_prefix):
         env.wait_for_started(3600)
     else:
         env.wait_for_started()
-    # Wait up to 30 seconds for token to be created.
+    # Wait up to 120 seconds for token to be created.
+    # Utopic is slower, maybe because the devel series gets more
+    # pckage updates.
     logging.info('Retrieving token.')
     get_token="""
-        for x in $(seq 30); do
+        for x in $(seq 120); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
               break
