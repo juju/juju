@@ -2449,7 +2449,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetStatus(state.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().String())
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := machine.Status()

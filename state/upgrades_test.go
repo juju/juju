@@ -76,7 +76,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 
 	err = MigrateUserLastConnectionToLastLogin(s.state)
 	c.Assert(err, gc.IsNil)
-	user, err := s.state.User(userId)
+	user, err := s.state.User(names.NewLocalUserTag(userId))
 	c.Assert(err, gc.IsNil)
 	c.Assert(*user.LastLogin(), gc.Equals, now)
 
@@ -97,7 +97,7 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 	bobTag := stateBob.UserTag()
 
 	_, err = s.state.EnvironmentUser(bobTag)
-	c.Assert(err, gc.ErrorMatches, `envUser "bob@local" not found`)
+	c.Assert(err, gc.ErrorMatches, `environment user "bob@local" not found`)
 
 	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)

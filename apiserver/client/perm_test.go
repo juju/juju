@@ -54,8 +54,8 @@ loop:
 
 func (s *permSuite) TestOperationPerm(c *gc.C) {
 	var (
-		userAdmin = names.NewUserTag("admin")
-		userOther = names.NewUserTag("other")
+		userAdmin = s.AdminUserTag(c)
+		userOther = names.NewLocalUserTag("other")
 	)
 	entities := s.setUpScenario(c)
 	for i, t := range []struct {
@@ -172,8 +172,8 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 		allow: []names.Tag{userAdmin, userOther},
 	}} {
 		allow := allowed(entities, t.allow, t.deny)
-		for _, e := range entities {
-			c.Logf("test %d; %s; entity %q", i, t.about, e)
+		for j, e := range entities {
+			c.Logf("\n------\ntest %d,%d; %s; entity %q", i, j, t.about, e)
 			st := s.openAs(c, e)
 			reset, err := t.op(c, st, s.State)
 			if allow[e] {

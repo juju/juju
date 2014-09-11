@@ -299,6 +299,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
+var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
@@ -325,16 +327,30 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 			return nil, errors.Trace(err)
 		}
 
-		ops := []txn.Op{{
-			C:      settingsC,
-			Id:     environGlobalKey,
-			Assert: bson.D{{"txn-revno", settings.txnRevno}},
-			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
-		}}
+		ops := []txn.Op{
+			// Can't set agent-version if there's an active upgradeInfo doc.
+			{
+				C:      upgradeInfoC,
+				Id:     currentUpgradeId,
+				Assert: txn.DocMissing,
+			}, {
+				C:      settingsC,
+				Id:     environGlobalKey,
+				Assert: bson.D{{"txn-revno", settings.txnRevno}},
+				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
+			},
+		}
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
-		err = errors.Annotate(err, "cannot set agent version")
+		// Although there is a small chance of a race here, try to
+		// return a more helpful error message in the case of an
+		// active upgradeInfo document being in place.
+		if upgrading, _ := st.IsUpgrading(); upgrading {
+			err = UpgradeInProgressError
+		} else {
+			err = errors.Annotate(err, "cannot set agent version")
+		}
 	}
 	return errors.Trace(err)
 }
@@ -531,7 +547,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	case names.UnitTag:
 		return st.Unit(id)
 	case names.UserTag:
-		return st.User(id)
+		return st.User(tag)
 	case names.ServiceTag:
 		return st.Service(id)
 	case names.EnvironTag:
@@ -586,6 +602,10 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 		coll = unitsC
 	case names.UserTag:
 		coll = usersC
+		if !tag.IsLocal() {
+			return "", "", fmt.Errorf("%q is not a local user", tag.Username())
+		}
+		id = tag.Name()
 	case names.RelationTag:
 		coll = relationsC
 	case names.EnvironTag:
@@ -1024,11 +1044,11 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
+func (st *State) AddService(name, owner string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
-	tag, err := names.ParseUserTag(ownerTag)
+	ownerTag, err := names.ParseUserTag(owner)
 	if err != nil {
-		return nil, errors.Annotatef(err, "Invalid ownertag %s", ownerTag)
+		return nil, errors.Annotatef(err, "Invalid ownertag %s", owner)
 	}
 	// Sanity checks.
 	if !names.IsValidService(name) {
@@ -1048,11 +1068,8 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 	} else if env.Life() != Alive {
 		return nil, errors.Errorf("environment is no longer alive")
 	}
-	ownerId := tag.Id()
-	if userExists, err := st.checkUserExists(ownerId); err != nil {
+	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
-	} else if !userExists {
-		return nil, errors.Errorf("user %v doesn't exist", ownerId)
 	}
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
@@ -1063,7 +1080,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		CharmURL:      ch.URL(),
 		RelationCount: len(peers),
 		Life:          Alive,
-		OwnerTag:      ownerTag,
+		OwnerTag:      owner,
 	}
 	svc := newService(st, svcDoc)
 	ops := []txn.Op{
@@ -1075,11 +1092,6 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		// and known before setting them.
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createSettingsOp(st, svc.settingsKey(), nil),
-		{
-			C:      usersC,
-			Id:     ownerId,
-			Assert: txn.DocExists,
-		},
 		{
 			C:      settingsrefsC,
 			Id:     svc.settingsKey(),
@@ -1106,13 +1118,6 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		if userExists, ueErr := st.checkUserExists(ownerId); ueErr != nil {
-			return nil, errors.Trace(ueErr)
-		} else if !userExists {
-			return nil, errors.Errorf("unknown user %q", ownerId)
-		}
-
 		return nil, errors.Errorf("service already exists")
 	} else if err != nil {
 		return nil, errors.Trace(err)

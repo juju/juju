@@ -676,6 +676,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	stm, conf, _ := s.primeAgent(c, version.Current, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
+	logger.Debugf("new agent %#v", a)
 
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.
