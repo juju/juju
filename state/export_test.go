@@ -126,6 +126,19 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
+// SetCharmBundleURL sets the deprecated bundleurl field in the
+// charm document for the charm with the specified URL.
+func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
+	ops := []txn.Op{{
+		C:      charmsC,
+		Id:     curl.String(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
 var MachineIdLessThan = machineIdLessThan
 
 var JobNames = jobNames

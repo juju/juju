@@ -29,5 +29,12 @@ func stepsFor121() []Step {
 				return state.AddStateUsersAsEnvironUsers(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "migrate charm archives into the blobstore",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return migrateCharmStorage(context.State())
+			},
+		},
 	}
 }

@@ -3,14 +3,24 @@
 
 package state
 
-import "gopkg.in/juju/charm.v3"
+import (
+	"net/url"
+
+	"gopkg.in/juju/charm.v3"
+)
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	URL           *charm.URL `bson:"_id"`
-	Meta          *charm.Meta
-	Config        *charm.Config
-	Actions       *charm.Actions
+	URL     *charm.URL `bson:"_id"`
+	Meta    *charm.Meta
+	Config  *charm.Config
+	Actions *charm.Actions
+
+	// DEPRECATED: BundleURL is deprecated, and exists here
+	// only for migration purposes. We should remove this
+	// when migrations are no longer necessary.
+	BundleURL *url.URL `bson:"bundleurl,omitempty"`
+
 	BundleSha256  string
 	StoragePath   string
 	PendingUpload bool
@@ -23,8 +33,8 @@ type Charm struct {
 	doc charmDoc
 }
 
-func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
-	return &Charm{st: st, doc: *cdoc}, nil
+func newCharm(st *State, cdoc *charmDoc) *Charm {
+	return &Charm{st: st, doc: *cdoc}
 }
 
 func (c *Charm) String() string {
@@ -61,6 +71,15 @@ func (c *Charm) Actions() *charm.Actions {
 // StoragePath returns the storage path of the charm bundle.
 func (c *Charm) StoragePath() string {
 	return c.doc.StoragePath
+}
+
+// BundleURL returns the url to the charm bundle in
+// the provider storage.
+//
+// DEPRECATED: this is only to be used for migrating
+// charm archives to environment storage.
+func (c *Charm) BundleURL() *url.URL {
+	return c.doc.BundleURL
 }
 
 // BundleSha256 returns the SHA256 digest of the charm bundle bytes.

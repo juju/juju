@@ -490,6 +490,25 @@ func (s *StateSuite) TestAddStoreCharmPlaceholderDeletesOlder(c *gc.C) {
 	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 }
 
+func (s *StateSuite) TestAllCharms(c *gc.C) {
+	// Add a deployed charm
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	sch, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	c.Assert(err, gc.IsNil)
+
+	// Add a charm reference
+	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	err = s.State.AddStoreCharmPlaceholder(curl2)
+	c.Assert(err, gc.IsNil)
+
+	charms, err := s.State.AllCharms()
+	c.Assert(err, gc.IsNil)
+	c.Assert(charms, gc.HasLen, 2)
+
+	c.Assert(charms[0], gc.DeepEquals, sch)
+	c.Assert(charms[1].URL(), gc.DeepEquals, curl2)
+}
+
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)

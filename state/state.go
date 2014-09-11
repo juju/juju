@@ -646,11 +646,24 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add charm %q", curl)
 		}
-		return newCharm(st, cdoc)
+		return newCharm(st, cdoc), nil
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPlaceholder)
+}
+
+// AllCharms returns all charms in state.
+func (st *State) AllCharms() ([]*Charm, error) {
+	charmsCollection, closer := st.getCollection(charmsC)
+	defer closer()
+	var cdoc charmDoc
+	var charms []*Charm
+	iter := charmsCollection.Find(nil).Iter()
+	for iter.Next(&cdoc) {
+		charms = append(charms, newCharm(st, &cdoc))
+	}
+	return charms, errors.Trace(iter.Close())
 }
 
 // Charm returns the charm with the given URL. Charms pending upload
@@ -675,7 +688,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err := cdoc.Meta.Check(); err != nil {
 		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
 	}
-	return newCharm(st, cdoc)
+	return newCharm(st, cdoc), nil
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the
@@ -701,7 +714,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	if latest.URL == nil {
 		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
 	}
-	return newCharm(st, &latest)
+	return newCharm(st, &latest), nil
 }
 
 // PrepareLocalCharmUpload must be called before a local charm is
@@ -843,7 +856,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm)
+		return newCharm(st, &uploadedCharm), nil
 	}
 	return nil, errors.Trace(err)
 }
