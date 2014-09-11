@@ -2454,7 +2454,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 
 	status, info, data, err := machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "error")
 	c.Assert(data["transient"], gc.Equals, true)
 }
