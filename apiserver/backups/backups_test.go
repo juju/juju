@@ -18,20 +18,20 @@ import (
 	"github.com/juju/juju/state/backups/metadata"
 )
 
-type fakeImpl struct {
+type fakeBackups struct {
 	meta    *metadata.Metadata
 	archive io.ReadCloser
 	err     error
 }
 
-func (i *fakeImpl) Create(db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
+func (i *fakeBackups) Create(db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
 	if i.err != nil {
 		return nil, errors.Trace(i.err)
 	}
 	return i.meta, nil
 }
 
-func (i *fakeImpl) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
+func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
 	if i.err != nil {
 		return nil, nil, errors.Trace(i.err)
 	}
@@ -60,17 +60,15 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 var _ = gc.Suite(&backupsSuite{})
 
-func (s *backupsSuite) setImpl(
-	c *gc.C, meta *metadata.Metadata, err string,
-) *fakeImpl {
-	impl := fakeImpl{
+func (s *backupsSuite) setBackups(c *gc.C, meta *metadata.Metadata, err string) *fakeBackups {
+	fake := fakeBackups{
 		meta: meta,
 	}
 	if err != "" {
-		impl.err = errors.Errorf(err)
+		fake.err = errors.Errorf(err)
 	}
-	backups.SetImpl(s.api, &impl)
-	return &impl
+	backups.SetBackups(s.api, &fake)
+	return &fake
 }
 
 func (s *backupsSuite) TestRegistered(c *gc.C) {

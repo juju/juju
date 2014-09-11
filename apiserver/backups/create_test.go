@@ -11,7 +11,7 @@ import (
 )
 
 func (s *backupsSuite) TestCreateOkay(c *gc.C) {
-	s.setImpl(c, s.meta, "")
+	s.setBackups(c, s.meta, "")
 	args := params.BackupsCreateArgs{}
 	result, err := s.api.Create(args)
 	c.Assert(err, gc.IsNil)
@@ -24,7 +24,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 	origin := metadata.NewOrigin("", "", "")
 	meta := metadata.NewMetadata(*origin, "this backup is important", nil)
-	s.setImpl(c, meta, "")
+	s.setBackups(c, meta, "")
 	args := params.BackupsCreateArgs{
 		Notes: "this backup is important",
 	}
@@ -38,7 +38,7 @@ func (s *backupsSuite) TestCreateNotes(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateError(c *gc.C) {
-	s.setImpl(c, nil, "failed!")
+	s.setBackups(c, nil, "failed!")
 	args := params.BackupsCreateArgs{}
 	_, err := s.api.Create(args)
 

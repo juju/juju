@@ -12,7 +12,7 @@ var (
 	NewBackupsStorage = &newBackupsStorage
 )
 
-func SetImpl(api *API, impl backups.Backups) {
+func SetBackups(api *API, impl backups.Backups) {
 	api.backups = impl
 }
 
