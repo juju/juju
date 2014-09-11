@@ -27,9 +27,7 @@ type API struct {
 }
 
 // NewAPI creates a new instance of the Backups API facade.
-func NewAPI(
-	st *state.State, resources *common.Resources, authorizer common.Authorizer,
-) (*API, error) {
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
