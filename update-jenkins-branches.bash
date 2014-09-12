@@ -64,7 +64,18 @@ if [[ -z $SLAVES ]]; then
     exit 1
 fi
 
+set +e
+SKIPPED=""
 for host in $MASTER $SLAVES; do
     update_jenkins $host
+    if [[ $? != "0" ]]; then
+        SKIPPED="$SKIPPED $host"
+    fi
 done
+
+set -e
+if [[ -n "$SKIPPED" ]]; then
+    echo "These hosts were skipped because thee was an error"
+    echo "$SKIPPED"
+fi
 
