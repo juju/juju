@@ -159,6 +159,8 @@ type MongoIPV6Suite struct {
 var _ = gc.Suite(&MongoIPV6Suite{})
 
 func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
+	c.Skip("Skipping test until mgo issue 22 is fixed")
+
 	root := newServer(c)
 	defer root.Destroy()
 	// Note: we use the ::1:port format because mongo doesn't understand

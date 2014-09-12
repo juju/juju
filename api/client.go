@@ -601,6 +601,12 @@ func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	return c.facade.FacadeCall("SetEnvironAgentVersion", args, nil)
 }
 
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
+}
+
 // FindTools returns a List containing all tools matching the specified parameters.
 func (c *Client) FindTools(
 	majorVersion, minorVersion int,

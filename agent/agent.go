@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -113,7 +112,7 @@ type Config interface {
 	// StateServingInfo returns the details needed to run
 	// a state server and reports whether those details
 	// are available
-	StateServingInfo() (state.StateServingInfo, bool)
+	StateServingInfo() (params.StateServingInfo, bool)
 
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
@@ -182,7 +181,7 @@ type ConfigSetterOnly interface {
 
 	// SetStateServingInfo sets the information needed
 	// to run a state server
-	SetStateServingInfo(info state.StateServingInfo)
+	SetStateServingInfo(info params.StateServingInfo)
 }
 
 type ConfigWriter interface {
@@ -241,7 +240,7 @@ type configInternal struct {
 	stateDetails      *connectionDetails
 	apiDetails        *connectionDetails
 	oldPassword       string
-	servingInfo       *state.StateServingInfo
+	servingInfo       *params.StateServingInfo
 	values            map[string]string
 	preferIPv6        bool
 }
@@ -325,7 +324,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 
 // NewStateMachineConfig returns a configuration suitable for
 // a machine running the state server.
-func NewStateMachineConfig(configParams AgentConfigParams, serverInfo state.StateServingInfo) (ConfigSetterWriter, error) {
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
 		return nil, errors.Trace(requiredError("state server cert"))
 	}
@@ -551,14 +550,14 @@ func (c *configInternal) PreferIPv6() bool {
 	return c.preferIPv6
 }
 
-func (c *configInternal) StateServingInfo() (state.StateServingInfo, bool) {
+func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	if c.servingInfo == nil {
-		return state.StateServingInfo{}, false
+		return params.StateServingInfo{}, false
 	}
 	return *c.servingInfo, true
 }
 
-func (c *configInternal) SetStateServingInfo(info state.StateServingInfo) {
+func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 	c.servingInfo = &info
 }
 
