@@ -103,8 +103,6 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	var params []*RemoteExec
 	var quotedCommands = utils.ShQuote(run.Commands)
 	for _, unit := range units {
-		// We know that the unit is both a principal unit, and that it has an
-		// assigned machine.
 		machineId, err := unit.AssignedMachineId()
 		if err != nil {
 			return results, errors.Trace(err)

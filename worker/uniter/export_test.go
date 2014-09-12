@@ -102,3 +102,9 @@ func NewManualTicker() *ManualTicker {
 		c: make(chan time.Time, 1),
 	}
 }
+
+var LookPath = lookPath
+
+var ParseRemoteUnit = parseRemoteUnit
+
+var ParseRelationId = parseRelationId

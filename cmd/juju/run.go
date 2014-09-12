@@ -58,7 +58,7 @@ the unit.
 --relation allows you to ensure the command is executed on the specified
 service or unit targets with a specific relation context.
 
---remote-unit is used with --relation to specifiy a remote-unit in cases where
+--remote-unit is used with --relation to specify a remote-unit in cases where
 more than one exists. If only one remote-unit exists there is no need to specify this.
 
 --all is provided as a simple way to run the command on all the machines
@@ -104,7 +104,7 @@ func (c *RunCommand) Init(args []string) error {
 			return errors.Errorf("You cannot specify --all and individual units")
 		}
 		if len(c.relation) != 0 {
-			return errors.Errorf("You cannot specify --all and individual relations")
+			return errors.Errorf("You cannot specify --all and a relation")
 		}
 		if len(c.remoteUnit) != 0 {
 			return errors.Errorf("You cannot specify --all and a remote-unit")
@@ -114,11 +114,14 @@ func (c *RunCommand) Init(args []string) error {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
 			return errors.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
 		}
+		if len(c.relation) == 0 && len(c.remoteUnit) != 0 {
+			return errors.Errorf("You must specify a relation through --relation")
+		}
 	}
 
 	if len(c.machines) != 0 {
 		if len(c.relation) != 0 {
-			return errors.Errorf("You cannot specify --machine and individual relations")
+			return errors.Errorf("You cannot specify --machine and a relations")
 		}
 		if len(c.remoteUnit) != 0 {
 			return errors.Errorf("You cannot specify --machine and a remote-unit")
@@ -141,9 +144,11 @@ func (c *RunCommand) Init(args []string) error {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
 	}
+
 	if len(c.remoteUnit) > 0 && !names.IsValidUnit(c.remoteUnit) {
 		nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid remote-unit name", c.remoteUnit))
 	}
+
 	if len(nameErrors) > 0 {
 		return errors.Errorf("The following run targets are not valid:\n%s",
 			strings.Join(nameErrors, "\n"))

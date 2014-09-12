@@ -994,5 +994,5 @@ func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCo
 			return "", err
 		}
 	}
-	return remoteUnit, nil
+	return "", nil
 }
