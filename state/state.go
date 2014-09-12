@@ -67,7 +67,9 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
-	toolsmetadataC     = "toolsmetadata"
+
+	// toolsmetadataC is the collection used to store tools metadata.
+	toolsmetadataC = "toolsmetadata"
 
 	// This collection is used just for storing metadata.
 	backupsMetaC = "backupsmetadata"
