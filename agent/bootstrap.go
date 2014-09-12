@@ -105,7 +105,8 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
-	if err := st.SetStateServingInfo(servingInfo); err != nil {
+	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+	if err := st.SetStateServingInfo(ssi); err != nil {
 		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	m, err := initConstraintsAndBootstrapMachine(c, st, machineCfg)
@@ -113,6 +114,17 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, err
 	}
 	return st, m, nil
+}
+
+func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
+	}
 }
 
 func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {

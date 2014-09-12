@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 
@@ -113,7 +113,7 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 	}
 
 	if len(stateServerKey) != 0 {
-		config.servingInfo = &state.StateServingInfo{
+		config.servingInfo = &params.StateServingInfo{
 			Cert:       string(stateServerCert),
 			PrivateKey: string(stateServerKey),
 			APIPort:    format.APIPort,
