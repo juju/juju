@@ -230,13 +230,25 @@ func getBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
-func newBackupID(metadata *metadata.Metadata) (string, error) {
+func newBackupIDBasic(*metadata.Metadata) (string, error) {
 	id, err := utils.NewUUID()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	return id.String(), nil
 }
+
+func newBackupIDForHumans(metadata *metadata.Metadata) (string, error) {
+	rawts := metadata.Started()
+	Y, M, D := rawts.Date()
+	h, m, s := rawts.Clock()
+	timestamp := fmt.Sprintf("%04d%02d%02d-%02d%02d%02d", Y, M, D, h, m, s)
+	origin := metadata.Origin()
+	env := origin.Environment()
+	return timestamp + "." + env, nil
+}
+
+var newBackupID = newBackupIDForHumans
 
 // addBackupMetadata stores metadata for a backup where it can be
 // accessed later.  It returns a new ID that is associated with the
