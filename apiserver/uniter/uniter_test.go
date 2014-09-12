@@ -1030,20 +1030,20 @@ func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 func (s *uniterSuite) TestAction(c *gc.C) {
 	var actionTests = []struct {
 		description string
-		action      params.Action
+		action      params.ActionItem
 	}{{
 		description: "A simple action.",
-		action: params.Action{
+		action: params.ActionItem{
 			Name: "snapshot",
-			Params: map[string]interface{}{
+			Parameters: map[string]interface{}{
 				"outfile": "foo.txt",
 			},
 		},
 	}, {
 		description: "An action with nested parameters.",
-		action: params.Action{
+		action: params.ActionItem{
 			Name: "backup",
-			Params: map[string]interface{}{
+			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
 					"kind":    "bzip",
@@ -1058,7 +1058,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 
 		a, err := s.wordpressUnit.AddAction(
 			actionTest.action.Name,
-			actionTest.action.Params)
+			actionTest.action.Parameters)
 		c.Assert(err, gc.IsNil)
 		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
@@ -1149,8 +1149,8 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResults := params.ActionResults{
-		Results: []params.ActionResult{{
+	actionResults := params.ActionExecutionResults{
+		Results: []params.ActionExecutionResult{{
 			ActionTag: action.ActionTag().String(),
 			Status:    params.ActionCompleted,
 			Results:   testOutput,
@@ -1182,8 +1182,8 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResults := params.ActionResults{
-		Results: []params.ActionResult{{
+	actionResults := params.ActionExecutionResults{
+		Results: []params.ActionExecutionResult{{
 			ActionTag: action.ActionTag().String(),
 			Status:    params.ActionFailed,
 			Results:   nil,
@@ -1226,9 +1226,9 @@ func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
 	}
 
 	// Queue up actions from tests
-	actionResults := params.ActionResults{Results: make([]params.ActionResult, len(tests))}
+	actionResults := params.ActionExecutionResults{Results: make([]params.ActionExecutionResult, len(tests))}
 	for i, test := range tests {
-		actionResults.Results[i] = params.ActionResult{
+		actionResults.Results[i] = params.ActionExecutionResult{
 			ActionTag: test.actionTag,
 			Status:    params.ActionCompleted,
 			Results:   map[string]interface{}{},
