@@ -185,7 +185,7 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		defer client.Close()
 		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
 	} else {
-		client := highavailability.NewClient(root)
+		client := highavailability.NewClient(root, root.EnvironTag())
 		defer client.Close()
 		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
 	}

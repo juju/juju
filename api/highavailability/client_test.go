@@ -30,10 +30,9 @@ func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
-	s.PatchValue(highavailability.EnvironTag, func(_ *highavailability.Client) string { return "bad-env-uuid" })
 	emptyCons := constraints.Value{}
 	defaultSeries := ""
-	_, err = highavailability.NewClient(s.APIState).EnsureAvailability(3, emptyCons, defaultSeries, nil)
+	_, err = highavailability.NewClient(s.APIState, "bad-env-uuid").EnsureAvailability(3, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
 		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
 }
@@ -66,7 +65,8 @@ func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
 	defer assertKill(c, pingerA)
 
 	emptyCons := constraints.Value{}
-	result, err := highavailability.NewClient(s.APIState).EnsureAvailability(3, emptyCons, "", nil)
+	result, err := highavailability.NewClient(
+		s.APIState, s.State.EnvironTag().String()).EnsureAvailability(3, emptyCons, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
