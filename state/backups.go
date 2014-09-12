@@ -230,6 +230,14 @@ func getBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
+func newBackupID(metadata *metadata.Metadata) (string, error) {
+	id, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return id.String(), nil
+}
+
 // addBackupMetadata stores metadata for a backup where it can be
 // accessed later.  It returns a new ID that is associated with the
 // backup.  If the provided metadata already has an ID set, it is
@@ -237,12 +245,11 @@ func getBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 func addBackupMetadata(st *State, metadata *metadata.Metadata) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
-	id, err := utils.NewUUID()
+	id, err := newBackupID(metadata)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating new ID")
 	}
-	idStr := id.String()
-	return idStr, addBackupMetadataID(st, metadata, idStr)
+	return id, addBackupMetadataID(st, metadata, id)
 }
 
 func addBackupMetadataID(st *State, metadata *metadata.Metadata, id string) error {
