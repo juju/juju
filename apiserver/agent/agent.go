@@ -16,20 +16,21 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("Agent", 0, NewAPI)
+	common.RegisterStandardFacade("Agent", 0, NewAgentAPIV0)
+	common.RegisterStandardFacade("Agent", 1, NewAgentAPIV1)
 }
 
-// API implements the API provided to an agent.
-type API struct {
+// AgentAPIV0 implements the version 0 of the API provided to an agent.
+type AgentAPIV0 struct {
 	*common.PasswordChanger
 
 	st   *state.State
 	auth common.Authorizer
 }
 
-// NewAPI returns an object implementing an agent API
+// NewAgentAPIV0 returns an object implementing version 0 of the Agent API
 // with the given authorizer representing the currently logged in client.
-func NewAPI(st *state.State, resources *common.Resources, auth common.Authorizer) (*API, error) {
+func NewAgentAPIV0(st *state.State, resources *common.Resources, auth common.Authorizer) (*AgentAPIV0, error) {
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -37,14 +38,14 @@ func NewAPI(st *state.State, resources *common.Resources, auth common.Authorizer
 	getCanChange := func() (common.AuthFunc, error) {
 		return auth.AuthOwner, nil
 	}
-	return &API{
+	return &AgentAPIV0{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
 		st:              st,
 		auth:            auth,
 	}, nil
 }
 
-func (api *API) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
+func (api *AgentAPIV0) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
 	results := params.AgentGetEntitiesResults{
 		Entities: make([]params.AgentGetEntitiesResult, len(args.Entities)),
 	}
@@ -61,7 +62,7 @@ func (api *API) GetEntities(args params.Entities) params.AgentGetEntitiesResults
 	return results
 }
 
-func (api *API) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
+func (api *AgentAPIV0) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
 	// Allow only for the owner agent.
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.
@@ -86,7 +87,7 @@ func (api *API) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, 
 	return
 }
 
-func (api *API) StateServingInfo() (result state.StateServingInfo, err error) {
+func (api *AgentAPIV0) StateServingInfo() (result state.StateServingInfo, err error) {
 	if !api.auth.AuthEnvironManager() {
 		err = common.ErrPerm
 		return
@@ -99,7 +100,7 @@ func (api *API) StateServingInfo() (result state.StateServingInfo, err error) {
 // be overridden by tests.
 var MongoIsMaster = mongo.IsMaster
 
-func (api *API) IsMaster() (params.IsMasterResult, error) {
+func (api *AgentAPIV0) IsMaster() (params.IsMasterResult, error) {
 	if !api.auth.AuthEnvironManager() {
 		return params.IsMasterResult{}, common.ErrPerm
 	}
@@ -125,4 +126,21 @@ func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []params.MachineJob {
 		pjobs[i] = params.MachineJob(job.String())
 	}
 	return pjobs
+}
+
+// AgentAPIV1 implements the version 1 of the API provided to an agent.
+type AgentAPIV1 struct {
+	*AgentAPIV0
+}
+
+// NewAgentAPIV1 returns an object implementing version 1 of the Agent API
+// with the given authorizer representing the currently logged in client.
+// The functionality is like V0, it only knows the additional machine job
+// JobManageNetworking.
+func NewAgentAPIV1(st *state.State, resources *common.Resources, auth common.Authorizer) (*AgentAPIV1, error) {
+	apiV0, err := NewAgentAPIV0(st, resources, auth)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &AgentAPIV1{apiV0}, nil
 }

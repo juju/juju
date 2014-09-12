@@ -20,21 +20,42 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type agentSuite struct {
+type apiConstructor func(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error)
+
+// agentAPIV0 helps decoupling the static type of agent API V0.
+type agentAPIV0 interface {
+	GetEntities(args params.Entities) params.AgentGetEntitiesResults
+	StateServingInfo() (state.StateServingInfo, error)
+	IsMaster() (params.IsMasterResult, error)
+	SetPasswords(args params.EntityPasswords) (params.ErrorResults, error)
+}
+
+func newAgentAPIV0(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error) {
+	return agent.NewAgentAPIV0(st, resources, auth)
+}
+
+// agentAPIV1 is compatible to V0.
+type agentAPIV1 interface {
+	agentAPIV0
+}
+
+func newAgentAPIV1(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error) {
+	return agent.NewAgentAPIV1(st, resources, auth)
+}
+
+type baseAgentSuite struct {
 	jujutesting.JujuConnSuite
 
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
-	machine0  *state.Machine
-	machine1  *state.Machine
-	container *state.Machine
-	agent     *agent.API
+	machine0    *state.Machine
+	machine1    *state.Machine
+	container   *state.Machine
+	constructor apiConstructor
 }
 
-var _ = gc.Suite(&agentSuite{})
-
-func (s *agentSuite) SetUpTest(c *gc.C) {
+func (s *baseAgentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
@@ -53,35 +74,51 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
+
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.machine1.Tag(),
 	}
-
-	// Create a machiner API for machine 1.
-	s.agent, err = agent.NewAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
+// authorizationAgentSuiteV0 tests authorization from V0
+// up to the next incompatible change.
+type authorizationAgentSuiteV0 struct {
+	baseAgentSuite
+}
+
+func (s *authorizationAgentSuiteV0) SetUpTest(c *gc.C) {
+	s.baseAgentSuite.SetUpTest(c)
+}
+
+func (s *authorizationAgentSuiteV0) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	api, err := agent.NewAPI(s.State, s.resources, auth)
+	api, err := s.constructor(s.State, s.resources, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
+func (s *authorizationAgentSuiteV0) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := agent.NewAPI(s.State, s.resources, auth)
+	_, err := s.constructor(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) TestGetEntities(c *gc.C) {
-	err := s.container.Destroy()
+// getEntitiesAgentSuiteV0 tests GetEntities from V0
+// up to the next incompatible change.
+type getEntitiesAgentSuiteV0 struct {
+	baseAgentSuite
+}
+
+func (s *getEntitiesAgentSuiteV0) TestGetEntities(c *gc.C) {
+	api, err := s.constructor(s.State, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	agentAPI := api.(agentAPIV0)
+	err = s.container.Destroy()
 	c.Assert(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -91,7 +128,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 			{Tag: "machine-42"},
 		},
 	}
-	results := s.agent.GetEntities(args)
+	results := agentAPI.GetEntities(args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
 			{
@@ -107,8 +144,9 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 	// Now login as the machine agent of the container and try again.
 	auth := s.authorizer
 	auth.Tag = s.container.Tag()
-	containerAgent, err := agent.NewAPI(s.State, s.resources, auth)
+	api, err = s.constructor(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
+	containerAgent := api.(agentAPIV0)
 
 	results = containerAgent.GetEntities(args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
@@ -125,9 +163,12 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
+func (s *getEntitiesAgentSuiteV0) TestGetNotFoundEntity(c *gc.C) {
+	api, err := s.constructor(s.State, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	agentAPI := api.(agentAPIV0)
 	// Destroy the container first, so we can destroy its parent.
-	err := s.container.Destroy()
+	err = s.container.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = s.container.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -140,7 +181,7 @@ func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine1.Remove()
 	c.Assert(err, gc.IsNil)
-	results := s.agent.GetEntities(params.Entities{
+	results := agentAPI.GetEntities(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
 	c.Assert(err, gc.IsNil)
@@ -154,8 +195,17 @@ func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
 	})
 }
 
-func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	results, err := s.agent.SetPasswords(params.EntityPasswords{
+// setPasswordsAgentSuiteV0 tests SetPasswords from V0
+// up to the next incompatible change.
+type setPasswordsAgentSuiteV0 struct {
+	baseAgentSuite
+}
+
+func (s *setPasswordsAgentSuiteV0) TestSetPasswords(c *gc.C) {
+	api, err := s.constructor(s.State, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	agentAPI := api.(agentAPIV0)
+	results, err := agentAPI.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
 			{Tag: "machine-1", Password: "yyy-12345678901234567890"},
@@ -176,8 +226,11 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(changed, gc.Equals, true)
 }
 
-func (s *agentSuite) TestShortSetPasswords(c *gc.C) {
-	results, err := s.agent.SetPasswords(params.EntityPasswords{
+func (s *setPasswordsAgentSuiteV0) TestShortSetPasswords(c *gc.C) {
+	api, err := s.constructor(s.State, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	agentAPI := api.(agentAPIV0)
+	results, err := agentAPI.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-1", Password: "yyy"},
 		},
@@ -187,3 +240,38 @@ func (s *agentSuite) TestShortSetPasswords(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches,
 		"password is only 3 bytes long, and is not a valid Agent password")
 }
+
+var (
+	_ = gc.Suite(&authorizationAgentSuiteV0{
+		baseAgentSuite{
+			constructor: newAgentAPIV0,
+		},
+	})
+	_ = gc.Suite(&authorizationAgentSuiteV0{
+		baseAgentSuite{
+			constructor: newAgentAPIV1,
+		},
+	})
+
+	_ = gc.Suite(&getEntitiesAgentSuiteV0{
+		baseAgentSuite{
+			constructor: newAgentAPIV0,
+		},
+	})
+	_ = gc.Suite(&getEntitiesAgentSuiteV0{
+		baseAgentSuite{
+			constructor: newAgentAPIV1,
+		},
+	})
+
+	_ = gc.Suite(&setPasswordsAgentSuiteV0{
+		baseAgentSuite{
+			constructor: newAgentAPIV0,
+		},
+	})
+	_ = gc.Suite(&setPasswordsAgentSuiteV0{
+		baseAgentSuite{
+			constructor: newAgentAPIV1,
+		},
+	})
+)
