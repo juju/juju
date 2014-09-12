@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -227,7 +226,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	}
 	if bootstrap {
 		cfg.Bootstrap = true
-		cfg.StateServingInfo = &state.StateServingInfo{
+		cfg.StateServingInfo = &params.StateServingInfo{
 			StatePort:  envConfig.StatePort(),
 			APIPort:    envConfig.APIPort(),
 			Cert:       testing.ServerCert,
