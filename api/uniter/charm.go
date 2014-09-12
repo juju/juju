@@ -6,10 +6,12 @@ package uniter
 import (
 	"fmt"
 	"net/url"
+	"path"
 
 	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/names"
 )
 
 // This module implements a subset of the interface provided by
@@ -73,4 +75,19 @@ func (c *Charm) ArchiveURL() *url.URL {
 // because it's immutable.
 func (c *Charm) ArchiveSha256() (string, error) {
 	return c.getArchiveInfo("CharmArchiveSha256")
+}
+
+// CharmsURL takes an API server address and an optional environment
+// tag and constructs a base URL used for fetching charm archives.
+// If the environment tag is omitted or invalid, it will be ignored.
+func CharmsURL(apiAddr string, envTag string) *url.URL {
+	urlPath := "/"
+	if envTag != "" {
+		tag, err := names.ParseEnvironTag(envTag)
+		if err == nil {
+			urlPath = path.Join(urlPath, "environment", tag.Id())
+		}
+	}
+	urlPath = path.Join(urlPath, "charms")
+	return &url.URL{Scheme: "https", Host: apiAddr, Path: urlPath}
 }

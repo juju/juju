@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/testing"
 )
 
 type charmSuite struct {
@@ -64,4 +65,26 @@ func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 	archiveSha256, err := s.apiCharm.ArchiveSha256()
 	c.Assert(err, gc.IsNil)
 	c.Assert(archiveSha256, gc.Equals, s.wordpressCharm.BundleSha256())
+}
+
+type charmsURLSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&charmsURLSuite{})
+
+func (s *charmsURLSuite) TestCharmsURL(c *gc.C) {
+	testCharmsURL(c, "", "", "https:///charms")
+	testCharmsURL(c, "abc.com", "", "https://abc.com/charms")
+	testCharmsURL(c, "abc.com:123", "", "https://abc.com:123/charms")
+	testCharmsURL(c, "abc.com:123", "invalid-uuid", "https://abc.com:123/charms")
+	testCharmsURL(c, "abc.com:123", "environment-f47ac10b-58cc-4372-a567-0e02b2c3d479", "https://abc.com:123/environment/f47ac10b-58cc-4372-a567-0e02b2c3d479/charms")
+}
+
+func testCharmsURL(c *gc.C, addr, envTag, expected string) {
+	url := uniter.CharmsURL(addr, envTag)
+	if !c.Check(url, gc.NotNil) {
+		return
+	}
+	c.Check(url.String(), gc.Equals, expected)
 }

@@ -5,7 +5,6 @@ package api
 
 import (
 	"net"
-	"net/url"
 	"strconv"
 
 	"github.com/juju/names"
@@ -136,12 +135,7 @@ func (st *State) Provisioner() *provisioner.State {
 func (st *State) Uniter() *uniter.State {
 	// TODO(dfc) yes, this can panic, we never checked before
 	unitTag := st.authTag.(names.UnitTag)
-	path := "/"
-	if envUUID, err := names.ParseEnvironTag(st.EnvironTag()); err == nil {
-		path += "environment/" + envUUID.Id()
-	}
-	path += "/charms"
-	charmsURL := &url.URL{Scheme: "https", Host: st.Addr(), Path: path}
+	charmsURL := uniter.CharmsURL(st.Addr(), st.EnvironTag())
 	return uniter.NewState(st, unitTag, charmsURL)
 }
 
