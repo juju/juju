@@ -7,9 +7,10 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"github.com/juju/juju/environs/config"
 	"io"
 	"text/template"
+
+	"github.com/juju/juju/environs/config"
 )
 
 var configHeader = `
