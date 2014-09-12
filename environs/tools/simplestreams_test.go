@@ -47,7 +47,7 @@ var liveUrls = map[string]liveTestData{
 	"canonistack": {
 		baseURL:        "https://swift.canonistack.canonical.com/v1/AUTH_526ad877f3e3464589dc1145dfeaac60/juju-tools",
 		requireSigned:  false,
-		validCloudSpec: simplestreams.CloudSpec{"lcy01", "https://keystone.canonistack.canonical.com:443/v2.0/"},
+		validCloudSpec: simplestreams.CloudSpec{"lcy01", "https://keystone.canonistack.canonical.com:443/v1.0/"},
 	},
 }
 
@@ -75,9 +75,10 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
-			RequireSigned: false,
-			DataType:      tools.ContentDownload,
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+			RequireSigned:  false,
+			DataType:       tools.ContentDownload,
+			StreamsVersion: tools.StreamsVersion,
 			ValidConstraint: tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -96,6 +97,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simples
 		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
+		StreamsVersion:  tools.StreamsVersion,
 		ValidConstraint: validToolsConstraint,
 	})
 }
@@ -249,8 +251,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
 		tools, resolveInfo, err := tools.Fetch(
-			[]simplestreams.DataSource{invalidSource, s.Source},
-			simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
+			[]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -275,7 +276,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 		Arches:    []string{"amd64"},
 	})
 	toolsMetadata, resolveInfo, err := tools.Fetch(
-		[]simplestreams.DataSource{s.Source}, simplestreams.DefaultIndexPath, toolsConstraint, s.RequireSigned)
+		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 
@@ -776,7 +777,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 		Arches:    []string{"amd64"},
 	})
 	toolsMetadata, resolveInfo, err := tools.Fetch(
-		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, toolsConstraint, true)
+		[]simplestreams.DataSource{signedSource}, toolsConstraint, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(toolsMetadata), gc.Equals, 1)
 	c.Assert(toolsMetadata[0].Path, gc.Equals, "tools/releases/20130806/juju-1.13.1-precise-amd64.tgz")

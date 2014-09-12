@@ -71,7 +71,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
 
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
-	files := []string{simplestreams.UnsignedIndex, envtools.ProductMetadataPath}
+	files := []string{simplestreams.UnsignedIndex(envtools.StreamsVersion), envtools.ProductMetadataPath}
 	for _, file := range files {
 		toolspath := path.Join("tools", file)
 		err := stor.Remove(toolspath)

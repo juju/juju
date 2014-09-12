@@ -21,6 +21,8 @@ func init() {
 
 const (
 	ImageIds = "image-ids"
+
+	StreamsVersion = "v1"
 )
 
 // simplestreamsImagesPublicKey is the public key required to
@@ -168,7 +170,7 @@ func (im *ImageMetadata) productId() string {
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(
-	sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint,
+	sources []simplestreams.DataSource, cons *ImageConstraint,
 	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.ValueParams{
 		DataType:      ImageIds,
@@ -176,7 +178,7 @@ func Fetch(
 		ValueTemplate: ImageMetadata{},
 		PublicKey:     simplestreamsImagesPublicKey,
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, StreamsVersion, cons, onlySigned, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

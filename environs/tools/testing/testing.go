@@ -135,9 +135,10 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors
 	}
 
 	const requireSigned = false
-	indexPath := simplestreams.UnsignedIndex
+	indexPath := simplestreams.UnsignedIndex(tools.StreamsVersion)
+	mirrorsPath := simplestreams.MirrorsPath(tools.StreamsVersion)
 	indexRef, err := simplestreams.GetIndexWithFormat(
-		source, indexPath, "index:1.0", requireSigned, simplestreams.CloudSpec{}, params)
+		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 
@@ -183,7 +184,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors
 	}
 
 	if expectMirrors {
-		r, err = stor.Get(path.Join("tools", simplestreams.UnsignedMirror))
+		r, err = stor.Get(path.Join("tools", simplestreams.UnsignedMirror(tools.StreamsVersion)))
 		defer r.Close()
 		c.Assert(err, gc.IsNil)
 		data, err = ioutil.ReadAll(r)
@@ -213,7 +214,7 @@ func generateMetadata(c *gc.C, versions ...version.Binary) []metadataFile {
 	index, products, err := tools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)
 	objects := []metadataFile{
-		{simplestreams.UnsignedIndex, index},
+		{simplestreams.UnsignedIndex(tools.StreamsVersion), index},
 		{tools.ProductMetadataPath, products},
 	}
 	return objects

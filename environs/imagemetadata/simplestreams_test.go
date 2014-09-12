@@ -39,7 +39,7 @@ var liveUrls = map[string]liveTestData{
 	"canonistack": {
 		baseURL:        "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
 		requireSigned:  false,
-		validCloudSpec: simplestreams.CloudSpec{"lcy01", "https://keystone.canonistack.canonical.com:443/v2.0/"},
+		validCloudSpec: simplestreams.CloudSpec{"lcy01", "https://keystone.canonistack.canonical.com:443/v1.0/"},
 	},
 }
 
@@ -69,8 +69,9 @@ func registerSimpleStreamsTests() {
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			Source: simplestreams.NewURLDataSource(
 				"test roundtripper", "test:", utils.VerifySSLHostnames),
-			RequireSigned: false,
-			DataType:      imagemetadata.ImageIds,
+			RequireSigned:  false,
+			DataType:       imagemetadata.ImageIds,
+			StreamsVersion: imagemetadata.StreamsVersion,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -270,8 +271,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 		// Add invalid datasource and check later that resolveInfo is correct.
 		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames)
 		images, resolveInfo, err := imagemetadata.Fetch(
-			[]simplestreams.DataSource{invalidSource, s.Source}, simplestreams.DefaultIndexPath,
-			imageConstraint, s.RequireSigned)
+			[]simplestreams.DataSource{invalidSource, s.Source}, imageConstraint, s.RequireSigned)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}
@@ -382,8 +382,7 @@ func (s *signedSuite) TestSignedImageMetadata(c *gc.C) {
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
 	})
-	images, resolveInfo, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
+	images, resolveInfo, err := imagemetadata.Fetch([]simplestreams.DataSource{signedSource}, imageConstraint, true)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(images), gc.Equals, 1)
 	c.Assert(images[0].Id, gc.Equals, "ami-123456")
@@ -403,8 +402,7 @@ func (s *signedSuite) TestSignedImageMetadataInvalidSignature(c *gc.C) {
 		Arches:    []string{"amd64"},
 	})
 	imagemetadata.SetSigningPublicKey(s.origKey)
-	_, _, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{signedSource}, simplestreams.DefaultIndexPath, imageConstraint, true)
+	_, _, err := imagemetadata.Fetch([]simplestreams.DataSource{signedSource}, imageConstraint, true)
 	c.Assert(err, gc.ErrorMatches, "cannot read index data.*")
 }
 
