@@ -28,9 +28,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	apiuniter "github.com/juju/juju/state/api/uniter"
 	contexttesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
@@ -823,6 +820,19 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	return context
 }
 
+// TestNonActionCallsToActionMethodsFail does exactly what its name says:
+// it simply makes sure that Action-related calls to HookContexts with a nil
+// actionData member error out correctly.
+func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
+	ctx := uniter.HookContext{}
+	_, err := ctx.ActionParams()
+	c.Check(err, gc.ErrorMatches, "actionparams cannot be retrieved, hook context had no action")
+	err = ctx.SetActionFailed("oops")
+	c.Check(err, gc.ErrorMatches, "action cannot be failed, hook context had no action")
+	err = ctx.UpdateActionResults([]string{"oops"}, "nope!")
+	c.Check(err, gc.ErrorMatches, "action results cannot be updated, hook context had no action")
+}
+
 // TestUpdateActionResults demonstrates that UpdateActionResults functions
 // as expected; the further tests of action-set are in jujuc/action-set_test.
 func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
@@ -852,9 +862,7 @@ func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("action-set test %d: %#v", i, t.command)
-		uuid, err := utils.NewUUID()
-		c.Assert(err, gc.IsNil)
-		hctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+		hctx := uniter.GetStubActionContext()
 		com, err := jujuc.NewCommand(hctx, "action-set")
 		c.Assert(err, gc.IsNil)
 		ctx := contexttesting.Context(c)

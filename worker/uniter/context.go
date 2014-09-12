@@ -78,9 +78,6 @@ type HookContext struct {
 	// its tag, its parameters, and its results.
 	actionData *actionData
 
-	// actionResults holds the values set by action-set and action-fail.
-	actionResults actionResults
-
 	// uuid is the universally unique identifier of the environment.
 	uuid string
 
@@ -223,18 +220,16 @@ func (ctx *HookContext) SetActionFailed(message string) error {
 	return nil
 }
 
-// SetActionFailed sets the state of the action to "fail" and sets the results
-// message to the string argument.
-func (ctx *HookContext) SetActionFailed(message string) {
-	ctx.actionResults.Message = message
-	ctx.actionResults.Status = actionStatusFailed
-}
-
 // UpdateActionResults inserts new values for use with action-set and
 // action-fail.  The results struct will be delivered to the state server
-// upon completion of the Action.
-func (ctx *HookContext) UpdateActionResults(keys []string, value string) {
-	addValueToMap(keys, value, ctx.actionResults.Results)
+// upon completion of the Action.  It returns an error if not called on an
+// Action-containing HookContext.
+func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("action results cannot be updated, hook context had no action")
+	}
+	addValueToMap(keys, value, ctx.actionData.ResultsMap)
+	return nil
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -778,8 +773,8 @@ const (
 // AddValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
 // into {foo: {bar: baz, baz: faz}}.
-func addValueToMap(keys []string, value string, inMap map[string]interface{}) {
-	next := inMap
+func addValueToMap(keys []string, value string, target map[string]interface{}) {
+	next := target
 
 	for i := range keys {
 		// if we are on last key set the value.

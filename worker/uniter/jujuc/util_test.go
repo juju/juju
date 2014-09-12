@@ -82,7 +82,6 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 
 type Context struct {
 	actionParams  map[string]interface{}
-	actionErr     error
 	ports         set.Strings
 	relid         int
 	remote        string

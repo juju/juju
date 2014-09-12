@@ -18,15 +18,23 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 }
 
 func (c *HookContext) ActionResultsMap() map[string]interface{} {
-	return c.actionResults.Results
+	return c.actionData.ResultsMap
 }
 
-func (c *HookContext) ActionStatus() string {
-	return string(c.actionResults.Status)
+func (c *HookContext) ActionFailed() bool {
+	return c.actionData.ActionFailed
 }
 
 func (c *HookContext) ActionMessage() string {
-	return c.actionResults.Message
+	return c.actionData.ResultsMessage
+}
+
+func GetStubActionContext() *HookContext {
+	return &HookContext{
+		actionData: &actionData{
+			ResultsMap: map[string]interface{}{},
+		},
+	}
 }
 
 var MergeEnvironment = mergeEnvironment

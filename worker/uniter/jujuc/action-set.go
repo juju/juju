@@ -90,7 +90,10 @@ func (c *ActionSetCommand) Run(ctx *cmd.Context) error {
 		valueIndex := len(argSlice) - 1
 		keys := argSlice[:valueIndex]
 		value := argSlice[valueIndex]
-		c.ctx.UpdateActionResults(keys, value)
+		err := c.ctx.UpdateActionResults(keys, value)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

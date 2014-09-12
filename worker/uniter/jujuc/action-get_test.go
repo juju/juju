@@ -240,20 +240,18 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 
 	for i, t := range actionGetTests {
 		c.Logf("test %d: %s\n args: %#v", i, t.summary, t.args)
-		hctx := s.GetHookContext(c, -1, "")
+		hctx := &Context{}
 		hctx.actionParams = t.actionParams
-
 		com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
+		c.Check(bufferString(ctx.Stdout), gc.Equals, t.out)
 		if code == 0 {
 			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-			c.Check(bufferString(ctx.Stdout), gc.Equals, t.out)
 		} else {
-			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.errMsg)
+			expect := fmt.Sprintf(`(\n)*error: %s\n`, t.errMsg)
 			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}

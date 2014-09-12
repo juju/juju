@@ -1318,6 +1318,7 @@ var actionEventTests = []uniterTest{
 			name:   "action-log",
 			status: "complete",
 		}}},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
@@ -1353,6 +1354,7 @@ var actionEventTests = []uniterTest{
 			},
 			status: "complete",
 		}}},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions with incorrect params passed are not an error but fail",
 		createCharm{

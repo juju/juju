@@ -45,7 +45,7 @@ type Context interface {
 	// UpdateActionResults inserts new values for use with action-set.
 	// The results struct will be delivered to the state server upon
 	// completion of the Action.
-	UpdateActionResults(keys []string, value string)
+	UpdateActionResults(keys []string, value string) error
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.

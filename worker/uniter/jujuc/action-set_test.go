@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -12,24 +14,45 @@ import (
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
+var _ = gc.Suite(&ActionSetSuite{})
+
 type ActionSetSuite struct {
 	ContextSuite
 }
 
-type actionTestContext struct {
-	jujuc.Context
+type actionSettingContext struct {
+	Context
 	commands [][]string
 }
 
-func (a *actionTestContext) UpdateActionResults(keys []string, value string) {
+func (a *actionSettingContext) UpdateActionResults(keys []string, value string) error {
 	if a.commands == nil {
 		a.commands = make([][]string, 0)
 	}
 
 	a.commands = append(a.commands, append(keys, value))
+	return nil
 }
 
-var _ = gc.Suite(&ActionSetSuite{})
+type nonActionSettingContext struct {
+	Context
+}
+
+func (a *nonActionSettingContext) UpdateActionResults(keys []string, value string) error {
+	return fmt.Errorf("cannot update results on a context that doesn't contain actionData")
+}
+
+func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
+	hctx := &nonActionSettingContext{}
+	com, err := jujuc.NewCommand(hctx, "action-set")
+	c.Assert(err, gc.IsNil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"oops=nope"})
+	c.Check(code, gc.Equals, 1)
+	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
+	expect := fmt.Sprintf(`(.|\n)*error: %s\n`, "cannot update results on a context that doesn't contain actionData")
+	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
+}
 
 func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	var actionSetTests = []struct {
@@ -90,7 +113,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 
 	for i, t := range actionSetTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx := &actionTestContext{}
+		hctx := &actionSettingContext{}
 		com, err := jujuc.NewCommand(hctx, "action-set")
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
@@ -103,7 +126,7 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 }
 
 func (s *ActionSetSuite) TestHelp(c *gc.C) {
-	hctx := &actionTestContext{}
+	hctx := &actionSettingContext{}
 	com, err := jujuc.NewCommand(hctx, "action-set")
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
