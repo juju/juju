@@ -6,6 +6,7 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
@@ -116,13 +116,25 @@ func formatTools(tools coretools.List) string {
 	return strings.Join(formatted, "\n")
 }
 
+type upgradeJujuAPI interface {
+	EnvironmentGet() (map[string]interface{}, error)
+	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
+	UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
+	SetEnvironAgentVersion(version version.Number) error
+	Close() error
+}
+
+var getUpgradeJujuAPI = func(c *UpgradeJujuCommand) (upgradeJujuAPI, error) {
+	return c.NewAPIClient()
+}
+
 // Run changes the version proposed for the juju envtools.
 func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if len(c.Series) > 0 {
 		fmt.Fprintln(ctx.Stderr, "Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.")
 	}
 
-	client, err := c.NewAPIClient()
+	client, err := getUpgradeJujuAPI(c)
 	if err != nil {
 		return err
 	}
@@ -173,7 +185,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *UpgradeJujuCommand) initVersions(client *api.Client, cfg *config.Config) (*upgradeContext, error) {
+func (c *UpgradeJujuCommand) initVersions(client upgradeJujuAPI, cfg *config.Config) (*upgradeContext, error) {
 	agent, ok := cfg.AgentVersion()
 	if !ok {
 		// Can't happen. In theory.
@@ -218,7 +230,7 @@ type upgradeContext struct {
 	chosen    version.Number
 	tools     coretools.List
 	config    *config.Config
-	apiClient *api.Client
+	apiClient upgradeJujuAPI
 }
 
 // uploadTools compiles jujud from $GOPATH and uploads it into the supplied
