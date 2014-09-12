@@ -27,12 +27,17 @@ BAD_ARGS = 1
 UNKNOWN_COMMAND = 2
 NO_PUBLISHED_FILES = 3
 NO_LOCAL_FILES = 4
+UNKNOWN_PURPOSE = 5
 
 
 LIST = 'list'
 PUBLISH = 'publish'
+DELETE = 'delete'
 RELEASE = 'release'
+PROPOSED = 'proposed'
+DEVEL = 'devel'
 TESTING = 'testing'
+PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
 JUJU_DIST = 'juju-tools'
 CHUNK_SIZE = 4 * 1024 * 1024
 
@@ -44,17 +49,20 @@ SyncFile = namedtuple(
     'SyncFile', ['path', 'size', 'md5content', 'mimetype', 'local_path'])
 
 
+def get_prefix(purpose):
+    """Return the top-level dir name for the purpose."""
+    if purpose == RELEASE:
+        return 'tools'
+    else:
+        return purpose
+
+
 def get_published_files(purpose, blob_service):
     """Return the SyncFile info about the published files."""
-    if purpose == TESTING:
-        prefix = TESTING
-    else:
-        prefix = None
+    prefix = get_prefix(purpose)
     files = []
     for blob in blob_service.list_blobs(
             JUJU_DIST, prefix=prefix, include='metadata'):
-        if purpose == RELEASE and blob.name.startswith(TESTING):
-            continue
         sync_file = SyncFile(
             path=blob.name, md5content=blob.properties.content_md5,
             size=blob.properties.content_length,
@@ -68,10 +76,10 @@ def get_local_files(purpose, local_dir):
     if not os.path.isdir(local_dir):
         print('%s not found.' % local_dir)
         return None
-    if purpose == TESTING:
-        replacements = (local_dir, TESTING)
-    else:
+    if purpose == RELEASE:
         replacements = (local_dir + '/', '')
+    else:
+        replacements = (local_dir, purpose)
     found = []
     for path, subdirs, files in os.walk(local_dir):
         for name in files:
@@ -103,7 +111,7 @@ def get_md5content(local_path):
 
 
 def publish_local_file(purpose, blob_service, sync_file):
-    """Published the local file to the release or testing location.
+    """Published the local file to the release proposed, or testing location.
 
     The file is broken down into blocks that can be uploaded within
     the azure restrictions. The blocks are then assembled into a blob
@@ -130,7 +138,7 @@ def publish_local_file(purpose, blob_service, sync_file):
 
 
 def list_published_files(purpose):
-    """List the testing or release files."""
+    """List the testing, proposed, or release files."""
     blob_service = BlobService()
     published_files = get_published_files(purpose, blob_service)
     if published_files is None:
@@ -143,7 +151,7 @@ def list_published_files(purpose):
 
 
 def publish_files(purpose, local_dir, options):
-    """Publish the tools and metadata to the release or testing location."""
+    """Publish the streams to the location for the intended purpose."""
     blob_service = BlobService()
     if local_dir.endswith('/'):
         local_dir = local_dir[:-1]
@@ -180,6 +188,17 @@ def publish_files(purpose, local_dir, options):
     return OK
 
 
+def delete_files(purpose, files, options):
+    prefix = get_prefix(purpose)
+    blob_service = BlobService()
+    for path in files:
+        if prefix is not None:
+            path = '%s/%s' % (prefix, path)
+        print("Deleting %s" % path)
+        blob_service.delete_blob(JUJU_DIST, path)
+    return OK
+
+
 def main():
     """Execute the commands from the command line."""
     parser = get_option_parser()
@@ -189,6 +208,8 @@ def main():
         return BAD_ARGS
     command = args[0]
     purpose = args[1]
+    if purpose not in PURPOSES:
+        return UNKNOWN_PURPOSE
     if command == LIST:
         return list_published_files(purpose)
     elif command == PUBLISH:
@@ -196,6 +217,8 @@ def main():
             parser.print_usage()
             return 1
         return publish_files(purpose, args[2], options)
+    elif command == DELETE:
+        return delete_files(purpose, args[2:], options)
     else:
         # The command is not known.
         return UNKNOWN_COMMAND
@@ -203,7 +226,9 @@ def main():
 
 def get_option_parser():
     """Return the option parser for this program."""
-    usage = "usage: %prog <list | publish> <testing | release> [local-tools]"
+    usage = (
+        "usage: %prog <list | publish | delete> "
+        "<{}> [local-tools]".format(' | '.join(PURPOSES)))
     parser = OptionParser(usage=usage)
     parser.add_option(
         "-d", "--dry-run", action="store_true", dest="dry_run")
