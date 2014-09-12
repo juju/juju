@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+from __future__ import print_function
+
+from argparse import ArgumentParser
+import os.path
+
+from jujupy import (
+    Environment,
+    until_timeout,
+    )
+from utility import scoped_environ
+
+
+def assess_bootstrap(juju, env):
+    with scoped_environ():
+        juju_bin = os.path.dirname(os.abspath(juju))
+        os.environ['PATH'] = '{}:{}'.format(juju_bin, os.environ['PATH'])
+        environment = Environment.from_config(env)
+    environment.destroy_environment()
+    try:
+        environment.bootstrap()
+        for ignored in until_timeout(30):
+            environment.get_status(1)
+        print('Environment successfully bootstrapped.')
+    finally:
+        environment.destroy_environment()
+
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument('juju', help="The Juju client to use.")
+    parser.add_argument('env', help="The environment to test with.")
+    args = parser.parse_args()
+    assess_bootstrap(**args.__dict__)
+
+
+if __name__ == '__main__':
+    main()

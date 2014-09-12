@@ -105,6 +105,17 @@ class JujuClientDevel:
         logging = '--debug' if self.debug else '--show-log'
         return prefix + ('juju', logging, command,) + e_arg + args
 
+    def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),
+                                         env['PATH'])
+        return env
+
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
         if environment.hpcloud:
@@ -123,9 +134,10 @@ class JujuClientDevel:
     def get_juju_output(self, environment, command, *args, **kwargs):
         args = self._full_args(environment, command, False, args,
                                timeout=kwargs.get('timeout'))
+        env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
             try:
-                return subprocess.check_output(args, stderr=stderr)
+                return subprocess.check_output(args, stderr=stderr, env=env)
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
                 e.stderr = stderr.read()
@@ -161,9 +173,10 @@ class JujuClientDevel:
         args = self._full_args(environment, command, sudo, args)
         print(' '.join(args))
         sys.stdout.flush()
+        env = self._shell_environ()
         if check:
-            return subprocess.check_call(args)
-        return subprocess.call(args)
+            return subprocess.check_call(args, env=env)
+        return subprocess.call(args, env=env)
 
 
 class Status:

@@ -119,10 +119,12 @@ def deploy_dummy_stack(env, charm_prefix):
         env.wait_for_started(3600)
     else:
         env.wait_for_started()
-    # Wait up to 30 seconds for token to be created.
+    # Wait up to 120 seconds for token to be created.
+    # Utopic is slower, maybe because the devel series gets more
+    # pckage updates.
     logging.info('Retrieving token.')
     get_token="""
-        for x in $(seq 30); do
+        for x in $(seq 120); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
               break
@@ -304,7 +306,8 @@ def check_free_disk_space(path, required, purpose):
 
 def bootstrap_from_env(juju_home, env):
     if env.config['type'] == 'local':
-        env.config.setdefault('root-dir', os.path.join(juju_home, 'local'))
+        env.config.setdefault('root-dir', os.path.join(
+            juju_home, env.environment))
     new_config = {'environments': {env.environment: env.config}}
     jenv_path = get_jenv_path(juju_home, env.environment)
     with temp_dir(juju_home) as temp_juju_home:
