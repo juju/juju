@@ -399,6 +399,7 @@ func (s *backupMetadataStorage) New() filestorage.Metadata {
 	return metadata.NewMetadata(*origin, "", nil)
 }
 
+// SetStored records in the metadata the fact that the file was stored.
 func (s *backupMetadataStorage) SetStored(id string) error {
 	err := setBackupStored(s.state, id)
 	if err != nil {
