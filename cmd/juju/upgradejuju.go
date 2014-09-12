@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -174,7 +175,15 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
 	} else {
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
-			return err
+			if params.ErrCode(err) == "upgrade in progress" {
+				return errors.Errorf("%s\n\n"+
+					"please wait for the upgrade to complete or if there was a problem with\n"+
+					"the last upgrade that has been resolved, consider running the\n"+
+					"upgrade-juju command with the --clear-previous flag.", err,
+				)
+			} else {
+				return err
+			}
 		}
 		logger.Infof("started upgrade to %s", context.chosen)
 	}
