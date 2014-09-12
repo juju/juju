@@ -146,13 +146,72 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	if env.supportedArchitectures != nil {
 		return env.supportedArchitectures, nil
 	}
-	// Create a filter to get all images from our region and for the correct stream.
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Stream: env.Config().ImageStream(),
-	})
-	var err error
-	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
-	return env.supportedArchitectures, err
+
+	nodegroups, err := env.getNodegroups()
+	if err != nil {
+		return nil, err
+	}
+
+	var allArchitectures set.Strings
+	for _, nodegroup := range nodegroups {
+		architectures, err := nodegroupSupportedArchitectures(nodegroup)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get supported architectures for %v", nodegroup)
+		}
+		allArchitectures = allArchitectures.Union(architectures)
+	}
+	env.supportedArchitectures = allArchitectures.SortedValues()
+	return env.supportedArchitectures, nil
+}
+
+// getNodegroups returns the MAASObject corresponding to each nodegroup
+// in the MAAS installation.
+func (env *maasEnviron) getNodegroups() ([]gomaasapi.MAASObject, error) {
+	nodegroupsListing := env.getMAASClient().GetSubObject("nodegroups")
+	nodegroupsResult, err := nodegroupsListing.CallGet("list", nil)
+	if err != nil {
+		return nil, err
+	}
+	list, err := nodegroupsResult.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	nodegroups := make([]gomaasapi.MAASObject, len(list))
+	for i, obj := range list {
+		nodegroup, err := obj.GetMAASObject()
+		if err != nil {
+			return nil, err
+		}
+		nodegroups[i] = nodegroup
+	}
+	return nodegroups, nil
+}
+
+// nodegroupSupportedArchitectures returns the set of architectures
+// for the boot images in this nodegroup.
+func nodegroupSupportedArchitectures(nodegroup gomaasapi.MAASObject) (set.Strings, error) {
+	var architectures set.Strings
+	bootImagesObject := nodegroup.GetSubObject("boot-images/")
+	result, err := bootImagesObject.CallGet("", nil)
+	if err != nil {
+		return architectures, err
+	}
+	list, err := result.GetArray()
+	if err != nil {
+		return architectures, err
+	}
+	for _, obj := range list {
+		bootimage, err := obj.GetMap()
+		if err != nil {
+			return architectures, err
+		}
+		arch, err := bootimage["architecture"].GetString()
+		if err != nil {
+			return architectures, err
+		}
+		architectures.Add(arch)
+	}
+	return architectures, nil
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
