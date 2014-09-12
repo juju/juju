@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,12 +37,12 @@ var resolvedMachineTests = []struct {
 		stdErr: `cannot retry provisioning "machine-42": machine 42 not found`,
 	}, {
 		args:   []string{"1"},
-		stdErr: `cannot retry provisioning "machine-1": machine "machine-1" is not in an error state`,
+		stdErr: `cannot retry provisioning "machine-1": "machine-1" is not in an error state`,
 	}, {
 		args: []string{"0"},
 	}, {
 		args:   []string{"0", "1"},
-		stdErr: `cannot retry provisioning "machine-1": machine "machine-1" is not in an error state`,
+		stdErr: `cannot retry provisioning "machine-1": "machine-1" is not in an error state`,
 	},
 }
 

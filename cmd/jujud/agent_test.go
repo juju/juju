@@ -19,7 +19,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -27,8 +28,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -287,10 +286,28 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 	worker.RestartDelay = s.oldRestartDelay
 }
 
+func (s *agentSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	// The standard jujud setupLogging replaces the default logger with one
+	// that uses a lumberjack rolling log file.  We want to make sure that all
+	// logging information from the agents when run through the tests continue
+	// to have the logging information available in the gocheck test logs, so
+	// we mock it out here.
+	s.PatchValue(&setupLogging, func(conf agent.Config) error { return nil })
+	// Set API host ports so FindTools/Tools API calls succeed.
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Port:    1234,
+	}}}
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+}
+
 // primeAgent writes the configuration file and tools with version vers
 // for an agent with the given entity name.  It returns the agent's
 // configuration and the current tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+	logger.Debugf("priming agent %s", tag.String())
 	stor := s.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
@@ -327,6 +344,8 @@ func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
 
 	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
 	c.Assert(err, gc.IsNil)
+
+	logger.Debugf("api host ports primed %#v", hostPort)
 }
 
 func parseHostPort(s string) (network.HostPort, error) {
@@ -344,7 +363,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *authentication.MongoInfo, dataDir string, tag names.Tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, tag names.Tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(

@@ -8,9 +8,10 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -26,13 +27,13 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Change the environ's config to ensure we're using the one in state,
 	// not the one in the local environments.yaml
-	updateAttrs := map[string]interface{}{"default-series": "precise"}
+	updateAttrs := map[string]interface{}{"default-series": config.LatestLtsSeries()}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()
 	os.Setenv("JUJU_REPOSITORY", repoPath)
-	s.SeriesPath = filepath.Join(repoPath, "precise")
+	s.SeriesPath = filepath.Join(repoPath, config.LatestLtsSeries())
 	err = os.Mkdir(s.SeriesPath, 0777)
 	c.Assert(err, gc.IsNil)
 	// Create a symlink "quantal" -> "precise", because most charms

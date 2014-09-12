@@ -8,7 +8,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/state/apiserver/usermanager"
+	"github.com/juju/juju/apiserver/usermanager"
 )
 
 const userInfoCommandDoc = `
@@ -99,7 +99,7 @@ func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
 		username = info.User
 	}
 	userTag := names.NewUserTag(username)
-	result, err := client.UserInfo(userTag.Id())
+	result, err := client.UserInfo(userTag.Name())
 	if err != nil {
 		return err
 	}

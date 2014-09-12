@@ -13,11 +13,11 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
-	"github.com/juju/juju/state/api/params"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -246,11 +246,10 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	mdoc := machineDocForTemplate(template, strconv.Itoa(seq))
-	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
-	ops = append(ops, st.insertNewContainerRefOp(mdoc.Id))
+	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
+	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
-		ops = append(ops, txn.Op{
+		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,
 			Id:     mdoc.Id,
 			Assert: txn.DocMissing,
@@ -266,7 +265,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 			},
 		})
 	}
-	return mdoc, ops, nil
+	return mdoc, append(prereqOps, machineOp), nil
 }
 
 // supportsContainerType reports whether the machine supports the given
@@ -321,15 +320,14 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	}
 	mdoc := machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
-	ops = append(ops,
+	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
+	prereqOps = append(prereqOps,
 		// Update containers record for host machine.
 		st.addChildToContainerRefOp(parentId, mdoc.Id),
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(mdoc.Id),
 	)
-	return mdoc, ops, nil
+	return mdoc, append(prereqOps, machineOp), nil
 }
 
 // newContainerId returns a new id for a machine within the machine
@@ -382,16 +380,16 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	}
 	mdoc := machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
-	var ops []txn.Op
-	ops = append(ops, st.insertNewMachineOps(parentDoc, parentTemplate)...)
-	ops = append(ops, st.insertNewMachineOps(mdoc, template)...)
-	ops = append(ops,
+	parentPrereqOps, parentOp := st.insertNewMachineOps(parentDoc, parentTemplate)
+	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
+	prereqOps = append(prereqOps, parentPrereqOps...)
+	prereqOps = append(prereqOps,
 		// The host machine doesn't exist yet, create a new containers record.
 		st.insertNewContainerRefOp(mdoc.Id),
 		// Create a containers reference document for the container itself.
 		st.insertNewContainerRefOp(parentDoc.Id, mdoc.Id),
 	)
-	return mdoc, ops, nil
+	return mdoc, append(prereqOps, parentOp, machineOp), nil
 }
 
 func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
@@ -413,14 +411,15 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 // insertNewMachineOps returns operations to insert the given machine
 // document into the database, based on the given template. Only the
 // constraints and networks are used from the template.
-func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) []txn.Op {
+func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op) {
+	machineOp = txn.Op{
+		C:      machinesC,
+		Id:     mdoc.Id,
+		Assert: txn.DocMissing,
+		Insert: mdoc,
+	}
+
 	return []txn.Op{
-		{
-			C:      machinesC,
-			Id:     mdoc.Id,
-			Assert: txn.DocMissing,
-			Insert: mdoc,
-		},
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
 			Status: params.StatusPending,
@@ -430,7 +429,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
 		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
-	}
+	}, machineOp
 }
 
 func hasJob(jobs []MachineJob, job MachineJob) bool {

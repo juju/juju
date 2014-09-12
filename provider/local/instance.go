@@ -50,19 +50,19 @@ func (inst *localInstance) Addresses() ([]network.Address, error) {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (inst *localInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *localInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	logger.Infof("OpenPorts called for %s:%v", machineId, ports)
 	return nil
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (inst *localInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *localInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	logger.Infof("ClosePorts called for %s:%v", machineId, ports)
 	return nil
 }
 
 // Ports implements instance.Instance.Ports.
-func (inst *localInstance) Ports(machineId string) ([]network.Port, error) {
+func (inst *localInstance) Ports(machineId string) ([]network.PortRange, error) {
 	return nil, nil
 }
 

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -73,14 +73,14 @@ func (s *DeploySuite) TestInitErrors(c *gc.C) {
 
 func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:precise/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/unknown-123`)
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
@@ -116,7 +116,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 }
 
@@ -124,7 +124,7 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/logging-1")
+	curl := charm.MustParseURL("local:trusty/logging-1")
 	s.AssertService(c, "logging", curl, 0, 0)
 }
 
@@ -164,7 +164,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2 networks=net1,^net2")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := service.Constraints()
 	c.Assert(err, gc.IsNil)
@@ -175,7 +175,7 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	networks, err := service.Networks()
 	c.Assert(err, gc.IsNil)
@@ -195,7 +195,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "dummy", curl, 13, 0)
 }
 
@@ -220,7 +220,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)
@@ -230,7 +230,7 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	template := state.MachineTemplate{
-		Series: "precise",
+		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
@@ -245,7 +245,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)
@@ -264,7 +264,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), "local:logging")

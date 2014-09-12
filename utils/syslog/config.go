@@ -65,14 +65,19 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 :syslogtag, startswith, "juju{{namespace}}-" @@{{$stateServerIP}}:{{portNumber}};LongTagForwardFormat
 # end: Forwarding rule for {{$stateServerIP}}
 {{end}}
-:syslogtag, startswith, "juju{{namespace}}-" ~
+:syslogtag, startswith, "juju{{namespace}}-" stop
 
 $FileCreateMode 0600
+
+# Maximum size for the log on this outchannel is 512MB
+# The command to execute when an outchannel as reached its size limit cannot accept any arguments
+# that is why we have created the helper script for executing logrotate.
+$outchannel logRotation,{{logDir}}/all-machines.log,512000000,{{logrotateHelperPath}}
 
 $RuleSet remote
 $FileCreateMode 0600
-:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
-:syslogtag, startswith, "juju{{namespace}}-" ~
+:syslogtag, startswith, "juju{{namespace}}-" :omfile:$logRotation;JujuLogFormat{{namespace}}
+:syslogtag, startswith, "juju{{namespace}}-" stop
 $FileCreateMode 0600
 
 $InputFilePersistStateInterval 50
@@ -131,16 +136,46 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 & ~
 `
 
+// The logrotate conf for state serve nodes.
+// default size is 512MB, ensuring that the log + one rotation
+// will never take up more than 1GB of space.
+const logrotateConf = `
+{{.LogDir}}/all-machines.log {
+    size 512M
+    # don't move, but copy-and-truncate so the application won't have to be
+    # told that the file has moved.
+    copytruncate
+    # maximum of one old file
+    rotate 1
+    # counting old files starts at 1 rather than 0
+    start 1
+    # use compression
+    compress
+}
+`
+
+var logrotateConfTemplate = template.Must(template.New("logrotate.conf").Parse(logrotateConf))
+
+// The logrotate helper script for state server nodes.
+// We specify a state file to ensure we have the proper permissions.
+const logrotateHelper = `
+/usr/sbin/logrotate -s {{.LogDir}}/logrotate.state {{.LogrotateConfPath}}
+`
+
+var logrotateHelperTemplate = template.Must(template.New("logrotate.run").Parse(logrotateHelper))
+
 // nodeRsyslogTemplateTLSHeader is prepended to
 // nodeRsyslogTemplate if TLS is to be used.
 const nodeRsyslogTemplateTLSHeader = `
 `
 
 const (
-	defaultConfigDir          = "/etc/rsyslog.d"
-	defaultCACertFileName     = "ca-cert.pem"
-	defaultServerCertFileName = "rsyslog-cert.pem"
-	defaultServerKeyFileName  = "rsyslog-key.pem"
+	defaultConfigDir               = "/etc/rsyslog.d"
+	defaultCACertFileName          = "ca-cert.pem"
+	defaultServerCertFileName      = "rsyslog-cert.pem"
+	defaultServerKeyFileName       = "rsyslog-key.pem"
+	defaultLogrotateConfFileName   = "logrotate.conf"
+	defaultLogrotateHelperFileName = "logrotate.run"
 )
 
 // SyslogConfigRenderer instances are used to generate a rsyslog conf file.
@@ -160,6 +195,10 @@ type SyslogConfig struct {
 	ConfigFileName string
 	// the name of the log file to tail.
 	LogFileName string
+	// the name of the logrotate configuration file.
+	LogrotateConfFileName string
+	// the name of the script that executes the logrotate command.
+	LogrotateHelperFileName string
 	// the addresses of the state server to which messages should be forwarded.
 	StateServerAddresses []string
 	// CA certificate file name.
@@ -235,6 +274,36 @@ func (slConfig *SyslogConfig) ServerKeyPath() string {
 	return filepath.Join(slConfig.LogDir, filename)
 }
 
+// LogrotateConfPath returns the the the entire logrotate.conf path including filename.
+func (slConfig *SyslogConfig) LogrotateConfPath() string {
+	filename := either(slConfig.LogrotateConfFileName, defaultLogrotateConfFileName)
+	return filepath.Join(slConfig.LogDir, filename)
+}
+
+// LogrotateHelperPath returns the entire logrotate.helper path including filename.
+func (slConfig *SyslogConfig) LogrotateHelperPath() string {
+	filename := either(slConfig.LogrotateHelperFileName, defaultLogrotateHelperFileName)
+	return filepath.Join(slConfig.LogDir, filename)
+}
+
+// LogrotateConfFile returns a ready to write to disk byte array of the logrotate.conf file.
+func (slConfig *SyslogConfig) LogrotateConfFile() ([]byte, error) {
+	return slConfig.logrotateRender(logrotateConfTemplate)
+}
+
+// LogrotateHelperFile returns a ready to write to disk byte array of the logrotate.helper file.
+func (slConfig *SyslogConfig) LogrotateHelperFile() ([]byte, error) {
+	return slConfig.logrotateRender(logrotateHelperTemplate)
+}
+
+func (slConfig *SyslogConfig) logrotateRender(t *template.Template) ([]byte, error) {
+	var buffer bytes.Buffer
+	if err := t.Execute(&buffer, slConfig); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
 // Render generates the rsyslog config.
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
 	var stateServerHosts = func() []string {
@@ -250,18 +319,19 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		return fmt.Sprintf("%s/%s.log", slConfig.LogDir, slConfig.LogFileName)
 	}
 
-	t := template.New("")
+	t := template.New("syslogConfig")
 	t.Funcs(template.FuncMap{
-		"logfileName":      func() string { return slConfig.LogFileName },
-		"stateServerHosts": stateServerHosts,
-		"logfilePath":      logFilePath,
-		"portNumber":       func() int { return slConfig.Port },
-		"logDir":           func() string { return slConfig.LogDir },
-		"namespace":        func() string { return slConfig.Namespace },
-		"tagStart":         func() int { return tagOffset + len(slConfig.Namespace) },
-		"tlsCACertPath":    slConfig.CACertPath,
-		"tlsCertPath":      slConfig.ServerCertPath,
-		"tlsKeyPath":       slConfig.ServerKeyPath,
+		"logfileName":         func() string { return slConfig.LogFileName },
+		"stateServerHosts":    stateServerHosts,
+		"logfilePath":         logFilePath,
+		"portNumber":          func() int { return slConfig.Port },
+		"logDir":              func() string { return slConfig.LogDir },
+		"namespace":           func() string { return slConfig.Namespace },
+		"tagStart":            func() int { return tagOffset + len(slConfig.Namespace) },
+		"tlsCACertPath":       slConfig.CACertPath,
+		"tlsCertPath":         slConfig.ServerCertPath,
+		"tlsKeyPath":          slConfig.ServerKeyPath,
+		"logrotateHelperPath": slConfig.LogrotateHelperPath,
 	})
 
 	// Process the rsyslog config template and echo to the conf file.

@@ -9,9 +9,9 @@ import (
 	"strconv"
 
 	"github.com/juju/names"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 

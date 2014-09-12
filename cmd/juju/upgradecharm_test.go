@@ -9,8 +9,8 @@ import (
 	"os"
 	"path"
 
-	"gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -59,7 +59,7 @@ func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *gc.C) {
 	// overwrites it (TearDownTest will revert it again).
 	os.Setenv("JUJU_REPOSITORY", "")
 	err = runUpgradeCharm(c, "riak", "--repository=")
-	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:precise/riak`)
+	c.Assert(err, gc.ErrorMatches, `charm not found in ".*": local:trusty/riak`)
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *gc.C) {
@@ -76,7 +76,7 @@ func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
 func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *gc.C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, gc.ErrorMatches, "charm not found: cs:precise/blah")
+	c.Assert(err, gc.ErrorMatches, "charm not found: cs:trusty/blah")
 	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
 	c.Assert(err, gc.ErrorMatches, "charm not found: cs:missing/one")
 	// TODO(dimitern): add tests with incompatible charms
@@ -201,12 +201,12 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak")
 	c.Assert(err, gc.IsNil)
 	curl := s.assertUpgraded(c, 7, false)
-	c.Assert(curl.String(), gc.Equals, "local:precise/myriak-7")
+	c.Assert(curl.String(), gc.Equals, "local:trusty/myriak-7")
 	s.assertLocalRevision(c, 7, myriakPath)
 
 	// Now try the same with explicit revision - should fail.
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-7")
-	c.Assert(err, gc.ErrorMatches, `already running specified charm "local:precise/myriak-7"`)
+	c.Assert(err, gc.ErrorMatches, `already running specified charm "local:trusty/myriak-7"`)
 
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
@@ -214,6 +214,6 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
 	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-42")
 	c.Assert(err, gc.IsNil)
 	curl = s.assertUpgraded(c, 42, false)
-	c.Assert(curl.String(), gc.Equals, "local:precise/myriak-42")
+	c.Assert(curl.String(), gc.Equals, "local:trusty/myriak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }

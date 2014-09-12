@@ -8,11 +8,13 @@ import (
 	"os"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -74,7 +76,19 @@ type BootstrapParams struct {
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string
+
+	// AvailableTools is a collection of tools which the Bootstrap method
+	// may use to decide which architecture/series to instantiate.
+	AvailableTools tools.List
+
+	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
+	// if there is an error during bootstrap.
+	KeepBroken bool
 }
+
+// BootstrapFinalizer is a function returned from Environ.Bootstrap.
+// The caller must pass a MachineConfig with the Tools field set.
+type BootstrapFinalizer func(BootstrapContext, *cloudinit.MachineConfig) error
 
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
@@ -91,18 +105,18 @@ type BootstrapParams struct {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	// Bootstrap initializes the state for the environment, possibly
-	// starting one or more instances.  If the configuration's
-	// AdminSecret is non-empty, the administrator password on the
-	// newly bootstrapped state will be set to a hash of it (see
-	// utils.PasswordHash), When first connecting to the
-	// environment via the juju package, the password hash will be
-	// automatically replaced by the real password.
+	// Bootstrap creates a new instance with the series and architecture
+	// of its choice, constrained to those of the available tools, and
+	// returns the instance's architecture, series, and a function that
+	// must be called to finalize the bootstrap process by transferring
+	// the tools and installing the initial Juju state server.
 	//
-	// Bootstrap is responsible for selecting the appropriate tools,
-	// and setting the agent-version configuration attribute prior to
-	// bootstrapping the environment.
-	Bootstrap(ctx BootstrapContext, params BootstrapParams) error
+	// It is possible to direct Bootstrap to use a specific architecture
+	// (or fail if it cannot start an instance of that architecture) by
+	// using an architecture constraint; this will have the effect of
+	// limiting the available tools to just those matching the specified
+	// architecture.
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) (arch, series string, _ BootstrapFinalizer, _ error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
@@ -157,20 +171,20 @@ type Environ interface {
 	// same remote environment may become invalid
 	Destroy() error
 
-	// OpenPorts opens the given ports for the whole environment.
+	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []network.Port) error
+	OpenPorts(ports []network.PortRange) error
 
-	// ClosePorts closes the given ports for the whole environment.
+	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []network.Port) error
+	ClosePorts(ports []network.PortRange) error
 
-	// Ports returns the ports opened for the whole environment.
+	// Ports returns the port ranges opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]network.Port, error)
+	Ports() ([]network.PortRange, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/state/api"
 )
 
 type DebugLogCommand struct {

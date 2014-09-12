@@ -16,6 +16,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	coretesting "github.com/juju/juju/testing"
@@ -30,6 +31,9 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
+	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
+		return nil
+	})
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {

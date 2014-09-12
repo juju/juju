@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Context is the interface that all hook helper commands

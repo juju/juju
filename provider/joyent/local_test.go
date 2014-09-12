@@ -184,7 +184,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
 	s.Tests.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances(inst.Id())
@@ -194,7 +194,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	s.Tests.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -304,7 +304,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
 	s.Tests.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that StateServerInstances returns the id of the bootstrap machine.
@@ -430,9 +430,9 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

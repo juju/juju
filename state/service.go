@@ -13,13 +13,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/state/api/params"
 )
 
 // Service represents the state of a service.
@@ -30,7 +30,7 @@ type Service struct {
 }
 
 // serviceDoc represents the internal state of a service in MongoDB.
-// Note the correspondence with ServiceInfo in state/api/params.
+// Note the correspondence with ServiceInfo in apiserver/params.
 type serviceDoc struct {
 	Name          string `bson:"_id"`
 	Series        string
@@ -618,20 +618,16 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return name, ops, nil
 }
 
-// GetOwnerTag returns the owner of this service
-// SCHEMACHANGE
-// TODO(mattyw) remove when schema upgrades are possible
-func (s *serviceDoc) GetOwnerTag() string {
-	if s.OwnerTag != "" {
-		return s.OwnerTag
-	}
-	return "user-admin"
-}
-
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
 func (s *Service) GetOwnerTag() string {
-	return s.doc.GetOwnerTag()
+	owner := s.doc.OwnerTag
+	if owner == "" {
+		// We know that if there was no owner, it was created with an early
+		// version of juju, and that admin was the only user.
+		owner = names.NewUserTag("admin").String()
+	}
+	return owner
 }
 
 // AddUnit adds a new principal unit to the service.

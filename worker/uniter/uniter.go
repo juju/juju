@@ -20,15 +20,15 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	proxyutils "github.com/juju/utils/proxy"
-	corecharm "gopkg.in/juju/charm.v2"
-	"gopkg.in/juju/charm.v2/hooks"
+	corecharm "gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/api/uniter"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/uniter"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -245,7 +245,10 @@ func (u *Uniter) init(unitTag string) (err error) {
 		return err
 	}
 	// The socket needs to have permissions 777 in order for other users to use it.
-	return os.Chmod(runListenerSocketPath, 0777)
+	if version.Current.OS != version.Windows {
+		return os.Chmod(runListenerSocketPath, 0777)
+	}
+	return nil
 }
 
 func (u *Uniter) Kill() {

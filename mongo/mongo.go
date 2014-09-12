@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
 
@@ -140,7 +139,23 @@ func RemoveService(namespace string) error {
 
 // EnsureServerParams is a parameter struct for EnsureServer.
 type EnsureServerParams struct {
-	params.StateServingInfo
+	// APIPort is the port to connect to the api server.
+	APIPort int
+
+	// StatePort is the port to connect to the mongo server.
+	StatePort int
+
+	// Cert is the certificate.
+	Cert string
+
+	// PrivateKey is the certificate's private key.
+	PrivateKey string
+
+	// SharedSecret is a secret shared between mongo servers.
+	SharedSecret string
+
+	// SystemIdentity is the identity of the system.
+	SystemIdentity string
 
 	// DataDir is the machine agent data directory.
 	DataDir string

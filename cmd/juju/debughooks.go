@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 )

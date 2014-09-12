@@ -6,7 +6,7 @@ package hook_test
 import (
 	"testing"
 
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/worker/uniter/hook"

@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/api"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -65,7 +65,7 @@ func (*NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	cfg = env.Config()
@@ -122,7 +122,7 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	env, err := environs.PrepareFromName(envName, ctx, store)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 

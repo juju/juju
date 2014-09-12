@@ -45,6 +45,21 @@ const boilerplateConfig = `joyent:
   # private-key-path: ~/.ssh/id_rsa
   # algorithm defaults to rsa-sha256, override if required
   # algorithm: rsa-sha256
+
+  # Whether or not to refresh the list of available updates for an
+  # OS. The default option of true is recommended for use in
+  # production systems, but disabling this can speed up local
+  # deployments for development or testing.
+  #
+  # enable-os-refresh-update: true
+
+  # Whether or not to perform OS upgrades when machines are
+  # provisioned. The default option of true is recommended for use
+  # in production systems, but disabling this can speed up local
+  # deployments for development or testing.
+  #
+  # enable-os-upgrade: true
+
 `
 
 const (

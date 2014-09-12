@@ -4,201 +4,172 @@
 package networker_test
 
 import (
-	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/juju/utils"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/networker"
 )
 
-type configSuite struct {
+type configFilesSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&configSuite{})
+var _ = gc.Suite(&configFilesSuite{})
 
-const interfacesTemplate = `# Blah-blah
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-auto eth1
-source %s/eth1.config
-auto eth0
-source %s/eth0.config
-
-auto eth1.2
-iface eth1.2 inet dhcp
-
-auto eth2
-iface eth2 inet dhcp
-`
-const eth0DotConfigContents = `iface eth0 inet manual
-
-auto br0
-iface br0 inet dhcp
-  bridge_ports eth0
-`
-const eth1DotConfigContents = `iface eth1 inet manual
-
-auto br2
-iface br2 inet dhcp
-  bridge_ports eth1
-`
-const interfacesDSlashEth0DotCfgContents = `auto eth0
-iface eth0 inet dhcp
-`
-const interfacesDSlashEth4DotCfgContents = `auto eth4
-iface eth4 inet dhcp
-`
-
-const interfacesExpectedPrefix = `# Blah-blah
-
-# The loopback network interface
-auto lo
-iface lo inet loopback
-
-`
-
-func (s *configSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-
-	// Create temporary directory to store interfaces file.
-	networker.ChangeConfigDirName(c.MkDir())
+func (s *configFilesSuite) TestSimpleGetters(c *gc.C) {
+	info := network.Info{
+		InterfaceName: "blah",
+	}
+	data := []byte("some data")
+	cf := networker.NewConfigFile("ethX", "/some/path", info, data)
+	c.Assert(cf.InterfaceName(), gc.Equals, "ethX")
+	c.Assert(cf.FileName(), gc.Equals, "/some/path")
+	c.Assert(cf.NetworkInfo(), jc.DeepEquals, info)
+	c.Assert(cf.Data(), jc.DeepEquals, data)
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
+	c.Assert(cf.IsManaged(), jc.IsFalse)
 }
 
-func (s *configSuite) TestConfigFileOperations(c *gc.C) {
-	// Create sample config files
-	interfacesContents := fmt.Sprintf(interfacesTemplate, networker.ConfigDirName, networker.ConfigDirName)
-	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(eth0DotConfigContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth1.config"), []byte(eth1DotConfigContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = os.Mkdir(networker.ConfigSubDirName, 0755)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigSubDirName, "eth0.cfg"),
-		[]byte(interfacesDSlashEth0DotCfgContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigSubDirName, "eth4.cfg"),
-		[]byte(interfacesDSlashEth4DotCfgContents), 0644)
-	c.Assert(err, gc.IsNil)
-
-	cf := networker.ConfigFiles{}
-	err = networker.ReadAll(&cf)
-	c.Assert(err, gc.IsNil)
-	expect := networker.ConfigFiles{
-		networker.ConfigFileName: {
-			Data: interfacesContents,
-		},
-		networker.IfaceConfigFileName("eth0"): {
-			Data: interfacesDSlashEth0DotCfgContents,
-		},
-		networker.IfaceConfigFileName("eth4"): {
-			Data: interfacesDSlashEth4DotCfgContents,
-		},
+func (s *configFilesSuite) TestRenderManaged(c *gc.C) {
+	info := network.Info{
+		InterfaceName: "ethX",
+		VLANTag:       42,
 	}
-	c.Assert(cf, gc.DeepEquals, expect)
-	err = networker.FixMAAS(cf)
-	c.Assert(err, gc.IsNil)
-	expect = networker.ConfigFiles{
-		networker.ConfigFileName: {
-			Data: interfacesExpectedPrefix +
-				fmt.Sprintf(networker.SourceCommentAndCommand,
-					networker.ConfigSubDirName, networker.ConfigSubDirName,
-					networker.ConfigSubDirName, networker.ConfigSubDirName),
-			Op: networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("eth0"): {
-			Data: "auto eth0\niface eth0 inet manual\n",
-			Op:   networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("br0"): {
-			Data: "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
-			Op:   networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("eth1"): {
-			Data: "auto eth1\niface eth1 inet manual\n",
-			Op:   networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("br2"): {
-			Data: "auto br2\niface br2 inet dhcp\n  bridge_ports eth1\n",
-			Op:   networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("eth1.2"): {
-			Data: "auto eth1.2\niface eth1.2 inet dhcp\n",
-			Op:   networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("eth2"): {
-			Data: "auto eth2\niface eth2 inet dhcp\n",
-			Op:   networker.DoWrite,
-		},
-		networker.IfaceConfigFileName("eth4"): {
-			Data: "",
-			Op:   networker.DoRemove,
-		},
-		filepath.Join(networker.ConfigDirName, "eth0.config"): {
-			Data: "",
-			Op:   networker.DoRemove,
-		},
-		filepath.Join(networker.ConfigDirName, "eth1.config"): {
-			Data: "",
-			Op:   networker.DoRemove,
-		},
-	}
-	c.Assert(cf, gc.DeepEquals, expect)
-	err = networker.WriteOrRemove(cf)
-	c.Assert(err, gc.IsNil)
+	cf := networker.NewConfigFile("ethX", "/some/path", info, nil)
+	data := cf.RenderManaged()
+	expectedVLAN := `
+# Managed by Juju, please don't change.
 
-	// Do another ineration, some interfaces should disappear
-	cf = networker.ConfigFiles{}
-	err = networker.ReadAll(&cf)
-	c.Assert(err, gc.IsNil)
-	delete(expect, networker.IfaceConfigFileName("eth4"))
-	delete(expect, filepath.Join(networker.ConfigDirName, "eth0.config"))
-	delete(expect, filepath.Join(networker.ConfigDirName, "eth1.config"))
-	for k, _ := range expect {
-		expect[k].Op = networker.DoNone
-	}
-	c.Assert(cf, gc.DeepEquals, expect)
+auto ethX.42
+iface ethX.42 inet dhcp
+	vlan-raw-device ethX
 
-	// fixMAAS should not change anything
-	err = networker.FixMAAS(cf)
-	c.Assert(err, gc.IsNil)
-	c.Assert(cf, gc.DeepEquals, expect)
+`[1:]
+	c.Assert(string(data), jc.DeepEquals, expectedVLAN)
+
+	expectedNormal := `
+# Managed by Juju, please don't change.
+
+auto ethX
+iface ethX inet dhcp
+
+`[1:]
+	info.VLANTag = 0
+	cf = networker.NewConfigFile("ethX", "/some/path", info, nil)
+	data = cf.RenderManaged()
+	c.Assert(string(data), jc.DeepEquals, expectedNormal)
 }
 
-const interfacesData = `# comment 1
-auto eth0.1 eth0
-aaa
-allow-x eth1:2
-bbb
-# comment 2
-
-# comment 3
-iface eth0.1
-ccc
-source eth2.cfg
-ddd
-mapping eth1:2
-eee
-source-directory somedir
-fff
-`
-
-func (s *configSuite) TestSplitByInterfaces(c *gc.C) {
-	split, err := networker.SplitByInterfaces(interfacesData)
-	expect := map[string]string{
-		"":       "source eth2.cfg\nddd\nsource-directory somedir\nfff\n",
-		"eth0.1": "# comment 1\nauto eth0.1 eth0\naaa\n# comment 3\niface eth0.1\nccc\n",
-		"eth1:2": "allow-x eth1:2\nbbb\n# comment 2\n\nmapping eth1:2\neee\n",
+func (s *configFilesSuite) TestUpdateData(c *gc.C) {
+	cf := networker.NewConfigFile("ethX", "", network.Info{}, nil)
+	assertData := func(expectData []byte, expectNeedsUpdating bool) {
+		c.Assert(string(cf.Data()), jc.DeepEquals, string(expectData))
+		c.Assert(cf.NeedsUpdating(), gc.Equals, expectNeedsUpdating)
+		c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
 	}
+
+	assertData(nil, false)
+
+	result := cf.UpdateData(nil)
+	c.Assert(result, jc.IsFalse)
+	assertData(nil, false)
+
+	newData := []byte("new data")
+	result = cf.UpdateData(newData)
+	c.Assert(result, jc.IsTrue)
+	assertData(newData, true)
+
+	newData = []byte("newer data")
+	result = cf.UpdateData(newData)
+	c.Assert(result, jc.IsTrue)
+	assertData(newData, true)
+}
+
+func (s *configFilesSuite) TestReadData(c *gc.C) {
+	data := []byte("some\ndata\nhere")
+	testFile := filepath.Join(c.MkDir(), "test")
+	defer os.Remove(testFile)
+
+	err := ioutil.WriteFile(testFile, data, 0644)
 	c.Assert(err, gc.IsNil)
-	c.Assert(split, gc.DeepEquals, expect)
+	cf := networker.NewConfigFile("ethX", testFile, network.Info{}, nil)
+	err = cf.ReadData()
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(cf.Data()), jc.DeepEquals, string(data))
+	c.Assert(cf.NeedsUpdating(), jc.IsTrue)
+}
+
+func (s *configFilesSuite) TestMarkForRemoval(c *gc.C) {
+	cf := networker.NewConfigFile("ethX", "", network.Info{}, nil)
+	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+	cf.MarkForRemoval()
+	c.Assert(cf.IsPendingRemoval(), jc.IsTrue)
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+}
+
+func (s *configFilesSuite) TestIsManaged(c *gc.C) {
+	info := network.Info{
+		InterfaceName: "ethX",
+	}
+	cf := networker.NewConfigFile("ethX", "", info, nil)
+	c.Assert(cf.IsManaged(), jc.IsFalse) // always false when no data
+	c.Assert(cf.UpdateData([]byte("blah")), jc.IsTrue)
+	c.Assert(cf.IsManaged(), jc.IsFalse) // false if header is missing
+	c.Assert(cf.UpdateData(cf.RenderManaged()), jc.IsTrue)
+	c.Assert(cf.IsManaged(), jc.IsTrue)
+}
+
+func (s *configFilesSuite) TestApply(c *gc.C) {
+	data := []byte("some\ndata\nhere")
+	testFile := filepath.Join(c.MkDir(), "test")
+	defer os.Remove(testFile)
+
+	cf := networker.NewConfigFile("ethX", testFile, network.Info{}, data)
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
+	c.Assert(string(cf.Data()), jc.DeepEquals, string(data))
+
+	newData := []byte("new\ndata")
+	c.Assert(cf.UpdateData(newData), jc.IsTrue)
+	c.Assert(cf.NeedsUpdating(), jc.IsTrue)
+	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
+
+	err := cf.Apply()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
+
+	readData, err := ioutil.ReadFile(testFile)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(readData), jc.DeepEquals, string(newData))
+
+	cf.MarkForRemoval()
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+	c.Assert(cf.IsPendingRemoval(), jc.IsTrue)
+	err = cf.Apply()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cf.NeedsUpdating(), jc.IsFalse)
+	c.Assert(cf.IsPendingRemoval(), jc.IsFalse)
+
+	_, err = os.Stat(testFile)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *configFilesSuite) TestRenderMainConfig(c *gc.C) {
+	expect := `
+# Managed by Juju, please don't change.
+
+source /some/path/*.cfg
+
+`[1:]
+	data := networker.RenderMainConfig("/some/path")
+	c.Assert(string(data), jc.DeepEquals, expect)
 }

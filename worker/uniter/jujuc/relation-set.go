@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -60,6 +61,9 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 		return fmt.Errorf("unknown relation id")
 	}
 	settings, err := r.Settings()
+	if err != nil {
+		return errors.Annotate(err, "cannot read relation settings")
+	}
 	for k, v := range c.Settings {
 		if v != "" {
 			settings.Set(k, v)

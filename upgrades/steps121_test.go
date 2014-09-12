@@ -19,6 +19,8 @@ var _ = gc.Suite(&steps121Suite{})
 func (s *steps121Suite) TestUpgradeOperationsContent(c *gc.C) {
 	var expectedSteps = []string{
 		"rename the user LastConnection field to LastLogin",
+		"add environment uuid to state server doc",
+		"add all users in state as environment users",
 	}
 
 	upgradeSteps := upgrades.StepsFor121()

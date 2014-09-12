@@ -28,8 +28,10 @@ func (s *UserSuite) TestAddInvalidNames(c *gc.C) {
 		"b^b",
 		"a.",
 		"a-",
+		"user@local",
+		"@ubuntuone",
 	} {
-		c.Logf("check invalid name %q, name")
+		c.Logf("check invalid name %q", name)
 		user, err := s.State.AddUser(name, "ignored", "ignored", "ignored")
 		c.Check(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
 		c.Check(user, gc.IsNil)
@@ -55,7 +57,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 		user.DateCreated().Equal(now), jc.IsTrue)
 	c.Assert(user.LastLogin(), gc.IsNil)
 
-	user, err = s.State.User(name)
+	user, err = s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, name)
@@ -68,7 +70,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 	exists, err := state.CheckUserExists(s.State, user.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(exists, jc.IsTrue)
@@ -78,13 +80,13 @@ func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 }
 
 func (s *UserSuite) TestString(c *gc.C) {
-	user := s.factory.MakeUser(factory.UserParams{Name: "foo"})
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "foo"})
 	c.Assert(user.String(), gc.Equals, "foo@local")
 }
 
 func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.LastLogin().After(now) ||
@@ -92,14 +94,14 @@ func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 	testSetPassword(c, func() (state.Authenticator, error) {
-		return s.State.User(user.Name())
+		return s.State.User(user.UserTag())
 	})
 }
 
 func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
-	user := s.factory.MakeUser(factory.UserParams{Password: "a-password"})
+	user := s.factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	salt, hash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(hash, gc.Not(gc.Equals), "")
 	c.Assert(salt, gc.Not(gc.Equals), "")
@@ -108,7 +110,7 @@ func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 	origSalt, origHash := state.GetUserPasswordSaltAndHash(user)
 	c.Assert(origSalt, gc.Not(gc.Equals), "")
 	user.SetPassword("a-password")
@@ -120,7 +122,7 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestDeactivate(c *gc.C) {
-	user := s.factory.MakeUser(factory.UserParams{Password: "a-password"})
+	user := s.factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
 	err := user.Deactivate()
@@ -135,7 +137,7 @@ func (s *UserSuite) TestDeactivate(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
 	c.Assert(err, gc.IsNil)
@@ -153,7 +155,7 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
 	c.Assert(err, gc.IsNil)
@@ -165,7 +167,7 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 
 	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
 	err := user.SetPasswordHash(compatHash, "")
@@ -192,12 +194,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestCantDeactivateAdmin(c *gc.C) {
-	// TODO: when the ConnSuite is updated to create the admin user for the
-	// admin user, we can remove the creation here (in fact it should cause this
-	// test to fail).
-	s.factory.MakeUser(factory.UserParams{Name: state.AdminUser})
-
-	user, err := s.State.User(state.AdminUser)
+	user, err := s.State.User(s.owner)
 	c.Assert(err, gc.IsNil)
 	err = user.Deactivate()
 	c.Assert(err, gc.ErrorMatches, "cannot deactivate admin user")

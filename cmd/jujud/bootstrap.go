@@ -4,17 +4,24 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -22,12 +29,15 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/toolstorage"
+	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
 
 var (
 	agentInitializeState = agent.InitializeState
+	sshGenerateKey       = ssh.GenerateKey
 	minSocketTimeout     = 1 * time.Minute
 )
 
@@ -106,9 +116,19 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	// Create system-identity file
-	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
-		return err
+	// Generate a private SSH key for the state servers, and add
+	// the public key to the environment config. We'll add the
+	// private key to StateServingInfo below.
+	privateKey, publicKey, err := sshGenerateKey(config.JujuSystemKey)
+	if err != nil {
+		return errors.Annotate(err, "failed to generate system key")
+	}
+	authorizedKeys := config.ConcatAuthKeys(envCfg.AuthorizedKeys(), publicKey)
+	envCfg, err = env.Config().Apply(map[string]interface{}{
+		config.AuthKeysConfig: authorizedKeys,
+	})
+	if err != nil {
+		return errors.Annotate(err, "failed to add public key to environment config")
 	}
 
 	// Generate a shared secret for the Mongo replica set, and write it out.
@@ -121,6 +141,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
+	info.SystemIdentity = privateKey
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
 		return nil
@@ -129,6 +150,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot write agent config: %v", err)
 	}
 	agentConfig = c.CurrentConfig()
+
+	// Create system-identity file
+	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
+		return err
+	}
 
 	if err := c.startMongo(addrs, agentConfig); err != nil {
 		return err
@@ -175,6 +201,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
+	// Populate the tools catalogue.
+	if err := c.populateTools(st, env); err != nil {
+		return err
+	}
+
 	// bootstrap machine always gets the vote
 	return m.SetHasVote(true)
 }
@@ -192,16 +223,22 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		}
 	}
 
-	servingInfo, ok := agentConfig.StateServingInfo()
+	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
 	}
 
 	params := mongo.EnsureServerParams{
-		StateServingInfo: servingInfo,
-		DataDir:          agentConfig.DataDir(),
-		Namespace:        agentConfig.Value(agent.Namespace),
-		OplogSize:        oplogSize,
+		APIPort:        si.APIPort,
+		StatePort:      si.StatePort,
+		Cert:           si.Cert,
+		PrivateKey:     si.PrivateKey,
+		SharedSecret:   si.SharedSecret,
+		SystemIdentity: si.SystemIdentity,
+
+		DataDir:   agentConfig.DataDir(),
+		Namespace: agentConfig.Value(agent.Namespace),
+		OplogSize: oplogSize,
 	}
 	return params, nil
 }
@@ -252,6 +289,58 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 		DialInfo:       dialInfo,
 		MemberHostPort: peerHostPort,
 	})
+}
+
+// populateTools stores uploaded tools in provider storage
+// and updates the tools metadata.
+func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
+	agentConfig := c.CurrentConfig()
+	dataDir := agentConfig.DataDir()
+	tools, err := agenttools.ReadTools(dataDir, version.Current)
+	if err != nil {
+		return err
+	}
+
+	data, err := ioutil.ReadFile(filepath.Join(
+		agenttools.SharedToolsDir(dataDir, version.Current),
+		"tools.tar.gz",
+	))
+	if err != nil {
+		return err
+	}
+
+	storage, err := st.ToolsStorage()
+	if err != nil {
+		return err
+	}
+	defer storage.Close()
+
+	var toolsVersions []version.Binary
+	if strings.HasPrefix(tools.URL, "file://") {
+		// Tools were uploaded: clone for each series of the same OS.
+		osSeries := version.OSSupportedSeries(tools.Version.OS)
+		for _, series := range osSeries {
+			toolsVersion := tools.Version
+			toolsVersion.Series = series
+			toolsVersions = append(toolsVersions, toolsVersion)
+		}
+	} else {
+		// Tools were downloaded from an external source: don't clone.
+		toolsVersions = []version.Binary{tools.Version}
+	}
+
+	for _, toolsVersion := range toolsVersions {
+		metadata := toolstorage.Metadata{
+			Version: toolsVersion,
+			Size:    tools.Size,
+			SHA256:  tools.SHA256,
+		}
+		logger.Debugf("Adding tools: %v", toolsVersion)
+		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

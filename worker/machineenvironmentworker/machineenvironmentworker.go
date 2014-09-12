@@ -16,9 +16,9 @@ import (
 	proxyutils "github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/environment"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/state/api/environment"
-	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )

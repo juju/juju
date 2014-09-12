@@ -8,14 +8,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	envcloudinit "github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/environs/imagemetadata"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -53,23 +53,28 @@ func testConfig(c *gc.C, stateServer bool, vers version.Binary) *config.Config {
 
 func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.Binary) *cloudinit.Config {
 	var mcfg *envcloudinit.MachineConfig
+	var err error
 	if stateServer {
-		mcfg = environs.NewBootstrapMachineConfig("private-key")
+		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
+		c.Assert(err, gc.IsNil)
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	} else {
-		mcfg = environs.NewMachineConfig("0", "ya", nil, nil, nil)
+		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, nil, nil, nil)
+		c.Assert(err, gc.IsNil)
 		mcfg.Jobs = []params.MachineJob{params.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
 		Version: vers,
-		URL:     "file:///var/lib/juju/storage/" + envtools.StorageName(vers),
+		URL:     "http://testing.invalid/tools.tar.gz",
 	}
 	environConfig := testConfig(c, stateServer, vers)
-	err := environs.FinishMachineConfig(mcfg, environConfig, constraints.Value{})
+	err = environs.FinishMachineConfig(mcfg, environConfig)
 	c.Assert(err, gc.IsNil)
 	cloudcfg := cloudinit.New()
-	err = envcloudinit.Configure(mcfg, cloudcfg)
+	udata, err := envcloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.Configure()
 	c.Assert(err, gc.IsNil)
 	return cloudcfg
 }
@@ -138,18 +143,22 @@ func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match b
 }
 
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
-	// apt-get update is run if either AptUpdate is set,
-	// or apt sources are defined.
+	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
 	cfg := cloudinit.New()
+
 	c.Assert(cfg.AptUpdate(), gc.Equals, false)
 	c.Assert(cfg.AptSources(), gc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
+
 	cfg.SetAptUpdate(true)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
+
+	// If we add sources, but disable updates, display an error.
 	cfg.SetAptUpdate(false)
 	cfg.AddAptSource("source", "key", nil)
-	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
+	_, err := sshinit.ConfigureScript(cfg)
+	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 
 func (s *configureSuite) TestAptUpgrade(c *gc.C) {

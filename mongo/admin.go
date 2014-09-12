@@ -17,6 +17,9 @@ import (
 	"github.com/juju/juju/service/upstart"
 )
 
+// AdminUser is the name of the user that is initially created in mongo.
+const AdminUser = "admin"
+
 var (
 	processSignal = (*os.Process).Signal
 )
@@ -133,28 +136,9 @@ func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
 		}); err != nil {
 			return fmt.Errorf("cannot set admin password: %v", err)
 		}
-		if err := admin.Login(user, password); err != nil {
-			return fmt.Errorf("cannot login after setting password: %v", err)
-		}
 	} else {
 		if err := admin.RemoveUser(user); err != nil && err != mgo.ErrNotFound {
 			return fmt.Errorf("cannot disable admin password: %v", err)
-		}
-	}
-	return nil
-}
-
-// SetMongoPassword sets the mongo password in the specified databases for the given user name.
-// Previous passwords are invalidated.
-func SetMongoPassword(name, password string, dbs ...*mgo.Database) error {
-	user := &mgo.User{
-		Username: name,
-		Password: password,
-		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin, mgo.RoleClusterAdmin},
-	}
-	for _, db := range dbs {
-		if err := db.UpsertUser(user); err != nil {
-			return fmt.Errorf("cannot set password in juju db %q for %q: %v", db.Name, name, err)
 		}
 	}
 	return nil

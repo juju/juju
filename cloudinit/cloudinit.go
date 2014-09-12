@@ -9,8 +9,6 @@ package cloudinit
 import (
 	"bytes"
 	"text/template"
-
-	yaml "launchpad.net/goyaml"
 )
 
 // Config represents a set of cloud-init configuration options.
@@ -21,15 +19,6 @@ type Config struct {
 // New returns a new Config with no options set.
 func New() *Config {
 	return &Config{make(map[string]interface{})}
-}
-
-// Render returns the cloud-init configuration as a YAML file.
-func (cfg *Config) Render() ([]byte, error) {
-	data, err := yaml.Marshal(cfg.attrs)
-	if err != nil {
-		return nil, err
-	}
-	return append([]byte("#cloud-config\n"), data...), nil
 }
 
 func (cfg *Config) set(opt string, yes bool, value interface{}) {

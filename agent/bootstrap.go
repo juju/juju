@@ -6,16 +6,17 @@ package agent
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
 
@@ -82,7 +83,11 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}
 	info.Tag = nil
-	info.Password = ""
+	info.Password = c.OldPassword()
+
+	if err := initMongoAdminUser(info.Info, dialOpts, info.Password); err != nil {
+		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
+	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(info, envCfg, dialOpts, policy)
@@ -100,20 +105,29 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
-	if err := st.SetStateServingInfo(servingInfo); err != nil {
+	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+	if err := st.SetStateServingInfo(ssi); err != nil {
 		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
-	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
+	m, err := initConstraintsAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
 		return nil, nil, err
 	}
 	return st, m, nil
 }
 
-func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := initBootstrapUser(st, c.OldPassword()); err != nil {
-		return nil, fmt.Errorf("cannot initialize bootstrap user: %v", err)
+func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
 	}
+}
+
+func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
 		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
 	}
@@ -124,34 +138,15 @@ func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg Bootstrap
 	return m, nil
 }
 
-// initBootstrapUser creates the initial admin user for the database, and sets
-// the initial password.
-func initBootstrapUser(st *state.State, passwordHash string) error {
-	logger.Debugf("adding admin user")
-	// Set up initial authentication.
-	u, err := st.AddAdminUser("") // empty initial passowrd
+// initMongoAdminUser adds the admin user with the specified
+// password to the admin database in Mongo.
+func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
+	session, err := mongo.DialWithInfo(info, dialOpts)
 	if err != nil {
 		return err
 	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-	logger.Debugf("setting password hash for admin user")
-	// TODO(jam): http://pad.lv/1248839
-	// We could teach bootstrap how to generate a custom salt and apply
-	// that to the hash that was generated. At which point we'd need to set
-	// it here. For now, we pass "" so that on first login we will create a
-	// new salt, but the fixed-salt password is still available from
-	// cloud-init.
-	if err := u.SetPasswordHash(passwordHash, ""); err != nil {
-		return err
-	}
-	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
-		return err
-	}
-	return nil
+	defer session.Close()
+	return mongo.SetAdminMongoPassword(session, mongo.AdminUser, password)
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.

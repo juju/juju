@@ -11,13 +11,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,7 +39,7 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
-	c.Assert(m.Series(), gc.DeepEquals, "precise")
+	c.Assert(m.Series(), gc.DeepEquals, config.LatestLtsSeries())
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
@@ -69,16 +70,6 @@ func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Series(), gc.DeepEquals, "series")
-}
-
-func (s *AddMachineSuite) TestAddMachineWithCustomKeyFails(c *gc.C) {
-	_, err := runAddMachine(c, "--ssh-key", "~/mykeys/id_rsa.pub")
-	c.Assert(err, gc.ErrorMatches, "--ssh-key can only be used when manually provisioning a machine with ssh")
-}
-
-func (s *AddMachineSuite) TestAddMachineWithCustomKey(c *gc.C) {
-	err := testing.InitCommand(envcmd.Wrap(&AddMachineCommand{}), []string{"ssh:user@10.10.0.3", "--ssh-key", "~/mykeys/id_rsa.pub"})
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *AddMachineSuite) TestAddMachineWithConstraints(c *gc.C) {

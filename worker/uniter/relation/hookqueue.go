@@ -6,10 +6,10 @@ package relation
 import (
 	"sort"
 
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker/uniter/hook"
 )

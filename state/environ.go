@@ -68,6 +68,13 @@ func (e *Environment) Life() Life {
 	return e.doc.Life
 }
 
+// Owner returns tag representing the owner of the environment.
+// The owner is the user that created the environment.
+func (e *Environment) Owner() names.UserTag {
+	// For now, just returns "admin".
+	return names.NewLocalUserTag(AdminUser)
+}
+
 // globalKey returns the global database key for the environment.
 func (e *Environment) globalKey() string {
 	return environGlobalKey

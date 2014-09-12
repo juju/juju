@@ -33,8 +33,10 @@ cat /proc/cpuinfo`
 // common case of no matching files.
 const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 
-// checkProvisioned checks if any juju upstart jobs already
+// CheckProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
+var CheckProvisioned = checkProvisioned
+
 func checkProvisioned(host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
@@ -58,12 +60,11 @@ func checkProvisioned(host string) (bool, error) {
 	return provisioned, nil
 }
 
-// Patch for testing.
-var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
-
-// detectSeriesAndHardwareCharacteristics detects the OS
+// DetectSeriesAndHardwareCharacteristics detects the OS
 // series and hardware characteristics of the remote machine
 // by connecting to the machine and executing a bash script.
+var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
+
 func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
@@ -134,19 +135,10 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
 //
-// identityFile is an optional private key/identity file
-// used when attempting to login. If unset, the default
-// key/identity file will be used.
-//
 // stdin and stdout will be used for remote sudo prompts,
 // if the ubuntu user must be created/updated.
-func InitUbuntuUser(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error {
-	return initUbuntuUser(host, login, authorizedKeys, identityFile, stdin, stdout)
-}
-
-var initUbuntuUser = func(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
-	sshCli := GetSSHClient()
 
 	// To avoid unnecessary prompting for the specified login,
 	// initUbuntuUser will first attempt to ssh to the machine
@@ -155,7 +147,7 @@ var initUbuntuUser = func(host, login, authorizedKeys, identityFile string, stdi
 	//
 	// Note that we explicitly do not allocate a PTY, so we
 	// get a failure if sudo prompts.
-	cmd := sshCli.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
+	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
 	if cmd.Run() == nil {
 		logger.Infof("ubuntu user is already initialised")
 		return nil
@@ -170,10 +162,7 @@ var initUbuntuUser = func(host, login, authorizedKeys, identityFile string, stdi
 	var options ssh.Options
 	options.AllowPasswordAuthentication()
 	options.EnablePTY()
-	if identityFile != "" {
-		options.SetIdentities(identityFile)
-	}
-	cmd = sshCli.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
+	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout // for sudo prompt
@@ -187,16 +176,9 @@ var initUbuntuUser = func(host, login, authorizedKeys, identityFile string, stdi
 	return nil
 }
 
-func GetSSHClient() ssh.Client {
-	return getSSHClient()
-}
-
-var getSSHClient = func() ssh.Client {
-	return ssh.DefaultClient
-}
-
 const initUbuntuScript = `
 set -e
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
 umask 0077
 temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp

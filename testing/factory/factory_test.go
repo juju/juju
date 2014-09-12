@@ -5,14 +5,15 @@ package factory_test
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/juju/errors"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	charm "gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -45,7 +46,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	policy := statetesting.MockPolicy{}
 
-	info := &authentication.MongoInfo{
+	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{jtesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -58,6 +59,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	st, err := state.Initialize(info, cfg, opts, &policy)
 	c.Assert(err, gc.IsNil)
 	s.State = st
+	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *factorySuite) TearDownTest(c *gc.C) {
@@ -69,12 +71,10 @@ func (s *factorySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	user := s.Factory.MakeUser()
+	user := s.Factory.MakeUser(c, nil)
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -86,25 +86,23 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
 	username := "bob"
 	displayName := "Bob the Builder"
-	creator := "eric"
+	creator := s.Factory.MakeUser(c, nil)
 	password := "sekrit"
-	user := s.Factory.MakeUser(factory.UserParams{
+	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        username,
 		DisplayName: displayName,
-		Creator:     creator,
+		Creator:     creator.Name(),
 		Password:    password,
 	})
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 	c.Assert(user.Name(), gc.Equals, username)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
-	c.Assert(user.CreatedBy(), gc.Equals, creator)
+	c.Assert(user.CreatedBy(), gc.Equals, creator.Name())
 	c.Assert(user.PasswordValid(password), jc.IsTrue)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -113,12 +111,88 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
+	username := "bob"
+	displayName := "Bob the Builder"
+	creator := "eric"
+	password := "sekrit"
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        username,
+		DisplayName: displayName,
+		Creator:     creator,
+		Password:    password,
+		NoEnvUser:   true,
+	})
+
+	_, err := s.State.User(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
+	envUser := s.Factory.MakeEnvUser(c, nil)
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
+	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+}
+
+func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123", NoEnvUser: true})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User: "foobar123"})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
+	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+}
+
+func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name:      "foobar",
+		Creator:   "created-by",
+		NoEnvUser: true,
+	})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User:      "foobar",
+		CreatedBy: "created-by",
+	})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
+	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
+}
+
+func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User:      "foobar@ubuntuone",
+		CreatedBy: "created-by",
+	})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
+	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
+	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	machine := s.Factory.MakeMachine()
+	machine := s.Factory.MakeMachine(c, nil)
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
@@ -139,8 +213,6 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
 	series := "quantal"
 	jobs := []state.MachineJob{state.JobManageEnviron}
 	password, err := utils.RandomPassword()
@@ -148,7 +220,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
-	machine := s.Factory.MakeMachine(factory.MachineParams{
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series:     series,
 		Jobs:       jobs,
 		Password:   password,
@@ -180,9 +252,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	charm := s.Factory.MakeCharm()
+	charm := s.Factory.MakeCharm(c, nil)
 	c.Assert(charm, gc.NotNil)
 
 	saved, err := s.State.Charm(charm.URL())
@@ -195,13 +265,11 @@ func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeCharm(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
 	series := "quantal"
 	name := "wordpress"
 	revision := 13
 	url := fmt.Sprintf("cs:%s/%s-%d", series, name, revision)
-	ch := s.Factory.MakeCharm(factory.CharmParams{
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: name,
 		URL:  url,
 	})
@@ -220,9 +288,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	service := s.Factory.MakeService()
+	service := s.Factory.MakeService(c, nil)
 	c.Assert(service, gc.NotNil)
 
 	saved, err := s.State.Service(service.Name())
@@ -234,11 +300,9 @@ func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeService(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	charm := s.Factory.MakeCharm(factory.CharmParams{Name: "wordpress"})
-	creator := s.Factory.MakeUser(factory.UserParams{Name: "bill"}).Tag().String()
-	service := s.Factory.MakeService(factory.ServiceParams{
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "bill"}).Tag().String()
+	service := s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm:   charm,
 		Creator: creator,
 	})
@@ -258,9 +322,7 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	unit := s.Factory.MakeUnit()
+	unit := s.Factory.MakeUnit(c, nil)
 	c.Assert(unit, gc.NotNil)
 
 	saved, err := s.State.Unit(unit.Name())
@@ -273,10 +335,8 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	service := s.Factory.MakeService()
-	unit := s.Factory.MakeUnit(factory.UnitParams{
+	service := s.Factory.MakeService(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Service: service,
 	})
 	c.Assert(unit, gc.NotNil)
@@ -290,12 +350,14 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
 	c.Assert(saved.Series(), gc.Equals, unit.Series())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
+
+	serviceCharmURL, _ := service.CharmURL()
+	unitCharmURL, _ := saved.CharmURL()
+	c.Assert(unitCharmURL, gc.DeepEquals, serviceCharmURL)
 }
 
 func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	relation := s.Factory.MakeRelation()
+	relation := s.Factory.MakeRelation(c, nil)
 	c.Assert(relation, gc.NotNil)
 
 	saved, err := s.State.Relation(relation.Id())
@@ -308,27 +370,25 @@ func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeRelation(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	s1 := s.Factory.MakeService(factory.ServiceParams{
+	s1 := s.Factory.MakeService(c, &factory.ServiceParams{
 		Name: "service1",
-		Charm: s.Factory.MakeCharm(factory.CharmParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
 	e1, err := s1.Endpoint("db")
 	c.Assert(err, gc.IsNil)
 
-	s2 := s.Factory.MakeService(factory.ServiceParams{
+	s2 := s.Factory.MakeService(c, &factory.ServiceParams{
 		Name: "service2",
-		Charm: s.Factory.MakeCharm(factory.CharmParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
 	})
 	e2, err := s2.Endpoint("server")
 	c.Assert(err, gc.IsNil)
 
-	relation := s.Factory.MakeRelation(factory.RelationParams{
+	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
 	})
 	c.Assert(relation, gc.NotNil)
@@ -342,19 +402,47 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	c.Assert(saved.Endpoints(), gc.DeepEquals, relation.Endpoints())
 }
 
-func (s *factorySuite) TestMultileParamPanics(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
+func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
+	metric := s.Factory.MakeMetric(c, nil)
+	c.Assert(metric, gc.NotNil)
 
-	c.Assert(func() { s.Factory.MakeUser(factory.UserParams{}, factory.UserParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeMachine(factory.MachineParams{}, factory.MachineParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeService(factory.ServiceParams{}, factory.ServiceParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeCharm(factory.CharmParams{}, factory.CharmParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeUnit(factory.UnitParams{}, factory.UnitParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeRelation(factory.RelationParams{}, factory.RelationParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
+	saved, err := s.State.MetricBatch(metric.UUID())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
+	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
+	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
+	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
+	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
+	c.Assert(saved.Metrics(), gc.HasLen, 1)
+	c.Assert(saved.Metrics()[0].Key, gc.Equals, metric.Metrics()[0].Key)
+	c.Assert(saved.Metrics()[0].Value, gc.Equals, metric.Metrics()[0].Value)
+	c.Assert(saved.Metrics()[0].Time.Equal(metric.Metrics()[0].Time), jc.IsTrue)
+	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("creds"))
+}
+
+func (s *factorySuite) TestMakeMetric(c *gc.C) {
+	now := time.Now().Round(time.Second).UTC()
+	unit := s.Factory.MakeUnit(c, nil)
+	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit:    unit,
+		Time:    &now,
+		Sent:    true,
+		Metrics: []state.Metric{state.Metric{"itemA", "foo", now, []byte("somecreds")}},
+	})
+	c.Assert(metric, gc.NotNil)
+
+	saved, err := s.State.MetricBatch(metric.UUID())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
+	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
+	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
+	c.Assert(metric.Sent(), jc.IsTrue)
+	c.Assert(saved.Sent(), jc.IsTrue)
+	c.Assert(saved.Metrics(), gc.HasLen, 1)
+	c.Assert(saved.Metrics()[0].Key, gc.Equals, "itemA")
+	c.Assert(saved.Metrics()[0].Value, gc.Equals, "foo")
+	c.Assert(saved.Metrics()[0].Time.Equal(now), jc.IsTrue)
+	c.Assert(saved.Metrics()[0].Credentials, gc.DeepEquals, []byte("somecreds"))
 }

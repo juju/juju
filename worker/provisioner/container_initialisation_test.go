@@ -15,11 +15,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -176,7 +176,7 @@ func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance
 
 	// create a machine to host the container.
 	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
-		Series:      coretesting.FakeDefaultSeries,
+		Series:      "precise", // precise requires special apt parameters, so we use that series here.
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: s.defaultConstraints,
 	})

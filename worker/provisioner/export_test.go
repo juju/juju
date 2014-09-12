@@ -4,8 +4,8 @@
 package provisioner
 
 import (
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/api/watcher"
 )
 
 func SetObserver(p Provisioner, observer chan<- *config.Config) {
@@ -19,4 +19,7 @@ func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
 	return p.getRetryWatcher()
 }
 
-var ContainerManagerConfig = containerManagerConfig
+var (
+	ContainerManagerConfig = containerManagerConfig
+	GetToolsFinder         = &getToolsFinder
+)

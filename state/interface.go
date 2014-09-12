@@ -6,9 +6,9 @@ package state
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -16,7 +16,7 @@ import (
 // EntityFinder is implemented by *State. See State.FindEntity
 // for documentation on the method.
 type EntityFinder interface {
-	FindEntity(tag string) (Entity, error)
+	FindEntity(tag names.Tag) (Entity, error)
 }
 
 var _ EntityFinder = (*State)(nil)
@@ -38,11 +38,11 @@ var (
 )
 
 type StatusSetter interface {
-	SetStatus(status params.Status, info string, data params.StatusData) error
+	SetStatus(status params.Status, info string, data map[string]interface{}) error
 }
 
 type StatusGetter interface {
-	Status() (status params.Status, info string, data params.StatusData, err error)
+	Status() (status params.Status, info string, data map[string]interface{}, err error)
 }
 
 var (
@@ -105,17 +105,6 @@ var (
 	_ Authenticator = (*User)(nil)
 )
 
-// MongoPassworder represents an entity that can
-// have a mongo password set for it.
-type MongoPassworder interface {
-	SetMongoPassword(password string) error
-}
-
-var (
-	_ MongoPassworder = (*Machine)(nil)
-	_ MongoPassworder = (*Unit)(nil)
-)
-
 // Annotator represents entities capable of handling annotations.
 type Annotator interface {
 	Annotation(key string) (string, error)
@@ -149,7 +138,6 @@ type AgentEntity interface {
 	Entity
 	Lifer
 	Authenticator
-	MongoPassworder
 	AgentTooler
 	StatusSetter
 	EnsureDeader

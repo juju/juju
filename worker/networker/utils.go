@@ -13,6 +13,7 @@ import (
 // Functions defined here for easier patching when testing.
 var (
 	ExecuteCommands     = executeCommands
+	Interfaces          = interfaces
 	InterfaceIsUp       = interfaceIsUp
 	InterfaceHasAddress = interfaceHasAddress
 )
@@ -25,44 +26,52 @@ func executeCommands(commands []string) error {
 			WorkingDir: "/",
 		})
 		if err != nil {
-			err := fmt.Errorf("failed to execute %q: %v", command, err)
-			logger.Errorf("%s", err.Error())
-			return err
+			return fmt.Errorf("failed to execute %q: %v", command, err)
 		}
 		if result.Code != 0 {
-			err := fmt.Errorf("command %q failed (code: %d, stdout: %s, stderr: %s)",
-				command, result.Code, result.Stdout, result.Stderr)
-			logger.Errorf("%s", err.Error())
-			return err
-		} else {
-			logger.Debugf("command %q (code: %d, stdout: %s, stderr: %s)",
+			return fmt.Errorf(
+				"command %q failed (code: %d, stdout: %s, stderr: %s)",
 				command, result.Code, result.Stdout, result.Stderr)
 		}
+		logger.Debugf("command %q (code: %d, stdout: %s, stderr: %s)",
+			command, result.Code, result.Stdout, result.Stderr)
 	}
 	return nil
 }
 
-// interfaceIsUp verifies that system network interface is up.
-func interfaceIsUp(ifaceName string) bool {
-	iface, err := net.InterfaceByName(ifaceName)
+// interfaceIsUp returns whether the given network interface is up.
+func interfaceIsUp(interfaceName string) bool {
+	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
-		logger.Errorf("cannot find network interface %q: %v", ifaceName, err)
+		// Log as warning, because with virtual interfaces, there
+		// might be pending commands to execute that actually create
+		// the interface first before we can look it up.
+		logger.Warningf("cannot tell if %q is up: %v", interfaceName, err)
 		return false
 	}
 	return (iface.Flags & net.FlagUp) != 0
 }
 
-// interfaceHasAddress verify that system network interface has at least one assigned address.
-func interfaceHasAddress(ifaceName string) bool {
-	iface, err := net.InterfaceByName(ifaceName)
+// interfaceHasAddress whether the given network interface has at
+// least one assigned address.
+func interfaceHasAddress(interfaceName string) bool {
+	iface, err := net.InterfaceByName(interfaceName)
 	if err != nil {
-		logger.Errorf("cannot find network interface %q: %v", ifaceName, err)
+		// Log as warning, because with virtual interfaces, there
+		// might be pending commands to execute that actually create
+		// the interface first before we can look it up.
+		logger.Warningf("cannot tell if %q has addresses: %v", interfaceName, err)
 		return false
 	}
 	addrs, err := iface.Addrs()
 	if err != nil {
-		logger.Errorf("cannot get addresses for network interface %q: %v", ifaceName, err)
+		logger.Errorf("cannot get addresses for network interface %q: %v", interfaceName, err)
 		return false
 	}
 	return len(addrs) != 0
+}
+
+// interfaces returns all known network interfaces on the machine.
+func interfaces() ([]net.Interface, error) {
+	return net.Interfaces()
 }

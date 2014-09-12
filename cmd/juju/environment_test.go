@@ -130,7 +130,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	series, ok := stateConfig.DefaultSeries()
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(series, gc.Equals, "precise") // default-series set in RepoSuite.SetUpTest
+	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
 
 	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
 	c.Assert(err, gc.IsNil)

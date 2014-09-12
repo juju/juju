@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -32,8 +33,9 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" >> $0.args"
@@ -133,7 +135,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+	s.PatchValue(local.ExecuteCloudConfig, func(environs.BootstrapContext, *cloudinit.MachineConfig, *coreCloudinit.Config) error {
 		return nil
 	})
 }
@@ -168,28 +170,67 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 	c.Skip("StartInstance not implemented yet.")
 }
 
-func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env environs.Environ) {
+func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs.Environ {
 	ctx := coretesting.Context(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	err = environ.Bootstrap(ctx, environs.BootstrapParams{})
+	availableTools := coretools.List{&coretools.Tools{
+		Version: version.Current,
+		URL:     "http://testing.invalid/tools.tar.gz",
+	}}
+	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
+		AvailableTools: availableTools,
+	})
+	c.Assert(err, gc.IsNil)
+	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "quantal")
+	c.Assert(err, gc.IsNil)
+	mcfg.Tools = availableTools[0]
+	err = finalizer(ctx, mcfg)
 	c.Assert(err, gc.IsNil)
 	return environ
 }
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
-		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
-		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+
+	minCfg := minimalConfig(c)
+
+	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+
+		envCfgAttrs := minCfg.AllAttrs()
+		if val, ok := envCfgAttrs["enable-os-refresh-update"]; !ok {
+			c.Check(cloudcfg.AptUpdate(), gc.Equals, false)
+		} else {
+			c.Check(cloudcfg.AptUpdate(), gc.Equals, val)
+		}
+
+		if val, ok := envCfgAttrs["enable-os-upgrade"]; !ok {
+			c.Check(cloudcfg.AptUpgrade(), gc.Equals, false)
+		} else {
+			c.Check(cloudcfg.AptUpgrade(), gc.Equals, val)
+		}
+
+		if !mcfg.EnableOSRefreshUpdate {
+			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		}
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		// local does not allow machine-0 to host units
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
+	}
+	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
+
+	// Test that defaults are correct.
+	s.testBootstrap(c, minCfg)
+
+	// Test that overrides work.
+	minCfg, err := minCfg.Apply(map[string]interface{}{
+		"enable-os-refresh-update": true,
+		"enable-os-upgrade":        true,
 	})
-	s.testBootstrap(c, minimalConfig(c))
+	c.Assert(err, gc.IsNil)
+	s.testBootstrap(c, minCfg)
 }
 
 func (s *localJujuTestSuite) TestDestroy(c *gc.C) {

@@ -56,10 +56,13 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
+	uuid, _ := cfg.UUID()
 	initial := cfg.AllAttrs()
 	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
+	envTag := st.EnvironTag()
+	c.Assert(envTag.Id(), gc.Equals, uuid)
 	err = st.Close()
 	c.Assert(err, gc.IsNil)
 
@@ -68,11 +71,25 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg, err = s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.AllAttrs(), gc.DeepEquals, initial)
-
+	// Check that the environment has been created.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(st.EnvironTag(), gc.Equals, names.NewEnvironTag(env.UUID()))
-	entity, err := s.State.FindEntity("environment-" + env.UUID())
+	c.Assert(env.Tag(), gc.Equals, envTag)
+	// Check that the owner has been created.
+	owner := names.NewLocalUserTag("admin")
+	c.Assert(env.Owner(), gc.Equals, owner)
+	// Check that the owner can be retrieved by the tag.
+	entity, err := s.State.FindEntity(env.Owner())
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.Tag(), gc.Equals, owner)
+	// Check that the owner has an EnvUser created for the bootstrapped environment.
+	envUser, err := s.State.EnvironmentUser(env.Owner())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserTag().Username(), gc.Equals, env.Owner().Username())
+	c.Assert(envUser.EnvironmentTag(), gc.Equals, env.Tag())
+
+	// Check that the environment can be found through the tag.
+	entity, err = s.State.FindEntity(envTag)
 	c.Assert(err, gc.IsNil)
 	annotator := entity.(state.Annotator)
 	annotations, err := annotator.Annotations()
@@ -88,7 +105,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	info, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
+	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{EnvironmentTag: envTag})
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {

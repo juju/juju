@@ -159,6 +159,8 @@ type MongoIPV6Suite struct {
 var _ = gc.Suite(&MongoIPV6Suite{})
 
 func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
+	c.Skip("Skipping test until mgo issue 22 is fixed")
+
 	root := newServer(c)
 	defer root.Destroy()
 	// Note: we use the ::1:port format because mongo doesn't understand
@@ -201,12 +203,9 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 	for i := 1; i < len(instances); i++ {
 		inst := newServer(c)
 		instances[i] = inst
+		// no need to Remove the instances from the replicaset as
+		// we're destroying the replica set immediately afterwards
 		defer inst.Destroy()
-		defer func() {
-			attemptLoop(c, strategy, "Remove()", func() error {
-				return Remove(session, getAddr(inst))
-			})
-		}()
 		key := fmt.Sprintf("key%d", i)
 		val := fmt.Sprintf("val%d", i)
 		tags := map[string]string{key: val}

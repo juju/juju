@@ -12,11 +12,13 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -24,8 +26,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -63,22 +63,24 @@ type stepper interface {
 }
 
 type context struct {
-	st      *state.State
-	env     environs.Environ
-	charms  map[string]*state.Charm
-	pingers map[string]*presence.Pinger
+	st           *state.State
+	env          environs.Environ
+	charms       map[string]*state.Charm
+	pingers      map[string]*presence.Pinger
+	adminUserTag string // A string repr of the tag.
 }
 
-func (s *StatusSuite) newContext() *context {
+func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
 	return &context{
-		st:      st,
-		env:     s.Environ,
-		charms:  make(map[string]*state.Charm),
-		pingers: make(map[string]*presence.Pinger),
+		st:           st,
+		env:          s.Environ,
+		charms:       make(map[string]*state.Charm),
+		pingers:      make(map[string]*presence.Pinger),
+		adminUserTag: s.AdminUserTag(c).String(),
 	}
 }
 
@@ -812,7 +814,7 @@ var statusTests = []testCase{
 
 		setUnitStatus{"wordpress/0", params.StatusError,
 			"hook failed: some-relation-changed",
-			params.StatusData{"relation-id": 0}},
+			map[string]interface{}{"relation-id": 0}},
 
 		expect{
 			"a unit with a hook relation error",
@@ -879,7 +881,7 @@ var statusTests = []testCase{
 
 		setUnitStatus{"wordpress/0", params.StatusError,
 			"hook failed: some-relation-changed",
-			params.StatusData{"relation-id": 0}},
+			map[string]interface{}{"relation-id": 0}},
 
 		expect{
 			"a unit with a hook relation error when the agent is down",
@@ -1862,7 +1864,7 @@ type addService struct {
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	svc, err := ctx.st.AddService(as.name, "user-admin", ch, as.networks)
+	svc, err := ctx.st.AddService(as.name, ctx.adminUserTag, ch, as.networks)
 	c.Assert(err, gc.IsNil)
 	if svc.IsPrincipal() {
 		err = svc.SetConstraints(as.cons)
@@ -1963,7 +1965,7 @@ type setUnitStatus struct {
 	unitName   string
 	status     params.Status
 	statusInfo string
-	statusData params.StatusData
+	statusData map[string]interface{}
 }
 
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
@@ -2130,7 +2132,7 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 		c.Logf("test %d: %s", i, t.summary)
 		func() {
 			// Prepare context and run all steps to setup.
-			ctx := s.newContext()
+			ctx := s.newContext(c)
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
 		}()
@@ -2145,7 +2147,7 @@ func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
 		addService{name: "mysql", charm: "mysql"},
 		addAliveUnit{"mysql", "1"},
 	}
-	ctx := s.newContext()
+	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	ctx.run(c, steps)
 
@@ -2307,7 +2309,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 			},
 		},
 	}
-	ctx := s.newContext()
+	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
 	ctx.run(c, []stepper{expected})
 }

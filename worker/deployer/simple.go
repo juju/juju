@@ -15,10 +15,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
 
@@ -135,7 +136,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(logDir, tag.String()+".log")
 	cmd := strings.Join([]string{
-		path.Join(toolsDir, "jujud"), "unit",
+		filepath.FromSlash(path.Join(toolsDir, jujunames.Jujud)), "unit",
 		"--data-dir", dataDir,
 		"--unit-name", unitName,
 		"--debug", // TODO: propagate debug state sensibly

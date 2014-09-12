@@ -16,7 +16,7 @@ type utilsSuite struct {
 
 var _ = gc.Suite(&utilsSuite{})
 
-func (s *configSuite) TestExecuteCommands(c *gc.C) {
+func (s *utilsSuite) TestExecuteCommands(c *gc.C) {
 	commands := []string{
 		"echo start",
 		"sh -c 'echo STDOUT; echo STDERR >&2; exit 123'",

@@ -16,9 +16,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/symlink"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
@@ -198,8 +198,9 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-2:], gc.DeepEquals, []string{
+	c.Assert(scripts[len(scripts)-3:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
+		"rm $bin/tools.tar.gz && rm $bin/juju2.3.4-quantal-amd64.sha256",
 		"ifconfig",
 	})
 
@@ -250,7 +251,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 	s.PatchValue(&s.useClone, true)
 	// The template containers are created with an upstart job that
 	// stops them once cloud init has finished.  We emulate that here.
-	template := "juju-series-template"
+	template := "juju-quantal-lxc-template"
 	ch := s.ensureTemplateStopped(template)
 	defer func() { <-ch }()
 	manager := s.makeManager(c, "test")
@@ -264,14 +265,21 @@ func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 }
 
 func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
-	name := "juju-series-template"
+	name := "juju-quantal-lxc-template"
 	ch := s.ensureTemplateStopped(name)
 	defer func() { <-ch }()
 	network := container.BridgeNetworkConfig("nic42")
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
 	template, err := lxc.EnsureCloneTemplate(
-		"ext4", "series", network, authorizedKeys, aptProxy)
+		"ext4",
+		"quantal",
+		network,
+		authorizedKeys,
+		aptProxy,
+		true,
+		true,
+	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(template.Name(), gc.Equals, name)
 	s.AssertEvent(c, <-s.events, mock.Created, name)
@@ -300,7 +308,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplate(c *gc.C) {
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
-	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
 	c.Assert(cloned.Args, gc.IsNil)
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }
@@ -313,7 +321,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
 	cloned := <-s.events
-	s.AssertEvent(c, cloned, mock.Cloned, "juju-series-template")
+	s.AssertEvent(c, cloned, mock.Cloned, "juju-quantal-lxc-template")
 	c.Assert(cloned.Args, gc.DeepEquals, []string{"--snapshot", "--backingstore", "aufs"})
 	s.AssertEvent(c, <-s.events, mock.Started, name)
 }

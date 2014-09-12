@@ -9,13 +9,13 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -551,7 +551,7 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
@@ -559,7 +559,7 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -587,7 +587,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -598,7 +598,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -612,7 +612,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.unit.SetStatus(params.StatusError, "mongo", params.StatusData{
+	err = s.unit.SetStatus(params.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -624,7 +624,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -639,7 +639,7 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Status setting and changing data afterwards.
-	data := params.StatusData{
+	data := map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -652,7 +652,7 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -863,12 +863,6 @@ func (s *UnitSuite) TestTag(c *gc.C) {
 	c.Assert(s.unit.Tag().String(), gc.Equals, "unit-wordpress-0")
 }
 
-func (s *UnitSuite) TestSetMongoPassword(c *gc.C) {
-	testSetMongoPassword(c, func(st *state.State) (entity, error) {
-		return st.Unit(s.unit.Name())
-	})
-}
-
 func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testSetPassword(c, func() (state.Authenticator, error) {
@@ -880,72 +874,6 @@ func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
 	e, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
 	testSetAgentCompatPassword(c, e)
-}
-
-func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *gc.C) {
-	// Make a second unit to use later. (Subordinate units can only be created
-	// as a side-effect of a principal entering relation scope.)
-	subUnit := s.addSubordinateUnit(c)
-
-	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-	// Turn on fully-authenticated mode.
-	err = st.SetAdminMongoPassword("admin-secret")
-	c.Assert(err, gc.IsNil)
-
-	// Add a new machine, assign the units to it
-	// and set its password.
-	m, err := st.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	unit, err := st.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
-	subUnit, err = st.Unit(subUnit.Name())
-	c.Assert(err, gc.IsNil)
-	err = unit.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
-	err = m.SetMongoPassword("foo")
-	c.Assert(err, gc.IsNil)
-
-	// Sanity check that we cannot connect with the wrong
-	// password
-	info.Tag = m.Tag()
-	info.Password = "foo1"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
-
-	// Connect as the machine entity.
-	info.Tag = m.Tag()
-	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st1.Close()
-
-	// Change the password for a unit derived from
-	// the machine entity's state.
-	unit, err = st1.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword("bar")
-	c.Assert(err, gc.IsNil)
-
-	// Now connect as the unit entity and, as that
-	// that entity, change the password for a new unit.
-	info.Tag = unit.Tag()
-	info.Password = "bar"
-	st2, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st2.Close()
-
-	// Check that we can set its password.
-	unit, err = st2.Unit(subUnit.Name())
-	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword("bar2")
-	c.Assert(err, gc.IsNil)
-
-	// Clear the admin password, so tests can reset the db.
-	err = st.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
@@ -1547,4 +1475,9 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 	ann, err := s.unit.Annotations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
+}
+
+func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
@@ -103,6 +103,15 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		logger.Warningf(
 			"Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".\n" +
 				"Please update your environment configuration.",
+		)
+	}
+
+	if _, ok := attrs[config.ProvisionerSafeModeKey].(bool); ok {
+
+		logger.Warningf(
+			`Config attribute "%s" has been deprecated. Please utilize the "%s" config attribute instead.`,
+			config.ProvisionerSafeModeKey,
+			config.ProvisionerHarvestModeKey,
 		)
 	}
 
