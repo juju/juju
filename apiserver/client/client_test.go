@@ -285,6 +285,20 @@ func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
 	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
+func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
+	args := params.SetEnvironAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetEnvironAgentVersion(args)
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
 func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	// Create a provisioned state server.
 	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
@@ -1846,17 +1860,6 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	value, found := envConfig.AllAttrs()["some-key"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, "value")
-}
-
-func (s *clientSuite) TestClientSetEnvironAgentVersion(c *gc.C) {
-	err := s.APIState.Client().SetEnvironAgentVersion(version.MustParse("9.8.7"))
-	c.Assert(err, gc.IsNil)
-
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, "9.8.7")
 }
 
 func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
