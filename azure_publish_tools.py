@@ -112,7 +112,7 @@ def get_md5content(local_path):
 
 
 def publish_local_file(purpose, blob_service, sync_file):
-    """Published the local file to the release proposed, or testing location.
+    """Published the local file to the location specified by the purpose.
 
     The file is broken down into blocks that can be uploaded within
     the azure restrictions. The blocks are then assembled into a blob
@@ -139,7 +139,7 @@ def publish_local_file(purpose, blob_service, sync_file):
 
 
 def list_published_files(purpose):
-    """List the testing, proposed, or release files."""
+    """List the files specified by the purpose."""
     blob_service = BlobService()
     published_files = get_published_files(purpose, blob_service)
     if published_files is None:
