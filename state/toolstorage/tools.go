@@ -53,7 +53,6 @@ func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error
 		return errors.Annotate(err, "cannot store tools tarball")
 	}
 	defer func() {
-		logger.Debugf("%s, %s, %s", resultErr, s.envUUID, path)
 		if resultErr == nil {
 			return
 		}
