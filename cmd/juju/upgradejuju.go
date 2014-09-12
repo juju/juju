@@ -175,7 +175,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
 	} else {
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
-			if params.ErrCode(err) == "upgrade in progress" {
+			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
 					"please wait for the upgrade to complete or if there was a problem with\n"+
 					"the last upgrade that has been resolved, consider running the\n"+

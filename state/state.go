@@ -302,6 +302,11 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 
 var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
 
+// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+func IsUpgradeInProgressError(err error) bool {
+	return errors.Cause(err) == UpgradeInProgressError
+}
+
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).

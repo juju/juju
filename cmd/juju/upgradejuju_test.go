@@ -519,7 +519,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	}
 	fakeAPI.setVersionErr = &params.Error{
 		Message: "a message from the server about the problem",
-		Code:    "upgrade in progress",
+		Code:    params.CodeUpgradeInProgress,
 	}
 	s.PatchValue(&getUpgradeJujuAPI, func(*UpgradeJujuCommand) (upgradeJujuAPI, error) {
 		return &fakeAPI, nil

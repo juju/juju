@@ -27,6 +27,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -352,6 +355,31 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
+}
+
+func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+	// This is an integration test which ensure that a test with the
+	// correct error code is seen by the client from the
+	// SetEnvironAgentVersion call when an upgrade is in progress.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	nextVersion := version.MustParse("9.8.7")
+	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.APIState.Client().SetEnvironAgentVersion(nextVersion)
+
+	// Expect an error with a error code that indicates this specific
+	// situation. The client needs to be able to reliably identify
+	// this error and handle it differently to other errors.
+	c.Assert(params.IsCodeUpgradeInProgress(err), jc.IsTrue)
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
