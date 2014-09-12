@@ -18,6 +18,8 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
+// MetaResultString is the expected output of running dumpMetadata() on
+// s.metaresult.
 var MetaResultString = `
 backup ID:       "spam"
 started:         0001-01-01 00:00:00 +0000 UTC

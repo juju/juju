@@ -7,7 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 )
 
-const ExpectedHelp = `
+const expectedHelp = `
 usage: juju backups [options] <command> ...
 purpose: create, manage, and restore backups of juju's state
 
@@ -31,5 +31,5 @@ type backupsSuite struct {
 var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, "", ExpectedHelp[1:])
+	s.checkHelp(c, "", expectedHelp[1:])
 }

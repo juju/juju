@@ -31,6 +31,7 @@ var sendCreateRequest = func(cmd *BackupsCreateCommand) (*params.BackupsMetadata
 	return client.Create(cmd.Notes)
 }
 
+// BackupsCreateCommand is the sub-command for creating a new backup.
 type BackupsCreateCommand struct {
 	BackupsCommandBase
 	Quiet bool

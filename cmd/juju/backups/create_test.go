@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/cmd/juju/backups"
 )
 
-const CreateExpectedHelp = `
+const createExpectedHelp = `
 usage: juju backups create [options] [<notes>]
 purpose: create a backup
 
@@ -55,7 +55,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *createSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, "create", CreateExpectedHelp[1:])
+	s.checkHelp(c, "create", createExpectedHelp[1:])
 }
 
 func (s *createSuite) TestOkay(c *gc.C) {
