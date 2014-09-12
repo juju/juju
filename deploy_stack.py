@@ -208,7 +208,7 @@ def dump_logs(env, host, directory, host_id=None):
 
 
 def get_local_root(juju_home, env):
-    local = os.path.join(juju_home, env.environment)
+    return os.path.join(juju_home, env.environment)
 
 
 def copy_local_logs(directory, env):
