@@ -49,9 +49,11 @@ deployment decisions. The mechanism is as follows:
 
 In this way the following sequence of operations becomes predictable:
 
-  $ juju deploy --constraints mem=2G wordpress
-  $ juju set-constraints --service wordpress mem=3G
-  $ juju add-unit wordpress -n 2
+```
+    $ juju deploy --constraints mem=2G wordpress
+    $ juju set-constraints --service wordpress mem=3G
+    $ juju add-unit wordpress -n 2
+```
 
 ...in that exactly one machine will be provisioned with the first set of
 constraints, and exactly two of them will be provisioned using the second
@@ -63,6 +65,44 @@ controlled by their principal units. There's only ever one machine to which
 that subordinate could (and must) be deployed, and to restrict that further
 by means of constraints will only confuse people.
 
+Placement
+---------
+
+Placement is the term given to allocating a unit to a specific machine.
+This is achieved with the `--to` option in the `deploy` and `add-unit`
+commands.
+
+In addition, it is possible to specify directives to `add-machine` to
+allocate machines to specific instances:
+
+  - in a new container, possibly on an existing machine (e.g. `add-machine lxc:1`)
+  - by using an existing host (i.e. `add-machine ssh:user@host`)
+  - using provider-specific features (e.g. `add-machine zone=us-east-1a`)
+
+At the time of writing, the currently implemented provider-specific placement directives are:
+
+  - Availability Zone: both the AWS and OpenStack providers support `zone=<zone>`, directing the provisioner to start an instance in the specified availability zone.
+  - MAAS: `<hostname>` directs the MAAS provider to acquire the node with the specified hostname.
+
+Availability Zone Spread
+------------------------
+
+For Juju providers that know about Availability Zones, instances will be automatically spread across the healthy availability zones to maximise service availability. This is achieved by having Juju:
+
+  - be able to enumerate each of the availability zones and their current status,
+  - calculate the "distribution group" for each instance at provisioning time.
+
+The distribution group of a nascent instance is the set of instances for which the availability zone spread will be computed. The new instance will be allocated to the zone with the fewest members of its group.
+
+Distribution groups are intentionally opaque to the providers. There are currently two types of groups: state servers and everything else. State servers are always allocated to the same distribution group; other instances are grouped according to the units assigned at provisioning time. A non-state server instance's group consists of all instances with units of the same services.
+
+At the time of writing, there are currently three providers providers supporting automatic availability zone spread: Microsoft Azure, AWS, and OpenStack. Azure's implementation is significantly different to the others as it contains various restrictions relating to the imposed conflation of high availability and load balancing.
+
+The AWS and OpenStack implementations are both based on the `provider/common.ZonedEnviron` interface; additional implementations should make use this if possible. There are two components:
+
+  - unless a placement directive is specified, the provider's `StartInstance` must allocate an instance to one of the healthy availability zones. Some providers may restrict availability zones in ways that cannot be detected ahead of time, so it may be necessary to attempt each zone in turn (in order of least-to-most populous);
+  - the provider must implement `state.InstanceDistributor` so that units are assigned to machines based on their availability zone allocations.
+
 Machine Status and Provisioning Errors (current)
 ------------------------------------------------
 
@@ -71,12 +111,16 @@ provisioned can be removed directly by calling `juju destroy-unit`. Any
 provisioning error can thus be "resolved" in an unsophisticated but moderately
 effective way:
 
-  $ juju destroy-unit borken/0
+```
+    $ juju destroy-unit borken/0
+```
 
 ...in that at least broken units don't clutter up the service and prevent its
 removal. However:
 
-  $ juju destroy-machine 1
+```
+    $ juju destroy-machine 1
+```
 
 ...does not yet cause an unprovisioned machine to be removed from state (whether
 directly, or indirectly via the provisioner; the best place to implement this

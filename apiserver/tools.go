@@ -124,7 +124,7 @@ func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
 		// Tools could not be found in toolstorage,
 		// so look for them in simplestreams, fetch
 		// them and cache in toolstorage.
-		logger.Infof("%v tools not found locally, fetching")
+		logger.Infof("%v tools not found locally, fetching", version)
 		reader, err = h.fetchAndCacheTools(version, storage)
 		if err != nil {
 			err = errors.Annotate(err, "error fetching tools")

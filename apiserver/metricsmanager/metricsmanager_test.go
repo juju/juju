@@ -39,7 +39,7 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	newTime := time.Now()
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
@@ -77,7 +77,7 @@ func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) 
 }
 
 func (s *metricsManagerSuite) TestCleanupArgsIndependant(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	args := params.Entities{Entities: []params.Entity{

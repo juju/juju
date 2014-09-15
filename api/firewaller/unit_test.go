@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -71,7 +72,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the life cycle and make sure it's
 	// not detected.
-	err = s.units[0].SetStatus(params.StatusStarted, "not really", nil)
+	err = s.units[0].SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

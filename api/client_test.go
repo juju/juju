@@ -26,7 +26,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -355,13 +354,21 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	defer api.PatchEnvironTag(s.APIState, "bad-env-uuid")()
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	_, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
+func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	client := s.APIState.Client()
+	someErr := errors.New("random")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, args interface{}, response interface{}) error {
+			c.Assert(request, gc.Equals, "AbortCurrentUpgrade")
+			c.Assert(args, gc.IsNil)
+			c.Assert(response, gc.IsNil)
+			return someErr
+		},
+	)
+	defer cleanup()
+
+	err := client.AbortCurrentUpgrade()
+	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
 // badReader raises err when Read is called.

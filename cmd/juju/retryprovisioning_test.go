@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -52,7 +51,7 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobManageEnviron},
 	})
 	c.Assert(err, gc.IsNil)
-	err = m.SetStatus(params.StatusError, "broken", nil)
+	err = m.SetStatus(state.StatusError, "broken", nil)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -75,7 +74,7 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 		if t.args[0] == "0" {
 			status, info, data, err := m.Status()
 			c.Check(err, gc.IsNil)
-			c.Check(status, gc.Equals, params.StatusError)
+			c.Check(status, gc.Equals, state.StatusError)
 			c.Check(info, gc.Equals, "broken")
 			c.Check(data["transient"], jc.IsTrue)
 		}

@@ -588,6 +588,29 @@ func (s *UpgradeSuite) getOneUpgradeInfo(c *gc.C) *state.UpgradeInfo {
 	return upgradeInfos[0]
 }
 
+func (s *UpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	// First try with nothing to abort.
+	err := s.State.AbortCurrentUpgrade()
+	c.Assert(err, gc.IsNil)
+
+	upgradeInfos, err := state.GetAllUpgradeInfos(s.State)
+	c.Assert(len(upgradeInfos), gc.Equals, 0)
+
+	// Now create a UpgradeInfo to abort.
+	_, err = s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.1.1"), vers("1.2.3"))
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.AbortCurrentUpgrade()
+	c.Assert(err, gc.IsNil)
+
+	info := s.getOneUpgradeInfo(c)
+	c.Check(info.Status(), gc.Equals, state.UpgradeAborted)
+
+	// It should now be possible to start another upgrade.
+	_, err = s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("1.3.0"))
+	c.Check(err, gc.IsNil)
+}
+
 func (s *UpgradeSuite) TestClearUpgradeInfo(c *gc.C) {
 	v111 := vers("1.1.1")
 	v123 := vers("1.2.3")

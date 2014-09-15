@@ -6,7 +6,6 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"path/filepath"
 
 	"github.com/juju/names"
@@ -122,11 +121,22 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
-	c.Assert(err, gc.IsNil)
-	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
+	sch, err := st.AddCharm(ch, curl, "dummy-path", ident+"-sha256")
 	c.Assert(err, gc.IsNil)
 	return sch
+}
+
+// SetCharmBundleURL sets the deprecated bundleurl field in the
+// charm document for the charm with the specified URL.
+func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
+	ops := []txn.Op{{
+		C:      charmsC,
+		Id:     curl.String(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
+	}}
+	err := st.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
 }
 
 var MachineIdLessThan = machineIdLessThan
@@ -255,6 +265,7 @@ func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interf
 var (
 	GetOrCreatePorts = getOrCreatePorts
 	GetPorts         = getPorts
+	PortsGlobalKey   = portsGlobalKey
 	NowToTheSecond   = nowToTheSecond
 )
 
