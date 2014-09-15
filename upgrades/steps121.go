@@ -33,7 +33,7 @@ func stepsFor121() []Step {
 			description: "migrate charm archives into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return migrateCharmStorage(context.State())
+				return migrateCharmStorage(context.State(), context.AgentConfig())
 			},
 		},
 	}

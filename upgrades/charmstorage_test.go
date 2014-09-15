@@ -6,12 +6,14 @@ package upgrades_test
 import (
 	"io/ioutil"
 	"net/url"
+	"path/filepath"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
@@ -49,8 +51,30 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.bundleURLs[dummyCharm.URL().String()] = url
 
+	s.testMigrateCharmStorage(c, dummyCharm.URL(), &mockAgentConfig{})
+}
+
+func (s *migrateCharmStorageSuite) TestMigrateCharmStorageLocalstorage(c *gc.C) {
+	storageDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(storageDir, "somewhere"), []byte("abc"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	dummyCharm := s.AddTestingCharm(c, "dummy")
+	url := &url.URL{Scheme: "https", Host: "localhost:8040", Path: "/somewhere"}
+	c.Assert(err, gc.IsNil)
+	s.bundleURLs[dummyCharm.URL().String()] = url
+
+	s.testMigrateCharmStorage(c, dummyCharm.URL(), &mockAgentConfig{
+		values: map[string]string{
+			agent.ProviderType: "local",
+			agent.StorageDir:   storageDir,
+		},
+	})
+}
+
+func (s *migrateCharmStorageSuite) testMigrateCharmStorage(c *gc.C, curl *charm.URL, agentConfig agent.Config) {
 	curlPlaceholder := charm.MustParseURL("cs:quantal/dummy-1")
-	err = s.State.AddStoreCharmPlaceholder(curlPlaceholder)
+	err := s.State.AddStoreCharmPlaceholder(curlPlaceholder)
 	c.Assert(err, gc.IsNil)
 
 	curlPending := charm.MustParseURL("cs:quantal/missing-123")
@@ -62,13 +86,13 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
 	s.PatchValue(upgrades.StateAddCharmStoragePaths, func(st *state.State, storagePaths map[*charm.URL]string) error {
 		c.Assert(storagePaths, gc.HasLen, 1)
 		for k, v := range storagePaths {
-			c.Assert(k.String(), gc.Equals, dummyCharm.URL().String())
+			c.Assert(k.String(), gc.Equals, curl.String())
 			storagePath = v
 		}
 		called = true
 		return nil
 	})
-	err = upgrades.MigrateCharmStorage(s.State)
+	err = upgrades.MigrateCharmStorage(s.State, agentConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 
@@ -101,7 +125,7 @@ func (s *migrateCharmStorageSuite) TestMigrateCharmStorageIdempotency(c *gc.C) {
 		called = true
 		return nil
 	})
-	err := upgrades.MigrateCharmStorage(s.State)
+	err := upgrades.MigrateCharmStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 }
