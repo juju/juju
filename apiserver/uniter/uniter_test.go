@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/uniter"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -910,49 +909,6 @@ func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
 	}}
 	result, err := s.uniter.WatchServiceRelations(args)
 	s.assertOneStringsWatcher(c, result, err)
-}
-
-func (s *uniterSuite) TestCharmArchiveURL(c *gc.C) {
-	dummyCharm := s.AddTestingCharm(c, "dummy")
-
-	args := params.CharmURLs{URLs: []params.CharmURL{
-		{URL: "something-invalid"},
-		{URL: s.wpCharm.String()},
-		{URL: dummyCharm.String()},
-	}}
-	result, err := s.uniter.CharmArchiveURL(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.CharmArchiveURLResults{
-		Results: []params.CharmArchiveURLResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{
-				Result: s.wpCharm.BundleURL().String(),
-				DisableSSLHostnameVerification: false,
-			},
-			{
-				Result: dummyCharm.BundleURL().String(),
-				DisableSSLHostnameVerification: false,
-			},
-		},
-	})
-
-	envtesting.SetSSLHostnameVerification(c, s.State, false)
-
-	result, err = s.uniter.CharmArchiveURL(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.CharmArchiveURLResults{
-		Results: []params.CharmArchiveURLResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{
-				Result: s.wpCharm.BundleURL().String(),
-				DisableSSLHostnameVerification: true,
-			},
-			{
-				Result: dummyCharm.BundleURL().String(),
-				DisableSSLHostnameVerification: true,
-			},
-		},
-	})
 }
 
 func (s *uniterSuite) TestCharmArchiveSha256(c *gc.C) {

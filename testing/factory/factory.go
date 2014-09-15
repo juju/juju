@@ -6,7 +6,6 @@ package factory
 import (
 	"fmt"
 	"math/rand"
-	"net/url"
 	"time"
 
 	"github.com/juju/names"
@@ -230,11 +229,8 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 	ch := charmtesting.Charms.CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	bundleSHA256 := factory.UniqueString("bundlesha")
-	c.Assert(err, gc.IsNil)
-	charm, err := factory.st.AddCharm(ch, curl, bundleURL, bundleSHA256)
-
+	charm, err := factory.st.AddCharm(ch, curl, "fake-storage-path", bundleSHA256)
 	c.Assert(err, gc.IsNil)
 	return charm
 }

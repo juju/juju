@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -1832,9 +1831,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 	ch := charmtesting.Charms.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
-	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
-	c.Assert(err, gc.IsNil)
-	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
+	dummy, err := ctx.st.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
 	c.Assert(err, gc.IsNil)
 	ctx.charms[ac.name] = dummy
 }

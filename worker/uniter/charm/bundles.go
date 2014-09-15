@@ -45,10 +45,7 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error) {
-	archiveURL, disableSSLHostnameVerification, err := info.ArchiveURL()
-	if err != nil {
-		return err
-	}
+	archiveURL := info.ArchiveURL()
 	defer errors.Maskf(&err, "failed to download charm %q from %q", info.URL(), archiveURL)
 	dir := d.downloadsPath()
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -56,10 +53,12 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 	}
 	aurl := archiveURL.String()
 	logger.Infof("downloading %s from %s", info.URL(), aurl)
-	if disableSSLHostnameVerification {
-		logger.Infof("SSL hostname verification disabled")
-	}
-	dl := downloader.New(aurl, dir, disableSSLHostnameVerification)
+	// Downloads always go through the API server, which at
+	// present cannot be verified due to the certificates
+	// being inadequate. We always verify the SHA-256 hash,
+	// and the data transferred is not sensitive, so this
+	// does not pose a problem.
+	dl := downloader.New(aurl, dir, utils.NoVerifySSLHostnames)
 	defer dl.Stop()
 	for {
 		select {

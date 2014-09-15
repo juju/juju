@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -171,8 +170,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 	c.Assert(err2, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
-	var err error
+func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, storagePath, bundleSHA256 string) {
 	ch = charmtesting.Charms.CharmDir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
@@ -181,16 +179,15 @@ func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, c
 			fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 		)
 	}
-	bundleURL, err = url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
+	storagePath = "dummy-1"
 	bundleSHA256 = "dummy-1-sha256"
-	return ch, curl, bundleURL, bundleSHA256
+	return ch, curl, storagePath, bundleSHA256
 }
 
 func (s *StateSuite) TestAddCharm(c *gc.C) {
 	// Check that adding charms from scratch works correctly.
-	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "")
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "")
+	dummy, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
@@ -212,10 +209,9 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Add a deployed charm.
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
+	storagePath := "dummy-1"
 	bundleSHA256 := "dummy-1-sha256"
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	dummy, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
@@ -225,7 +221,7 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(docs, gc.HasLen, 1)
 	c.Assert(docs[0].URL, gc.DeepEquals, curl)
-	c.Assert(docs[0].BundleURL, gc.DeepEquals, bundleURL)
+	c.Assert(docs[0].StoragePath, gc.DeepEquals, storagePath)
 
 	// No more placeholder charm.
 	_, err = s.State.LatestPlaceholderCharm(curl)
@@ -244,7 +240,7 @@ func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 	c.Assert(doc.Placeholder, jc.IsFalse)
 	c.Assert(doc.Meta, gc.IsNil)
 	c.Assert(doc.Config, gc.IsNil)
-	c.Assert(doc.BundleURL, gc.IsNil)
+	c.Assert(doc.StoragePath, gc.Equals, "")
 	c.Assert(doc.BundleSha256, gc.Equals, "")
 
 	// Make sure we can't find it with st.Charm().
@@ -310,8 +306,8 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 
 	// Now add a charm and try again - we should get the same result
 	// as with AddCharm.
-	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:precise/dummy-2")
-	sch, err = s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:precise/dummy-2")
+	sch, err = s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 	schCopy, err = s.State.PrepareStoreCharmUpload(curl)
 	c.Assert(err, gc.IsNil)
@@ -350,23 +346,23 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
-	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "")
-	_, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "")
+	_, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 
 	// Test with already uploaded and a missing charms.
-	sch, err := s.State.UpdateUploadedCharm(ch, curl, bundleURL, bundleSHA256)
+	sch, err := s.State.UpdateUploadedCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("charm %q already uploaded", curl))
 	c.Assert(sch, gc.IsNil)
 	missingCurl := charm.MustParseURL("local:quantal/missing-1")
-	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, storagePath, "missing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(sch, gc.IsNil)
 
 	// Test with with an uploaded local charm.
 	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
 	c.Assert(err, gc.IsNil)
-	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, "missing")
+	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, storagePath, "missing")
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
 	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
@@ -374,7 +370,7 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
 	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
-	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(sch.StoragePath(), gc.DeepEquals, storagePath)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
 }
 
@@ -389,7 +385,7 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 	c.Assert(doc.Placeholder, jc.IsTrue)
 	c.Assert(doc.Meta, gc.IsNil)
 	c.Assert(doc.Config, gc.IsNil)
-	c.Assert(doc.BundleURL, gc.IsNil)
+	c.Assert(doc.StoragePath, gc.Equals, "")
 	c.Assert(doc.BundleSha256, gc.Equals, "")
 
 	// Make sure we can't find it with st.Charm().
@@ -399,8 +395,8 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 
 func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	// Add a deployed charm
-	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
-	_, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	_, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 
 	// Deployed charm not found.
@@ -421,7 +417,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 	c.Assert(pending.IsPlaceholder(), jc.IsTrue)
 	c.Assert(pending.Meta(), gc.IsNil)
 	c.Assert(pending.Config(), gc.IsNil)
-	c.Assert(pending.BundleURL(), gc.IsNil)
+	c.Assert(pending.StoragePath(), gc.Equals, "")
 	c.Assert(pending.BundleSha256(), gc.Equals, "")
 }
 
@@ -452,8 +448,8 @@ func (s *StateSuite) TestAddStoreCharmPlaceholder(c *gc.C) {
 
 func (s *StateSuite) assertAddStoreCharmPlaceholder(c *gc.C) (*charm.URL, *charm.URL, *state.Charm) {
 	// Add a deployed charm
-	ch, curl, bundleURL, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	dummy, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
 	c.Assert(err, gc.IsNil)
 
 	// Add a charm placeholder
@@ -492,6 +488,25 @@ func (s *StateSuite) TestAddStoreCharmPlaceholderDeletesOlder(c *gc.C) {
 	doc := state.CharmDoc{}
 	err = s.charms.FindId(curlOldRef).One(&doc)
 	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+}
+
+func (s *StateSuite) TestAllCharms(c *gc.C) {
+	// Add a deployed charm
+	ch, curl, storagePath, bundleSHA256 := s.dummyCharm(c, "cs:quantal/dummy-1")
+	sch, err := s.State.AddCharm(ch, curl, storagePath, bundleSHA256)
+	c.Assert(err, gc.IsNil)
+
+	// Add a charm reference
+	curl2 := charm.MustParseURL("cs:quantal/dummy-2")
+	err = s.State.AddStoreCharmPlaceholder(curl2)
+	c.Assert(err, gc.IsNil)
+
+	charms, err := s.State.AllCharms()
+	c.Assert(err, gc.IsNil)
+	c.Assert(charms, gc.HasLen, 2)
+
+	c.Assert(charms[0], gc.DeepEquals, sch)
+	c.Assert(charms[1].URL(), gc.DeepEquals, curl2)
 }
 
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {

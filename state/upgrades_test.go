@@ -4,11 +4,14 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
@@ -173,4 +176,56 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C
 	info, err = s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.EnvironmentTag, gc.Equals, tag)
+}
+
+func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
+	ch := charmtesting.Charms.CharmDir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+
+	bundleSHA256 := "dummy-1-sha256"
+	dummyCharm, err := s.state.AddCharm(ch, curl, "", bundleSHA256)
+	c.Assert(err, gc.IsNil)
+	SetCharmBundleURL(c, s.state, curl, "http://anywhere.com")
+	dummyCharm, err = s.state.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummyCharm.BundleURL(), gc.NotNil)
+	c.Assert(dummyCharm.BundleURL().String(), gc.Equals, "http://anywhere.com")
+	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
+
+	storagePaths := map[*charm.URL]string{curl: "/some/where"}
+	err = AddCharmStoragePaths(s.state, storagePaths)
+	c.Assert(err, gc.IsNil)
+
+	dummyCharm, err = s.state.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummyCharm.BundleURL(), gc.IsNil)
+	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
+}
+
+func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
+	ch := charmtesting.Charms.CharmDir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+
+	bundleSHA256 := "dummy-1-sha256"
+	dummyCharm, err := s.state.AddCharm(ch, curl, "", bundleSHA256)
+	c.Assert(err, gc.IsNil)
+
+	curl2 := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()+1),
+	)
+	storagePaths := map[*charm.URL]string{
+		curl:  "/some/where",
+		curl2: "/some/where/else",
+	}
+	err = AddCharmStoragePaths(s.state, storagePaths)
+	c.Assert(err, gc.ErrorMatches, "charms not found")
+
+	// The charm entry for "curl" should not have been touched.
+	dummyCharm, err = s.state.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
 }
