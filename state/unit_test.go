@@ -12,7 +12,6 @@ import (
 	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -528,36 +527,36 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusError, "", nil)
+	err := s.unit.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.unit.SetStatus(params.StatusPending, "", nil)
+	err = s.unit.SetStatus(state.StatusPending, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-	err = s.unit.SetStatus(params.StatusDown, "", nil)
+	err = s.unit.SetStatus(state.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.unit.SetStatus(params.Status("vliegkat"), "orville", nil)
+	err = s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
@@ -567,27 +566,27 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -596,7 +595,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
@@ -606,13 +605,13 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.unit.SetStatus(params.StatusError, "mongo", map[string]interface{}{
+	err = s.unit.SetStatus(state.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -622,7 +621,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
@@ -633,7 +632,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
@@ -644,13 +643,13 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 		"2nd-key": 2,
 		"3rd-key": true,
 	}
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", data)
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", data)
 	c.Assert(err, gc.IsNil)
 	data["4th-key"] = 4.0
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
@@ -659,12 +658,12 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -703,7 +702,7 @@ func (s *UnitSuite) TestUnitCharm(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetStatus(params.StatusStarted, "", nil)
+		err := s.unit.SetStatus(state.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -801,16 +800,16 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 	for i, test := range []struct {
-		status params.Status
+		status state.Status
 		info   string
 	}{{
-		params.StatusInstalled, "",
+		state.StatusInstalled, "",
 	}, {
-		params.StatusStarted, "",
+		state.StatusStarted, "",
 	}, {
-		params.StatusError, "blah",
+		state.StatusError, "blah",
 	}, {
-		params.StatusStopped, "",
+		state.StatusStopped, "",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -927,7 +926,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetStatus(params.StatusError, "gaaah", nil)
+	err = s.unit.SetStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, gc.IsNil)

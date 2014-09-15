@@ -19,23 +19,25 @@ type statusSetterSuite struct{}
 
 var _ = gc.Suite(&statusSetterSuite{})
 
+var _ state.StatusSetter = new(fakeStatusSetter)
+
 type fakeStatusSetter struct {
 	state.Entity
-	status params.Status
+	status state.Status
 	info   string
 	data   map[string]interface{}
 	err    error
 	fetchError
 }
 
-func (s *fakeStatusSetter) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (s *fakeStatusSetter) SetStatus(status state.Status, info string, data map[string]interface{}) error {
 	s.status = status
 	s.info = info
 	s.data = data
 	return s.err
 }
 
-func (s *fakeStatusSetter) Status() (status params.Status, info string, data map[string]interface{}, err error) {
+func (s *fakeStatusSetter) Status() (status state.Status, info string, data map[string]interface{}, err error) {
 	return s.status, s.info, s.data, nil
 }
 
@@ -49,11 +51,11 @@ func (s *fakeStatusSetter) UpdateStatus(data map[string]interface{}) error {
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			u("x/0"): &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			u("x/1"): &fakeStatusSetter{status: params.StatusStarted, info: "foo"},
-			u("x/2"): &fakeStatusSetter{status: params.StatusError, info: "some info"},
+			u("x/0"): &fakeStatusSetter{status: state.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
+			u("x/1"): &fakeStatusSetter{status: state.StatusStarted, info: "foo"},
+			u("x/2"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
 			u("x/3"): &fakeStatusSetter{fetchError: "x3 error"},
-			u("x/4"): &fakeStatusSetter{status: params.StatusStopped, info: ""},
+			u("x/4"): &fakeStatusSetter{status: state.StatusStopped, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -91,9 +93,9 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	get := func(tag names.Tag) *fakeStatusSetter {
 		return st.entities[tag].(*fakeStatusSetter)
 	}
-	c.Assert(get(u("x/1")).status, gc.Equals, params.StatusStopped)
+	c.Assert(get(u("x/1")).status, gc.Equals, state.StatusStopped)
 	c.Assert(get(u("x/1")).info, gc.Equals, "")
-	c.Assert(get(u("x/2")).status, gc.Equals, params.StatusPending)
+	c.Assert(get(u("x/2")).status, gc.Equals, state.StatusPending)
 	c.Assert(get(u("x/2")).info, gc.Equals, "not really")
 }
 
@@ -122,12 +124,12 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			m("0"): &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			m("1"): &fakeStatusSetter{status: params.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
-			m("2"): &fakeStatusSetter{status: params.StatusError, info: "some info"},
+			m("0"): &fakeStatusSetter{status: state.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
+			m("1"): &fakeStatusSetter{status: state.StatusError, info: "foo", data: map[string]interface{}{"foo": "blah"}},
+			m("2"): &fakeStatusSetter{status: state.StatusError, info: "some info"},
 			m("3"): &fakeStatusSetter{fetchError: "x3 error"},
-			m("4"): &fakeStatusSetter{status: params.StatusStarted},
-			m("5"): &fakeStatusSetter{status: params.StatusStopped, info: ""},
+			m("4"): &fakeStatusSetter{status: state.StatusStarted},
+			m("5"): &fakeStatusSetter{status: state.StatusStopped, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -168,10 +170,10 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	get := func(tag names.Tag) *fakeStatusSetter {
 		return st.entities[tag].(*fakeStatusSetter)
 	}
-	c.Assert(get(m("1")).status, gc.Equals, params.StatusError)
+	c.Assert(get(m("1")).status, gc.Equals, state.StatusError)
 	c.Assert(get(m("1")).info, gc.Equals, "foo")
 	c.Assert(get(m("1")).data, gc.DeepEquals, map[string]interface{}{"foo": "blah"})
-	c.Assert(get(m("2")).status, gc.Equals, params.StatusError)
+	c.Assert(get(m("2")).status, gc.Equals, state.StatusError)
 	c.Assert(get(m("2")).info, gc.Equals, "some info")
 	c.Assert(get(m("2")).data, gc.DeepEquals, map[string]interface{}{"foo": "bar"})
 }

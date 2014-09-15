@@ -103,9 +103,9 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah", nil)
+	err := s.wordpressUnit.SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo", nil)
+	err = s.mysqlUnit.SetStatus(state.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -127,12 +127,12 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	// Verify mysqlUnit - no change.
 	status, info, _, err := s.mysqlUnit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStopped)
+	c.Assert(status, gc.Equals, state.StatusStopped)
 	c.Assert(info, gc.Equals, "foo")
 	// ...wordpressUnit is fine though.
 	status, info, _, err = s.wordpressUnit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStopped)
+	c.Assert(status, gc.Equals, state.StatusStopped)
 	c.Assert(info, gc.Equals, "foobar")
 }
 

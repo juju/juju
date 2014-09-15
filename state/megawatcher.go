@@ -45,7 +45,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		if err != nil {
 			return err
 		}
-		info.Status = sdoc.Status
+		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status and
@@ -104,7 +104,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		if err != nil {
 			return err
 		}
-		info.Status = sdoc.Status
+		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -294,13 +294,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		return nil
 	case *params.UnitInfo:
 		newInfo := *info
-		newInfo.Status = s.Status
+		newInfo.Status = params.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
-		newInfo.Status = s.Status
+		newInfo.Status = params.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
