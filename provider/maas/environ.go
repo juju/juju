@@ -55,11 +55,10 @@ type maasEnviron struct {
 
 	name string
 
-	// archMutex gates access to supportedArchitectures
-	archMutex sync.Mutex
-	// supportedArchitectures caches the architectures
-	// for which images can be instantiated.
-	supportedArchitectures []string
+	// bootImagesMutex gates access to bootImages
+	bootImagesMutex sync.Mutex
+	// bootImages caches the boot images managed by MAAS.
+	bootImages []bootImage
 
 	// ecfgMutex protects the *Unlocked fields below.
 	ecfgMutex sync.Mutex
@@ -141,10 +140,24 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
-	env.archMutex.Lock()
-	defer env.archMutex.Unlock()
-	if env.supportedArchitectures != nil {
-		return env.supportedArchitectures, nil
+	bootImages, err := env.allBootImages()
+	if err != nil {
+		return nil, err
+	}
+	var architectures set.Strings
+	for _, image := range bootImages {
+		architectures.Add(image.architecture)
+	}
+	return architectures.SortedValues(), nil
+}
+
+// allBootImages queries MAAS for all of the boot-images across
+// all registered nodegroups.
+func (env *maasEnviron) allBootImages() ([]bootImage, error) {
+	env.bootImagesMutex.Lock()
+	defer env.bootImagesMutex.Unlock()
+	if env.bootImages != nil {
+		return env.bootImages, nil
 	}
 
 	nodegroups, err := env.getNodegroups()
@@ -152,16 +165,24 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		return nil, err
 	}
 
-	var allArchitectures set.Strings
+	var allBootImages []bootImage
+	var seen set.Strings
 	for _, nodegroup := range nodegroups {
-		architectures, err := nodegroupSupportedArchitectures(nodegroup)
+		bootImages, err := nodegroupBootImages(nodegroup)
 		if err != nil {
-			return nil, errors.Annotatef(err, "cannot get supported architectures for %v", nodegroup)
+			return nil, errors.Annotatef(err, "cannot get boot images for nodegroup %v", nodegroup)
 		}
-		allArchitectures = allArchitectures.Union(architectures)
+		for _, image := range bootImages {
+			str := fmt.Sprint(image)
+			if seen.Contains(str) {
+				continue
+			}
+			seen.Add(str)
+			allBootImages = append(allBootImages, image)
+		}
 	}
-	env.supportedArchitectures = allArchitectures.SortedValues()
-	return env.supportedArchitectures, nil
+	env.bootImages = allBootImages
+	return env.bootImages, nil
 }
 
 // getNodegroups returns the MAASObject corresponding to each nodegroup
@@ -187,31 +208,42 @@ func (env *maasEnviron) getNodegroups() ([]gomaasapi.MAASObject, error) {
 	return nodegroups, nil
 }
 
-// nodegroupSupportedArchitectures returns the set of architectures
-// for the boot images in this nodegroup.
-func nodegroupSupportedArchitectures(nodegroup gomaasapi.MAASObject) (set.Strings, error) {
-	var architectures set.Strings
+type bootImage struct {
+	architecture string
+	release      string
+}
+
+// nodegroupBootImages returns the set of boot-images for the specified nodegroup.
+func nodegroupBootImages(nodegroup gomaasapi.MAASObject) ([]bootImage, error) {
 	bootImagesObject := nodegroup.GetSubObject("boot-images/")
 	result, err := bootImagesObject.CallGet("", nil)
 	if err != nil {
-		return architectures, err
+		return nil, err
 	}
 	list, err := result.GetArray()
 	if err != nil {
-		return architectures, err
+		return nil, err
 	}
+	var bootImages []bootImage
 	for _, obj := range list {
 		bootimage, err := obj.GetMap()
 		if err != nil {
-			return architectures, err
+			return nil, err
 		}
 		arch, err := bootimage["architecture"].GetString()
 		if err != nil {
-			return architectures, err
+			return nil, err
 		}
-		architectures.Add(arch)
+		release, err := bootimage["release"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		bootImages = append(bootImages, bootImage{
+			architecture: arch,
+			release:      release,
+		})
 	}
-	return architectures, nil
+	return bootImages, nil
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
