@@ -1,32 +1,55 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
+from contextlib import contextmanager
 
 from jujuconfig import get_juju_home
 from jujupy import (
     Environment,
+    JujuClientDevel,
     )
 from deploy_stack import (
     bootstrap_from_env,
+    check_token,
     dump_logs,
     get_machine_dns_name,
+    get_random_string,
     update_env,
     )
 
 
-def assess_compatibility(old_juju, base_environment, environment_name):
-    env = Environment.from_config(base_environment)
-    update_env(env, environment_name)
+@contextmanager
+def bootstrapped_env(env, environment_name):
+    update_env(env, environment_name, series='precise')
     env.destroy_environment()
     juju_home = get_juju_home()
     try:
         bootstrap_from_env(juju_home, env)
         host = get_machine_dns_name(env, 0)
         try:
-            pass
+            yield env
         finally:
             dump_logs(env, host, '.')
     finally:
         env.destroy_environment()
+
+
+def assess_compatibility(old_juju, new_juju, base_env, environment_name):
+    env = Environment.from_config(base_env, juju_path=old_juju)
+    with bootstrapped_env(env, environment_name):
+        env.deploy('local:dummy-source')
+        env.deploy('local:dummy-sink')
+        token = get_random_string()
+        env.juju('set', 'dummy-source', 'token=%s' % token)
+        env.juju('add-relation', 'dummy-source', 'dummy-sink')
+        env.juju('expose', 'dummy-sink')
+        env.wait_for_started()
+        check_token(env, token)
+        new_client = JujuClientDevel.by_version(new_juju)
+        new_env = Environment(env.environment, new_client, env.config)
+        new_env.upgrade_juju()
+        new_env.wait_for_version(new_env.get_matching_agent_version(), 600)
+        uname = new_env.get_juju_output('ssh', 'uname', '-a')
+        raise ValueError(uname)
 
 
 def main():
@@ -36,7 +59,7 @@ def main():
     parser.add_argument('base_environment', help='The environment to base on.')
     parser.add_argument('environment_name', help='The new environment name.')
     args = parser.parse_args()
-    assess_compatibility(args.old_juju, args.base_environment,
+    assess_compatibility(args.old_juju, args.new_juju, args.base_environment,
                          args.environment_name)
 
 

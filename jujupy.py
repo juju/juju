@@ -271,6 +271,9 @@ class Environment:
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
 
+    def get_juju_output(self, command, *args, **kwargs):
+        return self.client.get_juju_output(self, command, *args, **kwargs)
+
     def get_status(self, timeout=60):
         return self.client.get_status(self, timeout)
 
