@@ -70,13 +70,7 @@ retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
-    # unsupported, stable, devel excludes to make sync fast.
-    if [[ $IS_TESTING == "true" ]]; then
-        excludes="--rexclude 'juju-1.1[5-7].*'"
-    else
-        excludes=""
-    fi
-    s3cmd -c $JUJU_DIR/s3cfg sync $excludes \
+    s3cmd -c $JUJU_DIR/s3cfg sync \
         s3://juju-dist/tools/releases/ ${DEST_DIST}/tools/releases/
 }
 
