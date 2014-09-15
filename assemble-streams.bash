@@ -57,9 +57,6 @@ build_tool_tree() {
     if [[ ! -d $DEST_DEBS ]]; then
         mkdir $DEST_DEBS
     fi
-    if [[ ! -d $DEST_TOOLS ]]; then
-        mkdir -p $DEST_TOOLS
-    fi
     if [[ ! -d ${DEST_DIST}/tools/streams/v1 ]]; then
         mkdir -p ${DEST_DIST}/tools/streams/v1
     fi
@@ -80,13 +77,13 @@ retrieve_released_tools() {
         excludes=""
     fi
     s3cmd -c $JUJU_DIR/s3cfg sync $excludes \
-        s3://juju-dist/tools/releases/ $DEST_TOOLS/
+        s3://juju-dist/tools/releases/ ${DEST_DIST}/tools/releases/
 }
 
 
 retract_bad_tools() {
     echo "Phase 2.1: Retracting bad released tools."
-    bad_tools=$(find $DEST_TOOLS -name "juju-1.21-alpha1.*")
+    bad_tools=$(find ${DEST_DIST}/tools/releases -name "juju-1.21-alpha1.*")
     for bad_tool in $bad_tools; do
        rm $bad_tool
     done
@@ -180,7 +177,7 @@ archive_tools() {
         get_version $control_version
         get_series $control_version
         get_arch $control_file
-        tool="${DEST_TOOLS}/juju-${version}-${series}-${arch}.tgz"
+        tool="${DEST_DIST}/tools/releases/juju-${version}-${series}-${arch}.tgz"
         if [[ $arch == 'UNSUPPORTED' ]]; then
             echo "Skipping unsupported architecture $package"
         elif [[ -e $tool ]]; then
@@ -209,7 +206,7 @@ archive_tools() {
             # Hack to create ppc64 because it is not clear if juju wants
             # this name instead of ppc64el.
             if [[ $arch == 'ppc64el' ]]; then
-                tool="${DEST_TOOLS}/juju-${version}-${series}-ppc64.tgz"
+                tool="${DEST_DIST}/tools/releases/juju-${version}-${series}-ppc64.tgz"
                 if [[ ! -e $tool ]]; then
                     echo "Creating ppc64 from ppc64el: $tool"
                     tar cvfz $tool -C $change_dir jujud
@@ -261,7 +258,6 @@ generate_streams() {
     fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
-    cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     echo "The tools are in ${DEST_DIST}."
@@ -363,13 +359,11 @@ fi
 
 # Configure paths, arch, and series
 DEST_DEBS="${DESTINATION}/debs"
-DEST_TOOLS="${DESTINATION}/tools/releases"
 if [[ $PURPOSE == "release" ]]; then
     DEST_DIST="${DESTINATION}/juju-dist"
 else
     DEST_DIST="${DESTINATION}/juju-dist/$PURPOSE"
 fi
-
 PACKAGES=""
 WORK=$(mktemp -d)
 JUJU_PATH=$(mktemp -d)
