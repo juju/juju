@@ -72,7 +72,7 @@ $FileCreateMode 0600
 # Maximum size for the log on this outchannel is 512MB
 # The command to execute when an outchannel as reached its size limit cannot accept any arguments
 # that is why we have created the helper script for executing logrotate.
-$outchannel logRotation,{{logDir}}/all-machines.log,512000000,{{logrotateHelperPath}}
+$outchannel logRotation,{{logDir}}/all-machines.log,536870912,{{logrotateHelperPath}}
 
 $RuleSet remote
 $FileCreateMode 0600
@@ -141,16 +141,19 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 // will never take up more than 1GB of space.
 const logrotateConf = `
 {{.LogDir}}/all-machines.log {
-    size 512M
-    # don't move, but copy-and-truncate so the application won't have to be
-    # told that the file has moved.
-    copytruncate
+    # this is driven by rsyslogd, so our size here is just an arbitrary
+    # unit that will ensure rotation happens
+    size 1K
     # maximum of one old file
     rotate 1
     # counting old files starts at 1 rather than 0
     start 1
-    # use compression
-    compress
+	# ensure new file is created with the correct permissions
+    create 600
+	# reload rsyslog after rotation so it will use the new file
+    postrotate
+      service rsyslog reload
+    endscript
 }
 `
 
