@@ -12,8 +12,9 @@ SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 usage() {
     echo "usage: $0 PURPOSE DIST_DIRECTORY DESTINATIONS"
-    echo "  PURPOSE: 'release' or  'testing'"
+    echo "  PURPOSE: 'release', 'proposed', or  'testing'"
     echo "    release installs tools/ at the top of juju-dist/tools."
+    echo "    proposed installs tools/ at the top of juju-dist/proposed/tools."
     echo "    testing installs tools/ at juju-dist/testing/tools."
     echo "  DIST_DIRECTORY: The directory to the assembled tools."
     echo "    This is the juju-dist dir created by assemble-public-tools.bash."
@@ -47,7 +48,7 @@ publish_to_aws() {
     if [[ $PURPOSE == "release" ]]; then
         local destination="s3://juju-dist/"
     else
-        local destination="s3://juju-dist/testing/"
+        local destination="s3://juju-dist/$PURPOSE/"
     fi
     echo "Phase 1: $EVENT to AWS."
     s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
@@ -61,7 +62,7 @@ publish_to_canonistack() {
     if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
-        local destination="testing/tools"
+        local destination="$PURPOSE/tools"
     fi
     echo "Phase 2: $EVENT to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
@@ -77,7 +78,7 @@ publish_to_hp() {
     if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
-        local destination="testing/tools"
+        local destination="$PURPOSE/tools"
     fi
     echo "Phase 3: $EVENT to HP Cloud."
     source $JUJU_DIR/hptoolsrc
@@ -93,7 +94,7 @@ publish_to_azure() {
     if [[ $PURPOSE == "release" ]]; then
         local destination="release"
     else
-        local destination="testing"
+        local destination="$PURPOSE"
     fi
     echo "Phase 4: $EVENT to Azure."
     source $JUJU_DIR/azuretoolsrc
@@ -107,7 +108,7 @@ publish_to_joyent() {
     if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
-        local destination="testing/tools"
+        local destination="$PURPOSE/tools"
     fi
     echo "Phase 5: $EVENT to Joyent."
     source $JUJU_DIR/joyentrc
@@ -137,7 +138,7 @@ JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ $PURPOSE != "release" && $PURPOSE != "testing" ]]; then
+if [[ ! $PURPOSE =~ ^(release|proposed|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
