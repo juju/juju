@@ -60,8 +60,11 @@ build_tool_tree() {
     if [[ ! -d $DEST_TOOLS ]]; then
         mkdir -p $DEST_TOOLS
     fi
-    if [[ ! -d $DEST_DIST ]]; then
-        mkdir $DEST_DIST
+    if [[ ! -d ${DEST_DIST}/tools/streams/v1 ]]; then
+        mkdir -p ${DEST_DIST}/tools/streams/v1
+    fi
+    if [[ ! -d ${DEST_DIST}/tools/releases ]]; then
+        mkdir -p ${DEST_DIST}/tools/releases
     fi
 }
 
@@ -258,8 +261,6 @@ generate_streams() {
     fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
-    mkdir -p ${DEST_DIST}/tools/streams/v1
-    mkdir -p ${DEST_DIST}/tools/releases
     cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
@@ -317,9 +318,7 @@ cleanup() {
 }
 
 
-declare -a added_tools
-added_tools=()
-
+# Parse options and args.
 SIGNING_KEY=""
 IS_TESTING="false"
 GET_RELEASED_TOOL="true"
@@ -348,25 +347,39 @@ shift $((OPTIND - 1))
 test $# -eq 3 || usage
 
 PUPOSE=$!
-RELEASE=$2
-DESTINATION=$(cd $3; pwd)
-DEST_DEBS="${DESTINATION}/debs"
-DEST_TOOLS="${DESTINATION}/tools/releases"
-DEST_DIST="${DESTINATION}/juju-dist"
-if [[ $IS_TESTING == "true" ]]; then
-    DEST_DIST="${DESTINATION}/juju-dist-testing"
+if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
+    echo "Invalid PURPOSE."
+    usage
 fi
-if [[ -d $DEST_DIST ]]; then
-    rm -r $DEST_DIST
+RELEASE=$2
+DESTINATION=$3
+if [[ ! -d "$3" ]]; then
+    echo "$3 is not a directory. Create it if you really mean to use it."
+    usage
+else
+    DESTINATION=$(cd $DESTINATION; pwd)
 fi
 
+
+# Configure paths, arch, and series
+DEST_DEBS="${DESTINATION}/debs"
+DEST_TOOLS="${DESTINATION}/tools/releases"
+if [[ $PURPOSE == "release" ]]; then
+    DEST_DIST="${DESTINATION}/juju-dist"
+else
+    DEST_DIST="${DESTINATION}/juju-dist/$PURPOSE"
+fi
 
 PACKAGES=""
 WORK=$(mktemp -d)
 JUJU_PATH=$(mktemp -d)
 ARCH=$(dpkg --print-architecture)
 source /etc/lsb-release
+declare -a added_tools
+added_tools=()
 
+
+# Main.
 check_deps
 build_tool_tree
 if [[ $GET_RELEASED_TOOL == "true" ]]; then
