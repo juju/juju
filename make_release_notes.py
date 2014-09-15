@@ -120,6 +120,8 @@ def make_notes(version, purpose, resolved_text, previous=None, notable=None):
     text = NOTES_TEMPLATE.format(
         version=version, purpose=purpose, resolved_text=resolved_text,
         replaces=replaces, warning=warning, notable=notable)
+    # Normalise the whitespace between sections. The text can have
+    # extra whitespae when blank sections are interpolated.
     text = text.replace('\n\n\n\n', '\n\n\n')
     return text
 
