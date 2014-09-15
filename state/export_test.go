@@ -24,8 +24,7 @@ import (
 )
 
 var (
-	NewBackupIDBasic      = newBackupIDBasic
-	NewBackupIDForHumans  = newBackupIDForHumans
+	NewBackupID           = newBackupID
 	GetBackupMetadata     = getBackupMetadata
 	AddBackupMetadata     = addBackupMetadata
 	AddBackupMetadataID   = addBackupMetadataID
