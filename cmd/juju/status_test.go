@@ -2313,3 +2313,64 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	ctx.run(c, []stepper{expected})
 }
+
+func (s *StatusSuite) TestStatusWithFormatPprint(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"logging"},
+
+		addService{name: "wordpress", charm: "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", params.StatusStarted, "", nil},
+
+		addService{name: "mysql", charm: "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", params.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", params.StatusStarted, "", nil},
+
+		addService{name: "logging", charm: "logging"},
+		setServiceExposed{"logging", true},
+
+		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "logging"},
+		relateServices{"mysql", "logging"},
+
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"mysql/0", "logging"},
+
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", params.StatusStarted, "", nil},
+		setUnitStatus{"logging/1", params.StatusError, "somehow lost in all those logs", nil},
+	}
+
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+
+	code, stdout, stderr := runStatus(c, "--format", "oneline")
+
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+
+	c.Assert(
+		string(stdout),
+		gc.Equals,
+		"\n- mysql/0: dummyenv-2.dns (started)\n  - logging/1: dummyenv-2.dns (error)\n- wordpress/0: dummyenv-1.dns (started)\n  - logging/0: dummyenv-1.dns (started)\n",
+	)
+}
