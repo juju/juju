@@ -13,7 +13,7 @@ from utility import scoped_environ
 
 def assess_bootstrap(juju, env):
     with scoped_environ():
-        juju_bin = os.path.dirname(os.abspath(juju))
+        juju_bin = os.path.dirname(os.path.abspath(juju))
         os.environ['PATH'] = '{}:{}'.format(juju_bin, os.environ['PATH'])
         environment = Environment.from_config(env)
     environment.destroy_environment()
