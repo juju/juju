@@ -248,7 +248,8 @@ func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.runf(flockShared, "base64 < %s", utils.ShQuote(path))
+	filename := utils.ShQuote(path)
+	out, err := s.runf(flockShared, "(test -e %s || (echo No such file && exit 1)) && base64 < %s", filename, filename)
 	if err != nil {
 		err := err.(SSHStorageError)
 		if strings.Contains(err.Output, "No such file") {
