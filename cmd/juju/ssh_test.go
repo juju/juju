@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
@@ -102,9 +101,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	dummy, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
 	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)

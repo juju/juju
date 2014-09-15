@@ -6,7 +6,6 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -413,27 +412,17 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
-	cfg, err := st.EnvironConfig()
+
+	stor, err := st.Storage()
 	if err != nil {
 		return nil, err
 	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	stor := env.Storage()
-	if err := stor.Put(name, f, size); err != nil {
+	defer stor.Close()
+	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
+	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	ustr, err := stor.URL(name)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
-	}
-	u, err := url.Parse(ustr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
-	}
-	sch, err := st.AddCharm(ch, curl, u, digest)
+	sch, err := st.AddCharm(ch, curl, storagePath, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}

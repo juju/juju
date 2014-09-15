@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"bytes"
-	"net/url"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -34,9 +33,7 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
 	c.Assert(dummy.Revision(), gc.Equals, 1)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/quantal-dummy-1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(dummy.StoragePath(), gc.Equals, "dummy-path")
 	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
 	c.Assert(dummy.IsUploaded(), jc.IsTrue)
 	meta := dummy.Meta()
@@ -91,7 +88,7 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 	c.Assert(url.Series, gc.Equals, series)
 	c.Assert(url.Revision, gc.Equals, ch.Revision())
 
-	// Ignore the BundleURL and BundleSHA256 methods, they're irrelevant.
+	// Ignore the StoragePath and BundleSHA256 methods, they're irrelevant.
 }
 
 func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {

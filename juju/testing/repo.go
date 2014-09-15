@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -70,11 +69,16 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	url := ch.BundleURL()
-	resp, err := http.Get(url.String())
+
+	storage, err := s.State.Storage()
 	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-	digest, _, err := utils.ReadSHA256(resp.Body)
+	defer storage.Close()
+
+	r, _, err := storage.Get(ch.StoragePath())
+	c.Assert(err, gc.IsNil)
+	defer r.Close()
+
+	digest, _, err := utils.ReadSHA256(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.BundleSha256(), gc.Equals, digest)
 }

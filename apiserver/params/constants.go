@@ -41,6 +41,9 @@ const (
 
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
+// TODO(dfc) once state does not depend on apisever/params
+// this type will be rewritten to be
+// type Status state.Status
 type Status string
 
 const (

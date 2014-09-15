@@ -18,7 +18,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -345,13 +344,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	if sdoc.Status != params.StatusPending {
+	if sdoc.Status != StatusPending {
 		return setDyingOps, nil
 	}
 	ops := []txn.Op{{
 		C:      statusesC,
 		Id:     sdocId,
-		Assert: bson.D{{"status", params.StatusPending}},
+		Assert: bson.D{{"status", StatusPending}},
 	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
 	removeOps, err := u.removeOps(removeAsserts)
@@ -693,7 +692,7 @@ func (u *Unit) Refresh() error {
 }
 
 // Status returns the status of the unit.
-func (u *Unit) Status() (status params.Status, info string, data map[string]interface{}, err error) {
+func (u *Unit) Status() (status Status, info string, data map[string]interface{}, err error) {
 	doc, err := getStatus(u.st, u.globalKey())
 	if err != nil {
 		return "", "", nil, err
@@ -706,7 +705,7 @@ func (u *Unit) Status() (status params.Status, info string, data map[string]inte
 
 // SetStatus sets the status of the unit. The optional values
 // allow to pass additional helpful status data.
-func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}) error {
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
@@ -1688,8 +1687,8 @@ func (u *Unit) Resolve(retryHooks bool) error {
 	if err != nil {
 		return err
 	}
-	if status != params.StatusError {
-		return fmt.Errorf("unit %q is not in an error state", u)
+	if status != StatusError {
+		return errors.Errorf("unit %q is not in an error state", u)
 	}
 	mode := ResolvedNoHooks
 	if retryHooks {
