@@ -11,6 +11,7 @@ package api
 var facadeVersions = map[string]int{
 	"Agent":                0,
 	"AllWatcher":           0,
+	"Backups":              0,
 	"Deployer":             0,
 	"KeyUpdater":           0,
 	"HighAvailability":     1,

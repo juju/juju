@@ -165,7 +165,8 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 		agentConfig, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
-		err = s.State.SetStateServingInfo(info)
+		ssi := paramsStateServingInfoToStateStateServingInfo(info)
+		err = s.State.SetStateServingInfo(ssi)
 		c.Assert(err, gc.IsNil)
 	} else {
 		agentConfig, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
@@ -676,6 +677,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	stm, conf, _ := s.primeAgent(c, version.Current, job)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
+	logger.Debugf("new agent %#v", a)
 
 	// All state jobs currently also run an APIWorker, so no
 	// need to check for that here, like in assertJobWithState.

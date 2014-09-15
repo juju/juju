@@ -110,7 +110,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	return names.NewUserTag(state.AdminUser)
+	return names.NewLocalUserTag(state.AdminUser)
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -539,7 +539,8 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch, networks)
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(name, owner, ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }

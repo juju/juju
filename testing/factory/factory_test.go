@@ -74,7 +74,7 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -102,7 +102,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator.Name())
 	c.Assert(user.PasswordValid(password), jc.IsTrue)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -129,7 +129,7 @@ func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
 		NoEnvUser:   true,
 	})
 
-	_, err := s.State.User(user.Name())
+	_, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

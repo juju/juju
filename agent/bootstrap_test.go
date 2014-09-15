@@ -57,7 +57,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		APIPort:        1234,
@@ -94,9 +94,16 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	err = cfg.Write()
 	c.Assert(err, gc.IsNil)
 
+	// Check that the environment has been set up.
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	uuid, ok := envCfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(env.UUID(), gc.Equals, uuid)
+
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
-	user, err := st.User("admin")
+	user, err := st.User(env.Owner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
@@ -191,7 +198,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
-	cfg.SetStateServingInfo(state.StateServingInfo{
+	cfg.SetStateServingInfo(params.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           "foo",

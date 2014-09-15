@@ -212,11 +212,11 @@ func (c *Client) Resolved(unit string, retry bool) error {
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
-func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, error) {
+func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
 	p := params.Entities{}
 	p.Entities = make([]params.Entity, len(machines))
 	for i, machine := range machines {
-		p.Entities[i] = params.Entity{Tag: machine}
+		p.Entities[i] = params.Entity{Tag: machine.String()}
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("RetryProvisioning", p, &results)
@@ -599,6 +599,12 @@ func (c *Client) EnvironmentUnset(keys ...string) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.facade.FacadeCall("SetEnvironAgentVersion", args, nil)
+}
+
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.

@@ -953,6 +953,12 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	return c.api.state.SetEnvironAgentVersion(args.Version)
 }
 
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	return c.api.state.AbortCurrentUpgrade()
+}
+
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	return c.api.toolsFinder.FindTools(args)

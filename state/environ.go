@@ -72,7 +72,7 @@ func (e *Environment) Life() Life {
 // The owner is the user that created the environment.
 func (e *Environment) Owner() names.UserTag {
 	// For now, just returns "admin".
-	return names.NewUserTag(AdminUser)
+	return names.NewLocalUserTag(AdminUser)
 }
 
 // globalKey returns the global database key for the environment.
