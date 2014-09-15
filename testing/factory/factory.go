@@ -35,8 +35,9 @@ type UserParams struct {
 	Name        string
 	DisplayName string
 	Password    string
-	Creator     string
-	NoEnvUser   bool
+	// TODO (domas) 2014 09 12: make this a tag, not a string
+	Creator   string
+	NoEnvUser bool
 }
 
 // EnvUserParams defines the parameters for creating an environment user.
@@ -73,8 +74,9 @@ type ServiceParams struct {
 
 // UnitParams are used to create units.
 type UnitParams struct {
-	Service *state.Service
-	Machine *state.Machine
+	Service     *state.Service
+	Machine     *state.Machine
+	SetCharmURL bool
 }
 
 // RelationParams are used to create relations.
@@ -276,9 +278,11 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(params.Machine)
 	c.Assert(err, gc.IsNil)
-	serviceCharmURL, _ := params.Service.CharmURL()
-	err = unit.SetCharmURL(serviceCharmURL)
-	c.Assert(err, gc.IsNil)
+	if params.SetCharmURL {
+		serviceCharmURL, _ := params.Service.CharmURL()
+		err = unit.SetCharmURL(serviceCharmURL)
+		c.Assert(err, gc.IsNil)
+	}
 	return unit
 }
 
@@ -292,7 +296,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params = &MetricParams{}
 	}
 	if params.Unit == nil {
-		params.Unit = factory.MakeUnit(c, nil)
+		params.Unit = factory.MakeUnit(c, &UnitParams{SetCharmURL: true})
 	}
 	if params.Time == nil {
 		params.Time = &now

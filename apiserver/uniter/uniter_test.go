@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	stdtesting "testing"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	jujuFactory "github.com/juju/juju/testing/factory"
 )
 
 func Test(t *stdtesting.T) {
@@ -52,24 +54,40 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.wpCharm = s.AddTestingCharm(c, "wordpress")
+	factory := jujuFactory.NewFactory(s.State)
 	// Create two machines, two services and add a unit to each service.
-	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	s.wordpress = s.AddTestingService(c, "wordpress", s.wpCharm)
-	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	s.wordpressUnit, err = s.wordpress.AddUnit()
-	c.Assert(err, gc.IsNil)
-	s.mysqlUnit, err = s.mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
-	// Assign each unit to each machine.
-	err = s.wordpressUnit.AssignToMachine(s.machine0)
-	c.Assert(err, gc.IsNil)
-	err = s.mysqlUnit.AssignToMachine(s.machine1)
-	c.Assert(err, gc.IsNil)
+	s.machine0 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+	})
+	s.machine1 = factory.MakeMachine(c, &jujuFactory.MachineParams{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	s.wpCharm = factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "wordpress",
+	})
+	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
+		Name:    "wordpress",
+		Charm:   s.wpCharm,
+		Creator: s.AdminUserTag(c).String(),
+	})
+	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "mysql",
+	})
+	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
+		Name:    "mysql",
+		Charm:   mysqlCharm,
+		Creator: s.AdminUserTag(c).String(),
+	})
+	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.wordpress,
+		Machine: s.machine0,
+	})
+	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service: s.mysql,
+		Machine: s.machine1,
+	})
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
@@ -83,6 +101,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a uniter API for unit 0.
+	var err error
 	s.uniter, err = uniter.NewUniterAPI(
 		s.State,
 		s.resources,
@@ -624,8 +643,7 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
-	charmUrl, ok := s.wordpressUnit.CharmURL()
-	c.Assert(charmUrl, gc.IsNil)
+	_, ok := s.wordpressUnit.CharmURL()
 	c.Assert(ok, jc.IsFalse)
 
 	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
@@ -646,10 +664,10 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	// Verify the charm URL was set.
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	charmUrl, ok = s.wordpressUnit.CharmURL()
+	charmUrl, needsUpgrade := s.wordpressUnit.CharmURL()
 	c.Assert(charmUrl, gc.NotNil)
 	c.Assert(charmUrl.String(), gc.Equals, s.wpCharm.String())
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(needsUpgrade, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestOpenPort(c *gc.C) {
@@ -1783,4 +1801,75 @@ func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestAddMetrics(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	now := time.Now()
+	sentMetrics := []params.Metric{{"A", "5", now}, {"B", "0.71", now}}
+	args := params.MetricsParams{
+		Metrics: []params.MetricsParam{{
+			Tag:     s.wordpressUnit.Tag().String(),
+			Metrics: sentMetrics,
+		}},
+	}
+	result, err := s.uniter.AddMetrics(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	metrics, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metrics, gc.HasLen, 1)
+
+	unitMetrics := metrics[0].Metrics()
+	c.Assert(unitMetrics, gc.HasLen, 2)
+
+	for i, unitMetric := range unitMetrics {
+		c.Assert(unitMetric.Key, gc.Equals, sentMetrics[i].Key)
+		c.Assert(unitMetric.Value, gc.Equals, sentMetrics[i].Value)
+	}
+}
+
+func (s *uniterSuite) TestAddMetricsIncorrectTag(c *gc.C) {
+	now := time.Now()
+
+	tags := []string{"user-admin", "unit-nosuchunit", "thisisnotatag", "machine-0", "environment-blah"}
+
+	for _, tag := range tags {
+
+		args := params.MetricsParams{
+			Metrics: []params.MetricsParam{{
+				Tag:     tag,
+				Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
+			}},
+		}
+
+		result, err := s.uniter.AddMetrics(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result.Results, gc.HasLen, 1)
+		c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+		metrics, err := s.State.MetricBatches()
+		c.Assert(err, gc.IsNil)
+		c.Assert(metrics, gc.HasLen, 0)
+	}
+}
+
+func (s *uniterSuite) TestAddMetricsUnauthenticated(c *gc.C) {
+	now := time.Now()
+	args := params.MetricsParams{
+		Metrics: []params.MetricsParam{{
+			Tag:     s.mysqlUnit.Tag().String(),
+			Metrics: []params.Metric{{"A", "5", now}, {"B", "0.71", now}},
+		}},
+	}
+	result, err := s.uniter.AddMetrics(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	metrics, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metrics, gc.HasLen, 0)
 }

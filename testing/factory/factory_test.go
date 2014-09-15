@@ -337,7 +337,8 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	service := s.Factory.MakeService(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Service: service,
+		Service:     service,
+		SetCharmURL: true,
 	})
 	c.Assert(unit, gc.NotNil)
 
@@ -423,7 +424,7 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit:    unit,
 		Time:    &now,
