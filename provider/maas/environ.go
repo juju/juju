@@ -318,13 +318,10 @@ func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
 		client := env.getMAASClient().GetSubObject("version/")
 		result, err = client.CallGet("", nil)
 		if err != nil {
-			err0, ok := err.(*gomaasapi.ServerError)
-			if ok && err0.StatusCode == 404 {
+			if err, ok := err.(*gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				return caps, fmt.Errorf("MAAS does not support version info")
-			} else {
-				return caps, err
 			}
-			continue
+			return caps, err
 		}
 	}
 	if err != nil {
@@ -368,6 +365,9 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 func convertConstraints(cons constraints.Value) url.Values {
 	params := url.Values{}
 	if cons.Arch != nil {
+		// Note: Juju and MAAS use the same architecture names.
+		// MAAS also accepts a subarchitecture (e.g. "highbank"
+		// for ARM), which defaults to "generic" if unspecified.
 		params.Add("arch", *cons.Arch)
 	}
 	if cons.CpuCores != nil {
@@ -577,6 +577,12 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			}
 		}
 	}()
+
+	hc, err := inst.hardwareCharacteristics()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	var networkInfo []network.Info
 	if args.MachineConfig.HasNetworks() {
 		networkInfo, err = environ.setupNetworks(inst, set.NewStrings(requestedNetworks...))
@@ -614,8 +620,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
-	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, nil, networkInfo, nil
+	return inst, hc, networkInfo, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure

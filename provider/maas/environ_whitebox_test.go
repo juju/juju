@@ -196,7 +196,10 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		version.Current.Arch),
+	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
@@ -219,14 +222,19 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
 
 	// Create node 1: it will be used as instance number 1.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		version.Current.Arch),
+	)
 	lshwXML, err = suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f1": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	// TODO(wallyworld) - test instance metadata
-	instance, _ := testing.AssertStartInstance(c, env, "1")
+	instance, hc := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
 	c.Check(instance, gc.NotNil)
+	c.Assert(hc, gc.NotNil)
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", version.Current.Arch))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
@@ -499,7 +507,10 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
+	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
