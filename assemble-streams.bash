@@ -59,11 +59,11 @@ build_tool_tree() {
     if [[ ! -d $DEST_DEBS ]]; then
         mkdir $DEST_DEBS
     fi
-    if [[ ! -d ${DEST_DIST}/tools/streams/v1 ]]; then
-        mkdir -p ${DEST_DIST}/tools/streams/v1
-    fi
     if [[ ! -d ${DEST_DIST}/tools/releases ]]; then
         mkdir -p ${DEST_DIST}/tools/releases
+    fi
+    if [[ ! -d ${DEST_DIST}/tools/streams/v1 ]]; then
+        mkdir -p ${DEST_DIST}/tools/streams/v1
     fi
 }
 
