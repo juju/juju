@@ -69,7 +69,6 @@ build_tool_tree() {
 retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
-    [[ $PRIVATE == "true" ]] && return 0
     [[ $GET_RELEASED_TOOL="false" ]] && return 0
     echo "Phase 2: Retrieving released tools."
     # unsupported, stable, devel excludes to make sync fast.
@@ -95,7 +94,7 @@ retract_bad_tools() {
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
-    [[ $PRIVATE == "true" ]] && return 0
+    [[ $RELEASE == "IGNORE" ]] && return 0
     echo "Phase 3: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
         for linked_file in $TEST_DEBS_DIR/juju-core_*.deb; do
@@ -168,7 +167,8 @@ get_arch() {
 
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
-    [[ $PRIVATE == "true" ]] && return 0
+    # This phase is skipped when the release version is IGNORE.
+    [[ $RELEASE == "IGNORE" ]] && return 0
     echo "Phase 4: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
     mkdir ${WORK}/juju
@@ -324,10 +324,15 @@ cleanup() {
 declare -a added_tools
 added_tools=()
 
+SIGNING_KEY=""
 IS_TESTING="false"
 GET_RELEASED_TOOL="true"
-while getopts "t:n" o; do
+while getopts "s:t:n" o; do
     case "${o}" in
+        s)
+            SIGNING_KEY=${OPTARG}
+            echo "# The streams will be signed with $SIGNING_KEY"
+            ;;
         t)
             TEST_DEBS_DIR=${OPTARG}
             [[ -d $TEST_DEBS_DIR ]] || usage
@@ -344,11 +349,11 @@ while getopts "t:n" o; do
     esac
 done
 shift $((OPTIND - 1))
-test $# -eq 2 || test $# -eq 3 || usage
+test $# -eq 3 || usage
 
-
-RELEASE=$1
-DESTINATION=$(cd $2; pwd)
+PUPOSE=$!
+RELEASE=$2
+DESTINATION=$(cd $3; pwd)
 DEST_DEBS="${DESTINATION}/debs"
 DEST_TOOLS="${DESTINATION}/tools/releases"
 DEST_DIST="${DESTINATION}/juju-dist"
@@ -359,15 +364,6 @@ if [[ -d $DEST_DIST ]]; then
     rm -r $DEST_DIST
 fi
 
-SIGNING_KEY=""
-PRIVATE="false"
-EXTRA=${3:-""}
-if [[ $EXTRA == "PRIVATE" ]]; then
-    PRIVATE="true"
-    echo "Skipping release tools and packages."
-else
-    SIGNING_KEY=$EXTRA
-fi
 
 PACKAGES=""
 WORK=$(mktemp -d)
@@ -379,6 +375,7 @@ check_deps
 build_tool_tree
 retrieve_released_tools
 retract_bad_tools
+
 retrieve_packages
 archive_tools
 generate_streams
