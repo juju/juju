@@ -7,12 +7,12 @@
 
 from __future__ import print_function
 
+from argparse import ArgumentParser
 import base64
 from collections import namedtuple
 import hashlib
 import mimetypes
 from operator import attrgetter
-from optparse import OptionParser
 import os
 import sys
 
@@ -27,12 +27,18 @@ BAD_ARGS = 1
 UNKNOWN_COMMAND = 2
 NO_PUBLISHED_FILES = 3
 NO_LOCAL_FILES = 4
+UNKNOWN_PURPOSE = 5
 
 
 LIST = 'list'
 PUBLISH = 'publish'
+DELETE = 'delete'
+COMMANDS = (LIST, PUBLISH, DELETE)
 RELEASE = 'release'
+PROPOSED = 'proposed'
+DEVEL = 'devel'
 TESTING = 'testing'
+PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
 JUJU_DIST = 'juju-tools'
 CHUNK_SIZE = 4 * 1024 * 1024
 
@@ -44,17 +50,20 @@ SyncFile = namedtuple(
     'SyncFile', ['path', 'size', 'md5content', 'mimetype', 'local_path'])
 
 
+def get_prefix(purpose):
+    """Return the top-level dir name for the purpose."""
+    if purpose == RELEASE:
+        return 'tools'
+    else:
+        return purpose
+
+
 def get_published_files(purpose, blob_service):
     """Return the SyncFile info about the published files."""
-    if purpose == TESTING:
-        prefix = TESTING
-    else:
-        prefix = None
+    prefix = get_prefix(purpose)
     files = []
     for blob in blob_service.list_blobs(
             JUJU_DIST, prefix=prefix, include='metadata'):
-        if purpose == RELEASE and blob.name.startswith(TESTING):
-            continue
         sync_file = SyncFile(
             path=blob.name, md5content=blob.properties.content_md5,
             size=blob.properties.content_length,
@@ -68,10 +77,10 @@ def get_local_files(purpose, local_dir):
     if not os.path.isdir(local_dir):
         print('%s not found.' % local_dir)
         return None
-    if purpose == TESTING:
-        replacements = (local_dir, TESTING)
-    else:
+    if purpose == RELEASE:
         replacements = (local_dir + '/', '')
+    else:
+        replacements = (local_dir, purpose)
     found = []
     for path, subdirs, files in os.walk(local_dir):
         for name in files:
@@ -103,7 +112,7 @@ def get_md5content(local_path):
 
 
 def publish_local_file(purpose, blob_service, sync_file):
-    """Published the local file to the release or testing location.
+    """Published the local file to the location specified by the purpose.
 
     The file is broken down into blocks that can be uploaded within
     the azure restrictions. The blocks are then assembled into a blob
@@ -130,7 +139,7 @@ def publish_local_file(purpose, blob_service, sync_file):
 
 
 def list_published_files(purpose):
-    """List the testing or release files."""
+    """List the files specified by the purpose."""
     blob_service = BlobService()
     published_files = get_published_files(purpose, blob_service)
     if published_files is None:
@@ -142,8 +151,8 @@ def list_published_files(purpose):
     return OK
 
 
-def publish_files(purpose, local_dir, options):
-    """Publish the tools and metadata to the release or testing location."""
+def publish_files(purpose, local_dir, args):
+    """Publish the streams to the location for the intended purpose."""
     blob_service = BlobService()
     if local_dir.endswith('/'):
         local_dir = local_dir[:-1]
@@ -155,7 +164,7 @@ def publish_files(purpose, local_dir, options):
     local_files = get_local_files(purpose, local_dir)
     if local_files is None:
         return NO_LOCAL_FILES
-    if options.verbose:
+    if args.verbose:
         for lf in local_files:
             print(lf.path)
     published_dict = dict(
@@ -165,54 +174,68 @@ def publish_files(purpose, local_dir, options):
             print('%s is new.' % sync_file.path)
         elif published_dict[sync_file.path].md5content != sync_file.md5content:
             print('%s is different.' % sync_file.path)
-            if options.verbose:
+            if args.verbose:
                 print(
                     '  published:%s != local:%s.' % (
                         published_dict[sync_file.path].md5content,
                         sync_file.md5content))
         else:
-            if options.verbose:
+            if args.verbose:
                 print("Nothing to do: %s == %s" % (
                     sync_file.path, published_dict[sync_file.path].md5content))
             continue
-        if not options.dry_run:
+        if not args.dry_run:
             publish_local_file(purpose, blob_service, sync_file)
+    return OK
+
+
+def delete_files(purpose, files, args):
+    prefix = get_prefix(purpose)
+    blob_service = BlobService()
+    for path in files:
+        if prefix is not None:
+            path = '%s/%s' % (prefix, path)
+        print("Deleting %s" % path)
+        if not args.dry_run:
+            blob_service.delete_blob(JUJU_DIST, path)
     return OK
 
 
 def main():
     """Execute the commands from the command line."""
     parser = get_option_parser()
-    (options, args) = parser.parse_args(args=sys.argv[1:])
-    if len(args) <= 1:
-        parser.print_usage()
-        return BAD_ARGS
-    command = args[0]
-    purpose = args[1]
-    if command == LIST:
-        return list_published_files(purpose)
-    elif command == PUBLISH:
-        if len(args) != 3:
-            parser.print_usage()
-            return 1
-        return publish_files(purpose, args[2], options)
-    else:
-        # The command is not known.
+    args = parser.parse_args()
+    if args.purpose not in PURPOSES:
+        return UNKNOWN_PURPOSE
+    if args.command not in COMMANDS:
         return UNKNOWN_COMMAND
+    elif args.command == LIST:
+        return list_published_files(args.purpose)
+    elif args.command == PUBLISH:
+        if args.path == None or len(args.path) != 1:
+            parser.print_usage()
+            return BAD_ARGS
+        return publish_files(args.purpose, args.path[0], args)
+    elif args.command == DELETE:
+        if args.path == None:
+            parser.print_usage()
+            return BAD_ARGS
+        return delete_files(args.purpose, args.path, args)
 
 
 def get_option_parser():
     """Return the option parser for this program."""
-    usage = "usage: %prog <list | publish> <testing | release> [local-tools]"
-    parser = OptionParser(usage=usage)
-    parser.add_option(
-        "-d", "--dry-run", action="store_true", dest="dry_run")
-    parser.add_option(
-        "-v", "--verbose", action="store_true", dest="verbose")
-    parser.set_defaults(
-        dry_run=False,
-        verbose=False
-    )
+    parser = ArgumentParser("Manage objects in Azure blob storage")
+    parser.add_argument(
+        "-d", "--dry-run", action="store_true", default=False,
+        help="Do not publish or delete")
+    parser.add_argument(
+        '-v', '--verbose', action="store_true", default=False,
+        help='Increse verbosity.')
+    parser.add_argument('command', help="<list | publish | delete>")
+    parser.add_argument('purpose', help="<{}>".format(' | '.join(PURPOSES)))
+    parser.add_argument('path', nargs="*", default=None,
+        help='The path to publish or files to delete')
     return parser
 
 
