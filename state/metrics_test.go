@@ -160,7 +160,7 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 // and checks that the 2 unsent metrics get sent and have their
 // sent field set to true.
 func (s *MetricSuite) TestSendMetrics(c *gc.C) {
-	unit := s.factory.MakeUnit(c, nil)
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	unsent1 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
 	unsent2 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
@@ -190,7 +190,7 @@ func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
 	sender := &testing.MockSender{}
 	s.PatchValue(&state.MaxBatchesPerSend, 10)
 	s.PatchValue(&state.MaxSendsPerCall, 10)
-	unit := s.factory.MakeUnit(c, nil)
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	for i := 0; i < 101; i++ {
 		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
@@ -207,7 +207,7 @@ func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
 // TestCountMetrics asserts the correct values are returned
 // by countofUnsentMetrics and countofSentMetrics.
 func (s *MetricSuite) TestCountMetrics(c *gc.C) {
-	unit := s.factory.MakeUnit(c, nil)
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
@@ -224,7 +224,7 @@ func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 // TestDontSendWithNopSender check that if the default sender
 // is nil we don't send anything, but still mark the items as sent
 func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
-	unit := s.factory.MakeUnit(c, nil)
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
@@ -238,7 +238,7 @@ func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
 }
 
 func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
-	unit := s.factory.MakeUnit(c, nil)
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	ma := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	mb := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
