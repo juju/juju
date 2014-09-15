@@ -121,7 +121,7 @@ def deploy_dummy_stack(env, charm_prefix):
         env.wait_for_started()
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
-    # pckage updates.
+    # package updates.
     logging.info('Retrieving token.')
     get_token="""
         for x in $(seq 120); do
@@ -197,7 +197,7 @@ def get_machine_addrs(env):
 
 def dump_logs(env, host, directory, host_id=None):
     if env.local:
-        copy_local_logs(directory)
+        copy_local_logs(directory, env)
     else:
         copy_remote_logs(host, directory)
     subprocess.check_call(
@@ -207,8 +207,12 @@ def dump_logs(env, host, directory, host_id=None):
     dump_euca_console(host_id, directory)
 
 
-def copy_local_logs(directory):
-    local = os.path.join(get_juju_home(), 'local')
+def get_local_root(juju_home, env):
+    return os.path.join(juju_home, env.environment)
+
+
+def copy_local_logs(directory, env):
+    local = get_local_root(get_juju_home(), env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
     log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
 
@@ -306,8 +310,7 @@ def check_free_disk_space(path, required, purpose):
 
 def bootstrap_from_env(juju_home, env):
     if env.config['type'] == 'local':
-        env.config.setdefault('root-dir', os.path.join(
-            juju_home, env.environment))
+        env.config.setdefault('root-dir', get_local_root(juju_home, env))
     new_config = {'environments': {env.environment: env.config}}
     jenv_path = get_jenv_path(juju_home, env.environment)
     with temp_dir(juju_home) as temp_juju_home:
