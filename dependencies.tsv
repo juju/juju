@@ -19,6 +19,7 @@ github.com/juju/schema	git	de545dbe6bec9a1586adfed8b47b99b616796c98
 github.com/juju/testing	git	8bdbb45d87dd9724c254eb6afeacd84b127d7e76	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	cc58beb3a52d3f83f18956596fa8b2feaaa22d12	
+github.com/kisielk/gotool	git	37b67b9f055653df36c7ef6016c4feed95ad87bf	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
 gopkg.in/yaml.v1	git	1418a9bc452f9cf4efa70307cafcb10743e64a56	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13

@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/errors"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"

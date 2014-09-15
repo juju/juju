@@ -12,7 +12,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
