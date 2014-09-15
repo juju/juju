@@ -266,7 +266,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 			var st state.Status
 			st, r.Info, r.Data, err = machine.Status()
 			r.Status = params.Status(st)
-	
+
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -297,7 +297,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		}
 		result := params.StatusResult{}
 		var st state.Status
-		st, result.Info, result.Data, err = machine.Status(); 
+		st, result.Info, result.Data, err = machine.Status()
 		if err != nil {
 			continue
 		}

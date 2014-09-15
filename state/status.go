@@ -13,10 +13,10 @@ import (
 )
 
 var (
-        _ StatusSetter = (*Machine)(nil)
-        _ StatusSetter = (*Unit)(nil)
-        _ StatusGetter = (*Machine)(nil)
-        _ StatusGetter = (*Unit)(nil)
+	_ StatusSetter = (*Machine)(nil)
+	_ StatusSetter = (*Unit)(nil)
+	_ StatusGetter = (*Machine)(nil)
+	_ StatusGetter = (*Unit)(nil)
 )
 
 // Status represents the status of an entity.
@@ -24,52 +24,51 @@ var (
 type Status string
 
 const (
-        // The entity is not yet participating in the environment.
-        StatusPending Status = "pending"
+	// The entity is not yet participating in the environment.
+	StatusPending Status = "pending"
 
-        // The unit has performed initial setup and is adapting itself to
-        // the environment. Not applicable to machines.
-        StatusInstalled Status = "installed"
+	// The unit has performed initial setup and is adapting itself to
+	// the environment. Not applicable to machines.
+	StatusInstalled Status = "installed"
 
-        // The entity is actively participating in the environment.
-        StatusStarted Status = "started"
+	// The entity is actively participating in the environment.
+	StatusStarted Status = "started"
 
-        // The entity's agent will perform no further action, other than
-        // to set the unit to Dead at a suitable moment.
-        StatusStopped Status = "stopped"
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
 
-        // The entity requires human intervention in order to operate
-        // correctly.
-        StatusError Status = "error"
+	// The entity requires human intervention in order to operate
+	// correctly.
+	StatusError Status = "error"
 
-        // The entity ought to be signalling activity, but it cannot be
-        // detected.
-        StatusDown Status = "down"
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown Status = "down"
 )
 
 // Valid returns true if status has a known value.
 func (status Status) Valid() bool {
-        switch status {
-        case
-                StatusPending,
-                StatusInstalled,
-                StatusStarted,
-                StatusStopped,
-                StatusError,
-                StatusDown:
-        default:
-                return false
-        }
-        return true
+	switch status {
+	case
+		StatusPending,
+		StatusInstalled,
+		StatusStarted,
+		StatusStopped,
+		StatusError,
+		StatusDown:
+	default:
+		return false
+	}
+	return true
 }
 
-
 type StatusSetter interface {
-        SetStatus(status Status, info string, data map[string]interface{}) error
+	SetStatus(status Status, info string, data map[string]interface{}) error
 }
 
 type StatusGetter interface {
-        Status() (status Status, info string, data map[string]interface{}, err error)
+	Status() (status Status, info string, data map[string]interface{}, err error)
 }
 
 // statusDoc represents a entity status in Mongodb.  The implicit
