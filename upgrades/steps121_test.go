@@ -41,6 +41,7 @@ func (s *steps121a2Suite) TestUpgradeOperationsContent(c *gc.C) {
 		"migrate charm archives into environment storage",
 		"migrate custom image metadata into environment storage",
 		"migrate tools into environment storage",
+		"migrate individual unit ports to openedPorts collection",
 	}
 
 	upgradeSteps := upgrades.StepsFor121a2()

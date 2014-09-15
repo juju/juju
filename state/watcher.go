@@ -2012,7 +2012,8 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		if changeId, err := w.transformId(id); err != nil {
 			logger.Errorf(err.Error())
 		} else {
-			ids.Remove(changeId)
+			// Report the removed id.
+			ids.Add(changeId)
 		}
 		return nil
 	}
@@ -2029,6 +2030,7 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		if changeId, err := w.transformId(id); err != nil {
 			logger.Errorf(err.Error())
 		} else {
+			// Report the unknown-so-far id.
 			ids.Add(changeId)
 		}
 	}

@@ -56,6 +56,12 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 	return p, nil
 }
 
+// PortRangeFromNetworkPortRange constructs a state.PortRange from the
+// given unitName and network.PortRange.
+func PortRangeFromNetworkPortRange(unitName string, portRange network.PortRange) (PortRange, error) {
+	return NewPortRange(unitName, portRange.FromPort, portRange.ToPort, portRange.Protocol)
+}
+
 // Validate checks if the port range is valid.
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
@@ -68,36 +74,69 @@ func (p PortRange) Validate() error {
 	if p.FromPort > p.ToPort {
 		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
 	}
+	if p.FromPort <= 0 || p.FromPort > 65535 ||
+		p.ToPort <= 0 || p.ToPort > 65535 {
+		return errors.Errorf("port range bounds must be between 1 and 65535, got %d-%d", p.FromPort, p.ToPort)
+	}
 	return nil
 }
 
-// CheckConflicts determines if the two port ranges conflict.
-func (a PortRange) CheckConflicts(b PortRange) error {
+// Length returns the number of ports in the range.
+// If the range is not valid, it returns 0.
+func (a PortRange) Length() int {
 	if err := a.Validate(); err != nil {
+		// Invalid range (from > to or something equally bad)
+		return 0
+	}
+	return (a.ToPort - a.FromPort) + 1
+}
+
+// Sanitize returns a copy of the port range, which is guaranteed to
+// have FromPort >= ToPort and both FromPort and ToPort fit into the
+// valid range from 1 to 65535, inclusive.
+func (a PortRange) SanitizeBounds() PortRange {
+	b := a
+	if b.FromPort > b.ToPort {
+		b.FromPort, b.ToPort = b.ToPort, b.FromPort
+	}
+	for _, bound := range []*int{&b.FromPort, &b.ToPort} {
+		switch {
+		case *bound <= 0:
+			*bound = 1
+		case *bound > 65535:
+			*bound = 65535
+		}
+	}
+	return b
+}
+
+// CheckConflicts determines if the two port ranges conflict.
+func (prA PortRange) CheckConflicts(prB PortRange) error {
+	if err := prA.Validate(); err != nil {
 		return err
 	}
-	if err := b.Validate(); err != nil {
+	if err := prB.Validate(); err != nil {
 		return err
 	}
 
 	// An exact port range match (including the associated unit name) is not
 	// considered a conflict due to the fact that many charms issue commands
 	// to open the same port multiple times.
-	if a == b {
+	if prA == prB {
 		return nil
 	}
-	if a.Protocol != b.Protocol {
+	if prA.Protocol != prB.Protocol {
 		return nil
 	}
-	if a.ToPort >= b.FromPort && b.ToPort >= a.FromPort {
-		return fmt.Errorf("port ranges %v (%s) and %v (%s) conflict", a, a.UnitName, b, b.UnitName)
+	if prA.ToPort >= prB.FromPort && prB.ToPort >= prA.FromPort {
+		return errors.Errorf("port ranges %v and %v conflict", prA, prB)
 	}
 	return nil
 }
 
 // Strings returns the port range as a string.
 func (p PortRange) String() string {
-	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, strings.ToLower(p.Protocol))
+	return fmt.Sprintf("%d-%d/%s (%q)", p.FromPort, p.ToPort, strings.ToLower(p.Protocol), p.UnitName)
 }
 
 // portsDoc represents the state of ports opened on machines for networks
@@ -111,8 +150,8 @@ type portsDoc struct {
 type Ports struct {
 	st  *State
 	doc portsDoc
-	// indicator for documents not in state yet
-	new bool
+	// areNew is true for documents not in state yet.
+	areNew bool
 }
 
 // Id returns the id of the ports document.
@@ -129,8 +168,10 @@ func (p *Ports) String() string {
 	return portsIdAsString(machineId, networkName)
 }
 
+// portsIdAsString returns a human-readable description of a ports
+// document for the given machineId and networkName.
 func portsIdAsString(machineId, networkName string) string {
-	return fmt.Sprintf("ports for machine %s, network %q", machineId, networkName)
+	return fmt.Sprintf("ports for machine %q, network %q", machineId, networkName)
 }
 
 // portsGlobalKey returns the global database key for the opened ports
@@ -139,17 +180,8 @@ func portsGlobalKey(machineId string, networkName string) string {
 	return fmt.Sprintf("m#%s#n#%s", machineId, networkName)
 }
 
-// Check if a port range can be opened, return the conflict error
-// for more accurate reporting.
-func (p *Ports) canOpenPorts(newPorts PortRange) error {
-	for _, existingPorts := range p.doc.Ports {
-		if err := existingPorts.CheckConflicts(newPorts); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
+// extractPortsIdPart parses the given ports global key and extracts
+// the given part out of it, returning the result or an error.
 func extractPortsIdPart(id string, part portIdPart) (string, error) {
 	if part <= fullId || part > networkNamePart {
 		return "", errors.Errorf("invalid ports document name part: %v", part)
@@ -175,70 +207,63 @@ func (p *Ports) NetworkName() (string, error) {
 // OpenPorts adds the specified port range to the list of ports
 // maintained by this document.
 func (p *Ports) OpenPorts(portRange PortRange) (err error) {
+	defer errors.Maskf(&err, "cannot open ports %s", portRange)
+
 	if err = portRange.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	ports := Ports{st: p.st, doc: p.doc, new: p.new}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var machineId string
-		machineId, err = ports.MachineId()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	ports := Ports{st: p.st, doc: p.doc, areNew: p.areNew}
 
+	var machineId string
+	machineId, err = ports.MachineId()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err = ports.Refresh(); errors.IsNotFound(err) {
-				// No longer exists.
-				if !ports.new {
-					return nil, errors.Annotatef(err, "no open ports for machine %s", machineId)
+				// No longer exists, we'll create it.
+				if !ports.areNew {
+					ports.areNew = true
 				}
 			} else if err != nil {
 				return nil, errors.Trace(err)
-			} else if ports.new {
-				// Already created.
-				ports.new = false
+			} else if ports.areNew {
+				// Already created, we'll update it.
+				ports.areNew = false
 			}
 		}
 
-		if err = ports.canOpenPorts(portRange); err != nil {
-			return nil, errors.Annotatef(err, "cannot open ports %v on machine %s", portRange, machineId)
-		}
-
-		if ports.new {
-			// Create a new document.
-			var networkName string
-			networkName, err = ports.NetworkName()
-			if err != nil {
+		// Check for conflicts with existing ports.
+		for _, existingPorts := range p.doc.Ports {
+			if err := existingPorts.CheckConflicts(portRange); err != nil {
 				return nil, errors.Trace(err)
+			} else if existingPorts == portRange {
+				// Trying to open the same range for the same unit is
+				// ignored, as we don't need to change the document
+				// and hence its txn-revno and trigger unnecessary
+				// watcher notifications.
+				return nil, statetxn.ErrNoOperations
 			}
-			return addPortsDocOps(
-				ports.st,
-				machineId,
-				networkName,
-				portRange), nil
 		}
-		ops := []txn.Op{{
-			C:      unitsC,
-			Id:     portRange.UnitName,
-			Assert: notDeadDoc,
-		}, {
-			C:      machinesC,
-			Id:     machineId,
-			Assert: notDeadDoc,
-		}, {
-			C:      openedPortsC,
-			Id:     ports.Id(),
-			Assert: bson.D{{"txn-revno", ports.doc.TxnRevno}},
-			Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
-		}}
-		return ops, nil
+
+		if ports.areNew {
+			// Create a new document.
+			assert := txn.DocMissing
+			return addPortsDocOps(p.st, machineId, ports.Id(), assert, portRange), nil
+		} else {
+			// Update an existing document.
+			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
+			return updatePortsDocOps(p.st, machineId, ports.Id(), assert, portRange), nil
+		}
 	}
 	// Run the transaction using the state transaction runner.
 	if err = p.st.run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	// Mark object as created.
-	p.new = false
+	p.areNew = false
 	p.doc.Ports = append(p.doc.Ports, portRange)
 	return nil
 }
@@ -246,13 +271,24 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 // ClosePorts removes the specified port range from the list of ports
 // maintained by this document.
 func (p *Ports) ClosePorts(portRange PortRange) (err error) {
-	var newPorts []PortRange
+	defer errors.Maskf(&err, "cannot close ports %s", portRange)
 
-	ports := Ports{st: p.st, doc: p.doc, new: p.new}
+	if err = portRange.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	var newPorts []PortRange
+	ports := Ports{st: p.st, doc: p.doc, areNew: p.areNew}
+
+	var machineId string
+	machineId, err = ports.MachineId()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err = ports.Refresh(); errors.IsNotFound(err) {
-				// No longer exists.
+				// No longer exists, nothing to do.
 				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)
@@ -268,110 +304,25 @@ func (p *Ports) ClosePorts(portRange PortRange) (err error) {
 			}
 			err = existingPortsDef.CheckConflicts(portRange)
 			if existingPortsDef.UnitName == portRange.UnitName && err != nil {
-				return nil, errors.Annotatef(err, "mismatched port ranges")
+				return nil, errors.Trace(err)
 			}
 			newPorts = append(newPorts, existingPortsDef)
 		}
 		if !found {
 			return nil, statetxn.ErrNoOperations
 		}
-		ops := []txn.Op{{
-			C:      unitsC,
-			Id:     portRange.UnitName,
-			Assert: notDeadDoc,
-		}, {
-			C:      openedPortsC,
-			Id:     ports.Id(),
-			Assert: bson.D{{"txn-revno", ports.doc.TxnRevno}},
-			Update: bson.D{{"$set", bson.D{{"ports", newPorts}}}},
-		}}
-		return ops, nil
+		if len(newPorts) == 0 {
+			// All ports closed, so remove the ports doc instead.
+			return p.removeOps(), nil
+		} else {
+			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
+			return setPortsDocOps(p.st, machineId, ports.Id(), assert, newPorts...), nil
+		}
 	}
 	if err = p.st.run(buildTxn); err != nil {
 		return errors.Trace(err)
 	}
 	p.doc.Ports = newPorts
-	return nil
-}
-
-// migratePorts migrates old-style unit ports collection to the ports
-// document.
-//
-// TODO(dimitern) Convert this to an upgrade step to run once.
-func (p *Ports) migratePorts(u *Unit) error {
-	ports := Ports{st: p.st, doc: p.doc, new: p.new}
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		machineId, err := ports.MachineId()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		if attempt > 0 {
-			if err := ports.Refresh(); errors.IsNotFound(err) {
-				// No longer exists.
-				if !ports.new {
-					return nil, errors.Annotatef(err, "no open ports for machine %s", machineId)
-				}
-			} else if err != nil {
-				return nil, errors.Trace(err)
-			} else if ports.new {
-				// Already created.
-				ports.new = false
-			}
-		}
-
-		migratedPorts := make([]PortRange, len(u.doc.Ports))
-		for i, port := range u.doc.Ports {
-			portDef, err := NewPortRange(u.Name(), port.Number, port.Number, port.Protocol)
-			if err != nil {
-				return nil, errors.Annotatef(err, "cannot migrate port %v", port)
-			}
-			if err := ports.canOpenPorts(portDef); err != nil {
-				return nil, errors.Annotatef(err, "cannot migrate port %v", port)
-			}
-			migratedPorts[i] = portDef
-		}
-
-		var ops []txn.Op
-
-		if ports.new {
-			// Create a new document.
-			networkName, err := ports.NetworkName()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			ops = addPortsDocOps(
-				ports.st,
-				machineId,
-				networkName,
-				migratedPorts...)
-		} else {
-			// Updating an existing document.
-			ops = append(ops, txn.Op{
-				C:      machinesC,
-				Id:     machineId,
-				Assert: isAliveDoc,
-			})
-
-			for _, portDef := range migratedPorts {
-				ops = append(ops, txn.Op{
-					C:      openedPortsC,
-					Id:     ports.Id(),
-					Update: bson.D{{"$addToSet", bson.D{{"ports", portDef}}}},
-				})
-			}
-		}
-
-		// TODO(domas) 2014-07-04 bug #1337813: Clear the old port
-		// collection on the unit document once the firewaller no
-		// longer depends on the unit ports list.
-		return ops, nil
-	}
-	if err := p.st.run(buildTxn); err != nil {
-		return errors.Trace(err)
-	}
-
-	p.new = false
 	return nil
 }
 
@@ -419,30 +370,19 @@ func (p *Ports) AllPortRanges() map[network.PortRange]string {
 
 // Remove removes the ports document from state.
 func (p *Ports) Remove() error {
-	prts := &Ports{st: p.st, doc: p.doc}
+	ports := &Ports{st: p.st, doc: p.doc}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			err := prts.Refresh()
+			err := ports.Refresh()
 			if errors.IsNotFound(err) {
 				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			}
 		}
-		ops := prts.removeOps()
-		return ops, nil
+		return ports.removeOps(), nil
 	}
 	return p.st.run(buildTxn)
-}
-
-// removeOps returns the ops for removing the ports document from
-// state.
-func (p *Ports) removeOps() []txn.Op {
-	return []txn.Op{{
-		C:      openedPortsC,
-		Id:     p.Id(),
-		Remove: true,
-	}}
 }
 
 // OpenedPorts returns this machine ports document for the given
@@ -503,10 +443,12 @@ func (st *State) Ports(key string) (*Ports, error) {
 	return &Ports{st, doc, false}, nil
 }
 
-func addPortsDocOps(st *State, machineId, networkName string, ports ...PortRange) []txn.Op {
-	key := portsGlobalKey(machineId, networkName)
+// addPortsDocOps returns the ops for adding a number of port ranges
+// to an new ports document. portsAssert allows specifying an assert
+// statement for on the openedPorts collection op.
+func addPortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	pdoc := &portsDoc{
-		Id:    key,
+		Id:    portsId,
 		Ports: ports,
 	}
 	return []txn.Op{{
@@ -515,10 +457,101 @@ func addPortsDocOps(st *State, machineId, networkName string, ports ...PortRange
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
-		Id:     key,
-		Assert: txn.DocMissing,
+		Id:     portsId,
+		Assert: portsAssert,
 		Insert: pdoc,
 	}}
+}
+
+// updatePortsDocOps returns the ops for adding a port range to an
+// existing ports document. portsAssert allows specifying an assert
+// statement on the openedPorts collection op.
+func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, portRange PortRange) []txn.Op {
+	return []txn.Op{{
+		C:      machinesC,
+		Id:     machineId,
+		Assert: notDeadDoc,
+	}, {
+		C:      unitsC,
+		Id:     portRange.UnitName,
+		Assert: notDeadDoc,
+	}, {
+		C:      openedPortsC,
+		Id:     portsId,
+		Assert: portsAssert,
+		Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
+	}}
+}
+
+// setPortsDocOps returns the ops for setting given port ranges to an
+// existing ports document. portsAssert allows specifying an assert
+// statement on the openedPorts collection op.
+func setPortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, ports ...PortRange) []txn.Op {
+	return []txn.Op{{
+		C:      machinesC,
+		Id:     machineId,
+		Assert: notDeadDoc,
+	}, {
+		C:      openedPortsC,
+		Id:     portsId,
+		Assert: portsAssert,
+		Update: bson.D{{"$set", bson.D{{"ports", ports}}}},
+	}}
+}
+
+// removeOps returns the ops for removing the ports document from
+// state.
+func (p *Ports) removeOps() []txn.Op {
+	return []txn.Op{{
+		C:      openedPortsC,
+		Id:     p.Id(),
+		Remove: true,
+	}}
+}
+
+// removePortsForUnitOps returns the ops needed to remove all opened
+// ports for the given unit on its assigned machine.
+func removePortsForUnitOps(st *State, unit *Unit) ([]txn.Op, error) {
+	machineId, err := unit.AssignedMachineId()
+	if err != nil {
+		// No assigned machine, so there won't be any ports.
+		return nil, nil
+	}
+	machine, err := st.Machine(machineId)
+	if errors.IsNotFound(err) {
+		// Machine is removed, so there won't be a ports doc for it.
+		return nil, nil
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	allPorts, err := machine.AllPorts()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var ops []txn.Op
+	for _, ports := range allPorts {
+		allRanges := ports.AllPortRanges()
+		var keepPorts []PortRange
+		for portRange, unitName := range allRanges {
+			if unitName != unit.Name() {
+				unitRange := PortRange{
+					UnitName: unitName,
+					FromPort: portRange.FromPort,
+					ToPort:   portRange.ToPort,
+					Protocol: portRange.Protocol,
+				}
+				keepPorts = append(keepPorts, unitRange)
+			}
+		}
+		if len(keepPorts) > 0 {
+			assert := bson.D{{"txn-revno", ports.doc.TxnRevno}}
+			ops = append(ops, setPortsDocOps(st, machineId, ports.Id(), assert, keepPorts...)...)
+		} else {
+			// No other ports left, remove the doc.
+			ops = append(ops, ports.removeOps()...)
+		}
+	}
+	return ops, nil
 }
 
 // getPorts returns the ports document for the specified machine and

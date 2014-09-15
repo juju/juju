@@ -70,5 +70,12 @@ func stepsFor121a2() []Step {
 				return migrateToolsStorage(context.State(), context.AgentConfig())
 			},
 		},
+		&upgradeStep{
+			description: "migrate individual unit ports to openedPorts collection",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateUnitPortsToOpenedPorts(context.State())
+			},
+		},
 	}
 }

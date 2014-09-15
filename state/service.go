@@ -658,6 +658,10 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
+	portsOps, err := removePortsForUnitOps(s.st, u)
+	if err != nil {
+		return nil, err
+	}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -674,6 +678,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
+	ops = append(ops, portsOps...)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if errors.IsNotFound(err) {
