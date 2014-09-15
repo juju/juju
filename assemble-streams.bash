@@ -69,7 +69,6 @@ build_tool_tree() {
 retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
-    [[ $GET_RELEASED_TOOL="false" ]] && return 0
     echo "Phase 2: Retrieving released tools."
     # unsupported, stable, devel excludes to make sync fast.
     if [[ $IS_TESTING == "true" ]]; then
@@ -94,7 +93,6 @@ retract_bad_tools() {
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
-    [[ $RELEASE == "IGNORE" ]] && return 0
     echo "Phase 3: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
         for linked_file in $TEST_DEBS_DIR/juju-core_*.deb; do
@@ -167,8 +165,6 @@ get_arch() {
 
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
-    # This phase is skipped when the release version is IGNORE.
-    [[ $RELEASE == "IGNORE" ]] && return 0
     echo "Phase 4: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
     mkdir ${WORK}/juju
@@ -373,11 +369,14 @@ source /etc/lsb-release
 
 check_deps
 build_tool_tree
-retrieve_released_tools
+if [[ $GET_RELEASED_TOOL == "true" ]]; then
+    retrieve_released_tools
+fi
 retract_bad_tools
-
-retrieve_packages
-archive_tools
+if [[ $RELEASE != "IGNORE" ]]; then
+    retrieve_packages
+    archive_tools
+fi
 generate_streams
 generate_mirrors
 if [[ $SIGNING_KEY != "" ]]; then
