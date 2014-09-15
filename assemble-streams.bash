@@ -163,6 +163,19 @@ get_arch() {
 }
 
 
+archive_extra_ppc64_tool() {
+    # Hack to create ppc64 because it is not clear if juju wants
+    # this name instead of ppc64el.
+    tool="${DEST_DIST}/tools/releases/juju-${version}-${series}-ppc64.tgz"
+    if [[ ! -e $tool ]]; then
+        echo "Creating ppc64 from ppc64el: $tool"
+        tar cvfz $tool -C $change_dir jujud
+        added_tools[${#added_tools[@]}]="$tool"
+        echo "Created ${tool}."
+    fi
+}
+
+
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
     echo "Phase 4: Extracting jujud from packages and archiving tools."
@@ -203,16 +216,8 @@ archive_tools() {
             tar cvfz $tool -C $change_dir jujud
             added_tools[${#added_tools[@]}]="$tool"
             echo "Created ${tool}."
-            # Hack to create ppc64 because it is not clear if juju wants
-            # this name instead of ppc64el.
             if [[ $arch == 'ppc64el' ]]; then
-                tool="${DEST_DIST}/tools/releases/juju-${version}-${series}-ppc64.tgz"
-                if [[ ! -e $tool ]]; then
-                    echo "Creating ppc64 from ppc64el: $tool"
-                    tar cvfz $tool -C $change_dir jujud
-                    added_tools[${#added_tools[@]}]="$tool"
-                    echo "Created ${tool}."
-                fi
+                archive_extra_ppc64_tool
             fi
         fi
         rm -r ${WORK}/juju/*
