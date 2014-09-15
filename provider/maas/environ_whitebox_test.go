@@ -71,11 +71,6 @@ func (suite *environSuite) setupFakeTools(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor)
 }
 
-func (suite *environSuite) setupFakeImageMetadata(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	UseTestImageMetadata(c, stor)
-}
-
 func (suite *environSuite) addNode(jsonText string) instance.Id {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
@@ -602,15 +597,29 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
+}
+
+func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
+	// If we cannot query boot-images (e.g. MAAS server version 1.4),
+	// then Juju will fall over to listing all the available nodes.
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
+	env := suite.makeEnviron()
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
@@ -621,13 +630,14 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "armhf", "release": "precise"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
 }
 
 func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
