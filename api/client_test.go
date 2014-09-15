@@ -26,7 +26,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 

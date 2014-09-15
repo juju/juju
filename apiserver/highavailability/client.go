@@ -15,7 +15,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("HighAvailability", 0, NewHighAvailabilityAPI)
+	common.RegisterStandardFacade("HighAvailability", 1, NewHighAvailabilityAPI)
 }
 
 // HighAvailability defines the methods on the highavailability API end point.
