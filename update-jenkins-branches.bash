@@ -11,9 +11,12 @@ KEY="staging-juju-rsa"
 update_jenkins() {
     host=$1
     echo "updating $host"
+    set +e
     if [[ "$CLOUD_CITY" == "true" ]]; then
+        set +e
         bzr branch lp:~juju-qa/+junk/cloud-city \
             bzr+ssh://jenkins@$host/var/lib/jenkins/cloud-city.new
+        set -e
     fi
     ssh jenkins@$host << EOT
 #!/bin/bash
@@ -64,17 +67,14 @@ if [[ -z $SLAVES ]]; then
     exit 1
 fi
 
-set +e
 SKIPPED=""
 for host in $MASTER $SLAVES; do
-    update_jenkins $host
-    if [[ $? != "0" ]]; then
-        SKIPPED="$SKIPPED $host"
-    fi
+    update_jenkins $host || SKIPPED="$SKIPPED $host"
 done
 
-set -e
 if [[ -n "$SKIPPED" ]]; then
+    set +x
+    echo
     echo "These hosts were skipped because thee was an error"
     echo "$SKIPPED"
 fi
