@@ -32,7 +32,8 @@ func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
 
 	emptyCons := constraints.Value{}
 	defaultSeries := ""
-	_, err = highavailability.NewClient(s.APIState, "bad-env-uuid").EnsureAvailability(3, emptyCons, defaultSeries, nil)
+	client := highavailability.NewClient(s.APIState, "bad-env-uuid")
+	_, err = client.EnsureAvailability(3, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches,
 		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
 }

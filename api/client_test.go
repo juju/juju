@@ -355,15 +355,6 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	defer api.PatchEnvironTag(s.APIState, "bad-env-uuid")()
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	_, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
-}
-
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
 	client := s.APIState.Client()
 	someErr := errors.New("random")
