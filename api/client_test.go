@@ -32,13 +32,8 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// ClientSuite is the base suite for API client tests.
-type ClientSuite struct {
-	jujutesting.JujuConnSuite
-}
-
 type clientSuite struct {
-	ClientSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&clientSuite{})

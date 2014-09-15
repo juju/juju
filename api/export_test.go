@@ -57,11 +57,6 @@ func NewTestingState(params TestingStateParams) *State {
 	return st
 }
 
-// ExposeFacade returns the client's underlying FacadeCaller.
-func ExposeFacade(c *Client) base.FacadeCaller {
-	return c.facade
-}
-
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets
 // you mock out the FacadeCall method. The function returned by
 // PatchClientFacadeCall is a cleanup function that returns the client to its

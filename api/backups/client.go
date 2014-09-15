@@ -1,28 +1,30 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package backups
 
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
 
-// BackupsClient wraps the backups API for the client.
-type BackupsClient struct {
-	Client
+// Client wraps the backups API for the client.
+type Client struct {
+	base.ClientFacade
+	facade base.FacadeCaller
 }
 
-// Backups returns the backups-specific portion of the client.
-func (c *Client) Backups() *BackupsClient {
-	client := c.st.newClient("Backups")
-	return &BackupsClient{Client: *client}
+// NewClient returns a new backups API client.
+func NewClient(st base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(st, "Backups")
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // Create sends a request to create a backup of juju's state.  It
 // returns the metadata associated with the resulting backup.
-func (c *BackupsClient) Create(notes string) (*params.BackupsMetadataResult, error) {
+func (c *Client) Create(notes string) (*params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
 	args := params.BackupsCreateArgs{Notes: notes}
 	if err := c.facade.FacadeCall("Create", args, &result); err != nil {

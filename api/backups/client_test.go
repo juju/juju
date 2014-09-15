@@ -1,27 +1,29 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package backups_test
 
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/backups/metadata"
 )
 
 type backupsSuite struct {
-	ClientSuite
+	jujutesting.JujuConnSuite
+
 	origin *metadata.Origin
 	meta   *metadata.Metadata
-	client *api.BackupsClient
+	client *backups.Client
 }
 
 var _ = gc.Suite(&backupsSuite{})
 
 func (s *backupsSuite) SetUpTest(c *gc.C) {
-	s.ClientSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 
 	s.origin = metadata.NewOrigin("eggs", "0", "main-host")
 	s.meta = metadata.NewMetadata(*s.origin, "", nil)
@@ -29,7 +31,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.meta.Finish(10, "ham", "", nil)
 	s.meta.SetStored()
 
-	s.client = s.APIState.Client().Backups()
+	s.client = backups.NewClient(s.APIState)
 }
 
 func (s *backupsSuite) checkMetadataResult(
@@ -59,13 +61,13 @@ func (s *backupsSuite) metadataResult() *params.BackupsMetadataResult {
 }
 
 func (s *backupsSuite) TestClient(c *gc.C) {
-	facade := api.ExposeFacade(&s.client.Client)
+	facade := backups.ExposeFacade(s.client)
 
 	c.Check(facade.Name(), gc.Equals, "Backups")
 }
 
 func (s *backupsSuite) TestCreate(c *gc.C) {
-	cleanup := api.PatchClientFacadeCall(&s.client.Client,
+	cleanup := backups.PatchClientFacadeCall(s.client,
 		func(req string, paramsIn interface{}, resp interface{}) error {
 			c.Check(req, gc.Equals, "Create")
 
