@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bufio"
 	stderrors "errors"
 	"fmt"
 	"io"
@@ -26,11 +27,13 @@ import (
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
 	envcmd.EnvCommandBase
-	vers        string
-	Version     version.Number
-	UploadTools bool
-	DryRun      bool
-	Series      []string
+	vers          string
+	Version       version.Number
+	UploadTools   bool
+	DryRun        bool
+	ResetPrevious bool
+	AssumeYes     bool
+	Series        []string
 }
 
 var upgradeJujuDoc = `
@@ -64,7 +67,13 @@ value of the environment's agent-version setting:
 Both of these depend on tools availability, which some situations (no
 outgoing internet access) and provider types (such as maas) require that
 you manage yourself; see the documentation for "sync-tools".
-`
+
+The upgrade-juju command will abort if an upgrade is already in
+progress. It will also abort if a previous upgrade was partially
+completed - this can happen if one of the state servers in a high
+availability environment failed to upgrade. If a failed upgrade has
+been resolved, the --reset-previous-upgrade flag can be used to reset
+the environment's upgrade tracking state, allowing further upgrades.`
 
 func (c *UpgradeJujuCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -78,6 +87,9 @@ func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
 	f.BoolVar(&c.DryRun, "dry-run", false, "don't change anything, just report what would change")
+	f.BoolVar(&c.ResetPrevious, "reset-previous-upgrade", false, "clear the previous (incomplete) upgrade status (use with care)")
+	f.BoolVar(&c.AssumeYes, "y", false, "answer 'yes' to confirmation prompts")
+	f.BoolVar(&c.AssumeYes, "yes", false, "")
 	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list (OBSOLETE)")
 }
 
@@ -121,6 +133,7 @@ type upgradeJujuAPI interface {
 	EnvironmentGet() (map[string]interface{}, error)
 	FindTools(majorVersion, minorVersion int, series, arch string) (result params.FindToolsResult, err error)
 	UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*coretools.Tools, error)
+	AbortCurrentUpgrade() error
 	SetEnvironAgentVersion(version version.Number) error
 	Close() error
 }
@@ -174,12 +187,24 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if c.DryRun {
 		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
 	} else {
+		if c.ResetPrevious {
+			if ok, err := c.confirmResetPreviousUpgrade(ctx); !ok || err != nil {
+				const message = "previous upgrade not reset and no new upgrade triggered"
+				if err != nil {
+					return errors.Annotate(err, message)
+				}
+				return errors.New(message)
+			}
+			if err := client.AbortCurrentUpgrade(); err != nil {
+				return err
+			}
+		}
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
 					"please wait for the upgrade to complete or if there was a problem with\n"+
 					"the last upgrade that has been resolved, consider running the\n"+
-					"upgrade-juju command with the --clear-previous flag.", err,
+					"upgrade-juju command with the --reset-previous-upgrade flag.", err,
 				)
 			} else {
 				return err
@@ -188,6 +213,28 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		logger.Infof("started upgrade to %s", context.chosen)
 	}
 	return nil
+}
+
+const resetPreviousUpgradeMessage = `
+WARNING! using --reset-previous-upgrade when an upgrade is in progress
+will cause the upgrade to fail. Only use this option to clear an
+incomplete upgrade where the root cause has been resolved.
+
+Continue [y/N]? `
+
+func (c *UpgradeJujuCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool, error) {
+	if c.AssumeYes {
+		return true, nil
+	}
+	fmt.Fprintf(ctx.Stdout, resetPreviousUpgradeMessage)
+	scanner := bufio.NewScanner(ctx.Stdin)
+	scanner.Scan()
+	err := scanner.Err()
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	answer := strings.ToLower(scanner.Text())
+	return answer == "y" || answer == "yes", nil
 }
 
 // initVersions collects state relevant to an upgrade decision. The returned
