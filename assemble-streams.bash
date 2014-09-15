@@ -30,6 +30,8 @@ usage() {
     echo "usage: $0 $options RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
     echo "  RELEASE: The pattern (version) to match packages in the archives."
+    echo "           Use IGNORE when you want to regerenate metadata without"
+    echo "           downloading debs and extracting new tools."
     echo "  DESTINATION_DIRECTORY: The directory to assemble the tools in."
     echo "  SIGNING_KEY: When provided, the metadata will be signed."
     exit 1
@@ -70,13 +72,26 @@ retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
+    if [[ $PURPOSE == "release" ]] then
+        # The directory layout doesn't describe the release dir as "release".
+        local source_dist="juju-dist"
+    if [[ $PURPOSE == "testing" ]] then
+        # The testing purpose copies from "proposed" because this stream.
+        # represents every version that can could be a stable release. Testing
+        # is volatile, it is always proposed + new tools that might be
+        # stable in the future.
+        local source_dist="juju-dist/proposed"
+    else
+        # The devel and proposed purposes use their own dirs for continuity.
+        local source_dist="juju-dist/$PURPOSE"
+    fi
     s3cmd -c $JUJU_DIR/s3cfg sync \
-        s3://juju-dist/tools/releases/ ${DEST_DIST}/tools/releases/
+        s3://$source_dist/tools/releases/ ${DEST_DIST}/tools/releases/
 }
 
 
 retract_bad_tools() {
-    echo "Phase 2.1: Retracting bad released tools."
+    echo "Phase 3: Retracting bad released tools."
     bad_tools=$(find ${DEST_DIST}/tools/releases -name "juju-1.21-alpha1.*")
     for bad_tool in $bad_tools; do
        rm $bad_tool
@@ -87,7 +102,7 @@ retract_bad_tools() {
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
-    echo "Phase 3: Retrieving juju-core packages from archives"
+    echo "Phase 4: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
         for linked_file in $TEST_DEBS_DIR/juju-core_*.deb; do
             # We need the real file location which includes series and arch.
@@ -172,8 +187,9 @@ archive_extra_ppc64_tool() {
 
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
-    echo "Phase 4: Extracting jujud from packages and archiving tools."
+    echo "Phase 5: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
+    WORK=$(mktemp -d)
     mkdir ${WORK}/juju
     PACKAGES=$(find ${DEST_DEBS} -name "*.deb")
     for package in $PACKAGES; do
@@ -216,14 +232,21 @@ archive_tools() {
         fi
         rm -r ${WORK}/juju/*
     done
-    if [[ $IS_TESTING == "true" ]]; then
-        set +u
-        if [[ -z "${added_tools[@]}" ]]; then
-            echo "No tools were added from the built debs."
+    # The extracted files are no longer needed. Clean them up now.
+    rm -r $WORK
+    # Exit early when debs were search, but no new tools were found.
+    if [[ -z "${added_tools[@]:-}" ]]; then
+        echo "No tools were added from the built debs."
+        cleanup
+        if [[ $IS_TESTING == "true" ]]; then
             echo "The branch version may be out of date; $RELEASE is published?"
             exit 5
+        else
+            echo "No new tools were found for $RELEASE, exiting early."
+            echo "Use 'IGNORE' as the release version if you want to generate."
+            echo "streams from tools in $DEST_DIST/tools/releases"
+            exit 0
         fi
-        set -u
     fi
 }
 
@@ -232,7 +255,9 @@ extract_new_juju() {
     # Extract a juju-core that was found in the archives to run metadata.
     # Match by release version and arch, prefer exact series, but fall back
     # to generic ubuntu.
-    echo "Phase 5.1: Using juju from a downloaded deb."
+    echo "Phase 6.1: Using juju from a downloaded deb."
+    source /etc/lsb-release
+    ARCH=$(dpkg --print-architecture)
     juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
     juju_core=$(echo "$juju_cores" | grep $DISTRIB_RELEASE | head -1)
     if [[ $juju_core == "" ]]; then
@@ -247,8 +272,9 @@ extract_new_juju() {
 
 generate_streams() {
     # Create the streams metadata and organised the tree for later publication.
-    echo "Phase 5: Generating streams data."
+    echo "Phase 6: Generating streams data."
     cd $DESTINATION
+    JUJU_PATH=$(mktemp -d)
     if [[ $RELEASE != "IGNORE" ]]; then
         extract_new_juju
     else
@@ -259,11 +285,13 @@ generate_streams() {
     echo "Using juju: $juju_version"
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
+    rm -r $JUJU_PATH
     echo "The tools are in ${DEST_DIST}."
 }
 
 
 generate_mirrors() {
+    echo "Phase 7: Creating mirror josn."
     short_now=$(date +%Y%m%d)
     sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/mirrors.json
@@ -274,7 +302,7 @@ generate_mirrors() {
 
 
 sign_metadata() {
-    echo "Phase 6: Signing metadata with $SIGNING_KEY."
+    echo "Phase 8: Signing metadata with $SIGNING_KEY."
     key_option="--default-key $SIGNING_KEY"
     gpg_options=""
     if [[ -n $SIGNING_PASSPHRASE_FILE ]]; then
@@ -302,11 +330,6 @@ cleanup() {
     # future runs of the script.
     if [[ $PACKAGES != "" ]]; then
         rm ${DEST_DEBS}/*.deb
-    fi
-    if [[ $IS_TESTING == "true" ]]; then
-        for tool in "${added_tools[@]}"; do
-            rm $tool
-        done
     fi
     rm -r $WORK
     rm -r $JUJU_PATH
@@ -363,11 +386,6 @@ if [[ $PURPOSE == "release" ]]; then
 else
     DEST_DIST="${DESTINATION}/juju-dist/$PURPOSE"
 fi
-PACKAGES=""
-WORK=$(mktemp -d)
-JUJU_PATH=$(mktemp -d)
-ARCH=$(dpkg --print-architecture)
-source /etc/lsb-release
 declare -a added_tools
 added_tools=()
 
@@ -384,8 +402,8 @@ if [[ $RELEASE != "IGNORE" ]]; then
     archive_tools
 fi
 generate_streams
-generate_mirrors
 if [[ $SIGNING_KEY != "" ]]; then
+    generate_mirrors
     sign_metadata
 fi
 cleanup
