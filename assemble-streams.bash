@@ -16,10 +16,8 @@ JUJU_DIR=$(cd $JUJU_DIR; pwd)
 
 # These are the archives that are search for matching releases.
 UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
-STABLE_ARCH="http://ppa.launchpad.net/juju/stable/ubuntu/pool/main/j/juju-core/"
-DEVEL_ARCH="http://ppa.launchpad.net/juju/devel/ubuntu/pool/main/j/juju-core/"
 ARM_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
-ALL_ARCHIVES="$UBUNTU_ARCH $STABLE_ARCH $DEVEL_ARCH $ARM_ARCH"
+ALL_ARCHIVES="$UBUNTU_ARCH $ARM_ARCH"
 
 if [ -f $JUJU_DIR/buildarchrc ]; then
     source $JUJU_DIR/buildarchrc
