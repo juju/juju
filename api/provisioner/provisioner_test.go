@@ -125,7 +125,7 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetStatus(params.StatusError, "blah", map[string]interface{}{"transient": true})
+	err = machine.SetStatus(state.StatusError, "blah", map[string]interface{}{"transient": true})
 	c.Assert(err, gc.IsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, gc.IsNil)

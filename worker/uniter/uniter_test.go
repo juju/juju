@@ -1913,7 +1913,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 			}
 			status, info, data, err := ctx.unit.Status()
 			c.Assert(err, gc.IsNil)
-			if status != s.status {
+			if string(status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue
 			}
@@ -2116,7 +2116,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetStatus(params.StatusStarted, "", nil)
+			ctx.unit.SetStatus(state.StatusStarted, "", nil)
 		}},
 		startUniter{},
 	}

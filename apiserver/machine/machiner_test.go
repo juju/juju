@@ -52,9 +52,9 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	err := s.machine0.SetStatus(params.StatusStarted, "blah", nil)
+	err := s.machine0.SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machine1.SetStatus(params.StatusStopped, "foo", nil)
+	err = s.machine1.SetStatus(state.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -76,12 +76,12 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	// Verify machine 0 - no change.
 	status, info, _, err := s.machine0.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	// ...machine 1 is fine though.
 	status, info, _, err = s.machine1.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "not really")
 }
 

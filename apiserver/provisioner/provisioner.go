@@ -263,7 +263,10 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
 			r := &result.Results[i]
-			r.Status, r.Info, r.Data, err = machine.Status()
+			var st state.Status
+			st, r.Info, r.Data, err = machine.Status()
+			r.Status = params.Status(st)
+
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -293,9 +296,12 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		result := params.StatusResult{}
-		if result.Status, result.Info, result.Data, err = machine.Status(); err != nil {
+		var st state.Status
+		st, result.Info, result.Data, err = machine.Status()
+		if err != nil {
 			continue
 		}
+		result.Status = params.Status(st)
 		if result.Status != params.StatusError {
 			continue
 		}

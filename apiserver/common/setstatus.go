@@ -30,15 +30,16 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 }
 
 func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data map[string]interface{}) error {
-	entity0, err := s.st.FindEntity(tag)
+	entity, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
-	entity, ok := entity0.(state.StatusSetter)
-	if !ok {
-		return NotSupportedError(tag, "setting status")
+	switch entity := entity.(type) {
+	case state.StatusSetter:
+		return entity.SetStatus(state.Status(status), info, data)
+	default:
+		return NotSupportedError(tag, fmt.Sprintf("setting status, %T", entity))
 	}
-	return entity.SetStatus(status, info, data)
 }
 
 // SetStatus sets the status of each given entity.
@@ -93,7 +94,7 @@ func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data map[string]int
 	if !ok {
 		return NotSupportedError(tag, "updating status")
 	}
-	if len(newData) > 0 && existingStatus != params.StatusError {
+	if len(newData) > 0 && existingStatus != state.StatusError {
 		return fmt.Errorf("%q is not in an error state", tag)
 	}
 	return entity.SetStatus(existingStatus, existingInfo, newData)

@@ -101,11 +101,11 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
+	SetStatus(status state.Status, info string, data map[string]interface{}) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(params.StatusStarted, "", nil)
+	err := entity.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -391,7 +391,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetStatus(params.StatusError, "blam", sd)
+			wu.SetStatus(state.StatusError, "blam", sd)
 		}
 
 		// Create the subordinate unit as a side-effect of entering
