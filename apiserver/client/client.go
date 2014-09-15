@@ -1062,12 +1062,17 @@ func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Re
 	// Now update the charm data in state and mark it as no longer pending.
 	_, err = st.UpdateUploadedCharm(ch, curl, storagePath, sha256)
 	if err != nil {
-		if err := storage.Remove(storagePath); err != nil {
-			logger.Errorf("cannot remove charm archive from storage: %v", err)
-		}
-		if err == state.ErrCharmRevisionAlreadyModified ||
+		alreadyUploaded := err == state.ErrCharmRevisionAlreadyModified ||
 			errors.Cause(err) == state.ErrCharmRevisionAlreadyModified ||
-			state.IsCharmAlreadyUploadedError(err) {
+			state.IsCharmAlreadyUploadedError(err)
+		if err := storage.Remove(storagePath); err != nil {
+			if alreadyUploaded {
+				logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
+			} else {
+				logger.Errorf("cannot remove unsuccessfully recorded charm archive from storage: %v", err)
+			}
+		}
+		if alreadyUploaded {
 			// Somebody else managed to upload and update the charm in
 			// state before us. This is not an error.
 			return nil

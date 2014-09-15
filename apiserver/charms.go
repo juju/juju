@@ -388,7 +388,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 	}
 
 	// Prepare the bundle directories.
-	name := charm.Quote(curl.String())
+	name := charm.Quote(curlString)
 	charmArchivePath := filepath.Join(h.dataDir, "charm-get-cache", name+".zip")
 
 	// Check if the charm archive is already in the cache.

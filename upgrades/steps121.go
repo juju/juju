@@ -30,7 +30,7 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "migrate charm archives into the blobstore",
+			description: "migrate charm archives into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return migrateCharmStorage(context.State())
