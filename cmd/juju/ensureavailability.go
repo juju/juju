@@ -9,11 +9,16 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/highavailability"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 )
 
 type EnsureAvailabilityCommand struct {
@@ -27,6 +32,13 @@ type EnsureAvailabilityCommand struct {
 	// If specified, these constraints will be merged with those
 	// already in the environment when creating new machines.
 	Constraints constraints.Value
+	// If specified, these specific machine(s) will be used to host
+	// new state servers. If there are more state servers required than
+	// machines specified, new machines will be created.
+	// Placement is passed verbatim to the API, to be evaluated and used server-side.
+	Placement []*instance.Placement
+	// PlacementSpec holds the unparsed placement directives.
+	PlacementSpec string
 }
 
 const ensureAvailabilityDoc = `
@@ -49,6 +61,10 @@ Examples:
      Ensure that 7 state servers are available, with newly created
      state server machines having the default series, and at least
      8GB RAM.
+ juju ensure-availability -n 7 --to server1,server2 --constraints mem=8G
+     Ensure that 7 state servers are available, with machines server1 and
+     server2 used first, and if necessary, newly created state server
+     machines having the default series, and at least 8GB RAM.
 `
 
 // formatSimple marshals value to a yaml-formatted []byte, unless value is nil.
@@ -108,6 +124,7 @@ func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumStateServers, "n", 0, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
+	f.StringVar(&c.PlacementSpec, "to", "", "the machine(s) to become state servers, bypasses constraints")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 	c.out.AddFlags(f, "simple", map[string]cmd.Formatter{
 		"yaml":   cmd.FormatYaml,
@@ -121,6 +138,18 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 	if c.NumStateServers < 0 || (c.NumStateServers%2 != 1 && c.NumStateServers != 0) {
 		return fmt.Errorf("must specify a number of state servers odd and non-negative")
 	}
+	if c.PlacementSpec != "" {
+		placementSpecs := strings.Split(c.PlacementSpec, ",")
+		c.Placement = make([]*instance.Placement, len(placementSpecs))
+		for i, spec := range placementSpecs {
+			placement, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			if err != instance.ErrPlacementScopeMissing {
+				// We only support unscoped placement directives.
+				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
+			}
+			c.Placement[i] = placement
+		}
+	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -132,15 +161,34 @@ type availabilityInfo struct {
 	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
 }
 
+// highAvailabilityVersion returns the version of the HighAvailability facade
+// available on the server.
+// Override for testing.
+var highAvailabilityVersion = func(root *api.State) int {
+	return root.BestFacadeVersion("HighAvailability")
+}
+
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
 func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
-	client, err := c.NewAPIClient()
+	root, err := c.NewAPIRoot()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get API connection")
 	}
-	defer client.Close()
-	ensureAvailabilityResult, err := client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
+	var ensureAvailabilityResult params.StateServersChanges
+	// Use the new HighAvailability facade if it exists.
+	if highAvailabilityVersion(root) < 1 {
+		if len(c.Placement) > 0 {
+			return fmt.Errorf("placement directives not supported with this version of Juju")
+		}
+		client := root.Client()
+		defer client.Close()
+		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
+	} else {
+		client := highavailability.NewClient(root, root.EnvironTag())
+		defer client.Close()
+		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
+	}
 	if err != nil {
 		return err
 	}

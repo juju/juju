@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1129,74 +1130,15 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
-// Convert machine ids to tags.
-func machineIdsToTags(ids ...string) []string {
-	var result []string
-	for _, id := range ids {
-		result = append(result, names.NewMachineTag(id).String())
-	}
-	return result
-}
-
-// Generate a StateServersChanges structure.
-func stateServersChanges(change state.StateServersChanges) params.StateServersChanges {
-	return params.StateServersChanges{
-		Added:      machineIdsToTags(change.Added...),
-		Maintained: machineIdsToTags(change.Maintained...),
-		Removed:    machineIdsToTags(change.Removed...),
-		Promoted:   machineIdsToTags(change.Promoted...),
-		Demoted:    machineIdsToTags(change.Demoted...),
-	}
-}
-
 // EnsureAvailability ensures the availability of Juju state servers.
+// DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
+// This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
 	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
 	for i, stateServersSpec := range args.Specs {
-		result, err := c.ensureAvailabilitySingle(stateServersSpec)
+		result, err := highavailability.EnsureAvailabilitySingle(c.api.state, stateServersSpec)
 		results.Results[i].Result = result
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
-}
-
-// ensureAvailabilitySingle applies a single StateServersSpec specification to the current environment.
-func (c *Client) ensureAvailabilitySingle(spec params.StateServersSpec) (params.StateServersChanges, error) {
-	// Validate the environment tag if present.
-	if spec.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(spec.EnvironTag)
-		if err != nil {
-			return params.StateServersChanges{}, errors.Errorf("invalid environment tag: %v", err)
-		}
-		if _, err := c.api.state.FindEntity(tag); err != nil {
-			return params.StateServersChanges{}, err
-		}
-	}
-
-	series := spec.Series
-	if series == "" {
-		ssi, err := c.api.state.StateServerInfo()
-		if err != nil {
-			return params.StateServersChanges{}, err
-		}
-
-		// We should always have at least one voting machine
-		// If we *really* wanted we could just pick whatever series is
-		// in the majority, but really, if we always copy the value of
-		// the first one, then they'll stay in sync.
-		if len(ssi.VotingMachineIds) == 0 {
-			// Better than a panic()?
-			return params.StateServersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
-		}
-		templateMachine, err := c.api.state.Machine(ssi.VotingMachineIds[0])
-		if err != nil {
-			return params.StateServersChanges{}, err
-		}
-		series = templateMachine.Series()
-	}
-	changes, err := c.api.state.EnsureAvailability(spec.NumStateServers, spec.Constraints, series)
-	if err != nil {
-		return params.StateServersChanges{}, err
-	}
-	return stateServersChanges(changes), nil
 }

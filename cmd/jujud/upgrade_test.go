@@ -265,13 +265,13 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 		{loggo.INFO, "waiting for other state servers to be ready for upgrade"},
 		{loggo.ERROR, fmt.Sprintf(
 			`other state servers failed to come up for upgrade to %s - aborting:`+causeMsg,
-			version.Current)},
+			version.Current.Number)},
 	})
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, []MachineStatusCall{{
 		params.StatusError,
 		fmt.Sprintf(
 			"upgrade to %s aborted while waiting for other state servers:"+causeMsg,
-			version.Current),
+			version.Current.Number),
 	}})
 }
 
@@ -589,18 +589,18 @@ func (s *UpgradeSuite) setInstantRetryStrategy() {
 func (s *UpgradeSuite) makeExpectedStatusCalls(failCount int) []MachineStatusCall {
 	calls := []MachineStatusCall{{
 		params.StatusStarted,
-		fmt.Sprintf("upgrading to %s", version.Current),
+		fmt.Sprintf("upgrading to %s", version.Current.Number),
 	}}
 	for i := 0; i < calcNumRetries(failCount); i++ {
 		calls = append(calls, MachineStatusCall{
 			params.StatusError,
-			fmt.Sprintf("upgrade to %s failed (will retry): boom", version.Current),
+			fmt.Sprintf("upgrade to %s failed (will retry): boom", version.Current.Number),
 		})
 	}
 	if failCount >= maxUpgradeRetries {
 		calls = append(calls, MachineStatusCall{
 			params.StatusError,
-			fmt.Sprintf("upgrade to %s failed (giving up): boom", version.Current),
+			fmt.Sprintf("upgrade to %s failed (giving up): boom", version.Current.Number),
 		})
 	} else {
 		calls = append(calls, MachineStatusCall{params.StatusStarted, ""})
@@ -620,12 +620,12 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(failCount int, target string) []j
 	outLogs = append(outLogs, jc.SimpleMessage{
 		loggo.INFO, fmt.Sprintf(
 			`starting upgrade from %s to %s for %s "machine-0"`,
-			s.oldVersion, version.Current, target),
+			s.oldVersion.Number, version.Current.Number, target),
 	})
 
 	failMessage := fmt.Sprintf(
 		`upgrade from %s to %s for %s "machine-0" failed \(%%s\): boom`,
-		s.oldVersion, version.Current, target)
+		s.oldVersion.Number, version.Current.Number, target)
 
 	for i := 0; i < calcNumRetries(failCount); i++ {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "will retry")})
@@ -633,10 +633,10 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(failCount int, target string) []j
 	if failCount >= maxUpgradeRetries {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "giving up")})
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR,
-			fmt.Sprintf(`upgrade to %s failed.`, version.Current)})
+			fmt.Sprintf(`upgrade to %s failed.`, version.Current.Number)})
 	} else {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.INFO,
-			fmt.Sprintf(`upgrade to %s completed successfully.`, version.Current)})
+			fmt.Sprintf(`upgrade to %s completed successfully.`, version.Current.Number)})
 	}
 	return outLogs
 }

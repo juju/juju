@@ -26,7 +26,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -353,15 +352,6 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
-}
-
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	defer api.PatchEnvironTag(s.APIState, "bad-env-uuid")()
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	_, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
