@@ -253,7 +253,7 @@ func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		err := err.(SSHStorageError)
 		if strings.Contains(err.Output, "No such file") {
-			return nil, errors.NewNotFound(err, filename+" not found")
+			return nil, errors.NewNotFound(err, path+" not found")
 		}
 		return nil, err
 	}
