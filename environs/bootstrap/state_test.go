@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
