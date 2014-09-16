@@ -72,6 +72,261 @@ class TestUntilTimeout(TestCase):
             self.assertEqual([86400 * 5, 86400], list(until))
 
 
+class TestEnvJujuClient(TestCase):
+
+    def test_get_version(self):
+        value = ' 5.6 \n'
+        with patch('subprocess.check_output', return_value=value) as vsn:
+            version = EnvJujuClient.get_version()
+        self.assertEqual('5.6', version)
+        vsn.assert_called_with(('juju', '--version'))
+
+    def test_by_version(self):
+        def juju_cmd_iterator():
+            yield '1.17'
+            yield '1.16'
+            yield '1.16.1'
+            yield '1.15'
+
+        context = patch.object(
+            EnvJujuClient, 'get_version',
+            side_effect=juju_cmd_iterator().next)
+        with context:
+            self.assertIs(EnvJujuClient,
+                          type(EnvJujuClient.by_version(None)))
+            with self.assertRaisesRegexp(Exception, 'Unsupported juju: 1.16'):
+                EnvJujuClient.by_version(None)
+            with self.assertRaisesRegexp(Exception,
+                                         'Unsupported juju: 1.16.1'):
+                EnvJujuClient.by_version(None)
+            client = EnvJujuClient.by_version(None)
+            self.assertIs(EnvJujuClient, type(client))
+            self.assertEqual('1.15', client.version)
+
+    def test_full_args(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        full = client._full_args('bar', False, ('baz', 'qux'))
+        self.assertEqual(('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+                          'qux'), full)
+        full = client._full_args('bar', True, ('baz', 'qux'))
+        self.assertEqual((
+            'juju', '--show-log', 'bar', '-e', 'foo',
+            'baz', 'qux'), full)
+        client.env = None
+        full = client._full_args('bar', False, ('baz', 'qux'))
+        self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
+
+    def test_full_args_debug(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, 'my/juju/bin')
+        client.debug = True
+        full = client._full_args('bar', False, ('baz', 'qux'))
+        self.assertEqual((
+            'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+
+    def test_bootstrap_hpcloud(self):
+        env = Environment('hp', '')
+        with patch.object(env, 'hpcloud', lambda: True):
+            with patch.object(EnvJujuClient, 'juju') as mock:
+                EnvJujuClient(env, None, None).bootstrap()
+            mock.assert_called_with(
+                'bootstrap', ('--constraints', 'mem=2G'), False)
+
+    def test_bootstrap_non_sudo(self):
+        env = Environment('foo', '')
+        with patch.object(env, 'needs_sudo', lambda: False):
+            with patch.object(EnvJujuClient, 'juju') as mock:
+                EnvJujuClient(env, None, None).bootstrap()
+            mock.assert_called_with(
+                'bootstrap', ('--constraints', 'mem=2G'), False)
+
+    def test_bootstrap_sudo(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(env, 'needs_sudo', lambda: True):
+            with patch.object(client, 'juju') as mock:
+                client.bootstrap()
+            mock.assert_called_with(
+                'bootstrap', ('--constraints', 'mem=2G'), True)
+
+    def test_destroy_environment_non_sudo(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(env, 'needs_sudo', lambda: False):
+            with patch.object(client, 'juju') as mock:
+                client.destroy_environment()
+            mock.assert_called_with(
+                'destroy-environment', ('foo', '--force', '-y'),
+                False, check=False, include_e=False)
+
+    def test_destroy_environment_sudo(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(env, 'needs_sudo', lambda: True):
+            with patch.object(client, 'juju') as mock:
+                client.destroy_environment()
+            mock.assert_called_with(
+                'destroy-environment', ('foo', '--force', '-y'),
+                True, check=False, include_e=False)
+
+    def test_get_juju_output(self):
+        env = Environment('foo', '')
+        asdf = lambda x, stderr, env: 'asdf'
+        client = EnvJujuClient(env, None, None)
+        with patch('subprocess.check_output', side_effect=asdf) as mock:
+            result = client.get_juju_output('bar')
+        self.assertEqual('asdf', result)
+        self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo'),),
+                         mock.call_args[0])
+
+    def test_get_juju_output_accepts_varargs(self):
+        env = Environment('foo', '')
+        asdf = lambda x, stderr, env: 'asdf'
+        client = EnvJujuClient(env, None, None)
+        with patch('subprocess.check_output', side_effect=asdf) as mock:
+            result = client.get_juju_output('bar', 'baz', '--qux')
+        self.assertEqual('asdf', result)
+        self.assertEqual((('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
+                           '--qux'),), mock.call_args[0])
+
+    def test_get_juju_output_stderr(self):
+        def raise_without_stderr(args, stderr, env):
+            stderr.write('Hello!')
+            raise subprocess.CalledProcessError('a', 'b')
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with self.assertRaises(subprocess.CalledProcessError) as exc:
+            with patch('subprocess.check_output', raise_without_stderr):
+                client.get_juju_output('bar')
+        self.assertEqual(exc.exception.stderr, 'Hello!')
+
+    def test_get_juju_output_accepts_timeout(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch('subprocess.check_output') as sco_mock:
+            client.get_juju_output('bar', timeout=5)
+        self.assertEqual(sco_mock.call_args[0][0],
+            ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
+
+    def test_juju_output_supplies_path(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, '/foobar/bar')
+        with patch('subprocess.check_output') as sco_mock:
+            client.get_juju_output(env, 'baz')
+        self.assertRegexpMatches(sco_mock.call_args[1]['env']['PATH'],
+                                 r'/foobar\:')
+
+    def test_get_status(self):
+        output_text = yield dedent("""\
+                - a
+                - b
+                - c
+                """)
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch.object(client, 'get_juju_output',
+                          return_value=output_text):
+            result = client.get_status()
+        self.assertEqual(Status, type(result))
+        self.assertEqual(['a', 'b', 'c'], result.status)
+
+    def test_get_status_retries_on_error(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        client.attempt = 0
+        def get_juju_output(command, *args):
+            if client.attempt == 1:
+                return '"hello"'
+            client.attempt += 1
+            raise subprocess.CalledProcessError(1, command)
+
+        with patch.object(client, 'get_juju_output', get_juju_output):
+            client.get_status()
+
+    def test_get_status_raises_on_timeout_1(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        def get_juju_output(command):
+            raise subprocess.CalledProcessError(1, command)
+
+        with patch.object(client, 'get_juju_output',
+                          side_effect=get_juju_output):
+            with patch('jujupy.until_timeout', lambda x: iter([None, None])):
+                with self.assertRaisesRegexp(
+                        Exception, 'Timed out waiting for juju status'):
+                    client.get_status()
+
+    def test_get_status_raises_on_timeout_2(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch('jujupy.until_timeout', return_value=iter([1])) as mock_ut:
+            with patch.object(client, 'get_juju_output',
+                              side_effect=StopIteration):
+                with self.assertRaises(StopIteration):
+                    client.get_status(500)
+        mock_ut.assert_called_with(500)
+
+    def test_get_env_option(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch('subprocess.check_output') as mock:
+            mock.return_value = 'https://example.org/juju/tools'
+            result = client.get_env_option('tools-metadata-url')
+        self.assertEqual(
+            mock.call_args[0][0],
+            ('juju', '--show-log', 'get-env', '-e', 'foo',
+             'tools-metadata-url'))
+        self.assertEqual('https://example.org/juju/tools', result)
+
+    def test_set_env_option(self):
+        env = Environment('foo', '')
+        client = EnvJujuClient(env, None, None)
+        with patch('subprocess.check_call') as mock:
+            client.set_env_option(
+                'tools-metadata-url', 'https://example.org/juju/tools')
+        mock.assert_called_with(
+            ('juju', '--show-log', 'set-env', '-e', 'foo',
+             'tools-metadata-url=https://example.org/juju/tools'),
+            env=os.environ)
+
+    def test_juju(self):
+        env = Environment('qux', '')
+        client = EnvJujuClient(env, None, None)
+        with patch('sys.stdout') as stdout_mock:
+            with patch('subprocess.check_call') as mock:
+                client.juju('foo', ('bar', 'baz'))
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+                                 'bar', 'baz'), env=os.environ)
+        stdout_mock.flush.assert_called_with()
+
+    def test_juju_env(self):
+        env = Environment('qux', '')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_call') as cc_mock:
+            client.juju('foo', ('bar', 'baz'))
+        self.assertRegexpMatches(cc_mock.call_args[1]['env']['PATH'],
+                                 r'/foobar\:')
+
+    def test_juju_no_check(self):
+        env = Environment('qux', '')
+        client = EnvJujuClient(env, None, None)
+        with patch('sys.stdout') as stdout_mock:
+            with patch('subprocess.call') as mock:
+                client.juju('foo', ('bar', 'baz'), check=False)
+        mock.assert_called_with(('juju', '--show-log', 'foo', '-e', 'qux',
+                                 'bar', 'baz'), env=os.environ)
+        stdout_mock.flush.assert_called_with()
+
+    def test_juju_no_check_env(self):
+        env = Environment('qux', '')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.call') as call_mock:
+            client.juju('foo', ('bar', 'baz'), check=False)
+        self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
+                                 r'/foobar\:')
+
+
 class TestJujuClientDevel(TestCase):
 
     def test_get_version(self):
@@ -102,28 +357,6 @@ class TestJujuClientDevel(TestCase):
             client = JujuClientDevel.by_version()
             self.assertIs(JujuClientDevel, type(client))
             self.assertEqual('1.15', client.version)
-
-    def test_full_args(self):
-        env = Environment('foo', '')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', '--show-log', 'bar', '-e', 'foo', 'baz',
-                          'qux'), full)
-        full = client._full_args('bar', True, ('baz', 'qux'))
-        self.assertEqual((
-            'juju', '--show-log', 'bar', '-e', 'foo',
-            'baz', 'qux'), full)
-        client.env = None
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
-
-    def test_full_args_debug(self):
-        env = Environment('foo', '')
-        client = EnvJujuClient(env, None, 'my/juju/bin')
-        client.debug = True
-        full = client._full_args('bar', False, ('baz', 'qux'))
-        self.assertEqual((
-            'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
 
     def test_bootstrap_hpcloud(self):
         env = Environment('hp', '')

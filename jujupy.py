@@ -68,6 +68,15 @@ class EnvJujuClient:
             return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
+    @classmethod
+    def by_version(cls, env):
+        version = cls.get_version()
+        full_path = cls.get_full_path()
+        if version.startswith('1.16'):
+            raise Exception('Unsupported juju: %s' % version)
+        else:
+            return EnvJujuClient(env, version, full_path)
+
     def __init__(self, env, version, full_path, debug=False):
         self.env = env
         self.version = version
