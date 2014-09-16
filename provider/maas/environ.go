@@ -718,7 +718,7 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	return err
 }
 
-// acquireInstances calls the MAAS API to list acquired nodes.
+// acquiredInstances calls the MAAS API to list acquired nodes.
 //
 // The "ids" slice is a filter for specific instance IDs.
 // Due to how this works in the HTTP API, an empty "ids"
