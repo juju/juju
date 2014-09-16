@@ -211,6 +211,10 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		return err
 	}
 
+	if wrench.IsActive("machine-agent", "fail-upgrade") {
+		return errors.New("wrench")
+	}
+
 	if err := c.agent.ChangeConfig(c.runUpgradeSteps); err != nil {
 		logger.Errorf("upgrade to %v failed: %v", c.toVersion, err)
 		return err

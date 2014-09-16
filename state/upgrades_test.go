@@ -229,3 +229,52 @@ func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
 }
+
+func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
+	env, err := s.state.Environment()
+	c.Assert(err, gc.IsNil)
+
+	// force remove the server-uuid and owner
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     env.UUID(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$unset", bson.D{
+			{"server-uuid", nil}, {"owner", nil},
+		}}},
+	}}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+	// Make sure it has gone.
+	environments, closer := s.state.getCollection(environmentsC)
+	defer closer()
+
+	var envDoc environmentDoc
+	err = environments.FindId(env.UUID()).One(&envDoc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envDoc.ServerUUID, gc.Equals, "")
+	c.Assert(envDoc.Owner, gc.Equals, "")
+
+	// Run the upgrade step
+	err = SetOwnerAndServerUUIDForEnvironment(s.state)
+	c.Assert(err, gc.IsNil)
+	// Make sure it is there now
+	env, err = s.state.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
+}
+
+func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironmentIdempotent(c *gc.C) {
+	// Run the upgrade step
+	err := SetOwnerAndServerUUIDForEnvironment(s.state)
+	c.Assert(err, gc.IsNil)
+	// Run the upgrade step gagain
+	err = SetOwnerAndServerUUIDForEnvironment(s.state)
+	c.Assert(err, gc.IsNil)
+	// Check as expected
+	env, err := s.state.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
+}

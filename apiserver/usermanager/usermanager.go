@@ -4,7 +4,6 @@
 package usermanager
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -97,9 +96,9 @@ func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
-	user := api.getLoggedInUser()
-	if user == nil {
-		return result, fmt.Errorf("api connection is not through a user")
+	user, err := api.getLoggedInUser()
+	if err != nil {
+		return result, errors.Wrap(err, common.ErrPerm)
 	}
 	for i, arg := range args.Changes {
 		username := arg.Username
@@ -136,7 +135,7 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 		}
 		err = user.Deactivate()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to remove user: %s", err))
+			result.Results[i].Error = common.ServerError(errors.Errorf("Failed to remove user: %s", err))
 			continue
 		}
 	}
@@ -187,9 +186,9 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 		return result, nil
 	}
 	for i, arg := range args.Changes {
-		loggedInUser := api.getLoggedInUser()
-		if _, ok := loggedInUser.(names.UserTag); !ok {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Not a user"))
+		loggedInUser, err := api.getLoggedInUser()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
@@ -202,32 +201,32 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
 			continue
 		}
-
-		argUser, err := api.state.User(names.NewLocalUserTag(username))
-		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %v", err))
+		searchTag := names.NewLocalUserTag(username)
+		if loggedInUser != searchTag {
+			result.Results[i].Error = common.ServerError(errors.Errorf("can only change the password of the current user (%s)", loggedInUser.Id()))
 			continue
 		}
 
-		if loggedInUser != argUser.Tag() {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Id()))
+		argUser, err := api.state.User(searchTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "failed to find user"))
 			continue
 		}
 
 		err = argUser.SetPassword(arg.Password)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to set password %v", err))
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "failed to set password"))
 			continue
 		}
 	}
 	return result, nil
 }
 
-func (api *UserManagerAPI) getLoggedInUser() names.Tag {
+func (api *UserManagerAPI) getLoggedInUser() (names.UserTag, error) {
 	switch tag := api.authorizer.GetAuthTag().(type) {
 	case names.UserTag:
-		return tag
+		return tag, nil
 	default:
-		return nil
+		return names.UserTag{}, errors.New("authorizer not a user")
 	}
 }

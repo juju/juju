@@ -529,6 +529,7 @@ type ServiceInfo struct {
 	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
+	Subordinate bool
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
@@ -550,6 +551,7 @@ type UnitInfo struct {
 	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
+	Subordinate    bool
 }
 
 func (i *UnitInfo) EntityId() EntityId {
