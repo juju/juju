@@ -72,10 +72,10 @@ retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
-    if [[ $PURPOSE == "release" ]] then
+    if [[ $PURPOSE == "release" ]]; then
         # The directory layout doesn't describe the release dir as "release".
         local source_dist="juju-dist"
-    if [[ $PURPOSE == "testing" ]] then
+    elif [[ $PURPOSE == "testing" ]]; then
         # The testing purpose copies from "proposed" because this stream.
         # represents every version that can could be a stable release. Testing
         # is volatile, it is always proposed + new tools that might be
@@ -328,11 +328,7 @@ sign_metadata() {
 cleanup() {
     # Remove the debs and testing tools so that they are not reused in
     # future runs of the script.
-    if [[ $PACKAGES != "" ]]; then
-        rm ${DEST_DEBS}/*.deb
-    fi
-    rm -r $WORK
-    rm -r $JUJU_PATH
+    rm ${DEST_DEBS}/*.deb || echo "No packages needed cleanup"
 }
 
 
@@ -364,7 +360,7 @@ done
 shift $((OPTIND - 1))
 test $# -eq 3 || usage
 
-PUPOSE=$!
+PURPOSE=$1
 if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
