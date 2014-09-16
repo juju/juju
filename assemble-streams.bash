@@ -98,7 +98,7 @@ retract_tools() {
     if [[ $PURPOSE == "testing" ]]; then
         echo "Removing all testing tools and metadata to reset for testing."
         local RETRACT_GLOB="juju-*.tgz"
-    elif [[ -z "${RETRACT_GLOB:-}" ]]; then
+    elif [[ -z "$RETRACT_GLOB" ]]; then
         echo "Noting to reset"
         return
     fi
