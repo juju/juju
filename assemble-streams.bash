@@ -62,11 +62,11 @@ build_tool_tree() {
     if [[ ! -d $DEST_DEBS ]]; then
         mkdir $DEST_DEBS
     fi
-    if [[ ! -d ${DEST_DIST}/tools/releases ]]; then
-        mkdir -p ${DEST_DIST}/tools/releases
+    if [[ ! -d $DEST_DIST/tools/releases ]]; then
+        mkdir -p $DEST_DIST/tools/releases
     fi
-    if [[ ! -d ${DEST_DIST}/tools/streams/v1 ]]; then
-        mkdir -p ${DEST_DIST}/tools/streams/v1
+    if [[ ! -d $DEST_DIST/tools/streams/v1 ]]; then
+        mkdir -p $DEST_DIST/tools/streams/v1
     fi
 }
 
@@ -111,6 +111,12 @@ retract_tools() {
 
 init_tools_maybe() {
     echo "Phase 4: Checking for $PURPOSE tools in the tree."
+    count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
+    if [[ $((count)) == 0 && -d $DESTINATION/tools/releases ]]; then
+        # Migrate the old release cache to the new cache in juju-dist/.
+        cp $DESTINATION/tools/releases/*.tgz \
+            $DESTINATION/juju-dist/tools/releases
+    fi
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
     if [[ $((count)) < 400  ]]; then
         echo "The tools in $DESTINATION/tools/releases looks incomplete"
