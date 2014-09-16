@@ -33,7 +33,7 @@ usage() {
     echo "usage: $0 $options RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
     echo "  RELEASE: The pattern (version) to match packages in the archives."
-    echo "           Use IGNORE when you want to regerenate metadata without"
+    echo "           Use IGNORE when you want to regenerate metadata without"
     echo "           downloading debs and extracting new tools."
     echo "  DESTINATION_DIRECTORY: The directory to assemble the tools in."
     echo "  SIGNING_KEY: When provided, the metadata will be signed."
@@ -79,7 +79,7 @@ sync_released_tools() {
         # The directory layout doesn't describe the release dir as "release".
         local source_dist="juju-dist"
     elif [[ $PURPOSE == "testing" ]]; then
-        # The testing purpose copies from "proposed" because this stream.
+        # The testing purpose copies from "proposed" because this stream
         # represents every version that can could be a stable release. Testing
         # is volatile, it is always proposed + new tools that might be
         # stable in the future.
@@ -99,7 +99,7 @@ retract_tools() {
         echo "Removing all testing tools and metadata to reset for testing."
         local RETRACT_GLOB="juju-*.tgz"
     elif [[ -z "$RETRACT_GLOB" ]]; then
-        echo "Noting to reset"
+        echo "Nothing to reset"
         return
     fi
     find ${DEST_DIST}/tools/releases -name "$RETRACT_GLOB" -delete
@@ -271,7 +271,7 @@ archive_tools() {
     done
     # The extracted files are no longer needed. Clean them up now.
     rm -r $WORK
-    # Exit early when debs were search, but no new tools were found.
+    # Exit early when debs were searched, but no new tools were found.
     if [[ -z "${added_tools[@]:-}" ]]; then
         echo "No tools were added from the built debs."
         cleanup
@@ -328,7 +328,7 @@ generate_streams() {
 
 
 generate_mirrors() {
-    echo "Phase 8: Creating mirror josn."
+    echo "Phase 8: Creating mirror json."
     short_now=$(date +%Y%m%d)
     sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/mirrors.json
