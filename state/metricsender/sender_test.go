@@ -3,7 +3,7 @@
 
 // +build sender
 
-package metricsender
+package metricsender_test
 
 import (
 	"crypto/x509"
@@ -12,9 +12,11 @@ import (
 	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state/metricsender"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -40,19 +42,27 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	}
 	cert, err := ioutil.ReadFile(caCert)
 	c.Assert(err, gc.IsNil)
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM(cert)
-	s.PatchValue(&metricsHost, host)
-	s.PatchValue(&metricsCertsPool, certPool)
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	err = s.State.SendMetrics()
+	cleanup := metricsender.PatchHostAndCertPool(host, certPool)
+	defer cleanup()
+	ma := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	mb := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	mc := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	sender := &metricsender.DefaultSender{}
+	err = s.State.SendMetrics(sender)
 	c.Assert(err, gc.IsNil)
-	sent, err := s.State.CountofSentMetrics()
+	err = ma.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(sent, gc.Equals, 3)
+	err = mb.Refresh()
+	c.Assert(err, gc.IsNil)
+	err = mc.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(ma.Sent(), jc.IsTrue)
+	c.Assert(mb.Sent(), jc.IsTrue)
+	c.Assert(mc.Sent(), jc.IsTrue)
 
 }

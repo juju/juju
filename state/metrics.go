@@ -5,6 +5,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/juju/loggo"
@@ -238,6 +239,23 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 // marhsaled as json
 func (m *MetricBatch) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.doc)
+}
+
+// Refresh refreshes the contents of the MetricBatch from the underlying
+// state. It an error that satisfies errors.IsNotFound if the unit has
+// been removed.
+func (m *MetricBatch) Refresh() error {
+	metrics, closer := m.st.getCollection(metricsC)
+	defer closer()
+
+	err := metrics.FindId(m.doc.UUID).One(&m.doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("metric %q", m)
+	}
+	if err != nil {
+		return fmt.Errorf("cannot refresh metric %q: %v", m, err)
+	}
+	return nil
 }
 
 // UUID returns to uuid of the metric.
