@@ -2625,6 +2625,12 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
 }
 
+func (s *StateSuite) TestIsUpgradeInProgressError(c *gc.C) {
+	c.Assert(state.IsUpgradeInProgressError(errors.New("foo")), jc.IsFalse)
+	c.Assert(state.IsUpgradeInProgressError(state.UpgradeInProgressError), jc.IsTrue)
+	c.Assert(state.IsUpgradeInProgressError(errors.Trace(state.UpgradeInProgressError)), jc.IsTrue)
+}
+
 func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Get the agent-version set in the environment.
 	envConfig, err := s.State.EnvironConfig()
