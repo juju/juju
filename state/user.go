@@ -1,3 +1,11 @@
+// Copyright 2012-2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// NOTE: the users that are being stored in the database here are only
+// the local users, like "admin" or "bob" (@local).  In the  world
+// where we have external user providers hooked up, there are no records
+// in the databse for users that are authenticated elsewhere.
+
 package state
 
 import (
@@ -7,50 +15,52 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
+)
+
+const (
+	localUserProviderName = "local"
 )
 
 func (st *State) checkUserExists(name string) (bool, error) {
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
 	var count int
 	var err error
-	if count, err = st.users.FindId(name).Count(); err != nil {
+	if count, err = users.FindId(name).Count(); err != nil {
 		return false, err
 	}
 	return count > 0, nil
 }
 
-func (st *State) AddAdminUser(password string) (*User, error) {
-	return st.AddUser("admin", "", password, "")
-}
-
-// AddUser adds a user to the state.
-func (st *State) AddUser(username, displayName, password, creator string) (*User, error) {
-	if !names.IsUser(username) {
-		return nil, errors.Errorf("invalid user name %q", username)
+// AddUser adds a user to the database.
+func (st *State) AddUser(name, displayName, password, creator string) (*User, error) {
+	if !names.IsValidUserName(name) {
+		return nil, errors.Errorf("invalid user name %q", name)
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
 		return nil, err
 	}
-	timestamp := time.Now().Round(time.Second).UTC()
-	u := &User{
+	user := &User{
 		st: st,
 		doc: userDoc{
-			Name:         username,
+			Name:         name,
 			DisplayName:  displayName,
 			PasswordHash: utils.UserPasswordHash(password, salt),
 			PasswordSalt: salt,
 			CreatedBy:    creator,
-			DateCreated:  timestamp,
+			DateCreated:  nowToTheSecond(),
 		},
 	}
 	ops := []txn.Op{{
-		C:      st.users.Name,
-		Id:     username,
+		C:      usersC,
+		Id:     name,
 		Assert: txn.DocMissing,
-		Insert: &u.doc,
+		Insert: &user.doc,
 	}}
 	err = st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -59,96 +69,141 @@ func (st *State) AddUser(username, displayName, password, creator string) (*User
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return u, nil
+	return user, nil
+}
+
+func createInitialUserOp(st *State, user names.UserTag, password string) txn.Op {
+	doc := userDoc{
+		Name:         user.Name(),
+		DisplayName:  user.Name(),
+		PasswordHash: password,
+		// Empty PasswordSalt means utils.CompatSalt
+		CreatedBy:   user.Name(),
+		DateCreated: nowToTheSecond(),
+	}
+	return txn.Op{
+		C:      usersC,
+		Id:     doc.Name,
+		Assert: txn.DocMissing,
+		Insert: &doc,
+	}
 }
 
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	err := st.users.Find(bson.D{{"_id", name}}).One(udoc)
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	err := users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
 	return err
 }
 
-// User returns the state user for the given name,
-func (st *State) User(name string) (*User, error) {
-	u := &User{st: st}
-	if err := st.getUser(name, &u.doc); err != nil {
+// User returns the state User for the given name,
+func (st *State) User(tag names.UserTag) (*User, error) {
+	if !tag.IsLocal() {
+		return nil, errors.NotFoundf("user %q", tag.Username())
+	}
+	user := &User{st: st}
+	if err := st.getUser(tag.Name(), &user.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return u, nil
+	return user, nil
 }
 
-// User represents a juju client user.
+// User represents a local user in the database.
 type User struct {
 	st  *State
 	doc userDoc
 }
 
 type userDoc struct {
-	Name           string `bson:"_id_"`
-	DisplayName    string
-	Deactivated    bool // Removing users means they still exist, but are marked deactivated
-	PasswordHash   string
-	PasswordSalt   string
-	CreatedBy      string
-	DateCreated    time.Time
-	LastConnection time.Time
+	Name        string `bson:"_id"`
+	DisplayName string `bson:"displayname"`
+	// Removing users means they still exist, but are marked deactivated
+	Deactivated  bool       `bson:"deactivated"`
+	PasswordHash string     `bson:"passwordhash"`
+	PasswordSalt string     `bson:"passwordsalt"`
+	CreatedBy    string     `bson:"createdby"`
+	DateCreated  time.Time  `bson:"datecreated"`
+	LastLogin    *time.Time `bson:"lastlogin"`
 }
 
-// Name returns the user name,
+// String returns "<name>@local" where <name> is the Name of the user.
+func (u *User) String() string {
+	return u.UserTag().Username()
+}
+
+// Name returns the User name.
 func (u *User) Name() string {
 	return u.doc.Name
 }
 
-// DisplayName returns the display name of the user.
+// DisplayName returns the display name of the User.
 func (u *User) DisplayName() string {
 	return u.doc.DisplayName
 }
 
-// CreatedBy returns the name of the user that created this user.
+// CreatedBy returns the name of the User that created this User.
 func (u *User) CreatedBy() string {
 	return u.doc.CreatedBy
 }
 
-// DateCreated returns when this user was created in UTC.
+// DateCreated returns when this User was created in UTC.
 func (u *User) DateCreated() time.Time {
 	return u.doc.DateCreated.UTC()
 }
 
-// LastConnection returns when this user last connected through the API in UTC.
-func (u *User) LastConnection() time.Time {
-	result := u.doc.LastConnection
-	if !result.IsZero() {
-		result = result.UTC()
-	}
-	return result
+// Tag returns the Tag for the User.
+func (u *User) Tag() names.Tag {
+	return u.UserTag()
 }
 
-func (u *User) UpdateLastConnection() error {
-	timestamp := time.Now().Round(time.Second).UTC()
+// UserTag returns the Tag for the User.
+func (u *User) UserTag() names.UserTag {
+	return names.NewLocalUserTag(u.doc.Name)
+}
 
+// LastLogin returns when this User last connected through the API in UTC.
+// The resulting time will be nil if the user has never logged in.  In the
+// normal case, the LastLogin is the last time that the user connected through
+// the API server.
+func (u *User) LastLogin() *time.Time {
+	when := u.doc.LastLogin
+	if when == nil {
+		return nil
+	}
+	result := when.UTC()
+	return &result
+}
+
+// nowToTheSecond returns the current time in UTC to the nearest second.
+func nowToTheSecond() time.Time {
+	return time.Now().Round(time.Second).UTC()
+}
+
+// UpdateLastLogin sets the LastLogin time of the user to be now (to the
+// nearest second).
+func (u *User) UpdateLastLogin() error {
+	timestamp := nowToTheSecond()
 	ops := []txn.Op{{
-		C:      u.st.users.Name,
+		C:      usersC,
 		Id:     u.Name(),
-		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
-		return errors.Annotatef(err, "cannot update last connection timestamp for user %q", u.Name())
+		return errors.Annotatef(err, "cannot update last login timestamp for user %q", u.Name())
 	}
 
-	u.doc.LastConnection = timestamp
+	u.doc.LastLogin = &timestamp
 	return nil
 }
 
-// Tag returns the Tag for the User.
-func (u *User) Tag() names.Tag {
-	return names.NewUserTag(u.doc.Name)
-}
-
-// SetPassword sets the password associated with the user.
+// SetPassword sets the password associated with the User.
 func (u *User) SetPassword(password string) error {
 	salt, err := utils.RandomSalt()
 	if err != nil {
@@ -157,35 +212,32 @@ func (u *User) SetPassword(password string) error {
 	return u.SetPasswordHash(utils.UserPasswordHash(password, salt), salt)
 }
 
-// SetPasswordHash sets the password to the
-// inverse of pwHash = utils.UserPasswordHash(pw, pwSalt).
-// It can be used when we know only the hash
-// of the password, but not the clear text.
+// SetPasswordHash stores the hash and the salt of the password.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
-		C:      u.st.users.Name,
+		C:      usersC,
 		Id:     u.Name(),
+		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
+		return errors.Annotatef(err, "cannot set password of user %q", u.Name())
 	}
 	u.doc.PasswordHash = pwHash
 	u.doc.PasswordSalt = pwSalt
 	return nil
 }
 
-// PasswordValid returns whether the given password
-// is valid for the user.
+// PasswordValid returns whether the given password is valid for the User.
 func (u *User) PasswordValid(password string) bool {
-	// If the user is deactivated, no point in carrying on
+	// If the User is deactivated, no point in carrying on. Since any
+	// authentication checks are done very soon after the user is read
+	// from the database, there is a very small timeframe where an user
+	// could be disabled after it has been read but prior to being checked,
+	// but in practice, this isn't a problem.
 	if u.IsDeactivated() {
 		return false
 	}
-	// Since these are potentially set by a User, we intentionally use the
-	// slower pbkdf2 style hashing. Also, we don't expect to have thousands
-	// of Users trying to log in at the same time (which we *do* expect of
-	// Unit and Machine agents.)
 	if u.doc.PasswordSalt != "" {
 		return utils.UserPasswordHash(password, u.doc.PasswordSalt) == u.doc.PasswordHash
 	}
@@ -206,8 +258,7 @@ func (u *User) PasswordValid(password string) bool {
 	return false
 }
 
-// Refresh refreshes information about the user
-// from the state.
+// Refresh refreshes information about the User from the state.
 func (u *User) Refresh() error {
 	var udoc userDoc
 	if err := u.st.getUser(u.Name(), &udoc); err != nil {
@@ -217,26 +268,39 @@ func (u *User) Refresh() error {
 	return nil
 }
 
+// Deactivate deactivates the user.  Deactivated identities cannot log in.
 func (u *User) Deactivate() error {
 	if u.doc.Name == AdminUser {
-		return errors.Unauthorizedf("Can't deactivate admin user")
+		return errors.Unauthorizedf("cannot deactivate admin user")
 	}
+	return errors.Annotatef(u.setDeactivated(true), "cannot deactivate user %q", u.Name())
+}
+
+// Activate reactivates the user, setting disabled to false.
+func (u *User) Activate() error {
+	return errors.Annotatef(u.setDeactivated(false), "cannot activate user %q", u.Name())
+}
+
+func (u *User) setDeactivated(value bool) error {
 	ops := []txn.Op{{
-		C:      u.st.users.Name,
+		C:      usersC,
 		Id:     u.Name(),
-		Update: bson.D{{"$set", bson.D{{"deactivated", true}}}},
 		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = fmt.Errorf("user no longer exists")
 		}
-		return fmt.Errorf("cannot deactivate user %q: %v", u.Name(), err)
+		return err
 	}
-	u.doc.Deactivated = true
+	u.doc.Deactivated = value
 	return nil
 }
 
+// IsDeactivated returns whether the user is currently deactiviated.
 func (u *User) IsDeactivated() bool {
+	// Yes, this is a cached value, but in practice the user object is
+	// never held around for a long time.
 	return u.doc.Deactivated
 }

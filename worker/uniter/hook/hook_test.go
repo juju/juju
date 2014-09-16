@@ -6,7 +6,7 @@ package hook_test
 import (
 	"testing"
 
-	"github.com/juju/charm/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/worker/uniter/hook"
@@ -40,6 +40,11 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
+	{
+		hook.Info{Kind: hooks.ActionRequested},
+		`action id "" cannot be parsed as an action tag`,
+	},
+	{hook.Info{Kind: hooks.ActionRequested, ActionId: "wordpress/0_a_1"}, ""},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},
 	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x"}, ""},

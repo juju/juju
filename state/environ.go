@@ -6,9 +6,9 @@ package state
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -24,30 +24,126 @@ type Environment struct {
 
 // environmentDoc represents the internal state of the environment in MongoDB.
 type environmentDoc struct {
-	UUID string `bson:"_id"`
-	Name string
-	Life Life
+	UUID       string `bson:"_id"`
+	Name       string
+	Life       Life
+	Owner      string `bson:"owner"`
+	ServerUUID string `bson:"server-uuid"`
+}
+
+// InitialEnvironment returns the environment that was bootstrapped.
+// This is the only environment that can have state server machines.
+// The owner of this environment is also considered "special", in that
+// they are the only user that is able to create other users (until we
+// have more fine grained permissions), and they cannot be disabled.
+func (st *State) InitialEnvironment() (*Environment, error) {
+	ssinfo, err := st.StateServerInfo()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get state server info")
+	}
+
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	env := &Environment{st: st}
+	uuid := ssinfo.EnvironmentTag.Id()
+	if err := env.refresh(environments.FindId(uuid)); err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.annotator = annotator{
+		globalKey: environGlobalKey,
+		tag:       env.Tag(),
+		st:        st,
+	}
+	return env, nil
 }
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
 	env := &Environment{st: st}
-	if err := env.refresh(st.environments.Find(nil)); err != nil {
-		return nil, err
+	uuid := st.environTag.Id()
+	if err := env.refresh(environments.FindId(uuid)); err != nil {
+		return nil, errors.Trace(err)
 	}
 	env.annotator = annotator{
-		globalKey: env.globalKey(),
-		tag:       env.Tag().String(),
+		globalKey: environGlobalKey,
+		tag:       env.Tag(),
 		st:        st,
 	}
 	return env, nil
+}
+
+// GetEnvironment looks for the environment identified by the uuid passed in.
+func (st *State) GetEnvironment(tag names.EnvironTag) (*Environment, error) {
+	environments, closer := st.getCollection(environmentsC)
+	defer closer()
+
+	env := &Environment{st: st}
+	if err := env.refresh(environments.FindId(tag.Id())); err != nil {
+		return nil, errors.Trace(err)
+	}
+	env.annotator = annotator{
+		globalKey: environGlobalKey,
+		tag:       env.Tag(),
+		st:        st,
+	}
+	return env, nil
+}
+
+// NewEnvironment records information about an environment. At this stage it
+// only records the name, owner, state of life, and the UUIDs for the
+// environment and for the state server that the environment is running
+// within.  When a juju environment is bootstrapped, the environment is
+// created through state.Initialize.  That is the initial environment, and
+// will have both the environment UUID and the server UUID the same.  New
+// environments running in the same state server will have different
+// environment UUIDs but the server UUID will be the environment UUID of the
+// initial environment.  Having the server UUIDs stored with the environment
+// document means that we have a way to represent external environments,
+// perhaps for future use around cross environment relations.
+func (st *State) NewEnvironment(env, server names.EnvironTag, owner names.UserTag, name string) (*Environment, error) {
+	op := createEnvironmentOp(st, owner, name, env.Id(), server.Id())
+	doc := op.Insert.(*environmentDoc)
+
+	err := st.runTransaction([]txn.Op{op})
+	if err == txn.ErrAborted {
+		err = errors.New("environment already exists")
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	environment := &Environment{
+		st:  st,
+		doc: *doc,
+		annotator: annotator{
+			globalKey: environGlobalKey,
+			tag:       env,
+			st:        st,
+		},
+	}
+	return environment, nil
 }
 
 // Tag returns a name identifying the environment.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
 func (e *Environment) Tag() names.Tag {
+	return e.EnvironTag()
+}
+
+// EnvironTag is the concrete environ tag for this environment.
+func (e *Environment) EnvironTag() names.EnvironTag {
 	return names.NewEnvironTag(e.doc.UUID)
+}
+
+// ServerTag is the environ tag for the server that the environment is running
+// within.
+func (e *Environment) ServerTag() names.EnvironTag {
+	return names.NewEnvironTag(e.doc.ServerUUID)
 }
 
 // UUID returns the universally unique identifier of the environment.
@@ -65,13 +161,22 @@ func (e *Environment) Life() Life {
 	return e.doc.Life
 }
 
+// Owner returns tag representing the owner of the environment.
+// The owner is the user that created the environment.
+func (e *Environment) Owner() names.UserTag {
+	return names.NewUserTag(e.doc.Owner)
+}
+
 // globalKey returns the global database key for the environment.
 func (e *Environment) globalKey() string {
 	return environGlobalKey
 }
 
 func (e *Environment) Refresh() error {
-	return e.refresh(e.st.environments.FindId(e.UUID()))
+	environments, closer := e.st.getCollection(environmentsC)
+	defer closer()
+
+	return e.refresh(environments.FindId(e.UUID()))
 }
 
 func (e *Environment) refresh(query *mgo.Query) error {
@@ -100,7 +205,7 @@ func (e *Environment) Destroy() error {
 	// destroy-environment from succeeding if any non-manager
 	// manual machines exist.
 	ops := []txn.Op{{
-		C:      e.st.environments.Name,
+		C:      environmentsC,
 		Id:     e.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
@@ -120,10 +225,16 @@ func (e *Environment) Destroy() error {
 
 // createEnvironmentOp returns the operation needed to create
 // an environment document with the given name and UUID.
-func createEnvironmentOp(st *State, name, uuid string) txn.Op {
-	doc := &environmentDoc{uuid, name, Alive}
+func createEnvironmentOp(st *State, owner names.UserTag, name, uuid, server string) txn.Op {
+	doc := &environmentDoc{
+		UUID:       uuid,
+		Name:       name,
+		Life:       Alive,
+		Owner:      owner.Username(),
+		ServerUUID: server,
+	}
 	return txn.Op{
-		C:      st.environments.Name,
+		C:      environmentsC,
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -133,7 +244,7 @@ func createEnvironmentOp(st *State, name, uuid string) txn.Op {
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
 	return txn.Op{
-		C:      e.st.environments.Name,
+		C:      environmentsC,
 		Id:     e.UUID(),
 		Assert: isEnvAliveDoc,
 	}

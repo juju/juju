@@ -16,12 +16,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/environment"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/environment"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machineenvironmentworker"
@@ -35,13 +35,17 @@ type MachineEnvironmentWatcherSuite struct {
 	machine        *state.Machine
 
 	proxyFile string
-	started   bool
+	started   chan struct{}
 }
 
 var _ = gc.Suite(&MachineEnvironmentWatcherSuite{})
 
 func (s *MachineEnvironmentWatcherSuite) setStarted() {
-	s.started = true
+	select {
+	case <-s.started:
+	default:
+		close(s.started)
+	}
 }
 
 func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
@@ -53,22 +57,17 @@ func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
 
 	proxyDir := c.MkDir()
 	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
-	s.started = false
+	s.started = make(chan struct{})
 	s.PatchValue(&machineenvironmentworker.Started, s.setStarted)
 	s.PatchValue(&apt.ConfFile, path.Join(proxyDir, "juju-apt-proxy"))
 	s.proxyFile = path.Join(proxyDir, machineenvironmentworker.ProxyFile)
 }
 
 func (s *MachineEnvironmentWatcherSuite) waitForPostSetup(c *gc.C) {
-	for {
-		select {
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timeout while waiting for setup")
-		case <-time.After(10 * time.Millisecond):
-			if s.started {
-				return
-			}
-		}
+	select {
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timeout while waiting for setup")
+	case <-s.started:
 	}
 }
 
@@ -113,7 +112,7 @@ func (s *MachineEnvironmentWatcherSuite) makeWorker(c *gc.C, agentConfig agent.C
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
-	agentConfig := agentConfig("0", "ec2")
+	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	c.Assert(worker.Stop(envWorker), gc.IsNil)
 }
@@ -153,7 +152,7 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (proxy.Settings, 
 func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	agentConfig := agentConfig("0", "ec2")
+	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 
@@ -163,12 +162,12 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
-	agentConfig := agentConfig("0", "ec2")
+	proxySettings, aptProxySettings := s.updateConfig(c)
+
+	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
-
-	proxySettings, aptProxySettings := s.updateConfig(c)
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
@@ -178,7 +177,7 @@ func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
 func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	agentConfig := agentConfig("1", provider.Local)
+	agentConfig := agentConfig(names.NewMachineTag("1"), provider.Local)
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 
@@ -190,7 +189,7 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) 
 func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) {
 	proxySettings, _ := s.updateConfig(c)
 
-	agentConfig := agentConfig("0", provider.Local)
+	agentConfig := agentConfig(names.NewMachineTag("0"), provider.Local)
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
@@ -203,11 +202,11 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) 
 
 type mockConfig struct {
 	agent.Config
-	tag      string
+	tag      names.MachineTag
 	provider string
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -218,6 +217,6 @@ func (mock *mockConfig) Value(key string) string {
 	return ""
 }
 
-func agentConfig(machineId, provider string) *mockConfig {
-	return &mockConfig{tag: names.NewMachineTag(machineId).String(), provider: provider}
+func agentConfig(machineTag names.MachineTag, provider string) *mockConfig {
+	return &mockConfig{tag: machineTag, provider: provider}
 }

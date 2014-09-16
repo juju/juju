@@ -5,31 +5,36 @@ package manual
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/tools"
 )
 
 const manualInstancePrefix = "manual:"
 
 var logger = loggo.GetLogger("juju.environs.manual")
+
+// ProvisioningClientAPI defines the methods that are needed for the manual
+// provisioning of machines.  An interface is used here to decouple the API
+// consumer from the actual API implementation type.
+type ProvisioningClientAPI interface {
+	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	DestroyMachines(machines ...string) error
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+}
 
 type ProvisionMachineArgs struct {
 	// Host is the SSH host: [user@]host
@@ -39,12 +44,8 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// EnvName is the name of the environment for which the machine will be provisioned.
-	EnvName string
-
-	// Tools to install on the machine. If nil, tools will be automatically
-	// chosen using environs/tools FindInstanceTools.
-	Tools *tools.Tools
+	// Client provides the API needed to provision the machines.
+	Client ProvisioningClientAPI
 
 	// Stdin is required to respond to sudo prompts,
 	// and must be a terminal (except in tests)
@@ -55,6 +56,8 @@ type ProvisionMachineArgs struct {
 
 	// Stderr is required to present machine provisioning progress to the user.
 	Stderr io.Writer
+
+	*params.UpdateBehavior
 }
 
 // ErrProvisioned is returned by ProvisionMachine if the target
@@ -68,19 +71,14 @@ var ErrProvisioned = errors.New("machine is already provisioned")
 // On successful completion, this function will return the id of the state.Machine
 // that was entered into state.
 func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
-	client, err := juju.NewAPIClientFromName(args.EnvName)
-	if err != nil {
-		return "", err
-	}
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			if cleanupErr := client.DestroyMachines(machineId); cleanupErr != nil {
+			if cleanupErr := args.Client.DestroyMachines(machineId); cleanupErr != nil {
 				logger.Warningf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
 		}
-		client.Close()
 	}()
 
 	// Create the "ubuntu" user and initialise passwordless sudo. We populate
@@ -99,16 +97,19 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Inform Juju that the machine exists.
-	machineId, err = recordMachineInState(client, *machineParams)
+	machineId, err = recordMachineInState(args.Client, *machineParams)
 	if err != nil {
 		return "", err
 	}
 
-	provisioningScript, err := client.ProvisioningScript(params.ProvisioningScriptParams{
+	provisioningScript, err := args.Client.ProvisioningScript(params.ProvisioningScriptParams{
 		MachineId: machineId,
 		Nonce:     machineParams.Nonce,
+		DisablePackageCommands: !args.EnableOSRefreshUpdate && !args.EnableOSUpgrade,
 	})
+
 	if err != nil {
+		logger.Errorf("cannot obtain provisioning script")
 		return "", err
 	}
 
@@ -129,12 +130,8 @@ func splitUserHost(host string) (string, string) {
 	return "", host
 }
 
-func recordMachineInState(
-	client *api.Client, machineParams params.AddMachineParams) (machineId string, err error) {
-	// Note: we explicitly use AddMachines1dot18 rather than AddMachines to preserve
-	// backwards compatibility; we do not require any of the new features of AddMachines
-	// here.
-	results, err := client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+func recordMachineInState(client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", err
 	}
@@ -144,18 +141,6 @@ func recordMachineInState(
 		return "", machineInfo.Error
 	}
 	return machineInfo.Machine, nil
-}
-
-// convertToStateJobs takes a slice of params.MachineJob and makes them a slice of state.MachineJob
-func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
-	outJobs := make([]state.MachineJob, len(jobs))
-	var err error
-	for j, job := range jobs {
-		if outJobs[j], err = state.MachineJobFromParams(job); err != nil {
-			return nil, err
-		}
-	}
-	return outJobs, nil
 }
 
 // gatherMachineParams collects all the information we know about the machine
@@ -224,16 +209,22 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 // executed on a remote host to carry out the cloud-init
 // configuration.
 func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
+
 	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return "", err
+	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
+
+	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	if err != nil {
+		return "", errors.Annotate(err, "error generating cloud-config")
 	}
-	// Explicitly disabling apt_upgrade so as not to trample
-	// the target machine's existing configuration.
-	cloudcfg.SetAptUpgrade(false)
+	if err := udata.ConfigureJuju(); err != nil {
+		return "", errors.Annotate(err, "error generating cloud-config")
+	}
+
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
-		return "", err
+		return "", errors.Annotate(err, "error converting cloud-config to script")
 	}
 
 	var buf bytes.Buffer

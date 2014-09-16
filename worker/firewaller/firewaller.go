@@ -9,13 +9,13 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
+	apifirewaller "github.com/juju/juju/api/firewaller"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	apifirewaller "github.com/juju/juju/state/api/firewaller"
-	"github.com/juju/juju/state/api/params"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -147,7 +147,12 @@ func stop(what string, stopper watcher.Stopper) {
 
 // startMachine creates a new data value for tracking details of the
 // machine and starts watching the machine for units added or removed.
-func (fw *Firewaller) startMachine(tag string) error {
+// TODO(dfc) should take a names.Tag
+func (fw *Firewaller) startMachine(machineTag string) error {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return err
+	}
 	machined := &machineData{
 		fw:     fw,
 		tag:    tag,
@@ -173,11 +178,11 @@ func (fw *Firewaller) startMachine(tag string) error {
 			stop("units watcher", unitw)
 			return watcher.MustErr(unitw)
 		}
-		fw.machineds[tag] = machined
+		fw.machineds[machineTag] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
-			delete(fw.machineds, tag)
+			delete(fw.machineds, machineTag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
 	}
@@ -248,10 +253,11 @@ func (fw *Firewaller) startService(service *apifirewaller.Service) error {
 // units and services with the opened and closed ports globally and
 // opens and closes the appropriate ports for the whole environment.
 func (fw *Firewaller) reconcileGlobal() error {
-	initialPorts, err := fw.environ.Ports()
+	initialPortRanges, err := fw.environ.Ports()
 	if err != nil {
 		return err
 	}
+	initialPorts := network.PortRangesToPorts(initialPortRanges)
 	collector := make(map[network.Port]bool)
 	for _, unitd := range fw.unitds {
 		if unitd.serviced.exposed {
@@ -269,14 +275,14 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toClose := Diff(initialPorts, wantedPorts)
 	if len(toOpen) > 0 {
 		logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environ.OpenPorts(network.PortsToPortRanges(toOpen)); err != nil {
 			return err
 		}
 		network.SortPorts(toOpen)
 	}
 	if len(toClose) > 0 {
 		logger.Infof("closing global ports %v", toClose)
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environ.ClosePorts(network.PortsToPortRanges(toClose)); err != nil {
 			return err
 		}
 		network.SortPorts(toClose)
@@ -308,22 +314,19 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		tag, err := names.ParseMachineTag(machined.tag)
+		machineId := machined.tag.Id()
+		initialPortRanges, err := instances[0].Ports(machineId)
 		if err != nil {
 			return err
 		}
-		machineId := tag.Id()
-		initialPorts, err := instances[0].Ports(machineId)
-		if err != nil {
-			return err
-		}
+		initialPorts := network.PortRangesToPorts(initialPortRanges)
 		// Check which ports to open or to close.
 		toOpen := Diff(machined.ports, initialPorts)
 		toClose := Diff(initialPorts, machined.ports)
 		if len(toOpen) > 0 {
 			logger.Infof("opening instance ports %v for %q",
 				toOpen, machined.tag)
-			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+			if err := instances[0].OpenPorts(machineId, network.PortsToPortRanges(toOpen)); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -332,7 +335,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			logger.Infof("closing instance ports %v for %q",
 				toClose, machined.tag)
-			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+			if err := instances[0].ClosePorts(machineId, network.PortsToPortRanges(toClose)); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -346,11 +349,11 @@ func (fw *Firewaller) reconcileInstances() error {
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
-		unit, err := fw.st.Unit(names.NewUnitTag(name).String())
+		unit, err := fw.st.Unit(names.NewUnitTag(name))
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}
-		var machineTag string
+		var machineTag names.Tag
 		if unit != nil {
 			machineTag, err = unit.AssignedMachine()
 			if params.IsCodeNotFound(err) {
@@ -366,8 +369,9 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				changed = append(changed, unitd)
 				logger.Debugf("stopped watching unit %s", name)
 			}
-		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
-			err = fw.startUnit(unit, machineTag)
+			// TODO(dfc) fw.machineds should be map[names.Tag]
+		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag.String()] != nil {
+			err = fw.startUnit(unit, machineTag.String())
 			if err != nil {
 				return err
 			}
@@ -385,7 +389,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 	machineds := map[string]*machineData{}
 	for _, unitd := range unitds {
-		machineds[unitd.machined.tag] = unitd.machined
+		machineds[unitd.machined.tag.String()] = unitd.machined
 	}
 	for _, machined := range machineds {
 		if err := fw.flushMachine(machined); err != nil {
@@ -440,7 +444,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.Port) error {
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environ.OpenPorts(network.PortsToPortRanges(toOpen)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -448,7 +452,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.Port) error {
 		logger.Infof("opened ports %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environ.ClosePorts(network.PortsToPortRanges(toClose)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -474,11 +478,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	tag, err := names.ParseMachineTag(machined.tag)
-	if err != nil {
-		return err
-	}
-	machineId := tag.Id()
+	machineId := machined.tag.Id()
 	instanceId, err := m.InstanceId()
 	if err != nil {
 		return err
@@ -489,7 +489,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+		if err := instances[0].OpenPorts(machineId, network.PortsToPortRanges(toOpen)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -497,7 +497,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		logger.Infof("opened ports %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+		if err := instances[0].ClosePorts(machineId, network.PortsToPortRanges(toClose)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -510,19 +510,23 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 // machineLifeChanged starts watching new machines when the firewaller
 // is starting, or when new machines come to life, and stops watching
 // machines that are dying.
-func (fw *Firewaller) machineLifeChanged(tag string) error {
+func (fw *Firewaller) machineLifeChanged(machineTag string) error {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return err
+	}
 	m, err := fw.st.Machine(tag)
 	found := !params.IsCodeNotFound(err)
 	if found && err != nil {
 		return err
 	}
 	dead := !found || m.Life() == params.Dead
-	machined, known := fw.machineds[tag]
+	machined, known := fw.machineds[machineTag]
 	if known && dead {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		err = fw.startMachine(tag)
+		err = fw.startMachine(machineTag)
 		if err != nil {
 			return err
 		}
@@ -539,7 +543,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	if err := fw.flushMachine(machined); err != nil {
 		return err
 	}
-	delete(fw.machineds, machined.tag)
+	delete(fw.machineds, machined.tag.String())
 	if err := machined.Stop(); err != nil {
 		return err
 	}
@@ -615,7 +619,7 @@ type unitsChange struct {
 type machineData struct {
 	tomb   tomb.Tomb
 	fw     *Firewaller
-	tag    string
+	tag    names.MachineTag
 	unitds map[string]*unitData
 	ports  []network.Port
 }

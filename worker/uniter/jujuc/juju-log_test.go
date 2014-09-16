@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -23,7 +24,7 @@ var _ = gc.Suite(&JujuLogSuite{})
 func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
-	com, err := jujuc.NewCommand(ctx, "juju-log")
+	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
 	c.Assert(err, gc.IsNil)
 	for _, t := range []struct {
 		args  []string
@@ -54,10 +55,11 @@ func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, 
 		args := append(t.args, msg1, msg2)
 		code := cmd.Main(com, &cmd.Context{}, args)
 		c.Assert(code, gc.Equals, 0)
-		c.Assert(writer.Log, gc.HasLen, 1)
-		c.Assert(writer.Log[0].Level, gc.Equals, t.level)
-		c.Assert(writer.Log[0].Module, gc.Equals, fmt.Sprintf("unit.%s.juju-log", unitname))
-		c.Assert(writer.Log[0].Message, gc.Equals, fmt.Sprintf("%s%s %s", badge, msg1, msg2))
+		log := writer.Log()
+		c.Assert(log, gc.HasLen, 1)
+		c.Assert(log[0].Level, gc.Equals, t.level)
+		c.Assert(log[0].Module, gc.Equals, fmt.Sprintf("unit.%s.juju-log", unitname))
+		c.Assert(log[0].Message, gc.Equals, fmt.Sprintf("%s%s %s", badge, msg1, msg2))
 	}
 }
 
@@ -74,7 +76,7 @@ func (s *JujuLogSuite) TestBadges(c *gc.C) {
 
 func newJujuLogCommand(c *gc.C) cmd.Command {
 	ctx := &Context{}
-	com, err := jujuc.NewCommand(ctx, "juju-log")
+	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
 	c.Assert(err, gc.IsNil)
 	return com
 }

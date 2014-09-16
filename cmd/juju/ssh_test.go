@@ -6,13 +6,12 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -36,7 +35,7 @@ type SSHCommonSuite struct {
 // fakecommand outputs its arguments to stdout for verification
 var fakecommand = `#!/bin/bash
 
-echo $@ | tee $0.args
+echo "$@" | tee $0.args
 `
 
 func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
@@ -56,10 +55,12 @@ func (s *SSHCommonSuite) SetUpTest(c *gc.C) {
 }
 
 const (
-	commonArgsNoProxy = `-o StrictHostKeyChecking no -o PasswordAuthentication no `
-	commonArgs        = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false 127.0.0.1 nc -q0 %h %p -o PasswordAuthentication no `
-	sshArgs           = commonArgs + `-t -t `
-	sshArgsNoProxy    = commonArgsNoProxy + `-t -t `
+	noProxy           = `-o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 `
+	args              = `-o StrictHostKeyChecking no -o ProxyCommand juju ssh --proxy=false --pty=false localhost nc -q0 %h %p -o PasswordAuthentication no -o ServerAliveInterval 30 `
+	commonArgsNoProxy = noProxy + `-o UserKnownHostsFile /dev/null `
+	commonArgs        = args + `-o UserKnownHostsFile /dev/null `
+	sshArgs           = args + `-t -t -o UserKnownHostsFile /dev/null `
+	sshArgsNoProxy    = noProxy + `-t -t -o UserKnownHostsFile /dev/null `
 )
 
 var sshTests = []struct {
@@ -96,13 +97,11 @@ var sshTests = []struct {
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	m := s.makeMachines(3, c, true)
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	dummy, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
 	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
@@ -131,7 +130,7 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-	jujucmd.Register(&SSHCommand{})
+	jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
 	code := cmd.Main(jujucmd, ctx, []string{"ssh", "0"})
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
@@ -177,7 +176,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	// Ensure that the ssh command waits for a public address, or the attempt
 	// strategy's Done method returns false.
 	args := []string{"--proxy=" + fmt.Sprint(proxy), "0"}
-	code := cmd.Main(&SSHCommand{}, ctx, args)
+	code := cmd.Main(envcmd.Wrap(&SSHCommand{}), ctx, args)
 	c.Check(code, gc.Equals, 1)
 	c.Assert(called, gc.Equals, 2)
 	called = 0
@@ -188,7 +187,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 		}
 		return true
 	}
-	code = cmd.Main(&SSHCommand{}, ctx, args)
+	code = cmd.Main(envcmd.Wrap(&SSHCommand{}), ctx, args)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(called, gc.Equals, 2)
 }
@@ -210,7 +209,7 @@ func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*stat
 		}
 		// must set an instance id as the ssh command uses that as a signal the
 		// machine has been provisioned
-		inst, md := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())
+		inst, md := testing.AssertStartInstance(c, s.Environ, m.Id())
 		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", md), gc.IsNil)
 		machines[i] = m
 	}

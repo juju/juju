@@ -4,13 +4,19 @@
 package main
 
 import (
+	"bytes"
+	"io"
+
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
+	envtools "github.com/juju/juju/environs/tools"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -77,33 +83,86 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+// syncToolsAPI provides an interface with a subset of the
+// api.Client API. This exists to enable mocking.
+type syncToolsAPI interface {
+	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
+	UploadTools(r io.Reader, v version.Binary, series ...string) (*coretools.Tools, error)
+	Close() error
+}
+
+var getSyncToolsAPI = func(c *SyncToolsCommand) (syncToolsAPI, error) {
+	return c.NewAPIClient()
+}
+
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Sync-tools")
-	if err != nil {
-		return err
-	}
-	defer cleanup()
-	target := environ.Storage()
-	if c.localDir != "" {
-		target, err = filestorage.NewFileStorageWriter(c.localDir)
-		if err != nil {
-			return err
-		}
-	}
 
-	// Prepare syncing.
 	sctx := &sync.SyncContext{
-		Target:       target,
 		AllVersions:  c.allVersions,
 		MajorVersion: c.majorVersion,
 		MinorVersion: c.minorVersion,
 		DryRun:       c.dryRun,
 		Dev:          c.dev,
-		Public:       c.public,
 		Source:       c.source,
 	}
+
+	if c.localDir != "" {
+		stor, err := filestorage.NewFileStorageWriter(c.localDir)
+		if err != nil {
+			return err
+		}
+		writeMirrors := envtools.DoNotWriteMirrors
+		if c.public {
+			writeMirrors = envtools.WriteMirrors
+		}
+		sctx.TargetToolsFinder = sync.StorageToolsFinder{Storage: stor}
+		sctx.TargetToolsUploader = sync.StorageToolsUploader{
+			Storage:       stor,
+			WriteMetadata: true,
+			WriteMirrors:  writeMirrors,
+		}
+	} else {
+		if c.public {
+			logger.Warningf("--public is ignored unless --local-dir is specified")
+		}
+		api, err := getSyncToolsAPI(c)
+		if err != nil {
+			return err
+		}
+		defer api.Close()
+		adapter := syncToolsAPIAdapter{api}
+		sctx.TargetToolsFinder = adapter
+		sctx.TargetToolsUploader = adapter
+	}
 	return syncTools(sctx)
+}
+
+// syncToolsAPIAdapter implements sync.ToolsFinder and
+// sync.ToolsUploader, adapting a syncToolsAPI. This
+// enables the use of sync.SyncTools with the client
+// API.
+type syncToolsAPIAdapter struct {
+	syncToolsAPI
+}
+
+func (s syncToolsAPIAdapter) FindTools(majorVersion int) (coretools.List, error) {
+	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "")
+	if err != nil {
+		return nil, err
+	}
+	if result.Error != nil {
+		if params.IsCodeNotFound(result.Error) {
+			return nil, coretools.ErrNoMatches
+		}
+		return nil, result.Error
+	}
+	return result.List, nil
+}
+
+func (s syncToolsAPIAdapter) UploadTools(tools *coretools.Tools, data []byte) error {
+	_, err := s.syncToolsAPI.UploadTools(bytes.NewReader(data), tools.Version)
+	return err
 }

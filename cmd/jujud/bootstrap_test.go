@@ -5,32 +5,41 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -42,10 +51,12 @@ var _ = configstore.Default
 type BootstrapSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	envcfg          string
+	envcfg          *config.Config
+	b64yamlEnvcfg   string
 	instanceId      instance.Id
 	dataDir         string
 	logDir          string
+	mongoOplogSize  string
 	fakeEnsureMongo fakeEnsure
 	bootstrapName   string
 }
@@ -57,14 +68,23 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
-	info           params.StateServingInfo
+	oplogSize      int
+	info           state.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
+func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info = dataDir, namespace, info
+	f.dataDir, f.namespace, f.oplogSize = args.DataDir, args.Namespace, args.OplogSize
+	f.info = state.StateServingInfo{
+		APIPort:        args.APIPort,
+		StatePort:      args.StatePort,
+		Cert:           args.Cert,
+		PrivateKey:     args.PrivateKey,
+		SharedSecret:   args.SharedSecret,
+		SystemIdentity: args.SystemIdentity,
+	}
 	return f.err
 }
 
@@ -91,15 +111,39 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&version.Current.Series, "trusty") // for predictable tools
+	s.PatchValue(&sshGenerateKey, func(name string) (string, string, error) {
+		return "private-key", "public-key", nil
+	})
+
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = fakeEnsure{}
+
+	// Create fake tools.tar.gz and downloaded-tools.txt.
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, version.Current))
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(toolsDir, "tools.tar.gz"), nil, 0644)
+	c.Assert(err, gc.IsNil)
+	s.writeDownloadedTools(c, &tools.Tools{Version: version.Current})
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *BootstrapSuite) writeDownloadedTools(c *gc.C, tools *tools.Tools) {
+	toolsDir := filepath.FromSlash(agenttools.SharedToolsDir(s.dataDir, tools.Version))
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	data, err := json.Marshal(tools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(toolsDir, "downloaded-tools.txt"), data, 0644)
+	c.Assert(err, gc.IsNil)
 }
 
 var testPassword = "my-admin-secret"
@@ -121,14 +165,17 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
-		Nonce:             state.BootstrapNonce,
+		Nonce:             agent.BootstrapNonce,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
-		Values:            map[string]string{agent.Namespace: "foobar"},
+		Values: map[string]string{
+			agent.Namespace:      "foobar",
+			agent.MongoOplogSize: s.mongoOplogSize,
+		},
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:       "some cert",
@@ -150,7 +197,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -159,15 +206,20 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.oplogSize, gc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
 	c.Assert(expectInfo.SharedSecret, gc.Equals, "")
+	c.Assert(expectInfo.SystemIdentity, gc.Equals, "")
 
 	servingInfo := s.fakeEnsureMongo.info
 	c.Assert(len(servingInfo.SharedSecret), gc.Not(gc.Equals), 0)
+	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
-	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
+	servingInfo.SystemIdentity = ""
+	expect := paramsStateServingInfoToStateStateServingInfo(expectInfo)
+	c.Assert(servingInfo, jc.DeepEquals, expect)
 	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
@@ -177,7 +229,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -202,12 +254,25 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
+
+	cfg, err := st.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg.AuthorizedKeys(), gc.Equals, s.envcfg.AuthorizedKeys()+"\npublic-key")
+}
+
+func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
+	s.mongoOplogSize = "NaN"
+	hw := instance.MustParseHardware("arch=amd64 mem=8G")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
 }
 
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--env-config", s.envcfg,
+		"--env-config", s.b64yamlEnvcfg,
 		"--instance-id", string(s.instanceId),
 		"--constraints", tcons.String(),
 	)
@@ -215,7 +280,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -244,12 +309,12 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -265,12 +330,12 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -284,7 +349,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
-func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
+func testOpenState(c *gc.C, info *mongo.MongoInfo, expectErrType error) {
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
@@ -297,43 +362,48 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	// Check that we cannot now connect to the state without a
-	// password.
-	info := &state.Info{
+	info := &mongo.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
 	}
-	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
-	info.Tag, info.Password = "", testPasswordHash()
+	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
+	info.Tag, info.Password = nil, testPasswordHash()
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
-	// Reset password so the tests can continue to use the same server.
 	defer st.Close()
-	defer st.SetAdminMongoPassword("")
+
+	// We're running Mongo with --noauth; let's explicitly verify
+	// that we can login as that user. Even with --noauth, an
+	// explicit Login will still be verified.
+	adminDB := st.MongoSession().DB("admin")
+	err = adminDB.Login("admin", "invalid-password")
+	c.Assert(err, gc.ErrorMatches, "auth fail(s|ed)")
+	err = adminDB.Login("admin", info.Password)
+	c.Assert(err, gc.IsNil)
 
 	// Check that the admin user has been given an appropriate
 	// password
-	u, err := st.User("admin")
+	u, err := st.User(names.NewLocalUserTag("admin"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.PasswordValid(testPassword), gc.Equals, true)
 
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
+	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
 	c.Assert(err, gc.IsNil)
 
-	stateinfo, ok := machineConf1.StateInfo()
+	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st, err = state.Open(stateinfo, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -419,10 +489,133 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 	}
 }
 
+func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
+	var called int
+	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+		called++
+		c.Assert(dialOpts.Direct, gc.Equals, true)
+		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
+		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
+		return nil, nil, errors.New("failed to initialize state")
+	}
+	s.PatchValue(&agentInitializeState, initializeState)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
+	var called int
+	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+		called++
+		c.Assert(dialOpts.Direct, gc.Equals, true)
+		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
+		return nil, nil, errors.New("failed to initialize state")
+	}
+
+	envcfg, err := s.envcfg.Apply(map[string]interface{}{
+		"bootstrap-timeout": "13",
+	})
+	c.Assert(err, gc.IsNil)
+	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
+
+	s.PatchValue(&agentInitializeState, initializeState)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestSystemIdentityWritten(c *gc.C) {
+	_, err := os.Stat(filepath.Join(s.dataDir, agent.SystemIdentity))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	data, err := ioutil.ReadFile(filepath.Join(s.dataDir, agent.SystemIdentity))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, "private-key")
+}
+
+func (s *BootstrapSuite) TestDownloadedToolsMetadata(c *gc.C) {
+	// Tools downloaded by cloud-init script.
+	s.testToolsMetadata(c, false)
+}
+
+func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
+	// Tools uploaded over ssh.
+	s.writeDownloadedTools(c, &tools.Tools{
+		Version: version.Current,
+		URL:     "file:///does/not/matter",
+	})
+	s.testToolsMetadata(c, true)
+}
+
+func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
+	provider, err := environs.Provider(s.envcfg.Type())
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Open(s.envcfg)
+	c.Assert(err, gc.IsNil)
+	envtesting.RemoveFakeToolsMetadata(c, env.Storage())
+
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	// We don't write metadata at bootstrap anymore.
+	simplestreamsMetadata, err := envtools.ReadMetadata(env.Storage())
+	c.Assert(err, gc.IsNil)
+	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
+
+	// The tools should have been added to state, and
+	// exploded into each of the supported series of
+	// the same operating system if the tools were uploaded.
+	st, err := state.Open(&mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	var expectedSeries set.Strings
+	if exploded {
+		for _, series := range version.SupportedSeries() {
+			os, err := version.GetOSFromSeries(series)
+			c.Assert(err, gc.IsNil)
+			if os == version.Current.OS {
+				expectedSeries.Add(series)
+			}
+		}
+	} else {
+		expectedSeries.Add(version.Current.Series)
+	}
+
+	storage, err := st.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	metadata, err := storage.AllMetadata()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
+	for _, m := range metadata {
+		c.Assert(expectedSeries.Contains(m.Version.Series), jc.IsTrue)
+	}
+}
+
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version": version.Current.Number.String(),
+			"agent-version":     version.Current.Number.String(),
+			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
 
@@ -441,7 +634,8 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	addresses, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
 	s.bootstrapName = network.SelectPublicAddress(addresses)
-	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
+	s.envcfg = env.Config()
+	s.b64yamlEnvcfg = b64yaml(s.envcfg.AllAttrs()).encode()
 }
 
 func nullContext() *cmd.Context {

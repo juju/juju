@@ -15,10 +15,9 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -108,6 +107,10 @@ var getJujuExecutable = func() (string, error) {
 // getSSHOptions configures and returns SSH options and proxy settings.
 func (c *SSHCommon) getSSHOptions(enablePty bool) (*ssh.Options, error) {
 	var options ssh.Options
+
+	// TODO(waigani) do not save fingerprint only until this bug is addressed:
+	// lp:892552. Also see lp:1334481.
+	options.SetKnownHostsFile("/dev/null")
 	if enablePty {
 		options.EnablePTY()
 	}
@@ -139,6 +142,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err
@@ -182,7 +186,7 @@ func (c *SSHCommon) ensureAPIClient() (*api.Client, error) {
 // initAPIClient initialises the API connection.
 // It is the caller's responsibility to close the connection.
 func (c *SSHCommon) initAPIClient() (*api.Client, error) {
-	st, err := juju.NewAPIFromName(c.EnvName)
+	st, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +218,7 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// If the target is neither a machine nor a unit,
 	// assume it's a hostname and try it directly.
-	if !names.IsMachine(target) && !names.IsUnit(target) {
+	if !names.IsValidMachine(target) && !names.IsValidUnit(target) {
 		return target, nil
 	}
 	// A target may not initially have an address (e.g. the

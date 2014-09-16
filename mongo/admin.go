@@ -5,14 +5,20 @@ package mongo
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"syscall"
 
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/upstart"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 )
+
+// AdminUser is the name of the user that is initially created in mongo.
+const AdminUser = "admin"
 
 var (
 	processSignal = (*os.Process).Signal
@@ -39,11 +45,22 @@ type EnsureAdminUserParams struct {
 // This function will stop the Mongo service if it needs to add
 // the admin user, as it must restart Mongo in --noauth mode.
 func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
+	portStr := strconv.Itoa(p.Port)
+	localIPv4Addr := net.JoinHostPort("127.0.0.1", portStr)
+	localIPv6Addr := net.JoinHostPort("::1", portStr)
 	if len(p.DialInfo.Addrs) > 1 {
-		logger.Infof("more than one state server; admin user must exist")
-		return false, nil
+		// Verify the addresses are for different servers.
+		for _, addr := range p.DialInfo.Addrs {
+			switch addr {
+			case localIPv4Addr, localIPv6Addr:
+				continue
+			default:
+				logger.Infof("more than one state server; admin user must exist")
+				return false, nil
+			}
+		}
 	}
-	p.DialInfo.Addrs = []string{fmt.Sprintf("127.0.0.1:%d", p.Port)}
+	p.DialInfo.Addrs = []string{localIPv4Addr, localIPv6Addr}
 	p.DialInfo.Direct = true
 
 	// Attempt to login to the admin database first.
@@ -51,6 +68,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("can't dial mongo to ensure admin user: %v", err)
 	}
+	session.SetSocketTimeout(SocketTimeout)
 	err = session.DB("admin").Login(p.User, p.Password)
 	session.Close()
 	if err == nil {
@@ -61,7 +79,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	// Login failed, so we need to add the user.
 	// Stop mongo, so we can start it in --noauth mode.
 	mongoServiceName := ServiceName(p.Namespace)
-	mongoService := upstart.NewService(mongoServiceName)
+	mongoService := upstart.NewService(mongoServiceName, common.Conf{})
 	if err := upstartServiceStop(mongoService); err != nil {
 		return false, fmt.Errorf("failed to stop %v: %v", mongoServiceName, err)
 	}
@@ -118,28 +136,9 @@ func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
 		}); err != nil {
 			return fmt.Errorf("cannot set admin password: %v", err)
 		}
-		if err := admin.Login(user, password); err != nil {
-			return fmt.Errorf("cannot login after setting password: %v", err)
-		}
 	} else {
 		if err := admin.RemoveUser(user); err != nil && err != mgo.ErrNotFound {
 			return fmt.Errorf("cannot disable admin password: %v", err)
-		}
-	}
-	return nil
-}
-
-// SetMongoPassword sets the mongo password in the specified databases for the given user name.
-// Previous passwords are invalidated.
-func SetMongoPassword(name, password string, dbs ...*mgo.Database) error {
-	user := &mgo.User{
-		Username: name,
-		Password: password,
-		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin, mgo.RoleClusterAdmin},
-	}
-	for _, db := range dbs {
-		if err := db.UpsertUser(user); err != nil {
-			return fmt.Errorf("cannot set password in juju db %q for %q: %v", db.Name, name, err)
 		}
 	}
 	return nil

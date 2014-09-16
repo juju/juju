@@ -7,6 +7,7 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/keymanager"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -18,6 +19,20 @@ nodes in the Juju environment.
 
 type AuthorizedKeysCommand struct {
 	*cmd.SuperCommand
+}
+
+type AuthorizedKeysBase struct {
+	envcmd.EnvCommandBase
+}
+
+// NewKeyManagerClient returns a keymanager client for the root api endpoint
+// that the environment command returns.
+func (c *AuthorizedKeysBase) NewKeyManagerClient() (*keymanager.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return keymanager.NewClient(root), nil
 }
 
 func NewAuthorizedKeysCommand() cmd.Command {

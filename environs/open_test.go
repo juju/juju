@@ -45,8 +45,23 @@ func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
+	store := configstore.NewMem()
+	ctx := testing.Context(c)
+	_, err := environs.PrepareFromName("erewhemos", ctx, store)
+	c.Assert(err, gc.IsNil)
+
+	info, err := store.ReadInfo("erewhemos")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
+	c.Assert(info.APIEndpoint().EnvironUUID, gc.Not(gc.Equals), "")
+	c.Assert(info.APICredentials().Password, gc.Not(gc.Equals), "")
+	c.Assert(info.APICredentials().User, gc.Equals, "admin")
 }
 
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
@@ -66,15 +81,14 @@ func (*OpenSuite) TestNewFromName(c *gc.C) {
 
 	e, err = environs.NewFromName("erewhemos", store)
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.Name(), gc.Equals, "erewhemos")
+	c.Assert(e.Config().Name(), gc.Equals, "erewhemos")
 }
 
 func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
 	store := configstore.NewMem()
 	cfg, _, err := environs.ConfigForName("erewhemos", store)
 	c.Assert(err, gc.IsNil)
-	info, err := store.CreateInfo("erewhemos")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("erewhemos")
 
 	// The configuration from environments.yaml is invalid
 	// because it doesn't contain the state-id attribute which
@@ -100,7 +114,7 @@ func (*OpenSuite) TestPrepareFromName(c *gc.C) {
 	ctx := testing.Context(c)
 	e, err := environs.PrepareFromName("erewhemos", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.Name(), gc.Equals, "erewhemos")
+	c.Assert(e.Config().Name(), gc.Equals, "erewhemos")
 	// Check we can access storage ok, which implies the environment has been prepared.
 	c.Assert(e.Storage(), gc.NotNil)
 }
@@ -134,8 +148,7 @@ func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
 
-	info, err := store.CreateInfo("test-config")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("test-config")
 	var attrs testing.Attrs = cfg.AllAttrs()
 	attrs = attrs.Merge(testing.Attrs{
 		"name": "test-config",
@@ -171,6 +184,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 		"ca-cert",
 		"ca-private-key",
 		"admin-secret",
+		"uuid",
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
@@ -204,10 +218,14 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
 
+	// Check that a uuid was chosen.
+	uuid, exists := env.Config().UUID()
+	c.Assert(exists, gc.Equals, true)
+	c.Assert(uuid, gc.Matches, `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
+
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
-	c.Assert(env.Name(), gc.Equals, "erewhemos")
 	c.Assert(env.Storage(), gc.NotNil)
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
 }
@@ -292,7 +310,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	ctx := testing.Context(c)
 	e, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
-	_, err = store.ReadInfo(e.Name())
+	_, err = store.ReadInfo(e.Config().Name())
 	c.Assert(err, gc.IsNil)
 
 	err = environs.Destroy(e, store)
@@ -300,9 +318,9 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
-	_, _, err = e.StateInfo()
+	_, err = e.StateServerInstances()
 	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
-	_, err = store.ReadInfo(e.Name())
+	_, err = store.ReadInfo(e.Config().Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 

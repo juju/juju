@@ -9,9 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 var addKeysDoc = `
@@ -20,7 +17,7 @@ Add new authorized ssh keys to allow the holder of those keys to log on to Juju 
 
 // AddKeysCommand is used to add a new authorized ssh key for a user.
 type AddKeysCommand struct {
-	envcmd.EnvCommandBase
+	AuthorizedKeysBase
 	user    string
 	sshKeys []string
 }
@@ -49,7 +46,7 @@ func (c *AddKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddKeysCommand) Run(context *cmd.Context) error {
-	client, err := juju.NewKeyManagerClient(c.EnvName)
+	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
 	}

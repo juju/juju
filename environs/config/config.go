@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
@@ -61,8 +61,87 @@ const (
 
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
-	fallbackLtsSeries string = "precise"
+	fallbackLtsSeries string = "trusty"
 )
+
+// TODO(katco-): Please grow this over time.
+// Centralized place to store values of config keys. This transitions
+// mistakes in referencing key-values to a compile-time error.
+const (
+	// ProvisionerHarvestModeKey stores the key for this setting.
+	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
+
+	//
+	// Deprecated Settings
+	//
+
+	// ProvisionerSafeModeKey stores the key for this setting.
+	ProvisionerSafeModeKey = "provisioner-safe-mode"
+)
+
+// ParseHarvestMode parses description of harvesting method and
+// returns the representation.
+func ParseHarvestMode(description string) (HarvestMode, error) {
+	description = strings.ToLower(description)
+	for method, descr := range harvestingMethodToFlag {
+		if description == descr {
+			return method, nil
+		}
+	}
+	return 0, fmt.Errorf("unknown harvesting method: %s", description)
+}
+
+// HarvestMode is a bit field which is used to store the harvesting
+// behavior for Juju.
+type HarvestMode uint32
+
+const (
+	// HarvestNone signifies that Juju should not harvest any
+	// machines.
+	HarvestNone HarvestMode = 1 << iota
+	// HarvestUnknown signifies that Juju should only harvest machines
+	// which exist, but we don't know about.
+	HarvestUnknown
+	// HarvestDestroyed signifies that Juju should only harvest
+	// machines which have been explicitly released by the user
+	// through a destroy of a service/environment/unit.
+	HarvestDestroyed
+	// HarvestAll signifies that Juju should harvest both unknown and
+	// destroyed instances. ♫ Don't fear the reaper. ♫
+	HarvestAll HarvestMode = HarvestUnknown | HarvestDestroyed
+)
+
+// A mapping from method to description. Going this way will be the
+// more common operation, so we want this type of lookup to be O(1).
+var harvestingMethodToFlag = map[HarvestMode]string{
+	HarvestAll:       "all",
+	HarvestNone:      "none",
+	HarvestUnknown:   "unknown",
+	HarvestDestroyed: "destroyed",
+}
+
+// String returns the description of the harvesting mode.
+func (method HarvestMode) String() string {
+	if description, ok := harvestingMethodToFlag[method]; ok {
+		return description
+	}
+	panic("Unknown harvesting method.")
+}
+
+// None returns whether or not the None harvesting flag is set.
+func (method HarvestMode) HarvestNone() bool {
+	return method&HarvestNone != 0
+}
+
+// Destroyed returns whether or not the Destroyed harvesting flag is set.
+func (method HarvestMode) HarvestDestroyed() bool {
+	return method&HarvestDestroyed != 0
+}
+
+// Unknown returns whether or not the Unknown harvesting flag is set.
+func (method HarvestMode) HarvestUnknown() bool {
+	return method&HarvestUnknown != 0
+}
 
 var latestLtsSeries string
 
@@ -91,9 +170,11 @@ func LatestLtsSeries() string {
 	return latestLtsSeries
 }
 
-// distroLtsSeries returns the latest LTS series, if this information is
+var distroLtsSeries = distroLtsSeriesFunc
+
+// distroLtsSeriesFunc returns the latest LTS series, if this information is
 // available on this system.
-func distroLtsSeries() (string, error) {
+func distroLtsSeriesFunc() (string, error) {
 	out, err := exec.Command("distro-info", "--lts").Output()
 	if err != nil {
 		return "", err
@@ -273,6 +354,27 @@ func (cfg *Config) processDeprecatedAttributes() {
 	if cfg.Type() == "null" {
 		cfg.defined["type"] = "manual"
 	}
+
+	if _, ok := cfg.defined[ProvisionerHarvestModeKey]; !ok {
+		if safeMode, ok := cfg.defined[ProvisionerSafeModeKey].(bool); ok {
+
+			var harvestModeDescr string
+			if safeMode {
+				harvestModeDescr = HarvestDestroyed.String()
+			} else {
+				harvestModeDescr = HarvestAll.String()
+			}
+
+			cfg.defined[ProvisionerHarvestModeKey] = harvestModeDescr
+
+			logger.Infof(
+				`Based on your "%s" setting, configuring "%s" to "%s".`,
+				ProvisionerSafeModeKey,
+				ProvisionerHarvestModeKey,
+				harvestModeDescr,
+			)
+		}
+	}
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -343,11 +445,33 @@ func Validate(cfg, old *Config) error {
 			" of key-value pairs, not %q", authToken)
 	}
 
+	// Ensure that the given harvesting method is valid.
+	if hvstMeth, ok := cfg.defined[ProvisionerHarvestModeKey].(string); ok {
+		if _, err := ParseHarvestMode(hvstMeth); err != nil {
+			return err
+		}
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
-			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
-				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
+			switch attr {
+			case "uuid":
+				// uuid is special cased because currently (24/July/2014) there exist no juju
+				// environments whose environment configuration's contain a uuid key so we must
+				// treat uuid as field that can be updated from non existant to a valid uuid.
+				// We do not need to deal with the case of the uuid key being blank as the schema
+				// only permits valid uuids in that field.
+				oldv, oldexists := old.defined[attr]
+				newv := cfg.defined[attr]
+				if oldexists && oldv != newv {
+					newv := cfg.defined[attr]
+					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
+				}
+			default:
+				if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
+					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
+				}
 			}
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
@@ -458,6 +582,16 @@ func (c *Config) Type() string {
 // Name returns the environment name.
 func (c *Config) Name() string {
 	return c.mustString("name")
+}
+
+// UUID returns the uuid for the environment.
+// For backwards compatability with 1.20 and earlier the value may be blank if
+// no uuid is present in this configuration. Once all enviroment configurations
+// have been upgraded, this relaxation will be dropped. The absence of a uuid
+// is indicated by a result of "", false.
+func (c *Config) UUID() (string, bool) {
+	value, exists := c.defined["uuid"].(string)
+	return value, exists
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -667,6 +801,33 @@ func (c *Config) Development() bool {
 	return c.defined["development"].(bool)
 }
 
+// PreferIPv6 returns whether IPv6 addresses for API endpoints and
+// machines will be preferred (when available) over IPv4.
+func (c *Config) PreferIPv6() bool {
+	v, _ := c.defined["prefer-ipv6"].(bool)
+	return v
+}
+
+// EnableOSRefreshUpdate returns whether or not newly provisioned
+// instances should run their respective OS's update capability.
+func (c *Config) EnableOSRefreshUpdate() bool {
+	if val, ok := c.defined["enable-os-refresh-update"].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
+// EnableOSUpgrade returns whether or not newly provisioned instances
+// should run their respective OS's upgrade capability.
+func (c *Config) EnableOSUpgrade() bool {
+	if val, ok := c.defined["enable-os-upgrade"].(bool); !ok {
+		return true
+	} else {
+		return val
+	}
+}
+
 // SSLHostnameVerification returns weather the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
@@ -684,11 +845,20 @@ func (c *Config) CharmStoreAuth() (string, bool) {
 	return auth, auth != ""
 }
 
-// ProvisionerSafeMode reports whether the provisioner should not
-// destroy machines it does not know about.
-func (c *Config) ProvisionerSafeMode() bool {
-	v, _ := c.defined["provisioner-safe-mode"].(bool)
-	return v
+// ProvisionerHarvestMode reports the harvesting methodology the
+// provisioner should take.
+func (c *Config) ProvisionerHarvestMode() HarvestMode {
+	if v, ok := c.defined[ProvisionerHarvestModeKey].(string); ok {
+		if method, err := ParseHarvestMode(v); err != nil {
+			// This setting should have already been validated. Don't
+			// burden the caller with handling any errors.
+			panic(err)
+		} else {
+			return method
+		}
+	} else {
+		return HarvestDestroyed
+	}
 }
 
 // ImageStream returns the simplestreams stream
@@ -720,6 +890,13 @@ func (c *Config) LXCUseClone() (bool, bool) {
 // lxc clone using aufs if available.
 func (c *Config) LXCUseCloneAUFS() (bool, bool) {
 	v, ok := c.defined["lxc-clone-aufs"].(bool)
+	return v, ok
+}
+
+// DisableNetworkManagement reports whether Juju is allowed to
+// configure and manage networking inside the environment.
+func (c *Config) DisableNetworkManagement() (bool, bool) {
+	v, ok := c.defined["disable-network-management"].(bool)
 	return v, ok
 }
 
@@ -763,48 +940,54 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 }
 
 var fields = schema.Fields{
-	"type":                      schema.String(),
-	"name":                      schema.String(),
-	"default-series":            schema.String(),
-	"tools-metadata-url":        schema.String(),
-	"image-metadata-url":        schema.String(),
-	"image-stream":              schema.String(),
-	"authorized-keys":           schema.String(),
-	"authorized-keys-path":      schema.String(),
-	"firewall-mode":             schema.String(),
-	"agent-version":             schema.String(),
-	"development":               schema.Bool(),
-	"admin-secret":              schema.String(),
-	"ca-cert":                   schema.String(),
-	"ca-cert-path":              schema.String(),
-	"ca-private-key":            schema.String(),
-	"ca-private-key-path":       schema.String(),
-	"ssl-hostname-verification": schema.Bool(),
-	"state-port":                schema.ForceInt(),
-	"api-port":                  schema.ForceInt(),
-	"syslog-port":               schema.ForceInt(),
-	"rsyslog-ca-cert":           schema.String(),
-	"logging-config":            schema.String(),
-	"charm-store-auth":          schema.String(),
-	"provisioner-safe-mode":     schema.Bool(),
-	"http-proxy":                schema.String(),
-	"https-proxy":               schema.String(),
-	"ftp-proxy":                 schema.String(),
-	"no-proxy":                  schema.String(),
-	"apt-http-proxy":            schema.String(),
-	"apt-https-proxy":           schema.String(),
-	"apt-ftp-proxy":             schema.String(),
-	"bootstrap-timeout":         schema.ForceInt(),
-	"bootstrap-retry-delay":     schema.ForceInt(),
-	"bootstrap-addresses-delay": schema.ForceInt(),
-	"test-mode":                 schema.Bool(),
-	"proxy-ssh":                 schema.Bool(),
-	"lxc-clone":                 schema.Bool(),
-	"lxc-clone-aufs":            schema.Bool(),
+	"type":                       schema.String(),
+	"name":                       schema.String(),
+	"uuid":                       schema.UUID(),
+	"default-series":             schema.String(),
+	"tools-metadata-url":         schema.String(),
+	"image-metadata-url":         schema.String(),
+	"image-stream":               schema.String(),
+	"authorized-keys":            schema.String(),
+	"authorized-keys-path":       schema.String(),
+	"firewall-mode":              schema.String(),
+	"agent-version":              schema.String(),
+	"development":                schema.Bool(),
+	"admin-secret":               schema.String(),
+	"ca-cert":                    schema.String(),
+	"ca-cert-path":               schema.String(),
+	"ca-private-key":             schema.String(),
+	"ca-private-key-path":        schema.String(),
+	"ssl-hostname-verification":  schema.Bool(),
+	"state-port":                 schema.ForceInt(),
+	"api-port":                   schema.ForceInt(),
+	"syslog-port":                schema.ForceInt(),
+	"rsyslog-ca-cert":            schema.String(),
+	"logging-config":             schema.String(),
+	"charm-store-auth":           schema.String(),
+	ProvisionerHarvestModeKey:    schema.String(),
+	"http-proxy":                 schema.String(),
+	"https-proxy":                schema.String(),
+	"ftp-proxy":                  schema.String(),
+	"no-proxy":                   schema.String(),
+	"apt-http-proxy":             schema.String(),
+	"apt-https-proxy":            schema.String(),
+	"apt-ftp-proxy":              schema.String(),
+	"bootstrap-timeout":          schema.ForceInt(),
+	"bootstrap-retry-delay":      schema.ForceInt(),
+	"bootstrap-addresses-delay":  schema.ForceInt(),
+	"test-mode":                  schema.Bool(),
+	"proxy-ssh":                  schema.Bool(),
+	"lxc-clone":                  schema.Bool(),
+	"lxc-clone-aufs":             schema.Bool(),
+	"prefer-ipv6":                schema.Bool(),
+	"enable-os-refresh-update":   schema.Bool(),
+	"enable-os-upgrade":          schema.Bool(),
+	"disable-network-management": schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":     schema.String(),
-	"lxc-use-clone": schema.Bool(),
+	"tools-url":            schema.String(),
+	"lxc-use-clone":        schema.Bool(),
+	ProvisionerSafeModeKey: schema.Bool(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -816,30 +999,32 @@ var fields = schema.Fields{
 // but some fields listed as optional here are actually mandatory
 // with NoDefaults and are checked at the later Validate stage.
 var alwaysOptional = schema.Defaults{
-	"agent-version":             schema.Omit,
-	"ca-cert":                   schema.Omit,
-	"authorized-keys":           schema.Omit,
-	"authorized-keys-path":      schema.Omit,
-	"ca-cert-path":              schema.Omit,
-	"ca-private-key-path":       schema.Omit,
-	"logging-config":            schema.Omit,
-	"provisioner-safe-mode":     schema.Omit,
-	"bootstrap-timeout":         schema.Omit,
-	"bootstrap-retry-delay":     schema.Omit,
-	"bootstrap-addresses-delay": schema.Omit,
-	"rsyslog-ca-cert":           schema.Omit,
-	"http-proxy":                schema.Omit,
-	"https-proxy":               schema.Omit,
-	"ftp-proxy":                 schema.Omit,
-	"no-proxy":                  schema.Omit,
-	"apt-http-proxy":            schema.Omit,
-	"apt-https-proxy":           schema.Omit,
-	"apt-ftp-proxy":             schema.Omit,
-	"lxc-clone":                 schema.Omit,
+	"agent-version":              schema.Omit,
+	"ca-cert":                    schema.Omit,
+	"authorized-keys":            schema.Omit,
+	"authorized-keys-path":       schema.Omit,
+	"ca-cert-path":               schema.Omit,
+	"ca-private-key-path":        schema.Omit,
+	"logging-config":             schema.Omit,
+	ProvisionerHarvestModeKey:    schema.Omit,
+	"bootstrap-timeout":          schema.Omit,
+	"bootstrap-retry-delay":      schema.Omit,
+	"bootstrap-addresses-delay":  schema.Omit,
+	"rsyslog-ca-cert":            schema.Omit,
+	"http-proxy":                 schema.Omit,
+	"https-proxy":                schema.Omit,
+	"ftp-proxy":                  schema.Omit,
+	"no-proxy":                   schema.Omit,
+	"apt-http-proxy":             schema.Omit,
+	"apt-https-proxy":            schema.Omit,
+	"apt-ftp-proxy":              schema.Omit,
+	"lxc-clone":                  schema.Omit,
+	"disable-network-management": schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":     "",
-	"lxc-use-clone": schema.Omit,
+	"tools-url":            "",
+	"lxc-use-clone":        schema.Omit,
+	ProvisionerSafeModeKey: schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -861,10 +1046,16 @@ var alwaysOptional = schema.Defaults{
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
-	"image-stream":   "",
-	"test-mode":      false,
-	"proxy-ssh":      false,
-	"lxc-clone-aufs": false,
+	"image-stream":             "",
+	"test-mode":                false,
+	"proxy-ssh":                false,
+	"lxc-clone-aufs":           false,
+	"prefer-ipv6":              false,
+	"enable-os-refresh-update": schema.Omit,
+	"enable-os-upgrade":        schema.Omit,
+
+	// uuid may be missing for backwards compatability.
+	"uuid": schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -878,16 +1069,18 @@ var defaults = allDefaults()
 // UseDefaults.
 func allDefaults() schema.Defaults {
 	d := schema.Defaults{
-		"firewall-mode":             FwInstance,
-		"development":               false,
-		"ssl-hostname-verification": true,
-		"state-port":                DefaultStatePort,
-		"api-port":                  DefaultAPIPort,
-		"syslog-port":               DefaultSyslogPort,
-		"bootstrap-timeout":         DefaultBootstrapSSHTimeout,
-		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
-		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
-		"proxy-ssh":                 true,
+		"firewall-mode":              FwInstance,
+		"development":                false,
+		"ssl-hostname-verification":  true,
+		"state-port":                 DefaultStatePort,
+		"api-port":                   DefaultAPIPort,
+		"syslog-port":                DefaultSyslogPort,
+		"bootstrap-timeout":          DefaultBootstrapSSHTimeout,
+		"bootstrap-retry-delay":      DefaultBootstrapSSHRetryDelay,
+		"bootstrap-addresses-delay":  DefaultBootstrapSSHAddressesDelay,
+		"proxy-ssh":                  true,
+		"prefer-ipv6":                false,
+		"disable-network-management": false,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -919,6 +1112,7 @@ var mandatoryWithoutDefaults = []string{
 var immutableAttributes = []string{
 	"name",
 	"type",
+	"uuid",
 	"firewall-mode",
 	"state-port",
 	"api-port",
@@ -928,6 +1122,7 @@ var immutableAttributes = []string{
 	"lxc-clone",
 	"lxc-clone-aufs",
 	"syslog-port",
+	"prefer-ipv6",
 }
 
 var (

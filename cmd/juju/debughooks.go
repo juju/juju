@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3/hooks"
 
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 )
@@ -39,7 +39,7 @@ func (c *DebugHooksCommand) Init(args []string) error {
 		return fmt.Errorf("no unit name specified")
 	}
 	c.Target = args[0]
-	if !names.IsUnit(c.Target) {
+	if !names.IsValidUnit(c.Target) {
 		return fmt.Errorf("%q is not a valid unit name", c.Target)
 	}
 

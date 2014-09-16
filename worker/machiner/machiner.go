@@ -7,12 +7,13 @@ import (
 	"net"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api/machiner"
+	"github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/machiner"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
@@ -21,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.machiner")
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
 	st      *machiner.State
-	tag     string
+	tag     names.MachineTag
 	machine *machiner.Machine
 }
 
@@ -29,7 +30,8 @@ type Machiner struct {
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
 func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
-	mr := &Machiner{st: st, tag: agentConfig.Tag()}
+	// TODO(dfc) clearly agentConfig.Tag() can _only_ return a machine tag
+	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag)}
 	return worker.NewNotifyWorker(mr)
 }
 
@@ -78,6 +80,10 @@ func setMachineAddresses(m *machiner.Machine) error {
 			continue
 		}
 		address := network.NewAddress(ip.String(), network.ScopeUnknown)
+		// Filter out link-local addresses as we cannot reliably use them.
+		if address.Scope == network.ScopeLinkLocal {
+			continue
+		}
 		hostAddresses = append(hostAddresses, address)
 	}
 	if len(hostAddresses) == 0 {

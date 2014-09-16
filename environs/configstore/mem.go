@@ -28,10 +28,10 @@ func (info *memInfo) clone() *memInfo {
 	// references, which makes this OK to do.
 	info1 := *info
 	newAttrs := make(map[string]interface{})
-	for name, attr := range info.EnvInfo.Config {
+	for name, attr := range info.bootstrapConfig {
 		newAttrs[name] = attr
 	}
-	info1.EnvInfo.Config = newAttrs
+	info1.bootstrapConfig = newAttrs
 	info1.created = false
 	return &info1
 }
@@ -45,19 +45,15 @@ func NewMem() Storage {
 }
 
 // CreateInfo implements Storage.CreateInfo.
-func (m *memStore) CreateInfo(envName string) (EnvironInfo, error) {
+func (m *memStore) CreateInfo(envName string) EnvironInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.envs[envName] != nil {
-		return nil, ErrEnvironInfoAlreadyExists
-	}
 	info := &memInfo{
 		store: m,
 		name:  envName,
 	}
 	info.created = true
-	m.envs[envName] = info.clone()
-	return info, nil
+	return info
 }
 
 // List implements Storage.List
@@ -92,6 +88,11 @@ func (info *memInfo) Write() error {
 	m := info.store
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	if info.created && m.envs[info.name] != nil {
+		return ErrEnvironInfoAlreadyExists
+	}
+
 	info.initialized = true
 	m.envs[info.name] = info.clone()
 	return nil
@@ -102,9 +103,11 @@ func (info *memInfo) Destroy() error {
 	m := info.store
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.envs[info.name] == nil {
-		return fmt.Errorf("environment info has already been removed")
+	if info.initialized {
+		if m.envs[info.name] == nil {
+			return fmt.Errorf("environment info has already been removed")
+		}
+		delete(m.envs, info.name)
 	}
-	delete(m.envs, info.name)
 	return nil
 }

@@ -14,17 +14,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/tools"
 )
 
 var kvmLogger = loggo.GetLogger("juju.provisioner.kvm")
 
 var _ environs.InstanceBroker = (*kvmBroker)(nil)
-var _ tools.HasTools = (*kvmBroker)(nil)
 
 func NewKvmBroker(
 	api APICalls,
-	tools *tools.Tools,
 	agentConfig agent.Config,
 	managerConfig container.ManagerConfig,
 ) (environs.InstanceBroker, error) {
@@ -35,7 +32,6 @@ func NewKvmBroker(
 	return &kvmBroker{
 		manager:     manager,
 		api:         api,
-		tools:       tools,
 		agentConfig: agentConfig,
 	}, nil
 }
@@ -43,16 +39,7 @@ func NewKvmBroker(
 type kvmBroker struct {
 	manager     container.Manager
 	api         APICalls
-	tools       *tools.Tools
 	agentConfig agent.Config
-}
-
-func (broker *kvmBroker) Tools(series string) tools.List {
-	// TODO: thumper 2014-04-08 bug 1304151
-	// should use the api get get tools for the series.
-	seriesTools := *broker.tools
-	seriesTools.Version.Series = series
-	return tools.List{&seriesTools}
 }
 
 // StartInstance is specified in the Broker interface.
@@ -73,7 +60,6 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 	}
 	network := container.BridgeNetworkConfig(bridgeDevice)
 
-	// TODO: series doesn't necessarily need to be the same as the host.
 	series := args.Tools.OneSeries()
 	args.MachineConfig.MachineContainerType = instance.KVM
 	args.MachineConfig.Tools = args.Tools[0]
@@ -83,6 +69,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		kvmLogger.Errorf("failed to get container config: %v", err)
 		return nil, nil, nil, err
 	}
+
 	if err := environs.PopulateMachineConfig(
 		args.MachineConfig,
 		config.ProviderType,
@@ -90,6 +77,9 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.SSLHostnameVerification,
 		config.Proxy,
 		config.AptProxy,
+		config.PreferIPv6,
+		config.EnableOSRefreshUpdate,
+		config.EnableOSUpgrade,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, nil, err

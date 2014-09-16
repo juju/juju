@@ -17,15 +17,16 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
+	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -39,10 +40,9 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/upstart"
+	servicecommon "github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -94,11 +94,6 @@ func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, pla
 	return nil
 }
 
-// Name is specified in the Environ interface.
-func (env *localEnviron) Name() string {
-	return env.name
-}
-
 func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
@@ -111,32 +106,25 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (env *localEnviron) Bootstrap(
+	ctx environs.BootstrapContext,
+	args environs.BootstrapParams,
+) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	if err := ensureNotRoot(); err != nil {
-		return err
-	}
-	privateKey, err := common.GenerateSystemSSHKey(env)
-	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 
-	// Before we write the agent config file, we need to make sure the
-	// instance is saved in the StateInfo.
-	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
-		StateInstances: []instance.Id{bootstrapInstanceId},
+	// Make sure there are tools available for the
+	// host's architecture and series.
+	if _, err := args.AvailableTools.Match(tools.Filter{
+		Arch:   version.Current.Arch,
+		Series: version.Current.Series,
 	}); err != nil {
-		logger.Errorf("failed to save state instances: %v", err)
-		return err
+		return "", "", nil, err
 	}
 
-	vers := version.Current
-	selectedTools, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch)
-	if err != nil {
-		return err
-	}
-
-	// Record the bootstrap IP, so the containers know where to go for storage.
 	cfg, err := env.Config().Apply(map[string]interface{}{
+		// Record the bootstrap IP, so the containers know where to go for storage.
 		"bootstrap-ip": env.bridgeAddress,
 	})
 	if err == nil {
@@ -144,30 +132,60 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	}
 	if err != nil {
 		logger.Errorf("failed to apply bootstrap-ip to config: %v", err)
-		return err
+		return "", "", nil, err
 	}
+	return version.Current.Arch, version.Current.Series, env.finishBootstrap, nil
+}
 
-	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+// finishBootstrap converts the machine config to cloud-config,
+// converts that to a script, and then executes it locally.
+func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
 	mcfg.InstanceId = bootstrapInstanceId
-	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
-	mcfg.DisablePackageCommands = true
+
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
+
+		// The local provider only supports a single state server,
+		// so we make the oplog size to a small value. This makes
+		// the preallocation faster with no disadvantage.
+		agent.MongoOplogSize: "1", // 1MB
 	}
-	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
+
+	if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
 		return err
 	}
+
+	// Since Juju's state machine is currently the host machine
+	// for local providers, don't stomp on it.
+	cfgAttrs := env.config.AllAttrs()
+	if val, ok := cfgAttrs["enable-os-refresh-update"].(bool); !ok {
+		logger.Infof("local provider; disabling refreshing OS updates.")
+		mcfg.EnableOSRefreshUpdate = false
+	} else {
+		mcfg.EnableOSRefreshUpdate = val
+	}
+	if val, ok := cfgAttrs["enable-os-upgrade"].(bool); !ok {
+		logger.Infof("local provider; disabling OS upgrades.")
+		mcfg.EnableOSUpgrade = false
+	} else {
+		mcfg.EnableOSUpgrade = val
+	}
+
 	// don't write proxy settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
 	mcfg.ProxySettings = proxy.Settings{}
+
 	cloudcfg := coreCloudinit.New()
+	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
+
 	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
 	// we now provide a symlink to the written file in the local log dir.
 	// Also, we leave the old all-machines.log file in
@@ -177,7 +195,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	if err := os.RemoveAll(localLogDir); err != nil {
 		return err
 	}
-	if err := os.Symlink(mcfg.LogDir, localLogDir); err != nil {
+	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
 		return err
 	}
 	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
@@ -187,17 +205,18 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	if err != nil {
 		return err
 	}
-	return finishBootstrap(mcfg, cloudcfg, ctx)
+	if err := udata.ConfigureJuju(); err != nil {
+		return err
+	}
+	return executeCloudConfig(ctx, mcfg, cloudcfg)
 }
 
-// finishBootstrap converts the machine config to cloud-config,
-// converts that to a script, and then executes it locally.
-//
-// mcfg is supplied for testing purposes.
-var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+var executeCloudConfig = func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+	// Finally, convert cloud-config to a script and execute it.
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return nil
@@ -210,9 +229,17 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	return cmd.Run()
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(env)
+// StateServerInstances is specified in the Environ interface.
+func (env *localEnviron) StateServerInstances() ([]instance.Id, error) {
+	agentsDir := filepath.Join(env.config.rootDir(), "agents")
+	_, err := os.Stat(agentsDir)
+	if os.IsNotExist(err) {
+		return nil, environs.ErrNotBootstrapped
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []instance.Id{bootstrapInstanceId}, nil
 }
 
 // Config is specified in the Environ interface.
@@ -338,10 +365,10 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
+
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
-	network := container.BridgeNetworkConfig(env.config.networkBridge())
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {
 		return nil, nil, nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
@@ -349,11 +376,22 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	// This limiation is why the constraints are assigned directly here.
 	args.MachineConfig.Constraints = args.Constraints
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	inst, hardware, err := createContainer(env, args)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	return inst, hardware, nil, nil
+}
+
+// Override for testing.
+var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	series := args.Tools.OneSeries()
+	network := container.BridgeNetworkConfig(env.config.networkBridge())
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	if err != nil {
+		return nil, nil, err
+	}
+	return inst, hardware, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.
@@ -459,7 +497,7 @@ func (env *localEnviron) Destroy() error {
 		}
 		args := []string{
 			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-			juju, "destroy-environment", "-y", "--force", env.Name(),
+			juju, "destroy-environment", "-y", "--force", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
@@ -494,7 +532,7 @@ func (env *localEnviron) Destroy() error {
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
 	mongo.RemoveService(env.config.namespace())
-	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
+	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
@@ -512,17 +550,17 @@ func (env *localEnviron) Destroy() error {
 }
 
 // OpenPorts is specified in the Environ interface.
-func (env *localEnviron) OpenPorts(ports []network.Port) error {
+func (env *localEnviron) OpenPorts(ports []network.PortRange) error {
 	return fmt.Errorf("open ports not implemented")
 }
 
 // ClosePorts is specified in the Environ interface.
-func (env *localEnviron) ClosePorts(ports []network.Port) error {
+func (env *localEnviron) ClosePorts(ports []network.PortRange) error {
 	return fmt.Errorf("close ports not implemented")
 }
 
 // Ports is specified in the Environ interface.
-func (env *localEnviron) Ports() ([]network.Port, error) {
+func (env *localEnviron) Ports() ([]network.PortRange, error) {
 	return nil, nil
 }
 

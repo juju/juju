@@ -7,21 +7,78 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
-
-	"github.com/juju/juju/state/api/params"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
+
+var (
+	_ StatusSetter = (*Machine)(nil)
+	_ StatusSetter = (*Unit)(nil)
+	_ StatusGetter = (*Machine)(nil)
+	_ StatusGetter = (*Unit)(nil)
+)
+
+// Status represents the status of an entity.
+// It could be a unit, machine or its agent.
+type Status string
+
+const (
+	// The entity is not yet participating in the environment.
+	StatusPending Status = "pending"
+
+	// The unit has performed initial setup and is adapting itself to
+	// the environment. Not applicable to machines.
+	StatusInstalled Status = "installed"
+
+	// The entity is actively participating in the environment.
+	StatusStarted Status = "started"
+
+	// The entity's agent will perform no further action, other than
+	// to set the unit to Dead at a suitable moment.
+	StatusStopped Status = "stopped"
+
+	// The entity requires human intervention in order to operate
+	// correctly.
+	StatusError Status = "error"
+
+	// The entity ought to be signalling activity, but it cannot be
+	// detected.
+	StatusDown Status = "down"
+)
+
+// Valid returns true if status has a known value.
+func (status Status) Valid() bool {
+	switch status {
+	case
+		StatusPending,
+		StatusInstalled,
+		StatusStarted,
+		StatusStopped,
+		StatusError,
+		StatusDown:
+	default:
+		return false
+	}
+	return true
+}
+
+type StatusSetter interface {
+	SetStatus(status Status, info string, data map[string]interface{}) error
+}
+
+type StatusGetter interface {
+	Status() (status Status, info string, data map[string]interface{}, err error)
+}
 
 // statusDoc represents a entity status in Mongodb.  The implicit
 // _id field is explicitly set to the global key of the associated
 // entity in the document's creation transaction, but omitted to allow
 // direct use of the document in both create and update transactions.
 type statusDoc struct {
-	Status     params.Status
+	Status     Status
 	StatusInfo string
-	StatusData params.StatusData
+	StatusData map[string]interface{}
 }
 
 // validateSet returns an error if the statusDoc does not represent a sane
@@ -31,18 +88,18 @@ func (doc statusDoc) validateSet(allowPending bool) error {
 		return fmt.Errorf("cannot set invalid status %q", doc.Status)
 	}
 	switch doc.Status {
-	case params.StatusPending:
+	case StatusPending:
 		if !allowPending {
 			return fmt.Errorf("cannot set status %q", doc.Status)
 		}
-	case params.StatusDown:
+	case StatusDown:
 		return fmt.Errorf("cannot set status %q", doc.Status)
-	case params.StatusError:
+	case StatusError:
 		if doc.StatusInfo == "" {
 			return fmt.Errorf("cannot set status %q without info", doc.Status)
 		}
 	}
-	if doc.StatusData != nil && doc.Status != params.StatusError {
+	if doc.StatusData != nil && doc.Status != StatusError {
 		return fmt.Errorf("cannot set status data when status is %q", doc.Status)
 	}
 	return nil
@@ -52,8 +109,11 @@ func (doc statusDoc) validateSet(allowPending bool) error {
 // globalKey and copies it to outStatusDoc, which needs to be created
 // by the caller before.
 func getStatus(st *State, globalKey string) (statusDoc, error) {
+	statuses, closer := st.getCollection(statusesC)
+	defer closer()
+
 	var doc statusDoc
-	err := st.statuses.FindId(globalKey).One(&doc)
+	err := statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
 		return statusDoc{}, errors.NotFoundf("status")
 	}
@@ -67,7 +127,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 // status document associated with the given globalKey.
 func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
-		C:      st.statuses.Name,
+		C:      statusesC,
 		Id:     globalKey,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -78,7 +138,7 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 // status document associated with the given globalKey.
 func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
-		C:      st.statuses.Name,
+		C:      statusesC,
 		Id:     globalKey,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", doc}},
@@ -89,7 +149,7 @@ func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 // document associated with the given globalKey.
 func removeStatusOp(st *State, globalKey string) txn.Op {
 	return txn.Op{
-		C:      st.statuses.Name,
+		C:      statusesC,
 		Id:     globalKey,
 		Remove: true,
 	}

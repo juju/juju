@@ -184,7 +184,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
 	s.Tests.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances(inst.Id())
@@ -194,7 +194,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	s.Tests.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -304,22 +304,22 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
 	s.Tests.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// check that the state holds the id of the bootstrap machine.
-	stateData, err := bootstrap.LoadState(env.Storage())
+	// check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateData.StateInstances, gc.HasLen, 1)
+	c.Assert(instanceIds, gc.HasLen, 1)
 
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(stateData.StateInstances[0], gc.Equals, insts[0].Id())
+	c.Check(instanceIds[0], gc.Equals, insts[0].Id())
 
 	addresses, err := insts[0].Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.Not(gc.HasLen), 0)
+	c.Assert(addresses, gc.HasLen, 2)
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
@@ -430,9 +430,9 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

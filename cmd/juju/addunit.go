@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -94,7 +93,7 @@ func (c *AddUnitCommand) Init(args []string) error {
 // Run connects to the environment specified on the command line
 // and calls AddServiceUnits for the given service.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

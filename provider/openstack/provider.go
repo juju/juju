@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
 
@@ -141,6 +140,20 @@ openstack:
     # access-key: <secret>
     # secret-key: <secret>
 
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of true is recommended for use
+    # in production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-upgrade: true
+
 # https://juju.ubuntu.com/docs/config-hpcloud.html
 hpcloud:
     type: openstack
@@ -196,6 +209,20 @@ hpcloud:
     # auth-mode: keypair
     # access-key: <secret>
     # secret-key: <secret>
+
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of true is recommended for use
+    # in production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-upgrade: true
 
 `[1:]
 }
@@ -319,6 +346,8 @@ type openstackInstance struct {
 
 	mu           sync.Mutex
 	serverDetail *nova.ServerDetail
+	// floatingIP is non-nil iff use-floating-ip is true.
+	floatingIP *nova.FloatingIP
 }
 
 func (inst *openstackInstance) String() string {
@@ -394,24 +423,35 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertNovaAddresses(addresses), nil
+	var floatingIP string
+	if inst.floatingIP != nil {
+		floatingIP = inst.floatingIP.IP
+	}
+	logger.Infof("instance %v has floating IP address: %v", inst.Id(), floatingIP)
+	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Address {
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
+	var machineAddresses []network.Address
+	if publicIP != "" {
+		publicAddr := network.NewAddress(publicIP, network.ScopePublic)
+		publicAddr.NetworkName = "public"
+		machineAddresses = append(machineAddresses, publicAddr)
+	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
-	var machineAddresses []network.Address
 	for netName, ips := range addresses {
 		networkScope := network.ScopeUnknown
-		// For canonistack and hpcloud, public floating addresses may
-		// be put in networks named something other than public. Rely
-		// on address sanity logic to catch and mark them corectly.
 		if netName == "public" {
 			networkScope = network.ScopePublic
 		}
 		for _, address := range ips {
+			// If this address has already been added as a floating IP, skip it.
+			if publicIP == address.Address {
+				continue
+			}
 			// Assume IPv4 unless specified otherwise
 			addrtype := network.IPv4Address
 			if address.Version == 6 {
@@ -430,7 +470,7 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Addre
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -443,7 +483,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port)
 	return nil
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -456,13 +496,17 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port
 	return nil
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]network.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]network.PortRange, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	return inst.e.portsInGroup(name)
+	portRanges, err := inst.e.portsInGroup(name)
+	if err != nil {
+		return nil, err
+	}
+	return portRanges, nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -477,10 +521,6 @@ func (e *environ) nova() *nova.Client {
 	nova := e.novaUnlocked
 	e.ecfgMutex.Unlock()
 	return nova
-}
-
-func (e *environ) Name() string {
-	return e.name
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
@@ -650,19 +690,19 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	err := e.client.Authenticate()
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(e)
+func (e *environ) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(e, e.Storage())
 }
 
 func (e *environ) Config() *config.Config {
@@ -934,7 +974,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 	args.MachineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
@@ -964,7 +1004,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1010,6 +1050,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			}
 			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
+		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
@@ -1050,7 +1091,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 // collectInstances tries to get information on each instance id in ids.
 // It fills the slots in the given map for known servers with status
 // either ACTIVE or BUILD. Returns a list of missing ids.
-func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
+func (e *environ) collectInstances(ids []instance.Id, out map[string]instance.Instance) []instance.Id {
 	var err error
 	serversById := make(map[string]nova.ServerDetail)
 	if len(ids) == 1 {
@@ -1077,7 +1118,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 			switch server.Status {
 			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-				out[id] = &openstackInstance{e: e, serverDetail: &server}
+				out[string(id)] = &openstackInstance{e: e, serverDetail: &server}
 				continue
 			}
 		}
@@ -1086,12 +1127,31 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 	return missing
 }
 
+// updateFloatingIPAddresses updates the instances with any floating IP address
+// that have been assigned to those instances.
+func (e *environ) updateFloatingIPAddresses(instances map[string]instance.Instance) error {
+	fips, err := e.nova().ListFloatingIPs()
+	if err != nil {
+		return err
+	}
+	for _, fip := range fips {
+		if fip.InstanceId != nil && *fip.InstanceId != "" {
+			instId := *fip.InstanceId
+			if inst, ok := instances[instId]; ok {
+				instFip := fip
+				inst.(*openstackInstance).floatingIP = &instFip
+			}
+		}
+	}
+	return nil
+}
+
 func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	missing := ids
-	found := make(map[instance.Id]instance.Instance)
+	found := make(map[string]instance.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -1103,10 +1163,18 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(found) == 0 {
 		return nil, environs.ErrNoInstances
 	}
+
+	// Update the instance structs with any floating IP address that has been assigned to the instance.
+	if e.ecfg().useFloatingIP() {
+		if err := e.updateFloatingIPAddresses(found); err != nil {
+			return nil, err
+		}
+	}
+
 	insts := make([]instance.Instance, len(ids))
 	var err error
 	for i, id := range ids {
-		if inst := found[id]; inst != nil {
+		if inst := found[string(id)]; inst != nil {
 			insts[i] = inst
 		} else {
 			err = environs.ErrPartialInstances
@@ -1135,15 +1203,23 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	if err != nil {
 		return nil, err
 	}
+	instsById := make(map[string]instance.Instance)
 	for _, server := range servers {
 		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 			var s = server
 			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
-			insts = append(insts, &openstackInstance{
-				e:            e,
-				serverDetail: &s,
-			})
+			instsById[s.Id] = &openstackInstance{e: e, serverDetail: &s}
 		}
+	}
+
+	if e.ecfg().useFloatingIP() {
+		if err := e.updateFloatingIPAddresses(instsById); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, inst := range instsById {
+		insts = append(insts, inst)
 	}
 	return insts, err
 }
@@ -1187,30 +1263,40 @@ func (e *environ) jujuGroupName() string {
 }
 
 func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Name(), names.NewMachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", e.Config().Name(), names.NewMachineTag(machineId))
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Name()))
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Config().Name()))
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
+// portsToRuleInfo maps port ranges to nova rules
+func portsToRuleInfo(groupId string, ports []network.PortRange) []nova.RuleInfo {
+	rules := make([]nova.RuleInfo, len(ports))
+	for i, portRange := range ports {
+		rules[i] = nova.RuleInfo{
+			ParentGroupId: groupId,
+			FromPort:      portRange.FromPort,
+			ToPort:        portRange.ToPort,
+			IPProtocol:    portRange.Protocol,
+			Cidr:          "0.0.0.0/0",
+		}
+	}
+	return rules
+}
+
+func (e *environ) openPortsInGroup(name string, portRanges []network.PortRange) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
 		return err
 	}
-	for _, port := range ports {
-		_, err := novaclient.CreateSecurityGroupRule(nova.RuleInfo{
-			ParentGroupId: group.Id,
-			FromPort:      port.Number,
-			ToPort:        port.Number,
-			IPProtocol:    port.Protocol,
-			Cidr:          "0.0.0.0/0",
-		})
+	rules := portsToRuleInfo(group.Id, portRanges)
+	for _, rule := range rules {
+		_, err := novaclient.CreateSecurityGroupRule(rule)
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
 			logger.Debugf("error creating security group rule: %v", err.Error())
@@ -1219,8 +1305,18 @@ func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
-	if len(ports) == 0 {
+// ruleMatchesPortRange checks if supplied nova security group rule matches the port range
+func ruleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRange) bool {
+	if rule.IPProtocol == nil || rule.FromPort == nil || rule.ToPort == nil {
+		return false
+	}
+	return *rule.IPProtocol == portRange.Protocol &&
+		*rule.FromPort == portRange.FromPort &&
+		*rule.ToPort == portRange.ToPort
+}
+
+func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange) error {
+	if len(portRanges) == 0 {
 		return nil
 	}
 	novaclient := e.nova()
@@ -1229,11 +1325,9 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 		return err
 	}
 	// TODO: Hey look ma, it's quadratic
-	for _, port := range ports {
+	for _, portRange := range portRanges {
 		for _, p := range (*group).Rules {
-			if p.IPProtocol == nil || *p.IPProtocol != port.Protocol ||
-				p.FromPort == nil || *p.FromPort != port.Number ||
-				p.ToPort == nil || *p.ToPort != port.Number {
+			if !ruleMatchesPortRange(p, portRange) {
 				continue
 			}
 			err := novaclient.DeleteSecurityGroupRule(p.Id)
@@ -1246,26 +1340,25 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
+func (e *environ) portsInGroup(name string) (portRanges []network.PortRange, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
-		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, network.Port{
-				Protocol: *p.IPProtocol,
-				Number:   i,
-			})
-		}
+		portRanges = append(portRanges, network.PortRange{
+			Protocol: *p.IPProtocol,
+			FromPort: *p.FromPort,
+			ToPort:   *p.ToPort,
+		})
 	}
-	network.SortPorts(ports)
-	return ports, nil
+	network.SortPortRanges(portRanges)
+	return portRanges, nil
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []network.Port) error {
+func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -1277,7 +1370,7 @@ func (e *environ) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.Port) error {
+func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -1289,7 +1382,7 @@ func (e *environ) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]network.Port, error) {
+func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
@@ -1301,19 +1394,13 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
+func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
 	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
 				FromPort:   22,
 				ToPort:     22,
-				Cidr:       "0.0.0.0/0",
-			},
-			{
-				IPProtocol: "tcp",
-				FromPort:   statePort,
-				ToPort:     statePort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -1351,8 +1438,8 @@ func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (no
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
+func (e *environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), apiPort)
 	if err != nil {
 		return nil, err
 	}

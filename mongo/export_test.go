@@ -14,6 +14,8 @@ var (
 
 	UpstartConfInstall          = &upstartConfInstall
 	UpstartService              = upstartService
+	UpstartServiceExists        = &upstartServiceExists
+	UpstartServiceRunning       = &upstartServiceRunning
 	UpstartServiceStopAndRemove = &upstartServiceStopAndRemove
 	UpstartServiceStop          = &upstartServiceStop
 	UpstartServiceStart         = &upstartServiceStart
@@ -25,7 +27,7 @@ var (
 	MaxOplogSizeMB = &maxOplogSizeMB
 	PreallocFile   = &preallocFile
 
-	OplogSize         = oplogSize
+	DefaultOplogSize  = defaultOplogSize
 	FsAvailSpace      = fsAvailSpace
 	PreallocFileSizes = preallocFileSizes
 	PreallocFiles     = preallocFiles

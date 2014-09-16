@@ -41,38 +41,38 @@ func (s *DiskManagerSuite) toolsDir() string {
 // Copied from environs/agent/tools_test.go
 func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	files := []*coretesting.TarFile{
-		coretesting.NewTarFile("bar", 0755, "bar contents"),
-		coretesting.NewTarFile("foo", 0755, "foo contents"),
+		coretesting.NewTarFile("amd64", agenttools.DirPerm, "bar contents"),
+		coretesting.NewTarFile("quantal", agenttools.DirPerm, "foo contents"),
 	}
 	gzfile, checksum := coretesting.TarGz(files...)
 	t1 := &coretools.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 		Size:    int64(len(gzfile)),
 		SHA256:  checksum,
 	}
 
 	err := s.manager.UnpackTools(t1, bytes.NewReader(gzfile))
 	c.Assert(err, gc.IsNil)
-	assertDirNames(c, s.toolsDir(), []string{"1.2.3-foo-bar"})
+	assertDirNames(c, s.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	s.assertToolsContents(c, t1, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
 	files2 := []*coretesting.TarFile{
-		coretesting.NewTarFile("bar", 0755, "bar2 contents"),
-		coretesting.NewTarFile("x", 0755, "x contents"),
+		coretesting.NewTarFile("bar", agenttools.DirPerm, "bar2 contents"),
+		coretesting.NewTarFile("x", agenttools.DirPerm, "x contents"),
 	}
 	gzfile2, checksum2 := coretesting.TarGz(files2...)
 	t2 := &coretools.Tools{
 		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 		Size:    int64(len(gzfile2)),
 		SHA256:  checksum2,
 	}
 	err = s.manager.UnpackTools(t2, bytes.NewReader(gzfile2))
 	c.Assert(err, gc.IsNil)
-	assertDirNames(c, s.toolsDir(), []string{"1.2.3-foo-bar"})
+	assertDirNames(c, s.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	s.assertToolsContents(c, t1, files)
 }
 
@@ -105,5 +105,5 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, file
 	// juju-run)
 	info, err := os.Stat(dir)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(0755))
+	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(agenttools.DirPerm))
 }

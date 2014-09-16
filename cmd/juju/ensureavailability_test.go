@@ -10,9 +10,10 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -69,6 +70,36 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
+	s.PatchValue(&highAvailabilityVersion, func(_ *api.State) int {
+		return 0
+	})
+	ctx, err := runEnsureAvailability(c, "-n", "1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
+
+	m, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Life(), gc.Equals, state.Alive)
+	c.Assert(m.Series(), gc.DeepEquals, "precise")
+	mcons, err := m.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
+	s.PatchValue(&highAvailabilityVersion, func(_ *api.State) int {
+		return 0
+	})
+	_, err := runEnsureAvailability(c, "-n", "1", "--to", "machine")
+	c.Assert(err, gc.ErrorMatches, "placement directives not supported with this version of Juju")
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityPlacementError(c *gc.C) {
+	_, err := runEnsureAvailability(c, "-n", "1", "--to", "1")
+	c.Assert(err, gc.ErrorMatches, `unsupported ensure-availability placement directive "1"`)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {

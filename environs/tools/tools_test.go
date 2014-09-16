@@ -192,8 +192,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	_, err := envtools.FindTools(
 		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
@@ -214,129 +214,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},
 			jc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
 	}
-	c.Check(tw.Log, jc.LogMatches, messages)
-}
-
-func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {
-	// Remove the default tools URL from the search path, just look in cloud storage.
-	s.PatchValue(&envtools.DefaultBaseURL, "")
-	for i, test := range envtesting.BootstrapToolsTests {
-		c.Logf("\ntest %d: %s", i, test.Info)
-		attrs := map[string]interface{}{
-			"development": test.Development,
-		}
-		var agentVersion *version.Number
-		if test.AgentVersion != version.Zero {
-			attrs["agent-version"] = test.AgentVersion.String()
-			agentVersion = &test.AgentVersion
-		}
-		s.reset(c, attrs)
-		version.Current = test.CliVersion
-		available := s.uploadCustom(c, test.Available...)
-
-		params := envtools.BootstrapToolsParams{
-			Version: agentVersion,
-			Series:  test.DefaultSeries,
-			Arch:    &test.Arch,
-		}
-		actual, err := envtools.FindBootstrapTools(s.env, params)
-		if test.Err != "" {
-			if len(actual) > 0 {
-				c.Logf(actual.String())
-			}
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
-			continue
-		}
-		expect := map[version.Binary]string{}
-		for _, expected := range test.Expect {
-			expect[expected] = available[expected]
-		}
-		c.Check(actual.URLs(), gc.DeepEquals, expect)
-	}
-}
-
-var findInstanceToolsTests = []struct {
-	info         string
-	available    []version.Binary
-	agentVersion version.Number
-	series       string
-	arch         string
-	expect       []version.Binary
-	err          error
-}{{
-	info:         "nothing at all",
-	agentVersion: envtesting.V120,
-	series:       "precise",
-	err:          envtools.ErrNoTools,
-}, {
-	info:         "nothing matching 1",
-	available:    envtesting.V100Xall,
-	agentVersion: envtesting.V120,
-	series:       "precise",
-	err:          coretools.ErrNoMatches,
-}, {
-	info:         "nothing matching 2",
-	available:    envtesting.V120all,
-	agentVersion: envtesting.V110,
-	series:       "precise",
-	err:          coretools.ErrNoMatches,
-}, {
-	info:         "nothing matching 3",
-	available:    envtesting.V120q,
-	agentVersion: envtesting.V120,
-	series:       "precise",
-	err:          coretools.ErrNoMatches,
-}, {
-	info:         "nothing matching 4",
-	available:    envtesting.V120q,
-	agentVersion: envtesting.V120,
-	series:       "quantal",
-	arch:         "arm",
-	err:          coretools.ErrNoMatches,
-}, {
-	info:         "actual match 1",
-	available:    envtesting.VAll,
-	agentVersion: envtesting.V1001,
-	series:       "precise",
-	expect:       []version.Binary{envtesting.V1001p64},
-}, {
-	info:         "actual match 2",
-	available:    envtesting.VAll,
-	agentVersion: envtesting.V120,
-	series:       "quantal",
-	expect:       []version.Binary{envtesting.V120q64, envtesting.V120q32},
-}, {
-	info:         "actual match 3",
-	available:    envtesting.VAll,
-	agentVersion: envtesting.V110,
-	series:       "quantal",
-	arch:         "i386",
-	expect:       []version.Binary{envtesting.V110q32},
-}}
-
-func (s *SimpleStreamsToolsSuite) TestFindInstanceTools(c *gc.C) {
-	for i, test := range findInstanceToolsTests {
-		c.Logf("\ntest %d: %s", i, test.info)
-		s.reset(c, map[string]interface{}{
-			"agent-version": test.agentVersion.String(),
-		})
-		available := s.uploadCustom(c, test.available...)
-
-		agentVersion, _ := s.env.Config().AgentVersion()
-		actual, err := envtools.FindInstanceTools(s.env, agentVersion, test.series, &test.arch)
-		if test.err != nil {
-			if len(actual) > 0 {
-				c.Logf(actual.String())
-			}
-			c.Check(err, jc.Satisfies, errors.IsNotFound)
-			continue
-		}
-		expect := map[version.Binary]string{}
-		for _, expected := range test.expect {
-			expect[expected] = available[expected]
-		}
-		c.Check(actual.URLs(), gc.DeepEquals, expect)
-	}
+	c.Check(tw.Log(), jc.LogMatches, messages)
 }
 
 var findExactToolsTests = []struct {

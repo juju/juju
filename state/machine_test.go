@@ -10,7 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"labix.org/v2/mgo/bson"
+	"github.com/juju/txn"
+	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -18,9 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -43,6 +42,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
@@ -52,16 +52,6 @@ func (s *MachineSuite) TestContainerDefaults(c *gc.C) {
 	containers, err := s.machine.Containers()
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.DeepEquals, []string(nil))
-}
-
-func (s *MachineSuite) TestMachineJobFromParams(c *gc.C) {
-	for stateMachineJob, paramsMachineJob := range state.JobNames {
-		job, err := state.MachineJobFromParams(paramsMachineJob)
-		c.Assert(err, gc.IsNil)
-		c.Assert(job, gc.Equals, stateMachineJob)
-	}
-	_, err := state.MachineJobFromParams("invalid")
-	c.Assert(err, gc.NotNil)
 }
 
 func (s *MachineSuite) TestParentId(c *gc.C) {
@@ -183,6 +173,31 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dead)
+}
+
+func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, gc.IsNil)
+	err = unit.OpenPort("tcp", 8080)
+	c.Assert(err, gc.IsNil)
+	ports, err := state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
+	c.Assert(ports, gc.NotNil)
+	c.Assert(err, gc.IsNil)
+	err = unit.UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, gc.IsNil)
+	// once the machine is destroyed, there should be no ports documents present for it
+	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
+	c.Assert(ports, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
@@ -318,9 +333,59 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	testSetMongoPassword(c, func(st *state.State) (entity, error) {
-		return st.Machine(s.machine.Id())
-	})
+	info := state.TestingMongoInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminMongoPassword("admin-secret")
+	c.Assert(err, gc.IsNil)
+	err = st.MongoSession().DB("admin").Login("admin", "admin-secret")
+	c.Assert(err, gc.IsNil)
+
+	// Set the password for the entity
+	ent, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.Tag = ent.Tag()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st1.Close()
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	ent, err = st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("bar")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Check that the administrator can still log in.
+	info.Tag, info.Password = nil, "admin-secret"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Remove the admin password so that the test harness can reset the state.
+	err = st.SetAdminMongoPassword("")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MachineSuite) TestSetPassword(c *gc.C) {
@@ -498,43 +563,37 @@ var addNetworkInterfaceErrorsTests = []struct {
 	beforeAdding func(*gc.C, *state.Machine)
 	expectErr    string
 }{{
-	state.NetworkInterfaceInfo{"", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": MAC address must be not empty`,
 }, {
-	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": invalid MAC address: invalid`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": MAC address "aa:bb:cc:dd:ee:f0" on network "net1" already exists`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false, false},
 	nil,
 	`cannot add network interface "" to machine "2": interface name must be not empty`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false, false},
 	nil,
 	`cannot add network interface "eth0" to machine "2": "eth0" on machine "2" already exists`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": network "missing" not found`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
-	func(c *gc.C, m *state.Machine) {
-		c.Check(m.SetProvisioned("i-am", "fake_nonce", nil), gc.IsNil)
-	},
-	`cannot add network interface "eth1" to machine "2": machine already provisioned: dynamic network interfaces not currently supported`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
 	func(c *gc.C, m *state.Machine) {
 		c.Check(m.EnsureDead(), gc.IsNil)
 	},
 	`cannot add network interface "eth1" to machine "2": machine is not alive`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
 	func(c *gc.C, m *state.Machine) {
 		c.Check(m.Remove(), gc.IsNil)
 	},
@@ -724,7 +783,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
 	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
-	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag().String())
+	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
 }
 
@@ -786,7 +845,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -941,7 +1000,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -1004,7 +1063,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.StatusStarted, "", nil)
+	err = mysql0.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1033,7 +1092,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.StatusStarted, "", nil)
+	err = logging0.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1108,7 +1167,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the unit; no change.
-	err = mysql0.SetStatus(params.StatusStarted, "", nil)
+	err = mysql0.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1138,7 +1197,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
-	err = logging0.SetStatus(params.StatusStarted, "", nil)
+	err = logging0.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1271,15 +1330,15 @@ func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("constraints-tester", &tw, loggo.DEBUG), gc.IsNil)
 
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err = machine.SetConstraints(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`setting constraints on machine "2": unsupported constraints: cpu-power`},
 	})
@@ -1308,47 +1367,47 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusError, "", nil)
+	err := s.machine.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.machine.SetStatus(params.StatusDown, "", nil)
+	err = s.machine.SetStatus(state.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.machine.SetStatus(params.Status("vliegkat"), "orville", nil)
+	err = s.machine.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.machine.SetStatus(params.StatusStarted, "", nil)
+	err = s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
 
 func (s *MachineSuite) TestSetStatusPending(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusPending, "", nil)
+	err := s.machine.SetStatus(state.StatusPending, "", nil)
 	c.Assert(err, gc.IsNil)
 	// Cannot set status to pending once a machine is provisioned.
 	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusPending, "", nil)
+	err = s.machine.SetStatus(state.StatusPending, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
 }
 
@@ -1356,41 +1415,41 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	// When Dying set/get should work.
 	err := s.machine.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStopped, "", nil)
+	err = s.machine.SetStatus(state.StatusStopped, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStopped)
+	c.Assert(status, gc.Equals, state.StatusStopped)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
 	// When Dead set should fail, but get will work.
 	err = s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
 	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStopped)
+	c.Assert(status, gc.Equals, state.StatusStopped)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.machine.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of machine "1": not found or not alive`)
 	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	err := s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", params.StatusData{
+	err = s.machine.SetStatus(state.StatusError, "provisioning failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1398,9 +1457,9 @@ func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -1408,13 +1467,13 @@ func (s *MachineSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	err := s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.machine.SetStatus(params.StatusError, "mongo", params.StatusData{
+	err = s.machine.SetStatus(state.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -1423,9 +1482,9 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -1434,38 +1493,38 @@ func (s *MachineSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.machine.SetStatus(params.StatusStarted, "", nil)
+	err := s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting and changing data afterwards.
-	data := params.StatusData{
+	data := map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
 	}
-	err = s.machine.SetStatus(params.StatusError, "provisioning failed", data)
+	err = s.machine.SetStatus(state.StatusError, "provisioning failed", data)
 	c.Assert(err, gc.IsNil)
 	data["4th-key"] = 4.0
 
 	status, info, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "provisioning failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.machine.SetStatus(params.StatusStarted, "", nil)
+	err = s.machine.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -1507,28 +1566,109 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-	}
-	addresses[0].NetworkName = "loopback"
+	addresses := network.NewAddresses(
+		"127.0.0.1", "8.8.8.8", "fc00::1", "::1", "", "example.org",
+	)
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
-	machineAddresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("192.168.0.1", network.ScopeUnknown),
-	}
+	machineAddresses := network.NewAddresses(
+		"127.0.0.1", "localhost", "192.168.0.1", "fe80::1", "::1", "fd00::1",
+	)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(machine.Addresses(), gc.DeepEquals, []network.Address{
-		addresses[0],
-		addresses[1],
-		machineAddresses[1],
-	})
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fc00::1",
+		"::1",
+		"192.168.0.1",
+		"localhost",
+		"fe80::1",
+		"fd00::1",
+	))
+
+	// Now simulate prefer-ipv6: true
+	c.Assert(
+		s.State.UpdateEnvironConfig(
+			map[string]interface{}{"prefer-ipv6": true},
+			nil, nil,
+		),
+		gc.IsNil,
+	)
+
+	err = machine.SetAddresses(addresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMachineAddresses(machineAddresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"::1",
+		"fc00::1",
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fd00::1",
+		"fe80::1",
+		"localhost",
+		"192.168.0.1",
+	))
+}
+
+func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
+	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		machine, err := s.State.Machine(machine.Id())
+		c.Assert(err, gc.IsNil)
+		err = machine.SetAddresses(addr1, addr0)
+		c.Assert(err, gc.IsNil)
+	}).Check()
+
+	err = machine.SetAddresses(addr0, addr1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
+}
+
+func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+	revno0, err := state.TxnRevno(s.State, "machines", machine.Id())
+	c.Assert(err, gc.IsNil)
+
+	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
+	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+
+	var revno1 int64
+	defer state.SetBeforeHooks(c, s.State, func() {
+		machine, err := s.State.Machine(machine.Id())
+		c.Assert(err, gc.IsNil)
+		err = machine.SetAddresses(addr0, addr1)
+		c.Assert(err, gc.IsNil)
+		revno1, err = state.TxnRevno(s.State, "machines", machine.Id())
+		c.Assert(err, gc.IsNil)
+		c.Assert(revno1, gc.Equals, revno0+1)
+	}).Check()
+
+	err = machine.SetAddresses(addr0, addr1)
+	c.Assert(err, gc.IsNil)
+
+	// Doc should not have been updated, but Machine object's view should be.
+	revno2, err := state.TxnRevno(s.State, "machines", machine.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(revno2, gc.Equals, revno1)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {
@@ -1658,16 +1798,16 @@ func (s *MachineSuite) TestSetSupportedContainersSetsUnknownToError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	status, info, data, err := supportedContainer.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(status, gc.Equals, state.StatusPending)
 
 	// An unsupported (lxc) container will have an error status.
 	err = container.Refresh()
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = container.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "unsupported container")
-	c.Assert(data, gc.DeepEquals, params.StatusData{"type": "lxc"})
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{"type": "lxc"})
 }
 
 func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
@@ -1693,9 +1833,157 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		status, info, data, err := container.Status()
 		c.Assert(err, gc.IsNil)
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, "unsupported container")
 		containerType := state.ContainerTypeFromId(container.Id())
-		c.Assert(data, gc.DeepEquals, params.StatusData{"type": string(containerType)})
+		c.Assert(data, gc.DeepEquals, map[string]interface{}{"type": string(containerType)})
 	}
+}
+
+func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
+	// Provision the machine.
+	networks := []state.NetworkInfo{{
+		Name:       "net1",
+		ProviderId: "net1",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
+	}, {
+		Name:       "vlan42",
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
+	}}
+	interfaces := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+		Disabled:      true,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "vlan42",
+		IsVirtual:     true,
+	}}
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	c.Assert(err, gc.IsNil)
+
+	// Read dynamically generated document Ids.
+	ifaces, err := s.machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 3)
+
+	// Start network interface watcher.
+	w := s.machine.WatchInterfaces()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Disable the first interface.
+	err = ifaces[0].Disable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Disable the first interface again, should not report.
+	err = ifaces[0].Disable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Enable the second interface, should report, because it was initially disabled.
+	err = ifaces[1].Enable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Disable two interfaces at once, check that both are reported.
+	err = ifaces[1].Disable()
+	c.Assert(err, gc.IsNil)
+	err = ifaces[2].Disable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Enable the first interface.
+	err = ifaces[0].Enable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Enable the first interface again, should not report.
+	err = ifaces[0].Enable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove the network interface.
+	err = ifaces[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Add the new interface.
+	_, _ = addNetworkAndInterface(
+		c, s.State, s.machine,
+		"net2", "net2", "0.5.2.0/24", 0, false,
+		"aa:bb:cc:dd:ee:f2", "eth2")
+	wc.AssertOneChange()
+
+	// Provision another machine, should not report
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	interfaces2 := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:e0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:e1",
+		InterfaceName: "eth1",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:e1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "vlan42",
+		IsVirtual:     true,
+	}}
+	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 3)
+	wc.AssertNoChange()
+
+	// Read dynamically generated document Ids.
+	ifaces2, err := machine2.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces2, gc.HasLen, 3)
+
+	// Disable the first interface on the second machine, should not report.
+	err = ifaces2[0].Disable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove the network interface on the second machine, should not report.
+	err = ifaces2[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Stop watcher; check Changes chan closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *MachineSuite) TestWatchInterfacesDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		m, err := st.Machine(s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		w := m.WatchInterfaces()
+		<-w.Changes()
+		return w
+	})
+}
+
+func (s *MachineSuite) TestMachineAgentTools(c *gc.C) {
+	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	testAgentTools(c, m, "machine "+m.Id())
 }

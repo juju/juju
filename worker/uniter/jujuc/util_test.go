@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -9,13 +10,14 @@ import (
 	"io"
 	"sort"
 	stdtesting "testing"
+	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
@@ -79,10 +81,17 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	ports  set.Strings
-	relid  int
-	remote string
-	rels   map[int]*ContextRelation
+	actionParams map[string]interface{}
+	ports        set.Strings
+	relid        int
+	remote       string
+	rels         map[int]*ContextRelation
+	metrics      []jujuc.Metric
+}
+
+func (c *Context) AddMetrics(key, value string, created time.Time) error {
+	c.metrics = append(c.metrics, jujuc.Metric{key, value, created})
+	return nil
 }
 
 func (c *Context) UnitName() string {
@@ -115,6 +124,10 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 		"title":               "My Title",
 		"username":            "admin001",
 	}, nil
+}
+
+func (c *Context) ActionParams() map[string]interface{} {
+	return c.actionParams
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {
@@ -202,4 +215,8 @@ func (s Settings) Map() params.RelationSettings {
 		r[k] = v
 	}
 	return r
+}
+
+func cmdString(cmd string) string {
+	return cmd + jujuc.CmdSuffix
 }

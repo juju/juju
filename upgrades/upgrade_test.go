@@ -9,13 +9,15 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -103,14 +105,14 @@ type mockAgentConfig struct {
 	agent.ConfigSetter
 	dataDir      string
 	logDir       string
-	tag          string
+	tag          names.Tag
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
-	stateInfo    *state.Info
+	mongoInfo    *mongo.MongoInfo
 }
 
-func (mock *mockAgentConfig) Tag() string {
+func (mock *mockAgentConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -138,8 +140,8 @@ func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
 }
 
-func (mock *mockAgentConfig) StateInfo() (*state.Info, bool) {
-	return mock.stateInfo, true
+func (mock *mockAgentConfig) MongoInfo() (*mongo.MongoInfo, bool) {
+	return mock.mongoInfo, true
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {
@@ -195,8 +197,67 @@ func upgradeOperations() []upgrades.Operation {
 				&mockUpgradeStep{"step 3 - 1.20.0", targets(upgrades.StateServer)},
 			},
 		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.21-alpha2"),
+			steps: []upgrades.Step{
+				&mockUpgradeStep{"mongo fix - 1.21-alpha2", targets(upgrades.StateServer)},
+				&mockUpgradeStep{"db schema - 1.21-alpha2", targets(upgrades.DatabaseMaster)},
+			},
+		},
 	}
 	return steps
+}
+
+type areUpgradesDefinedTest struct {
+	about       string
+	fromVersion string
+	toVersion   string
+	expected    bool
+	err         string
+}
+
+var areUpgradesDefinedTests = []areUpgradesDefinedTest{
+	{
+		about:       "no ops if same version",
+		fromVersion: "1.18.0",
+		expected:    false,
+	},
+	{
+		about:       "true when ops defined between versions",
+		fromVersion: "1.17.1",
+		expected:    true,
+	},
+	{
+		about:       "false when no ops defined between versions",
+		fromVersion: "1.13.0",
+		toVersion:   "1.14.1",
+		expected:    false,
+	},
+	{
+		about:       "from version is defaulted when not supplied",
+		fromVersion: "",
+		expected:    true,
+	},
+}
+
+func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
+	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
+	for i, test := range areUpgradesDefinedTests {
+		c.Logf("%d: %s", i, test.about)
+		fromVersion := version.Zero
+		if test.fromVersion != "" {
+			fromVersion = version.MustParse(test.fromVersion)
+		}
+		toVersion := version.MustParse("1.18.0")
+		if test.toVersion != "" {
+			toVersion = version.MustParse(test.toVersion)
+		}
+		vers := version.Current
+		vers.Number = toVersion
+		s.PatchValue(&version.Current, vers)
+		result := upgrades.AreUpgradesDefined(fromVersion)
+		c.Check(result, gc.Equals, test.expected)
+	}
 }
 
 type upgradeTest struct {
@@ -248,6 +309,13 @@ var upgradeTests = []upgradeTest{
 		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
+		about:         "the database master target is also a state server",
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
+	},
+	{
 		about:         "error aborts, subsequent steps not run",
 		fromVersion:   "1.10.0",
 		target:        upgrades.HostMachine,
@@ -259,6 +327,20 @@ var upgradeTests = []upgradeTest{
 		fromVersion:   "",
 		target:        upgrades.StateServer,
 		expectedSteps: []string{"step 2 - 1.17.1", "step 2 - 1.18.0"},
+	},
+	{
+		about:         "state servers don't get database master",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"mongo fix - 1.21-alpha2"},
+	},
+	{
+		about:         "database masters are state servers",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"mongo fix - 1.21-alpha2", "db schema - 1.21-alpha2"},
 	},
 }
 
@@ -302,7 +384,7 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0"}
+var expectedVersions = []string{"1.18.0", "1.21-alpha1"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string

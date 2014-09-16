@@ -21,9 +21,9 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 )
 
@@ -35,7 +35,7 @@ type MongoSuite struct {
 	mongodPath       string
 
 	installError error
-	installed    []upstart.Conf
+	installed    []upstart.Service
 
 	removeError error
 	removed     []upstart.Service
@@ -43,11 +43,28 @@ type MongoSuite struct {
 
 var _ = gc.Suite(&MongoSuite{})
 
-var testInfo = params.StateServingInfo{
+var testInfo = struct {
+	StatePort    int
+	Cert         string
+	PrivateKey   string
+	SharedSecret string
+}{
 	StatePort:    25252,
 	Cert:         "foobar-cert",
 	PrivateKey:   "foobar-privkey",
 	SharedSecret: "foobar-sharedsecret",
+}
+
+func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams {
+	return mongo.EnsureServerParams{
+		StatePort:    testInfo.StatePort,
+		Cert:         testInfo.Cert,
+		PrivateKey:   testInfo.PrivateKey,
+		SharedSecret: testInfo.SharedSecret,
+
+		DataDir:   dataDir,
+		Namespace: namespace,
+	}
 }
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
@@ -61,14 +78,24 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
 
 	// Patch "df" such that it always reports there's 1MB free.
-	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) { return 1, nil })
+	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) {
+		info, err := os.Stat(dir)
+		if err != nil {
+			return 0, err
+		}
+		if info.IsDir() {
+			return 1, nil
+
+		}
+		return 0, fmt.Errorf("not a directory")
+	})
 	s.PatchValue(mongo.MinOplogSizeMB, 1)
 
 	testPath := c.MkDir()
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Conf) error {
+	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Service) error {
 		s.installed = append(s.installed, *conf)
 		return s.installError
 	})
@@ -131,20 +158,20 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	err := mongo.EnsureServer(dataDir, namespace, testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dbDir, c)
 
 	assertInstalled := func() {
 		c.Assert(s.installed, gc.HasLen, 1)
-		conf := s.installed[0]
-		c.Assert(conf.Name, gc.Equals, "juju-db-namespace")
-		c.Assert(conf.InitDir, gc.Equals, "/etc/init")
-		c.Assert(conf.Desc, gc.Equals, "juju state database")
-		c.Assert(conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
+		service := s.installed[0]
+		c.Assert(service.Name, gc.Equals, "juju-db-namespace")
+		c.Assert(service.Conf.InitDir, gc.Equals, "/etc/init")
+		c.Assert(service.Conf.Desc, gc.Equals, "juju state database")
+		c.Assert(service.Conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
 		// TODO(nate) set Out so that mongod output goes somewhere useful?
-		c.Assert(conf.Out, gc.Equals, "")
+		c.Assert(service.Conf.Out, gc.Equals, "")
 	}
 	assertInstalled()
 
@@ -160,12 +187,6 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
 
-	s.installed = nil
-	// now check we can call it multiple times without error
-	err = mongo.EnsureServer(dataDir, namespace, testInfo)
-	c.Assert(err, gc.IsNil)
-	assertInstalled()
-
 	// make sure that we log the version of mongodb as we get ready to
 	// start it
 	tlog := c.GetTestLog()
@@ -173,6 +194,72 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	start := "^" + any
 	tail := any + "$"
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		return fmt.Errorf("shouldn't be called")
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 0)
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return false
+	})
+	var started bool
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		started = true
+		return nil
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 0)
+	c.Assert(started, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return false
+	})
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		return fmt.Errorf("won't start")
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.ErrorMatches, `.*won't start`)
+	c.Assert(s.installed, gc.HasLen, 0)
 }
 
 func (s *MongoSuite) TestInstallMongod(c *gc.C) {
@@ -198,7 +285,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 		s.PatchValue(&version.Current.Series, test.series)
 
-		err := mongo.EnsureServer(dataDir, namespace, testInfo)
+		err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 		c.Assert(err, gc.IsNil)
 
 		cmds := getMockShellCalls(c, output)
@@ -216,20 +303,52 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	}
 }
 
+func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
+	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		return fmt.Errorf("shouldn't be called")
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 0)
+
+	// We still attempt to install mongodb, despite the service existing.
+	cmds := getMockShellCalls(c, output)
+	c.Assert(cmds, gc.HasLen, 1)
+}
+
 func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
 	c.Assert(err, gc.IsNil)
-	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
+	c.Assert(strings.Contains(svc.Conf.Cmd, "--replSet"), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
+	dataDir := c.MkDir()
+
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Conf.Cmd, "--ipv6"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
 	c.Assert(err, gc.IsNil)
-	journalPresent := strings.Contains(svc.Cmd, " --journal ") || strings.HasSuffix(svc.Cmd, " --journal")
+	journalPresent := strings.Contains(svc.Conf.Cmd, " --journal ") || strings.HasSuffix(svc.Conf.Cmd, " --journal")
 	c.Assert(journalPresent, jc.IsTrue)
 }
 
@@ -251,8 +370,8 @@ func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := mongo.RemoveService("namespace")
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.removed, jc.DeepEquals, []upstart.Service{{
-		Name:    "juju-db-namespace",
-		InitDir: upstart.InitDir,
+		Name: "juju-db-namespace",
+		Conf: common.Conf{InitDir: upstart.InitDir},
 	}})
 }
 
@@ -265,11 +384,12 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := mongo.EnsureServer(dir, "", testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
-	err = mongo.EnsureServer(dir, "", testInfo)
+	failCmd(filepath.Join(dir, "mongod"))
+	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -278,7 +398,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// created.
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
-	err := mongo.EnsureServer(dataDir, "", testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
@@ -344,7 +464,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	s.PatchValue(&version.Current.Series, "quantal")
 
 	dataDir := c.MkDir()
-	err := mongo.EnsureServer(dataDir, "", testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{

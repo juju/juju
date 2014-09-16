@@ -14,8 +14,7 @@ type manualBootstrapInstance struct {
 }
 
 func (manualBootstrapInstance) Id() instance.Id {
-	// The only way to bootrap is via manual bootstrap.
-	return manual.BootstrapInstanceId
+	return BootstrapInstanceId
 }
 
 func (manualBootstrapInstance) Status() string {
@@ -34,14 +33,14 @@ func (inst manualBootstrapInstance) Addresses() (addresses []network.Address, er
 	return []network.Address{addr}, nil
 }
 
-func (manualBootstrapInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (manualBootstrapInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	return nil
 }
 
-func (manualBootstrapInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (manualBootstrapInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	return nil
 }
 
-func (manualBootstrapInstance) Ports(machineId string) ([]network.Port, error) {
-	return []network.Port{}, nil
+func (manualBootstrapInstance) Ports(machineId string) ([]network.PortRange, error) {
+	return nil, nil
 }

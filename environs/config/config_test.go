@@ -56,7 +56,7 @@ var sampleConfig = testing.Attrs{
 	"state-port":                1234,
 	"api-port":                  4321,
 	"syslog-port":               2345,
-	"default-series":            "precise",
+	"default-series":            config.LatestLtsSeries(),
 }
 
 type configTest struct {
@@ -196,25 +196,7 @@ var configTests = []configTest{
 			"ca-cert-path":        "~/othercert.pem",
 			"ca-private-key-path": "~/otherkey.pem",
 		},
-	}, /* {
-		about: "CA cert only from ~ path",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert-path":   "~/othercert.pem",
-			"ca-private-key": "",
-		},
 	}, {
-		about: "CA cert only as attribute",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        caCert,
-			"ca-private-key": "",
-		},
-	}, */{
 		about:       "CA cert and key as attributes",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -252,36 +234,7 @@ var configTests = []configTest{
 			"ca-private-key": invalidCAKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, /* {
-		about: "No CA cert or key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": "",
-		},
 	}, {
-		about: "CA key but no cert",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "",
-			"ca-private-key": caKey,
-		},
-		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, {
-		about: "No CA key",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"ca-cert":        "foo",
-			"ca-private-key": "",
-		},
-		err: "bad CA certificate/key in configuration: no certificates found",
-	}, */{
 		about:       "CA cert specified as non-existent file",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -337,6 +290,58 @@ var configTests = []configTest{
 			"development":     "invalid",
 		},
 		err: `development: expected bool, got string\("invalid"\)`,
+	}, {
+		about:       "Invalid disable-network-management flag",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                       "my-type",
+			"name":                       "my-name",
+			"authorized-keys":            testing.FakeAuthKeys,
+			"disable-network-management": "invalid",
+		},
+		err: `disable-network-management: expected bool, got string\("invalid"\)`,
+	}, {
+		about:       "disable-network-management off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"disable-network-management": false,
+		},
+	}, {
+		about:       "disable-network-management on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"disable-network-management": true,
+		},
+	}, {
+		about:       "Invalid prefer-ipv6 flag",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": testing.FakeAuthKeys,
+			"prefer-ipv6":     "invalid",
+		},
+		err: `prefer-ipv6: expected bool, got string\("invalid"\)`,
+	}, {
+		about:       "prefer-ipv6 off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"prefer-ipv6": false,
+		},
+	}, {
+		about:       "prefer-ipv6 on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"prefer-ipv6": true,
+		},
 	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
@@ -451,30 +456,66 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got string\("yes please"\)`,
 	}, {
-		about:       "provisioner-safe-mode off",
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestAll.String(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": false,
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestAll.String(),
 		},
 	}, {
-		about:       "provisioner-safe-mode on",
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestDestroyed.String(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": true,
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestDestroyed.String(),
 		},
 	}, {
-		about:       "provisioner-safe-mode incorrect",
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestUnknown.String(),
+		),
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                  "my-type",
-			"name":                  "my-name",
-			"provisioner-safe-mode": "yes please",
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestUnknown.String(),
 		},
-		err: `provisioner-safe-mode: expected bool, got string\("yes please"\)`,
+	}, {
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			config.HarvestNone.String(),
+		),
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": config.HarvestNone.String(),
+		},
+	}, {
+		about: fmt.Sprintf(
+			"%s: %s",
+			"provisioner-harvest-mode",
+			"incorrect",
+		),
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"provisioner-harvest-mode": "yes please",
+		},
+		err: `unknown harvesting method: yes please`,
 	}, {
 		about:       "default image stream",
 		useDefaults: config.UseDefaults,
@@ -666,6 +707,41 @@ var configTests = []configTest{
 			"name":      "my-name",
 			"test-mode": true,
 		},
+	}, {
+		about:       "valid uuid",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
+		},
+	}, {
+		about:       "invalid uuid 1",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
+		},
+		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+	}, {
+		about:       "invalid uuid 2",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "uuid",
+		},
+		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+	}, {
+		about:       "blank uuid",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "",
+		},
+		err: "uuid: expected uuid, got string\\(\"\"\\)",
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
 	authTokenConfigTest("token=value, ", true),
@@ -688,6 +764,16 @@ var configTests = []configTest{
 	// backward compatibility with pre-1.13 config.
 	// missingAttributeNoDefault("state-port"),
 	// missingAttributeNoDefault("api-port"),
+	{
+		about:       "Deprecated safe-mode failover",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":                     "my-type",
+			"name":                     "my-name",
+			"provisioner-safe-mode":    true,
+			"provisioner-harvest-mode": config.HarvestNone.String(),
+		},
+	},
 }
 
 // authTokenConfigTest returns a config test that checks
@@ -842,6 +928,35 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	}
 }
 
+func (s *ConfigSuite) TestSafeModeDeprecatesGracefully(c *gc.C) {
+
+	cfg, err := config.New(config.UseDefaults, testing.Attrs{
+		"name":                  "name",
+		"type":                  "type",
+		"provisioner-safe-mode": false,
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(
+		cfg.ProvisionerHarvestMode().String(),
+		gc.Equals,
+		config.HarvestAll.String(),
+	)
+
+	cfg, err = config.New(config.UseDefaults, testing.Attrs{
+		"name":                  "name",
+		"type":                  "type",
+		"provisioner-safe-mode": true,
+	})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(
+		cfg.ProvisionerHarvestMode().String(),
+		gc.Equals,
+		config.HarvestDestroyed.String(),
+	)
+}
+
 func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
@@ -877,6 +992,11 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 	if syslogPort, ok := test.attrs["syslog-port"]; ok {
 		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
+	}
+	if expected, ok := test.attrs["uuid"]; ok {
+		got, exists := cfg.UUID()
+		c.Assert(exists, gc.Equals, ok)
+		c.Assert(got, gc.Equals, expected)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
@@ -950,10 +1070,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 
-	if v, ok := test.attrs["provisioner-safe-mode"]; ok {
-		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, v)
+	if v, ok := test.attrs["provisioner-harvest-mode"]; ok {
+		hvstMeth, err := config.ParseHarvestMode(v.(string))
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, hvstMeth)
 	} else {
-		c.Assert(cfg.ProvisionerSafeMode(), gc.Equals, false)
+		c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
 	}
 	sshOpts := cfg.BootstrapSSHOpts()
 	test.assertDuration(
@@ -1044,6 +1166,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
+		"uuid":                      "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
@@ -1051,7 +1174,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
 		"development":               false,
-		"provisioner-safe-mode":     false,
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
@@ -1075,19 +1197,25 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
+	attrs["prefer-ipv6"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), jc.DeepEquals, attrs)
 	c.Assert(cfg.UnknownAttrs(), jc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
+	// Verify that default provisioner-harvest-mode is good.
+	c.Assert(cfg.ProvisionerHarvestMode(), gc.Equals, config.HarvestDestroyed)
+
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
+		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
 		"new-unknown": "my-new-unknown",
 	})
 	c.Assert(err, gc.IsNil)
 
 	attrs["name"] = "new-name"
+	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
@@ -1171,6 +1299,19 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"lxc-clone-aufs": false},
 	new:   testing.Attrs{"lxc-clone-aufs": true},
 	err:   `cannot change lxc-clone-aufs from false to true`,
+}, {
+	about: "Cannot change prefer-ipv6",
+	old:   testing.Attrs{"prefer-ipv6": false},
+	new:   testing.Attrs{"prefer-ipv6": true},
+	err:   `cannot change prefer-ipv6 from false to true`,
+}, {
+	about: "Can change uuid from unset to set",
+	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
+}, {
+	about: "Cannot change uuid",
+	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
+	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
+	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1208,6 +1349,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 		"known":   "this",
 		"unknown": "that",
 	})
+	c.Assert(err, gc.IsNil)
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
@@ -1404,6 +1546,22 @@ func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			c.Assert(keyPEM, gc.Equals, "")
 		}
 	}
+}
+
+func (s *ConfigSuite) TestLastestLtsSeriesFallback(c *gc.C) {
+	config.ResetCachedLtsSeries()
+	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
+		return "", fmt.Errorf("error")
+	})
+	c.Assert(config.LatestLtsSeries(), gc.Equals, "trusty")
+}
+
+func (s *ConfigSuite) TestLastestLtsSeries(c *gc.C) {
+	config.ResetCachedLtsSeries()
+	s.PatchValue(config.DistroLtsSeries, func() (string, error) {
+		return "series", nil
+	})
+	c.Assert(config.LatestLtsSeries(), gc.Equals, "series")
 }
 
 var caCert = `

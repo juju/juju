@@ -8,13 +8,15 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/state/api/keyupdater"
-	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/api/keyupdater"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -27,7 +29,7 @@ var logger = loggo.GetLogger("juju.worker.authenticationworker")
 type keyupdaterWorker struct {
 	st   *keyupdater.State
 	tomb tomb.Tomb
-	tag  string
+	tag  names.MachineTag
 	// jujuKeys are the most recently retrieved keys from state.
 	jujuKeys set.Strings
 	// nonJujuKeys are those added externally to auth keys file
@@ -41,7 +43,10 @@ var _ worker.NotifyWatchHandler = (*keyupdaterWorker)(nil)
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
 func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
-	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag()}
+	if version.Current.OS == version.Windows {
+		return worker.NewNoOpWorker()
+	}
+	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag().(names.MachineTag)}
 	return worker.NewNotifyWorker(kw)
 }
 

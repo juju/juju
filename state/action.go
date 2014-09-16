@@ -5,28 +5,64 @@ package state
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 )
 
+// ActionReceiver describes objects that can have actions queued for them, and
+// that can get ActionRelated information about those actions.
+// TODO(jcw4) consider implementing separate Actor classes for this interface;
+// for example UnitActor that implements this interface, and takes a Unit and
+// performs all these actions.
+type ActionReceiver interface {
+	// AddAction queues an action with the given name and payload for this
+	// ActionReciever
+	AddAction(name string, payload map[string]interface{}) (*Action, error)
+
+	// WatchActions returns a StringsWatcher that will notify on changes to the
+	// queued actions for this ActionReceiver
+	WatchActions() StringsWatcher
+
+	// WatchActionResults returns a StringsWatcher that will notify on changes to
+	// the action results for this ActionReceiver
+	WatchActionResults() StringsWatcher
+
+	// Actions returns the list of Actions queued for this ActionReceiver
+	Actions() ([]*Action, error)
+
+	// ActionResults returns the list of completed ActionResults that were
+	// queued on this ActionReciever
+	ActionResults() ([]*ActionResult, error)
+
+	// Name returns the name that will be used to filter actions
+	// that are queued for this ActionReceiver
+	Name() string
+}
+
+var (
+	_ ActionReceiver = (*Unit)(nil)
+	// TODO(jcw4) - use when Actions can be queued for Services
+	//_ ActionReceiver = (*Service)(nil)
+)
+
+const actionMarker string = "_a_"
+
 type actionDoc struct {
-	// Id is the key for this document.  Action.Id() has a specfic form
-	// to facilitate filtering the actions collection for a given unit,
-	// or in the future a given service.
-	// The format of the Action.Id() will be:
-	//   <unit globalKey> + actionMarker + <generated state sequence>
+	// Id is the key for this document. The structure of the key is
+	// a composite of ActionReciever.ActionKey() and a unique sequence,
+	// to facilitate indexing and prefix filtering
 	Id string `bson:"_id"`
 
-	// Name identifies the action; it should match an action defined by
-	// the unit's charm.
-	Name string
+	// Name identifies the action that should be run; it should
+	// match an action defined by the unit's charm.
+	Name string `bson:"name"`
 
-	// Payload holds the action's parameters, if any; it should validate
+	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm
-	Payload map[string]interface{}
+	Parameters map[string]interface{} `bson:"parameters"`
 }
 
 // Action represents an instruction to do some "action" and is expected
@@ -36,7 +72,86 @@ type Action struct {
 	doc actionDoc
 }
 
-// newAction builds an Action from the supplied state and actionDoc
+// Id returns the id of the Action
+func (a *Action) Id() string {
+	return a.doc.Id
+}
+
+// Prefix extracts the name of the unit or service from the encoded _id
+func (a *Action) Prefix() string {
+	if prefix, ok := extractPrefixName(a.doc.Id); ok {
+		return prefix
+	}
+	return ""
+}
+
+// Sequence extracts the unique sequence part of an action _id
+func (a *Action) Sequence() int {
+	sequence, ok := extractSequence(a.doc.Id)
+	if !ok {
+		panic(fmt.Sprintf("cannot extract sequence from _id %v", a.doc.Id))
+	}
+	return sequence
+}
+
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionTag
+func (a *Action) Tag() names.Tag {
+	return a.ActionTag()
+}
+
+// ActionTag returns an ActionTag constructed from this action's
+// Prefix and Sequence
+func (a *Action) ActionTag() names.ActionTag {
+	return names.JoinActionTag(a.Prefix(), a.Sequence())
+}
+
+// Name returns the name of the action, as defined in the charm
+func (a *Action) Name() string {
+	return a.doc.Name
+}
+
+// Parameters will contain a structure representing arguments or parameters to
+// an action, and is expected to be validated by the Unit using the Charm
+// definition of the Action
+func (a *Action) Parameters() map[string]interface{} {
+	return a.doc.Parameters
+}
+
+// ActionResults is a data transfer object that holds the key Action
+// output and results information.
+type ActionResults struct {
+	Status  ActionStatus           `json:"status"`
+	Results map[string]interface{} `json:"results"`
+	Message string                 `json:"message"`
+}
+
+// Finish removes action from the pending queue and creates an
+// ActionResult to capture the output and end state of the action.
+func (a *Action) Finish(results ActionResults) error {
+	return a.removeAndLog(results.Status, results.Results, results.Message)
+}
+
+// removeAndLog takes the action off of the pending queue, and creates
+// an actionresult to capture the outcome of the action.
+func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, err string) error {
+	doc := newActionResultDoc(a, finalStatus, results, err)
+	return a.st.runTransaction([]txn.Op{
+		addActionResultOp(a.st, &doc),
+		{
+			C:      actionsC,
+			Id:     a.doc.Id,
+			Remove: true,
+		},
+	})
+}
+
+// globalKey returns the global database key for the action.
+func (a *Action) globalKey() string {
+	return actionGlobalKey(a.doc.Id)
+}
+
+// newAction builds an Action for the given State and actionDoc
 func newAction(st *State, adoc actionDoc) *Action {
 	return &Action{
 		st:  st,
@@ -44,76 +159,63 @@ func newAction(st *State, adoc actionDoc) *Action {
 	}
 }
 
-// actionPrefix returns a suitable prefix for an action given the
-// prefix of the Name() of a containing item
-func actionPrefix(prefix string) string {
-	return prefix + names.ActionMarker
-}
-
-// newActionId generates a new unique key from another entity name as
-// a prefix, and a generated unique number
-func newActionId(st *State, name string) (string, error) {
-	prefix := actionPrefix(name)
-	suffix, err := st.sequence(prefix)
+// newActionDoc builds the actionDoc with the given name and parameters
+func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, error) {
+	actionId, err := newActionId(st, ar)
 	if err != nil {
-		return "", errors.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
+		return actionDoc{}, err
 	}
-	return fmt.Sprintf("%s%d", prefix, suffix), nil
+	return actionDoc{Id: actionId, Name: actionName, Parameters: parameters}, nil
 }
 
-// getActionIdPrefix returns the prefix for the given action id.
-// Useful when finding a prefix to filter on.
-func getActionIdPrefix(actionId string) string {
-	return strings.Split(actionId, names.ActionMarker)[0]
-}
+var ensureActionMarker = ensureSuffixFn(actionMarker)
 
-// Id returns the id of the Action
-func (a *Action) Id() string {
-	return a.doc.Id
-}
-
-// Name returns the name of the Action
-func (a *Action) Name() string {
-	return a.doc.Name
-}
-
-// Tag implements the Entity interface and returns an ActionTag representation.
-func (a *Action) Tag() names.Tag {
-	return names.NewActionTag(a.Id())
-}
-
-// Payload will contain a structure representing arguments or parameters to
-// an action, and is expected to be validated by the Unit using the Charm
-// definition of the Action
-func (a *Action) Payload() map[string]interface{} {
-	return a.doc.Payload
-}
-
-// Complete removes action from the pending queue and creates an ActionResult
-// to capture the output and end state of the action.
-func (a *Action) Complete(output string) error {
-	return a.removeAndLog(ActionCompleted, output)
-}
-
-// Fail removes an Action from the queue, and creates an ActionResult that
-// will capture the reason for the failure.
-func (a *Action) Fail(reason string) error {
-	return a.removeAndLog(ActionFailed, reason)
-}
-
-// removeAndLog takes the action off of the pending queue, and creates an
-// actionresult to capture the outcome of the action.
-func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
-	result, err := newActionResultDoc(a, finalStatus, output)
+// newActionId generates a new id for an action on the given ActionReceiver
+func newActionId(st *State, ar ActionReceiver) (string, error) {
+	prefix := ensureActionMarker(ar.Name())
+	sequence, err := st.sequence(prefix)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return a.st.runTransaction([]txn.Op{
-		addActionResultOp(a.st, result),
-		{
-			C:      a.st.actions.Name,
-			Id:     a.doc.Id,
-			Remove: true,
-		},
-	})
+	return fmt.Sprintf("%s%d", prefix, sequence), nil
+}
+
+// actionIdFromTag converts an ActionTag to an actionId
+func actionIdFromTag(tag names.ActionTag) string {
+	ptag := tag.PrefixTag()
+	if ptag == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%d", ensureActionMarker(ptag.Id()), tag.Sequence())
+}
+
+// actionGlobalKey returns the global database key for the named action.
+func actionGlobalKey(name string) string {
+	return "a#" + name
+}
+
+func extractSequence(id string) (int, bool) {
+	parts := strings.SplitN(id, actionMarker, 2)
+	if len(parts) != 2 {
+		return -1, false
+	}
+	parsed, err := strconv.ParseInt(parts[1], 10, 0)
+	if err != nil {
+		return -1, false
+	}
+	return int(parsed), true
+}
+
+func extractPrefixName(id string) (string, bool) {
+	mlen := len(actionMarker)
+	// id must contain the actionMarker plus
+	// two more characters at the very minimum
+	if len(id) <= mlen+2 {
+		return "", false
+	}
+	parts := strings.Split(id, actionMarker)
+	if len(parts) != 2 {
+		return "", false
+	}
+	return parts[0], true
 }

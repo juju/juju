@@ -4,7 +4,10 @@
 package kvm_test
 
 import (
+	"fmt"
+	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -15,9 +18,12 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	"github.com/juju/testing"
 )
 
 type KVMSuite struct {
@@ -106,6 +112,70 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
+}
+
+// Test that CreateContainer creates proper startParams.
+func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
+
+	envCfg, err := config.New(
+		config.NoDefaults,
+		dummy.SampleConfig().Merge(
+			coretesting.Attrs{"image-stream": "released"},
+		),
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Mock machineConfig with a mocked simple stream URL.
+	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	c.Assert(err, gc.IsNil)
+	machineConfig.Config = envCfg
+
+	// CreateContainer sets TestStartParams internally; we call this
+	// purely for the side-effect.
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+
+	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "")
+}
+
+// Test that CreateContainer creates proper startParams.
+func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
+
+	// Mock machineConfig with a mocked simple stream URL.
+	machineConfig, err := containertesting.MockMachineConfig("1/kvm/0")
+	c.Assert(err, gc.IsNil)
+	machineConfig.ImageStream = "daily"
+
+	// CreateContainer sets TestStartParams internally; we call this
+	// purely for the side-effect.
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+
+	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+}
+
+func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
+
+	const libvirtBinName = "uvt-simplestreams-libvirt"
+	testing.PatchExecutableAsEchoArgs(c, s, libvirtBinName)
+
+	startParams := kvm.StartParams{
+		Series:           "mocked-series",
+		Arch:             "mocked-arch",
+		ImageDownloadUrl: "mocked-url",
+	}
+	mockedContainer := kvm.NewEmptyKvmContainer()
+	mockedContainer.Start(startParams)
+
+	expectedArgs := strings.Split(
+		fmt.Sprintf(
+			"sync arch=%s release=%s --source=%s",
+			startParams.Arch,
+			startParams.Series,
+			startParams.ImageDownloadUrl,
+		),
+		" ",
+	)
+
+	testing.AssertEchoArgs(c, libvirtBinName, expectedArgs...)
 }
 
 type ConstraintsSuite struct {
@@ -222,12 +292,72 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}} {
-		tw := &loggo.TestWriter{}
-		c.Assert(loggo.RegisterWriter("constraint-tester", tw, loggo.DEBUG), gc.IsNil)
+		var tw loggo.TestWriter
+		c.Assert(loggo.RegisterWriter("constraint-tester", &tw, loggo.DEBUG), gc.IsNil)
 		cons := constraints.MustParse(test.cons)
 		params := kvm.ParseConstraintsToStartParams(cons)
 		c.Check(params, gc.DeepEquals, test.expected)
-		c.Check(tw.Log, jc.LogMatches, test.infoLog)
+		c.Check(tw.Log(), jc.LogMatches, test.infoLog)
 		loggo.RemoveWriter("constraint-tester")
 	}
+}
+
+// Test the output when no binary can be found.
+func (s *KVMSuite) TestIsKVMSupportedKvmOkNotFound(c *gc.C) {
+	// With no path, and no backup directory, we should fail.
+	s.PatchEnvironment("PATH", "")
+	s.PatchValue(kvm.KVMPath, "")
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, false)
+	c.Assert(err, gc.ErrorMatches, "kvm-ok executable not found")
+}
+
+// Test the output when the binary is found, but errors out.
+func (s *KVMSuite) TestIsKVMSupportedBinaryErrorsOut(c *gc.C) {
+	// Clear path so real binary is not found.
+	s.PatchEnvironment("PATH", "")
+
+	// Create mocked binary which returns an error and give the test access.
+	tmpDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash\nexit 127"), 0777)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(kvm.KVMPath, tmpDir)
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, false)
+	c.Assert(err, gc.ErrorMatches, "exit status 127")
+}
+
+// Test the case where kvm-ok is not in the path, but is in the
+// specified directory.
+func (s *KVMSuite) TestIsKVMSupportedNoPath(c *gc.C) {
+	// Create a mocked binary so that this test does not fail for
+	// developers without kvm-ok.
+	s.PatchEnvironment("PATH", "")
+	tmpDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(kvm.KVMPath, tmpDir)
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, true)
+	c.Assert(err, gc.IsNil)
+}
+
+// Test the case that kvm-ok is found in the path.
+func (s *KVMSuite) TestIsKVMSupportedOnlyPath(c *gc.C) {
+	// Create a mocked binary so that this test does not fail for
+	// developers without kvm-ok.
+	tmpDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	s.PatchEnvironment("PATH", tmpDir)
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, true)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *KVMSuite) TestKVMPathIsCorrect(c *gc.C) {
+	c.Assert(*kvm.KVMPath, gc.Equals, "/usr/sbin")
 }

@@ -7,20 +7,22 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
-	"labix.org/v2/mgo/txn"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // ActionStatus represents the possible end states for an action.
 type ActionStatus string
 
 const (
-	// Fail signifies that the action did not complete successfully.
+	// ActionFailed signifies that the action did not complete successfully.
 	ActionFailed ActionStatus = "fail"
 
-	// Complete indicates that the action ran to completion as intended.
+	// ActionCompleted indicates that the action ran to completion as intended.
 	ActionCompleted ActionStatus = "complete"
 )
+
+const actionResultMarker string = "_ar_"
 
 type actionResultDoc struct {
 	// Id is the key for this document.  The format of the id encodes
@@ -29,19 +31,22 @@ type actionResultDoc struct {
 	Id string `bson:"_id"`
 
 	// ActionName identifies the action that was run.
-	ActionName string
+	ActionName string `bson:"name"`
 
-	// Payload describes the parameters passed in for the action
+	// Parameters describes the parameters passed in for the action
 	// when it was run.
-	Payload map[string]interface{}
+	Parameters map[string]interface{} `bson:"parameters"`
 
 	// Status represents the end state of the Action; ActionFailed for an
 	// action that was removed prematurely, or that failed, and
 	// ActionCompleted for an action that successfully completed.
-	Status ActionStatus
+	Status ActionStatus `bson:"status"`
 
-	// Output captures any text emitted by the action.
-	Output string
+	// Message captures any error returned by the action.
+	Message string `bson:"message"`
+
+	// Results are the structured results from the action.
+	Results map[string]interface{} `bson:"results"`
 }
 
 // ActionResult represents an instruction to do some "action" and is
@@ -49,6 +54,54 @@ type actionResultDoc struct {
 type ActionResult struct {
 	st  *State
 	doc actionResultDoc
+}
+
+// Id returns the id of the ActionResult.
+func (a *ActionResult) Id() string {
+	return a.doc.Id
+}
+
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionResultTag
+func (a *ActionResult) Tag() names.Tag {
+	return a.ActionResultTag()
+}
+
+// ActionResultTag returns an ActionResultTag constructed from this
+// actionResult's Prefix and Sequence
+func (a *ActionResult) ActionResultTag() names.ActionResultTag {
+	return names.NewActionResultTag(a.Id())
+}
+
+// ActionName returns the name of the Action.
+func (a *ActionResult) ActionName() string {
+	return a.doc.ActionName
+}
+
+// Parameters will contain a structure representing arguments or parameters
+// that were passed to the action.
+func (a *ActionResult) Parameters() map[string]interface{} {
+	return a.doc.Parameters
+}
+
+// Status returns the final state of the action.
+func (a *ActionResult) Status() ActionStatus {
+	return a.doc.Status
+}
+
+// Results returns the structured output of the action and any error.
+func (a *ActionResult) Results() (map[string]interface{}, string) {
+	return a.doc.Results, a.doc.Message
+}
+
+// globalKey returns the global database key for the action.
+func (a *ActionResult) globalKey() string {
+	return actionResultGlobalKey(a.doc.Id)
+}
+
+// actionResultGlobalKey returns the global database key for the named action.
+func actionResultGlobalKey(name string) string {
+	return "ar#" + name
 }
 
 // newActionResult builds an ActionResult from the supplied state and
@@ -60,73 +113,46 @@ func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
 	}
 }
 
-// actionResultMarker is the token used to separate the action id prefix
-// from the unique actionResult suffix
-const actionResultMarker = "_ar_"
-
-// newActionResultId generates a new unique key from an action id
-func newActionResultId(st *State, actionId string) (string, error) {
-	prefix := actionId + actionResultMarker
-	suffix, err := st.sequence(prefix)
-	if err != nil {
-		return "", errors.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
+// newActionResultDoc converts an Action into an actionResultDoc given
+// the finalStatus and the output of the action, and any error.
+func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]interface{}, message string) actionResultDoc {
+	actionId := a.Id()
+	id, ok := convertActionIdToActionResultId(actionId)
+	if !ok {
+		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", actionId))
 	}
-	return fmt.Sprintf("%s%d", prefix, suffix), nil
-}
-
-// newActionResultDoc builds a new doc
-func newActionResultDoc(action *Action, status ActionStatus, output string) (*actionResultDoc, error) {
-	id, err := newActionResultId(action.st, action.Id())
-	if err != nil {
-		return nil, err
-	}
-	return &actionResultDoc{
+	return actionResultDoc{
 		Id:         id,
-		ActionName: action.Name(),
-		Payload:    action.Payload(),
-		Status:     status,
-		Output:     output,
-	}, nil
+		ActionName: a.doc.Name,
+		Parameters: a.doc.Parameters,
+		Status:     finalStatus,
+		Results:    results,
+		Message:    message,
+	}
 }
 
-// addActionResultOp builds the txn.Op used to add an actionresult
+// convertActionIdToActionResultId builds an actionResultId from an actionId.
+func convertActionIdToActionResultId(actionId string) (string, bool) {
+	parts := strings.Split(actionId, actionMarker)
+	if len(parts) != 2 {
+		return "", false
+	}
+	actionResultId := strings.Join(parts, actionResultMarker)
+	return actionResultId, true
+}
+
+// actionResultPrefix returns a string prefix for matching action results for
+// the given ActionReceiver.
+func actionResultPrefix(ar ActionReceiver) string {
+	return ar.Name() + actionResultMarker
+}
+
+// addActionResultOp builds the txn.Op used to add an actionresult.
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
-		C:      st.actionresults.Name,
+		C:      actionresultsC,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
-}
-
-// getActionResultIdPrefix takes an ActionResult.Id() and returns the prefix
-// used to build it.  Useful for filtering.
-func getActionResultIdPrefix(actionResultId string) string {
-	return strings.Split(actionResultId, actionResultMarker)[0]
-}
-
-// Id returns the id of the ActionResult.
-func (a *ActionResult) Id() string {
-	return a.doc.Id
-}
-
-// ActionName returns the name of the Action.
-func (a *ActionResult) ActionName() string {
-	return a.doc.ActionName
-}
-
-// Payload will contain a structure representing arguments or parameters
-// that were passed to the action.
-func (a *ActionResult) Payload() map[string]interface{} {
-	return a.doc.Payload
-}
-
-// Status returns the final state of the action.
-func (a *ActionResult) Status() ActionStatus {
-	return a.doc.Status
-}
-
-// Output returns the text caputured from the action as it was executed.
-func (a *ActionResult) Output() string {
-	return a.doc.Output
 }

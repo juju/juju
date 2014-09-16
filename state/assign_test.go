@@ -10,12 +10,12 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/txn"
 )
 
 type AssignSuite struct {
@@ -516,7 +516,6 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 
 	err = anotherUnit.AssignToNewMachineOrContainer()
 	c.Assert(err, gc.IsNil)
-
 	mid, err := unit.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mid, gc.Equals, "1")

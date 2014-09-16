@@ -88,10 +88,6 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
-	if t.Env == nil {
-		// This can happen if SetUpSuite fails.
-		return
-	}
 	t.LiveTests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)
 }
@@ -104,7 +100,6 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
@@ -115,6 +110,7 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
+	t.PrepareOnce(c)
 	inst, hc := testing.AssertStartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances(inst.Id())
 	// Sanity check for hardware characteristics.
@@ -138,6 +134,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 }
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
+	t.PrepareOnce(c)
 	cons := constraints.MustParse("mem=2G")
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
 	defer t.Env.StopInstances(inst.Id())
@@ -151,7 +148,12 @@ func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 }
 
 func (t *LiveTests) TestInstanceGroups(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
+	allInsts, err := t.Env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(allInsts, gc.HasLen, 1) // bootstrap instance
+	bootstrapInstId := allInsts[0].Id()
+
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
@@ -169,7 +171,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// Add two permissions: one is required and should be left alone;
 	// the other is not and should be deleted.
 	// N.B. this is unfortunately sensitive to the actual set of permissions used.
-	_, err := ec2conn.AuthorizeSecurityGroup(oldJujuGroup,
+	_, err = ec2conn.AuthorizeSecurityGroup(oldJujuGroup,
 		[]amzec2.IPPerm{
 			{
 				Protocol:  "tcp",
@@ -224,9 +226,8 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, gc.HasLen, 6)
+	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, coretesting.FakeConfig()["state-port"].(int))
 	checkPortAllowed(c, perms, coretesting.FakeConfig()["api-port"].(int))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
@@ -266,12 +267,23 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	insts, err := t.Env.Instances(instIds)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instIds, jc.SameContents, idsFromInsts(insts))
-	allInsts, err := t.Env.AllInstances()
+	allInsts, err = t.Env.AllInstances()
 	c.Assert(err, gc.IsNil)
+	// ignore the bootstrap instance
+	for i, inst := range allInsts {
+		if inst.Id() == bootstrapInstId {
+			if i+1 < len(allInsts) {
+				copy(allInsts[i:], allInsts[i+1:])
+			}
+			allInsts = allInsts[:len(allInsts)-1]
+			break
+		}
+	}
 	c.Assert(instIds, jc.SameContents, idsFromInsts(allInsts))
 }
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
+	t.PrepareOnce(c)
 	s := t.Env.Storage()
 	err := s.Put("foo", strings.NewReader("foo"), 3)
 	c.Assert(err, gc.IsNil)
@@ -336,6 +348,7 @@ func checkSecurityGroupAllowed(c *gc.C, perms []amzec2.IPPerm, g amzec2.Security
 }
 
 func (t *LiveTests) TestStopInstances(c *gc.C) {
+	t.PrepareOnce(c)
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
@@ -370,6 +383,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 }
 
 func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
+	t.PrepareOnce(c)
 	s3inst := ec2.EnvironS3(t.Env)
 	b := s3inst.Bucket("test-once-" + uniqueName)
 	s := ec2.BucketStorage(b)

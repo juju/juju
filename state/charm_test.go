@@ -5,12 +5,11 @@ package state_test
 
 import (
 	"bytes"
-	"net/url"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
@@ -34,9 +33,7 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
 	c.Assert(dummy.Revision(), gc.Equals, 1)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/quantal-dummy-1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(dummy.StoragePath(), gc.Equals, "dummy-path")
 	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
 	c.Assert(dummy.IsUploaded(), jc.IsTrue)
 	meta := dummy.Meta()
@@ -91,11 +88,11 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 	c.Assert(url.Series, gc.Equals, series)
 	c.Assert(url.Revision, gc.Equals, ch.Revision())
 
-	// Ignore the BundleURL and BundleSHA256 methods, they're irrelevant.
+	// Ignore the StoragePath and BundleSHA256 methods, they're irrelevant.
 }
 
 func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := charmtesting.Charms.Dir(ch.Meta().Name)
+	chd := charmtesting.Charms.CharmDir(ch.Meta().Name)
 	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Revision())
 }
 
@@ -110,7 +107,7 @@ func forEachStandardCharm(c *gc.C, f func(name string)) {
 
 func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.Dir(name)
+		chd := charmtesting.Charms.CharmDir(name)
 		meta := chd.Meta()
 		config := chd.Config()
 		revision := chd.Revision()
@@ -136,7 +133,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.Dir(name)
+		chd := charmtesting.Charms.CharmDir(name)
 		meta := chd.Meta()
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
@@ -171,7 +168,7 @@ description: blah blah
 
 func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.Dir(name)
+		chd := charmtesting.Charms.CharmDir(name)
 		config := chd.Config()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))

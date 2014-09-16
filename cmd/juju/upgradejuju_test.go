@@ -14,16 +14,18 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
-	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -97,10 +99,10 @@ var upgradeJujuTests = []struct {
 	expectInitErr:  "cannot specify build number when uploading tools",
 }, {
 	about:          "latest supported stable release",
-	tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+	tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.2.3",
+	expectVersion:  "2.1.3",
 }, {
 	about:          "latest current release",
 	tools:          []string{"2.0.5-quantal-amd64", "2.0.1-quantal-i386", "2.3.3-quantal-amd64"},
@@ -127,16 +129,16 @@ var upgradeJujuTests = []struct {
 	expectErr:      "no compatible tools available",
 }, {
 	about:          "no next supported available",
-	tools:          []string{"2.1.0-quantal-amd64", "2.1.5-quantal-i386", "2.3.3-quantal-amd64"},
+	tools:          []string{"2.2.0-quantal-amd64", "2.2.5-quantal-i386", "2.3.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectErr:      "no more recent supported versions available",
 }, {
 	about:          "latest supported stable, when client is dev",
-	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
+	tools:          []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.1-dev0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	expectVersion:  "2.2.0",
+	expectVersion:  "2.1.0",
 }, {
 	about:          "latest current, when agent is dev",
 	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
@@ -311,7 +313,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+			envtesting.MustUploadFakeToolsVersions(s.Environ.Storage(), versions...)
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, versions...)
@@ -335,20 +337,26 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		for _, uploaded := range test.expectUploaded {
 			// Substitute latest LTS for placeholder in expected series for uploaded tools
 			uploaded = strings.Replace(uploaded, "%LTS%", config.LatestLtsSeries(), 1)
-
 			vers := version.MustParseBinary(uploaded)
-			r, err := storage.Get(s.Conn.Environ.Storage(), envtools.StorageName(vers))
-			if !c.Check(err, gc.IsNil) {
-				continue
-			}
-			data, err := ioutil.ReadAll(r)
-			r.Close()
-			c.Check(err, gc.IsNil)
-			expectContent := version.Current
-			expectContent.Number = agentVersion
-			checkToolsContent(c, data, "jujud contents "+expectContent.String())
+			s.checkToolsUploaded(c, vers, agentVersion)
 		}
 	}
+}
+
+func (s *UpgradeJujuSuite) checkToolsUploaded(c *gc.C, vers version.Binary, agentVersion version.Number) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	_, r, err := storage.Tools(vers)
+	if !c.Check(err, gc.IsNil) {
+		return
+	}
+	data, err := ioutil.ReadAll(r)
+	r.Close()
+	c.Check(err, gc.IsNil)
+	expectContent := version.Current
+	expectContent.Number = agentVersion
+	checkToolsContent(c, data, "jujud contents "+expectContent.String())
 }
 
 func checkToolsContent(c *gc.C, data []byte, uploaded string) {
@@ -383,7 +391,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 // in the environment state.
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
-	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
+	envtesting.RemoveTools(c, s.Environ.Storage())
 	updateAttrs := map[string]interface{}{
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
@@ -391,17 +399,26 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
+
+	// Set API host ports so FindTools works.
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
+		Port:    1234,
+	}}}
+	err = s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, "--upload-tools")
+	cmd := envcmd.Wrap(&UpgradeJujuCommand{})
+	_, err := coretesting.RunCommand(c, cmd, "--upload-tools")
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	tools, err := envtools.FindInstanceTools(s.Conn.Environ, vers.Number, vers.Series, &vers.Arch)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(tools), gc.Equals, 1)
+	s.checkToolsUploaded(c, vers, vers.Number)
+	//_, err = envtools.FindExactTools(s.Environ, vers.Number, vers.Series, vers.Arch)
+	//c.Assert(err, gc.IsNil)
 }
 
 type DryRunTest struct {
@@ -418,39 +435,45 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 		DryRunTest{
 			about:          "dry run outputs and doesn't change anything when uploading tools",
 			cmdArgs:        []string{"--upload-tools", "--dry-run"},
-			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `available tools:
-    2.2.0-quantal-amd64
-    2.2.2-quantal-i386
+    2.1-dev1-quantal-amd64
+    2.1.0-quantal-amd64
+    2.1.2-quantal-i386
+    2.1.3-quantal-amd64
     2.2.3-quantal-amd64
 best version:
-    2.2.3
+    2.1.3
 upgrade to this version by running
-    juju upgrade-juju --version="2.2.3"
+    juju upgrade-juju --version="2.1.3"
 `,
 		},
 		DryRunTest{
 			about:          "dry run outputs and doesn't change anything",
 			cmdArgs:        []string{"--dry-run"},
-			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+			tools:          []string{"2.1.0-quantal-amd64", "2.1.2-quantal-i386", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
 			expectedCmdOutput: `available tools:
-    2.2.0-quantal-amd64
-    2.2.2-quantal-i386
+    2.1-dev1-quantal-amd64
+    2.1.0-quantal-amd64
+    2.1.2-quantal-i386
+    2.1.3-quantal-amd64
     2.2.3-quantal-amd64
 best version:
-    2.2.3
+    2.1.3
 upgrade to this version by running
-    juju upgrade-juju --version="2.2.3"
+    juju upgrade-juju --version="2.1.3"
 `,
 		},
 	}
 
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
+		s.Reset(c)
+
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &UpgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(com), test.cmdArgs)
@@ -468,7 +491,7 @@ upgrade to this version by running
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+			envtesting.MustUploadFakeToolsVersions(s.Environ.Storage(), versions...)
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, versions...)
@@ -487,4 +510,151 @@ upgrade to this version by running
 		output := coretesting.Stderr(ctx)
 		c.Assert(output, gc.Equals, test.expectedCmdOutput)
 	}
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.setVersionErr = &params.Error{
+		Message: "a message from the server about the problem",
+		Code:    params.CodeUpgradeInProgress,
+	}
+	fakeAPI.patch(s)
+	cmd := &UpgradeJujuCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	c.Assert(err, gc.IsNil)
+
+	err = cmd.Run(coretesting.Context(c))
+	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
+		"\n"+
+		"please wait for the upgrade to complete or if there was a problem with\n"+
+		"the last upgrade that has been resolved, consider running the\n"+
+		"upgrade-juju command with the --reset-previous-upgrade flag.",
+	)
+}
+
+func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.patch(s)
+
+	ctx := coretesting.Context(c)
+	var stdin bytes.Buffer
+	ctx.Stdin = &stdin
+
+	run := func(answer string, expect bool, args ...string) {
+		stdin.Reset()
+		if answer != "" {
+			stdin.WriteString(answer)
+		}
+
+		fakeAPI.reset()
+
+		cmd := &UpgradeJujuCommand{}
+		err := coretesting.InitCommand(envcmd.Wrap(cmd),
+			append([]string{"--reset-previous-upgrade"}, args...))
+		c.Assert(err, gc.IsNil)
+		err = cmd.Run(ctx)
+		if expect {
+			c.Assert(err, gc.IsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "previous upgrade not reset and no new upgrade triggered")
+		}
+
+		c.Assert(fakeAPI.abortCurrentUpgradeCalled, gc.Equals, expect)
+		expectedVersion := version.Number{}
+		if expect {
+			expectedVersion = fakeAPI.nextVersion.Number
+		}
+		c.Assert(fakeAPI.setVersionCalledWith, gc.Equals, expectedVersion)
+	}
+
+	const expectUpgrade = true
+	const expectNoUpgrade = false
+
+	// EOF on stdin - equivalent to answering no.
+	run("", expectNoUpgrade)
+
+	// -y on command line - no confirmation required
+	run("", expectUpgrade, "-y")
+
+	// --yes on command line - no confirmation required
+	run("", expectUpgrade, "--yes")
+
+	// various ways of saying "yes" to the prompt
+	for _, answer := range []string{"y", "Y", "yes", "YES"} {
+		run(answer, expectUpgrade)
+	}
+
+	// various ways of saying "no" to the prompt
+	for _, answer := range []string{"n", "N", "no", "foo"} {
+		run(answer, expectNoUpgrade)
+	}
+}
+
+func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
+	nextVersion := version.Current
+	nextVersion.Minor++
+	return &fakeUpgradeJujuAPI{
+		c:           c,
+		st:          st,
+		nextVersion: nextVersion,
+	}
+}
+
+type fakeUpgradeJujuAPI struct {
+	c                         *gc.C
+	st                        *state.State
+	nextVersion               version.Binary
+	setVersionErr             error
+	abortCurrentUpgradeCalled bool
+	setVersionCalledWith      version.Number
+}
+
+func (a *fakeUpgradeJujuAPI) reset() {
+	a.setVersionErr = nil
+	a.abortCurrentUpgradeCalled = false
+	a.setVersionCalledWith = version.Number{}
+}
+
+func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
+	s.PatchValue(&getUpgradeJujuAPI, func(*UpgradeJujuCommand) (upgradeJujuAPI, error) {
+		return a, nil
+	})
+}
+
+func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
+	config, err := a.st.EnvironConfig()
+	if err != nil {
+		return make(map[string]interface{}), err
+	}
+	return config.AllAttrs(), nil
+}
+
+func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
+	result params.FindToolsResult, err error,
+) {
+	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", []string{a.nextVersion.String()})
+	return params.FindToolsResult{
+		List:  tools,
+		Error: nil,
+	}, nil
+}
+
+func (a *fakeUpgradeJujuAPI) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (
+	*coretools.Tools, error,
+) {
+	panic("not implemented")
+}
+
+func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
+	a.abortCurrentUpgradeCalled = true
+	return nil
+}
+
+func (a *fakeUpgradeJujuAPI) SetEnvironAgentVersion(v version.Number) error {
+	a.setVersionCalledWith = v
+	return a.setVersionErr
+}
+
+func (a *fakeUpgradeJujuAPI) Close() error {
+	return nil
 }

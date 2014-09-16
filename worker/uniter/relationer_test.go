@@ -8,18 +8,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3/hooks"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
+	apiuniter "github.com/juju/juju/api/uniter"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	apiuniter "github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -60,11 +61,11 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
-	apiUnit, err := s.uniter.Unit(unit.Tag().String())
+	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
 	c.Assert(err, gc.IsNil)
@@ -425,11 +426,11 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = u.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	st := s.OpenAPIAs(c, u.Tag().String(), password)
+	st := s.OpenAPIAs(c, u.Tag(), password)
 	uniterState := st.Uniter()
 	c.Assert(uniterState, gc.NotNil)
 
-	apiUnit, err := uniterState.Unit(u.Tag().String())
+	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRel, err := uniterState.Relation(rel.Tag().String())
 	c.Assert(err, gc.IsNil)

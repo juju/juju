@@ -20,7 +20,6 @@ $template JujuLogFormat{{.Namespace}},"%syslogtag:{{.Offset}}:$%%msg:::sp-if-no-
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-$RuleSet local
 
 # start: Forwarding rule for foo
 $ActionQueueType LinkedList
@@ -35,14 +34,20 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 :syslogtag, startswith, "juju{{.Namespace}}-" @@foo:{{.Port}};LongTagForwardFormat
 # end: Forwarding rule for foo
 
-& ~
-$FileCreateMode 0640
+:syslogtag, startswith, "juju{{.Namespace}}-" stop
+
+$FileCreateMode 0600
+
+# Maximum size for the log on this outchannel is 512MB
+# The command to execute when an outchannel as reached its size limit cannot accept any arguments
+# that is why we have created the helper script for executing logrotate.
+$outchannel logRotation,/var/log/juju{{.Namespace}}/all-machines.log,512000000,/var/log/juju{{.Namespace}}/logrotate.run
 
 $RuleSet remote
-$FileCreateMode 0644
-:syslogtag, startswith, "juju{{.Namespace}}-" /var/log/juju{{.Namespace}}/all-machines.log;JujuLogFormat{{.Namespace}}
-& ~
-$FileCreateMode 0640
+$FileCreateMode 0600
+:syslogtag, startswith, "juju{{.Namespace}}-" :omfile:$logRotation;JujuLogFormat{{.Namespace}}
+:syslogtag, startswith, "juju{{.Namespace}}-" stop
+$FileCreateMode 0600
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -50,7 +55,6 @@ $InputFileName /var/log/juju{{.Namespace}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
-$DefaultRuleset local
 
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
@@ -62,6 +66,9 @@ $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
 
 $InputTCPServerBindRuleset remote
 $InputTCPServerRun {{.Port}}
+
+# switch back to default ruleset for further rules
+$RuleSet RSYSLOG_DefaultRuleset
 `
 
 type templateArgs struct {

@@ -9,8 +9,6 @@ package cloudinit
 import (
 	"bytes"
 	"text/template"
-
-	yaml "launchpad.net/goyaml"
 )
 
 // Config represents a set of cloud-init configuration options.
@@ -21,15 +19,6 @@ type Config struct {
 // New returns a new Config with no options set.
 func New() *Config {
 	return &Config{make(map[string]interface{})}
-}
-
-// Render returns the cloud-init configuration as a YAML file.
-func (cfg *Config) Render() ([]byte, error) {
-	data, err := yaml.Marshal(cfg.attrs)
-	if err != nil {
-		return nil, err
-	}
-	return append([]byte("#cloud-config\n"), data...), nil
 }
 
 func (cfg *Config) set(opt string, yes bool, value interface{}) {
@@ -46,6 +35,12 @@ type AptSource struct {
 	Source string          `yaml:"source"`
 	Key    string          `yaml:"key,omitempty"`
 	Prefs  *AptPreferences `yaml:"-"`
+}
+
+// AptGetWrapper describes a wrapper command for running apt-get.
+type AptGetWrapper struct {
+	Command string
+	Enabled interface{} // true, false or "auto"
 }
 
 // AptPreferences is a set of apt_preferences(5) compatible

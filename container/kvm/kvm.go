@@ -6,6 +6,7 @@ package kvm
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/version"
 )
@@ -40,15 +42,32 @@ var (
 	MinDisk   uint64 = 2 // GB
 )
 
+// Utilized to provide a hard-coded path to kvm-ok
+var kvmPath = "/usr/sbin"
+
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
 // It is a variable to allow us to overrid behaviour in the tests.
 var IsKVMSupported = func() (bool, error) {
-	command := exec.Command("kvm-ok")
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return false, err
+
+	// Prefer the user's $PATH first, but check /usr/sbin if we can't
+	// find kvm-ok there
+	var foundPath string
+	const binName = "kvm-ok"
+	if path, err := exec.LookPath(binName); err == nil {
+		foundPath = path
+	} else if path, err := exec.LookPath(filepath.Join(kvmPath, binName)); err == nil {
+		foundPath = path
+	} else {
+		return false, errors.NotFoundf("%s executable", binName)
 	}
-	logger.Debugf("kvm-ok output:\n%s", output)
+
+	command := exec.Command(foundPath)
+	output, err := command.CombinedOutput()
+
+	if err != nil {
+		return false, errors.Annotate(err, string(output))
+	}
+	logger.Debugf("%s output:\n%s", binName, output)
 	return command.ProcessState.Success(), nil
 }
 
@@ -78,10 +97,14 @@ type containerManager struct {
 
 var _ container.Manager = (*containerManager)(nil)
 
+// Exposed so tests can observe our side-effects
+var startParams StartParams
+
 func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	network *container.NetworkConfig,
+) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	name := names.NewMachineTag(machineConfig.MachineId).String()
 	if manager.name != "" {
@@ -103,11 +126,17 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.LoggedErrorf(logger, "failed to write user data: %v", err)
 	}
 	// Create the container.
-	startParams := ParseConstraintsToStartParams(machineConfig.Constraints)
+	startParams = ParseConstraintsToStartParams(machineConfig.Constraints)
 	startParams.Arch = version.Current.Arch
 	startParams.Series = series
 	startParams.Network = network
 	startParams.UserDataFile = userDataFilename
+
+	// If the Simplestream requested is anything but released, update
+	// our StartParams to request it.
+	if machineConfig.ImageStream != imagemetadata.ReleasedStream {
+		startParams.ImageDownloadUrl = imagemetadata.UbuntuCloudImagesURL + "/" + machineConfig.ImageStream
+	}
 
 	var hardware instance.HardwareCharacteristics
 	hardware, err = instance.ParseHardware(

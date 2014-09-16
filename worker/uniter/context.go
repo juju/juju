@@ -15,20 +15,30 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/version"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
+var windowsSuffixOrder = []string{
+	".ps1",
+	".cmd",
+	".bat",
+	".exe",
+}
+
 type missingHookError struct {
 	hookName string
 }
+
+type actionParams map[string]interface{}
 
 func (e *missingHookError) Error() string {
 	return e.hookName + " does not exist"
@@ -56,6 +66,9 @@ type HookContext struct {
 
 	// id identifies the context.
 	id string
+
+	// actionParams holds the set of arguments passed with the action.
+	actionParams map[string]interface{}
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -85,11 +98,24 @@ type HookContext struct {
 
 	// proxySettings are the current proxy settings that the uniter knows about
 	proxySettings proxy.Settings
+
+	// metrics are the metrics recorded by calls to add-metric
+	metrics []jujuc.Metric
 }
 
-func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
-	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings) (*HookContext, error) {
+func NewHookContext(
+	unit *uniter.Unit,
+	id,
+	uuid,
+	envName string,
+	relationId int,
+	remoteUnitName string,
+	relations map[int]*ContextRelation,
+	apiAddrs []string,
+	serviceOwner string,
+	proxySettings proxy.Settings,
+	actionParams map[string]interface{},
+) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -101,6 +127,7 @@ func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
 		apiAddrs:       apiAddrs,
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
+		actionParams:   actionParams,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -154,6 +181,10 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+func (ctx *HookContext) ActionParams() map[string]interface{} {
+	return ctx.actionParams
+}
+
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return ctx.Relation(ctx.relationId)
 }
@@ -175,14 +206,77 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
+// AddMetrics adds metrics to the hook context.
+func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
+	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
+	return nil
+}
+
+// mergeEnvironment takes in a string array representing the desired environment
+// and merges it with the current environment. On Windows, clearing the environment,
+// or having missing environment variables, may lead to standard go packages not working
+// (os.TempDir relies on $env:TEMP), and powershell erroring out
+// Currently this function is only used for windows
+func mergeEnvironment(env []string) []string {
+	if env == nil {
+		return nil
+	}
+	m := map[string]string{}
+	var tmpEnv []string
+	for _, val := range os.Environ() {
+		varSplit := strings.SplitN(val, "=", 2)
+		m[varSplit[0]] = varSplit[1]
+	}
+
+	for _, val := range env {
+		varSplit := strings.SplitN(val, "=", 2)
+		m[varSplit[0]] = varSplit[1]
+	}
+
+	for key, val := range m {
+		tmpEnv = append(tmpEnv, key+"="+val)
+	}
+
+	return tmpEnv
+}
+
+// windowsEnv adds windows specific environment variables. PSModulePath
+// helps hooks use normal imports instead of dot sourcing modules
+// its a convenience variable. The PATH variable delimiter is
+// a semicolon instead of a colon
+func (ctx *HookContext) windowsEnv(charmDir, toolsDir string) []string {
+	charmModules := filepath.Join(charmDir, "Modules")
+	hookModules := filepath.Join(charmDir, "hooks", "Modules")
+	env := []string{
+		"Path=" + filepath.FromSlash(toolsDir) + ";" + os.Getenv("Path"),
+		"PSModulePath=" + os.Getenv("PSModulePath") + ";" + charmModules + ";" + hookModules,
+	}
+	return mergeEnvironment(env)
+}
+
+func (ctx *HookContext) ubuntuEnv(toolsDir string) []string {
+	env := []string{
+		"APT_LISTCHANGES_FRONTEND=none",
+		"DEBIAN_FRONTEND=noninteractive",
+		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
+	}
+	return env
+}
+
+func (ctx *HookContext) osDependentEnvVars(charmDir, toolsDir string) []string {
+	switch version.Current.OS {
+	case version.Windows:
+		return ctx.windowsEnv(charmDir, toolsDir)
+	default:
+		return ctx.ubuntuEnv(toolsDir)
+	}
+}
+
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
 func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
 	vars := []string{
-		"APT_LISTCHANGES_FRONTEND=none",
-		"DEBIAN_FRONTEND=noninteractive",
-		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
@@ -191,6 +285,9 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
+	osVars := ctx.osDependentEnvVars(charmDir, toolsDir)
+	vars = append(vars, osVars...)
+
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
 		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
@@ -218,6 +315,28 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		}
 		rctx.ClearCache()
 	}
+	if err != nil {
+		return err
+	}
+
+	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
+	//                             changes in one api call to minimize the risk
+	//                             of partial failures.
+	if len(ctx.metrics) > 0 {
+		if writeChanges {
+			metrics := make([]params.Metric, len(ctx.metrics))
+			for i, metric := range ctx.metrics {
+				metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+			}
+			if e := ctx.unit.AddMetrics(metrics); e != nil {
+				logger.Errorf("%v", e)
+				if err == nil {
+					err = e
+				}
+			}
+		}
+		ctx.metrics = nil
+	}
 	return err
 }
 
@@ -237,9 +356,19 @@ func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
 	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
 }
 
-// RunHook executes a hook in an environment which allows it to to call back
-// into the hook context to execute jujuc tools.
+// RunAction executes a hook from the charm's actions in an environment which
+// allows it to to call back into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunAction(hookName, charmDir, toolsDir, socketPath string) error {
+	return ctx.runCharmHookWithLocation(hookName, "actions", charmDir, toolsDir, socketPath)
+}
+
+// RunHook executes a built-in hook in an environment which allows it to to
+// call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
+	return ctx.runCharmHookWithLocation(hookName, "hooks", charmDir, toolsDir, socketPath)
+}
+
+func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmDir, toolsDir, socketPath string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
@@ -247,22 +376,83 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
-		err = ctx.runCharmHook(hookName, charmDir, env)
+		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
 	}
 	return ctx.finalizeContext(hookName, err)
 }
 
-func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
-	hook, err := exec.LookPath(filepath.Join(charmDir, "hooks", hookName))
+func lookPath(hook string) (string, error) {
+	hookFile, err := exec.LookPath(hook)
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
+			return "", &missingHookError{hook}
+		}
+		return "", err
+	}
+	return hookFile, nil
+}
+
+// searchHook will search, in order, hooks suffixed with extensions
+// in windowsSuffixOrder. As windows cares about extensions to determine
+// how to execute a file, we will allow several suffixes, with powershell
+// being default.
+func searchHook(charmDir, hook string) (string, error) {
+	hookFile := filepath.Join(charmDir, hook)
+	if version.Current.OS != version.Windows {
+		// we are not running on windows,
+		// there is no need to look for suffixed hooks
+		return lookPath(hookFile)
+	}
+	for _, val := range windowsSuffixOrder {
+		file := fmt.Sprintf("%s%s", hookFile, val)
+		foundHook, err := lookPath(file)
+		if err != nil {
+			if IsMissingHookError(err) {
+				// look for next suffix
+				continue
+			}
+			return "", err
+		}
+		return foundHook, nil
+	}
+	return "", &missingHookError{hook}
+}
+
+// hookCommand constructs an appropriate command to be passed to
+// exec.Command(). The exec package uses cmd.exe as default on windows
+// cmd.exe does not know how to execute ps1 files by default, and
+// powershell needs a few flags to allow execution (-ExecutionPolicy)
+// and propagate error levels (-File). .cmd and .bat files can be run directly
+func hookCommand(hook string) []string {
+	if version.Current.OS != version.Windows {
+		// we are not running on windows,
+		// just return the hook name
+		return []string{hook}
+	}
+	if strings.HasSuffix(hook, ".ps1") {
+		return []string{
+			"powershell.exe",
+			"-NonInteractive",
+			"-ExecutionPolicy",
+			"RemoteSigned",
+			"-File",
+			hook,
+		}
+	}
+	return []string{hook}
+}
+
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
+	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
+	if err != nil {
+		if IsMissingHookError(err) {
 			// Missing hook is perfectly valid, but worth mentioning.
 			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return &missingHookError{hookName}
 		}
 		return err
 	}
-	ps := exec.Command(hook)
+	hookCmd := hookCommand(hook)
+	ps := exec.Command(hookCmd[0], hookCmd[1:]...)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()

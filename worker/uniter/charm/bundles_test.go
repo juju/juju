@@ -13,17 +13,17 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	corecharm "gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )
@@ -62,7 +62,7 @@ func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
@@ -75,19 +75,31 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
 }
 
-func (s *BundlesDirSuite) AddCharm(c *gc.C) (*uniter.Charm, *state.Charm, []byte) {
+func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm, []byte) {
 	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
-	surl, err := url.Parse(s.URL("/some/charm.bundle"))
-	c.Assert(err, gc.IsNil)
-	bunpath := charmtesting.Charms.BundlePath(c.MkDir(), "dummy")
-	bun, err := corecharm.ReadBundle(bunpath)
+	storagePath := "dummy-1"
+	bunpath := charmtesting.Charms.CharmArchivePath(c.MkDir(), "dummy")
+	bun, err := corecharm.ReadCharmArchive(bunpath)
 	c.Assert(err, gc.IsNil)
 	bundata, hash := readHash(c, bunpath)
-	sch, err := s.State.AddCharm(bun, curl, surl, hash)
+	sch, err := s.State.AddCharm(bun, curl, storagePath, hash)
 	c.Assert(err, gc.IsNil)
 	apiCharm, err := s.uniter.Charm(sch.URL())
 	c.Assert(err, gc.IsNil)
-	return apiCharm, sch, bundata
+
+	surl, err := url.Parse(s.URL("/some/charm.bundle"))
+	c.Assert(err, gc.IsNil)
+	mock := &mockArchiveURLCharm{apiCharm, surl}
+	return mock, sch, bundata
+}
+
+type mockArchiveURLCharm struct {
+	charm.BundleInfo
+	archiveURL *url.URL
+}
+
+func (i *mockArchiveURLCharm) ArchiveURL() *url.URL {
+	return i.archiveURL
 }
 
 func (s *BundlesDirSuite) TestGet(c *gc.C) {
@@ -105,7 +117,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	// Try to get the charm when the content doesn't match.
 	gitjujutesting.Server.Response(200, nil, []byte("roflcopter"))
 	_, err = d.Read(apiCharm, nil)
-	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, sch.BundleURL())
+	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, apiCharm.ArchiveURL())
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.
@@ -153,7 +165,7 @@ func readHash(c *gc.C, path string) ([]byte, string) {
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
-	actual := bun.(*corecharm.Bundle)
+	actual := bun.(*corecharm.CharmArchive)
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())

@@ -18,7 +18,6 @@ import (
 
 type runnerSuite struct {
 	testing.BaseSuite
-	restartDelay time.Duration
 }
 
 var _ = gc.Suite(&runnerSuite{})
@@ -37,13 +36,7 @@ func noImportance(err0, err1 error) bool {
 
 func (s *runnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.restartDelay = worker.RestartDelay
-	worker.RestartDelay = 0
-}
-
-func (s *runnerSuite) TearDownTest(c *gc.C) {
-	worker.RestartDelay = s.restartDelay
-	s.BaseSuite.TearDownTest(c)
+	s.PatchValue(&worker.RestartDelay, time.Duration(0))
 }
 
 func (*runnerSuite) TestOneWorkerStart(c *gc.C) {
@@ -55,6 +48,20 @@ func (*runnerSuite) TestOneWorkerStart(c *gc.C) {
 
 	c.Assert(worker.Stop(runner), gc.IsNil)
 	starter.assertStarted(c, false)
+}
+
+func (*runnerSuite) TestOneWorkerFinish(c *gc.C) {
+	runner := worker.NewRunner(noneFatal, noImportance)
+	starter := newTestWorkerStarter()
+	err := runner.StartWorker("id", testWorkerStart(starter))
+	c.Assert(err, gc.IsNil)
+	starter.assertStarted(c, true)
+
+	starter.die <- nil
+	starter.assertStarted(c, false)
+	starter.assertNeverStarted(c)
+
+	c.Assert(worker.Stop(runner), gc.IsNil)
 }
 
 func (*runnerSuite) TestOneWorkerRestart(c *gc.C) {
@@ -165,6 +172,7 @@ func (*runnerSuite) TestOneWorkerRestartDelay(c *gc.C) {
 	if restartDuration < worker.RestartDelay {
 		c.Fatalf("restart delay was not respected; got %v want %v", restartDuration, worker.RestartDelay)
 	}
+	c.Assert(worker.Stop(runner), gc.IsNil)
 }
 
 type errorLevel int
@@ -346,6 +354,14 @@ func (starter *testWorkerStarter) assertStarted(c *gc.C, started bool) {
 		c.Assert(isStarted, gc.Equals, started)
 	case <-time.After(1 * time.Second):
 		c.Fatalf("timed out waiting for start notification")
+	}
+}
+
+func (starter *testWorkerStarter) assertNeverStarted(c *gc.C) {
+	select {
+	case isStarted := <-starter.startNotify:
+		c.Fatalf("got unexpected start notification: %v", isStarted)
+	case <-time.After(worker.RestartDelay + testing.ShortWait):
 	}
 }
 

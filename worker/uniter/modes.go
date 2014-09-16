@@ -7,11 +7,11 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"github.com/juju/charm"
-	"github.com/juju/charm/hooks"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
 	ucharm "github.com/juju/juju/worker/uniter/charm"
@@ -168,9 +168,12 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	}
 	defer watcher.Stop(w, &u.tomb)
 	for {
+		hi := hook.Info{}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case _, ok := <-w.Changes():
 			if !ok {
 				return nil, watcher.MustErr(w)
@@ -189,6 +192,11 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 				return nil, err
 			}
 			return nil, worker.ErrTerminateAgent
+		}
+		if err := u.runHook(hi); err == errHookFailed {
+			return ModeHookError, nil
+		} else if err != nil {
+			return nil, err
 		}
 	}
 }
@@ -240,6 +248,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return modeAbideDyingLoop(u)
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
 		case ids := <-u.f.RelationsEvents():
 			added, err := u.updateRelations(ids)
@@ -287,6 +297,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
 		}
 		if err = u.runHook(hi); err == errHookFailed {
@@ -307,7 +319,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())
 	// Create error information for status.
-	data := params.StatusData{"hook": u.currentHookName()}
+	data := map[string]interface{}{"hook": u.currentHookName()}
 	if u.s.Hook.Kind.IsRelation() {
 		data["relation-id"] = u.s.Hook.RelationId
 		if u.s.Hook.RemoteUnit != "" {

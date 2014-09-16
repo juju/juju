@@ -16,3 +16,11 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 	defer u.proxyMutex.Unlock()
 	return u.proxy
 }
+
+var MergeEnvironment = mergeEnvironment
+
+var SearchHook = searchHook
+
+var HookCommand = hookCommand
+
+var LookPath = lookPath

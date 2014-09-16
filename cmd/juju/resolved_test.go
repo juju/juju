@@ -4,13 +4,12 @@
 package main
 
 import (
-	charmtesting "github.com/juju/charm/testing"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -74,14 +73,14 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
-	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
 	c.Assert(err, gc.IsNil)
 
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, gc.IsNil)
-		err = u.SetStatus(params.StatusError, "lol borken", nil)
+		err = u.SetStatus(state.StatusError, "lol borken", nil)
 		c.Assert(err, gc.IsNil)
 	}
 

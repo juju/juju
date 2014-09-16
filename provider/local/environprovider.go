@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strconv"
 	"syscall"
 
 	"github.com/juju/loggo"
@@ -152,7 +153,7 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 var checkLocalPort = func(port int, description string) error {
 	logger.Infof("checking %s", description)
 	// Try to connect the port on localhost.
-	address := fmt.Sprintf("localhost:%d", port)
+	address := net.JoinHostPort("localhost", strconv.Itoa(port))
 	// TODO(mue) Add a timeout?
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
@@ -225,6 +226,22 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir
 
+	// If the user hasn't already specified a value, set it to the
+	// given value.
+	defineIfNot := func(keyName string, value interface{}) {
+		if _, defined := cfg.AllAttrs()[keyName]; !defined {
+			logger.Infof("lxc-clone is enabled. Switching %s to %v", keyName, value)
+			localConfig.attrs[keyName] = value
+		}
+	}
+
+	// If we're cloning, and the user hasn't specified otherwise,
+	// prefer to skip update logic.
+	if useClone, _ := localConfig.LXCUseClone(); useClone && containerType == instance.LXC {
+		defineIfNot("enable-os-refresh-update", false)
+		defineIfNot("enable-os-upgrade", false)
+	}
+
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)
 }
@@ -258,7 +275,21 @@ local:
     # Make sure to uncomment the following option and set the value to
     # precise or trusty as desired.
     #
-    # default-series: precise
+    # default-series: trusty
+
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of true is recommended for use
+    # in production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-upgrade: true
 
 `[1:]
 }

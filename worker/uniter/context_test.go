@@ -8,21 +8,25 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
+	"github.com/juju/names"
+	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
+	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	apiuniter "github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
@@ -33,7 +37,29 @@ type RunHookSuite struct {
 	HookContextSuite
 }
 
+type MergeEnvSuite struct {
+	envtesting.IsolationSuite
+}
+
 var _ = gc.Suite(&RunHookSuite{})
+var _ = gc.Suite(&MergeEnvSuite{})
+
+func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
+	// environment does not get fully cleared on Windows
+	// when using testing.IsolationSuite
+	origEnv := os.Environ()
+	extraExpected := []string{
+		"DUMMYVAR=foo",
+		"DUMMYVAR2=bar",
+		"NEWVAR=ImNew",
+	}
+	expectEnv := append(origEnv, extraExpected...)
+	os.Setenv("DUMMYVAR2", "ChangeMe")
+	os.Setenv("DUMMYVAR", "foo")
+
+	newEnv := uniter.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	c.Assert(expectEnv, jc.SameContents, newEnv)
+}
 
 type hookSpec struct {
 	// name is the name of the hook.
@@ -352,6 +378,31 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	})
 }
 
+func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened",
+		perm: 0700,
+	})
+
+	now := time.Now()
+	ctx.AddMetrics("key", "50", now)
+
+	// Run the hook.
+	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+	metrics := metricBatches[0].Metrics()
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Key, gc.Equals, "key")
+	c.Assert(metrics[0].Value, gc.Equals, "50")
+}
+
 type ContextRelationSuite struct {
 	testing.JujuConnSuite
 	svc *state.Service
@@ -385,13 +436,13 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
 	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiUnit, err := s.uniter.Unit(unit.Tag().String())
+	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -668,7 +719,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	password, err := utils.RandomPassword()
 	err = s.unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -709,8 +760,9 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, gc.IsNil)
-	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().String())
+	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
+	// TODO(dfc) uniter.Relation should take a names.RelationTag
 	apiRel, err := s.uniter.Relation(rel.Tag().String())
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
@@ -726,7 +778,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies)
+		proxies, map[string]interface{}(nil))
 	c.Assert(err, gc.IsNil)
 	return context
 }
@@ -800,4 +852,80 @@ exit 42
 	c.Assert(result.Code, gc.Equals, 42)
 	c.Assert(string(result.Stdout), gc.Equals, "this is standard out\n")
 	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
+}
+
+type WindowsHookSuite struct{}
+
+var _ = gc.Suite(&WindowsHookSuite{})
+
+func (s *WindowsHookSuite) TestHookCommandPowerShellScript(c *gc.C) {
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+
+	hookname := "powerShellScript.ps1"
+	expected := []string{
+		"powershell.exe",
+		"-NonInteractive",
+		"-ExecutionPolicy",
+		"RemoteSigned",
+		"-File",
+		hookname,
+	}
+
+	c.Assert(uniter.HookCommand(hookname), gc.DeepEquals, expected)
+	restorer()
+}
+
+func (s *WindowsHookSuite) TestHookCommandNotPowerShellScripts(c *gc.C) {
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+
+	cmdhook := "somehook.cmd"
+	c.Assert(uniter.HookCommand(cmdhook), gc.DeepEquals, []string{cmdhook})
+
+	bathook := "somehook.bat"
+	c.Assert(uniter.HookCommand(bathook), gc.DeepEquals, []string{bathook})
+
+	restorer()
+}
+
+func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping hook with no extension on Windows")
+	}
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened",
+		perm: 0755,
+	})
+
+	expected, err := uniter.LookPath(filepath.Join(charmDir, "hooks", "something-happened"))
+	c.Assert(err, gc.IsNil)
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened.ps1",
+		perm: 0755,
+	})
+
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+
+	defer restorer()
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.Equals, filepath.Join(charmDir, "hooks", "something-happened.ps1"))
+}
+
+func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened.linux",
+		perm: 0755,
+	})
+
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+	defer restorer()
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.ErrorMatches, "hooks/something-happened does not exist")
+	c.Assert(obtained, gc.Equals, "")
 }

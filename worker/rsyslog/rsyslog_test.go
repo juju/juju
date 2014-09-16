@@ -1,5 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+// +build !windows
 
 package rsyslog_test
 
@@ -8,71 +9,20 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cert"
-	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/syslog"
 	"github.com/juju/juju/worker/rsyslog"
 )
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-type RsyslogSuite struct {
-	jujutesting.JujuConnSuite
-
-	st      *api.State
-	machine *state.Machine
-}
-
-var _ = gc.Suite(&RsyslogSuite{})
-
-func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
-	// TODO(waigani) 2014-03-19 bug 1294462
-	// Add patch for suite functions
-	restore := testing.PatchValue(rsyslog.LookupUser, func(username string) (uid, gid int, err error) {
-		// worker will not attempt to chown files if uid/gid is 0
-		return 0, 0, nil
-	})
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
-}
-
-func (s *RsyslogSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(rsyslog.RestartRsyslog, func() error { return nil })
-	s.PatchValue(rsyslog.LogDir, c.MkDir())
-	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
-
-	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
-}
-
-func waitForFile(c *gc.C, file string) {
-	timeout := time.After(coretesting.LongWait)
-	for {
-		select {
-		case <-timeout:
-			c.Fatalf("timed out waiting for %s to be written", file)
-		case <-time.After(coretesting.ShortWait):
-			if _, err := os.Stat(file); err == nil {
-				return
-			}
-		}
-	}
-}
 
 func waitForRestart(c *gc.C, restarted chan struct{}) {
 	timeout := time.After(coretesting.LongWait)
@@ -86,9 +36,14 @@ func waitForRestart(c *gc.C, restarted chan struct{}) {
 	}
 }
 
+func assertPathExists(c *gc.C, path string) {
+	_, err := os.Stat(path)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag().String(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -96,7 +51,7 @@ func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 
 func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag().String(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	confFile := filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf")
 	// On worker teardown, the rsyslog config file should be removed.
@@ -109,38 +64,9 @@ func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 	waitForFile(c, confFile)
 }
 
-func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
-	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
-	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	addrs := []string{"0.1.2.3", "0.2.4.6"}
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag().String(), "", addrs)
-	c.Assert(err, gc.IsNil)
-	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
-	defer worker.Kill()
-
-	// We should get a ca-cert.pem with the contents introduced into state config.
-	waitForFile(c, filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
-	caCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
-
-	// Verify rsyslog configuration.
-	waitForFile(c, filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
-	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
-	c.Assert(err, gc.IsNil)
-
-	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewForwardConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", addrs)
-	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
-	rendered, err := syslogConfig.Render()
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
-}
-
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag().String(), "", nil)
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -153,6 +79,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rsyslogKeyPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-key.pem"))
 	c.Assert(err, gc.IsNil)
+
 	_, _, err = cert.ParseCertAndKey(string(rsyslogCertPEM), string(rsyslogKeyPEM))
 	c.Assert(err, gc.IsNil)
 	err = cert.Verify(string(rsyslogCertPEM), string(caCertPEM), time.Now().UTC())
@@ -163,13 +90,18 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
 	c.Assert(err, gc.IsNil)
 
-	syslogPort := s.Conn.Environ.Config().SyslogPort()
+	syslogPort := s.Environ.Config().SyslogPort()
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", []string{})
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
+
+	// Verify logrotate files
+	assertPathExists(c, filepath.Join(*rsyslog.LogDir, "logrotate.conf"))
+	assertPathExists(c, filepath.Join(*rsyslog.LogDir, "logrotate.run"))
+
 }
 
 func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
@@ -193,18 +125,18 @@ func (s *RsyslogSuite) TestNamespace(c *gc.C) {
 
 	// namespace only takes effect in filenames
 	// for machine-0; all others assume isolation.
-	s.testNamespace(c, st, "machine-0", "", "25-juju.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "machine-0", "mynamespace", "25-juju-mynamespace.conf", *rsyslog.LogDir+"-mynamespace")
-	s.testNamespace(c, st, "machine-1", "", "25-juju.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "machine-1", "mynamespace", "25-juju.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "unit-myservice-0", "", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "unit-myservice-0", "mynamespace", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewMachineTag("0"), "", "25-juju.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewMachineTag("0"), "mynamespace", "25-juju-mynamespace.conf", *rsyslog.LogDir+"-mynamespace")
+	s.testNamespace(c, st, names.NewMachineTag("1"), "", "25-juju.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewMachineTag("1"), "mynamespace", "25-juju.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewUnitTag("myservice/0"), "", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewUnitTag("myservice/0"), "mynamespace", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
 }
 
 // testNamespace starts a worker and ensures that
 // the rsyslog config file has the expected filename,
 // and the appropriate log dir is used.
-func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, expectedFilename, expectedLogDir string) {
+func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, namespace, expectedFilename, expectedLogDir string) {
 	restarted := make(chan struct{}, 2) // once for create, once for teardown
 	s.PatchValue(rsyslog.RestartRsyslog, func() error {
 		restarted <- struct{}{}
@@ -213,7 +145,7 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, exp
 
 	err := os.MkdirAll(expectedLogDir, 0755)
 	c.Assert(err, gc.IsNil)
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, tag, namespace, []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, tag, namespace, []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()

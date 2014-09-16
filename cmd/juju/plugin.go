@@ -56,13 +56,13 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
 	jujuArgs := extractJujuArgs(args)
-	err := flags.Parse(false, jujuArgs)
-	if err != nil {
+	if err := flags.Parse(false, jujuArgs); err != nil {
 		return err
 	}
-
-	plugin.Init(args)
-	err = plugin.Run(ctx)
+	if err := plugin.Init(args); err != nil {
+		return err
+	}
+	err := plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
 	// exec.Error results are for when the executable isn't found, in
 	// those cases, drop through.
@@ -93,7 +93,7 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
 		osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-		osenv.JujuEnvEnvKey + "=" + c.EnvName}...,
+		osenv.JujuEnvEnvKey + "=" + c.ConnectionName()}...,
 	)
 
 	// Now hook up stdin, stdout, stderr

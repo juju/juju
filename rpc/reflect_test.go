@@ -97,7 +97,7 @@ func (*reflectSuite) TestObjTypeOf(c *gc.C) {
 func (*reflectSuite) TestValueOf(c *gc.C) {
 	v := rpcreflect.ValueOf(reflect.ValueOf(nil))
 	c.Check(v.IsValid(), jc.IsFalse)
-	c.Check(func() { v.MethodCaller("foo", "bar") }, gc.PanicMatches, "MethodCaller called on invalid Value")
+	c.Check(func() { v.FindMethod("foo", 0, "bar") }, gc.PanicMatches, "FindMethod called on invalid Value")
 
 	root := &Root{}
 	v = rpcreflect.ValueOf(reflect.ValueOf(root))
@@ -105,8 +105,8 @@ func (*reflectSuite) TestValueOf(c *gc.C) {
 	c.Check(v.GoValue().Interface(), gc.Equals, root)
 }
 
-func (*reflectSuite) TestMethodCaller(c *gc.C) {
-	// MethodCaller is actually extensively tested because it's
+func (*reflectSuite) TestFindMethod(c *gc.C) {
+	// FindMethod is actually extensively tested because it's
 	// used in the implementation of the rpc server,
 	// so just a simple sanity check test here.
 	root := &Root{
@@ -115,22 +115,39 @@ func (*reflectSuite) TestMethodCaller(c *gc.C) {
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
 	v := rpcreflect.ValueOf(reflect.ValueOf(root))
 
-	m, err := v.MethodCaller("foo", "bar")
+	m, err := v.FindMethod("foo", 0, "bar")
 	c.Assert(err, gc.ErrorMatches, `unknown object type "foo"`)
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
+	c.Assert(m, gc.IsNil)
 
-	m, err = v.MethodCaller("SimpleMethods", "bar")
+	m, err = v.FindMethod("SimpleMethods", 0, "bar")
 	c.Assert(err, gc.ErrorMatches, "no such request - method SimpleMethods.bar is not implemented")
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
+	c.Assert(m, gc.IsNil)
 
-	m, err = v.MethodCaller("SimpleMethods", "Call1r1e")
+	m, err = v.FindMethod("SimpleMethods", 0, "Call1r1e")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.ParamsType, gc.Equals, reflect.TypeOf(stringVal{}))
-	c.Assert(m.ResultType, gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
 	ret, err := m.Call("a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, gc.IsNil)
 	c.Assert(ret.Interface(), gc.Equals, stringVal{"Call1r1e ret"})
+}
+
+func (*reflectSuite) TestFindMethodRefusesVersionsNot0(c *gc.C) {
+	root := &Root{
+		simple: make(map[string]*SimpleMethods),
+	}
+	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
+	v := rpcreflect.ValueOf(reflect.ValueOf(root))
+
+	m, err := v.FindMethod("SimpleMethods", 0, "Call1r1e")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
+
+	m, err = v.FindMethod("SimpleMethods", 1, "Call1r1e")
+	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Assert(err, gc.ErrorMatches, `unknown version \(1\) of interface "SimpleMethods"`)
 }

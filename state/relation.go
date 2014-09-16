@@ -10,14 +10,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
-
-	statetxn "github.com/juju/juju/state/txn"
+	jujutxn "github.com/juju/txn"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -36,7 +35,7 @@ func relationKey(endpoints []Endpoint) string {
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
-// Note the correspondence with RelationInfo in state/api/params.
+// Note the correspondence with RelationInfo in apiserver/params.
 type relationDoc struct {
 	Key       string `bson:"_id"`
 	Id        int
@@ -71,8 +70,11 @@ func (r *Relation) Tag() names.Tag {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
+	relations, closer := r.st.getCollection(relationsC)
+	defer closer()
+
 	doc := relationDoc{}
-	err := r.st.relations.FindId(r.doc.Key).One(&doc)
+	err := relations.FindId(r.doc.Key).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("relation %v", r)
 	}
@@ -122,7 +124,7 @@ func (r *Relation) Destroy() (err error) {
 		}
 		ops, _, err := rel.destroyOps("")
 		if err == errAlreadyDying {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
 		}
@@ -150,7 +152,7 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 		return removeOps, true, nil
 	}
 	return []txn.Op{{
-		C:      r.st.relations.Name,
+		C:      relationsC,
 		Id:     r.doc.Key,
 		Assert: bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}},
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
@@ -164,7 +166,7 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 // removal themselves.
 func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.Op, error) {
 	relOp := txn.Op{
-		C:      r.st.relations.Name,
+		C:      relationsC,
 		Id:     r.doc.Key,
 		Remove: true,
 	}
@@ -192,10 +194,13 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			asserts = append(hasRelation, cannotDieYet...)
 		} else {
 			// This service may require immediate removal.
+			services, closer := r.st.getCollection(servicesC)
+			defer closer()
+
 			svc := &Service{st: r.st}
 			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
 			removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
-			if err := r.st.services.Find(removable).One(&svc.doc); err == nil {
+			if err := services.Find(removable).One(&svc.doc); err == nil {
 				ops = append(ops, svc.removeOps(hasLastRef)...)
 				continue
 			} else if err != mgo.ErrNotFound {
@@ -210,7 +215,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			}}}
 		}
 		ops = append(ops, txn.Op{
-			C:      r.st.services.Name,
+			C:      servicesC,
 			Id:     ep.ServiceName,
 			Assert: asserts,
 			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},

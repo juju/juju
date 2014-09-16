@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -116,7 +117,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 	template := state.MachineTemplate{
 		InstanceId: instance.Id("bootstrap"),
 		Series:     "precise",
-		Nonce:      state.BootstrapNonce,
+		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
 		Placement:  "anyoldthing",
 	}

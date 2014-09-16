@@ -6,8 +6,10 @@ package state_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo"
+	jc "github.com/juju/testing/checkers"
+	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
@@ -36,6 +38,8 @@ type ConnSuite struct {
 	State        *state.State
 	policy       statetesting.MockPolicy
 	factory      *factory.Factory
+	envTag       names.EnvironTag
+	owner        names.UserTag
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -49,10 +53,16 @@ func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 }
 
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
+	c.Log("SetUpTest")
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
-	cs.State = state.TestingInitialize(c, nil, &cs.policy)
+	cfg := testing.EnvironConfig(c)
+	cs.owner = names.NewLocalUserTag("admin")
+	cs.State = TestingInitialize(c, cfg, &cs.policy)
+	uuid, ok := cfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	cs.envTag = names.NewEnvironTag(uuid)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
@@ -60,8 +70,8 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
-	cs.State.AddAdminUser("pass")
-	cs.factory = factory.NewFactory(cs.State, c)
+	cs.factory = factory.NewFactory(cs.State)
+	c.Log("SetUpTest done")
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
@@ -78,11 +88,11 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return state.AddTestingService(c, s.State, name, ch)
+	return state.AddTestingService(c, s.State, name, ch, s.owner)
 }
 
 func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
-	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, networks)
+	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, s.owner, networks)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

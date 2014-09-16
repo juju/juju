@@ -4,22 +4,29 @@
 package rsyslog
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/user"
+	"runtime"
 	"strconv"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	rsyslog "github.com/juju/syslog"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
+	apirsyslog "github.com/juju/juju/api/rsyslog"
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/cert"
-	apirsyslog "github.com/juju/juju/state/api/rsyslog"
-	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/utils/syslog"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -28,6 +35,7 @@ var logger = loggo.GetLogger("juju.worker.rsyslog")
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
 	logDir         = agent.DefaultLogDir
+	syslogTargets  = []*rsyslog.Writer{}
 )
 
 // RsyslogMode describes how to configure rsyslog.
@@ -53,7 +61,7 @@ type RsyslogConfigHandler struct {
 	mode            RsyslogMode
 	syslogConfig    *syslog.SyslogConfig
 	rsyslogConfPath string
-	tag             string
+	tag             names.Tag
 	// We store the syslog-port and rsyslog-ca-cert
 	// values after writing the rsyslog configuration,
 	// so we can decide whether a change has occurred.
@@ -67,7 +75,10 @@ var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
-func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
+func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
+	if version.Current.OS == version.Windows && mode == RsyslogModeAccumulate {
+		return worker.NewNoOpWorker(), nil
+	}
 	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs)
 	if err != nil {
 		return nil, err
@@ -76,34 +87,27 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespa
 	return worker.NewNotifyWorker(handler), nil
 }
 
-func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
+func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
 	var syslogConfig *syslog.SyslogConfig
 	if mode == RsyslogModeAccumulate {
-		syslogConfig = syslog.NewAccumulateConfig(
-			tag, logDir, 0, namespace, stateServerAddrs,
-		)
+		syslogConfig = syslog.NewAccumulateConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
 	} else {
-		syslogConfig = syslog.NewForwardConfig(
-			tag, logDir, 0, namespace, stateServerAddrs,
-		)
+		syslogConfig = syslog.NewForwardConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
 	}
 
 	// Historically only machine-0 includes the namespace in the log
 	// dir/file; for backwards compatibility we continue the tradition.
-	if tag != "machine-0" {
+	if tag != names.NewMachineTag("0") {
 		namespace = ""
 	}
-	kind, err := names.TagKind(tag)
-	if err != nil {
-		return nil, err
-	}
-	if kind == names.MachineTagKind {
+	switch tag := tag.(type) {
+	case names.MachineTag:
 		if namespace == "" {
 			syslogConfig.ConfigFileName = "25-juju.conf"
 		} else {
 			syslogConfig.ConfigFileName = fmt.Sprintf("25-juju-%s.conf", namespace)
 		}
-	} else {
+	default:
 		syslogConfig.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	}
 
@@ -125,11 +129,17 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 		if err := h.ensureCertificates(); err != nil {
 			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
+
+		if err := h.ensureLogrotate(); err != nil {
+			return nil, errors.Annotate(err, "failed to write rsyslog logrotate scripts")
+		}
+
 	}
-	return h.st.WatchForRsyslogChanges(h.tag)
+	return h.st.WatchForRsyslogChanges(h.tag.String())
 }
 
 var restartRsyslog = syslog.Restart
+var dialSyslog = rsyslog.Dial
 
 func (h *RsyslogConfigHandler) TearDown() error {
 	if err := os.Remove(h.syslogConfig.ConfigFilePath()); err == nil {
@@ -138,8 +148,62 @@ func (h *RsyslogConfigHandler) TearDown() error {
 	return nil
 }
 
+func (h *RsyslogConfigHandler) composeTLS(caCert string) (*tls.Config, error) {
+	cert := x509.NewCertPool()
+	ok := cert.AppendCertsFromPEM([]byte(caCert))
+	if !ok {
+		return nil, errors.Errorf("Failed to parse rsyslog root certificate")
+	}
+	return &tls.Config{
+		RootCAs: cert,
+	}, nil
+}
+
+func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
+	tlsConf, err := h.composeTLS(caCert)
+	if err != nil {
+		return err
+	}
+
+	var newLoggers []*rsyslog.Writer
+	var wrapLoggers []io.Writer
+	for _, j := range h.syslogConfig.StateServerAddresses {
+		host, _, err := net.SplitHostPort(j)
+		if err != nil {
+			// No port was found
+			host = j
+		}
+		target := fmt.Sprintf("%s:%d", host, h.syslogConfig.Port)
+		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, "juju-"+h.tag.String(), tlsConf)
+		if err != nil {
+			return err
+		}
+		wrapLoggers = append(wrapLoggers, writer)
+		newLoggers = append(newLoggers, writer)
+	}
+	wapper := io.MultiWriter(wrapLoggers...)
+	writer := loggo.NewSimpleWriter(wapper, &loggo.DefaultFormatter{})
+
+	loggo.RemoveWriter("syslog")
+	err = loggo.RegisterWriter("syslog", writer, loggo.TRACE)
+	if err != nil {
+		return err
+	}
+
+	// Close old targets
+	for _, j := range syslogTargets {
+		if err := j.Close(); err != nil {
+			logger.Warningf("Failed to close syslog writer: %s", err)
+		}
+	}
+	// record new targets
+	syslogTargets = newLoggers
+	return nil
+}
+
 func (h *RsyslogConfigHandler) Handle() error {
-	cfg, err := h.st.GetRsyslogConfig(h.tag)
+	// TODO(dfc)
+	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")
 	}
@@ -153,18 +217,22 @@ func (h *RsyslogConfigHandler) Handle() error {
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
 			return errors.Annotate(err, "cannot write CA certificate")
 		}
-	}
-	data, err := h.syslogConfig.Render()
-	if err != nil {
-		return errors.Annotate(err, "failed to render rsyslog configuration file")
-	}
-	if err := writeFileAtomic(h.syslogConfig.ConfigFilePath(), []byte(data), 0644, 0, 0); err != nil {
-		return errors.Annotate(err, "failed to write rsyslog configuration file")
-	}
-	logger.Debugf("Reloading rsyslog configuration")
-	if err := restartRsyslog(); err != nil {
-		logger.Errorf("failed to reload rsyslog configuration")
-		return errors.Annotate(err, "cannot restart rsyslog")
+		if err := h.replaceRemoteLogger(rsyslogCACert); err != nil {
+			return err
+		}
+	} else {
+		data, err := h.syslogConfig.Render()
+		if err != nil {
+			return errors.Annotate(err, "failed to render rsyslog configuration file")
+		}
+		if err := writeFileAtomic(h.syslogConfig.ConfigFilePath(), []byte(data), 0644, 0, 0); err != nil {
+			return errors.Annotate(err, "failed to write rsyslog configuration file")
+		}
+		logger.Debugf("Reloading rsyslog configuration")
+		if err := restartRsyslog(); err != nil {
+			logger.Errorf("failed to reload rsyslog configuration")
+			return errors.Annotate(err, "cannot restart rsyslog")
+		}
 	}
 	// Record config values so we don't try again.
 	// Do this last so we recover from intermittent
@@ -188,6 +256,39 @@ var lookupUser = func(username string) (uid, gid int, err error) {
 		return -1, -1, err
 	}
 	return uid, gid, nil
+}
+
+func localIPS() ([]string, error) {
+	var ips []string
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+	for _, j := range addrs {
+		ip, _, err := net.ParseCIDR(j.String())
+		if err != nil {
+			return nil, err
+		}
+		if ip.IsLoopback() {
+			continue
+		}
+		ips = append(ips, ip.String())
+	}
+	return ips, nil
+}
+
+func (h *RsyslogConfigHandler) rsyslogHosts() ([]string, error) {
+	var hosts []string
+	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
+	if err != nil {
+		return nil, err
+	}
+	for _, j := range cfg.HostPorts {
+		if j.Value != "" {
+			hosts = append(hosts, j.Address.Value)
+		}
+	}
+	return hosts, nil
 }
 
 // ensureCertificates ensures that a CA certificate,
@@ -218,7 +319,23 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 	if err != nil {
 		return err
 	}
-	rsyslogCertPEM, rsyslogKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, nil)
+
+	// Add rsyslog servers in the subjectAltName so we can
+	// successfully validate when connectiong via SSL
+	hosts, err := h.rsyslogHosts()
+	if err != nil {
+		return err
+	}
+	// Add local IPs to SAN. When connecting via IP address,
+	// the client will validate the server against any IP in
+	// the subjectAltName. We add all local ips to make sure
+	// this does not cause an error
+	ips, err := localIPS()
+	if err != nil {
+		return err
+	}
+	hosts = append(hosts, ips...)
+	rsyslogCertPEM, rsyslogKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hosts)
 	if err != nil {
 		return err
 	}
@@ -245,8 +362,58 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 	return nil
 }
 
+// ensureLogrotate ensures that the logrotate
+// configuration file and logrotate helper script
+// exist in the log directory and creates them if they do not.
+func (h *RsyslogConfigHandler) ensureLogrotate() error {
+	// Files must be chowned to syslog
+	syslogUid, syslogGid, err := lookupUser("syslog")
+	if err != nil {
+		return err
+	}
+
+	logrotateConfPath := h.syslogConfig.LogrotateConfPath()
+	// check for the logrotate conf
+	if _, err := os.Stat(logrotateConfPath); os.IsNotExist(err) {
+		logrotateConfFile, err := h.syslogConfig.LogrotateConfFile()
+		if err != nil {
+			return err
+		}
+		// create the logrotate conf
+		if err := writeFileAtomic(logrotateConfPath, logrotateConfFile, 0600, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	logrotateHelperPath := h.syslogConfig.LogrotateHelperPath()
+	// check for the logrotate helper
+	if _, err := os.Stat(logrotateHelperPath); os.IsNotExist(err) {
+		logrotateHelperFile, err := h.syslogConfig.LogrotateHelperFile()
+		if err != nil {
+			return err
+		}
+		// create the logrotate helper
+		if err := writeFileAtomic(logrotateHelperPath, logrotateHelperFile, 0700, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	return nil
+}
+
 func writeFileAtomic(path string, data []byte, mode os.FileMode, uid, gid int) error {
 	chmodAndChown := func(f *os.File) error {
+		// f.Chmod() and f.Chown() are not implemented on Windows
+		// There is currently no good way of doing file permission
+		// management for Windows, directly from Go. The behavior of os.Chmod()
+		// is different from its linux implementation.
+		if runtime.GOOS == "windows" {
+			return nil
+		}
 		if err := f.Chmod(mode); err != nil {
 			return err
 		}

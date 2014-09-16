@@ -128,12 +128,12 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	t.UploadFakeTools(c, e.Storage())
 	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	info, apiInfo, err := e.StateInfo()
-	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
-	c.Check(apiInfo.Addrs, gc.Not(gc.HasLen), 0)
+	stateServerInstances, err := e.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServerInstances, gc.Not(gc.HasLen), 0)
 
 	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
@@ -143,9 +143,10 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
-	info2, apiInfo2, err := e2.StateInfo()
-	c.Check(info2, gc.DeepEquals, info)
-	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
+	stateServerInstances2, err := e2.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServerInstances2, gc.Not(gc.HasLen), 0)
+	c.Assert(stateServerInstances2, jc.SameContents, stateServerInstances)
 
 	err = environs.Destroy(e2, t.ConfigStore)
 	c.Assert(err, gc.IsNil)
@@ -156,11 +157,14 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e3, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e3, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
+
+	err = environs.Destroy(e3, t.ConfigStore)
+	c.Assert(err, gc.IsNil)
 }
 
 var noRetry = utils.AttemptStrategy{}

@@ -11,13 +11,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -93,9 +93,7 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
-	if t.Env != nil {
-		t.Destroy(c)
-	}
+	t.Destroy(c)
 }
 
 // PrepareOnce ensures that the environment is
@@ -128,7 +126,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	t.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, environs.BootstrapParams{Constraints: cons})
+	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -159,7 +157,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
 	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
@@ -213,7 +211,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 }
 
 func (t *LiveTests) TestPorts(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
 	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
@@ -231,70 +229,72 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts("1", []network.Port{{"udp", 67}, {"tcp", 45}})
+	err = inst1.OpenPorts("1", []network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {80, 100, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err = inst2.OpenPorts("2", []network.Port{{"tcp", 89}, {"tcp", 45}})
+	err = inst2.OpenPorts("2", []network.PortRange{{89, 89, "tcp"}, {45, 45, "tcp"}, {20, 30, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 
 	// Check that opening the same port again is ok.
 	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	err = inst2.OpenPorts("2", []network.Port{{"tcp", 45}})
+	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}})
+	c.Assert(err, gc.IsNil)
+	err = inst2.OpenPorts("2", []network.PortRange{{20, 30, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts("2", []network.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
 
-	err = inst2.ClosePorts("2", []network.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.ClosePorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}, {20, 30, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts("1", []network.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.ClosePorts("1", []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}, {80, 100, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts("2", []network.Port{{"tcp", 111}, {"udp", 222}})
+	err = inst2.ClosePorts("2", []network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {600, 700, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 
 	// Check errors when acting on environment.
-	err = t.Env.OpenPorts([]network.Port{{"tcp", 80}})
+	err = t.Env.OpenPorts([]network.PortRange{{80, 80, "tcp"}})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for opening ports on environment`)
 
-	err = t.Env.ClosePorts([]network.Port{{"tcp", 80}})
+	err = t.Env.ClosePorts([]network.PortRange{{80, 80, "tcp"}})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "instance" for closing ports on environment`)
 
 	_, err = t.Env.Ports()
@@ -302,7 +302,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 }
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
 	t.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
@@ -332,34 +332,34 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(ports, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
-	err = t.Env.OpenPorts([]network.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	err = t.Env.OpenPorts([]network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}, {67, 67, "udp"}})
 
 	// Check closing some ports.
-	err = t.Env.ClosePorts([]network.Port{{"tcp", 99}, {"udp", 67}})
+	err = t.Env.ClosePorts([]network.PortRange{{99, 99, "tcp"}, {67, 67, "udp"}})
 	c.Assert(err, gc.IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
 
 	// Check that we can close ports that aren't there.
-	err = t.Env.ClosePorts([]network.Port{{"tcp", 111}, {"udp", 222}})
+	err = t.Env.ClosePorts([]network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {2000, 2500, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts("1", []network.Port{{"tcp", 80}})
+	err = inst1.OpenPorts("1", []network.PortRange{{80, 80, "tcp"}})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
-	err = inst1.ClosePorts("1", []network.Port{{"tcp", 80}})
+	err = inst1.ClosePorts("1", []network.PortRange{{80, 80, "tcp"}})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
 	_, err = inst1.Ports("1")
@@ -377,7 +377,8 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	c.Logf("destroy env")
 	env := t.Env
 	t.Destroy(c)
-	env.Destroy() // Again, should work fine and do nothing.
+	err = env.Destroy() // Again, should work fine and do nothing.
+	c.Assert(err, gc.IsNil)
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
@@ -391,39 +392,37 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// TODO(niemeyer): Stop growing this kitchen sink test and split it into proper parts.
 
-	c.Logf("opening connection")
-	conn, err := juju.NewConn(t.Env)
-	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	c.Logf("opening state")
+	st := t.Env.(testing.GetStater).GetStateInAPIServer()
 
 	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
-	defer conn.Close()
+	defer apiState.Close()
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
-	cfg, err := conn.State.EnvironConfig()
+	cfg, err := st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	agentVersion, ok := cfg.AgentVersion()
 	c.Check(ok, gc.Equals, true)
 	c.Check(agentVersion, gc.Equals, version.Current.Number)
 
 	// Check that the constraints have been set in the environment.
-	cons, err := conn.State.EnvironConstraints()
+	cons, err := st.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons.String(), gc.Equals, "mem=2048M")
 
 	// Wait for machine agent to come up on the bootstrap
 	// machine and find the deployed series from that.
-	m0, err := conn.State.Machine("0")
+	m0, err := st.Machine("0")
 	c.Assert(err, gc.IsNil)
 
 	instId0, err := m0.InstanceId()
 	c.Assert(err, gc.IsNil)
 
 	// Check that the API connection is working.
-	status, err := apiConn.State.Client().Status(nil)
+	status, err := apiState.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 
@@ -440,11 +439,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
 	url := charmtesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := conn.PutCharm(url, &charm.LocalRepository{Path: repoDir}, false)
+	sch, err := testing.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := conn.State.AddService("dummy", "user-admin", sch, nil)
+	svc, err := st.AddService("dummy", "user-admin", sch, nil)
 	c.Assert(err, gc.IsNil)
-	units, err := juju.AddUnits(conn.State, svc, 1, "")
+	units, err := juju.AddUnits(st, svc, 1, "")
 	c.Assert(err, gc.IsNil)
 	unit := units[0]
 
@@ -452,7 +451,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// and announce itself.
 	mid1, err := unit.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
-	m1, err := conn.State.Machine(mid1)
+	m1, err := st.Machine(mid1)
 	c.Assert(err, gc.IsNil)
 	mw1 := newMachineToolWaiter(m1)
 	defer mw1.Stop()
@@ -469,7 +468,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// Check that we can upgrade the environment.
 	newVersion := utools.Version
 	newVersion.Patch++
-	t.checkUpgrade(c, conn, newVersion, mw0, mw1, uw)
+	t.checkUpgrade(c, st, newVersion, mw0, mw1, uw)
 
 	// BUG(niemeyer): Logic below is very much wrong. Must be:
 	//
@@ -515,7 +514,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	c.Logf("waiting for instance to be removed")
-	t.assertStopInstance(c, conn.Environ, instId1)
+	t.assertStopInstance(c, t.Env, instId1)
 }
 
 func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
@@ -548,62 +547,9 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	}
 	t.BootstrapOnce(c)
 
-	conn, err := juju.NewConn(t.Env)
+	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
-	conn.Close()
-
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
-	apiConn.Close()
-}
-
-func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *gc.C) {
-	// When new connection is established to a bootstraped environment,
-	// it is checked that we are running against a juju-core environment.
-	//
-	// Absence of a verification file means it is a juju-core environment
-	// with an older version, which is fine.
-	if !t.CanOpenState {
-		c.Skip("CanOpenState is false; cannot open state connection")
-	}
-	t.BootstrapOnce(c)
-	environ := t.Env
-	stor := environ.Storage()
-	err := stor.Remove("bootstrap-verify")
-	c.Assert(err, gc.IsNil)
-	defer restoreBootstrapVerificationFile(c, stor)
-
-	conn, err := juju.NewConn(t.Env)
-	c.Assert(err, gc.IsNil)
-	conn.Close()
-}
-
-func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *gc.C) {
-	// When new connection is established to a bootstraped environment,
-	// it is checked that we are running against a juju-core environment.
-	//
-	// If the verification file has unexpected content, it is not
-	// a juju-core environment (likely to a Python juju environment).
-	if !t.CanOpenState {
-		c.Skip("CanOpenState is false; cannot open state connection")
-	}
-	t.BootstrapOnce(c)
-	environ := t.Env
-	stor := environ.Storage()
-
-	// Finally, replace the content with an arbitrary string.
-	badVerificationContent := "bootstrap storage verification"
-	reader := strings.NewReader(badVerificationContent)
-	err := stor.Put(
-		"bootstrap-verify",
-		reader,
-		int64(len(badVerificationContent)))
-	c.Assert(err, gc.IsNil)
-	defer restoreBootstrapVerificationFile(c, stor)
-
-	// Running NewConn() should fail.
-	_, err = juju.NewConn(t.Env)
-	c.Assert(err, gc.Equals, environs.InvalidEnvironmentError)
+	apiState.Close()
 }
 
 type tooler interface {
@@ -704,7 +650,7 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 
 // checkUpgrade sets the environment agent version and checks that
 // all the provided watchers upgrade to the requested version.
-func (t *LiveTests) checkUpgrade(c *gc.C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
+func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
 	upgradeTools, err := sync.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, gc.IsNil)
@@ -715,7 +661,7 @@ func (t *LiveTests) checkUpgrade(c *gc.C, conn *juju.Conn, newVersion version.Bi
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Version, gc.Equals, newVersion)
-	err = statetesting.SetAgentVersion(conn.State, newVersion.Number)
+	err = statetesting.SetAgentVersion(st, newVersion.Number)
 	c.Assert(err, gc.IsNil)
 
 	for i, w := range waiters {
@@ -845,10 +791,11 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := testing.FakeStateInfo(machineId)
 	apiInfo := testing.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "", nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-trusty-amd64"))
 	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
@@ -906,16 +853,13 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	conn, err := juju.NewConn(env)
-	c.Assert(err, gc.IsNil)
-	defer conn.Close()
-
+	st := t.Env.(testing.GetStater).GetStateInAPIServer()
 	// Wait for machine agent to come up on the bootstrap
 	// machine and ensure it deployed the proper series.
-	m0, err := conn.State.Machine("0")
+	m0, err := st.Machine("0")
 	c.Assert(err, gc.IsNil)
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()

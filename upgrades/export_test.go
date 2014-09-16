@@ -4,10 +4,13 @@
 package upgrades
 
 var (
-	UpgradeOperations = &upgradeOperations
-	UbuntuHome        = &ubuntuHome
-	RootLogDir        = &rootLogDir
-	RootSpoolDir      = &rootSpoolDir
+	UpgradeOperations         = &upgradeOperations
+	UbuntuHome                = &ubuntuHome
+	RootLogDir                = &rootLogDir
+	RootSpoolDir              = &rootSpoolDir
+	CharmBundleURL            = &charmBundleURL
+	CharmStoragePath          = &charmStoragePath
+	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
@@ -20,4 +23,8 @@ var (
 	UpdateRsyslogPort                      = updateRsyslogPort
 	ProcessDeprecatedEnvSettings           = processDeprecatedEnvSettings
 	MigrateLocalProviderAgentConfig        = migrateLocalProviderAgentConfig
+
+	// 121 upgrade functions
+	StepsFor121         = stepsFor121
+	MigrateCharmStorage = migrateCharmStorage
 )

@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -32,7 +31,8 @@ import (
 
 type kvmSuite struct {
 	kvmtesting.TestSuite
-	events chan mock.Event
+	events     chan mock.Event
+	eventsDone chan struct{}
 }
 
 type kvmBrokerSuite struct {
@@ -46,7 +46,9 @@ var _ = gc.Suite(&kvmBrokerSuite{})
 func (s *kvmSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
+	s.eventsDone = make(chan struct{})
 	go func() {
+		defer close(s.eventsDone)
 		for event := range s.events {
 			c.Output(3, fmt.Sprintf("kvm event: <%s, %s>", event.Action, event.InstanceId))
 		}
@@ -56,20 +58,17 @@ func (s *kvmSuite) SetUpTest(c *gc.C) {
 
 func (s *kvmSuite) TearDownTest(c *gc.C) {
 	close(s.events)
+	<-s.eventsDone
 	s.TestSuite.TearDownTest(c)
 }
 
 func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	s.kvmSuite.SetUpTest(c)
-	tools := &coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
-	}
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           "/not/used/here",
-			Tag:               "tag",
+			Tag:               names.NewUnitTag("ubuntu/1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
@@ -78,7 +77,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -86,9 +85,13 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
 	kvm, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
@@ -142,8 +145,7 @@ func (s *kvmBrokerSuite) kvmRemovedContainerDir(inst instance.Instance) string {
 type kvmProvisionerSuite struct {
 	CommonProvisionerSuite
 	kvmSuite
-	machineId string
-	events    chan mock.Event
+	events chan mock.Event
 }
 
 var _ = gc.Suite(&kvmProvisionerSuite{})
@@ -161,25 +163,6 @@ func (s *kvmProvisionerSuite) TearDownSuite(c *gc.C) {
 func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.kvmSuite.SetUpTest(c)
-
-	// The kvm provisioner actually needs the machine it is being created on
-	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
-
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err = s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
-	s.machineId = m.Id()
-	s.APILogin(c, m)
-	err = m.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
 	s.ContainerFactory.AddListener(s.events)
@@ -218,12 +201,10 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := names.NewMachineTag(s.machineId).String()
+	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag())
-	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
-	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig, managerConfig)
+	broker, err := provisioner.NewKvmBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
 }
@@ -258,7 +239,7 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machineId, instance.KVM)
+	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)
 	c.Assert(err, gc.IsNil)
 	return container
 }

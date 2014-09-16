@@ -1,13 +1,14 @@
 package juju
 
 import (
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/state/api"
 )
 
 var (
 	ProviderConnectDelay = &providerConnectDelay
 	GetConfig            = getConfig
+	CacheChangedAPIInfo  = cacheChangedAPIInfo
 )
 
 type APIState apiState
@@ -19,11 +20,4 @@ func NewAPIFromStore(envName string, store configstore.Storage, f APIOpenFunc) (
 		return f(info, opts)
 	}
 	return newAPIFromStore(envName, store, apiOpen)
-}
-
-func APIEndpointInStore(envName string, refresh bool, store configstore.Storage, f APIOpenFunc) (configstore.APIEndpoint, error) {
-	apiOpen := func(info *api.Info, opts api.DialOpts) (apiState, error) {
-		return f(info, opts)
-	}
-	return apiEndpointInStore(envName, refresh, store, apiOpen)
 }

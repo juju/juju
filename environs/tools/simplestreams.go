@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/version/ubuntu"
 )
 
 func init() {
@@ -119,7 +118,7 @@ func NewGeneralToolsConstraint(majorVersion, minorVersion int, released bool, pa
 func (tc *ToolsConstraint) Ids() ([]string, error) {
 	var allIds []string
 	for _, series := range tc.Series {
-		version, err := ubuntu.SeriesVersion(series)
+		version, err := version.SeriesVersion(series)
 		if err != nil {
 			return nil, err
 		}
@@ -155,11 +154,12 @@ func (t *ToolsMetadata) binary() version.Binary {
 		Number: version.MustParse(t.Version),
 		Series: t.Release,
 		Arch:   t.Arch,
+		OS:     version.MustOSFromSeries(t.Release),
 	}
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
-	seriesVersion, err := ubuntu.SeriesVersion(t.Release)
+	seriesVersion, err := version.SeriesVersion(t.Release)
 	if err != nil {
 		return "", err
 	}

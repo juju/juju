@@ -13,9 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 )
 
@@ -115,7 +116,15 @@ func NewWatcher(base *mgo.Collection) *Watcher {
 		request:  make(chan interface{}),
 	}
 	go func() {
-		w.tomb.Kill(w.loop())
+		err := w.loop()
+		cause := errors.Cause(err)
+		// tomb expects ErrDying or ErrStillAlive as
+		// exact values, so we need to log and unwrap
+		// the error first.
+		if err != nil && cause != tomb.ErrDying {
+			errors.LoggedErrorf(logger, "watcher loop failed: %v", err)
+		}
+		w.tomb.Kill(cause)
 		w.tomb.Done()
 	}()
 	return w
@@ -124,7 +133,7 @@ func NewWatcher(base *mgo.Collection) *Watcher {
 // Stop stops all the watcher activities.
 func (w *Watcher) Stop() error {
 	w.tomb.Kill(nil)
-	return w.tomb.Wait()
+	return errors.Trace(w.tomb.Wait())
 }
 
 // Dead returns a channel that is closed when the watcher has stopped.
@@ -205,7 +214,7 @@ func (w *Watcher) Alive(key string) (bool, error) {
 	select {
 	case alive = <-result:
 	case <-w.tomb.Dying():
-		return false, fmt.Errorf("cannot check liveness: watcher is dying")
+		return false, errors.Errorf("cannot check liveness: watcher is dying")
 	}
 	return alive, nil
 }
@@ -220,19 +229,19 @@ var period int64 = 30
 func (w *Watcher) loop() error {
 	var err error
 	if w.delta, err = clockDelta(w.base); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	w.next = time.After(0)
 	for {
 		select {
 		case <-w.tomb.Dying():
-			return tomb.ErrDying
+			return errors.Trace(tomb.ErrDying)
 		case <-w.next:
 			w.next = time.After(time.Duration(period) * time.Second)
 			syncDone := w.syncDone
 			w.syncDone = nil
 			if err := w.sync(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			w.flush()
 			for _, done := range syncDone {
@@ -320,7 +329,11 @@ type pingInfo struct {
 
 func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	beings := make([]beingInfo, 0)
-	err := w.beings.Find(bson.D{{}}).All(&beings)
+	session := w.beings.Database.Session.Copy()
+	defer session.Close()
+	beingsC := w.beings.With(session)
+
+	err := beingsC.Find(bson.D{{}}).All(&beings)
 	if err != nil {
 		return nil, err
 	}
@@ -341,14 +354,17 @@ func (w *Watcher) sync() error {
 		// so we don't have to look them up one-by-one
 		var err error
 		if allBeings, err = w.findAllBeings(); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	slot := timeSlot(time.Now(), w.delta)
+	session := w.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := w.pings.With(session)
 	var ping []pingInfo
-	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
+	err := pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
 	if err != nil && err == mgo.ErrNotFound {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Learn about all enforced deaths.
@@ -357,7 +373,8 @@ func (w *Watcher) sync() error {
 		for key, value := range ping[i].Dead {
 			k, err := strconv.ParseInt(key, 16, 64)
 			if err != nil {
-				panic(fmt.Errorf("presence cannot parse dead key: %q", key))
+				err = errors.Annotatef(err, "presence cannot parse dead key: %q", key)
+				panic(err)
 			}
 			k *= 63
 			for i := int64(0); i < 63 && value > 0; i++ {
@@ -376,13 +393,15 @@ func (w *Watcher) sync() error {
 	// Learn about all the pingers that reported and queue
 	// events for those that weren't known to be alive and
 	// are not reportedly dead either.
+	beingsC := w.beings.With(session)
 	alive := make(map[int64]bool)
 	being := beingInfo{}
 	for i := range ping {
 		for key, value := range ping[i].Alive {
 			k, err := strconv.ParseInt(key, 16, 64)
 			if err != nil {
-				panic(fmt.Errorf("presence cannot parse alive key: %q", key))
+				err = errors.Annotatef(err, "presence cannot parse alive key: %q", key)
+				panic(err)
 			}
 			k *= 63
 			for i := int64(0); i < 63 && value > 0; i++ {
@@ -400,12 +419,12 @@ func (w *Watcher) sync() error {
 				// otherwise do a single lookup in mongo
 				var ok bool
 				if being, ok = allBeings[seq]; !ok {
-					err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
+					err := beingsC.Find(bson.D{{"_id", seq}}).One(&being)
 					if err == mgo.ErrNotFound {
 						logger.Tracef("found seq=%d unowned", seq)
 						continue
 					} else if err != nil {
-						return err
+						return errors.Trace(err)
 					}
 				}
 				cur := w.beingSeq[being.Key]
@@ -470,19 +489,27 @@ func (p *Pinger) Start() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.started {
-		return fmt.Errorf("pinger already started")
+		return errors.Errorf("pinger already started")
 	}
 	p.tomb = tomb.Tomb{}
 	if err := p.prepare(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Tracef("starting pinger for %q with seq=%d", p.beingKey, p.beingSeq)
 	if err := p.ping(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.started = true
 	go func() {
-		p.tomb.Kill(p.loop())
+		err := p.loop()
+		cause := errors.Cause(err)
+		// tomb expects ErrDying or ErrStillAlive as
+		// exact values, so we need to log and unwrap
+		// the error first.
+		if err != nil && cause != tomb.ErrDying {
+			errors.LoggedErrorf(logger, "pinger loop failed: %v", err)
+		}
+		p.tomb.Kill(cause)
 		p.tomb.Done()
 	}()
 	return nil
@@ -501,7 +528,7 @@ func (p *Pinger) Stop() error {
 	err := p.tomb.Wait()
 	// TODO ping one more time to guarantee a late timeout.
 	p.started = false
-	return err
+	return errors.Trace(err)
 
 }
 
@@ -527,10 +554,13 @@ func (p *Pinger) killStarted() error {
 
 	slot := p.lastSlot
 	udoc := bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
-	if _, err := p.pings.UpsertId(slot, udoc); err != nil {
-		return err
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := p.pings.With(session)
+	if _, err := pings.UpsertId(slot, udoc); err != nil {
+		return errors.Trace(err)
 	}
-	return killErr
+	return errors.Trace(killErr)
 }
 
 // killStopped kills the pinger while it is not running, by
@@ -545,8 +575,11 @@ func (p *Pinger) killStopped() error {
 		{"dead." + p.fieldKey, p.fieldBit},
 		{"alive." + p.fieldKey, p.fieldBit},
 	}}}
-	_, err := p.pings.UpsertId(slot, udoc)
-	return err
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := p.pings.With(session)
+	_, err := pings.UpsertId(slot, udoc)
+	return errors.Trace(err)
 }
 
 // loop is the main pinger loop that runs while it is
@@ -555,10 +588,10 @@ func (p *Pinger) loop() error {
 	for {
 		select {
 		case <-p.tomb.Dying():
-			return tomb.ErrDying
+			return errors.Trace(tomb.ErrDying)
 		case <-time.After(time.Duration(float64(period+1)*0.75) * time.Second):
 			if err := p.ping(); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -572,27 +605,43 @@ func (p *Pinger) prepare() error {
 		Upsert:    true,
 		ReturnNew: true,
 	}
-	seqs := seqsC(p.base)
+	session := p.base.Database.Session.Copy()
+	defer session.Close()
+	base := p.base.With(session)
+	seqs := seqsC(base)
 	var seq struct{ Seq int64 }
 	if _, err := seqs.FindId("beings").Apply(change, &seq); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	p.beingSeq = seq.Seq
 	p.fieldKey = fmt.Sprintf("%x", p.beingSeq/63)
 	p.fieldBit = 1 << uint64(p.beingSeq%63)
 	p.lastSlot = 0
-	beings := beingsC(p.base)
-	return beings.Insert(beingInfo{p.beingSeq, p.beingKey})
+	beings := beingsC(base)
+	return errors.Trace(beings.Insert(beingInfo{p.beingSeq, p.beingKey}))
 }
 
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
-func (p *Pinger) ping() error {
+func (p *Pinger) ping() (err error) {
 	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	defer func() {
+		// If the session is killed from underneath us, it panics when we
+		// try to copy it, so deal with that here.
+		if v := recover(); v != nil {
+			if v == "Session already closed" {
+				return
+			}
+			err = fmt.Errorf("%v", v)
+		}
+	}()
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
 	if p.delta == 0 {
-		delta, err := clockDelta(p.base)
+		base := p.base.With(session)
+		delta, err := clockDelta(base)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		p.delta = delta
 	}
@@ -603,8 +652,9 @@ func (p *Pinger) ping() error {
 		return nil
 	}
 	p.lastSlot = slot
-	if _, err := p.pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
-		return err
+	pings := p.pings.With(session)
+	if _, err = pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -622,15 +672,18 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 	var before time.Time
 	var serverDelay time.Duration
 	supportsMasterLocalTime := true
+	session := c.Database.Session.Copy()
+	defer session.Close()
+	db := c.Database.With(session)
 	for i := 0; i < 10; i++ {
 		if supportsMasterLocalTime {
 			// Try isMaster.localTime, which is present since MongoDB 2.2
 			// and does not require admin privileges.
 			before = time.Now()
-			err := c.Database.Run("isMaster", &isMaster)
+			err := db.Run("isMaster", &isMaster)
 			after = time.Now()
 			if err != nil {
-				return 0, err
+				return 0, errors.Trace(err)
 			}
 			if isMaster.LocalTime.IsZero() {
 				supportsMasterLocalTime = false
@@ -653,10 +706,10 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 			// the lock and thus cause a retry on the callDelay
 			// check below on a busy server.
 			before = time.Now()
-			err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
+			err := db.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
 			after = time.Now()
 			if err != nil {
-				return 0, err
+				return 0, errors.Trace(err)
 			}
 			serverDelay = server.Sub(before)
 		}
@@ -672,7 +725,7 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 		}
 		return serverDelay, nil
 	}
-	return 0, fmt.Errorf("cannot synchronize clock with database server")
+	return 0, errors.Errorf("cannot synchronize clock with database server")
 }
 
 // timeSlot returns the current time slot, in seconds since the

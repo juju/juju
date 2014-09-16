@@ -9,7 +9,7 @@ endif
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
-ifeq ($(shell uname -p | sed -r 's/.*(x86|armel|armhf).*/golang/'), golang)
+ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf).*/golang/'), golang)
 	GO_C := golang
 	INSTALL_FLAGS := 
 else
@@ -18,7 +18,7 @@ else
 endif
 
 define DEPENDENCIES
-  build-essential
+  ca-certificates
   bzr
   distro-info-data
   git-core
@@ -34,13 +34,24 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-build:
+ifeq ($(JUJU_MAKE_GODEPS),true)
+$(GOPATH)/bin/godeps:
+	go get launchpad.net/godeps
+
+godeps: $(GOPATH)/bin/godeps
+	$(GOPATH)/bin/godeps -u dependencies.tsv
+else
+godeps:
+	@echo "skipping godeps"
+endif
+
+build: godeps
 	go build $(PROJECT)/...
 
-check:
-	go test $(PROJECT)/...
+check: godeps
+	go test -test.timeout=1200s $(PROJECT)/...
 
-install:
+install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
 
 clean:
@@ -72,17 +83,17 @@ simplify:
 	gofmt -w -l -s .
 
 # Install packages required to develop Juju and run tests. The stable
-# PPA includes the required mongodb-server binaries. However, neither
-# PPA works on Saucy just yet.
+# PPA includes the required mongodb-server binaries.
 install-dependencies:
-ifeq ($(shell lsb_release -cs|sed -r 's/precise|quantal|raring/old/'),old)
+ifeq ($(shell lsb_release -cs|sed -r 's/precise/old/'),old)
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository --yes ppa:juju/golang
 	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 endif
 	@echo Installing dependencies
-	@sudo apt-get --yes install $(strip $(DEPENDENCIES)) \
+	@sudo apt-get --yes install --no-install-recommends \
+	$(strip $(DEPENDENCIES)) \
 	$(shell apt-cache madison juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
 # Install bash_completion

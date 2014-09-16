@@ -6,9 +6,9 @@ package uniter_test
 import (
 	"path/filepath"
 
-	"github.com/juju/charm"
-	"github.com/juju/charm/hooks"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/worker/uniter"
@@ -97,6 +97,25 @@ var stateTests = []struct {
 			OpStep: uniter.Pending,
 			Hook:   relhook,
 		},
+	}, {
+		st: uniter.State{
+			Op:     uniter.RunHook,
+			OpStep: uniter.Pending,
+			Hook: &hook.Info{
+				Kind:     hooks.ActionRequested,
+				ActionId: "wordpress/0_a_1",
+			},
+		},
+	}, {
+		st: uniter.State{
+			Op:     uniter.RunHook,
+			OpStep: uniter.Pending,
+			Hook: &hook.Info{
+				Kind:     hooks.ActionRequested,
+				ActionId: "foo",
+			},
+		},
+		err: `action id "foo" cannot be parsed as an action tag`,
 	},
 	// Upgrade operation.
 	{

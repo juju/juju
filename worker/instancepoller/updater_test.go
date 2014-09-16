@@ -13,7 +13,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -121,10 +120,10 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 
 func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
 	waitStatus := make(chan struct{})
-	s.PatchValue(&MachineStatus, func(m *testMachine) (status params.Status, info string, data params.StatusData, err error) {
+	s.PatchValue(&MachineStatus, func(m *testMachine) (status state.Status, info string, data map[string]interface{}, err error) {
 		// Signal that we're in Status.
 		waitStatus <- struct{}{}
-		return params.StatusPending, "", params.StatusData{}, nil
+		return state.StatusPending, "", map[string]interface{}{}, nil
 	})
 	m := &testMachine{
 		id:         "99",

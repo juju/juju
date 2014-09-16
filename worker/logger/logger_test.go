@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apilogger "github.com/juju/juju/api/logger"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	apilogger "github.com/juju/juju/state/api/logger"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/logger"
 )
@@ -62,19 +63,19 @@ func (s *LoggerSuite) waitLoggingInfo(c *gc.C, expected string) {
 type mockConfig struct {
 	agent.Config
 	c   *gc.C
-	tag string
+	tag names.Tag
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
-func agentConfig(c *gc.C, tag string) *mockConfig {
+func agentConfig(c *gc.C, tag names.Tag) *mockConfig {
 	return &mockConfig{c: c, tag: tag}
 }
 
 func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
-	config := agentConfig(c, s.machine.Tag().String())
+	config := agentConfig(c, s.machine.Tag())
 	return logger.NewLogger(s.loggerApi, config), config
 }
 

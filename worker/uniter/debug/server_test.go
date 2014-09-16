@@ -98,24 +98,39 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 
+	flockAcquired := make(chan struct{}, 1)
+	waitForFlock := func() {
+		select {
+		case <-flockAcquired:
+		case <-time.After(testing.ShortWait):
+			c.Fatalf("timed out waiting for hook to acquire flock")
+		}
+	}
+
 	// Run the hook in debug mode with no exit flock held.
 	// The exit flock will be acquired immediately, and the
 	// debug-hooks server process killed.
+	s.PatchValue(&waitClientExit, func(*ServerSession) {
+		flockAcquired <- struct{}{}
+	})
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
 	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
+	waitForFlock()
 
 	// Run the hook in debug mode, simulating the holding
 	// of the exit flock. This simulates the client process
 	// starting but not cleanly exiting (normally the .pid
 	// file is updated, and the server waits on the client
 	// process' death).
-	ch := make(chan bool)
+	ch := make(chan bool) // acquire the flock
 	var clientExited bool
 	s.PatchValue(&waitClientExit, func(*ServerSession) {
 		clientExited = <-ch
+		flockAcquired <- struct{}{}
 	})
-	go func() { ch <- true }()
+	go func() { ch <- true }() // asynchronously release the flock
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
+	waitForFlock()
 	c.Assert(clientExited, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
 }

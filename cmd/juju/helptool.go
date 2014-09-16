@@ -5,9 +5,10 @@ package main
 
 import (
 	"fmt"
+	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -17,6 +18,9 @@ import (
 // as expected by jujuc.NewCommand.
 type dummyHookContext struct{}
 
+func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
+	return nil
+}
 func (dummyHookContext) UnitName() string {
 	return ""
 }
@@ -35,6 +39,10 @@ func (dummyHookContext) ClosePort(protocol string, port int) error {
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
+func (dummyHookContext) ActionParams() map[string]interface{} {
+	return nil
+}
+
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false
 }

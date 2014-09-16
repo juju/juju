@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -72,24 +73,19 @@ func ConfigForName(name string, store configstore.Storage) (*config.Config, Conf
 	if name == "" {
 		name = envs.Default
 	}
-	// TODO(rog) 2013-10-04 https://bugs.github.com/juju/juju/+bug/1235217
-	// Don't fall back to reading from environments.yaml
-	// when we can be sure that everyone has a
-	// .jenv file for their currently bootstrapped environments.
-	if name != "" {
-		info, err := store.ReadInfo(name)
-		if err == nil {
-			if len(info.BootstrapConfig()) == 0 {
-				return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("environment has no bootstrap configuration data")}
-			}
-			logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
-			cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
-			return cfg, ConfigFromInfo, err
+
+	info, err := store.ReadInfo(name)
+	if err == nil {
+		if len(info.BootstrapConfig()) == 0 {
+			return nil, ConfigFromNowhere, EmptyConfig{fmt.Errorf("environment has no bootstrap configuration data")}
 		}
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
-		}
+		logger.Debugf("ConfigForName found bootstrap config %#v", info.BootstrapConfig())
+		cfg, err := config.New(config.NoDefaults, info.BootstrapConfig())
+		return cfg, ConfigFromInfo, err
+	} else if !errors.IsNotFound(err) {
+		return nil, ConfigFromInfo, fmt.Errorf("cannot read environment info for %q: %v", name, err)
 	}
+
 	cfg, err := envs.Config(name)
 	return cfg, ConfigFromEnvirons, err
 }
@@ -136,7 +132,9 @@ func NewFromName(name string, store configstore.Storage) (Environ, error) {
 // and environment information is created using the
 // given store. If the environment is already prepared,
 // it behaves like NewFromName.
-func PrepareFromName(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
+var PrepareFromName = prepareFromNameProductionFunc
+
+func prepareFromNameProductionFunc(name string, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
 	cfg, _, err := ConfigForName(name, store)
 	if err != nil {
 		return nil, err
@@ -167,55 +165,87 @@ func New(config *config.Config) (Environ, error) {
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
 func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
-	p, err := Provider(cfg.Type())
-	if err != nil {
+
+	if p, err := Provider(cfg.Type()); err != nil {
 		return nil, err
-	}
-	info, err := store.CreateInfo(cfg.Name())
-	if err == configstore.ErrEnvironInfoAlreadyExists {
-		logger.Infof("environment info already exists; using New not Prepare")
-		info, err := store.ReadInfo(cfg.Name())
-		if err != nil {
-			return nil, fmt.Errorf("error reading environment info %q: %v", cfg.Name(), err)
+	} else if info, err := store.ReadInfo(cfg.Name()); errors.IsNotFound(errors.Cause(err)) {
+		info = store.CreateInfo(cfg.Name())
+		if env, err := prepare(ctx, cfg, info, p); err == nil {
+			return env, decorateAndWriteInfo(info, env.Config())
+		} else {
+			if err := info.Destroy(); err != nil {
+				logger.Warningf("cannot destroy newly created environment info: %v", err)
+			}
+			return nil, err
 		}
-		if !info.Initialized() {
-			return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", cfg.Name())
-		}
-		if len(info.BootstrapConfig()) == 0 {
-			return nil, fmt.Errorf("found environment info but no bootstrap config")
-		}
+
+	} else if err != nil {
+		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
+	} else if !info.Initialized() {
+		return nil,
+			errors.Errorf(
+				"found uninitialized environment info for %q; environment preparation probably in progress or interrupted",
+				cfg.Name(),
+			)
+	} else if len(info.BootstrapConfig()) == 0 {
+		return nil, errors.New("found environment info but no bootstrap config")
+	} else {
 		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse bootstrap config: %v", err)
+			return nil, errors.Annotate(err, "cannot parse bootstrap config")
 		}
 		return New(cfg)
 	}
-	if err != nil {
-		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
-	}
-	env, err := prepare(ctx, cfg, info, p)
-	if err != nil {
-		if err := info.Destroy(); err != nil {
-			logger.Warningf("cannot destroy newly created environment info: %v", err)
+}
+
+// decorateAndWriteInfo decorates the info struct with information
+// from the given cfg, and the writes that out to the filesystem.
+func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) error {
+
+	// Sanity check our config.
+	var endpoint configstore.APIEndpoint
+	if cert, ok := cfg.CACert(); !ok {
+		return errors.Errorf("CACert is not set")
+	} else if uuid, ok := cfg.UUID(); !ok {
+		return errors.Errorf("UUID is not set")
+	} else if adminSecret := cfg.AdminSecret(); adminSecret == "" {
+		return errors.Errorf("admin-secret is not set")
+	} else {
+		endpoint = configstore.APIEndpoint{
+			CACert:      cert,
+			EnvironUUID: uuid,
 		}
-		return nil, err
 	}
-	info.SetBootstrapConfig(env.Config().AllAttrs())
+
+	creds := configstore.APICredentials{
+		User:     "admin", // TODO(waigani) admin@local once we have that set
+		Password: cfg.AdminSecret(),
+	}
+	info.SetAPICredentials(creds)
+	info.SetAPIEndpoint(endpoint)
+	info.SetBootstrapConfig(cfg.AllAttrs())
+
 	if err := info.Write(); err != nil {
-		return nil, fmt.Errorf("cannot create environment info %q: %v", env.Config().Name(), err)
+		return errors.Annotatef(err, "cannot create environment info %q", cfg.Name())
 	}
-	return env, nil
+
+	return nil
 }
 
 func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
 	cfg, err := ensureAdminSecret(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
+		return nil, errors.Annotate(err, "cannot generate admin-secret")
 	}
 	cfg, err = ensureCertificate(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
+		return nil, errors.Annotate(err, "cannot ensure CA certificate")
 	}
+	cfg, err = ensureUUID(cfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot ensure uuid")
+	}
+
 	return p.Prepare(ctx, cfg)
 }
 
@@ -252,10 +282,27 @@ func ensureCertificate(cfg *config.Config) (*config.Config, error) {
 	})
 }
 
+// ensureUUID generates a new uuid and attaches it to
+// the given environment configuration, unless the
+// configuration already has one.
+func ensureUUID(cfg *config.Config) (*config.Config, error) {
+	_, hasUUID := cfg.UUID()
+	if hasUUID {
+		return cfg, nil
+	}
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cfg.Apply(map[string]interface{}{
+		"uuid": uuid.String(),
+	})
+}
+
 // Destroy destroys the environment and, if successful,
 // its associated configuration data from the given store.
 func Destroy(env Environ, store configstore.Storage) error {
-	name := env.Name()
+	name := env.Config().Name()
 	if err := env.Destroy(); err != nil {
 		return err
 	}

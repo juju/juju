@@ -15,10 +15,18 @@ import (
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/api"
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	"github.com/juju/juju/apiserver/params"
+	apiserverprovisioner "github.com/juju/juju/apiserver/provisioner"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -26,11 +34,9 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	apiprovisioner "github.com/juju/juju/state/api/provisioner"
-	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -69,6 +75,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.SetStatePolicy(nil)
 
 	s.JujuConnSuite.SetUpTest(c)
+
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
 	op := make(chan dummy.Operation, 500)
@@ -78,19 +85,32 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	s.cfg = cfg
-}
 
-func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
+	// Create a machine for the dummy bootstrap instance,
+	// so the provisioner doesn't destroy it.
+	insts, err := s.Environ.Instances([]instance.Id{dummy.BootstrapInstanceId})
+	c.Assert(err, gc.IsNil)
+	addrs, err := insts[0].Addresses()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Addresses:  addrs,
+		Series:     "quantal",
+		Nonce:      agent.BootstrapNonce,
+		InstanceId: dummy.BootstrapInstanceId,
+		Jobs:       []state.MachineJob{state.JobManageEnviron},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+
+	err = machine.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetProvisioned("i-fake", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, agent.BootstrapNonce)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = s.st.Provisioner()
@@ -107,21 +127,11 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
 }
 
-// setupEnvironmentManager adds an environment manager machine and login to the API.
-func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
-	s.APILogin(c, machine)
-}
-
 // invalidateEnvironment alters the environment configuration
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": "unknown"}
@@ -131,7 +141,7 @@ func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
-	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
@@ -149,7 +159,7 @@ func stop(c *gc.C, s stopper) {
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Conn.Environ, id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {
@@ -164,10 +174,18 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true)
 }
 
-func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, networks []string, networkInfo []network.Info, waitInstanceId bool) (inst instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(
+	c *gc.C, m *state.Machine,
+	secret string, cons constraints.Value,
+	networks []string, networkInfo []network.Info,
+	checkPossibleTools coretools.List,
+	waitInstanceId bool,
+) (
+	inst instance.Instance,
+) {
 	s.BackingState.StartSync()
 	for {
 		select {
@@ -188,6 +206,24 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
+
+				var jobs []params.MachineJob
+				for _, job := range m.Jobs() {
+					jobs = append(jobs, job.ToParams())
+				}
+				c.Assert(o.Jobs, jc.SameContents, jobs)
+
+				if checkPossibleTools != nil {
+					for _, t := range o.PossibleTools {
+						url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.st.Addr(), t.Version)
+						c.Check(t.URL, gc.Equals, url)
+						t.URL = ""
+					}
+					for _, t := range checkPossibleTools {
+						t.URL = ""
+					}
+					c.Assert(o.PossibleTools, gc.DeepEquals, checkPossibleTools)
+				}
 
 				// All provisioned machines in this test suite have
 				// their hardware characteristics attributes set to
@@ -215,7 +251,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 			return
 		}
 	}
-	return
 }
 
 // checkNoOperations checks that the environ was not operated upon.
@@ -346,7 +381,7 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 }
 
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := "machine-0"
+	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
 }
@@ -364,9 +399,16 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(networks []stri
 	})
 }
 
-func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
-	s.CommonProvisionerSuite.SetUpTest(c)
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
+func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
+	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries)
+	c.Assert(err, gc.IsNil)
+	added := make([]*state.Machine, len(changes.Added))
+	for i, mid := range changes.Added {
+		m, err := s.BackingState.Machine(mid)
+		c.Assert(err, gc.IsNil)
+		added[i] = m
+	}
+	return added
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -400,7 +442,47 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, true)
+}
+
+func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
+
+	// Clear out all tools, and set a current version that does not match the
+	// agent-version in the environ config.
+	envStorage := s.Environ.Storage()
+	envtesting.RemoveFakeTools(c, envStorage)
+	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
+	s.PatchValue(&version.Current, currentVersion)
+
+	// Upload some plausible matches, and some that should be filtered out.
+	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	ignoreVersion1 := version.MustParseBinary("1.2.4-quantal-arm64")
+	ignoreVersion2 := version.MustParseBinary("1.2.3-precise-arm64")
+	availableVersions := []version.Binary{
+		currentVersion, compatibleVersion, ignoreVersion1, ignoreVersion2,
+	}
+	envtesting.AssertUploadFakeToolsVersions(c, envStorage, availableVersions...)
+
+	// Extract the tools that we expect to actually match.
+	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
+		Number: currentVersion.Number,
+		Series: currentVersion.Series,
+	}, tools.DoNotAllowRetry)
+	c.Assert(err, gc.IsNil)
+
+	// Create the machine and check the tools that get passed into StartInstance.
+	machine, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, gc.IsNil)
+
+	provisioner := s.newEnvironProvisioner(c)
+	defer stop(c, provisioner)
+	s.checkStartInstanceCustom(
+		c, machine, "pork", constraints.Value{},
+		nil, nil, expectedList, true,
+	)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *gc.C) {
@@ -422,11 +504,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, "no matching tools available")
 		break
 	}
@@ -453,11 +535,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, brokenMsg)
 		break
 	}
@@ -527,8 +609,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	c.Assert(err, gc.IsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", cons,
-		requestedNetworks,
-		expectNetworkInfo, true)
+		requestedNetworks, expectNetworkInfo,
+		nil, true,
+	)
 
 	_, err = s.State.Network("net1")
 	c.Assert(err, gc.IsNil)
@@ -563,7 +646,9 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	c.Assert(err, gc.IsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo, false)
+		networks, expectNetworkInfo,
+		nil, false,
+	)
 
 	// Ensure machine error status was set.
 	t0 := time.Now()
@@ -571,11 +656,11 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Matches, `aborted instance "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
@@ -634,6 +719,9 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *gc.C) {
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return mockToolsFinder{}
+	})
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -678,35 +766,6 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *gc.C) {
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// create a machine
-	m0, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i0 := s.checkStartInstance(c, m0)
-
-	// create a second machine
-	m1, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i1 := s.checkStartInstance(c, m1)
-	stop(c, p)
-
-	// mark the first machine as dead
-	c.Assert(m0.EnsureDead(), gc.IsNil)
-
-	// remove the second machine entirely
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-	c.Assert(m1.Remove(), gc.IsNil)
-
-	// start a new provisioner to shut them both down
-	p = s.newEnvironProvisioner(c)
-	defer stop(c, p)
-	s.checkStopInstances(c, i0, i1)
-	s.waitRemoved(c, m0)
-}
-
 func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
@@ -740,6 +799,9 @@ func (s *ProvisionerSuite) TestDyingMachines(c *gc.C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *gc.C) {
+	s.PatchValue(provisioner.GetToolsFinder, func(*apiprovisioner.State) provisioner.ToolsFinder {
+		return mockToolsFinder{}
+	})
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -782,10 +844,47 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, true)
 }
 
-func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
+type mockMachineGetter struct{}
+
+func (*mockMachineGetter) Machine(names.MachineTag) (*apiprovisioner.Machine, error) {
+	return nil, fmt.Errorf("error")
+}
+
+func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error) {
+	return nil, nil, fmt.Errorf("error")
+}
+
+func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
+	task := s.newProvisionerTask(c, config.HarvestAll, s.Environ, s.provisioner, mockToolsFinder{})
+	defer stop(c, task)
+
+	// create a machine
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m0)
+
+	// create an instance out of band
+	s.startUnknownInstance(c, "999")
+
+	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
+	task = s.newProvisionerTask(
+		c,
+		config.HarvestAll,
+		s.Environ,
+		&mockMachineGetter{},
+		&mockToolsFinder{},
+	)
+	defer func() {
+		err := task.Stop()
+		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
+	}()
+	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
@@ -798,7 +897,6 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	m1, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 	i1 := s.checkStartInstance(c, m1)
-	stop(c, p)
 
 	// mark the first machine as dead
 	c.Assert(m0.EnsureDead(), gc.IsNil)
@@ -807,50 +905,19 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	c.Assert(m1.EnsureDead(), gc.IsNil)
 	c.Assert(m1.Remove(), gc.IsNil)
 
-	// turn on safe mode
-	attrs := map[string]interface{}{"provisioner-safe-mode": true}
-	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, gc.IsNil)
-
-	// start a new provisioner to shut down only the machine still in state.
-	p = s.newEnvironProvisioner(c)
-	defer stop(c, p)
+	// We default to the destroyed method. Only the one we know is
+	// dead should be stopped; not the unknown instance.
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
-	s.waitRemoved(c, m0)
-}
-
-func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
-	p := s.newEnvironProvisioner(c)
-	defer stop(c, p)
-
-	// First check that safe mode is initially off.
-
-	// create a machine
-	m0, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i0 := s.checkStartInstance(c, m0)
-
-	// create a second machine
-	m1, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i1 := s.checkStartInstance(c, m1)
-
-	// mark the first machine as dead
-	c.Assert(m0.EnsureDead(), gc.IsNil)
-
-	// remove the second machine entirely from state
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-	c.Assert(m1.Remove(), gc.IsNil)
-
-	s.checkStopInstances(c, i0, i1)
 	s.waitRemoved(c, m0)
 
 	// insert our observer
 	cfgObserver := make(chan *config.Config, 1)
 	provisioner.SetObserver(p, cfgObserver)
 
-	// turn on safe mode
-	attrs := map[string]interface{}{"provisioner-safe-mode": true}
+	// Switch to reaping on Destroyed machines.
+	attrs := map[string]interface{}{
+		"provisioner-harvest-mode": config.HarvestDestroyed.String(),
+	}
 	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
@@ -858,67 +925,148 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 
 	// wait for the PA to load the new configuration
 	select {
-	case <-cfgObserver:
+	case newCfg := <-cfgObserver:
+		c.Assert(
+			newCfg.ProvisionerHarvestMode().String(),
+			gc.Equals,
+			config.HarvestDestroyed.String(),
+		)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("PA did not action config change")
 	}
 
-	// Now check that the provisioner has noticed safe mode is on.
-
-	// create a machine
 	m3, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
-	i3 := s.checkStartInstance(c, m3)
-
-	// create an instance out of band
-	i4 := s.startUnknownInstance(c, "999")
-
-	// mark the machine as dead
-	c.Assert(m3.EnsureDead(), gc.IsNil)
-
-	// check the machine's instance is stopped, and the other isn't
-	s.checkStopSomeInstances(c, []instance.Instance{i3}, []instance.Instance{i4})
-	s.waitRemoved(c, m3)
+	s.checkStartInstance(c, m3)
 }
 
-func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker environs.InstanceBroker) provisioner.ProvisionerTask {
+func (s *ProvisionerSuite) newProvisionerTask(
+	c *gc.C,
+	harvestingMethod config.HarvestMode,
+	broker environs.InstanceBroker,
+	machineGetter provisioner.MachineGetter,
+	toolsFinder provisioner.ToolsFinder,
+) provisioner.ProvisionerTask {
+
 	machineWatcher, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.IsNil)
-	auth, err := environs.NewAPIAuthenticator(s.provisioner)
+	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
+
 	return provisioner.NewProvisionerTask(
-		"machine-0", safeMode, s.provisioner,
-		machineWatcher, retryWatcher, broker, auth)
+		names.NewMachineTag("0"),
+		harvestingMethod,
+		machineGetter,
+		toolsFinder,
+		machineWatcher,
+		retryWatcher,
+		broker,
+		auth,
+		imagemetadata.ReleasedStream,
+	)
 }
 
-func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, s.APIConn.Environ)
-	defer stop(c, task)
+func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 
-	// Initially create a machine, and an unknown instance, with safe mode on.
+	task := s.newProvisionerTask(c, config.HarvestDestroyed, s.Environ, s.provisioner, mockToolsFinder{})
+	defer stop(c, task)
+	task.SetHarvestMode(config.HarvestNone)
+
+	// Create a machine and an unknown instance.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m0)
+	s.startUnknownInstance(c, "999")
+
+	// Mark the first machine as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// Ensure we're doing nothing.
+	s.checkNoOperations(c)
+}
+func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
+
+	task := s.newProvisionerTask(c,
+		config.HarvestDestroyed,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
+	defer stop(c, task)
+	task.SetHarvestMode(config.HarvestUnknown)
+
+	// Create a machine and an unknown instance.
 	m0, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 	i0 := s.checkStartInstance(c, m0)
 	i1 := s.startUnknownInstance(c, "999")
 
-	// mark the first machine as dead
+	// Mark the first machine as dead.
 	c.Assert(m0.EnsureDead(), gc.IsNil)
 
-	// with safe mode on, only one of the machines is stopped.
+	// When only harvesting unknown machines, only one of the machines
+	// is stopped.
+	s.checkStopSomeInstances(c, []instance.Instance{i1}, []instance.Instance{i0})
+	s.waitRemoved(c, m0)
+}
+
+func (s *ProvisionerSuite) TestHarvestDestroyedReapsOnlyDestroyed(c *gc.C) {
+
+	task := s.newProvisionerTask(
+		c,
+		config.HarvestDestroyed,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
+	defer stop(c, task)
+
+	// Create a machine and an unknown instance.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+	i1 := s.startUnknownInstance(c, "999")
+
+	// Mark the first machine as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// When only harvesting destroyed machines, only one of the
+	// machines is stopped.
 	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
 	s.waitRemoved(c, m0)
+}
 
-	// turn off safe mode and check that the other machine is now stopped also.
-	task.SetSafeMode(false)
-	s.checkStopInstances(c, i1)
+func (s *ProvisionerSuite) TestHarvestAllReapsAllTheThings(c *gc.C) {
+
+	task := s.newProvisionerTask(c,
+		config.HarvestDestroyed,
+		s.Environ,
+		s.provisioner,
+		mockToolsFinder{},
+	)
+	defer stop(c, task)
+	task.SetHarvestMode(config.HarvestAll)
+
+	// Create a machine and an unknown instance.
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	i0 := s.checkStartInstance(c, m0)
+	i1 := s.startUnknownInstance(c, "999")
+
+	// Mark the first machine as dead.
+	c.Assert(m0.EnsureDead(), gc.IsNil)
+
+	// Everything must die!
+	s.checkStopSomeInstances(c, []instance.Instance{i0, i1}, []instance.Instance{})
+	s.waitRemoved(c, m0)
 }
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, e)
+	e := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
+	task := s.newProvisionerTask(c, config.HarvestAll, e, s.provisioner, mockToolsFinder{})
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
@@ -944,7 +1092,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-thatsAllFolks:
 				return
 			case <-time.After(coretesting.ShortWait):
-				err := m3.SetStatus(params.StatusError, "info", params.StatusData{"transient": true})
+				err := m3.SetStatus(state.StatusError, "info", map[string]interface{}{"transient": true})
 				c.Assert(err, gc.IsNil)
 			}
 		}
@@ -955,14 +1103,32 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	status, _, _, err := m4.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
+}
+
+func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
+	task := s.newProvisionerTask(c, config.HarvestAll, broker, s.provisioner, mockToolsFinder{})
+	defer stop(c, task)
+
+	added := s.ensureAvailability(c, 3)
+	c.Assert(added, gc.HasLen, 2)
+	byId := make(map[string]*state.Machine)
+	for _, m := range added {
+		byId[m.Id()] = m
+	}
+	for _, id := range broker.ids {
+		s.checkStartInstance(c, byId[id])
+	}
 }
 
 type mockBroker struct {
 	environs.Environ
 	retryCount map[string]int
+	ids        []string
 }
 
 func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
@@ -970,6 +1136,8 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
 	id := args.MachineConfig.MachineId
+	// record ids so we can call checkStartInstance in the appropriate order.
+	b.ids = append(b.ids, id)
 	retries := b.retryCount[id]
 	if (id != "3" && id != "4") || retries > 2 {
 		return b.Environ.StartInstance(args)
@@ -981,4 +1149,18 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 
 func (b *mockBroker) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return b.Environ.(tools.SupportsCustomSources).GetToolsSources()
+}
+
+type mockToolsFinder struct {
+}
+
+func (f mockToolsFinder) FindTools(number version.Number, series string, arch *string) (coretools.List, error) {
+	v, err := version.ParseBinary(fmt.Sprintf("%s-%s-%s", number, series, version.Current.Arch))
+	if err != nil {
+		return nil, err
+	}
+	if arch != nil {
+		v.Arch = *arch
+	}
+	return coretools.List{&coretools.Tools{Version: v}}, nil
 }

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -45,7 +45,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		if err != nil {
 			return err
 		}
-		info.Status = sdoc.Status
+		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status and
@@ -87,11 +87,12 @@ type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.UnitInfo{
-		Name:      u.Name,
-		Service:   u.Service,
-		Series:    u.Series,
-		MachineId: u.MachineId,
-		Ports:     u.Ports,
+		Name:        u.Name,
+		Service:     u.Service,
+		Series:      u.Series,
+		MachineId:   u.MachineId,
+		Ports:       u.Ports,
+		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -104,7 +105,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		if err != nil {
 			return err
 		}
-		info.Status = sdoc.Status
+		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -150,14 +151,21 @@ func (m *backingUnit) mongoId() interface{} {
 type backingService serviceDoc
 
 func (svc *backingService) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-
+	if svc.CharmURL == nil {
+		return errors.Errorf("charm url is nil")
+	}
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	info := &params.ServiceInfo{
-		Name:     svc.Name,
-		Exposed:  svc.Exposed,
-		CharmURL: svc.CharmURL.String(),
-		OwnerTag: svc.fixOwnerTag(),
-		Life:     params.Life(svc.Life.String()),
-		MinUnits: svc.MinUnits,
+		Name:        svc.Name,
+		Exposed:     svc.Exposed,
+		CharmURL:    svc.CharmURL.String(),
+		OwnerTag:    svc.fixOwnerTag(env),
+		Life:        params.Life(svc.Life.String()),
+		MinUnits:    svc.MinUnits,
+		Subordinate: svc.Subordinate,
 	}
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false
@@ -205,11 +213,11 @@ func (svc *backingService) removed(st *State, store *multiwatcher.Store, id inte
 
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
-func (svc *backingService) fixOwnerTag() string {
+func (svc *backingService) fixOwnerTag(env *Environment) string {
 	if svc.OwnerTag != "" {
 		return svc.OwnerTag
 	}
-	return "user-admin"
+	return env.Owner().String()
 }
 
 func (m *backingService) mongoId() interface{} {
@@ -288,13 +296,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		return nil
 	case *params.UnitInfo:
 		newInfo := *info
-		newInfo.Status = s.Status
+		newInfo.Status = params.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
-		newInfo.Status = s.Status
+		newInfo.Status = params.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
@@ -475,31 +483,32 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		st:               st,
 		collectionByName: make(map[string]allWatcherStateCollection),
 	}
+
 	collections := []allWatcherStateCollection{{
-		Collection: st.machines,
+		Collection: st.db.C(machinesC),
 		infoType:   reflect.TypeOf(backingMachine{}),
 	}, {
-		Collection: st.units,
+		Collection: st.db.C(unitsC),
 		infoType:   reflect.TypeOf(backingUnit{}),
 	}, {
-		Collection: st.services,
+		Collection: st.db.C(servicesC),
 		infoType:   reflect.TypeOf(backingService{}),
 	}, {
-		Collection: st.relations,
+		Collection: st.db.C(relationsC),
 		infoType:   reflect.TypeOf(backingRelation{}),
 	}, {
-		Collection: st.annotations,
+		Collection: st.db.C(annotationsC),
 		infoType:   reflect.TypeOf(backingAnnotation{}),
 	}, {
-		Collection: st.statuses,
+		Collection: st.db.C(statusesC),
 		infoType:   reflect.TypeOf(backingStatus{}),
 		subsidiary: true,
 	}, {
-		Collection: st.constraints,
+		Collection: st.db.C(constraintsC),
 		infoType:   reflect.TypeOf(backingConstraints{}),
 		subsidiary: true,
 	}, {
-		Collection: st.settings,
+		Collection: st.db.C(settingsC),
 		infoType:   reflect.TypeOf(backingSettings{}),
 		subsidiary: true,
 	}}
@@ -534,13 +543,17 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
+	db, closer := b.st.newDB()
+	defer closer()
+
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		if c.subsidiary {
 			continue
 		}
+		col := db.C(c.Name)
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
-		if err := c.Find(nil).All(infoSlicePtr.Interface()); err != nil {
+		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
 		}
 		infos := infoSlicePtr.Elem()
@@ -555,16 +568,20 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
 func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher.Change) error {
+	db, closer := b.st.newDB()
+	defer closer()
+
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
+	col := db.C(c.Name)
 	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	// TODO(rog) avoid fetching documents that we have no interest
 	// in, such as settings changes to entities we don't care about.
-	err := c.FindId(change.Id).One(doc)
+	err := col.FindId(change.Id).One(doc)
 	if err == mgo.ErrNotFound {
 		return doc.removed(b.st, all, change.Id)
 	}

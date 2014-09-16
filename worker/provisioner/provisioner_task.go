@@ -7,22 +7,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
+	apiprovisioner "github.com/juju/juju/api/provisioner"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/params"
-	apiprovisioner "github.com/juju/juju/state/api/provisioner"
-	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -32,39 +35,51 @@ type ProvisionerTask interface {
 	Dying() <-chan struct{}
 	Err() error
 
-	// SetSafeMode sets a flag to indicate whether the provisioner task
-	// runs in safe mode or not. In safe mode, any running instances
-	// which do no exist in state are allowed to keep running rather than
-	// being shut down.
-	SetSafeMode(safeMode bool)
+	// SetHarvestMode sets a flag to indicate how the provisioner task
+	// should harvest machines. See config.HarvestMode for
+	// documentation of behavior.
+	SetHarvestMode(mode config.HarvestMode)
 }
 
 type MachineGetter interface {
-	Machine(tag string) (*apiprovisioner.Machine, error)
+	Machine(names.MachineTag) (*apiprovisioner.Machine, error)
 	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
 }
 
+// ToolsFinder is an interface used for finding tools to run on
+// provisioned instances.
+type ToolsFinder interface {
+	// FindTools returns a list of tools matching the specified
+	// version and series, and optionally arch.
+	FindTools(version version.Number, series string, arch *string) (coretools.List, error)
+}
+
 var _ MachineGetter = (*apiprovisioner.State)(nil)
+var _ ToolsFinder = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
-	machineTag string,
-	safeMode bool,
+	machineTag names.MachineTag,
+	harvestMode config.HarvestMode,
 	machineGetter MachineGetter,
+	toolsFinder ToolsFinder,
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
 	broker environs.InstanceBroker,
-	auth environs.AuthenticationProvider,
+	auth authentication.AuthenticationProvider,
+	imageStream string,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		machineTag:     machineTag,
-		machineGetter:  machineGetter,
-		machineWatcher: machineWatcher,
-		retryWatcher:   retryWatcher,
-		broker:         broker,
-		auth:           auth,
-		safeMode:       safeMode,
-		safeModeChan:   make(chan bool, 1),
-		machines:       make(map[string]*apiprovisioner.Machine),
+		machineTag:      machineTag,
+		machineGetter:   machineGetter,
+		toolsFinder:     toolsFinder,
+		machineWatcher:  machineWatcher,
+		retryWatcher:    retryWatcher,
+		broker:          broker,
+		auth:            auth,
+		harvestMode:     harvestMode,
+		harvestModeChan: make(chan config.HarvestMode, 1),
+		machines:        make(map[string]*apiprovisioner.Machine),
+		imageStream:     imageStream,
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -74,17 +89,17 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag     string
-	machineGetter  MachineGetter
-	machineWatcher apiwatcher.StringsWatcher
-	retryWatcher   apiwatcher.NotifyWatcher
-	broker         environs.InstanceBroker
-	tomb           tomb.Tomb
-	auth           environs.AuthenticationProvider
-
-	safeMode     bool
-	safeModeChan chan bool
-
+	machineTag      names.MachineTag
+	machineGetter   MachineGetter
+	toolsFinder     ToolsFinder
+	machineWatcher  apiwatcher.StringsWatcher
+	retryWatcher    apiwatcher.NotifyWatcher
+	broker          environs.InstanceBroker
+	tomb            tomb.Tomb
+	auth            authentication.AuthenticationProvider
+	imageStream     string
+	harvestMode     config.HarvestMode
+	harvestModeChan chan config.HarvestMode
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
 	// machine id -> machine
@@ -118,11 +133,11 @@ func (task *provisionerTask) loop() error {
 	logger.Infof("Starting up provisioner task %s", task.machineTag)
 	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
-	// Don't allow the safe mode to change until we have
-	// read at least one set of changes, which will populate
-	// the task.machines map. Otherwise we will potentially
-	// see all legitimate instances as unknown.
-	var safeModeChan chan bool
+	// Don't allow the harvesting mode to change until we have read at
+	// least one set of changes, which will populate the task.machines
+	// map. Otherwise we will potentially see all legitimate instances
+	// as unknown.
+	var harvestModeChan chan config.HarvestMode
 
 	// Not all provisioners have a retry channel.
 	var retryChan <-chan struct{}
@@ -143,35 +158,38 @@ func (task *provisionerTask) loop() error {
 				return watcher.MustErr(task.machineWatcher)
 			}
 			if err := task.processMachines(ids); err != nil {
-				return fmt.Errorf("failed to process updated machines: %v", err)
+				return errors.Annotate(err, "failed to process updated machines")
 			}
-			// We've seen a set of changes. Enable safe mode change.
-			safeModeChan = task.safeModeChan
-		case safeMode := <-safeModeChan:
-			if safeMode == task.safeMode {
+			// We've seen a set of changes. Enable modification of
+			// harvesting mode.
+			harvestModeChan = task.harvestModeChan
+		case harvestMode := <-harvestModeChan:
+			if harvestMode == task.harvestMode {
 				break
 			}
-			logger.Infof("safe mode changed to %v", safeMode)
-			task.safeMode = safeMode
-			if !safeMode {
-				// Safe mode has been disabled, so process current machines
-				// so that unknown machines will be immediately dealt with.
+
+			logger.Infof("harvesting mode changed to %s", harvestMode)
+			task.harvestMode = harvestMode
+
+			if harvestMode.HarvestUnknown() {
+
+				logger.Infof("harvesting unknown machines")
 				if err := task.processMachines(nil); err != nil {
-					return fmt.Errorf("failed to process machines after safe mode disabled: %v", err)
+					return errors.Annotate(err, "failed to process machines after safe mode disabled")
 				}
 			}
 		case <-retryChan:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
-				return fmt.Errorf("failed to process machines with transient errors: %v", err)
+				return errors.Annotate(err, "failed to process machines with transient errors")
 			}
 		}
 	}
 }
 
-// SetSafeMode implements ProvisionerTask.SetSafeMode().
-func (task *provisionerTask) SetSafeMode(safeMode bool) {
+// SetHarvestMode implements ProvisionerTask.SetHarvestMode().
+func (task *provisionerTask) SetHarvestMode(mode config.HarvestMode) {
 	select {
-	case task.safeModeChan <- safeMode:
+	case task.harvestModeChan <- mode:
 	case <-task.Dying():
 	}
 }
@@ -201,9 +219,9 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 
 func (task *provisionerTask) processMachines(ids []string) error {
 	logger.Tracef("processMachines(%v)", ids)
+
 	// Populate the tasks maps of current instances and machines.
-	err := task.populateMachineMaps(ids)
-	if err != nil {
+	if err := task.populateMachineMaps(ids); err != nil {
 		return err
 	}
 
@@ -221,10 +239,25 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	if err != nil {
 		return err
 	}
-	if task.safeMode {
-		logger.Infof("running in safe mode, unknown instances not stopped %v", instanceIds(unknown))
+	if !task.harvestMode.HarvestUnknown() {
+		logger.Infof(
+			"%s is set to %s; unknown instances not stopped %v",
+			config.ProvisionerHarvestModeKey,
+			task.harvestMode.String(),
+			instanceIds(unknown),
+		)
 		unknown = nil
 	}
+	if task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed() {
+		logger.Infof(
+			`%s is set to "%s"; will not harvest %s`,
+			config.ProvisionerHarvestModeKey,
+			task.harvestMode.String(),
+			instanceIds(stopping),
+		)
+		stopping = nil
+	}
+
 	if len(stopping) > 0 {
 		logger.Infof("stopping known instances %v", stopping)
 	}
@@ -260,13 +293,14 @@ func instanceIds(instances []instance.Instance) []string {
 	return ids
 }
 
+// populateMachineMaps updates task.instances. Also updates
+// task.machines map if a list of IDs is given.
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instance.Instance)
 
 	instances, err := task.broker.AllInstances()
 	if err != nil {
-		logger.Errorf("failed to get all instances from broker: %v", err)
-		return err
+		return errors.Annotate(err, "failed to get all instances from broker")
 	}
 	for _, i := range instances {
 		task.instances[i.Id()] = i
@@ -276,7 +310,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	// change list.
 	// TODO(thumper): update for API server later to get all machines in one go.
 	for _, id := range ids {
-		machineTag := names.NewMachineTag(id).String()
+		machineTag := names.NewMachineTag(id)
 		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
 		case params.IsCodeNotFoundOrCodeUnauthorized(err):
@@ -285,7 +319,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 		case err == nil:
 			task.machines[id] = machine
 		default:
-			logger.Errorf("failed to get machine: %v", err)
+			return errors.Annotatef(err, "failed to get machine %v", id)
 		}
 	}
 	return nil
@@ -305,13 +339,11 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			if _, err := machine.InstanceId(); err == nil {
 				continue
 			} else if !params.IsCodeNotProvisioned(err) {
-				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
-				return nil, nil, err
+				return nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
 			}
 			logger.Infof("killing dying, unprovisioned machine %q", machine)
 			if err := machine.EnsureDead(); err != nil {
-				logger.Errorf("failed to ensure machine dead %q: %v", machine, err)
-				return nil, nil, err
+				return nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
 			}
 			fallthrough
 		case params.Dead:
@@ -402,16 +434,90 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 		ids[i] = inst.Id()
 	}
 	if err := task.broker.StopInstances(ids...); err != nil {
-		logger.Errorf("broker failed to stop instances: %v", err)
-		return err
+		return errors.Annotate(err, "broker failed to stop instances")
 	}
 	return nil
 }
 
+func (task *provisionerTask) constructMachineConfig(
+	machine *apiprovisioner.Machine,
+	auth authentication.AuthenticationProvider,
+	pInfo *params.ProvisioningInfo,
+) (*cloudinit.MachineConfig, error) {
+
+	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to setup authentication")
+	}
+
+	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
+	// The first part is a badge, specifying the tag of the machine the provisioner
+	// is running on, while the second part is a random UUID.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to generate a nonce for machine "+machine.Id())
+	}
+
+	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
+	return environs.NewMachineConfig(
+		machine.Id(),
+		nonce,
+		task.imageStream,
+		pInfo.Series,
+		nil,
+		stateInfo,
+		apiInfo,
+	)
+}
+
+func constructStartInstanceParams(
+	machine *apiprovisioner.Machine,
+	machineConfig *cloudinit.MachineConfig,
+	provisioningInfo *params.ProvisioningInfo,
+	possibleTools coretools.List,
+) environs.StartInstanceParams {
+	return environs.StartInstanceParams{
+		Constraints:       provisioningInfo.Constraints,
+		Tools:             possibleTools,
+		MachineConfig:     machineConfig,
+		Placement:         provisioningInfo.Placement,
+		DistributionGroup: machine.DistributionGroup,
+	}
+}
+
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
-		if err := task.startMachine(m); err != nil {
-			return fmt.Errorf("cannot start machine %v: %v", m, err)
+
+		pInfo, err := task.blockUntilProvisioned(m.ProvisioningInfo)
+		if err != nil {
+			return err
+		}
+
+		machineCfg, err := task.constructMachineConfig(m, task.auth, pInfo)
+		if err != nil {
+			return err
+		}
+
+		assocProvInfoAndMachCfg(pInfo, machineCfg)
+
+		possibleTools, err := task.toolsFinder.FindTools(
+			version.Current.Number,
+			pInfo.Series,
+			pInfo.Constraints.Arch,
+		)
+		if err != nil {
+			return task.setErrorStatus("cannot find tools for machine %q: %v", m, err)
+		}
+
+		startInstanceParams := constructStartInstanceParams(
+			m,
+			machineCfg,
+			pInfo,
+			possibleTools,
+		)
+
+		if err := task.startMachine(m, pInfo, startInstanceParams); err != nil {
+			return errors.Annotatef(err, "cannot start machine %v", m)
 		}
 	}
 	return nil
@@ -421,8 +527,7 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 	logger.Errorf(message, machine, err)
 	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
-		logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
-		return err1
+		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}
 	return nil
 }
@@ -445,38 +550,31 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			visitedNetworks.Add(networkTag)
 		}
 		ifaces = append(ifaces, params.NetworkInterface{
-			InterfaceName: info.InterfaceName,
+			InterfaceName: info.ActualInterfaceName(),
 			MACAddress:    info.MACAddress,
 			NetworkTag:    networkTag,
 			IsVirtual:     info.IsVirtual(),
+			Disabled:      info.Disabled,
 		})
 	}
 	return networks, ifaces
 }
 
-func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
-	provisioningInfo, err := task.provisioningInfo(machine)
-	if err != nil {
-		return err
-	}
-	possibleTools, err := task.possibleTools(provisioningInfo.Series, provisioningInfo.Constraints)
-	if err != nil {
-		return task.setErrorStatus("cannot find tools for machine %q: %v", machine, err)
-	}
-	inst, metadata, networkInfo, err := task.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:       provisioningInfo.Constraints,
-		Tools:             possibleTools,
-		MachineConfig:     provisioningInfo.MachineConfig,
-		Placement:         provisioningInfo.Placement,
-		DistributionGroup: machine.DistributionGroup,
-	})
+func (task *provisionerTask) startMachine(
+	machine *apiprovisioner.Machine,
+	provisioningInfo *params.ProvisioningInfo,
+	startInstanceParams environs.StartInstanceParams,
+) error {
+
+	inst, metadata, networkInfo, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
 		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
-	nonce := provisioningInfo.MachineConfig.MachineNonce
+
+	nonce := startInstanceParams.MachineConfig.MachineNonce
 	networks, ifaces := task.prepareNetworkAndInterfaces(networkInfo)
 
 	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
@@ -490,24 +588,9 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
 	if err := task.broker.StopInstances(inst.Id()); err != nil {
 		// We cannot even stop the instance, log the error and quit.
-		logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
-		return err
+		return errors.Annotatef(err, "cannot stop instance %q for machine %v", inst.Id(), machine)
 	}
 	return nil
-}
-
-func (task *provisionerTask) possibleTools(series string, cons constraints.Value) (coretools.List, error) {
-	if env, ok := task.broker.(environs.Environ); ok {
-		agentVersion, ok := env.Config().AgentVersion()
-		if !ok {
-			return nil, fmt.Errorf("no agent version set in environment configuration")
-		}
-		return tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
-	}
-	if hasTools, ok := task.broker.(coretools.HasTools); ok {
-		return hasTools.Tools(series), nil
-	}
-	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }
 
 type provisioningInfo struct {
@@ -517,24 +600,35 @@ type provisioningInfo struct {
 	MachineConfig *cloudinit.MachineConfig
 }
 
-func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (*provisioningInfo, error) {
-	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
-	if err != nil {
-		logger.Errorf("failed to setup authentication: %v", err)
-		return nil, err
+func assocProvInfoAndMachCfg(
+	provInfo *params.ProvisioningInfo,
+	machineConfig *cloudinit.MachineConfig,
+) *provisioningInfo {
+
+	machineConfig.Networks = provInfo.Networks
+
+	if len(provInfo.Jobs) > 0 {
+		machineConfig.Jobs = provInfo.Jobs
 	}
-	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
-	// The first part is a badge, specifying the tag of the machine the provisioner
-	// is running on, while the second part is a random UUID.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, err
+
+	return &provisioningInfo{
+		Constraints:   provInfo.Constraints,
+		Series:        provInfo.Series,
+		Placement:     provInfo.Placement,
+		MachineConfig: machineConfig,
 	}
-	// ProvisioningInfo is new in 1.20; wait for the API server to be upgraded
-	// so we don't spew errors on upgrade.
+}
+
+// ProvisioningInfo is new in 1.20; wait for the API server to be
+// upgraded so we don't spew errors on upgrade.
+func (task *provisionerTask) blockUntilProvisioned(
+	provision func() (*params.ProvisioningInfo, error),
+) (*params.ProvisioningInfo, error) {
+
 	var pInfo *params.ProvisioningInfo
+	var err error
 	for {
-		if pInfo, err = machine.ProvisioningInfo(); err == nil {
+		if pInfo, err = provision(); err == nil {
 			break
 		}
 		if params.IsCodeNotImplemented(err) {
@@ -548,12 +642,6 @@ func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (
 		}
 		return nil, err
 	}
-	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
-	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, pInfo.Networks, stateInfo, apiInfo)
-	return &provisioningInfo{
-		Constraints:   pInfo.Constraints,
-		Series:        pInfo.Series,
-		Placement:     pInfo.Placement,
-		MachineConfig: machineConfig,
-	}, nil
+
+	return pInfo, nil
 }

@@ -7,17 +7,15 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 func Password(config Config) string {
 	c := config.(*configInternal)
 	if c.stateDetails == nil {
 		return c.apiDetails.password
-	} else {
-		return c.stateDetails.password
 	}
-	return ""
+	return c.stateDetails.password
 }
 
 func PatchConfig(config Config, fieldName string, value interface{}) error {
@@ -52,3 +50,5 @@ func ConfigFileExists(config Config) bool {
 	_, err := os.Lstat(conf.configFilePath)
 	return err == nil
 }
+
+var MachineJobFromParams = machineJobFromParams

@@ -6,16 +6,21 @@ package state_test
 import (
 	"strconv"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+)
+
+const (
+	contentionErr = ".*: state changing too quickly; try again soon"
 )
 
 type UnitSuite struct {
@@ -278,6 +283,228 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
+type destroyMachineTestCase struct {
+	target    *state.Unit
+	host      *state.Machine
+	desc      string
+	flipHook  []txn.TestHook
+	destroyed bool
+}
+
+func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
+	var result []destroyMachineTestCase
+	var err error
+
+	{
+		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+		colocated, err := s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(colocated.AssignToMachine(tc.host), gc.IsNil)
+
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		}, tc.host.Id(), instance.LXC)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+		result = append(result, tc)
+	}
+
+	return result
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
+	for _, tc := range s.destroyMachineTestCases(c) {
+		c.Log(tc.desc)
+		c.Assert(tc.target.Destroy(), gc.IsNil)
+		if tc.destroyed {
+			assertLife(c, tc.host, state.Dying)
+			c.Assert(tc.host.EnsureDead(), gc.IsNil)
+		} else {
+			assertLife(c, tc.host, state.Alive)
+			c.Assert(tc.host.Destroy(), gc.NotNil)
+		}
+	}
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
+	for _, tc := range s.destroyMachineTestCases(c) {
+		c.Log(tc.desc)
+		preventUnitDestroyRemove(c, tc.target)
+		c.Assert(tc.target.Destroy(), gc.IsNil)
+		c.Assert(tc.target.EnsureDead(), gc.IsNil)
+		assertLife(c, tc.host, state.Alive)
+		c.Assert(tc.target.Remove(), gc.IsNil)
+		if tc.destroyed {
+			assertLife(c, tc.host, state.Dying)
+		} else {
+			assertLife(c, tc.host, state.Alive)
+			c.Assert(tc.host.Destroy(), gc.NotNil)
+		}
+	}
+}
+
+func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
+	m, err := s.State.Machine(id)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.SetHasVote(hasVote), gc.IsNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	flip := txn.TestHook{
+		Before: func() {
+			s.setMachineVote(c, host.Id(), true)
+		},
+	}
+	flop := txn.TestHook{
+		Before: func() {
+			s.setMachineVote(c, host.Id(), false)
+		},
+	}
+	// You'll need to adjust the flip-flops to match the number of transaction
+	// retries.
+	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
+
+	c.Assert(target.Destroy(), gc.ErrorMatches, "state changing too quickly; try again soon")
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.setMachineVote(c, host.Id(), true)
+	}, nil).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	c.Assert(host.SetHasVote(true), gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.setMachineVote(c, host.Id(), false)
+	}, nil).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Dying)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	defer state.SetTestHooks(c, s.State, txn.TestHook{
+		Before: func() {
+			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+				Series: "quantal",
+				Jobs:   []state.MachineJob{state.JobHostUnits},
+			}, host.Id(), instance.LXC)
+			c.Assert(err, gc.IsNil)
+			assertLife(c, machine, state.Alive)
+
+			// test-setup verification for the disqualifying machine.
+			hostHandle, err := s.State.Machine(host.Id())
+			c.Assert(err, gc.IsNil)
+			containers, err := hostHandle.Containers()
+			c.Assert(err, gc.IsNil)
+			c.Assert(containers, gc.HasLen, 1)
+		},
+	}).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	// This unit will be colocated in the transaction hook to cause a retry.
+	colocated, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(host.SetHasVote(true), gc.IsNil)
+
+	defer state.SetTestHooks(c, s.State, txn.TestHook{
+		Before: func() {
+			hostHandle, err := s.State.Machine(host.Id())
+			c.Assert(err, gc.IsNil)
+
+			// Original assertion preventing host removal is no longer valid
+			c.Assert(hostHandle.SetHasVote(false), gc.IsNil)
+
+			// But now the host gets a colocated unit, a different condition preventing removal
+			c.Assert(colocated.AssignToMachine(hostHandle), gc.IsNil)
+		},
+	}).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+}
+
 func (s *UnitSuite) TestRefresh(c *gc.C) {
 	unit1, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
@@ -300,38 +527,38 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusError, "", nil)
+	err := s.unit.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.unit.SetStatus(params.StatusPending, "", nil)
+	err = s.unit.SetStatus(state.StatusPending, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-	err = s.unit.SetStatus(params.StatusDown, "", nil)
+	err = s.unit.SetStatus(state.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.unit.SetStatus(params.Status("vliegkat"), "orville", nil)
+	err = s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
 	})
 }
@@ -339,27 +566,27 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", params.StatusData{
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -368,9 +595,9 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -378,13 +605,13 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.unit.SetStatus(params.StatusError, "mongo", params.StatusData{
+	err = s.unit.SetStatus(state.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -394,9 +621,9 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -405,38 +632,38 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting and changing data afterwards.
-	data := params.StatusData{
+	data := map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
 	}
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", data)
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", data)
 	c.Assert(err, gc.IsNil)
 	data["4th-key"] = 4.0
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
-	c.Assert(data, gc.DeepEquals, params.StatusData{
+	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -475,7 +702,7 @@ func (s *UnitSuite) TestUnitCharm(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetStatus(params.StatusStarted, "", nil)
+		err := s.unit.SetStatus(state.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -573,16 +800,16 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 	for i, test := range []struct {
-		status params.Status
+		status state.Status
 		info   string
 	}{{
-		params.StatusInstalled, "",
+		state.StatusInstalled, "",
 	}, {
-		params.StatusStarted, "",
+		state.StatusStarted, "",
 	}, {
-		params.StatusError, "blah",
+		state.StatusError, "blah",
 	}, {
-		params.StatusStopped, "",
+		state.StatusStopped, "",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -635,12 +862,6 @@ func (s *UnitSuite) TestTag(c *gc.C) {
 	c.Assert(s.unit.Tag().String(), gc.Equals, "unit-wordpress-0")
 }
 
-func (s *UnitSuite) TestSetMongoPassword(c *gc.C) {
-	testSetMongoPassword(c, func(st *state.State) (entity, error) {
-		return st.Unit(s.unit.Name())
-	})
-}
-
 func (s *UnitSuite) TestSetPassword(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testSetPassword(c, func() (state.Authenticator, error) {
@@ -652,72 +873,6 @@ func (s *UnitSuite) TestSetAgentCompatPassword(c *gc.C) {
 	e, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
 	testSetAgentCompatPassword(c, e)
-}
-
-func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *gc.C) {
-	// Make a second unit to use later. (Subordinate units can only be created
-	// as a side-effect of a principal entering relation scope.)
-	subUnit := s.addSubordinateUnit(c)
-
-	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-	// Turn on fully-authenticated mode.
-	err = st.SetAdminMongoPassword("admin-secret")
-	c.Assert(err, gc.IsNil)
-
-	// Add a new machine, assign the units to it
-	// and set its password.
-	m, err := st.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	unit, err := st.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
-	subUnit, err = st.Unit(subUnit.Name())
-	c.Assert(err, gc.IsNil)
-	err = unit.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
-	err = m.SetMongoPassword("foo")
-	c.Assert(err, gc.IsNil)
-
-	// Sanity check that we cannot connect with the wrong
-	// password
-	info.Tag = m.Tag().String()
-	info.Password = "foo1"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
-
-	// Connect as the machine entity.
-	info.Tag = m.Tag().String()
-	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st1.Close()
-
-	// Change the password for a unit derived from
-	// the machine entity's state.
-	unit, err = st1.Unit(s.unit.Name())
-	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword("bar")
-	c.Assert(err, gc.IsNil)
-
-	// Now connect as the unit entity and, as that
-	// that entity, change the password for a new unit.
-	info.Tag = unit.Tag().String()
-	info.Password = "bar"
-	st2, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st2.Close()
-
-	// Check that we can set its password.
-	unit, err = st2.Unit(subUnit.Name())
-	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword("bar2")
-	c.Assert(err, gc.IsNil)
-
-	// Clear the admin password, so tests can reset the db.
-	err = st.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
@@ -771,7 +926,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetStatus(params.StatusError, "gaaah", nil)
+	err = s.unit.SetStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, gc.IsNil)
@@ -822,11 +977,16 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
 	// Verify no open ports before activity.
 	c.Assert(s.unit.OpenedPorts(), gc.HasLen, 0)
 
 	// Now open and close port.
-	err := s.unit.OpenPort("tcp", 80)
+	err = s.unit.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	open := s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
@@ -880,10 +1040,21 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
 	preventUnitDestroyRemove(c, s.unit)
-	testWhenDying(c, s.unit, noErr, deadErr, func() error {
-		return s.unit.OpenPort("tcp", 20)
-	}, func() error {
+	testWhenDying(c, s.unit, noErr, contentionErr, func() error {
+		err := s.unit.OpenPort("tcp", 20)
+		if err != nil {
+			return err
+		}
+		err = s.unit.Refresh()
+		if err != nil {
+			return err
+		}
 		return s.unit.ClosePort("tcp", 20)
 	})
 }
@@ -1303,4 +1474,9 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 	ann, err := s.unit.Annotations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
+}
+
+func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	testAgentTools(c, s.unit, `unit "wordpress/0"`)
 }

@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"text/template"
+
+	"github.com/juju/juju/environs/config"
 )
 
 var configHeader = `
@@ -42,10 +44,44 @@ var configHeader = `
 #     $ juju switch myenv
 #
 
+# You can control how Juju harvests machines by using the
+# {{.ProvisionerHarvestKey}} setting. Harvesting is a process wherein
+# Juju attempts to reclaim unused machines.
+#
+# Options are:
+#
+# Don't harvest any machines.
+# {{.ProvisionerHarvestKey}}: none
+#
+# Only harvest machines that Juju knows about and are dead.
+# {{.ProvisionerHarvestKey}}: destroyed
+#
+# Only harvest machines that Juju doesn't know about.
+# {{.ProvisionerHarvestKey}}: unknown
+#
+# Harvest both dead and unknown machines.
+# {{.ProvisionerHarvestKey}}: all
+
 default: amazon
 
 environments:
 `[1:]
+
+func init() {
+
+	type headerVars struct {
+		ProvisionerHarvestKey string
+	}
+
+	configBuff := new(bytes.Buffer)
+	configHeaderTmpl := template.Must(template.New("config header").Parse(configHeader))
+	if err := configHeaderTmpl.Execute(configBuff, headerVars{
+		ProvisionerHarvestKey: config.ProvisionerHarvestModeKey,
+	}); err != nil {
+		panic(fmt.Sprintf("error building config header: %v", err))
+	}
+	configHeader = configBuff.String()
+}
 
 func randomKey() string {
 	buf := make([]byte, 16)
@@ -58,9 +94,9 @@ func randomKey() string {
 
 // BoilerplateConfig returns a sample juju configuration.
 func BoilerplateConfig() string {
-	var config bytes.Buffer
+	configBuff := new(bytes.Buffer)
 
-	config.WriteString(configHeader)
+	configBuff.WriteString(configHeader)
 	for name, p := range providers {
 		t, err := parseTemplate(p.BoilerplateConfig())
 		if err != nil {
@@ -70,15 +106,15 @@ func BoilerplateConfig() string {
 		if err := t.Execute(&ecfg, nil); err != nil {
 			panic(fmt.Errorf("cannot generate boilerplate from %s: %v", name, err))
 		}
-		indent(&config, ecfg.Bytes(), "    ")
+		indent(configBuff, ecfg.Bytes(), "    ")
 	}
 
 	// Sanity check to ensure the boilerplate parses.
-	_, err := ReadEnvironsBytes(config.Bytes())
+	_, err := ReadEnvironsBytes(configBuff.Bytes())
 	if err != nil {
-		panic(fmt.Errorf("cannot parse %s:\n%v", config.String(), err))
+		panic(fmt.Errorf("cannot parse %s:\n%v", configBuff.String(), err))
 	}
-	return config.String()
+	return configBuff.String()
 }
 
 func parseTemplate(s string) (*template.Template, error) {

@@ -4,8 +4,11 @@
 package azure
 
 import (
+	"encoding/pem"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 
 	"github.com/juju/schema"
 
@@ -99,17 +102,41 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	cert := envCfg.managementCertificate()
 	if cert == "" {
 		certPath := envCfg.attrs["management-certificate-path"].(string)
-		pemData, err := ioutil.ReadFile(certPath)
+		pemData, err := readPEMFile(certPath)
 		if err != nil {
 			return nil, fmt.Errorf("invalid management-certificate-path: %s", err)
 		}
 		envCfg.attrs["management-certificate"] = string(pemData)
+	} else {
+		if block, _ := pem.Decode([]byte(cert)); block == nil {
+			return nil, fmt.Errorf("invalid management-certificate: not a PEM encoded certificate")
+		}
 	}
 	delete(envCfg.attrs, "management-certificate-path")
+
 	if envCfg.location() == "" {
 		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
 	}
 	return cfg.Apply(envCfg.attrs)
+}
+
+func readPEMFile(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	// 640K ought to be enough for anybody.
+	data, err := ioutil.ReadAll(io.LimitReader(f, 1024*640))
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("%q is not a PEM encoded certificate file", path)
+	}
+	return data, nil
 }
 
 var boilerplateYAML = `
@@ -144,6 +171,20 @@ azure:
     # available on simplestreams).
     #
     # image-stream: "released"
+
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of true is recommended for use
+    # in production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-upgrade: true
 
 `[1:]
 

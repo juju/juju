@@ -7,14 +7,13 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
@@ -84,7 +83,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *UpgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
-		if !names.IsService(args[0]) {
+		if !names.IsValidService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName = args[0]
@@ -102,7 +101,7 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
@@ -132,7 +131,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newURL = oldURL.WithRevision(c.Revision)
 	}
 
-	repo, err := charm.InferRepository(newURL.Reference, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(newURL.Reference(), ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}

@@ -109,6 +109,39 @@ func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
 	env, err := local.Provider.Prepare(testing.Context(c), minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	err = env.Bootstrap(testing.Context(c), environs.BootstrapParams{})
+	_, _, _, err = env.Bootstrap(testing.Context(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
+}
+
+func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
+
+	// Default config files set these to true.
+	testConfig := minimalConfig(c)
+	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+
+	// If using lxc-clone, we set updates to false
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"lxc-clone": true,
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, gc.IsNil)
+	validConfig, err := local.Provider.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, false)
+	c.Check(validConfig.EnableOSUpgrade(), gc.Equals, false)
+}
+
+// If settings are provided, don't overwrite with defaults.
+func (s *configSuite) TestLocalRespectsUpgradeSettings(c *gc.C) {
+
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"lxc-clone":          true,
+		"enable-os-upgrades": true,
+		"enable-os-updates":  true,
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, gc.IsNil)
+	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
 }

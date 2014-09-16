@@ -74,8 +74,17 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	if !options.passwordAuthAllowed {
 		args = append(args, "-o", "PasswordAuthentication no")
 	}
+
+	// We must set ServerAliveInterval or the server may
+	// think we've become unresponsive on long running
+	// command executions such as "apt-get upgrade".
+	args = append(args, "-o", "ServerAliveInterval 30")
+
 	if options.allocatePTY {
 		args = append(args, "-t", "-t") // twice to force
+	}
+	if options.knownHostsFile != "" {
+		args = append(args, "-o", "UserKnownHostsFile "+utils.CommandString(options.knownHostsFile))
 	}
 	identities := append([]string{}, options.identities...)
 	if pk := PrivateKeyFiles(); len(pk) > 0 {
@@ -119,7 +128,7 @@ func (c *OpenSSHClient) Command(host string, command []string, options *Options)
 		args = append(args, command...)
 	}
 	bin, args := sshpassWrap("ssh", args)
-	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
+	logger.Tracef("running: %s %s", bin, utils.CommandString(args...))
 	return &Cmd{impl: &opensshCmd{exec.Command(bin, args...)}}
 }
 
@@ -136,7 +145,7 @@ func (c *OpenSSHClient) Copy(args []string, userOptions *Options) error {
 	cmd := exec.Command(bin, allArgs...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
-	logger.Debugf("running: %s %s", bin, utils.CommandString(args...))
+	logger.Tracef("running: %s %s", bin, utils.CommandString(args...))
 	if err := cmd.Run(); err != nil {
 		stderr := strings.TrimSpace(stderr.String())
 		if len(stderr) > 0 {

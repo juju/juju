@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/juju/arch"
 )
@@ -24,7 +24,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.19.4"
+const version = "1.21-alpha2"
 
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = MustParse("1.19.9")
@@ -33,13 +33,16 @@ var switchOverVersion = MustParse("1.19.9")
 // the release version of ubuntu.
 var lsbReleaseFile = "/etc/lsb-release"
 
+var osVers = mustOSVersion()
+
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
 	Number: MustParse(version),
-	Series: osVersion(),
+	Series: osVers,
 	Arch:   arch.HostArch(),
+	OS:     MustOSFromSeries(osVers),
 }
 
 var Compiler = runtime.Compiler
@@ -82,6 +85,7 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
+	OS     OSType
 }
 
 func (v Binary) String() string {
@@ -187,6 +191,11 @@ func ParseBinary(s string) (Binary, error) {
 	}
 	v.Series = m[7]
 	v.Arch = m[8]
+	operatingSystem, err := GetOSFromSeries(v.Series)
+	if err != nil {
+		return Binary{}, err
+	}
+	v.OS = operatingSystem
 	return v, nil
 }
 

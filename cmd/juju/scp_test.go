@@ -7,15 +7,15 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -75,7 +75,7 @@ var scpTests = []struct {
 	}, {
 		about:  "scp works with IPv6 addresses",
 		args:   []string{"ipv6-svc/0:foo", "bar"},
-		result: commonArgsNoProxy + `ubuntu@\[2001:db8::\]:foo bar` + "\n",
+		result: commonArgsNoProxy + `ubuntu@[2001:db8::1]:foo bar` + "\n",
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 with proxy",
 		args:   []string{"0:foo", "mysql/0:/foo"},
@@ -103,13 +103,11 @@ var scpTests = []struct {
 
 func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	m := s.makeMachines(4, c, true)
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	dummyCharm, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	dummyCharm, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
 	srv := s.AddTestingService(c, "mysql", dummyCharm)
 	s.addUnit(srv, m[0], c)
@@ -119,14 +117,8 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	s.addUnit(srv, m[2], c)
 	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
 	s.addUnit(srv, m[3], c)
-	// TODO(dimitern) This is a horrible hack and needs to
-	// be fixed as we implement proper #IPv6 support.
 	// Simulate machine 3 has a public IPv6 address.
-	ipv6Addr := network.Address{
-		Value: "2001:db8::",
-		Type:  network.IPv4Address, // ..because SelectPublicAddress ignores IPv6 addresses
-		Scope: network.ScopePublic,
-	}
+	ipv6Addr := network.NewAddress("2001:db8::1", network.ScopePublic)
 	err = m[3].SetAddresses(ipv6Addr)
 	c.Assert(err, gc.IsNil)
 
@@ -136,7 +128,7 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 		scpcmd := &SCPCommand{}
 		scpcmd.proxy = t.proxy
 
-		err := scpcmd.Init(t.args)
+		err := envcmd.Wrap(scpcmd).Init(t.args)
 		c.Check(err, gc.IsNil)
 		err = scpcmd.Run(ctx)
 		if t.error != "" {
@@ -149,7 +141,11 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 			data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
 			c.Check(err, gc.IsNil)
-			c.Check(string(data), gc.Equals, t.result)
+			actual := string(data)
+			if t.proxy {
+				actual = strings.Replace(actual, ".dns", ".internal", 2)
+			}
+			c.Check(actual, gc.Equals, t.result)
 		}
 	}
 }
@@ -159,7 +155,7 @@ var hostsFromTargets = map[string]string{
 	"mysql/0":    "dummyenv-0.dns",
 	"mongodb/0":  "dummyenv-1.dns",
 	"mongodb/1":  "dummyenv-2.dns",
-	"ipv6-svc/0": "2001:db8::",
+	"ipv6-svc/0": "2001:db8::1",
 }
 
 func dummyHostsFromTarget(target string) (string, error) {

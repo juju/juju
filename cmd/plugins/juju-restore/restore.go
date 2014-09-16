@@ -14,13 +14,17 @@ import (
 	"path"
 	"strconv"
 	"text/template"
+	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -29,11 +33,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -107,9 +108,24 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	export LC_ALL=C
 	tar xzf juju-backup.tgz
 	test -d juju-backup
-	apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients
-	
+
+
 	initctl stop jujud-machine-0
+
+	#The code apt-get throws when lock is taken
+	APTOUTPUT=100 
+	while [ $APTOUTPUT -gt 0 ]
+	do
+		# We will try to run apt-get and it can fail if other dpkg is in use
+		# the subshell call is not reached by -e so we can have apt-get fail
+		APTOUTPUT=$(apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients &> /dev/null; echo $?)
+		if [ $APTOUTPUT -gt 0 ] && [ $APTOUTPUT -ne 100 ]; then
+			echo "apt-get failed with an irrecoverable error $APTOUTPUT";
+			exit 1
+		fi
+	done
+	
+
 
 	initctl stop juju-db
 	rm -r /var/lib/juju
@@ -131,15 +147,10 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u admin -p {{.AgentConfig.Credentials.OldPassword | shquote}} localhost:{{.AgentConfig.StatePort}}/admin --eval "$1"
 	}
 
-
-	mongoEval() {
-		mongo --ssl -u {{.AgentConfig.Credentials.Tag}} -p {{.AgentConfig.Credentials.Password | shquote}} localhost:{{.AgentConfig.StatePort}}/juju --eval "$1"
-	}
-
 	# wait for mongo to come up after starting the juju-db upstart service.
 	for i in $(seq 1 100)
 	do
-		mongoEval ' ' && break
+		mongoAdminEval ' ' && break
 		sleep 5
 	done
 
@@ -148,11 +159,12 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:"}}{{.AgentConfig.StatePort}}" , "tags" : { "juju-machine-id" : "0" } }]}
 		rs.initiate(conf)
 	'
-
+	# This looks arbitrary but there is no clear way to determine when replicaset is initiated
+	# and rs.initiate message is "this will take about a minute" so we honour that estimation
 	sleep 60
 
 	# Remove all state machines but 0, to restore HA
-	mongoEval '
+	mongoAdminEval '
 		db = db.getSiblingDB("juju")
 		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
@@ -160,13 +172,11 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
 		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
 	'
-	
-
 
 	# Give time to replset to initiate
 	for i in $(seq 1 20)
 	do
-		mongoEval ' ' && break
+		mongoAdminEval ' ' && break
 		sleep 5
 	done
 
@@ -213,60 +223,52 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	agentConf, err := extractConfig(c.backupFile)
 	if err != nil {
-		return fmt.Errorf("cannot extract configuration from backup file: %v", err)
+		return errors.Annotate(err, "cannot extract configuration from backup file")
 	}
 	progress("extracted credentials from backup file")
 	store, err := configstore.Default()
 	if err != nil {
 		return err
 	}
-	cfg, _, err := environs.ConfigForName(c.EnvName, store)
+	cfg, err := c.Config(store)
 	if err != nil {
 		return err
 	}
 	env, err := rebootstrap(cfg, ctx, c.Constraints)
 	if err != nil {
-		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
+		return errors.Annotate(err, "cannot re-bootstrap environment")
 	}
 	progress("connecting to newly bootstrapped instance")
-	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
+	var apiState *api.State
+	// The state server backend may not be ready to accept logins so we retry.
+	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
+	// Typically we expect only 1 retry will be needed.
+	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
+	for a := attempt.Start(); a.Next(); {
+		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+		if err == nil || errors.Cause(err).Error() != "EOF" {
+			break
+		}
+		progress("bootstrapped instance not ready - attempting to redial")
+	}
 	if err != nil {
-		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
+		return errors.Annotate(err, "cannot connect to bootstrap instance")
 	}
 	progress("restoring bootstrap machine")
-	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile, agentConf)
+	machine0Addr, err := restoreBootstrapMachine(apiState, c.backupFile, agentConf)
 	if err != nil {
-		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
+		return errors.Annotate(err, "cannot restore bootstrap machine")
 	}
 	progress("restored bootstrap machine")
-	// Update the environ state to point to the new instance.
-	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
-		StateInstances: []instance.Id{newInstId},
-	}); err != nil {
-		return fmt.Errorf("cannot update environ bootstrap state storage: %v", err)
-	}
-	// Construct our own state info rather than using juju.NewConn so
-	// that we can avoid storage eventual-consistency issues
-	// (and it's faster too).
-	caCert, ok := cfg.CACert()
-	if !ok {
-		return fmt.Errorf("configuration has no CA certificate")
-	}
+
+	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 	progress("opening state")
-	st, err := state.Open(&state.Info{
-		Info: mongo.Info{
-			Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
-			CACert: caCert,
-		},
-		Tag:      agentConf.Credentials.Tag,
-		Password: agentConf.Credentials.Password,
-	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
-		return fmt.Errorf("cannot open state: %v", err)
+		return errors.Annotate(err, "cannot connect to api server")
 	}
 	progress("updating all machines")
-	if err := updateAllMachines(st, machine0Addr); err != nil {
-		return fmt.Errorf("cannot update machines: %v", err)
+	if err := updateAllMachines(apiState, machine0Addr); err != nil {
+		return errors.Annotate(err, "cannot update machines")
 	}
 	return nil
 }
@@ -283,32 +285,32 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot enable provisioner-safe-mode: %v", err)
+		return nil, errors.Annotate(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	state, err := bootstrap.LoadState(env.Storage())
+	instanceIds, err := env.StateServerInstances()
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve environment storage; perhaps the environment was not bootstrapped: %v", err)
+		return nil, errors.Annotate(err, "cannot determine state server instances")
 	}
-	if len(state.StateInstances) == 0 {
-		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped")
+	if len(instanceIds) == 0 {
+		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
-	if len(state.StateInstances) > 1 {
+	if len(instanceIds) > 1 {
 		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
 	}
-	inst, err := env.Instances(state.StateInstances)
+	inst, err := env.Instances(instanceIds)
 	if err == nil {
 		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 	}
 	if err != environs.ErrNoInstances {
-		return nil, fmt.Errorf("cannot detect whether old instance is still running: %v", err)
+		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
-	if err := env.Storage().Remove(bootstrap.StateFile); err != nil {
-		return nil, fmt.Errorf("cannot remove %q from storage: %v", bootstrap.StateFile, err)
+	if err := env.Storage().Remove(common.StateFile); err != nil {
+		return nil, errors.Annotate(err, fmt.Sprintf("cannot remove %q from storage", common.StateFile))
 	}
 
 	// TODO If we fail beyond here, then we won't have a state file and
@@ -317,42 +319,42 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	// error-prone) or we could provide a --no-check flag to make
 	// it go ahead anyway without the check.
 
-	args := environs.BootstrapParams{Constraints: cons}
+	args := bootstrap.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
-		return nil, fmt.Errorf("cannot bootstrap new instance: %v", err)
+		return nil, errors.Annotate(err, "cannot bootstrap new instance")
 	}
 	return env, nil
 }
 
-func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
-	client := conn.State.Client()
+func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentConfig) (addr string, err error) {
+	client := st.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
-		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
+		return "", errors.Annotate(err, "cannot get public address of bootstrap machine")
 	}
 	paddr, err := client.PrivateAddress("0")
 	if err != nil {
-		return "", "", fmt.Errorf("cannot get private address of bootstrap machine: %v", err)
+		return "", errors.Annotate(err, "cannot get private address of bootstrap machine")
 	}
 	status, err := client.Status(nil)
 	if err != nil {
-		return "", "", fmt.Errorf("cannot get environment status: %v", err)
+		return "", errors.Annotate(err, "cannot get environment status")
 	}
 	info, ok := status.Machines["0"]
 	if !ok {
-		return "", "", fmt.Errorf("cannot find bootstrap machine in status")
+		return "", fmt.Errorf("cannot find bootstrap machine in status")
 	}
-	newInstId = instance.Id(info.InstanceId)
+	newInstId := instance.Id(info.InstanceId)
 
 	progress("copying backup file to bootstrap host")
 	if err := sendViaScp(backupFile, addr, "~/juju-backup.tgz"); err != nil {
-		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
+		return "", errors.Annotate(err, "cannot copy backup file to bootstrap instance")
 	}
 	progress("updating bootstrap machine")
 	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, agentConf, addr, paddr)); err != nil {
-		return "", "", fmt.Errorf("update script failed: %v", err)
+		return "", errors.Annotate(err, "update script failed")
 	}
-	return newInstId, addr, nil
+	return addr, nil
 }
 
 type credentials struct {
@@ -375,7 +377,7 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	defer f.Close()
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return agentConfig{}, fmt.Errorf("cannot unzip %q: %v", backupFile, err)
+		return agentConfig{}, errors.Annotate(err, fmt.Sprintf("cannot unzip %q", backupFile))
 	}
 	defer gzr.Close()
 	outerTar, err := findFileInTar(gzr, "juju-backup/root.tar")
@@ -388,11 +390,11 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	}
 	data, err := ioutil.ReadAll(agentConf)
 	if err != nil {
-		return agentConfig{}, fmt.Errorf("failed to read agent config file: %v", err)
+		return agentConfig{}, errors.Annotate(err, "failed to read agent config file")
 	}
 	var conf interface{}
 	if err := goyaml.Unmarshal(data, &conf); err != nil {
-		return agentConfig{}, fmt.Errorf("cannot unmarshal agent config file: %v", err)
+		return agentConfig{}, errors.Annotate(err, "cannot unmarshal agent config file")
 	}
 	m, ok := conf.(map[interface{}]interface{})
 	if !ok {
@@ -434,7 +436,7 @@ func findFileInTar(r io.Reader, name string) (io.Reader, error) {
 	for {
 		hdr, err := tarr.Next()
 		if err != nil {
-			return nil, fmt.Errorf("%q not found: %v", name, err)
+			return nil, errors.Annotate(err, fmt.Sprintf("%q not found", name))
 		}
 		if path.Clean(hdr.Name) == name {
 			return tarr, nil
@@ -475,27 +477,28 @@ func setAgentAddressScript(stateAddr string) string {
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(st *state.State, stateAddr string) error {
-	machines, err := st.AllMachines()
+func updateAllMachines(apiState *api.State, stateAddr string) error {
+	client := apiState.Client()
+	status, err := client.Status(nil)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get status")
 	}
 	pendingMachineCount := 0
 	done := make(chan error)
-	for _, machine := range machines {
+	for _, machineStatus := range status.Machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machine.IsManager() || machine.Life() == state.Dead {
+		if machineStatus.HasVote || machineStatus.WantsVote || params.Life(machineStatus.Life) == params.Dead {
 			continue
 		}
 		pendingMachineCount++
-		machine := machine
+		machine := machineStatus
 		go func() {
-			err := runMachineUpdate(machine, setAgentAddressScript(stateAddr))
+			err := runMachineUpdate(client, machine.Id, setAgentAddressScript(stateAddr))
 			if err != nil {
-				logger.Errorf("failed to update machine %s: %v", machine, err)
+				logger.Errorf("failed to update machine %s: %v", machine.Id, err)
 			} else {
-				progress("updated machine %s", machine)
+				progress("updated machine %s", machine.Id)
 			}
 			done <- err
 		}()
@@ -503,18 +506,18 @@ func updateAllMachines(st *state.State, stateAddr string) error {
 	err = nil
 	for ; pendingMachineCount > 0; pendingMachineCount-- {
 		if updateErr := <-done; updateErr != nil && err == nil {
-			err = fmt.Errorf("machine update failed")
+			err = errors.Annotate(updateErr, "machine update failed")
 		}
 	}
 	return err
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script
-func runMachineUpdate(m *state.Machine, sshArg string) error {
-	progress("updating machine: %v\n", m)
-	addr := network.SelectPublicAddress(m.Addresses())
-	if addr == "" {
-		return fmt.Errorf("no appropriate public address found")
+func runMachineUpdate(client *api.Client, id string, sshArg string) error {
+	progress("updating machine: %v\n", id)
+	addr, err := client.PublicAddress(id)
+	if err != nil {
+		return errors.Annotate(err, "no public address found")
 	}
 	return runViaSsh(addr, sshArg)
 }
@@ -522,14 +525,14 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 func runViaSsh(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
-	cmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
+	userCmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
 	var stderrBuf bytes.Buffer
 	var stdoutBuf bytes.Buffer
-	cmd.Stderr = &stderrBuf
-	cmd.Stdout = &stdoutBuf
-	err := cmd.Run()
+	userCmd.Stderr = &stderrBuf
+	userCmd.Stdout = &stdoutBuf
+	err := userCmd.Run()
 	if err != nil {
-		return fmt.Errorf("ssh command failed: %v (%q)", err, stderrBuf.String())
+		return errors.Annotate(err, fmt.Sprintf("ssh command failed: (%q)", stderrBuf.String()))
 	}
 	progress("ssh command succedded: %q", stdoutBuf.String())
 	return nil
@@ -538,7 +541,7 @@ func runViaSsh(addr string, script string) error {
 func sendViaScp(file, host, destFile string) error {
 	err := ssh.Copy([]string{file, "ubuntu@" + host + ":" + destFile}, nil)
 	if err != nil {
-		return fmt.Errorf("scp command failed: %v", err)
+		return errors.Annotate(err, "scp command failed")
 	}
 	return nil
 }
@@ -554,7 +557,7 @@ func execTemplate(tmpl *template.Template, data interface{}) string {
 	var buf bytes.Buffer
 	err := tmpl.Execute(&buf, data)
 	if err != nil {
-		panic(fmt.Errorf("template error: %v", err))
+		panic(errors.Annotate(err, "template error"))
 	}
 	return buf.String()
 }

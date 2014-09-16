@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
@@ -134,8 +134,8 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // overwriting unrelated changes made to the node since it was last read.
 func (c *Settings) Write() ([]ItemChange, error) {
 	changes := []ItemChange{}
-	updates := map[string]interface{}{}
-	deletions := map[string]int{}
+	updates := bson.M{}
+	deletions := bson.M{}
 	for key := range cacheKeys(c.disk, c.core) {
 		old, ondisk := c.disk[key]
 		new, incore := c.core[key]
@@ -164,13 +164,10 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	}
 	sort.Sort(itemChangeSlice(changes))
 	ops := []txn.Op{{
-		C:      c.st.settings.Name,
+		C:      settingsC,
 		Id:     c.key,
 		Assert: txn.DocExists,
-		Update: bson.D{
-			{"$set", updates},
-			{"$unset", deletions},
-		},
+		Update: setUnsetUpdate(updates, deletions),
 	}}
 	err := c.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -245,8 +242,11 @@ func (c *Settings) Read() error {
 // readSettingsDoc reads the settings with the given
 // key. It returns the settings and the current rxnRevno.
 func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, error) {
+	settings, closer := st.getCollection(settingsC)
+	defer closer()
+
 	config := map[string]interface{}{}
-	err := st.settings.FindId(key).One(config)
+	err := settings.FindId(key).One(config)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -269,7 +269,7 @@ var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
 	newValues := copyMap(values, escapeReplacer.Replace)
 	return txn.Op{
-		C:      st.settings.Name,
+		C:      settingsC,
 		Id:     key,
 		Assert: txn.DocMissing,
 		Insert: newValues,
@@ -293,7 +293,10 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 
 // removeSettings removes the Settings for key.
 func removeSettings(st *State, key string) error {
-	err := st.settings.RemoveId(key)
+	settings, closer := st.getCollection(settingsC)
+	defer closer()
+
+	err := settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("settings")
 	}
@@ -309,7 +312,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	if err != nil {
 		return txn.Op{}, nil, err
 	}
-	deletes := map[string]int{}
+	deletes := bson.M{}
 	for k := range s.disk {
 		if _, found := values[k]; !found {
 			deletes[escapeReplacer.Replace(k)] = 1
@@ -317,10 +320,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	}
 	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
-	op.Update = bson.D{
-		{"$set", newValues},
-		{"$unset", deletes},
-	}
+	op.Update = setUnsetUpdate(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(st, key)
 		if err != nil {
@@ -333,8 +333,23 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 
 func (s *Settings) assertUnchangedOp() txn.Op {
 	return txn.Op{
-		C:      s.st.settings.Name,
+		C:      settingsC,
 		Id:     s.key,
 		Assert: bson.D{{"txn-revno", s.txnRevno}},
 	}
+}
+
+// setUnsetUpdate returns a bson.D for use in
+// a txn.Op's Update field, containing $set and
+// $unset operators if the corresponding operands
+// are non-empty.
+func setUnsetUpdate(set, unset bson.M) bson.D {
+	var update bson.D
+	if len(set) > 0 {
+		update = append(update, bson.DocElem{"$set", set})
+	}
+	if len(unset) > 0 {
+		update = append(update, bson.DocElem{"$unset", unset})
+	}
+	return update
 }

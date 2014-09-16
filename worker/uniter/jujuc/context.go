@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/juju/charm"
+	"gopkg.in/juju/charm.v3"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // Context is the interface that all hook helper commands
@@ -38,6 +39,9 @@ type Context interface {
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
+	// ActionParams returns the map of params passed with an Action.
+	ActionParams() map[string]interface{}
+
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
 	HookRelation() (ContextRelation, bool)
@@ -56,6 +60,9 @@ type Context interface {
 
 	// OwnerTag returns the owner of the service the executing units belongs to
 	OwnerTag() string
+
+	// AddMetric records a metric to return after hook execution.
+	AddMetrics(string, string, time.Time) error
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.

@@ -13,16 +13,17 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/upstart"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/version"
 )
 
@@ -48,7 +49,9 @@ var (
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
 
-	upstartConfInstall          = (*upstart.Conf).Install
+	upstartConfInstall          = (*upstart.Service).Install
+	upstartServiceExists        = (*upstart.Service).Exists
+	upstartServiceRunning       = (*upstart.Service).Running
 	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
 	upstartServiceStop          = (*upstart.Service).Stop
 	upstartServiceStart         = (*upstart.Service).Start
@@ -130,11 +133,45 @@ func Path() (string, error) {
 
 // RemoveService removes the mongoDB upstart service from this machine.
 func RemoveService(namespace string) error {
-	svc := upstart.NewService(ServiceName(namespace))
+	svc := upstart.NewService(ServiceName(namespace), common.Conf{})
 	return upstartServiceStopAndRemove(svc)
 }
 
-// EnsureMongoServer ensures that the correct mongo upstart script is installed
+// EnsureServerParams is a parameter struct for EnsureServer.
+type EnsureServerParams struct {
+	// APIPort is the port to connect to the api server.
+	APIPort int
+
+	// StatePort is the port to connect to the mongo server.
+	StatePort int
+
+	// Cert is the certificate.
+	Cert string
+
+	// PrivateKey is the certificate's private key.
+	PrivateKey string
+
+	// SharedSecret is a secret shared between mongo servers.
+	SharedSecret string
+
+	// SystemIdentity is the identity of the system.
+	SystemIdentity string
+
+	// DataDir is the machine agent data directory.
+	DataDir string
+
+	// Namespace is the machine agent's namespace, which is used to
+	// generate a unique service name for Mongo.
+	Namespace string
+
+	// OplogSize is the size of the Mongo oplog.
+	// If this is zero, then EnsureServer will
+	// calculate a default size according to the
+	// algorithm defined in Mongo.
+	OplogSize int
+}
+
+// EnsureServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
@@ -143,21 +180,53 @@ func RemoveService(namespace string) error {
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureServer(dataDir string, namespace string, info params.StateServingInfo) error {
-	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
-	dbDir := filepath.Join(dataDir, "db")
+func EnsureServer(args EnsureServerParams) error {
+	logger.Infof(
+		"Ensuring mongo server is running; data directory %s; port %d",
+		args.DataDir, args.StatePort,
+	)
 
+	dbDir := filepath.Join(args.DataDir, "db")
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
 
-	certKey := info.Cert + "\n" + info.PrivateKey
-	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
+	oplogSizeMB := args.OplogSize
+	if oplogSizeMB == 0 {
+		var err error
+		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
+			return err
+		}
+	}
+
+	if err := aptGetInstallMongod(); err != nil {
+		return fmt.Errorf("cannot install mongod: %v", err)
+	}
+	mongoPath, err := Path()
+	if err != nil {
+		return err
+	}
+	logVersion(mongoPath)
+
+	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB)
+	if err != nil {
+		return err
+	}
+	if upstartServiceExists(svc) {
+		logger.Debugf("mongo exists as expected")
+		if !upstartServiceRunning(svc) {
+			return upstartServiceStart(svc)
+		}
+		return nil
+	}
+
+	certKey := args.Cert + "\n" + args.PrivateKey
+	err = utils.AtomicWriteFile(sslKeyPath(args.DataDir), []byte(certKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write SSL key: %v", err)
 	}
 
-	err = utils.AtomicWriteFile(sharedSecretPath(dataDir), []byte(info.SharedSecret), 0600)
+	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write mongod shared secret: %v", err)
 	}
@@ -176,26 +245,16 @@ func EnsureServer(dataDir string, namespace string, info params.StateServingInfo
 		}
 	}
 
-	if err := aptGetInstallMongod(); err != nil {
-		return fmt.Errorf("cannot install mongod: %v", err)
-	}
-
-	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort)
-	if err != nil {
-		return err
-	}
-	logVersion(mongoPath)
-
-	if err := upstartServiceStop(&upstartConf.Service); err != nil {
+	if err := upstartServiceStop(svc); err != nil {
 		return fmt.Errorf("failed to stop mongo: %v", err)
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("error creating journal directories: %v", err)
 	}
-	if err := preallocOplog(dbDir); err != nil {
+	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
 		return fmt.Errorf("error creating oplog files: %v", err)
 	}
-	return upstartConfInstall(upstartConf)
+	return upstartConfInstall(svc)
 }
 
 // ServiceName returns the name of the upstart service config for mongo using
@@ -242,37 +301,31 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, string, error) {
-	svc := upstart.NewService(ServiceName(namespace))
-
-	mongoPath, err := Path()
-	if err != nil {
-		return nil, "", err
-	}
-
+func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSizeMB int) (*upstart.Service, error) {
 	mongoCmd := mongoPath + " --auth" +
 		" --dbpath=" + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 		" --sslPEMKeyPassword ignored" +
-		" --bind_ip 0.0.0.0" +
 		" --port " + fmt.Sprint(port) +
 		" --noprealloc" +
 		" --syslog" +
 		" --smallfiles" +
 		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
-		" --replSet " + ReplicaSetName
-	conf := &upstart.Conf{
-		Service: *svc,
-		Desc:    "juju state database",
+		" --replSet " + ReplicaSetName +
+		" --ipv6 " +
+		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+	conf := common.Conf{
+		Desc: "juju state database",
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
 		Cmd: mongoCmd,
 	}
-	return conf, mongoPath, nil
+	svc := upstart.NewService(ServiceName(namespace), conf)
+	return svc, nil
 }
 
 func aptGetInstallMongod() error {

@@ -7,9 +7,6 @@ import (
 	"errors"
 
 	"github.com/juju/cmd"
-
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 const removeUserDoc = `
@@ -20,7 +17,7 @@ Examples:
 `
 
 type RemoveUserCommand struct {
-	envcmd.EnvCommandBase
+	UserCommandBase
 	User string
 }
 
@@ -42,8 +39,17 @@ func (c *RemoveUserCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
+type removeUserAPI interface {
+	RemoveUser(user string) error
+	Close() error
+}
+
+var getRemoveUserAPI = func(c *RemoveUserCommand) (removeUserAPI, error) {
+	return c.NewUserManagerClient()
+}
+
 func (c *RemoveUserCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewUserManagerClient(c.EnvName)
+	client, err := getRemoveUserAPI(c)
 	if err != nil {
 		return err
 	}

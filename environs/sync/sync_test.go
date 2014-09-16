@@ -159,14 +159,6 @@ var tests = []struct {
 		},
 		tools: v1all,
 	},
-	{
-		description: "write the mirrors files",
-		ctx: &sync.SyncContext{
-			Public: true,
-		},
-		tools:         v180all,
-		expectMirrors: true,
-	},
 }
 
 func (s *syncSuite) TestSyncing(c *gc.C) {
@@ -188,7 +180,9 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				test.ctx.MajorVersion = test.major
 				test.ctx.MinorVersion = test.minor
 			}
-			test.ctx.Target = s.targetEnv.Storage()
+			stor := s.targetEnv.Storage()
+			test.ctx.TargetToolsFinder = sync.StorageToolsFinder{stor}
+			test.ctx.TargetToolsUploader = sync.StorageToolsUploader{stor, true, false}
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
@@ -363,12 +357,9 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata := toolstesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
-	c.Assert(metadata, gc.HasLen, 3)
-	for i, tm := range metadata {
-		c.Assert(tm.Release, gc.Equals, expectSeries[i])
-		c.Assert(tm.Version, gc.Equals, version.Current.Number.String())
-	}
+	metadata, err := envtools.ReadMetadata(s.env.Storage())
+	c.Assert(err, gc.IsNil)
+	c.Assert(metadata, gc.HasLen, 0)
 }
 
 // downloadTools downloads the supplied tools and extracts them into a

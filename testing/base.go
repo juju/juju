@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/wrench"
 )
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
@@ -65,6 +66,7 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
+	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	s.JujuOSEnvSuite.SetUpSuite(c)
@@ -81,6 +83,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+
+	// We do this to isolate invocations of bash from pulling in the
+	// ambient user environment, and potentially affecting the tests.
+	// We can't always just use IsolationSuite because we still need
+	// PATH and possibly a couple other envars.
+	s.PatchEnvironment("BASH_ENV", "")
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {

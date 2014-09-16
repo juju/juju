@@ -8,11 +8,14 @@ import (
 	"runtime"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -51,7 +54,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
-	if !names.IsUnit(a.UnitName) {
+	if !names.IsValidUnit(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
@@ -70,10 +73,15 @@ func (a *UnitAgent) Stop() error {
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer a.tomb.Done()
-	if err := a.ReadConfig(a.Tag()); err != nil {
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	agentConfig := a.CurrentConfig()
+	if err := setupLogging(agentConfig); err != nil {
+		return err
+	}
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	network.InitializeFromConfig(agentConfig)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
@@ -91,9 +99,22 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Before starting any workers, ensure we record the Juju version this unit
+	// agent is running.
+	currentTools := &tools.Tools{Version: version.Current}
+	if err := st.Upgrader().SetVersion(agentConfig.Tag().String(), currentTools.Version); err != nil {
+		return nil, errors.Annotate(err, "cannot set unit agent version")
+	}
+
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(
+			st.Upgrader(),
+			agentConfig,
+			agentConfig.UpgradedToVersion(),
+			func() bool { return false },
+		), nil
 	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
@@ -110,6 +131,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	return newCloseWorker(runner, st), nil
 }
 
-func (a *UnitAgent) Tag() string {
-	return names.NewUnitTag(a.UnitName).String()
+func (a *UnitAgent) Tag() names.Tag {
+	return names.NewUnitTag(a.UnitName)
 }

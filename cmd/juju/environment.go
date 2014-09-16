@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
@@ -54,7 +53,7 @@ func (c *GetEnvironmentCommand) Init(args []string) (err error) {
 }
 
 func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
@@ -123,7 +122,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 }
 
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
@@ -165,7 +164,7 @@ func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
 }
 
 func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

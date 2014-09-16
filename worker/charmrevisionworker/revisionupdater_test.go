@@ -7,15 +7,15 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/apiserver/charmrevisionupdater/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/charmrevisionworker"
 )
@@ -56,7 +56,7 @@ func (s *RevisionUpdateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 }
 

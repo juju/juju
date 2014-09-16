@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 
 	uhook "github.com/juju/juju/worker/uniter/hook"
 )
@@ -77,6 +78,7 @@ type State struct {
 func (st State) validate() (err error) {
 	defer errors.Maskf(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
+	isAction := hasHook && st.Hook.Kind == hooks.ActionRequested
 	hasCharm := st.CharmURL != nil
 	switch st.Op {
 	case Install:
@@ -88,7 +90,12 @@ func (st State) validate() (err error) {
 		if !hasCharm {
 			return fmt.Errorf("missing charm URL")
 		}
-	case Continue, RunHook:
+	case RunHook:
+		if isAction && st.Hook.ActionId == "" {
+			return fmt.Errorf("missing action id")
+		}
+		fallthrough
+	case Continue:
 		if !hasHook {
 			return fmt.Errorf("missing hook info")
 		} else if hasCharm {

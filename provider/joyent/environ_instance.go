@@ -51,7 +51,7 @@ func newCompute(cfg *environConfig) (*joyentCompute, error) {
 }
 
 func (env *joyentEnviron) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.Name(), names.NewMachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", env.Config().Name(), names.NewMachineTag(machineId))
 }
 
 var unsupportedConstraints = []string{
@@ -104,7 +104,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 
 	args.MachineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
@@ -125,7 +125,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		Package:  spec.InstanceType.Name,
 		Image:    spec.Image.Id,
 		Metadata: map[string]string{"metadata.cloud-init:user-data": string(userData)},
-		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Name()},
+		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Config().Name()},
 	})
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot create instances: %v", err)
@@ -173,7 +173,7 @@ func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 
 	filter := cloudapi.NewFilter()
 	filter.Set("tag.group", "juju")
-	filter.Set("tag.env", env.Name())
+	filter.Set("tag.env", env.Config().Name())
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {

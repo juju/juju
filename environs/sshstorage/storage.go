@@ -248,11 +248,12 @@ func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	out, err := s.runf(flockShared, "base64 < %s", utils.ShQuote(path))
+	filename := utils.ShQuote(path)
+	out, err := s.runf(flockShared, "(test -e %s || (echo No such file && exit 1)) && base64 < %s", filename, filename)
 	if err != nil {
 		err := err.(SSHStorageError)
 		if strings.Contains(err.Output, "No such file") {
-			return nil, errors.NewNotFound(err, "")
+			return nil, errors.NewNotFound(err, path+" not found")
 		}
 		return nil, err
 	}
@@ -318,7 +319,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	tmpdir := utils.ShQuote(s.tmpdir)
 
 	// Write to a temporary file ($TMPFILE), then mv atomically.
-	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
+	command := fmt.Sprintf("mkdir -p `dirname %s` && cat >| $TMPFILE", path)
 	command = fmt.Sprintf(
 		"TMPFILE=`mktemp --tmpdir=%s` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
 		tmpdir, command, path,

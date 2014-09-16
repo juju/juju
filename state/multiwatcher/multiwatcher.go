@@ -5,14 +5,18 @@ package multiwatcher
 
 import (
 	"container/list"
-	"errors"
+	stderrors "errors"
 	"reflect"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
 )
+
+var logger = loggo.GetLogger("juju.state.multiwatcher")
 
 // Watcher watches any changes to the state.
 type Watcher struct {
@@ -39,10 +43,10 @@ func (w *Watcher) Stop() error {
 		return nil
 	case <-w.all.tomb.Dead():
 	}
-	return w.all.tomb.Err()
+	return errors.Trace(w.all.tomb.Err())
 }
 
-var ErrWatcherStopped = errors.New("watcher was stopped")
+var ErrWatcherStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
@@ -56,12 +60,12 @@ func (w *Watcher) Next() ([]params.Delta, error) {
 	case <-w.all.tomb.Dead():
 		err := w.all.tomb.Err()
 		if err == nil {
-			err = errors.New("shared state watcher was stopped")
+			err = errors.Errorf("shared state watcher was stopped")
 		}
 		return nil, err
 	}
 	if ok := <-req.reply; !ok {
-		return nil, ErrWatcherStopped
+		return nil, errors.Trace(ErrWatcherStopped)
 	}
 	return req.changes, nil
 }
@@ -156,7 +160,16 @@ func NewStoreManager(backing Backing) *StoreManager {
 		// forever. This currently fits the way we go about things,
 		// because we reconnect to the state on any error, but
 		// perhaps there are errors we could recover from.
-		sm.tomb.Kill(sm.loop())
+
+		err := sm.loop()
+		cause := errors.Cause(err)
+		// tomb expects ErrDying or ErrStillAlive as
+		// exact values, so we need to log and unwrap
+		// the error first.
+		if err != nil && cause != tomb.ErrDying {
+			errors.LoggedErrorf(logger, "store manager loop failed: %v", err)
+		}
+		sm.tomb.Kill(cause)
 	}()
 	return sm
 }
@@ -177,10 +190,10 @@ func (sm *StoreManager) loop() error {
 	for {
 		select {
 		case <-sm.tomb.Dying():
-			return tomb.ErrDying
+			return errors.Trace(tomb.ErrDying)
 		case change := <-in:
 			if err := sm.backing.Changed(sm.all, change); err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		case req := <-sm.request:
 			sm.handle(req)
@@ -192,7 +205,7 @@ func (sm *StoreManager) loop() error {
 // Stop stops the StoreManager.
 func (sm *StoreManager) Stop() error {
 	sm.tomb.Kill(nil)
-	return sm.tomb.Wait()
+	return errors.Trace(sm.tomb.Wait())
 }
 
 // handle processes a request from a Watcher to the StoreManager.

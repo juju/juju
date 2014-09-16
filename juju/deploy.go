@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm"
+	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -52,7 +53,11 @@ func DeployService(st *state.State, args DeployServiceParams) (*state.Service, e
 		}
 	}
 	if args.ServiceOwner == "" {
-		args.ServiceOwner = "user-admin"
+		env, err := st.Environment()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		args.ServiceOwner = env.Owner().String()
 	}
 	// TODO(fwereade): transactional State.AddService including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
@@ -134,7 +139,7 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 					mid = machineIdSpec
 				}
 			}
-			if !names.IsMachine(mid) {
+			if !names.IsValidMachine(mid) {
 				return nil, fmt.Errorf("invalid force machine id %q", mid)
 			}
 			var unitCons *constraints.Value

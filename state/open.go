@@ -5,35 +5,19 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/replicaset"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
-
-// Info encapsulates information about cluster of
-// servers holding juju state and can be used to make a
-// connection to that cluster.
-type Info struct {
-	mongo.Info
-	// Tag holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
-	Tag string
-
-	// Password holds the password for the connecting entity.
-	Password string
-}
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
@@ -44,44 +28,44 @@ type Info struct {
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
-	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
-	di, err := mongo.DialInfo(info.Info, opts)
+func Open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+	st, err := open(info, opts, policy)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	logger.Debugf("dialing mongo")
-	session, err := mgo.DialWithInfo(di)
+	ssInfo, err := st.StateServerInfo()
 	if err != nil {
-		return nil, err
+		st.Close()
+		return nil, errors.Annotate(err, "could not access state server info")
+	}
+	st.environTag = ssInfo.EnvironmentTag
+	return st, nil
+}
+
+func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Debugf("dialing mongo")
+	session, err := mongo.DialWithInfo(info.Info, opts)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 	logger.Debugf("connection established")
-
-	_, err = replicaset.CurrentConfig(session)
-	safe := &mgo.Safe{J: true}
-	if err == nil {
-		// set mongo to write-majority (writes only returned after replicated
-		// to a majority of replica-set members)
-		safe.WMode = "majority"
-	}
-	session.SetSafe(safe)
 
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	session.SetSocketTimeout(mongo.SocketTimeout)
 	return st, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
-	st, err := Open(info, opts, policy)
+func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+	st, err := open(info, opts, policy)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer func() {
 		if err != nil {
@@ -94,35 +78,50 @@ func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Poli
 	if _, err := st.Environment(); err == nil {
 		return st, nil
 	} else if !errors.IsNotFound(err) {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	logger.Infof("initializing environment")
+	owner := names.NewLocalUserTag("admin")
+	logger.Infof("initializing environment, owner: %q", owner.Username())
+	logger.Infof("info: %#v", info)
 	if err := checkEnvironConfig(cfg); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
 	}
+	st.environTag = names.NewEnvironTag(uuid)
+	newEnvUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, cfg.Name(), uuid.String()),
+		createInitialUserOp(st, owner, info.Password),
+		createEnvironmentOp(st, owner, cfg.Name(), uuid, uuid),
+		newEnvUserOp,
 		{
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     environGlobalKey,
-			Insert: &stateServersDoc{},
+			Assert: txn.DocMissing,
+			Insert: &stateServersDoc{
+				EnvUUID: uuid,
+			},
 		}, {
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     apiHostPortsKey,
+			Assert: txn.DocMissing,
 			Insert: &apiHostPortsDoc{},
+		}, {
+			C:      stateServersC,
+			Id:     stateServingInfoKey,
+			Assert: txn.DocMissing,
+			Insert: &StateServingInfo{},
 		},
 	}
 	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return st, nil
 }
@@ -135,17 +134,18 @@ var indexes = []struct {
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{"relations", []string{"endpoints.relationname"}, false},
-	{"relations", []string{"endpoints.servicename"}, false},
-	{"units", []string{"service"}, false},
-	{"units", []string{"principal"}, false},
-	{"units", []string{"machineid"}, false},
-	{"users", []string{"name"}, false},
-	{"networks", []string{"providerid"}, true},
-	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
-	{"networkinterfaces", []string{"macaddress", "networkname"}, true},
-	{"networkinterfaces", []string{"networkname"}, false},
-	{"networkinterfaces", []string{"machineid"}, false},
+	{relationsC, []string{"endpoints.relationname"}, false},
+	{relationsC, []string{"endpoints.servicename"}, false},
+	{unitsC, []string{"service"}, false},
+	{unitsC, []string{"principal"}, false},
+	{unitsC, []string{"machineid"}, false},
+	// TODO(thumper): schema change to remove this index.
+	{usersC, []string{"name"}, false},
+	{networksC, []string{"providerid"}, true},
+	{networkInterfacesC, []string{"interfacename", "machineid"}, true},
+	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
+	{networkInterfacesC, []string{"networkname"}, false},
+	{networkInterfacesC, []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -163,7 +163,7 @@ func maybeUnauthorized(err error, msg string) error {
 	if isUnauthorized(err) {
 		return errors.Unauthorizedf("%s: unauthorized mongo access: %v", msg, err)
 	}
-	return fmt.Errorf("%s: %v", msg, err)
+	return errors.Annotatef(err, "%s: %v", msg, err)
 }
 
 func isUnauthorized(err error) bool {
@@ -172,67 +172,38 @@ func isUnauthorized(err error) bool {
 	}
 	// Some unauthorized access errors have no error code,
 	// just a simple error string.
-	if err.Error() == "auth fails" {
+	if strings.HasPrefix(err.Error(), "auth fail") {
 		return true
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized"
+			err.Message == "unauthorized" ||
+			strings.HasPrefix(err.Message, "not authorized")
 	}
 	return false
 }
 
-func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
-	db := session.DB("juju")
-	pdb := session.DB("presence")
+func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
-	if info.Tag != "" {
-		if err := db.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
+	if mongoInfo.Tag != nil {
+		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-		if err := pdb.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
-		}
-		if err := admin.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
-		}
-	} else if info.Password != "" {
-		if err := admin.Login(AdminUser, info.Password); err != nil {
+	} else if mongoInfo.Password != "" {
+		if err := admin.Login(mongo.AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
 
+	db := session.DB("juju")
+	pdb := session.DB("presence")
 	st := &State{
-		info:              info,
-		policy:            policy,
-		db:                db,
-		environments:      db.C("environments"),
-		charms:            db.C("charms"),
-		machines:          db.C("machines"),
-		containerRefs:     db.C("containerRefs"),
-		instanceData:      db.C("instanceData"),
-		relations:         db.C("relations"),
-		relationScopes:    db.C("relationscopes"),
-		services:          db.C("services"),
-		requestedNetworks: db.C("requestednetworks"),
-		networks:          db.C("networks"),
-		networkInterfaces: db.C("networkinterfaces"),
-		minUnits:          db.C("minunits"),
-		settings:          db.C("settings"),
-		settingsrefs:      db.C("settingsrefs"),
-		constraints:       db.C("constraints"),
-		units:             db.C("units"),
-		actions:           db.C("actions"),
-		actionresults:     db.C("actionresults"),
-		users:             db.C("users"),
-		presence:          pdb.C("presence"),
-		cleanups:          db.C("cleanups"),
-		annotations:       db.C("annotations"),
-		statuses:          db.C("statuses"),
-		stateServers:      db.C("stateServers"),
+		mongoInfo: mongoInfo,
+		policy:    policy,
+		db:        db,
 	}
-	log := db.C("txns.log")
+	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
@@ -240,118 +211,51 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	mgoRunner := txn.NewRunner(db.C("txns"))
-	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = statetxn.NewRunner(mgoRunner)
-	st.watcher = watcher.New(db.C("txns.log"))
-	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
+	txns := db.C(txnsC)
+	err = txns.Create(&mgo.CollectionInfo{})
+	if err != nil && err.Error() != "collection already exists" {
+		return nil, maybeUnauthorized(err, "cannot create transaction collection")
+	}
+
+	st.watcher = watcher.New(log)
+	defer func() {
+		if resultErr != nil {
+			if err := st.watcher.Stop(); err != nil {
+				logger.Errorf("failed to stop watcher: %v", err)
+			}
+		}
+	}()
+	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
+	defer func() {
+		if resultErr != nil {
+			if err := st.pwatcher.Stop(); err != nil {
+				logger.Errorf("failed to stop presence watcher: %v", err)
+			}
+		}
+	}()
+
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
-			return nil, fmt.Errorf("cannot create database index: %v", err)
+			return nil, errors.Annotate(err, "cannot create database index")
 		}
 	}
 
-	// TODO(rog) delete this when we can assume there are no
-	// pre-1.18 environments running.
-	if err := st.createStateServersDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create state servers document: %v", err)
-	}
-	if err := st.createAPIAddressesDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
-	}
-	if err := st.createStateServingInfoDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
-	}
 	return st, nil
 }
 
-// createStateServersDoc creates the state servers document
-// if it does not already exist. This is necessary to cope with
-// legacy environments that have not created the document
-// at initialization time.
-func (st *State) createStateServersDoc() error {
-	// Quick check to see if we need to do anything so
-	// that we can avoid transaction overhead in most cases.
-	// We don't care what the error is - if it's something
-	// unexpected, it'll be picked up again below.
-	if info, err := st.StateServerInfo(); err == nil {
-		if len(info.MachineIds) > 0 && len(info.VotingMachineIds) > 0 {
-			return nil
-		}
-	}
-	logger.Infof("adding state server info to legacy environment")
-	// Find all current state servers and add the state servers
-	// record containing them. We don't need to worry about
-	// this being concurrent-safe, because in the juju versions
-	// we're concerned about, there is only ever one state connection
-	// (from the single bootstrap machine).
-	var machineDocs []machineDoc
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
-	if err != nil {
-		return err
-	}
-	var doc stateServersDoc
-	for _, m := range machineDocs {
-		doc.MachineIds = append(doc.MachineIds, m.Id)
-	}
-	doc.VotingMachineIds = doc.MachineIds
-	logger.Infof("found existing state servers %v", doc.MachineIds)
-
-	// We update the document before inserting it because
-	// an earlier version of this code did not insert voting machine
-	// ids or maintain the ids correctly. If that was the case,
-	// the insert will be a no-op.
-	ops := []txn.Op{{
-		C:  st.stateServers.Name,
-		Id: environGlobalKey,
-		Update: bson.D{{"$set", bson.D{
-			{"machineids", doc.MachineIds},
-			{"votingmachineids", doc.VotingMachineIds},
-		}}},
-	}, {
-		C:      st.stateServers.Name,
-		Id:     environGlobalKey,
-		Insert: &doc,
-	}}
-
-	return st.runTransaction(ops)
-}
-
-// createAPIAddressesDoc creates the API addresses document
-// if it does not already exist. This is necessary to cope with
-// legacy environments that have not created the document
-// at initialization time.
-func (st *State) createAPIAddressesDoc() error {
-	var doc apiHostPortsDoc
-	ops := []txn.Op{{
-		C:      st.stateServers.Name,
-		Id:     apiHostPortsKey,
-		Assert: txn.DocMissing,
-		Insert: &doc,
-	}}
-	return onAbort(st.runTransaction(ops), nil)
-}
-
-// createStateServingInfoDoc creates the state serving info document
-// if it does not already exist
-func (st *State) createStateServingInfoDoc() error {
-	var info params.StateServingInfo
-	ops := []txn.Op{{
-		C:      st.stateServers.Name,
-		Id:     stateServingInfoKey,
-		Assert: txn.DocMissing,
-		Insert: &info,
-	}}
-	return onAbort(st.runTransaction(ops), nil)
+// MongoConnectionInfo returns information for connecting to mongo
+func (st *State) MongoConnectionInfo() *mongo.MongoInfo {
+	return st.mongoInfo
 }
 
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() string {
-	return st.info.CACert
+	return st.mongoInfo.CACert
 }
 
-func (st *State) Close() error {
+func (st *State) Close() (err error) {
+	defer errors.Contextf(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()
@@ -361,8 +265,17 @@ func (st *State) Close() error {
 	}
 	st.mu.Unlock()
 	st.db.Session.Close()
-	for _, err := range []error{err1, err2, err3} {
+	var i int
+	for i, err = range []error{err1, err2, err3} {
 		if err != nil {
+			switch i {
+			case 0:
+				err = errors.Annotatef(err, "failed to stop state watcher")
+			case 1:
+				err = errors.Annotatef(err, "failed to stop presence watcher")
+			case 2:
+				err = errors.Annotatef(err, "failed to stop all manager")
+			}
 			return err
 		}
 	}

@@ -11,7 +11,9 @@ import (
 	"net"
 	"time"
 
-	"labix.org/v2/mgo"
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
 )
@@ -35,12 +37,31 @@ type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
+
+	// SocketTimeout is the amount of time to wait for a
+	// non-responding socket to the database before it is
+	// forcefully closed. If this is zero, Timeout will be
+	// used.
+	SocketTimeout time.Duration
+
+	// Direct informs whether to establish connections only with the
+	// specified seed servers, or to obtain information for the whole
+	// cluster and establish connections with further servers too.
+	Direct bool
+
+	// PostDial, if non-nil, is called by DialWithInfo with the
+	// mgo.Session after a successful dial but before DialWithInfo
+	// returns to its caller.
+	PostDial func(*mgo.Session) error
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
-	return DialOpts{Timeout: defaultDialTimeout}
+	return DialOpts{
+		Timeout:       defaultDialTimeout,
+		SocketTimeout: SocketTimeout,
+	}
 }
 
 // Info encapsulates information about cluster of
@@ -54,6 +75,20 @@ type Info struct {
 	// CACert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
 	CACert string
+}
+
+// MongoInfo encapsulates information about cluster of
+// servers holding juju state and can be used to make a
+// connection to that cluster.
+type MongoInfo struct {
+	// mongo.Info contains the addresses and cert of the mongo cluster.
+	Info
+	// Tag holds the name of the entity that is connecting.
+	// It should be nil when connecting as an administrator.
+	Tag names.Tag
+
+	// Password holds the password for the connecting entity.
+	Password string
 }
 
 // DialInfo returns information on how to dial
@@ -84,10 +119,10 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		}
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
-			logger.Errorf("TLS handshake failed: %v", err)
+			logger.Debugf("TLS handshake failed: %v", err)
 			return nil, err
 		}
-		logger.Infof("dialled mongo successfully")
+		logger.Infof("dialled mongo successfully on address %q", addr)
 		return cc, nil
 	}
 
@@ -95,5 +130,29 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
+		Direct:  opts.Direct,
 	}, nil
+}
+
+// DialWithInfo establishes a new session to the cluster identified by info,
+// with the specified options.
+func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
+	dialInfo, err := DialInfo(info, opts)
+	if err != nil {
+		return nil, err
+	}
+	session, err := mgo.DialWithInfo(dialInfo)
+	if err != nil {
+		return nil, err
+	}
+	if opts.SocketTimeout != 0 {
+		session.SetSocketTimeout(opts.SocketTimeout)
+	}
+	if opts.PostDial != nil {
+		if err := opts.PostDial(session); err != nil {
+			session.Close()
+			return nil, errors.Annotate(err, "PostDial failed")
+		}
+	}
+	return session, nil
 }

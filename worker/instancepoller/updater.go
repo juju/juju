@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -42,7 +41,7 @@ type machine interface {
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (status params.Status, info string, data params.StatusData, err error)
+	Status() (status state.Status, info string, data map[string]interface{}, err error)
 	IsManual() (bool, error)
 }
 
@@ -195,13 +194,13 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 					return err
 				}
 			}
-			machineStatus := params.StatusPending
+			machineStatus := state.StatusPending
 			if err == nil {
 				if machineStatus, _, _, err = m.Status(); err != nil {
 					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
 				}
 			}
-			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == params.StatusStarted {
+			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == state.StatusStarted {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
 				pollInterval = LongPoll
 			} else if pollInterval < LongPoll {
@@ -272,10 +271,14 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 
 func addressesEqual(a0, a1 []network.Address) bool {
 	if len(a0) != len(a1) {
+		logger.Tracef("address lists have different lengths %d != %d for %v != %v",
+			len(a0), len(a1), a0, a1)
 		return false
 	}
 	for i := range a0 {
 		if a0[i] != a1[i] {
+			logger.Tracef("address entry at offset %d has a different value for %v != %v",
+				i, a0, a1)
 			return false
 		}
 	}

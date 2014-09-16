@@ -5,17 +5,20 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/state/api/params"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -44,7 +47,9 @@ access the environment storage.
 
 Examples:
    juju add-machine                      (starts a new machine)
+   juju add-machine -n 2                 (starts 2 new machines)
    juju add-machine lxc                  (starts a new machine with an lxc container)
+   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
    juju add-machine lxc:4                (starts a new lxc container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
@@ -62,6 +67,8 @@ type AddMachineCommand struct {
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
 	Placement *instance.Placement
+
+	NumMachines int
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
@@ -75,6 +82,7 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
+	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
@@ -88,33 +96,69 @@ func (c *AddMachineCommand) Init(args []string) error {
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
-		placement = c.EnvName + ":" + placement
+		placement = "env-uuid" + ":" + placement
 		c.Placement, err = instance.ParsePlacement(placement)
 	}
 	if err != nil {
 		return err
 	}
+	if c.NumMachines > 1 && c.Placement != nil && c.Placement.Directive != "" {
+		return fmt.Errorf("cannot use -n when specifying a placement directive")
+	}
 	return nil
 }
 
+type addMachineAPI interface {
+	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	Close() error
+	DestroyMachines(machines ...string) error
+	EnvironmentUUID() string
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+}
+
+var getAddMachineAPI = func(c *AddMachineCommand) (addMachineAPI, error) {
+	return c.NewAPIClient()
+}
+
+var manualProvisioner = manual.ProvisionMachine
+
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
+	client, err := getAddMachineAPI(c)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
-		args := manual.ProvisionMachineArgs{
-			Host:    c.Placement.Directive,
-			EnvName: c.EnvName,
-			Stdin:   ctx.Stdin,
-			Stdout:  ctx.Stdout,
-			Stderr:  ctx.Stderr,
+
+		var config *config.Config
+		if defaultStore, err := configstore.Default(); err != nil {
+			return err
+		} else if config, err = c.Config(defaultStore); err != nil {
+			return err
 		}
-		_, err := manual.ProvisionMachine(args)
+
+		args := manual.ProvisionMachineArgs{
+			Host:   c.Placement.Directive,
+			Client: client,
+			Stdin:  ctx.Stdin,
+			Stdout: ctx.Stdout,
+			Stderr: ctx.Stderr,
+			UpdateBehavior: &params.UpdateBehavior{
+				config.EnableOSRefreshUpdate(),
+				config.EnableOSUpgrade(),
+			},
+		}
+		machineId, err := manualProvisioner(args)
+		if err == nil {
+			ctx.Infof("created machine %v", machineId)
+		}
 		return err
 	}
 
-	client, err := juju.NewAPIClientFromName(c.EnvName)
-	if err != nil {
-		return err
+	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
+		c.Placement.Scope = client.EnvironmentUUID()
 	}
-	defer client.Close()
 
 	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
 		// It does not make sense to add-machine <id>.
@@ -127,40 +171,41 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		Constraints: c.Constraints,
 		Jobs:        []params.MachineJob{params.JobHostUnits},
 	}
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
-	if params.IsCodeNotImplemented(err) {
-		if c.Placement != nil {
-			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-			if parseErr != nil {
-				// The user specified a non-container placement directive:
-				// return original API not implemented error.
-				return err
-			}
-			machineParams.ContainerType = containerType
-			machineParams.ParentId = c.Placement.Directive
-			machineParams.Placement = nil
-		}
-		logger.Infof(
-			"AddMachinesWithPlacement not supported by the API server, " +
-				"falling back to 1.18 compatibility mode",
-		)
-		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+	machines := make([]params.AddMachineParams, c.NumMachines)
+	for i := 0; i < c.NumMachines; i++ {
+		machines[i] = machineParams
 	}
+
+	results, err := client.AddMachines(machines)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	// Currently, only one machine is added, but in future there may be several added in one call.
-	machineInfo := results[0]
-	if machineInfo.Error != nil {
-		return machineInfo.Error
-	}
-	machineId := machineInfo.Machine
+	errs := []error{}
+	for _, machineInfo := range results {
+		if machineInfo.Error != nil {
+			errs = append(errs, machineInfo.Error)
+			continue
+		}
+		machineId := machineInfo.Machine
 
-	if names.IsContainerMachine(machineId) {
-		ctx.Infof("created container %v", machineId)
-	} else {
-		ctx.Infof("created machine %v", machineId)
+		if names.IsContainerMachine(machineId) {
+			ctx.Infof("created container %v", machineId)
+		} else {
+			ctx.Infof("created machine %v", machineId)
+		}
+	}
+	if len(errs) == 1 {
+		fmt.Fprintf(ctx.Stderr, "failed to create 1 machine\n")
+		return errs[0]
+	}
+	if len(errs) > 1 {
+		fmt.Fprintf(ctx.Stderr, "failed to create %d machines\n", len(errs))
+		returnErr := []string{}
+		for _, e := range errs {
+			returnErr = append(returnErr, fmt.Sprintf("%s", e))
+		}
+		return errors.New(strings.Join(returnErr, ", "))
 	}
 	return nil
 }

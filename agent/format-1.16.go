@@ -9,9 +9,10 @@ import (
 	"net"
 	"strconv"
 
-	"launchpad.net/goyaml"
+	"github.com/juju/names"
+	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/version"
 )
 
@@ -90,8 +91,12 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 		upgradedToVersion := version.MustParse("1.16.0")
 		format.UpgradedToVersion = &upgradedToVersion
 	}
+	tag, err := names.ParseTag(format.Tag)
+	if err != nil {
+		return nil, err
+	}
 	config := &configInternal{
-		tag:               format.Tag,
+		tag:               tag,
 		nonce:             format.Nonce,
 		dataDir:           DefaultDataDir,
 		logDir:            DefaultLogDir,

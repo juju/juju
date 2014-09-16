@@ -4,12 +4,14 @@
 package agent_test
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -18,35 +20,28 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {
 	testing.BaseSuite
-	gitjujutesting.MgoSuite
+	mgoInst gitjujutesting.MgoInstance
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *bootstrapSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
+	// Don't use MgoSuite, because we need to ensure
+	// we have a fresh mongo for each test case.
+	s.mgoInst.EnableAuth = true
+	err := s.mgoInst.Start(testing.Certs)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
-	s.MgoSuite.TearDownTest(c)
+	s.mgoInst.Destroy()
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -56,9 +51,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
+		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
@@ -66,7 +61,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		APIPort:        1234,
-		StatePort:      gitjujutesting.MgoServer.Port(),
+		StatePort:      s.mgoInst.Port(),
 		SystemIdentity: "def456",
 	}
 
@@ -78,9 +73,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       network.NewAddresses("0.1.2.3", "zeroonetwothree"),
+		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobHostUnits},
+		Jobs:            []params.MachineJob{params.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
@@ -99,9 +94,16 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	err = cfg.Write()
 	c.Assert(err, gc.IsNil)
 
+	// Check that the environment has been set up.
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	uuid, ok := envCfg.UUID()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(env.UUID(), gc.Equals, uuid)
+
 	// Check that initial admin user has been set up correctly.
 	s.assertCanLogInAsAdmin(c, pwHash)
-	user, err := st.User("admin")
+	user, err := st.User(env.Owner())
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
@@ -112,9 +114,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
-	c.Assert(m.CheckProvisioned(state.BootstrapNonce), jc.IsTrue)
+	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
 	gotConstraints, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
@@ -129,16 +131,18 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.DeepEquals, [][]network.HostPort{
-		network.AddressesWithPort(mcfg.Addresses, 1234),
+	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
+		network.AddressesWithPort(
+			network.NewAddresses("zeroonetwothree", "0.1.2.3"),
+			1234),
 	})
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
+	c.Assert(stateServingInfo, jc.DeepEquals, state.StateServingInfo{
 		APIPort:        1234,
-		StatePort:      gitjujutesting.MgoServer.Port(),
+		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		SharedSecret:   "abc123",
@@ -147,12 +151,13 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, "machine-0"))
+	machine0 := names.NewMachineTag("0")
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, gc.IsNil)
-	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
+	c.Assert(newCfg.Tag(), gc.Equals, machine0)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	info, ok := cfg.StateInfo()
+	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st1, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -162,9 +167,9 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
 	configParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
+		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
 	}
@@ -185,9 +190,9 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
+		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
@@ -195,7 +200,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
 		APIPort:        5555,
-		StatePort:      gitjujutesting.MgoServer.Port(),
+		StatePort:      s.mgoInst.Port(),
 		Cert:           "foo",
 		PrivateKey:     "bar",
 		SharedSecret:   "baz",
@@ -205,7 +210,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobHostUnits},
+		Jobs:            []params.MachineJob{params.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -218,24 +223,49 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
-	err = st.SetAdminMongoPassword("")
-	c.Check(err, gc.IsNil)
-	st.Close()
 
 	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "failed to initialize state: cannot create log collection: unauthorized mongo access: unauthorized")
+	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized .*")
 }
 
-func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
-	info := &state.Info{
+func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
+	var tests = []struct {
+		name params.MachineJob
+		want state.MachineJob
+		err  string
+	}{{
+		name: params.JobHostUnits,
+		want: state.JobHostUnits,
+	}, {
+		name: params.JobManageEnviron,
+		want: state.JobManageEnviron,
+	}, {
+		name: params.JobManageStateDeprecated,
+		want: state.JobManageStateDeprecated,
+	}, {
+		name: "invalid",
+		want: -1,
+		err:  `invalid machine job "invalid"`,
+	}}
+	for _, test := range tests {
+		got, err := agent.MachineJobFromParams(test.name)
+		if err != nil {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+		c.Check(got, gc.Equals, test.want)
+	}
+}
+
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
+	info := &mongo.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			Addrs:  []string{s.mgoInst.Addr()},
 			CACert: testing.CACert,
 		},
-		Tag:      "",
+		Tag:      nil, // admin user
 		Password: password,
 	}
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())

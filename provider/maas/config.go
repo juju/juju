@@ -22,16 +22,30 @@ var configFields = schema.Fields{
 	// maas-agent-name is an optional UUID to group the instances
 	// acquired from MAAS, to support multiple environments per MAAS user.
 	"maas-agent-name": schema.String(),
+
+	// network-bridge is the interface name used by cloudInit
+	// to configure the bridge network, by default "eth0" is used.
+	"network-bridge": schema.String(),
 }
 var configDefaults = schema.Defaults{
 	// For backward-compatibility, maas-agent-name is the empty string
 	// by default. However, new environments should all use a UUID.
 	"maas-agent-name": "",
+	// For backward-compatibility, network-bridge is the empty string
+	// by default "eth0" will be returned.
+	"network-bridge": "",
 }
 
 type maasEnvironConfig struct {
 	*config.Config
 	attrs map[string]interface{}
+}
+
+func (cfg *maasEnvironConfig) networkBridge() string {
+	if bridge, ok := cfg.attrs["network-bridge"].(string); ok && bridge != "" {
+		return bridge
+	}
+	return "eth0"
 }
 
 func (cfg *maasEnvironConfig) maasServer() string {

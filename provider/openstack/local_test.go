@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -35,9 +36,11 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
 
@@ -237,8 +240,63 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
+}
+
+func (s *localServerSuite) TestAddressesWithPublicIP(c *gc.C) {
+	// Floating IP address is 10.0.0.1
+	bootstrapFinished := false
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+		addr, err := inst.Addresses()
+		c.Assert(err, gc.IsNil)
+		c.Assert(addr, jc.SameContents, []network.Address{
+			{Value: "10.0.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
+			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
+			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+		})
+		bootstrapFinished = true
+		return nil
+	})
+
+	// Create a config that matches s.TestConfig but with use-floating-ip set to true
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": true,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(bootstrapFinished, jc.IsTrue)
+}
+
+func (s *localServerSuite) TestAddressesWithoutPublicIP(c *gc.C) {
+	bootstrapFinished := false
+	s.PatchValue(&common.FinishBootstrap, func(ctx environs.BootstrapContext, client ssh.Client, inst instance.Instance, machineConfig *cloudinit.MachineConfig) error {
+		addr, err := inst.Addresses()
+		c.Assert(err, gc.IsNil)
+		c.Assert(addr, jc.SameContents, []network.Address{
+			{Value: "127.0.0.1", Type: "ipv4", NetworkName: "private", Scope: "local-machine"},
+			{Value: "::face::000f", Type: "hostname", NetworkName: "private", Scope: ""},
+			{Value: "127.10.0.1", Type: "ipv4", NetworkName: "public", Scope: "public"},
+			{Value: "::dead:beef:f00d", Type: "ipv6", NetworkName: "public", Scope: "public"},
+		})
+		bootstrapFinished = true
+		return nil
+	})
+
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": false,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(bootstrapFinished, jc.IsTrue)
 }
 
 // If the environment is configured not to require a public IP address for nodes,
@@ -266,7 +324,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, coretesting.Context(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances(inst.Id())
@@ -277,13 +335,13 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Current
 	amd64Version.Arch = arch.AMD64
-	for _, series := range bootstrap.ToolsLtsSeries {
+	for _, series := range version.SupportedSeries() {
 		amd64Version.Series = series
 		envtesting.AssertUploadFakeToolsVersions(c, s.toolsMetadataStorage, amd64Version)
 	}
 
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -375,11 +433,12 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// Openstack now has three security groups for the server, the default
 	// group, one group for the entire environment, and another for the
 	// new instance.
-	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)})
+	name := env.Config().Name()
+	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)})
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 	// The security group for this instance is now removed.
-	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", env.Name())})
+	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", name)})
 }
 
 // Due to bug #1300755 it can happen that the security group intended for
@@ -402,7 +461,8 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	instanceName := "100"
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)}
+	name := env.Config().Name()
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
@@ -417,7 +477,8 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 	c.Assert(err, gc.IsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)}
+	name := env.Config().Name()
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-%v", name, instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
 	c.Check(err, gc.IsNil)
@@ -432,7 +493,8 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlob
 	c.Assert(err, gc.IsNil)
 	instanceName := "100"
 	testing.AssertStartInstance(c, env, instanceName)
-	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-global", env.Name())}
+	name := env.Config().Name()
+	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", name), fmt.Sprintf("juju-%v-global", name)}
 	assertSecurityGroups(c, env, allSecurityGroups)
 	err = env.Destroy()
 	c.Check(err, gc.IsNil)
@@ -495,8 +557,38 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
-	env := s.Prepare(c)
+func (s *localServerSuite) TestAllInstancesFloatingIP(c *gc.C) {
+	// Create a config that matches s.TestConfig but with use-floating-ip
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": true,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+
+	inst0, _ := testing.AssertStartInstance(c, env, "100")
+	inst1, _ := testing.AssertStartInstance(c, env, "101")
+	defer func() {
+		err := env.StopInstances(inst0.Id(), inst1.Id())
+		c.Assert(err, gc.IsNil)
+	}()
+
+	insts, err := env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	for _, inst := range insts {
+		c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+	}
+}
+
+func (s *localServerSuite) assertInstancesGathering(c *gc.C, withFloatingIP bool) {
+	// Create a config that matches s.TestConfig but with use-floating-ip
+	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
+		"use-floating-ip": withFloatingIP,
+	}))
+	c.Assert(err, gc.IsNil)
+	env, err := environs.New(cfg)
+	c.Assert(err, gc.IsNil)
+
 	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
@@ -527,11 +619,24 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 		for j, inst := range insts {
 			if ids[j] != "" {
 				c.Assert(inst.Id(), gc.Equals, ids[j])
+				if withFloatingIP {
+					c.Assert(openstack.InstanceFloatingIP(inst).IP, gc.Equals, fmt.Sprintf("10.0.0.%v", inst.Id()))
+				} else {
+					c.Assert(openstack.InstanceFloatingIP(inst), gc.IsNil)
+				}
 			} else {
 				c.Assert(inst, gc.IsNil)
 			}
 		}
 	}
+}
+
+func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
+	s.assertInstancesGathering(c, false)
+}
+
+func (s *localServerSuite) TestInstancesGatheringWithFloatingIP(c *gc.C) {
+	s.assertInstancesGathering(c, true)
 }
 
 func (s *localServerSuite) TestCollectInstances(c *gc.C) {
@@ -550,7 +655,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
-	found := make(map[instance.Id]instance.Instance)
+	found := make(map[string]instance.Instance)
 	missing := []instance.Id{stateInst.Id()}
 
 	resultMissing := openstack.CollectInstances(env, missing, found)
@@ -587,11 +692,11 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := bootstrap.LoadState(env.Storage())
+	stateData, err := common.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
@@ -669,7 +774,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64el"})
 }
 
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
@@ -726,7 +831,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
-	spec, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.tiny")
+	spec, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny")
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
@@ -736,15 +841,15 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
-	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
-	c.Assert(err, gc.ErrorMatches, `invalid instance type "m1.large"`)
+	_, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large")
+	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c)
 	cons := constraints.MustParse("instance-type=m1.small")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -752,28 +857,28 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c)
 	cons := constraints.MustParse("instance-type=m1.large")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
@@ -781,7 +886,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Service.Nova.SetAvailabilityZones() // no availability zone support
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
 }
 
@@ -989,7 +1094,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
 
-	err = bootstrap.Bootstrap(coretesting.Context(c), s.env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), s.env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1132,7 +1237,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// Check that we see 1 instance in the environment
@@ -1215,7 +1320,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
@@ -1291,7 +1396,7 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	var mock mockAvailabilityZoneAllocations
@@ -1316,7 +1421,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -1340,7 +1445,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
@@ -1352,7 +1457,7 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{

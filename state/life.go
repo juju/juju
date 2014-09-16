@@ -4,10 +4,10 @@
 package state
 
 import (
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/mongo"
 )
 
 // Life represents the lifecycle state of the entities
@@ -21,14 +21,17 @@ const (
 	nLife
 )
 
-var lifeStrings = [nLife]params.Life{
-	Alive: params.Alive,
-	Dying: params.Dying,
-	Dead:  params.Dead,
-}
-
 func (l Life) String() string {
-	return string(lifeStrings[l])
+	switch l {
+	case Alive:
+		return "alive"
+	case Dying:
+		return "dying"
+	case Dead:
+		return "dead"
+	default:
+		return "unknown"
+	}
 }
 
 var isAliveDoc = bson.D{{"life", Alive}}
@@ -50,12 +53,21 @@ type AgentLiving interface {
 	Remove() error
 }
 
-func isAlive(coll *mgo.Collection, id interface{}) (bool, error) {
+func isAlive(db *mgo.Database, collName string, id interface{}) (bool, error) {
+	coll, closer := mongo.CollectionFromName(db, collName)
+	defer closer()
+	return isAliveWithSession(coll, id)
+}
+
+func isAliveWithSession(coll *mgo.Collection, id interface{}) (bool, error) {
 	n, err := coll.Find(bson.D{{"_id", id}, {"life", Alive}}).Count()
 	return n == 1, err
 }
 
-func isNotDead(coll *mgo.Collection, id interface{}) (bool, error) {
+func isNotDead(db *mgo.Database, collName string, id interface{}) (bool, error) {
+	coll, closer := mongo.CollectionFromName(db, collName)
+	defer closer()
+
 	n, err := coll.Find(bson.D{{"_id", id}, {"life", bson.D{{"$ne", Dead}}}}).Count()
 	return n == 1, err
 }

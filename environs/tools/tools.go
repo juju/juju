@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -55,7 +54,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		seriesToSearch = []string{filter.Series}
 	} else {
 		logger.Debugf("no series specified when finding tools, looking for any")
-		seriesToSearch = ubuntu.SupportedSeries()
+		seriesToSearch = version.SupportedSeries()
 	}
 	toolsConstraint.Series = seriesToSearch
 	return toolsConstraint, nil
@@ -146,70 +145,11 @@ func FindToolsForCloud(sources []simplestreams.DataSource, cloudSpec simplestrea
 	return list, err
 }
 
-// The following allows FindTools, as called by FindBootstrapTools, to be patched for testing.
-var bootstrapFindTools = FindTools
-
-type findtoolsfunc func(environs.ConfigGetter, int, int, coretools.Filter, bool) (coretools.List, error)
-
-func TestingPatchBootstrapFindTools(stub findtoolsfunc) func() {
-	origFunc := bootstrapFindTools
-	bootstrapFindTools = stub
-	return func() {
-		bootstrapFindTools = origFunc
-	}
-}
-
-// BootstrapToolsParams contains parameters for FindBootstrapTools
-type BootstrapToolsParams struct {
-	Version    *version.Number
-	Arch       *string
-	Series     string
-	AllowRetry bool
-}
-
-// FindBootstrapTools returns a ToolsList containing only those tools with
-// which it would be reasonable to launch an environment's first machine, given the supplied constraints.
-// If a specific agent version is not requested, all tools matching the current major.minor version are chosen.
-func FindBootstrapTools(cloudInst environs.ConfigGetter, params BootstrapToolsParams) (list coretools.List, err error) {
-	// Construct a tools filter.
-	cfg := cloudInst.Config()
-	cliVersion := version.Current.Number
-	filter := coretools.Filter{
-		Series: params.Series,
-		Arch:   stringOrEmpty(params.Arch),
-	}
-	if params.Version != nil {
-		// If we already have an explicit agent version set, we're done.
-		filter.Number = *params.Version
-		return bootstrapFindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter, params.AllowRetry)
-	}
-	if dev := cliVersion.IsDev() || cfg.Development(); !dev {
-		logger.Infof("filtering tools by released version")
-		filter.Released = true
-	}
-	return bootstrapFindTools(cloudInst, cliVersion.Major, cliVersion.Minor, filter, params.AllowRetry)
-}
-
 func stringOrEmpty(pstr *string) string {
 	if pstr == nil {
 		return ""
 	}
 	return *pstr
-}
-
-// FindInstanceTools returns a ToolsList containing only those tools with which
-// it would be reasonable to start a new instance, given the supplied series and arch.
-func FindInstanceTools(cloudInst environs.ConfigGetter,
-	vers version.Number, series string, arch *string) (list coretools.List, err error) {
-
-	// Construct a tools filter.
-	// Discard all that are known to be irrelevant.
-	filter := coretools.Filter{
-		Number: vers,
-		Series: series,
-		Arch:   stringOrEmpty(arch),
-	}
-	return FindTools(cloudInst, vers.Major, vers.Minor, filter, DoNotAllowRetry)
 }
 
 // FindExactTools returns only the tools that match the supplied version.

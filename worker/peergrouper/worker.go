@@ -122,7 +122,7 @@ func New(st *state.State) (worker.Worker, error) {
 		State:     st,
 		mongoPort: cfg.StatePort(),
 		apiPort:   cfg.APIPort(),
-	}, newPublisher(st)), nil
+	}, newPublisher(st, cfg.PreferIPv6())), nil
 }
 
 func newWorker(st stateInterface, pub publisherInterface) worker.Worker {

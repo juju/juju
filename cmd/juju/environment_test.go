@@ -69,7 +69,7 @@ func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
 	// Make sure that all the environment keys are there. The admin
 	// secret and CA private key are never pushed into the
 	// environment.
-	for key := range s.Conn.Environ.Config().AllAttrs() {
+	for key := range s.Environ.Config().AllAttrs() {
 		c.Logf("test for key %q", key)
 		any := `(.|\n)*`
 		pattern := fmt.Sprintf(`(?m)^%s:`, key)
@@ -130,7 +130,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	series, ok := stateConfig.DefaultSeries()
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(series, gc.Equals, "precise") // default-series set in RepoSuite.SetUpTest
+	c.Assert(series, gc.Equals, config.LatestLtsSeries()) // default-series set in RepoSuite.SetUpTest
 
 	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
 	c.Assert(err, gc.IsNil)

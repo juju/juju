@@ -6,16 +6,18 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 )
 
 var (
-	CheckIfRoot      = &checkIfRoot
-	CheckLocalPort   = &checkLocalPort
-	DetectAptProxies = &detectAptProxies
-	FinishBootstrap  = &finishBootstrap
-	Provider         = providerInstance
-	UserCurrent      = &userCurrent
+	CheckIfRoot        = &checkIfRoot
+	CheckLocalPort     = &checkLocalPort
+	DetectAptProxies   = &detectAptProxies
+	ExecuteCloudConfig = &executeCloudConfig
+	Provider           = providerInstance
+	UserCurrent        = &userCurrent
 )
 
 // ConfigNamespace returns the result of the namespace call on the
@@ -50,4 +52,25 @@ func MockAddressForInterface() func() {
 		logger.Debugf("getAddressForInterface called for %s", name)
 		return "127.0.0.1", nil
 	})
+}
+
+type mockInstance struct {
+	id                string
+	instance.Instance // stub out other methods with panics
+}
+
+func (inst *mockInstance) Id() instance.Id {
+	return instance.Id(inst.id)
+}
+
+type startInstanceFunc func(*localEnviron, environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error)
+
+func PatchCreateContainer(s *testing.CleanupSuite, c *gc.C, expectedURL string) startInstanceFunc {
+	mockFunc := func(_ *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+		c.Assert(args.Tools, gc.HasLen, 1)
+		c.Assert(args.Tools[0].URL, gc.Equals, expectedURL)
+		return &mockInstance{id: "mock"}, nil, nil
+	}
+	s.PatchValue(&createContainer, mockFunc)
+	return mockFunc
 }

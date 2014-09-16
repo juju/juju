@@ -10,13 +10,12 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/apiserver/client"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/apiserver/client"
 )
 
 type StatusCommand struct {
@@ -73,8 +72,8 @@ type statusAPI interface {
 	Close() error
 }
 
-var newApiClientForStatus = func(envName string) (statusAPI, error) {
-	return juju.NewAPIClientFromName(envName)
+var newApiClientForStatus = func(c *StatusCommand) (statusAPI, error) {
+	return c.NewAPIClient()
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -83,15 +82,19 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	apiclient, err := newApiClientForStatus(c.EnvName)
+	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.EnvName, err)
+		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
 
 	status, err := apiclient.Status(c.patterns)
-	// Display any error, but continue to print status if some was returned
 	if err != nil {
+		if status == nil {
+			// Status call completely failed, there is nothing to report
+			return err
+		}
+		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
 	result := newStatusFormatter(status).format()

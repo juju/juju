@@ -1,15 +1,16 @@
 package testing
 
 import (
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 
-	"github.com/juju/charm"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -25,20 +26,20 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Change the environ's config to ensure we're using the one in state,
 	// not the one in the local environments.yaml
-	updateAttrs := map[string]interface{}{"default-series": "precise"}
+	updateAttrs := map[string]interface{}{"default-series": config.LatestLtsSeries()}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	s.RepoPath = os.Getenv("JUJU_REPOSITORY")
 	repoPath := c.MkDir()
 	os.Setenv("JUJU_REPOSITORY", repoPath)
-	s.SeriesPath = filepath.Join(repoPath, "precise")
+	s.SeriesPath = filepath.Join(repoPath, config.LatestLtsSeries())
 	err = os.Mkdir(s.SeriesPath, 0777)
 	c.Assert(err, gc.IsNil)
 	// Create a symlink "quantal" -> "precise", because most charms
 	// and machines are written with hard-coded "quantal" series,
 	// hence they interact badly with a local repository that assumes
 	// only "precise" charms are available.
-	err = os.Symlink(s.SeriesPath, filepath.Join(repoPath, "quantal"))
+	err = symlink.New(s.SeriesPath, filepath.Join(repoPath, "quantal"))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -68,11 +69,16 @@ func (s *RepoSuite) AssertService(c *gc.C, name string, expectCurl *charm.URL, u
 func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	url := ch.BundleURL()
-	resp, err := http.Get(url.String())
+
+	storage, err := s.State.Storage()
 	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-	digest, _, err := utils.ReadSHA256(resp.Body)
+	defer storage.Close()
+
+	r, _, err := storage.Get(ch.StoragePath())
+	c.Assert(err, gc.IsNil)
+	defer r.Close()
+
+	digest, _, err := utils.ReadSHA256(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.BundleSha256(), gc.Equals, digest)
 }

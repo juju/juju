@@ -7,7 +7,8 @@ package hook
 import (
 	"fmt"
 
-	"github.com/juju/charm/hooks"
+	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3/hooks"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -26,6 +27,10 @@ type Info struct {
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
+
+	// ActionId is the state State.actions ID of the Action document to
+	// be retrieved by RunHook.
+	ActionId string `yaml:"action-id,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -37,6 +42,11 @@ func (hi Info) Validate() error {
 		}
 		fallthrough
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
+		return nil
+	case hooks.ActionRequested:
+		if !names.IsValidAction(hi.ActionId) {
+			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
+		}
 		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)

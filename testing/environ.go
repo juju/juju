@@ -8,6 +8,7 @@ import (
 	"os"
 
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/config"
@@ -27,7 +28,7 @@ func init() {
 	}
 }
 
-const FakeDefaultSeries = "precise"
+const FakeDefaultSeries = "trusty"
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.
@@ -51,7 +52,16 @@ func FakeConfig() Attrs {
 // EnvironConfig returns a default environment configuration suitable for
 // setting in the state.
 func EnvironConfig(c *gc.C) *config.Config {
-	return CustomEnvironConfig(c, Attrs{})
+	return CustomEnvironConfig(c, Attrs{"uuid": mustUUID()})
+}
+
+// mustUUID returns a stringified uuid or panics
+func mustUUID() string {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+	return uuid.String()
 }
 
 // CustomEnvironConfig returns an environment configuration with

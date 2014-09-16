@@ -9,10 +9,11 @@ package uniter
 import (
 	"net"
 	"net/rpc"
-	"os"
 	"sync"
 
 	"github.com/juju/utils/exec"
+
+	"github.com/juju/juju/juju/sockets"
 )
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"
@@ -51,7 +52,7 @@ func (r *JujuRunServer) RunCommands(commands string, result *exec.ExecResponse) 
 }
 
 // NewRunListener returns a new RunListener that is listening on given
-// unix socket path passed in. If a valid RunListener is returned, is
+// socket or named pipe passed in. If a valid RunListener is returned, is
 // has the go routine running, and should be closed by the creator
 // when they are done with it.
 func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, error) {
@@ -59,13 +60,8 @@ func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, erro
 	if err := server.Register(&JujuRunServer{runner}); err != nil {
 		return nil, err
 	}
-	// In case the unix socket is present, delete it.
-	if err := os.Remove(socketPath); err != nil {
-		logger.Tracef("ignoring error on removing %q: %v", socketPath, err)
-	}
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		logger.Errorf("failed to listen on unix:%s: %v", socketPath, err)
 		return nil, err
 	}
 	runListener := &RunListener{

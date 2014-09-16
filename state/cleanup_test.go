@@ -6,9 +6,9 @@ package state_test
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -108,7 +108,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State)
+	pr := NewPeerRelation(c, s.State, s.owner)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, gc.IsNil)
@@ -157,7 +157,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State)
+	pr := NewPeerRelation(c, s.State, s.owner)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
 	err = pr.ru0.EnterScope(nil)
@@ -323,7 +323,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// make sure unit still has actions
-	actions, err := s.State.UnitActions(unit.Name())
+	actions, err := unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
@@ -333,7 +333,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	// make sure unit still has actions, after first cleanup pass
-	actions, err = s.State.UnitActions(unit.Name())
+	actions, err = unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
@@ -341,7 +341,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	// make sure unit has no actions, after second cleanup pass
-	actions, err = s.State.UnitActions(unit.Name())
+	actions, err = unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 

@@ -6,21 +6,24 @@ package main
 import (
 	"fmt"
 	"io"
-	"net/rpc"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/utils/exec"
+	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/juju/juju/agent"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 var jujudDoc = `
@@ -34,6 +37,13 @@ juju unit agent. When used in this way, it expects to be called via a symlink
 named for the desired remote command, and expects JUJU_AGENT_SOCKET and
 JUJU_CONTEXT_ID be set in its environment.
 `
+
+const (
+	// exit_err is the value that is returned when the user has run juju in an invalid way.
+	exit_err = 2
+	// exit_panic is the value that is returned when we exit due to an unhandled panic.
+	exit_panic = 3
+)
 
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
@@ -78,7 +88,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	client, err := rpc.Dial("unix", socketPath)
+	client, err := sockets.Dial(socketPath)
 	if err != nil {
 		return
 	}
@@ -111,20 +121,28 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 // Main is not redundant with main(), because it provides an entry point
 // for testing with arbitrary command line arguments.
 func Main(args []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			buf := make([]byte, 4096)
+			buf = buf[:runtime.Stack(buf, false)]
+			logger.Criticalf("Unhandled panic: \n%v\n%s", r, buf)
+			os.Exit(exit_panic)
+		}
+	}()
 	var code int = 1
 	ctx, err := cmd.DefaultContext()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(2)
+		os.Exit(exit_err)
 	}
 	commandName := filepath.Base(args[0])
-	if commandName == "jujud" {
+	if commandName == names.Jujud {
 		code, err = jujuDMain(args, ctx)
-	} else if commandName == "jujuc" {
+	} else if commandName == names.Jujuc {
 		fmt.Fprint(os.Stderr, jujudDoc)
-		code = 2
+		code = exit_err
 		err = fmt.Errorf("jujuc should not be called directly")
-	} else if commandName == "juju-run" {
+	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)
@@ -133,10 +151,6 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 	os.Exit(code)
-}
-
-func main() {
-	Main(os.Args)
 }
 
 type writerFactory struct{}
@@ -170,3 +184,23 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 	module = module[lastDot+1:]
 	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
 }
+
+// setupLogging redirects logging to rolled log files.
+//
+// NOTE: do not use this in the bootstrap agent, or
+// if you do, change the bootstrap error reporting.
+func setupAgentLogging(conf agent.Config) error {
+	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
+
+	log := &lumberjack.Logger{
+		Filename:   filename,
+		MaxSize:    300, // megabytes
+		MaxBackups: 2,
+	}
+
+	writer := loggo.NewSimpleWriter(log, &loggo.DefaultFormatter{})
+	_, err := loggo.ReplaceDefaultWriter(writer)
+	return err
+}
+
+var setupLogging = setupAgentLogging

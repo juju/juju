@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc/mock"
@@ -23,9 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -34,7 +33,8 @@ import (
 
 type lxcSuite struct {
 	lxctesting.TestSuite
-	events chan mock.Event
+	events     chan mock.Event
+	eventsDone chan struct{}
 }
 
 type lxcBrokerSuite struct {
@@ -48,7 +48,9 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
+	s.eventsDone = make(chan struct{})
 	go func() {
+		defer close(s.eventsDone)
 		for event := range s.events {
 			c.Output(3, fmt.Sprintf("lxc event: <%s, %s>", event.Action, event.InstanceId))
 		}
@@ -58,20 +60,17 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 
 func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
+	<-s.eventsDone
 	s.TestSuite.TearDownTest(c)
 }
 
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
-	}
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           "/not/used/here",
-			Tag:               "tag",
+			Tag:               names.NewMachineTag("1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
@@ -80,7 +79,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 		})
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -88,9 +87,13 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, "released", "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
+	possibleTools := coretools.List{&coretools.Tools{
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
+	}}
 	lxc, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
@@ -171,8 +174,7 @@ func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
 type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
-	parentMachineId string
-	events          chan mock.Event
+	events chan mock.Event
 }
 
 var _ = gc.Suite(&lxcProvisionerSuite{})
@@ -190,26 +192,6 @@ func (s *lxcProvisionerSuite) TearDownSuite(c *gc.C) {
 func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
-
-	// The lxc provisioner actually needs the machine it is being created on
-	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
-
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err = s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(err, gc.IsNil)
-	s.parentMachineId = m.Id()
-	s.APILogin(c, m)
-	err = m.SetAgentVersion(version.Current)
-	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
 	s.ContainerFactory.AddListener(s.events)
@@ -252,12 +234,10 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
-	parentMachineTag := names.NewMachineTag(s.parentMachineId).String()
+	parentMachineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag())
-	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
-	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig, managerConfig)
+	broker, err := provisioner.NewLxcBroker(s.provisioner, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
@@ -292,7 +272,7 @@ func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, s.parentMachineId, instance.LXC)
+	container, err := s.State.AddMachineInsideMachine(template, "0", instance.LXC)
 	c.Assert(err, gc.IsNil)
 	return container
 }
@@ -314,6 +294,7 @@ type fakeAPI struct{}
 
 func (*fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return params.ContainerConfig{
+		UpdateBehavior:          &params.UpdateBehavior{true, true},
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
 		SSLHostnameVerification: true}, nil

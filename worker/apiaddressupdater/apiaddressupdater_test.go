@@ -26,6 +26,12 @@ type APIAddressUpdaterSuite struct {
 
 var _ = gc.Suite(&APIAddressUpdaterSuite{})
 
+func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	err := s.State.SetAPIHostPorts(nil)
+	c.Assert(err, gc.IsNil)
+}
+
 type apiAddressSetter struct {
 	servers chan [][]network.HostPort
 	err     error

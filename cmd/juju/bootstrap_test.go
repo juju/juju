@@ -16,8 +16,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
+	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
@@ -29,7 +31,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -73,85 +77,6 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 }
 
-type bootstrapRetryTest struct {
-	info               string
-	args               []string
-	expectedAllowRetry []bool
-	err                string
-	// If version != "", version.Current will be
-	// set to it for the duration of the test.
-	version string
-	// If addVersionToSource is true, then "version"
-	// above will be populated in the tools source.
-	addVersionToSource bool
-}
-
-var noToolsAvailableMessage = "cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*"
-var toolsNotFoundMessage = "cannot find bootstrap tools: tools not found"
-
-var bootstrapRetryTests = []bootstrapRetryTest{{
-	info:               "no tools uploaded, first check has no retries; no matching binary in source; no second attempt",
-	expectedAllowRetry: []bool{false},
-	err:                noToolsAvailableMessage,
-	version:            "1.16.0-precise-amd64",
-}, {
-	info:               "no tools uploaded, first check has no retries; matching binary in source; check after upload has retries",
-	expectedAllowRetry: []bool{false, true},
-	err:                toolsNotFoundMessage,
-	version:            "1.17.0-precise-amd64", // dev version to force upload
-	addVersionToSource: true,
-}, {
-	info:               "no tools uploaded, first check has no retries; no matching binary in source; check after upload has retries",
-	expectedAllowRetry: []bool{false, true},
-	err:                toolsNotFoundMessage,
-	version:            "1.15.1-precise-amd64", // dev version to force upload
-}, {
-	info:               "new tools uploaded, so we want to allow retries to give them a chance at showing up",
-	args:               []string{"--upload-tools"},
-	expectedAllowRetry: []bool{true},
-	err:                noToolsAvailableMessage,
-}}
-
-// Test test checks that bootstrap calls FindTools with the expected allowRetry flag.
-func (s *BootstrapSuite) TestAllowRetries(c *gc.C) {
-	for i, test := range bootstrapRetryTests {
-		c.Logf("test %d: %s\n", i, test.info)
-		s.runAllowRetriesTest(c, test)
-	}
-}
-
-func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
-	toolsVersions := envtesting.VAll
-	if test.version != "" {
-		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
-		testVersion := version.MustParseBinary(useVersion)
-		s.PatchValue(&version.Current, testVersion)
-		if test.addVersionToSource {
-			toolsVersions = append([]version.Binary{}, toolsVersions...)
-			toolsVersions = append(toolsVersions, testVersion)
-		}
-	}
-	resetJujuHome(c)
-	sourceDir := createToolsSource(c, toolsVersions)
-	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
-
-	var findToolsRetryValues []bool
-	mockFindTools := func(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
-		filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
-		findToolsRetryValues = append(findToolsRetryValues, allowRetry)
-		return nil, errors.NotFoundf("tools")
-	}
-
-	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
-	defer restore()
-
-	_, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
-	err := <-errc
-	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
-	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped, gc.Matches, test.err)
-}
-
 func (s *BootstrapSuite) TestTest(c *gc.C) {
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
@@ -166,12 +91,13 @@ type bootstrapTest struct {
 	sync    bool
 	args    []string
 	err     string
-	// binary version strings for expected tools; if set, no default tools
+	// binary version string for expected tools; if set, no default tools
 	// will be uploaded before running the test.
-	uploads     []string
+	upload      string
 	constraints constraints.Value
 	placement   string
 	hostArch    string
+	keepBroken  bool
 }
 
 func (test bootstrapTest) run(c *gc.C) {
@@ -194,15 +120,14 @@ func (test bootstrapTest) run(c *gc.C) {
 		defer func() { arch.HostArch = origVersion }()
 	}
 
-	uploadCount := len(test.uploads)
-	if uploadCount == 0 {
+	if test.upload == "" {
 		usefulVersion := version.Current
 		usefulVersion.Series = config.PreferredSeries(env.Config())
 		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
 	// Check for remaining operations/errors.
 	if test.err != "" {
 		err := <-errc
@@ -214,42 +139,22 @@ func (test bootstrapTest) run(c *gc.C) {
 		return
 	}
 
-	if uploadCount > 0 {
-		for i := 0; i < uploadCount; i++ {
-			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
-		}
-		list, err := envtools.FindTools(
-			env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
-		c.Check(err, gc.IsNil)
-		c.Logf("found: " + list.String())
-		urls := list.URLs()
-		c.Check(urls, gc.HasLen, len(test.uploads))
-		for _, v := range test.uploads {
-			v := strings.Replace(v, "%LTS%", config.LatestLtsSeries(), 1)
-			c.Logf("seeking: " + v)
-			vers := version.MustParseBinary(v)
-			_, found := urls[vers]
-			c.Check(found, gc.Equals, true)
-		}
-	}
-	if len(test.uploads) > 0 {
-		indexFile := (<-opc).(dummy.OpPutFile)
-		c.Check(indexFile.FileName, gc.Equals, "tools/streams/v1/index.json")
-		productFile := (<-opc).(dummy.OpPutFile)
-		c.Check(productFile.FileName, gc.Equals, "tools/streams/v1/com.ubuntu.juju:released:tools.json")
-	}
 	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
 	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
-
-	opPutBootstrapInitFile := (<-opc).(dummy.OpPutFile)
-	c.Check(opPutBootstrapInitFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapInitFile.FileName, gc.Equals, "provider-state")
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
+	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
+
+	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
+	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
+	c.Check(opFinalizeBootstrap.MachineConfig.Tools, gc.NotNil)
+	if test.upload != "" {
+		c.Check(opFinalizeBootstrap.MachineConfig.Tools.Version.String(), gc.Equals, test.upload)
+	}
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -260,10 +165,14 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(hasCert, gc.Equals, true)
 	_, hasKey := env.Config().CAPrivateKey()
 	c.Check(hasKey, gc.Equals, true)
+	info, err := store.ReadInfo("peckham")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{"localhost:17070"})
 }
 
 var bootstrapTests = []bootstrapTest{{
-	info: "no args, no error, no uploads, no constraints",
+	info: "no args, no error, no upload, no constraints",
 }, {
 	info: "bad --constraints",
 	args: []string{"--constraints", "bad=wrong"},
@@ -292,7 +201,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
-	err:     `dummy.Bootstrap is broken`,
+	err:     `failed to bootstrap environment: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -302,66 +211,37 @@ var bootstrapTests = []bootstrapTest{{
 	args:        []string{"--constraints", "mem=4G cpu-cores=4 cpu-power=10"},
 	constraints: constraints.MustParse("mem=4G cpu-cores=4 cpu-power=10"),
 }, {
-	info:    "--upload-tools picks all reasonable series",
-	version: "1.2.3-saucy-amd64",
-	args:    []string{"--upload-tools"},
-	uploads: []string{
-		"1.2.3.1-saucy-amd64",  // from version.Current
-		"1.2.3.1-raring-amd64", // from env.Config().DefaultSeries()
-		"1.2.3.1-precise-amd64",
-		"1.2.3.1-trusty-amd64",
-	},
-}, {
-	info:     "--upload-tools uses arch from constraint if it matches current version",
-	version:  "1.3.3-saucy-ppc64",
-	hostArch: "ppc64",
-	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
-	uploads: []string{
-		"1.3.3.1-saucy-ppc64",  // from version.Current
-		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
-		"1.3.3.1-precise-ppc64",
-		"1.3.3.1-trusty-ppc64",
-	},
-	constraints: constraints.MustParse("arch=ppc64"),
-}, {
-	info:    "--upload-tools only uploads each file once",
-	version: "1.2.3-%LTS%-amd64",
-	args:    []string{"--upload-tools"},
-	uploads: []string{
-		"1.2.3.1-raring-amd64",
-		"1.2.3.1-precise-amd64",
-		"1.2.3.1-trusty-amd64",
-	},
-}, {
-	info:    "--upload-tools rejects invalid series",
-	version: "1.2.3-saucy-amd64",
-	args:    []string{"--upload-tools", "--upload-series", "ping,ping,pong"},
-	err:     `invalid series "ping"`,
+	info:        "--upload-tools uses arch from constraint if it matches current version",
+	version:     "1.3.3-saucy-ppc64el",
+	hostArch:    "ppc64el",
+	args:        []string{"--upload-tools", "--constraints", "arch=ppc64el"},
+	upload:      "1.3.3.1-raring-ppc64el", // from version.Current
+	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:     "--upload-tools rejects mismatched arch",
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
-	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
-	err:      `cannot build tools for "ppc64" using a machine running on "amd64"`,
+	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
+	err:      `failed to bootstrap environment: cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
 	version:  "1.3.3-saucy-arm64",
 	hostArch: "arm64",
 	args:     []string{"--upload-tools"},
-	err:      `environment "peckham" of type dummy does not support instances running on "arm64"`,
+	err:      `failed to bootstrap environment: environment "peckham" of type dummy does not support instances running on "arm64"`,
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-raring-amd64",
 	args:    []string{"--upload-tools"},
-	uploads: []string{
-		"1.2.3.5-raring-amd64",
-		"1.2.3.5-precise-amd64",
-		"1.2.3.5-trusty-amd64",
-	},
+	upload:  "1.2.3.5-raring-amd64",
 }, {
 	info:      "placement",
 	args:      []string{"--to", "something"},
 	placement: "something",
+}, {
+	info:       "keep broken",
+	args:       []string{"--keep-broken"},
+	keepBroken: true,
 }, {
 	info: "additional args",
 	args: []string{"anything", "else"},
@@ -372,10 +252,10 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Minor = 11
+	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
@@ -385,15 +265,24 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
+type mockBootstrapInstance struct {
+	instance.Instance
+}
+
+func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
+	return []network.Address{network.Address{Value: "localhost"}}, nil
+}
+
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals,
-		"Use of --series is deprecated. Please use --upload-series instead.\n")
+		"Use of --series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n")
 }
 
-func (s *BootstrapSuite) TestNoDeprecationWithUploadSeries(c *gc.C) {
+func (s *BootstrapSuite) TestUploadSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--upload-series")
-	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+	c.Check(coretesting.Stderr(ctx), gc.Equals,
+		"Use of --upload-series is obsolete. --upload-tools now expands to all supported series of the same operating system.\n")
 }
 
 func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
@@ -402,22 +291,139 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 		return _bootstrap
 	})
 	resetJujuHome(c)
+	s.PatchValue(&allInstances, func(environ environs.Environ) ([]instance.Instance, error) {
+		return []instance.Instance{&mockBootstrapInstance{}}, nil
+	})
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--upload-tools", argVariant, "foo,bar")
 
 	c.Assert(err, gc.IsNil)
-	c.Check(_bootstrap.uploadToolsSeries, gc.DeepEquals, []string{"foo", "bar"})
 	return ctx
+}
+
+// In the case where we cannot examine an environment, we want the
+// error to propagate back up to the user.
+func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
+
+	env := resetJujuHome(c)
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+
+	const envName = "peckham"
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
+	c.Assert(err, gc.IsNil)
+
+	// Change permissions on the jenv file to simulate some kind of
+	// unexpected error when trying to read info from the environment
+	jenvFile := gitjujutesting.HomePath(".juju", "environments", envName+".jenv")
+	err = os.Chmod(jenvFile, os.FileMode(0200))
+	c.Assert(err, gc.IsNil)
+
+	// The second bootstrap should fail b/c of the propogated error
+	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
+	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
+}
+
+func (s *BootstrapSuite) TestBootstrapCleansUpIfEnvironPrepFails(c *gc.C) {
+
+	cleanupRan := false
+
+	s.PatchValue(
+		&environFromName,
+		func(
+			*cmd.Context,
+			string,
+			string,
+			func(environs.Environ) error,
+		) (environs.Environ, func(), error) {
+			return nil, func() { cleanupRan = true }, fmt.Errorf("mock")
+		},
+	)
+
+	ctx := coretesting.Context(c)
+	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.Not(gc.IsNil))
+	c.Check(cleanupRan, gc.Equals, true)
+}
+
+// When attempting to bootstrap, check that when prepare errors out,
+// the code cleans up the created jenv file, but *not* any existing
+// environment that may have previously been bootstrapped.
+func (s *BootstrapSuite) TestBootstrapFailToPrepareDiesGracefully(c *gc.C) {
+
+	destroyedEnvRan := false
+	destroyedInfoRan := false
+
+	// Mock functions
+	mockDestroyPreparedEnviron := func(
+		*cmd.Context,
+		environs.Environ,
+		configstore.Storage,
+		string,
+	) {
+		destroyedEnvRan = true
+	}
+
+	mockDestroyEnvInfo := func(
+		ctx *cmd.Context,
+		cfgName string,
+		store configstore.Storage,
+		action string,
+	) {
+		destroyedInfoRan = true
+	}
+
+	mockEnvironFromName := func(
+		ctx *cmd.Context,
+		envName string,
+		action string,
+		_ func(environs.Environ) error,
+	) (environs.Environ, func(), error) {
+		// Always show that the environment is bootstrapped.
+		return environFromNameProductionFunc(
+			ctx,
+			envName,
+			action,
+			func(env environs.Environ) error {
+				return environs.ErrAlreadyBootstrapped
+			})
+	}
+
+	mockPrepare := func(
+		string,
+		environs.BootstrapContext,
+		configstore.Storage,
+	) (environs.Environ, error) {
+		return nil, fmt.Errorf("mock-prepare")
+	}
+
+	// Simulation: prepare should fail and we should only clean up the
+	// jenv file. Any existing environment should not be destroyed.
+	s.PatchValue(&destroyPreparedEnviron, mockDestroyPreparedEnviron)
+	s.PatchValue(&environFromName, mockEnvironFromName)
+	s.PatchValue(&environs.PrepareFromName, mockPrepare)
+	s.PatchValue(&destroyEnvInfo, mockDestroyEnvInfo)
+
+	ctx := coretesting.Context(c)
+	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	c.Check(<-errc, gc.ErrorMatches, ".*mock-prepare$")
+	c.Check(destroyedEnvRan, gc.Equals, false)
+	c.Check(destroyedInfoRan, gc.Equals, true)
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Minor = 11
+	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
 	store, err := configstore.Default()
@@ -426,13 +432,13 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	environs.PrepareFromName("peckham", ctx, store)
 
 	logger := "jenv.warning.test"
-	testWriter := &loggo.TestWriter{}
-	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
+	var testWriter loggo.TestWriter
+	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
+	_, errc := cmdtesting.RunCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
+	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
@@ -442,9 +448,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", c.MkDir())
-	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
-		"cannot bootstrap because no tools are available for your "+
-		"environment(.|\n)*")
+	c.Check(err, gc.ErrorMatches, `failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*`)
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
@@ -488,11 +492,11 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	env := resetJujuHome(c)
 
 	// Bootstrap the environment with the valid source.
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
 	devVersion := version.Current
-	devVersion.Minor = 11
+	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir)
@@ -506,6 +510,15 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
 	resetJujuHome(c)
+
+	// Bootstrap the environment with the valid source.
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Build = 1234
+	s.PatchValue(&version.Current, devVersion)
+
 	var calledFuncs []string
 	s.PatchValue(&uploadCustomMetadata, func(metadataDir string, env environs.Environ) error {
 		c.Assert(metadataDir, gc.DeepEquals, sourceDir)
@@ -524,6 +537,14 @@ func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C
 }
 
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
+	// Bootstrap the environment with the valid source.
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Build = 1234
+	s.PatchValue(&version.Current, devVersion)
+
 	validateCalled := 0
 	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
 		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
@@ -561,10 +582,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 	// the version and ensure their later restoring.
 	// Set the current version to be something for which there are no tools
 	// so we can test that an upload is forced.
-	origVersion := version.Current
-	version.Current.Number = version.MustParse(vers)
-	version.Current.Series = series
-	s.AddCleanup(func(*gc.C) { version.Current = origVersion })
+	s.PatchValue(&version.Current, version.MustParseBinary(vers+"-"+series+"-"+version.Current.Arch))
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
@@ -573,79 +591,64 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	s.PatchValue(&version.Current.Series, config.LatestLtsSeries())
-	otherSeries := "quantal"
-
-	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
-	// Run command and check for that upload has been run for tools matching the current juju version.
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
+	s.setupAutoUploadTest(c, "1.7.3", "quantal")
+	// Run command and check for that upload has been run for tools matching
+	// the current juju version.
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
-	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
-	c.Assert(err, gc.IsNil)
-	c.Logf("found: " + list.String())
-	urls := list.URLs()
-
-	// We expect:
-	//     supported LTS series precise, trusty,
-	//     the specified series (quantal),
-	//     and the environment's default series (raring).
-	expectedVers := []version.Binary{
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "quantal", version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "raring", version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "precise", version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "trusty", version.Current.Arch)),
-	}
-	c.Assert(urls, gc.HasLen, len(expectedVers))
-	for _, vers := range expectedVers {
-		c.Logf("seeking: " + vers.String())
-		_, found := urls[vers]
-		c.Check(found, gc.Equals, true)
-	}
+	c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham") // verify storage
+	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "peckham")
+	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).MachineConfig
+	c.Assert(mcfg, gc.NotNil)
+	c.Assert(mcfg.Tools.Version.String(), gc.Equals, "1.7.3.1-raring-"+version.Current.Arch)
 }
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
+	_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	err := <-errc
-	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(stripped, gc.Matches, noToolsAvailableMessage)
+	c.Assert(err, gc.ErrorMatches,
+		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
-	c.Assert(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
-		"cannot bootstrap because no tools are available for your "+
-		"environment(.|\n)*")
-}
-
-func uploadToolsAlwaysFails(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
-	return nil, fmt.Errorf("an error")
+	c.Assert(err, gc.ErrorMatches,
+		"failed to bootstrap environment: Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
+
+	buildToolsTarballAlwaysFails := func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+		return nil, fmt.Errorf("an error")
+	}
+
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
-	s.PatchValue(&sync.Upload, uploadToolsAlwaysFails)
+	s.PatchValue(&sync.BuildToolsTarball, buildToolsTarballAlwaysFails)
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 
-	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"uploading tools for series \\[precise raring .*\\]\n")
-	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
+	c.Check(coretesting.Stderr(ctx), gc.Equals, fmt.Sprintf(`
+Bootstrapping environment "peckham"
+Starting new instance for initial state server
+Building tools to upload (1.7.3.1-raring-%s)
+`[1:], version.Current.Arch))
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	resetJujuHome(c)
 	devVersion := version.Current
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	devVersion.Minor = 11
+	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
-	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
 	for opDestroy == nil {
 		select {
@@ -660,6 +663,36 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 		}
 	}
 	c.Assert(opDestroy.Error, gc.ErrorMatches, "dummy.Destroy is broken")
+}
+
+func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
+	resetJujuHome(c)
+	devVersion := version.Current
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion.Build = 1234
+	s.PatchValue(&version.Current, devVersion)
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv", "--keep-broken")
+	err := <-errc
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
+	done := false
+	for !done {
+		select {
+		case op, ok := <-opc:
+			if !ok {
+				done = true
+				break
+			}
+			switch op.(type) {
+			case dummy.OpDestroy:
+				c.Error("unexpected call to env.Destroy")
+				break
+			}
+		default:
+			break
+		}
+	}
 }
 
 // createToolsSource writes the mock tools and metadata into a temporary
@@ -683,7 +716,7 @@ func resetJujuHome(c *gc.C) environs.Environ {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName("peckham", nullContext(c), store)
+	env, err := environs.PrepareFromName("peckham", cmdtesting.NullContext(c), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env
@@ -741,18 +774,12 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 // test scenarios. This could help improve some of the tests in this
 // file which execute large amounts of external functionality.
 type fakeBootstrapFuncs struct {
-	uploadToolsSeries []string
 }
 
 func (fake *fakeBootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
 	return nil
 }
 
-func (fake *fakeBootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
-	fake.uploadToolsSeries = bootstrapSeries
-	return nil
-}
-
-func (fake fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+func (fake fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
 	return nil
 }

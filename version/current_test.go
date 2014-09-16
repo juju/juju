@@ -28,6 +28,8 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 		switch runtime.GOOS {
 		case "darwin":
 			c.Check(s, gc.Matches, `mavericks|mountainlion|lion|snowleopard`)
+		case "windows":
+			c.Check(s, gc.Matches, `win2012hvr2|win2012hv|win2012|win2012r2|win8|win81|win7`)
 		default:
 			c.Assert(s, gc.Equals, "n/a")
 		}

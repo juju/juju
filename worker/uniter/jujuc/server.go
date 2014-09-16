@@ -18,22 +18,26 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+
+	"github.com/juju/juju/juju/sockets"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(Context) cmd.Command{
-	"close-port":    NewClosePortCommand,
-	"config-get":    NewConfigGetCommand,
-	"juju-log":      NewJujuLogCommand,
-	"open-port":     NewOpenPortCommand,
-	"relation-get":  NewRelationGetCommand,
-	"relation-ids":  NewRelationIdsCommand,
-	"relation-list": NewRelationListCommand,
-	"relation-set":  NewRelationSetCommand,
-	"unit-get":      NewUnitGetCommand,
-	"owner-get":     NewOwnerGetCommand,
+	"close-port" + cmdSuffix:    NewClosePortCommand,
+	"config-get" + cmdSuffix:    NewConfigGetCommand,
+	"juju-log" + cmdSuffix:      NewJujuLogCommand,
+	"open-port" + cmdSuffix:     NewOpenPortCommand,
+	"relation-get" + cmdSuffix:  NewRelationGetCommand,
+	"action-get" + cmdSuffix:    NewActionGetCommand,
+	"relation-ids" + cmdSuffix:  NewRelationIdsCommand,
+	"relation-list" + cmdSuffix: NewRelationListCommand,
+	"relation-set" + cmdSuffix:  NewRelationSetCommand,
+	"unit-get" + cmdSuffix:      NewUnitGetCommand,
+	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
+	"add-metric" + cmdSuffix:    NewAddMetricCommand,
 }
 
 // CommandNames returns the names of all jujuc commands.
@@ -126,7 +130,7 @@ func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := sockets.Listen(socketPath)
 	if err != nil {
 		return nil, err
 	}

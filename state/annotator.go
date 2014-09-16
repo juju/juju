@@ -7,18 +7,18 @@ import (
 	"fmt"
 	"strings"
 
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
-
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // annotatorDoc represents the internal state of annotations for an Entity in
 // MongoDB. Note that the annotations map is not maintained in local storage
 // due to the fact that it is not accessed directly, but through
 // Annotations/Annotation below.
-// Note also the correspondence with AnnotationInfo in state/api/params.
+// Note also the correspondence with AnnotationInfo in apiserver/params.
 type annotatorDoc struct {
 	GlobalKey   string `bson:"_id"`
 	Tag         string
@@ -29,7 +29,7 @@ type annotatorDoc struct {
 // for any entity that wishes to use it.
 type annotator struct {
 	globalKey string
-	tag       string
+	tag       names.Tag
 	st        *State
 }
 
@@ -40,9 +40,9 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 		return nil
 	}
 	// Collect in separate maps pairs to be inserted/updated or removed.
-	toRemove := make(map[string]bool)
+	toRemove := make(bson.M)
 	toInsert := make(map[string]string)
-	toUpdate := make(map[string]string)
+	toUpdate := make(bson.M)
 	for key, value := range pairs {
 		if strings.Contains(key, ".") {
 			return fmt.Errorf("invalid key %q", key)
@@ -61,7 +61,9 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if count, err := a.st.annotations.FindId(a.globalKey).Count(); err != nil {
+		annotations, closer := a.st.getCollection(annotationsC)
+		defer closer()
+		if count, err := annotations.FindId(a.globalKey).Count(); err != nil {
 			return nil, err
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
@@ -79,12 +81,13 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	tag := a.tag
 	ops := []txn.Op{{
-		C:      a.st.annotations.Name,
+		C:      annotationsC,
 		Id:     a.globalKey,
 		Assert: txn.DocMissing,
-		Insert: &annotatorDoc{a.globalKey, tag, toInsert},
+		Insert: &annotatorDoc{a.globalKey, tag.String(), toInsert},
 	}}
-	if strings.HasPrefix(tag, "environment-") {
+	switch tag.(type) {
+	case names.EnvironTag:
 		return ops, nil
 	}
 	// If the entity is not the environment, add a DocExists check on the
@@ -102,19 +105,21 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 }
 
 // updateOps returns the operations required to update or remove annotations in MongoDB.
-func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bool) []txn.Op {
+func (a *annotator) updateOps(toUpdate, toRemove bson.M) []txn.Op {
 	return []txn.Op{{
-		C:      a.st.annotations.Name,
+		C:      annotationsC,
 		Id:     a.globalKey,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", toUpdate}, {"$unset", toRemove}},
+		Update: setUnsetUpdate(toUpdate, toRemove),
 	}}
 }
 
 // Annotations returns all the annotations corresponding to an entity.
 func (a *annotator) Annotations() (map[string]string, error) {
 	doc := new(annotatorDoc)
-	err := a.st.annotations.FindId(a.globalKey).One(doc)
+	annotations, closer := a.st.getCollection(annotationsC)
+	defer closer()
+	err := annotations.FindId(a.globalKey).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
 		return make(map[string]string), nil
@@ -139,7 +144,7 @@ func (a *annotator) Annotation(key string) (string, error) {
 // document from MongoDB.
 func annotationRemoveOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      st.annotations.Name,
+		C:      annotationsC,
 		Id:     id,
 		Remove: true,
 	}

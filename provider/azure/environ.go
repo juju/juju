@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -29,8 +30,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
 )
 
 const (
@@ -65,9 +64,6 @@ type azureEnviron struct {
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
 
-	// name is immutable; it does not need locking.
-	name string
-
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
 	// supportedArchitectures caches the architectures
@@ -95,7 +91,7 @@ var _ state.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
-	env := azureEnviron{name: cfg.Name()}
+	var env azureEnviron
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -137,11 +133,6 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	}
 
 	return key, nil
-}
-
-// Name is specified in the Environ interface.
-func (env *azureEnviron) Name() string {
-	return env.name
 }
 
 // getSnapshot produces an atomic shallow copy of the environment object.
@@ -201,8 +192,12 @@ func (env *azureEnviron) getVirtualNetworkName() string {
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
+	// Note: the Azure documentation recommends to use
+	// Location when creating virtual network sites.
+	// We have historically used Affinity Group, and
+	// have observed intermittent issues when switching.
+	// http://msdn.microsoft.com/en-us/library/azure/jj157100.aspx
 	vnetName := env.getVirtualNetworkName()
-	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return err
@@ -210,7 +205,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
 		Name:          vnetName,
-		AffinityGroup: affinityGroupName,
+		AffinityGroup: env.getAffinityGroupName(),
 		AddressSpacePrefixes: []string{
 			networkDefinition,
 		},
@@ -277,11 +272,11 @@ func isVirtualNetworkExist(err error) bool {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (err error) {
+func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil && !isHTTPConflict(err) {
-		return err
+		return "", "", nil, err
 	}
 	// If we fail after this point, clean up the affinity group.
 	defer func() {
@@ -292,7 +287,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 
 	err = env.createVirtualNetwork()
 	if err != nil && !isVirtualNetworkExist(err) {
-		return err
+		return "", "", nil, err
 	}
 	// If we fail after this point, clean up the virtual network.
 	defer func() {
@@ -303,9 +298,66 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	return common.Bootstrap(ctx, env, args)
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(env)
+// isLegacyInstance reports whether the instance is a
+// legacy instance (i.e. one-to-one cloud service to instance).
+func isLegacyInstance(inst *azureInstance) (bool, error) {
+	context, err := inst.environ.getManagementAPI()
+	if err != nil {
+		return false, err
+	}
+	defer inst.environ.releaseManagementAPI(context)
+	serviceName := inst.hostedService.ServiceName
+	service, err := context.GetHostedServiceProperties(serviceName, true)
+	if err != nil {
+		return false, err
+	} else if len(service.Deployments) != 1 {
+		return false, nil
+	}
+	deploymentName := service.Deployments[0].Name
+	return deploymentName == deploymentNameV1(serviceName), nil
+}
+
+// StateServerInstances is specified in the Environ interface.
+func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
+	// Locate the state-server cloud service, and get its addresses.
+	instances, err := env.AllInstances()
+	if err != nil {
+		return nil, err
+	}
+	var stateServerInstanceIds []instance.Id
+	var loadStateFile bool
+	for _, inst := range instances {
+		azureInstance := inst.(*azureInstance)
+		label := azureInstance.hostedService.Label
+		if decoded, err := base64.StdEncoding.DecodeString(label); err == nil {
+			if string(decoded) == stateServerLabel {
+				stateServerInstanceIds = append(stateServerInstanceIds, inst.Id())
+				continue
+			}
+		}
+		if !loadStateFile {
+			_, roleName := env.splitInstanceId(azureInstance.Id())
+			if roleName == "" {
+				loadStateFile = true
+			}
+		}
+	}
+	if loadStateFile {
+		// Some legacy instances were found, so we must load provider-state
+		// to find which instance was the original state server. If we find
+		// a legacy environment, then stateServerInstanceIds will not contain
+		// the original bootstrap instance, which is the only one that will
+		// be in provider-state.
+		instanceIds, err := common.ProviderStateInstances(env, env.Storage())
+		if err != nil {
+			return nil, err
+		}
+		stateServerInstanceIds = append(stateServerInstanceIds, instanceIds...)
+	}
+	if len(stateServerInstanceIds) == 0 {
+		return nil, environs.ErrNotBootstrapped
+	}
+	return stateServerInstanceIds, nil
 }
 
 // Config is specified in the Environ interface.
@@ -409,9 +461,9 @@ func (env *azureEnviron) SupportNetworks() bool {
 	return false
 }
 
-// selectInstanceTypeAndImage returns the appropriate instance-type name and
+// selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
 // the OS image name for launching a virtual machine with the given parameters.
-func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (string, string, error) {
+func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (*instances.InstanceType, string, error) {
 	ecfg := env.getSnapshot().ecfg
 	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
@@ -423,19 +475,19 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 		// instance type either.
 		//
 		// Select the instance type using simple, Azure-specific code.
-		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(constraint.Constraints))
+		instanceType, err := selectMachineType(env, defaultToBaselineSpec(constraint.Constraints))
 		if err != nil {
-			return "", "", err
+			return nil, "", err
 		}
-		return machineType.Name, sourceImageName, nil
+		return instanceType, sourceImageName, nil
 	}
 
 	// Choose the most suitable instance type and OS image, based on simplestreams information.
 	spec, err := findInstanceSpec(env, constraint)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
-	return spec.InstanceType.Id, spec.Image.Id, nil
+	return &spec.InstanceType, spec.Image.Id, nil
 }
 
 var unsupportedConstraints = []string{
@@ -452,11 +504,20 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 		return nil, err
 	}
 	validator.RegisterVocabulary(constraints.Arch, supportedArches)
-	instTypeNames := make([]string, len(gwacl.RoleSizes))
-	for i, role := range gwacl.RoleSizes {
-		instTypeNames[i] = role.Name
+
+	instanceTypes, err := listInstanceTypes(env)
+	if err != nil {
+		return nil, err
+	}
+	instTypeNames := make([]string, len(instanceTypes))
+	for i, instanceType := range instanceTypes {
+		instTypeNames[i] = instanceType.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.CpuCores, constraints.Arch, constraints.RootDisk})
+
 	return validator, nil
 }
 
@@ -469,7 +530,7 @@ func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value,
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	instanceTypes, err := listInstanceTypes(env)
 	if err != nil {
 		return err
 	}
@@ -478,7 +539,7 @@ func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value,
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid Azure instance %q specified", *cons.InstanceType)
+	return fmt.Errorf("invalid instance type %q", *cons.InstanceType)
 }
 
 // createInstance creates all of the Azure entities necessary for a
@@ -573,7 +634,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
-	err = environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints)
+	err = environs.FinishMachineConfig(args.MachineConfig, env.Config())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -634,13 +695,20 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 			break
 		}
 	}
-	role := env.newRole(instanceType, vhd, userData, stateServer)
+	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, &instance.HardwareCharacteristics{}, nil, nil
+	hc := &instance.HardwareCharacteristics{
+		Mem:      &instanceType.Mem,
+		RootDisk: &instanceType.RootDisk,
+		CpuCores: &instanceType.CpuCores,
+	}
+	if len(instanceType.Arches) == 1 {
+		hc.Arch = &instanceType.Arches[0]
+	}
+	return inst, hc, nil, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
@@ -710,10 +778,6 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 // getInitialEndpoints returns a slice of the endpoints every instance should have open
 // (ssh port, etc).
 func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndpoint {
-	// TODO(axw) either proxy ssh traffic through one of the
-	// randomly chosen VMs to the internal address, or otherwise
-	// don't load balance SSH and provide a way of getting the
-	// local port.
 	cfg := env.Config()
 	endpoints := []gwacl.InputEndpoint{{
 		LocalPort: 22,
@@ -723,11 +787,6 @@ func (env *azureEnviron) getInitialEndpoints(stateServer bool) []gwacl.InputEndp
 	}}
 	if stateServer {
 		endpoints = append(endpoints, []gwacl.InputEndpoint{{
-			LocalPort: cfg.StatePort(),
-			Port:      cfg.StatePort(),
-			Protocol:  "tcp",
-			Name:      "stateport",
-		}, {
 			LocalPort: cfg.APIPort(),
 			Port:      cfg.APIPort(),
 			Protocol:  "tcp",
@@ -1011,7 +1070,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 // getEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
 func (env *azureEnviron) getEnvPrefix() string {
-	return fmt.Sprintf("juju-%s-", env.Name())
+	return fmt.Sprintf("juju-%s-", env.Config().Name())
 }
 
 // Storage is specified in the Environ interface.
@@ -1021,7 +1080,7 @@ func (env *azureEnviron) Storage() storage.Storage {
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
-	logger.Debugf("destroying environment %q", env.name)
+	logger.Debugf("destroying environment %q", env.Config().Name())
 
 	// Stop all instances.
 	if err := env.destroyAllServices(); err != nil {
@@ -1035,10 +1094,9 @@ func (env *azureEnviron) Destroy() error {
 	// associated with a vnet or affinity group.
 	if err := env.deleteVirtualNetwork(); err != nil {
 		logger.Warningf("cannot delete the environment's virtual network: %v", err)
-	} else {
-		if err := env.deleteAffinityGroup(); err != nil {
-			logger.Warningf("cannot delete the environment's affinity group: %v", err)
-		}
+	}
+	if err := env.deleteAffinityGroup(); err != nil {
+		logger.Warningf("cannot delete the environment's affinity group: %v", err)
 	}
 
 	// Delete storage.
@@ -1054,20 +1112,20 @@ func (env *azureEnviron) Destroy() error {
 
 // OpenPorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []network.Port) error {
+func (env *azureEnviron) OpenPorts(ports []network.PortRange) error {
 	return nil
 }
 
 // ClosePorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []network.Port) error {
+func (env *azureEnviron) ClosePorts(ports []network.PortRange) error {
 	return nil
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]network.Port, error) {
+func (env *azureEnviron) Ports() ([]network.PortRange, error) {
 	// TODO: implement this.
-	return []network.Port{}, nil
+	return []network.PortRange{}, nil
 }
 
 // Provider is specified in the Environ interface.

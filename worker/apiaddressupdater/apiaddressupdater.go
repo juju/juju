@@ -8,14 +8,17 @@ import (
 
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.apiaddressupdater")
 
-// APIAddressUpdater is responsible for cleaning up the state.
+// APIAddressUpdater is responsible for propagating API addresses.
+//
+// In practice, APIAddressUpdater is used by a machine agent to watch
+// API addresses in state and write the changes to the agent's config file.
 type APIAddressUpdater struct {
 	addresser APIAddresser
 	setter    APIAddressSetter
@@ -34,8 +37,8 @@ type APIAddressSetter interface {
 	SetAPIHostPorts(servers [][]network.HostPort) error
 }
 
-// NewAPIAddressUpdater returns a worker.Worker that runs state.Cleanup()
-// if the CleanupWatcher signals documents marked for deletion.
+// NewAPIAddressUpdater returns a worker.Worker that watches for changes to
+// API addresses and then sets them on the APIAddressSetter.
 func NewAPIAddressUpdater(addresser APIAddresser, setter APIAddressSetter) worker.Worker {
 	return worker.NewNotifyWorker(&APIAddressUpdater{
 		addresser: addresser,

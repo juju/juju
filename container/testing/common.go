@@ -11,24 +11,50 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
-func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
+func MockMachineConfig(machineId string) (*cloudinit.MachineConfig, error) {
+
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	if err != nil {
+		return nil, err
+	}
 	machineConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
 
-	series := "series"
+	return machineConfig, nil
+}
+
+func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
+	machineConfig, err := MockMachineConfig(machineId)
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, gc.IsNil)
+	machineConfig.Config = envConfig
+	return CreateContainerWithMachineConfig(c, manager, machineConfig)
+}
+
+func CreateContainerWithMachineConfig(
+	c *gc.C,
+	manager container.Manager,
+	machineConfig *cloudinit.MachineConfig,
+) instance.Instance {
+
 	network := container.BridgeNetworkConfig("nic42")
-	inst, hardware, err := manager.CreateContainer(machineConfig, series, network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

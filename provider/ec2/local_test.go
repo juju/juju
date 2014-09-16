@@ -11,13 +11,13 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goamz/s3/s3test"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -95,6 +95,7 @@ func registerLocalTests() {
 	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
+		Sign: aws.SignV2,
 	}
 
 	gc.Suite(&localServerSuite{})
@@ -146,6 +147,7 @@ func (srv *localServer) startServer(c *gc.C) {
 		EC2Endpoint:          srv.ec2srv.URL(),
 		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
+		Sign:                 aws.SignV2,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
 	storage := ec2.BucketStorage(s3inst.Bucket("juju-dist"))
@@ -230,18 +232,18 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// check that the state holds the id of the bootstrap machine.
-	bootstrapState, err := bootstrap.LoadState(env.Storage())
+	// check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
+	c.Assert(instanceIds, gc.HasLen, 1)
 
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
@@ -285,7 +287,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	userDataMap = nil
 	err = goyaml.Unmarshal(userData, &userDataMap)
 	c.Assert(err, gc.IsNil)
-	CheckPackage(c, userDataMap, "git", true)
+	CheckPackage(c, userDataMap, "curl", true)
 	CheckPackage(c, userDataMap, "mongodb-server", false)
 	CheckScripts(c, userDataMap, "jujud bootstrap-state", false)
 	CheckScripts(c, userDataMap, "/var/lib/juju/agents/machine-1/agent.conf", true)
@@ -294,8 +296,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	_, err = bootstrap.LoadState(env.Storage())
-	c.Assert(err, gc.NotNil)
+	_, err = env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 // splitAuthKeys splits the given authorized keys
@@ -315,7 +317,7 @@ func splitAuthKeys(keys string) []interface{} {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -326,7 +328,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -354,7 +356,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
@@ -436,7 +438,7 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -463,7 +465,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -487,7 +489,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
@@ -504,7 +506,7 @@ var azConstrainedErr = &amzec2.Error{
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -527,7 +529,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -556,7 +558,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
@@ -603,9 +605,9 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
@@ -626,7 +628,7 @@ func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -634,7 +636,7 @@ func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=m1.invalid")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
 }
 
@@ -642,28 +644,28 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	env := t.Prepare(c)
 	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
@@ -671,7 +673,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := t.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, gc.IsNil)
-	params.Series = "precise"
+	params.Series = coretesting.FakeDefaultSeries
 	params.Endpoint = "https://ec2.endpoint.com"
 	params.Sources, err = imagemetadata.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)

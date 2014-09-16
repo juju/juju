@@ -6,11 +6,26 @@ package main
 import (
 	"github.com/juju/cmd"
 
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
 type UserCommand struct {
 	*cmd.SuperCommand
+}
+
+type UserCommandBase struct {
+	envcmd.EnvCommandBase
+}
+
+// NewUserManagerClient returns a usermanager client for the root api endpoint
+// that the environment command returns.
+func (c *UserCommandBase) NewUserManagerClient() (*usermanager.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return usermanager.NewClient(root), nil
 }
 
 const userCommandDoc = `
@@ -32,5 +47,6 @@ func NewUserCommand() cmd.Command {
 	// Define each subcommand in a separate "user_FOO.go" source file
 	// (with tests in user_FOO_test.go) and wire in here.
 	usercmd.Register(envcmd.Wrap(&UserAddCommand{}))
+	usercmd.Register(envcmd.Wrap(&UserChangePasswordCommand{}))
 	return usercmd
 }

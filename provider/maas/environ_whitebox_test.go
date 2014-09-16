@@ -9,16 +9,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
-	"strings"
 	"text/template"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -32,8 +31,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -62,18 +61,9 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 	return ecfg.Config
 }
 
-func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
-	suite.testMAASObject.TestServer.NewFile(bootstrap.StateFile, []byte("test file content"))
-}
-
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	stor := NewStorage(suite.makeEnviron())
 	envtesting.UploadFakeTools(c, stor)
-}
-
-func (suite *environSuite) setupFakeImageMetadata(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	UseTestImageMetadata(c, stor)
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -201,11 +191,14 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		version.Current.Arch),
+	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -214,24 +207,28 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
-	// Check that the state holds the id of the bootstrap machine.
-	stateData, err := bootstrap.LoadState(env.Storage())
+	// Check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateData.StateInstances, gc.HasLen, 1)
+	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// Create node 1: it will be used as instance number 1.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		version.Current.Arch),
+	)
 	lshwXML, err = suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f1": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	// TODO(wallyworld) - test instance metadata
-	instance, _ := testing.AssertStartInstance(c, env, "1")
+	instance, hc := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
 	c.Check(instance, gc.NotNil)
+	c.Assert(hc, gc.NotNil)
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", version.Current.Arch))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
@@ -249,11 +246,11 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, gc.IsNil)
 	info := machineInfo{"host1"}
-	cloudinitRunCmd, err := info.cloudinitRunCmd()
+	cloudinitRunCmd, err := info.cloudinitRunCmd("precise")
 	c.Assert(err, gc.IsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, gc.IsNil)
-	c.Check(string(decodedUserData), gc.Matches, "(.|\n)*"+string(data)+"(\n|.)*")
+	c.Check(string(decodedUserData), jc.Contains, string(data))
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
@@ -271,12 +268,10 @@ func stringp(val string) *string {
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode("", constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("", constraints.Value{}, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -291,12 +286,10 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode("host0", constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("host0", constraints.Value{}, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -311,13 +304,11 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, _, err := env.acquireNode("", constraints, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("", constraints, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -328,12 +319,10 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode("", constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("", constraints.Value{}, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -449,32 +438,26 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
 }
 
-func (suite *environSuite) TestStateInfo(c *gc.C) {
+func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	hostname := "test"
-	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	testInstance := &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
-	c.Assert(err, gc.IsNil)
+	_, err := env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-
-	cfg := env.Config()
-	statePortSuffix := fmt.Sprintf(":%d", cfg.StatePort())
-	apiPortSuffix := fmt.Sprintf(":%d", cfg.APIPort())
-	c.Assert(stateInfo.Addrs, gc.DeepEquals, []string{hostname + statePortSuffix})
-	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostname + apiPortSuffix})
+	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
+	for _, expected := range tests {
+		err := common.SaveState(env.Storage(), &common.BootstrapState{
+			StateInstances: expected,
+		})
+		c.Assert(err, gc.IsNil)
+		stateServerInstances, err := env.StateServerInstances()
+		c.Assert(err, gc.IsNil)
+		c.Assert(stateServerInstances, jc.SameContents, expected)
+	}
 }
 
-func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (suite *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
-
-	_, _, err := env.StateInfo()
-
+	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
@@ -502,11 +485,14 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
+	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -522,17 +508,14 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
-	stripped := strings.Replace(err.Error(), "\n", "", -1)
-	c.Check(stripped,
-		gc.Matches,
-		"cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*")
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -600,15 +583,29 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
+}
+
+func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
+	// If we cannot query boot-images (e.g. MAAS server version 1.4),
+	// then Juju will fall over to listing all the available nodes.
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
+	env := suite.makeEnviron()
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
@@ -619,13 +616,14 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "armhf", "release": "precise"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
 }
 
 func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {

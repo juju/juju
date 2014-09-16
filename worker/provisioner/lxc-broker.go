@@ -9,25 +9,23 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/tools"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
 var _ environs.InstanceBroker = (*lxcBroker)(nil)
-var _ tools.HasTools = (*lxcBroker)(nil)
 
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 }
 
-func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config, managerConfig container.ManagerConfig) (environs.InstanceBroker, error) {
+func NewLxcBroker(api APICalls, agentConfig agent.Config, managerConfig container.ManagerConfig) (environs.InstanceBroker, error) {
 	manager, err := lxc.NewContainerManager(managerConfig)
 	if err != nil {
 		return nil, err
@@ -35,7 +33,6 @@ func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config, ma
 	return &lxcBroker{
 		manager:     manager,
 		api:         api,
-		tools:       tools,
 		agentConfig: agentConfig,
 	}, nil
 }
@@ -43,16 +40,7 @@ func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config, ma
 type lxcBroker struct {
 	manager     container.Manager
 	api         APICalls
-	tools       *tools.Tools
 	agentConfig agent.Config
-}
-
-func (broker *lxcBroker) Tools(series string) tools.List {
-	// TODO: thumper 2014-04-08 bug 1304151
-	// should use the api get get tools for the series.
-	seriesTools := *broker.tools
-	seriesTools.Version.Series = series
-	return tools.List{&seriesTools}
 }
 
 // StartInstance is specified in the Broker interface.
@@ -87,6 +75,9 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.SSLHostnameVerification,
 		config.Proxy,
 		config.AptProxy,
+		config.PreferIPv6,
+		config.EnableOSRefreshUpdate,
+		config.EnableOSUpgrade,
 	); err != nil {
 		lxcLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, nil, err
