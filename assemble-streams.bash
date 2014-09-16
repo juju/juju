@@ -68,7 +68,7 @@ build_tool_tree() {
 }
 
 
-retrieve_released_tools() {
+sync_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
@@ -390,7 +390,7 @@ added_tools=()
 check_deps
 build_tool_tree
 if [[ $GET_RELEASED_TOOL == "true" ]]; then
-    retrieve_released_tools
+    sync_released_tools
 fi
 retract_bad_tools
 if [[ $RELEASE != "IGNORE" ]]; then
