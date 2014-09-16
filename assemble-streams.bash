@@ -328,7 +328,7 @@ sign_metadata() {
 cleanup() {
     # Remove the debs and testing tools so that they are not reused in
     # future runs of the script.
-    rm ${DEST_DEBS}/*.deb || echo "No packages needed cleanup"
+    find ${DEST_DEBS} -name "*.deb" -delete
 }
 
 
