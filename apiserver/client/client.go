@@ -685,13 +685,30 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
-		newJob, err := state.MachineJobFromParams(job)
+		newJob, err := machineJobFromParams(job)
 		if err != nil {
 			return nil, err
 		}
 		newJobs[i] = newJob
 	}
 	return newJobs, nil
+}
+
+// machineJobFromParams returns the job corresponding to params.MachineJob.
+// TODO(dfc) this function should live in apiserver/params, move there once
+// state does not depend on apiserver/params
+func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+	switch job {
+	case params.JobHostUnits:
+		return state.JobHostUnits, nil
+	case params.JobManageEnviron:
+		return state.JobManageEnviron, nil
+	case params.JobManageStateDeprecated:
+		// Deprecated in 1.18.
+		return state.JobManageStateDeprecated, nil
+	default:
+		return -1, errors.Errorf("invalid machine job %q", job)
+	}
 }
 
 // ProvisioningScript returns a shell script that, when run,

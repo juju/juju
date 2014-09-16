@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 const manualInstancePrefix = "manual:"
@@ -142,18 +141,6 @@ func recordMachineInState(client ProvisioningClientAPI, machineParams params.Add
 		return "", machineInfo.Error
 	}
 	return machineInfo.Machine, nil
-}
-
-// convertToStateJobs takes a slice of params.MachineJob and makes them a slice of state.MachineJob
-func convertToStateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
-	outJobs := make([]state.MachineJob, len(jobs))
-	var err error
-	for j, job := range jobs {
-		if outJobs[j], err = state.MachineJobFromParams(job); err != nil {
-			return nil, err
-		}
-	}
-	return outJobs, nil
 }
 
 // gatherMachineParams collects all the information we know about the machine

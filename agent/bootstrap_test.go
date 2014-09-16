@@ -231,6 +231,34 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized .*")
 }
 
+func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
+	var tests = []struct {
+		name params.MachineJob
+		want state.MachineJob
+		err  string
+	}{{
+		name: params.JobHostUnits,
+		want: state.JobHostUnits,
+	}, {
+		name: params.JobManageEnviron,
+		want: state.JobManageEnviron,
+	}, {
+		name: params.JobManageStateDeprecated,
+		want: state.JobManageStateDeprecated,
+	}, {
+		name: "invalid",
+		want: -1,
+		err:  `invalid machine job "invalid"`,
+	}}
+	for _, test := range tests {
+		got, err := agent.MachineJobFromParams(test.name)
+		if err != nil {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+		c.Check(got, gc.Equals, test.want)
+	}
+}
+
 func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	info := &mongo.MongoInfo{
 		Info: mongo.Info{

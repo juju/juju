@@ -2566,3 +2566,31 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, current)
 }
+
+func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
+	var tests = []struct {
+		name params.MachineJob
+		want state.MachineJob
+		err  string
+	}{{
+		name: params.JobHostUnits,
+		want: state.JobHostUnits,
+	}, {
+		name: params.JobManageEnviron,
+		want: state.JobManageEnviron,
+	}, {
+		name: params.JobManageStateDeprecated,
+		want: state.JobManageStateDeprecated,
+	}, {
+		name: "invalid",
+		want: -1,
+		err:  `invalid machine job "invalid"`,
+	}}
+	for _, test := range tests {
+		got, err := client.MachineJobFromParams(test.name)
+		if err != nil {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+		c.Check(got, gc.Equals, test.want)
+	}
+}
