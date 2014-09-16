@@ -328,12 +328,19 @@ generate_streams() {
 
 
 generate_mirrors() {
-    echo "Phase 8: Creating mirror josn."
+    echo "Phase 8: Creating mirror json."
+    if [[ $PURPOSE == "release" ]]; then
+        local base_path="/tools/"
+    else
+        local base_path="/tools/$PURPOSE/"
+    fi
     short_now=$(date +%Y%m%d)
-    sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
+    sed -e "s/NOW/$short_now/; s,/tools/,$base_path," \
+        ${SCRIPT_DIR}/mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/mirrors.json
     long_now=$(date -R)
-    sed -e "s/NOW/$long_now/" ${SCRIPT_DIR}/cpc-mirrors.json.template \
+    sed -e "s/NOW/$long_now/" \
+        ${SCRIPT_DIR}/cpc-mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/cpc-mirrors.json
 }
 
