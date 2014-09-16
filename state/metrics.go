@@ -146,7 +146,7 @@ func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
 }
 
-// EnvUUID returns the environment uuid this metric applies to.
+// EnvUUID returns the environment UUID this metric applies to.
 func (m *MetricBatch) EnvUUID() string {
 	return m.doc.EnvUUID
 }
