@@ -60,39 +60,26 @@ class CannotConnectEnv(subprocess.CalledProcessError):
         super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
 
 
-class JujuClientDevel:
-    # This client is meant to work with the latest version of juju.
-    # Subclasses will retain support for older versions of juju, so that the
-    # latest version is easy to read, and older versions can be trivially
-    # deleted.
+class EnvJujuClient:
 
-    def __init__(self, version, full_path):
-        self.version = version
-        self.full_path = full_path
-        self.debug = False
-
-    @classmethod
-    def get_version(cls):
-        return subprocess.check_output(('juju', '--version')).strip()
-
-    @classmethod
-    def get_full_path(cls):
+    @staticmethod
+    def get_full_path():
         if sys.platform == 'win32':
             return WIN_JUJU_CMD
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
-    @classmethod
-    def by_version(cls):
-        version = cls.get_version()
-        full_path = cls.get_full_path()
-        if version.startswith('1.16'):
-            raise Exception('Unsupported juju: %s' % version)
-        else:
-            return JujuClientDevel(version, full_path)
+    def __init__(self, env, version, full_path, debug=False):
+        self.env = env
+        self.version = version
+        self.full_path = full_path
+        self.debug = debug
 
-    def _full_args(self, environment, command, sudo, args, timeout=None):
+    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
-        e_arg = () if environment is None else ('-e', environment.environment)
+        if self.env is None or not include_e:
+            e_arg = ()
+        else:
+            e_arg = ('-e', self.env.environment)
         if timeout is None:
             prefix = ()
         else:
@@ -111,23 +98,18 @@ class JujuClientDevel:
                                          env['PATH'])
         return env
 
-    def bootstrap(self, environment):
-        """Bootstrap, using sudo if necessary."""
-        if environment.hpcloud:
-            constraints = 'mem=2G'
-        else:
-            constraints = 'mem=2G'
-        self.juju(environment, 'bootstrap', ('--constraints', constraints),
-                  environment.needs_sudo())
+    def juju(self, command, args, sudo=False, check=True, include_e=True):
+        """Run a command under juju for the current environment."""
+        args = self._full_args(command, sudo, args, include_e=include_e)
+        print(' '.join(args))
+        sys.stdout.flush()
+        env = self._shell_environ()
+        if check:
+            return subprocess.check_call(args, env=env)
+        return subprocess.call(args, env=env)
 
-    def destroy_environment(self, environment):
-        self.juju(
-            None, 'destroy-environment',
-            (environment.environment, '--force', '-y'),
-            environment.needs_sudo(), check=False)
-
-    def get_juju_output(self, environment, command, *args, **kwargs):
-        args = self._full_args(environment, command, False, args,
+    def get_juju_output(self, command, *args, **kwargs):
+        args = self._full_args(command, False, args,
                                timeout=kwargs.get('timeout'))
         env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
@@ -143,35 +125,104 @@ class JujuClientDevel:
                 print('!!! ' + e.stderr)
                 raise
 
-    def get_status(self, environment, timeout=60):
+    @staticmethod
+    def get_version():
+        return subprocess.check_output(('juju', '--version')).strip()
+
+    def bootstrap(self):
+        """Bootstrap, using sudo if necessary."""
+        if self.env.hpcloud:
+            constraints = 'mem=2G'
+        else:
+            constraints = 'mem=2G'
+        self.juju('bootstrap', ('--constraints', constraints),
+                  self.env.needs_sudo())
+
+    def destroy_environment(self):
+        self.juju(
+            'destroy-environment', (self.env.environment, '--force', '-y'),
+            self.env.needs_sudo(), check=False, include_e=False)
+
+    def get_status(self, timeout=60):
         """Get the current status as a dict."""
         for ignored in until_timeout(timeout):
             try:
                 return Status(yaml_loads(
-                    self.get_juju_output(environment, 'status')))
+                    self.get_juju_output('status')))
             except subprocess.CalledProcessError as e:
                 pass
         raise Exception(
             'Timed out waiting for juju status to succeed: %s' % e)
 
+    def get_env_option(self, option):
+        """Return the value of the environment's configured option."""
+        return self.get_juju_output('get-env', option)
+
+    def set_env_option(self, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
+        return self.juju('set-env', (option_value,))
+
+
+class JujuClientDevel:
+    # This client is meant to work with the latest version of juju.
+    # Subclasses will retain support for older versions of juju, so that the
+    # latest version is easy to read, and older versions can be trivially
+    # deleted.
+
+    def __init__(self, version, full_path):
+        self.version = version
+        self.full_path = full_path
+        self.debug = False
+
+    @classmethod
+    def get_version(cls):
+        return EnvJujuClient.get_version()
+
+    @classmethod
+    def get_full_path(cls):
+        return EnvJujuClient.get_full_path()
+
+    @classmethod
+    def by_version(cls):
+        version = cls.get_version()
+        full_path = cls.get_full_path()
+        if version.startswith('1.16'):
+            raise Exception('Unsupported juju: %s' % version)
+        else:
+            return JujuClientDevel(version, full_path)
+
+    def _get_env_client(self, environment):
+        return EnvJujuClient(environment, self.version, self.full_path,
+                             self.debug)
+
+    def bootstrap(self, environment):
+        """Bootstrap, using sudo if necessary."""
+        return self._get_env_client(environment).bootstrap()
+
+    def destroy_environment(self, environment):
+        return self._get_env_client(environment).destroy_environment()
+
+    def get_juju_output(self, environment, command, *args, **kwargs):
+        return self._get_env_client(environment).get_juju_output(
+            command, *args, **kwargs)
+
+    def get_status(self, environment, timeout=60):
+        """Get the current status as a dict."""
+        return self._get_env_client(environment).get_status(timeout)
+
     def get_env_option(self, environment, option):
         """Return the value of the environment's configured option."""
-        return self.get_juju_output(environment, 'get-env', option)
+        return self._get_env_client(environment).get_env_option(option)
 
     def set_env_option(self, environment, option, value):
         """Set the value of the option in the environment."""
-        option_value = "%s=%s" % (option, value)
-        return self.juju(environment, 'set-env', (option_value,))
+        return self._get_env_client(environment).set_env_option(option, value)
 
     def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
-        args = self._full_args(environment, command, sudo, args)
-        print(' '.join(args))
-        sys.stdout.flush()
-        env = self._shell_environ()
-        if check:
-            return subprocess.check_call(args, env=env)
-        return subprocess.call(args, env=env)
+        return self._get_env_client(environment).juju(
+            command, args, sudo, check)
 
 
 class Status:
