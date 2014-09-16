@@ -50,3 +50,5 @@ func ConfigFileExists(config Config) bool {
 	_, err := os.Lstat(conf.configFilePath)
 	return err == nil
 }
+
+var MachineJobFromParams = machineJobFromParams
