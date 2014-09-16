@@ -316,6 +316,8 @@ def check_free_disk_space(path, required, purpose):
 
 
 def bootstrap_from_env(juju_home, env):
+    # Always bootstrap a matching environment.
+    env.config['agent-version'] = env.get_matching_agent_version()
     if env.config['type'] == 'local':
         env.config.setdefault('root-dir', get_local_root(juju_home, env))
     new_config = {'environments': {env.environment: env.config}}
@@ -412,8 +414,6 @@ def deploy_job():
 def update_env(env, new_env_name, series=None, bootstrap_host=None):
     # Rename to the new name.
     env.environment = new_env_name
-    # Always bootstrap a matching environment.
-    env.config['agent-version'] = env.get_matching_agent_version()
     if series is not None:
         env.config['default-series'] = series
     if bootstrap_host is not None:

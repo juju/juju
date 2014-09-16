@@ -189,8 +189,10 @@ class Status:
             yield machine_name, machine
 
     def agent_items(self):
-        for result in self.iter_machines():
-            yield result
+        for machine_name, machine in self.iter_machines():
+            yield machine_name, machine
+            for contained, unit in machine.get('containers', {}).items():
+                yield contained, unit
         for service in sorted(self.status['services'].values()):
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit
@@ -255,8 +257,11 @@ class Environment:
     def bootstrap(self):
         return self.client.bootstrap(self)
 
-    def upgrade_juju(self):
-        args = ('--version', self.get_matching_agent_version(no_build=True))
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
         if self.local:
             args += ('--upload-tools',)
         self.client.juju(self, 'upgrade-juju', args)
