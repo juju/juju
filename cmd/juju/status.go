@@ -4,7 +4,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -17,10 +16,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"sort"
-	"strconv"
-	"strings"
-	"text/tabwriter"
 )
 
 type StatusCommand struct {
@@ -57,104 +52,8 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
-		"tabular": c.FormatTabular,
+		"tabular": FormatTabular,
 	})
-}
-
-func sortUnitKeys(m map[string]unitStatus) (sorted []string) {
-	for k := range m {
-		sorted = append(sorted, k)
-	}
-	sort.Strings(sorted)
-	return
-}
-
-func sortMachineKeys(m map[string]machineStatus) (sorted []string) {
-	for k := range m {
-		sorted = append(sorted, k)
-	}
-	sort.Strings(sorted)
-	return
-}
-
-func sortServiceKeys(m map[string]serviceStatus) (sorted []string) {
-	for k := range m {
-		sorted = append(sorted, k)
-	}
-	sort.Strings(sorted)
-	return
-}
-
-func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)) {
-	if len(u.Subordinates) == 0 {
-		return
-	}
-	for _, uName := range sortUnitKeys(u.Subordinates) {
-		unit := u.Subordinates[uName]
-		recurseMap(uName, unit, il)
-		recurseUnits(unit, il+1, recurseMap)
-	}
-}
-
-func indent(level int) string { return fmt.Sprintf("%"+strconv.Itoa(level*2)+"s", "") }
-
-func (c *StatusCommand) FormatTabular(value interface{}) ([]byte, error) {
-	fs := value.(formattedStatus)
-	out := new(bytes.Buffer)
-	// To format things into columns.
-	tw := tabwriter.NewWriter(out, 0, 1, 1, ' ', 0)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
-		}
-		fmt.Fprintln(tw)
-	}
-
-	p("[Machines]")
-	p("ID\tSTATE\tVERSION\tDNS\tINS-ID\tSERIES\tHARDWARE")
-	for _, name := range sortMachineKeys(fs.Machines) {
-		m := fs.Machines[name]
-		p(m.Id, m.AgentState, m.AgentVersion, m.DNSName, m.InstanceId, m.Series, m.Hardware)
-	}
-	tw.Flush()
-
-	units := make(map[string]unitStatus)
-
-	p("\n[Services]")
-	p("NAME\tEXPOSED\tCHARM")
-	for _, name := range sortServiceKeys(fs.Services) {
-		s := fs.Services[name]
-		for un, u := range s.Units {
-			if _, ok := units[un]; ok {
-				panic("Doh")
-			}
-			units[un] = u
-		}
-		p(name, fmt.Sprintf("%t", s.Exposed), s.Charm)
-	}
-	tw.Flush()
-
-	pUnit := func(name string, u unitStatus, level int) {
-		p(
-			indent(level)+name,
-			u.AgentState,
-			u.AgentVersion,
-			u.Machine,
-			strings.Join(u.OpenedPorts, ","),
-			u.PublicAddress,
-		)
-	}
-
-	p("\n[Units]")
-	p("ID\tSTATE\tVERSION\tMACHINE\tPORTS\tPUBLIC-ADDRESS")
-	for _, name := range sortUnitKeys(units) {
-		u := units[name]
-		pUnit(name, u, 0)
-		recurseUnits(u, 1, pUnit)
-	}
-	tw.Flush()
-
-	return out.Bytes(), nil
 }
 
 func (c *StatusCommand) Init(args []string) error {
