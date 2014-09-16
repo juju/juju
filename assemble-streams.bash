@@ -93,8 +93,24 @@ sync_released_tools() {
 }
 
 
+retract_tools() {
+    echo "Phase 3: Reseting streams as needed."
+    if [[ $PURPOSE == "testing" ]]; then
+        echo "Removing all testing tools and metadata to reset for testing."
+        local RETRACT_GLOB="juju-*.tgz"
+    elif [[ -z "${RETRACT_GLOB:-}" ]]; then
+        echo "Noting to reset"
+        return
+    fi
+    find ${DEST_DIST}/tools/releases -name "$RETRACT_GLOB" -delete
+    # juju metadata generate-tools appends to existing metadata; delete
+    # the current data to force a reset of all data, minus the deleted tools.
+    find ${DEST_DIST}/tools/streams/v1/ -type f -delete
+}
+
+
 init_tools_maybe() {
-    echo "Phase 3: Checking for $PURPOSE tools in the tree."
+    echo "Phase 4: Checking for $PURPOSE tools in the tree."
     count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
     if [[ $((count)) < 400  ]]; then
         echo "The tools in $DESTINATION/tools/releases looks incomplete"
@@ -103,28 +119,20 @@ init_tools_maybe() {
     fi
     count=$(find $DEST_DIST/tools/releases -name '*.tgz' | wc -l)
     if [[ $PURPOSE == "proposed" && $((count)) == 0 ]]; then
-        echo "Seeding proposed with all tools from release tools"
+        echo "Seeding proposed with all release tools"
         cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $((count)) < 16 ]]; then
-        echo "Seeding devel with some tools from release tools"
+        echo "Seeding devel with some release tools"
         cp $DESTINATION/juju-dist/tools/releases/juju-1.20.5*.tgz \
             $DEST_DIST/tools/releases
         cp $DESTINATION/juju-dist/tools/releases/juju-1.20.7*.tgz \
             $DEST_DIST/tools/releases
+    elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
+        echo "Seeding testing with all proposed tools"
+        cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
+            $DEST_DIST/tools/releases
     fi
-}
-
-
-retract_bad_tools() {
-    echo "Phase 4: Retracting bad released tools."
-    if [[ -z "${BAD_JUJU_VERSION:-}" ]]; then
-        return
-    fi
-    find ${DEST_DIST}/tools/releases -name "$BAD_JUJU_VERSION" -delete
-    # juju metadata generate-tools appends to existing metadata; delete
-    # the current data to force a reset of all data, minus the deleted tools.
-    find ${DEST_DIST}/tools/streams/v1/ -type f -delete
 }
 
 
@@ -362,20 +370,25 @@ cleanup() {
 
 
 # Parse options and args.
+RETRACT_GLOB=""
 SIGNING_KEY=""
 IS_TESTING="false"
 GET_RELEASED_TOOL="true"
-while getopts "s:t:n" o; do
+while getopts "r:s:t:n" o; do
     case "${o}" in
+        r)
+            RETRACT_GLOB=${OPTARG}
+            echo "Tools matching $RETRACT_GLOB will be removed from the data."
+            ;;
         s)
             SIGNING_KEY=${OPTARG}
-            echo "# The streams will be signed with $SIGNING_KEY"
+            echo "The streams will be signed with $SIGNING_KEY"
             ;;
         t)
             TEST_DEBS_DIR=${OPTARG}
             [[ -d $TEST_DEBS_DIR ]] || usage
             IS_TESTING="true"
-            echo "# Assembling test tools from $TEST_DEBS_DIR"
+            echo "Assembling testing tools from $TEST_DEBS_DIR"
             ;;
         n)
             GET_RELEASED_TOOL="false"
@@ -421,8 +434,8 @@ build_tool_tree
 if [[ $GET_RELEASED_TOOL == "true" ]]; then
     sync_released_tools
 fi
+retract_tools
 init_tools_maybe
-retract_bad_tools
 if [[ $RELEASE != "IGNORE" ]]; then
     retrieve_packages
     archive_tools
