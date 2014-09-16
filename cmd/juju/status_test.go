@@ -2310,3 +2310,68 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	defer s.resetContext(c, ctx)
 	ctx.run(c, []stepper{expected})
 }
+
+func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"logging"},
+		addService{name: "wordpress", charm: "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
+		addService{name: "mysql", charm: "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", state.StatusStarted, "", nil},
+		addService{name: "logging", charm: "logging"},
+		setServiceExposed{"logging", true},
+		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "logging"},
+		relateServices{"mysql", "logging"},
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"mysql/0", "logging"},
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
+		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+	}
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+	code, stdout, stderr := runStatus(c, "--format", "summary")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(
+		string(stdout),
+		gc.Equals,
+		"Running on subnets: 127.0.0.1/8, 10.0.0.1/8 \n"+
+			"Utilizing ports:                            \n"+
+			"                    \n"+
+			" # MACHINES: (3)\n"+
+			"    started:  3 \n"+
+			"            \n"+
+			"    # UNITS: (4)\n"+
+			"      error:  1 \n"+
+			"    started:  3 \n"+
+			"            \n"+
+			" # SERVICES:  (3)\n"+
+			"     logging  1/1 exposed\n"+
+			"       mysql  1/1 exposed\n"+
+			"   wordpress  1/1 exposed\n"+
+			"\n",
+	)
+}
