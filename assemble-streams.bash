@@ -19,9 +19,12 @@ UBUNTU_ARCH="http://archive.ubuntu.com/ubuntu/pool/universe/j/juju-core/"
 ARM_ARCH="http://ports.ubuntu.com/pool/universe/j/juju-core/"
 ALL_ARCHIVES="$UBUNTU_ARCH $ARM_ARCH"
 
-if [ -f $JUJU_DIR/buildarchrc ]; then
+if [[ -f $JUJU_DIR/buildarchrc ]]; then
     source $JUJU_DIR/buildarchrc
+    echo "Adding the build archives to list of archives to search."
     ALL_ARCHIVES="$ALL_ARCHIVES $BUILD_STABLE_ARCH $BUILD_DEVEL_ARCH"
+else
+    echo "Only public archives will be searched."
 fi
 
 
@@ -86,23 +89,49 @@ sync_released_tools() {
         local source_dist="juju-dist/$PURPOSE"
     fi
     s3cmd -c $JUJU_DIR/s3cfg sync \
-        s3://$source_dist/tools/releases/ ${DEST_DIST}/tools/releases/
+        s3://$source_dist/tools/releases/ $DEST_DIST/tools/releases/
+}
+
+
+init_tools_maybe() {
+    echo "Phase 3: Checking for $PURPOSE tools in the tree."
+    count=$(find $DESTINATION/juju-dist/tools/releases -name '*.tgz' | wc -l)
+    if [[ $((count)) < 400  ]]; then
+        echo "The tools in $DESTINATION/tools/releases looks incomplete"
+        echo "Data will be lost if metadata is regenerated."
+        exit 7
+    fi
+    count=$(find $DEST_DIST/tools/releases -name '*.tgz' | wc -l)
+    if [[ $PURPOSE == "proposed" && $((count)) == 0 ]]; then
+        echo "Seeding proposed with all tools from release tools"
+        cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
+            $DEST_DIST/tools/releases
+    elif [[ $PURPOSE == "devel" && $((count)) < 16 ]]; then
+        echo "Seeding devel with some tools from release tools"
+        cp $DESTINATION/juju-dist/tools/releases/juju-1.20.5*.tgz \
+            $DEST_DIST/tools/releases
+        cp $DESTINATION/juju-dist/tools/releases/juju-1.20.7*.tgz \
+            $DEST_DIST/tools/releases
+    fi
 }
 
 
 retract_bad_tools() {
-    echo "Phase 3: Retracting bad released tools."
-    bad_tools=$(find ${DEST_DIST}/tools/releases -name "juju-1.21-alpha1.*")
-    for bad_tool in $bad_tools; do
-       rm $bad_tool
-    done
+    echo "Phase 4: Retracting bad released tools."
+    if [[ -z "${BAD_JUJU_VERSION:-}" ]]; then
+        return
+    fi
+    find ${DEST_DIST}/tools/releases -name "$BAD_JUJU_VERSION" -delete
+    # juju metadata generate-tools appends to existing metadata; delete
+    # the current data to force a reset of all data, minus the deleted tools.
+    find ${DEST_DIST}/tools/streams/v1/ -type f -delete
 }
 
 
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
-    echo "Phase 4: Retrieving juju-core packages from archives"
+    echo "Phase 5: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
         for linked_file in $TEST_DEBS_DIR/juju-core_*.deb; do
             # We need the real file location which includes series and arch.
@@ -187,7 +216,7 @@ archive_extra_ppc64_tool() {
 
 archive_tools() {
     # Builds the jujud tgz for each series and arch.
-    echo "Phase 5: Extracting jujud from packages and archiving tools."
+    echo "Phase 6: Extracting jujud from packages and archiving tools."
     cd $DESTINATION
     WORK=$(mktemp -d)
     mkdir ${WORK}/juju
@@ -255,7 +284,7 @@ extract_new_juju() {
     # Extract a juju-core that was found in the archives to run metadata.
     # Match by release version and arch, prefer exact series, but fall back
     # to generic ubuntu.
-    echo "Phase 6.1: Using juju from a downloaded deb."
+    echo "Using juju from a downloaded deb."
     source /etc/lsb-release
     ARCH=$(dpkg --print-architecture)
     juju_cores=$(find $DEST_DEBS -name "juju-core_${RELEASE}*${ARCH}.deb")
@@ -272,8 +301,8 @@ extract_new_juju() {
 
 generate_streams() {
     # Create the streams metadata and organised the tree for later publication.
-    echo "Phase 6: Generating streams data."
-    cd $DESTINATION
+    echo "Phase 7: Generating streams data."
+    cd $DEST_DIST
     JUJU_PATH=$(mktemp -d)
     if [[ $RELEASE != "IGNORE" ]]; then
         extract_new_juju
@@ -291,7 +320,7 @@ generate_streams() {
 
 
 generate_mirrors() {
-    echo "Phase 7: Creating mirror josn."
+    echo "Phase 8: Creating mirror josn."
     short_now=$(date +%Y%m%d)
     sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/mirrors.json
@@ -302,7 +331,7 @@ generate_mirrors() {
 
 
 sign_metadata() {
-    echo "Phase 8: Signing metadata with $SIGNING_KEY."
+    echo "Phase 9: Signing metadata with $SIGNING_KEY."
     key_option="--default-key $SIGNING_KEY"
     gpg_options=""
     if [[ -n $SIGNING_PASSPHRASE_FILE ]]; then
@@ -378,9 +407,9 @@ fi
 # Configure paths, arch, and series
 DEST_DEBS="${DESTINATION}/debs"
 if [[ $PURPOSE == "release" ]]; then
-    DEST_DIST="${DESTINATION}/juju-dist"
+    DEST_DIST="$DESTINATION/juju-dist"
 else
-    DEST_DIST="${DESTINATION}/juju-dist/$PURPOSE"
+    DEST_DIST="$DESTINATION/juju-dist/$PURPOSE"
 fi
 declare -a added_tools
 added_tools=()
@@ -392,6 +421,7 @@ build_tool_tree
 if [[ $GET_RELEASED_TOOL == "true" ]]; then
     sync_released_tools
 fi
+init_tools_maybe
 retract_bad_tools
 if [[ $RELEASE != "IGNORE" ]]; then
     retrieve_packages
