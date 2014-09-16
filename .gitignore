@@ -9,4 +9,3 @@ TAGS
 .emacs.desktop.lock
 *.test
 *.sw[nop]
-/.reviewboardrc

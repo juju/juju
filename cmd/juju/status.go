@@ -4,11 +4,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strconv"
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
@@ -57,55 +54,6 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"oneline": FormatOneline,
 	})
-}
-
-// FormatOneline returns a brief list of units and their subordinates.
-// Subordinates will be indented 2 spaces and listed under their
-// superiors.
-func FormatOneline(value interface{}) ([]byte, error) {
-	fs := value.(formattedStatus)
-	out := new(bytes.Buffer)
-	sortUnitKeys := func(m map[string]unitStatus) (sorted []string) {
-		for k := range m {
-			sorted = append(sorted, k)
-		}
-		sort.Strings(sorted)
-		return
-	}
-	indent := func(level int) string { return fmt.Sprintf("%"+strconv.Itoa(level*2)+"s", "") }
-	pprint := func(uName string, u unitStatus, level int) {
-		fmt.Fprintf(out, "\n"+indent(level)+"- %s: %s (%v)", uName, u.PublicAddress, u.AgentState)
-	}
-
-	var recurseUnits func(unitStatus, int)
-	recurseUnits = func(u unitStatus, il int) {
-		if len(u.Subordinates) == 0 {
-			return
-		}
-
-		for _, uName := range sortUnitKeys(u.Subordinates) {
-			unit := u.Subordinates[uName]
-			pprint(uName, unit, il)
-			recurseUnits(unit, il+1)
-		}
-	}
-
-	var sortedSvcs []string
-	for k := range fs.Services {
-		sortedSvcs = append(sortedSvcs, k)
-	}
-	sort.Strings(sortedSvcs)
-
-	for _, svcName := range sortedSvcs {
-		svc := fs.Services[svcName]
-		for _, uName := range sortUnitKeys(svc.Units) {
-			unit := svc.Units[uName]
-			pprint(uName, unit, 0)
-			recurseUnits(unit, 1)
-		}
-	}
-
-	return out.Bytes(), nil
 }
 
 func (c *StatusCommand) Init(args []string) error {
