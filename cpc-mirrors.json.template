@@ -2,7 +2,7 @@
   "mirrors": {
     "com.ubuntu.juju:released:tools": [
       {
-        "mirror": "https://juju-dist.s3.amazonaws.com/tools",
+        "mirror": "https://juju-dist.s3.amazonaws.com/PURPOSE_TOOLS",
         "path": "streams/v1/com.ubuntu.juju:released:tools.json",
         "clouds": [
           {
@@ -41,7 +41,7 @@
         ]
       },
       {
-        "mirror": "https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910/juju-dist/tools",
+        "mirror": "https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910/juju-dist/PURPOSE_TOOLS",
         "path": "streams/v1/com.ubuntu.juju:released:tools.json",
         "clouds": [
           {
@@ -59,7 +59,7 @@
         ]
       },
       {
-        "mirror": "https://jujutools.blob.core.windows.net/juju-tools/tools",
+        "mirror": "https://jujutools.blob.core.windows.net/juju-tools/PURPOSE_TOOLS",
         "path": "streams/v1/com.ubuntu.juju:released:tools.json",
         "clouds": [
           {

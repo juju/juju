@@ -266,7 +266,7 @@ generate_streams() {
     echo "Using juju: $juju_version"
     mkdir -p ${DEST_DIST}/tools/streams/v1
     mkdir -p ${DEST_DIST}/tools/releases
-    cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases
+    cp $DEST_TOOLS/*tgz ${DEST_DIST}/tools/releases || echo "Assuming cache."
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     echo "The tools are in ${DEST_DIST}."
@@ -278,7 +278,8 @@ generate_mirrors() {
     sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/mirrors.json
     long_now=$(date -R)
-    sed -e "s/NOW/$long_now/" ${SCRIPT_DIR}/cpc-mirrors.json.template \
+    sed -e "s/NOW/$long_now/; s,PURPOSE_TOOLS,tools,;" \
+        ${SCRIPT_DIR}/cpc-mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/cpc-mirrors.json
 }
 
