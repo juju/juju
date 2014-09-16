@@ -33,10 +33,12 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
+	environTag := s.State.EnvironTag().String()
 	m := state.Metric{"item", "5", now, []byte("creds")}
 	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "wordpress/0")
+	c.Assert(metricBatch.EnvUUID(), gc.Equals, environTag)
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
 	c.Assert(metricBatch.Sent(), gc.Equals, false)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)

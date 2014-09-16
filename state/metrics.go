@@ -27,6 +27,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID     string    `bson:"_id"`
+	EnvUUID  string    `bson:"envuuid"`
 	Unit     string    `bson:"unit"`
 	CharmUrl string    `bson:"charmurl"`
 	Sent     bool      `bson:"sent"`
@@ -57,6 +58,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
+			EnvUUID:  st.EnvironTag().String(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
@@ -142,6 +144,11 @@ func (st *State) CleanupOldMetrics() error {
 // UUID returns to uuid of the metric.
 func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
+}
+
+// EnvUUID returns the environment uuid this metric applies to.
+func (m *MetricBatch) EnvUUID() string {
+	return m.doc.EnvUUID
 }
 
 // Unit returns the name of the unit this metric was generated in.
