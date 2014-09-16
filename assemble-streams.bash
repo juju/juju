@@ -335,8 +335,7 @@ generate_mirrors() {
         local base_path="/$PURPOSE/tools"
     fi
     short_now=$(date +%Y%m%d)
-    sed -e "s/NOW/$short_now/" \
-        ${SCRIPT_DIR}/mirrors.json.template \
+    sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
         > ${DEST_DIST}/tools/streams/v1/mirrors.json
     long_now=$(date -R)
     sed -e "s/NOW/$long_now/; s,/tools,$base_path,;" \
