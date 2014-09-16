@@ -295,3 +295,7 @@ func CountofSentMetrics(st *State) (int, error) {
 func CountofUnsentMetrics(st *State) (int, error) {
 	return st.countofUnsentMetrics()
 }
+
+func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
+	return st.setMetricBatchesSent(metrics)
+}

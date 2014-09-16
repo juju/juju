@@ -16,8 +16,9 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.apiserver.metricsmanager")
-	sender = (state.MetricSender)(&metricsender.NopSender{})
+	logger            = loggo.GetLogger("juju.apiserver.metricsmanager")
+	sender            = (state.MetricSender)(&metricsender.NopSender{})
+	maxBatchesPerSend = 1000
 )
 
 func init() {
@@ -91,7 +92,7 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err := api.state.SendMetrics(sender)
+		err := api.state.SendMetrics(sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
 			result.Results[i].Error = common.ServerError(err)

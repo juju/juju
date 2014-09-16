@@ -166,7 +166,7 @@ func (s *MetricSuite) TestSendMetrics(c *gc.C) {
 	unsent2 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
 	sender := &testing.MockSender{}
-	err := s.State.SendMetrics(sender)
+	err := s.State.SendMetrics(sender, 10)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 1)
@@ -184,18 +184,16 @@ func (s *MetricSuite) TestSendMetrics(c *gc.C) {
 
 // TestSendBulkMetrics tests the logic of splitting sends
 // into batches is done correctly. The batch size is changed
-// to send 10 batches of 10 metrics. If we create 101 metrics
-// then only 100 will be sent in this call.
+// to send batches of 10 metrics. If we create 100 metrics 10 calls
+// will be made to the sender
 func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
 	sender := &testing.MockSender{}
-	s.PatchValue(&state.MaxBatchesPerSend, 10)
-	s.PatchValue(&state.MaxSendsPerCall, 10)
 	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
-	for i := 0; i < 101; i++ {
+	for i := 0; i < 100; i++ {
 		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
 	}
-	err := s.State.SendMetrics(sender)
+	err := s.State.SendMetrics(sender, 10)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(sender.Data, gc.HasLen, 10)
@@ -229,7 +227,7 @@ func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	err := s.State.SendMetrics(&metricsender.NopSender{})
+	err := s.State.SendMetrics(&metricsender.NopSender{}, 10)
 	c.Assert(err, gc.IsNil)
 	sent, err := state.CountofSentMetrics(s.State)
 	c.Assert(err, gc.IsNil)
@@ -244,7 +242,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	mb := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	mc := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	metrics := []*state.MetricBatch{ma, mb, mc}
-	err := s.State.SetMetricBatchesSent(metrics)
+	err := state.SetMetricBatchesSent(s.State, metrics)
 	c.Assert(err, gc.IsNil)
 	sent, err := state.CountofSentMetrics(s.State)
 	c.Assert(err, gc.IsNil)

@@ -130,13 +130,13 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
-// Nothing else in the system will interact with sent metrics, and nothing needs
-// to watch them either; so in this instance it's safe to do an end run around the
-// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(time.Hour * 24))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
+	// Nothing else in the system will interact with sent metrics, and nothing needs
+	// to watch them either; so in this instance it's safe to do an end run around the
+	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
 	err := c.Remove(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
@@ -154,50 +154,34 @@ type MetricSender interface {
 	Send([]*MetricBatch) error
 }
 
-var (
-	MaxSendsPerCall   = 50
-	MaxBatchesPerSend = 1000
-)
-
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
-// of no more than 1k. It will attempt to send up
-// to 50 batches in one go. Meaning that 50k batches
-// could be sent in a single call.
-func (st *State) SendMetrics(sender MetricSender) error {
-	c, closer := st.getCollection(metricsC)
-	defer closer()
-	iter := c.Find(bson.M{
-		"sent": false,
-	}).Iter()
-	doc := metricBatchDoc{}
-	batch := make([]*MetricBatch, MaxBatchesPerSend)
-	for s := 0; s < MaxSendsPerCall; s++ {
-		var i int
-		for ; i < MaxBatchesPerSend; i++ {
-			if iter.Next(&doc) {
-				batch[i] = &MetricBatch{st: st, doc: doc}
-			} else {
-				if err := iter.Err(); err != nil {
-					return errors.Trace(err)
-				}
-				break
-			}
-		}
-		batch = batch[:i]
-
-		if len(batch) == 0 {
-			return nil
-		}
-
-		err := st.sendBatch(sender, batch)
+// of no more than 1k.
+func (st *State) SendMetrics(sender MetricSender, batchSize int) error {
+	for {
+		var docs []metricBatchDoc
+		c, closer := st.getCollection(metricsC)
+		defer closer()
+		err := c.Find(bson.M{
+			"sent": false,
+		}).Limit(batchSize).All(&docs)
 		if err != nil {
 			return errors.Trace(err)
 		}
-	}
-	err := iter.Close()
-	if err != nil {
-		return errors.Trace(err)
+
+		if len(docs) == 0 {
+			break
+		}
+		batch := make([]*MetricBatch, len(docs))
+		for i, doc := range docs {
+			batch[i] = &MetricBatch{st: st, doc: doc}
+
+		}
+
+		err = st.sendBatch(sender, batch)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	unsent, err := st.countofUnsentMetrics()
 	if err != nil {
@@ -240,7 +224,7 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = st.SetMetricBatchesSent(metrics)
+	err = st.setMetricBatchesSent(metrics)
 	if err != nil {
 		metricsLogger.Warningf("failed to setsent on metrics", err)
 	}
@@ -299,7 +283,7 @@ func setSentOps(metrics []*MetricBatch) []txn.Op {
 	return ops
 }
 
-func (st *State) SetMetricBatchesSent(metrics []*MetricBatch) error {
+func (st *State) setMetricBatchesSent(metrics []*MetricBatch) error {
 	ops := setSentOps(metrics)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")

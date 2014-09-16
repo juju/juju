@@ -27,16 +27,18 @@ func (s *SenderSuite) SetUpTest(c *gc.C) {
 // It confirms that one metric is sent.
 func (s *SenderSuite) TestSender(c *gc.C) {
 	notify := make(chan struct{})
-	metricworker.PatchNotificationChannel(notify)
+	cleanup := metricworker.PatchNotificationChannel(notify)
+	defer cleanup()
 	client := &mockClient{}
 	worker := metricworker.NewSender(client)
-	defer worker.Kill()
 	select {
 	case <-notify:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("the cleanup function should have fired by now")
 	}
 	c.Assert(client.calls, gc.DeepEquals, []string{"SendMetrics"})
+	worker.Kill()
+	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 type mockClient struct {

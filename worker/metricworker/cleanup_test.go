@@ -34,7 +34,8 @@ func (s *CleanupSuite) TestCleaner(c *gc.C) {
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
 
 	notify := make(chan struct{})
-	metricworker.PatchNotificationChannel(notify)
+	cleanup := metricworker.PatchNotificationChannel(notify)
+	defer cleanup()
 	client := metricsmanager.NewClient(s.APIState)
 	worker := metricworker.NewCleanup(client)
 	defer worker.Kill()
