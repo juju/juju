@@ -31,12 +31,12 @@ def bootstrap_env(env):
 
 
 @contextmanager
-def dumping_env(env, host):
+def dumping_env(env, host, log_dir):
     try:
         try:
             yield
         finally:
-            dump_logs(env, host, '.')
+            dump_logs(env, host, log_dir)
     except:
         env.destroy_environment()
         raise
@@ -52,23 +52,23 @@ def prepare_dummy_env(env):
     return token
 
 
-def assess_compatibility(old_juju, new_juju, base_env, environment_name):
+def assess_compatibility(old_juju, new_juju, base_env, environment_name,
+                         log_dir):
     old_env = Environment.from_config(base_env, juju_path=old_juju)
     update_env(old_env, environment_name, series='precise')
     old_env.config.pop('tools-metadata-url', None)
     new_client = JujuClientDevel.by_version(new_juju)
     new_env = Environment(old_env.environment, new_client, old_env.config)
-    print('Test manipulating old environment with new client.')
-    test_control_foreign(old_env, new_env)
+    test_control_foreign(old_env, new_env, log_dir)
 #    print('Test manipulating new environment with old client.')
 #    test_control_foreign(new_env, old_env)
     #print('Test upgrading old environment to new.')
     #test_upgrade(old_juju, new_juju, base_env, environment_name)
 
 
-def test_control_foreign(env, other_env):
+def test_control_foreign(env, other_env, log_dir):
     host = bootstrap_env(env)
-    with dumping_env(other_env, host):
+    with dumping_env(other_env, host, log_dir):
         token = prepare_dummy_env(env)
         env.wait_for_started()
         check_token(env, token)
@@ -166,9 +166,10 @@ def main():
     parser.add_argument('new_juju', help='The new juju binary')
     parser.add_argument('base_environment', help='The environment to base on.')
     parser.add_argument('environment_name', help='The new environment name.')
+    parser.add_argument('log_dir', help='The directory to dump logs to.')
     args = parser.parse_args()
     assess_compatibility(args.old_juju, args.new_juju, args.base_environment,
-                         args.environment_name)
+                         args.environment_name, args.log_dir)
 
 
 if __name__ == '__main__':
