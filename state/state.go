@@ -116,6 +116,17 @@ type StateServingInfo struct {
 	SystemIdentity string
 }
 
+// ForEnviron returns a connection to mongo for the specified environment. The
+// connection uses the same credentails and policy as the existing connection.
+func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
+	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newState.environTag = env
+	return newState, nil
+}
+
 // EnvironTag() returns the environment tag for the environment controlled by
 // this state instance.
 func (st *State) EnvironTag() names.EnvironTag {
@@ -301,6 +312,11 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 }
 
 var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+
+// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+func IsUpgradeInProgressError(err error) bool {
+	return errors.Cause(err) == UpgradeInProgressError
+}
 
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a

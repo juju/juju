@@ -529,6 +529,7 @@ type LocalLiveSimplestreamsSuite struct {
 	testing.BaseSuite
 	Source          simplestreams.DataSource
 	RequireSigned   bool
+	StreamsVersion  string
 	DataType        string
 	ValidConstraint simplestreams.LookupConstraint
 }
@@ -584,9 +585,9 @@ type TestItem struct {
 
 func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
-		return simplestreams.DefaultIndexPath + ".sjson"
+		return simplestreams.SignedIndex(s.StreamsVersion) + ".sjson"
 	}
-	return simplestreams.UnsignedIndex
+	return simplestreams.UnsignedIndex(s.StreamsVersion)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
@@ -603,7 +604,8 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		ValueTemplate: TestItem{},
 	}
 	return simplestreams.GetIndexWithFormat(
-		s.Source, s.IndexPath(), format, s.RequireSigned, s.ValidConstraint.Params().CloudSpec, params)
+		s.Source, s.IndexPath(), format, simplestreams.MirrorsPath(s.StreamsVersion), s.RequireSigned,
+		s.ValidConstraint.Params().CloudSpec, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {

@@ -388,7 +388,7 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(result interface{}) error {
 			return fmt.Errorf("Test error")
 		},
@@ -399,7 +399,7 @@ func (s *unitSuite) TestWatchActionsError(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 1)
@@ -419,7 +419,7 @@ func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(results interface{}) error {
 			return nil
 		},
@@ -430,7 +430,7 @@ func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 2)
@@ -502,7 +502,7 @@ func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
 }
 
 func (s *unitSuite) TestAddMetrics(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
 		func(results interface{}) error {
 			result := results.(*params.ErrorResults)
 			result.Results = make([]params.ErrorResult, 1)
@@ -515,7 +515,7 @@ func (s *unitSuite) TestAddMetrics(c *gc.C) {
 }
 
 func (s *unitSuite) TestAddMetricsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
 		func(results interface{}) error {
 			result := results.(*params.ErrorResults)
 			result.Results = make([]params.ErrorResult, 1)
@@ -528,7 +528,7 @@ func (s *unitSuite) TestAddMetricsError(c *gc.C) {
 }
 
 func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
 		func(results interface{}) error {
 			result := results.(*params.ErrorResults)
 			result.Results = make([]params.ErrorResult, 1)

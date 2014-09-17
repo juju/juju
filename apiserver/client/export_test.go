@@ -9,3 +9,5 @@ var (
 	GetAllUnitNames         = getAllUnitNames
 	StateStorage            = &stateStorage
 )
+
+var MachineJobFromParams = machineJobFromParams

@@ -48,6 +48,7 @@ const (
 	CodeTryAgain            = "try again"
 	CodeNotImplemented      = rpc.CodeNotImplemented
 	CodeAlreadyExists       = "already exists"
+	CodeUpgradeInProgress   = "upgrade in progress"
 )
 
 // ErrCode returns the error code associated with
@@ -144,4 +145,8 @@ func IsCodeNotImplemented(err error) bool {
 
 func IsCodeAlreadyExists(err error) bool {
 	return ErrCode(err) == CodeAlreadyExists
+}
+
+func IsCodeUpgradeInProgress(err error) bool {
+	return ErrCode(err) == CodeUpgradeInProgress
 }

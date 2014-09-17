@@ -142,8 +142,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 
 var MachineIdLessThan = machineIdLessThan
 
-var JobNames = jobNames
-
 // SCHEMACHANGE
 // This method is used to reset a deprecated machine attribute.
 func SetMachineInstanceId(m *Machine, instanceId string) {

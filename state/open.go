@@ -96,7 +96,7 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createInitialUserOp(st, owner, info.Password),
-		createEnvironmentOp(st, cfg.Name(), uuid),
+		createEnvironmentOp(st, owner, cfg.Name(), uuid, uuid),
 		newEnvUserOp,
 		{
 			C:      stateServersC,
