@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+from argparse import ArgumentParser
 import sys
 
 from launchpadlib.launchpad import Launchpad
@@ -26,14 +27,22 @@ def copy_packages(lp, version, from_archive_name, to_archive_name):
     return 0
 
 
+def get_option_parser():
+    """Return the option parser for this program."""
+    parser = ArgumentParser('Copy juju-core from one archive to another')
+    parser.add_argument('version', help='The package version like 1.20.8')
+    parser.add_argument('from_archive_name',
+        help='The archive to copy source and binary packages from')
+    parser.add_argument('to_archive_name',
+        help='The archive to copy the source and binary packages to')
+    return parser
+
+
 if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print('Usage: %s <version> <devel|stable>')
-        sys.exit(1)
-    version = sys.argv[1]
-    from_archive_name = sys.argv[2]
-    to_archive_name = sys.argv[3]
+    parser = get_option_parser()
+    args = parser.parse_args()
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
         version='devel')
-    sys.exit(copy_packages(lp, version, from_archive_name, to_archive_name))
+    sys.exit(copy_packages(
+        lp, args.version, args.from_archive_name, args.to_archive_name))
