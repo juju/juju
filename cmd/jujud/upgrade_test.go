@@ -166,6 +166,19 @@ func (s *UpgradeSuite) TestIsUpgradeRunning(c *gc.C) {
 	c.Assert(context.IsUpgradeRunning(), jc.IsFalse)
 }
 
+func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
+	attemptsP := s.countUpgradeAttempts(nil)
+	s.captureLogs(c)
+	s.oldVersion = version.Current // nothing to do
+
+	workerErr, config, _, context := s.runUpgradeWorker(c, params.JobHostUnits)
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(*attemptsP, gc.Equals, 0)
+	c.Check(config.Version, gc.Equals, version.Current.Number)
+	assertUpgradeComplete(c, context)
+}
+
 func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// This test checks what happens when every upgrade attempt fails.
 	// A number of retries should be observed and the agent should end
