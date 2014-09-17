@@ -1404,8 +1404,6 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	envAttrs["location"] = "North Europe"
 	env := makeEnvironWithConfig(c, envAttrs)
 	s.setDummyStorage(c, env)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
-	s.PatchValue(&signedImageDataOnly, false)
 	images := []*imagemetadata.ImageMetadata{
 		{
 			Id:         "image-id",
@@ -1415,7 +1413,7 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 			Endpoint:   "https://management.core.windows.net/",
 		},
 	}
-	makeTestMetadata(c, env, coretesting.FakeDefaultSeries, "North Europe", images)
+	s.makeTestMetadata(c, coretesting.FakeDefaultSeries, "North Europe", images)
 	return env
 }
 
@@ -1463,32 +1461,6 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	retrieved, err := ioutil.ReadAll(rc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(retrieved, gc.DeepEquals, content)
-}
-
-func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	envAttrs := makeAzureConfigMap(c)
-	if stream != "" {
-		envAttrs["image-stream"] = stream
-	}
-	env := makeEnvironWithConfig(c, envAttrs)
-	s.setDummyStorage(c, env)
-
-	data := []byte{1, 2, 3, 4}
-	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
-
-	sources, err := imagemetadata.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	assertSourceContents(c, sources[0], "filename", data)
-	url, err := sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
-}
-
-func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	s.assertGetImageMetadataSources(c, "", "releases")
-	s.assertGetImageMetadataSources(c, "released", "releases")
-	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {

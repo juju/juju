@@ -611,6 +611,62 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}
 }
 
+func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
+	metadataDir := c.MkDir()
+	expected := []struct{ path, content string }{{
+		path:    "images/streams/v1/index.json",
+		content: "abc",
+	}, {
+		path:    "images/streams/v1/products.json",
+		content: "def",
+	}, {
+		path:    "wayward/file.txt",
+		content: "ghi",
+	}}
+	for _, pair := range expected {
+		path := filepath.Join(metadataDir, pair.path)
+		err := os.MkdirAll(filepath.Dir(path), 0755)
+		c.Assert(err, gc.IsNil)
+		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
+		c.Assert(err, gc.IsNil)
+	}
+
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", metadataDir,
+	)
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	// The contents of the directory should have been added to state.
+	st, err := state.Open(&mongo.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
+		Password: testPasswordHash(),
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	storage, err := st.Storage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+
+	for _, pair := range expected {
+		r, length, err := storage.Get(pair.path)
+		c.Assert(err, gc.IsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, gc.IsNil)
+		c.Assert(length, gc.Equals, int64(len(pair.content)))
+		c.Assert(data, gc.HasLen, int(length))
+		c.Assert(string(data), gc.Equals, pair.content)
+	}
+}
+
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{

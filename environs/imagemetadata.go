@@ -45,6 +45,19 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 	datasourceFuncs = append(datasourceFuncs, datasourceFuncId{id, f})
 }
 
+// UnregisterImageDataSourceFunc unregisters an ImageDataSourceFunc
+// with the specified id.
+func UnregisterImageDataSourceFunc(id string) {
+	for i, f := range datasourceFuncs {
+		if f.id == id {
+			head := datasourceFuncs[:i]
+			tail := datasourceFuncs[i+1:]
+			datasourceFuncs = append(head, tail...)
+			return
+		}
+	}
+}
+
 // ImageMetadataSources returns the sources to use when looking for
 // simplestreams image id metadata for the given stream.
 func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
