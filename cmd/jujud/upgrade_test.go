@@ -449,7 +449,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
 
 	// Only user and local logins are allowed during upgrade. Users get a restricted API.
-	checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
+	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, false)
 
@@ -458,7 +458,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	waitForUpgradeToFinish(c, machine0Conf)
 
 	// All logins are allowed after upgrade
-	checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
+	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, true)
 }
@@ -493,7 +493,7 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 
 	// Test that unrestricted API logins are possible (i.e. no
 	// "upgrade mode" in force)
-	checkLoginToAPIAsUser(c, agentConf, FullAPIExposed)
+	s.checkLoginToAPIAsUser(c, agentConf, FullAPIExposed)
 	c.Assert(attempts, gc.Equals, 0) // There should have been no attempt to upgrade.
 
 	// Even though no upgrade was done upgradedToVersion should have been updated.
@@ -780,9 +780,9 @@ func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
 	return conf
 }
 
-func checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
 	info := conf.APIInfo()
-	info.Tag = names.NewUserTag("admin")
+	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	info.Nonce = ""
 

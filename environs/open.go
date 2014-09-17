@@ -178,7 +178,6 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 			}
 			return nil, err
 		}
-
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
 	} else if !info.Initialized() {
@@ -218,7 +217,7 @@ func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) erro
 	}
 
 	creds := configstore.APICredentials{
-		User:     "admin", // TODO(waigani) admin@local once we have that set
+		User:     configstore.DefaultAdminUsername,
 		Password: cfg.AdminSecret(),
 	}
 	info.SetAPICredentials(creds)

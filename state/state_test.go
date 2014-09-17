@@ -53,11 +53,11 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config, policy state.Policy) *state.State {
+func TestingInitialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.Policy) *state.State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
+	st, err := state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
 	c.Assert(err, gc.IsNil)
 	return st
 }
@@ -3677,7 +3677,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		},
 	}
 	cfg := testing.EnvironConfig(c)
-	st, err := state.Initialize(mongoInfo, cfg, state.TestingDialOpts(), nil)
+	owner := names.NewLocalUserTag("initialize-admin")
+	st, err := state.Initialize(owner, mongoInfo, cfg, state.TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

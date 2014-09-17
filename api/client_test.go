@@ -192,7 +192,7 @@ func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 

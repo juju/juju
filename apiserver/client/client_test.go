@@ -31,6 +31,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -58,7 +59,7 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	auth := testing.FakeAuthorizer{
-		Tag:            names.NewUserTag(state.AdminUser),
+		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
 	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
@@ -111,7 +112,7 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{
-			UserTag: names.NewUserTag("foobar").String(),
+			UserTag: names.NewLocalUserTag("foobar").String(),
 			Action:  params.AddEnvUser,
 		}}}
 
@@ -161,7 +162,7 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
@@ -182,7 +183,7 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 

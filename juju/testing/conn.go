@@ -90,6 +90,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State)
 }
@@ -109,7 +110,9 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	return names.NewLocalUserTag(state.AdminUser)
+	env, err := s.State.InitialEnvironment()
+	c.Assert(err, gc.IsNil)
+	return env.Owner()
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -242,7 +245,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
 
-	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	s.APIState, err = juju.NewAPIState(s.AdminUserTag(c), environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())

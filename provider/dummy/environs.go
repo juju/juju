@@ -92,13 +92,13 @@ func SampleConfig() testing.Attrs {
 	}
 }
 
-// AdminUser returns the name used to bootstrap the dummy environment. The
-// dummy bootstrapping is handled slightly differently, and the user is
+// AdminUserTag returns the user tag used to bootstrap the dummy environment.
+// The dummy bootstrapping is handled slightly differently, and the user is
 // created as part of the bootstrap process.  This method is used to provide
 // tests a way to get to the user name that was used to initialise the
 // database, and as such, is the owner of the initial environment.
 func AdminUserTag() names.UserTag {
-	return names.NewLocalUserTag("admin")
+	return names.NewLocalUserTag("dummy-admin")
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -684,7 +684,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// so that we can call it here.
 
 		info := stateInfo(estate.preferIPv6)
-		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts(), estate.statePolicy)
+		// Since the admin user isn't setup until after here,
+		// the password in the info structure is empty, so the admin
+		// user is constructed with an empty password here.
+		// It is set just below.
+		st, err := state.Initialize(
+			AdminUserTag(), info, cfg,
+			mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}

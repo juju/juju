@@ -77,9 +77,6 @@ const (
 	txnLogC = "txns.log"
 	txnsC   = "txns"
 
-	// AdminUser is the mongo admin username.
-	AdminUser = "admin"
-
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 )

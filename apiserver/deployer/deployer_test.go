@@ -8,7 +8,6 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -108,7 +107,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewUserTag("admin")
+	anAuthorizer.Tag = s.AdminUserTag(c)
 	aDeployer, err := deployer.NewDeployerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aDeployer, gc.IsNil)
