@@ -32,8 +32,14 @@ func init() {
 }
 
 const (
+	// ImageIds is the simplestreams tools content type.
 	ContentDownload = "content-download"
+
+	// StreamsVersionV1 is used to construct the path for accessing streams data.
+	StreamsVersionV1 = "v1"
 )
+
+var currentStreamsVersion = StreamsVersionV1
 
 // simplestreamsToolsPublicKey is the public key required to
 // authenticate the simple streams data on http://streams.canonical.com.
@@ -94,6 +100,11 @@ qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
 
 // This needs to be a var so we can override it for testing.
 var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
+
+const (
+	// Used to specify the released tools metadata.
+	ReleasedStream = "released"
+)
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -171,7 +182,7 @@ func (t *ToolsMetadata) productId() (string, error) {
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(
-	sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint,
+	sources []simplestreams.DataSource, cons *ToolsConstraint,
 	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
 	params := simplestreams.ValueParams{
@@ -181,7 +192,7 @@ func Fetch(
 		ValueTemplate:   ToolsMetadata{},
 		PublicKey:       simplestreamsToolsPublicKey,
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, currentStreamsVersion, cons, onlySigned, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -338,7 +349,7 @@ func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
 		return nil, err
 	}
 	metadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
+		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -367,13 +378,14 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex, index},
+		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
 		{ProductMetadataPath, products},
 	}
 	if writeMirrors {
 		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
 		mirrorsInfo := strings.Replace(PublicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
-		metadataInfo = append(metadataInfo, MetadataFile{simplestreams.UnsignedMirror, []byte(mirrorsInfo)})
+		metadataInfo = append(
+			metadataInfo, MetadataFile{simplestreams.UnsignedMirror(currentStreamsVersion), []byte(mirrorsInfo)})
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)
