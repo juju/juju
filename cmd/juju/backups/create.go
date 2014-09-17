@@ -22,7 +22,7 @@ will be lost when the environment is destroyed.
 `
 
 var sendCreateRequest = func(cmd *BackupsCreateCommand) (*params.BackupsMetadataResult, error) {
-	client, err := cmd.client()
+	client, err := cmd.NewAPIClient()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

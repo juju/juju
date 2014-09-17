@@ -8,11 +8,10 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 
+	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 var backupsDoc = `
@@ -42,7 +41,9 @@ func NewBackupsCommand() cmd.Command {
 	return &backupsCmd
 }
 
-type backups interface {
+// APIClient represents the backups API client functionality used by
+// the backups command.
+type APIClient interface {
 	io.Closer
 	Create(notes string) (*params.BackupsMetadataResult, error)
 }
@@ -52,14 +53,13 @@ type BackupsCommandBase struct {
 	envcmd.EnvCommandBase
 }
 
-func (c *BackupsCommandBase) client() (backups, error) {
-	client, err := juju.NewAPIClientFromName(c.ConnectionName())
+// NewAPIClient returns a client for the backups api endpoint.
+func (c *BackupsCommandBase) NewAPIClient() (APIClient, error) {
+	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	defer client.Close()
-
-	return client.Backups(), nil
+	return backups.NewClient(root), nil
 }
 
 func (c *BackupsCommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
