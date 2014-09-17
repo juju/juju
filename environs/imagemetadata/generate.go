@@ -98,7 +98,7 @@ func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpe
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
+		{simplestreams.UnsignedIndex(CurrentStreamsVersion), index},
 		{ProductMetadataPath, products},
 	}
 	for _, md := range metadataInfo {

@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -78,7 +79,7 @@ func findMatchingImages(e *azureEnviron, location, series string, arches []strin
 		Arches:    arches,
 		Stream:    e.Config().ImageStream(),
 	})
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}

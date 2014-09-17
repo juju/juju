@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -45,11 +46,12 @@ var (
 type BootstrapCommand struct {
 	cmd.CommandBase
 	AgentConf
-	EnvConfig     map[string]interface{}
-	Constraints   constraints.Value
-	Hardware      instance.HardwareCharacteristics
-	InstanceId    string
-	AdminUsername string
+	EnvConfig        map[string]interface{}
+	Constraints      constraints.Value
+	Hardware         instance.HardwareCharacteristics
+	InstanceId       string
+	AdminUsername    string
+	ImageMetadataDir string
 }
 
 // Info returns a decription of the command.
@@ -67,6 +69,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
 	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
+	f.StringVar(&c.ImageMetadataDir, "image-metadata", "", "custom image metadata source dir")
 }
 
 // Init initializes the command for running.
@@ -214,6 +217,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Add custom image metadata to environment storage.
+	if err := c.storeCustomImageMetadata(st); err != nil {
+		return err
+	}
+
 	// bootstrap machine always gets the vote
 	return m.SetHasVote(true)
 }
@@ -349,6 +357,41 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		}
 	}
 	return nil
+}
+
+// storeCustomImageMetadata reads the custom image metadata from disk,
+// and stores the files in environment storage with the same relative
+// paths.
+func (c *BootstrapCommand) storeCustomImageMetadata(st *state.State) error {
+	if c.ImageMetadataDir == "" {
+		logger.Debugf("no image metadata to store")
+		return nil
+	}
+	stor, err := st.Storage()
+	if err != nil {
+		return err
+	}
+	defer stor.Close()
+	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
+	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		relpath, err := filepath.Rel(c.ImageMetadataDir, abspath)
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(abspath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
+		return stor.Put(relpath, f, info.Size())
+	})
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

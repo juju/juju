@@ -24,7 +24,7 @@ func UploadImageMetadata(stor storage.Storage, sourceDir string) error {
 	if sourceDir == "" {
 		return nil
 	}
-	metadataDir := path.Join(sourceDir, storage.BaseImagesPath, simplestreams.StreamsDir(currentStreamsVersion))
+	metadataDir := path.Join(sourceDir, storage.BaseImagesPath, simplestreams.StreamsDir(CurrentStreamsVersion))
 	info, err := os.Stat(metadataDir)
 	if err != nil {
 		return err
@@ -57,6 +57,6 @@ func uploadMetadataFile(stor storage.Storage, metadataDir, fileName string, size
 		return err
 	}
 	defer f.Close()
-	destMetadataDir := path.Join(storage.BaseImagesPath, simplestreams.StreamsDir(currentStreamsVersion))
+	destMetadataDir := path.Join(storage.BaseImagesPath, simplestreams.StreamsDir(CurrentStreamsVersion))
 	return stor.Put(path.Join(destMetadataDir, fileName), f, size)
 }

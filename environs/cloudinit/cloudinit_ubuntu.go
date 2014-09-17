@@ -12,6 +12,7 @@ import (
 	"path"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -19,6 +20,8 @@ import (
 
 	agenttool "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service/upstart"
 )
 
@@ -242,6 +245,20 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	}
 
 	if w.mcfg.Bootstrap {
+		var metadataDir string
+		if len(w.mcfg.CustomImageMetadata) > 0 {
+			metadataDir = path.Join(w.mcfg.DataDir, "simplestreams")
+			index, products, err := imagemetadata.MarshalImageMetadataJSON(w.mcfg.CustomImageMetadata, nil, time.Now())
+			if err != nil {
+				return err
+			}
+			indexFile := path.Join(metadataDir, "images", simplestreams.UnsignedIndex(imagemetadata.CurrentStreamsVersion))
+			productFile := path.Join(metadataDir, "images", imagemetadata.ProductMetadataPath)
+			w.conf.AddTextFile(indexFile, string(index), 0644)
+			w.conf.AddTextFile(productFile, string(products), 0644)
+			metadataDir = "  --image-metadata " + shquote(metadataDir)
+		}
+
 		cons := w.mcfg.Constraints.String()
 		if cons != "" {
 			cons = " --constraints " + shquote(cons)
@@ -261,6 +278,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 				" --instance-id " + shquote(string(w.mcfg.InstanceId)) +
 				hardware +
 				cons +
+				metadataDir +
 				" --debug",
 		)
 	}

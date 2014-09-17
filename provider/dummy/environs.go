@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
@@ -245,7 +244,6 @@ type environ struct {
 	ecfgUnlocked *environConfig
 }
 
-var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
@@ -613,12 +611,6 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 		return fmt.Errorf("%s placement is invalid", placement)
 	}
 	return nil
-}
-
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.

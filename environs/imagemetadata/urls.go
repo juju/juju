@@ -8,51 +8,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/utils"
-
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 )
-
-// SupportsCustomSources represents an environment that
-// can host image metadata at provider specific sources.
-type SupportsCustomSources interface {
-	GetImageSources() ([]simplestreams.DataSource, error)
-}
-
-// GetMetadataSources returns the sources to use when looking for
-// simplestreams image id metadata for the given stream. If env implements
-// SupportsCustomSources, the sources returned from that method will also
-// be considered.
-func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
-	var sources []simplestreams.DataSource
-	config := env.Config()
-	if userURL, ok := config.ImageMetadataURL(); ok {
-		verify := utils.VerifySSLHostnames
-		if !config.SSLHostnameVerification() {
-			verify = utils.NoVerifySSLHostnames
-		}
-		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
-	}
-	if custom, ok := env.(SupportsCustomSources); ok {
-		customSources, err := custom.GetImageSources()
-		if err != nil {
-			return nil, err
-		}
-		sources = append(sources, customSources...)
-	}
-
-	defaultURL, err := ImageMetadataURL(DefaultBaseURL, config.ImageStream())
-	if err != nil {
-		return nil, err
-	}
-	if defaultURL != "" {
-		sources = append(sources,
-			simplestreams.NewURLDataSource("default cloud images", defaultURL, utils.VerifySSLHostnames))
-	}
-	return sources, nil
-}
 
 // ImageMetadataURL returns a valid image metadata URL constructed from source.
 // source may be a directory, or a URL like file://foo or http://foo.

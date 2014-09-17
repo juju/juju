@@ -1377,13 +1377,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to true for now.  Once we support other base URLs, this
-	// may have to become configurable.
-	c.Check(env.getImageMetadataSigningRequired(), gc.Equals, true)
-}
-
 func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	forcedImage := "my-image"

@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -38,7 +39,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		Arches:    ic.Arches,
 		Stream:    e.Config().ImageStream(),
 	})
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}
