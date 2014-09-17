@@ -40,6 +40,7 @@ type BackupsCreateCommand struct {
 	Notes string
 }
 
+// Info implements Command.Info.
 func (c *BackupsCreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
@@ -49,10 +50,12 @@ func (c *BackupsCreateCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags implements Command.SetFlags.
 func (c *BackupsCreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
 }
 
+// Init implements Command.Init.
 func (c *BackupsCreateCommand) Init(args []string) error {
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
@@ -62,6 +65,7 @@ func (c *BackupsCreateCommand) Init(args []string) error {
 	return nil
 }
 
+// Run implements Command.Run.
 func (c *BackupsCreateCommand) Run(ctx *cmd.Context) error {
 	result, err := sendCreateRequest(c)
 	if err != nil {
