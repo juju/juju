@@ -174,7 +174,7 @@ func applyReplSetConfig(cmd string, session *mgo.Session, oldconfig, newconfig *
 	err = nil
 	// We will only try to Ping 2 times
 	for i := 0; i < 2; i++ {
-		// err was either nil or EOF and we called Refresh, so Ping to
+		// err was either nil, or EOF and we called Refresh, so Ping to
 		// make sure we're actually connected
 		err = session.Ping()
 		if err == nil {
