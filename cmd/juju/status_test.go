@@ -2371,6 +2371,10 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	c.Assert(
 		string(stdout),
 		gc.Equals,
-		"\n- mysql/0: dummyenv-2.dns (started)\n  - logging/1: dummyenv-2.dns (error)\n- wordpress/0: dummyenv-1.dns (started)\n  - logging/0: dummyenv-1.dns (started)\n",
+		"\n"+
+			"- mysql/0: dummyenv-2.dns (started)\n"+
+			"  - logging/1: dummyenv-2.dns (error)\n"+
+			"- wordpress/0: dummyenv-1.dns (started)\n"+
+			"  - logging/0: dummyenv-1.dns (started)\n",
 	)
 }

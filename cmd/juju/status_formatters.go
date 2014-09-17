@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strconv"
 )
 
 // FormatOneline returns a brief list of units and their subordinates.
@@ -16,10 +15,10 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	if !valueConverted {
 		return nil, fmt.Errorf("could not convert the incoming value to type formattedStatus.")
 	}
-	var out *bytes.Buffer
+	var out bytes.Buffer
 
 	pprint := func(uName string, u unitStatus, level int) {
-		fmt.Fprintf(out, indent("\n", level*2, "- %s: %s (%v)"), uName, u.PublicAddress, u.AgentState)
+		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)"), uName, u.PublicAddress, u.AgentState)
 	}
 
 	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
@@ -64,5 +63,5 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 
 // indent prepends a format string with the given number of spaces.
 func indent(prepend string, level int, append string) string {
-	return prepend + fmt.Sprintf("%"+strconv.Itoa(level)+"s", "") + append
+	return fmt.Sprintf("%s%*s%s", prepend, level, "", append)
 }
