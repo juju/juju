@@ -26,9 +26,10 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
-			RequireSigned: false,
-			DataType:      "image-ids",
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+			RequireSigned:  false,
+			DataType:       "image-ids",
+			StreamsVersion: "v1",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -331,7 +332,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 
 	items, resolveInfo, err := simplestreams.GetMetadata(
 		sources,
-		simplestreams.DefaultIndexPath,
+		s.StreamsVersion,
 		constraint,
 		false,
 		params,
@@ -449,7 +450,8 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 			MirrorContentId: "com.ubuntu.juju:released:tools",
 		}
 		indexRef, err := simplestreams.GetIndexWithFormat(
-			s.Source, s.IndexPath(), sstesting.Index_v1, s.RequireSigned, cloud, params)
+			s.Source, simplestreams.UnsignedIndex("v1"), sstesting.Index_v1,
+			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}

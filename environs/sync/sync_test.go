@@ -240,7 +240,7 @@ func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 }
 
 func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
-	r, err := storage.Get(stor, "tools/"+simplestreams.UnsignedMirror)
+	r, err := storage.Get(stor, "tools/"+simplestreams.UnsignedMirror("v1"))
 	if err == nil {
 		defer r.Close()
 	}
