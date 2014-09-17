@@ -244,6 +244,10 @@ class EnvJujuClient:
             return subprocess.check_call(args, env=env)
         return subprocess.call(args, env=env)
 
+    def deploy(self, charm):
+        args = (charm,)
+        return self.juju('deploy', args)
+
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
         for ignored in until_timeout(timeout):

@@ -84,7 +84,7 @@ class TestEnvJujuClient(TestCase):
 
     def test_get_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            version = EnvJujuClient.get_version('foo/bar/baz')
+            EnvJujuClient.get_version('foo/bar/baz')
         vsn.assert_called_once_with(('foo/bar/baz', '--version'))
 
     def test_get_matching_agent_version(self):
@@ -318,6 +318,20 @@ class TestEnvJujuClient(TestCase):
                   jenkins/0:
                     {0}: {2}
         """.format(key, machine_value, unit_value))
+
+    def test_deploy_non_joyent(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb')
+        mock_juju.assert_called_with('deploy', ('mondogb',))
+
+    def test_deploy_joyent(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb')
+        mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')
@@ -967,7 +981,7 @@ class TestEnvironment(TestCase):
             self.assertEqual({'type': 'local'}, env.config)
 
     def test_from_config_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+        with patch('subprocess.check_output', return_value=' 4.3'):
             with temp_config():
                 env = Environment.from_config('foo', 'foo/bar/qux')
         self.assertEqual(env.client.full_path, os.path.abspath('foo/bar/qux'))
