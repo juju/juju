@@ -77,6 +77,10 @@ func (f *resultCaller) FacadeCall(request string, params, response interface{}) 
 	return f.mockCall(request, params, response)
 }
 
+func (f *resultCaller) Name() string {
+	return ""
+}
+
 func (f *resultCaller) BestAPIVersion() int {
 	return 0
 }
