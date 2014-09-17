@@ -283,7 +283,7 @@ class EnvJujuClient:
         args = ('--version', self.get_matching_agent_version(no_build=True))
         if self.env.local:
             args += ('--upload-tools',)
-        self.juju(self, 'upgrade-juju', args)
+        self.juju('upgrade-juju', args)
 
 
 class Status:
