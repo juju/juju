@@ -72,20 +72,17 @@ class JujuClientDevel:
         self.debug = False
 
     @classmethod
-    def get_version(cls, juju_path=None):
-        return EnvJujuClient.get_version(juju_path)
+    def get_version(cls):
+        return EnvJujuClient.get_version()
 
     @classmethod
     def get_full_path(cls):
         return EnvJujuClient.get_full_path()
 
     @classmethod
-    def by_version(cls, juju_path=None):
-        version = cls.get_version(juju_path)
-        if juju_path is None:
-            full_path = cls.get_full_path()
-        else:
-            full_path = os.path.abspath(juju_path)
+    def by_version(cls):
+        version = cls.get_version()
+        full_path = cls.get_full_path()
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         else:
@@ -382,15 +379,15 @@ class Environment(SimpleEnvironment):
         self.client = client
 
     @classmethod
-    def from_config(cls, name, juju_path=None):
-        client = JujuClientDevel.by_version(juju_path)
+    def from_config(cls, name):
+        client = JujuClientDevel.by_version()
         return cls(name, client, get_selected_environment(name)[0])
 
     def bootstrap(self):
         return self.client.bootstrap(self)
 
-    def upgrade_juju(self, force_version=True):
-        self.client.get_env_client(self).upgrade_juju(force_version)
+    def upgrade_juju(self):
+        self.client.get_env_client(self).upgrade_juju()
 
     def destroy_environment(self):
         return self.client.destroy_environment(self)
@@ -401,9 +398,6 @@ class Environment(SimpleEnvironment):
 
     def juju(self, command, *args):
         return self.client.juju(self, command, args)
-
-    def get_juju_output(self, command, *args, **kwargs):
-        return self.client.get_juju_output(self, command, *args, **kwargs)
 
     def get_status(self, timeout=60):
         return self.client.get_status(self, timeout)

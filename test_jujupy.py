@@ -136,7 +136,7 @@ class TestEnvJujuClient(TestCase):
 
     def test_by_version_path(self):
         with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            client = JujuClientDevel.by_version('foo/bar/qux')
+            client = EnvJujuClient.by_version(None, 'foo/bar/qux')
         vsn.assert_called_once_with(('foo/bar/qux', '--version'))
         self.assertNotEqual(client.full_path, 'foo/bar/qux')
         self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
@@ -474,11 +474,6 @@ class TestJujuClientDevel(TestCase):
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
-    def test_get_version_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
-            JujuClientDevel.get_version('foo/bar/baz')
-        vsn.assert_called_once_with(('foo/bar/baz', '--version'))
-
     def test_by_version(self):
         def juju_cmd_iterator():
             yield '1.17'
@@ -488,7 +483,7 @@ class TestJujuClientDevel(TestCase):
 
         context = patch.object(
             JujuClientDevel, 'get_version',
-            side_effect=juju_cmd_iterator().send)
+            side_effect=juju_cmd_iterator().next)
         with context:
             self.assertIs(JujuClientDevel,
                           type(JujuClientDevel.by_version()))
@@ -979,12 +974,6 @@ class TestEnvironment(TestCase):
             env = Environment.from_config('foo')
             self.assertIs(Environment, type(env))
             self.assertEqual({'type': 'local'}, env.config)
-
-    def test_from_config_path(self):
-        with patch('subprocess.check_output', return_value=' 4.3'):
-            with temp_config():
-                env = Environment.from_config('foo', 'foo/bar/qux')
-        self.assertEqual(env.client.full_path, os.path.abspath('foo/bar/qux'))
 
     def test_upgrade_juju_nonlocal(self):
         client = JujuClientDevel('1.234-76', None)
