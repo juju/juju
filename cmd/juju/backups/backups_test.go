@@ -13,7 +13,7 @@ purpose: create, manage, and restore backups of juju's state
 
 options:
 --description  (= false)
-    
+
 -h, --help  (= false)
     show help on a command or other topic
 
