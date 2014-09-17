@@ -80,7 +80,8 @@ func (s *uploadSuite) TestUploadIgnoresNonJsonFiles(c *gc.C) {
 	sourceDir, destDir, destStor, _ := createImageMetadata(c)
 
 	// Add an extra file.
-	sourceMetadataPath := filepath.Join(sourceDir, storage.BaseImagesPath, simplestreams.StreamsDir(imagemetadata.StreamsVersion))
+	sourceMetadataPath := filepath.Join(
+		sourceDir, storage.BaseImagesPath, simplestreams.StreamsDir(imagemetadata.CurrentStreamsVersion))
 	err := ioutil.WriteFile(filepath.Join(sourceMetadataPath, "foo.txt"), []byte("hello"), 0644)
 	c.Assert(err, gc.IsNil)
 
@@ -89,7 +90,8 @@ func (s *uploadSuite) TestUploadIgnoresNonJsonFiles(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check only json files are uploaded.
-	destMetadataPath := filepath.Join(destDir, storage.BaseImagesPath, simplestreams.StreamsDir(imagemetadata.StreamsVersion))
+	destMetadataPath := filepath.Join(
+		destDir, storage.BaseImagesPath, simplestreams.StreamsDir(imagemetadata.CurrentStreamsVersion))
 	files, err := ioutil.ReadDir(destMetadataPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(files, gc.HasLen, 2)

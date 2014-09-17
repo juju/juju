@@ -78,7 +78,7 @@ func registerSimpleStreamsTests() {
 			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
 			RequireSigned:  false,
 			DataType:       tools.ContentDownload,
-			StreamsVersion: tools.StreamsVersion,
+			StreamsVersion: tools.CurrentStreamsVersion,
 			ValidConstraint: tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -97,7 +97,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simples
 		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
-		StreamsVersion:  tools.StreamsVersion,
+		StreamsVersion:  tools.CurrentStreamsVersion,
 		ValidConstraint: validToolsConstraint,
 	})
 }

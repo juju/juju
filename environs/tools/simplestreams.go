@@ -31,10 +31,14 @@ func init() {
 }
 
 const (
+	// ImageIds is the simplestreams tools content type.
 	ContentDownload = "content-download"
 
-	StreamsVersion = "v1"
+	// StreamsVersionV1 is used to construct the path for accessing streams data.
+	StreamsVersionV1 = "v1"
 )
+
+var currentStreamsVersion = StreamsVersionV1
 
 // simplestreamsToolsPublicKey is the public key required to
 // authenticate the simple streams data on http://streams.canonical.com.
@@ -188,7 +192,7 @@ func Fetch(
 		ValueTemplate:   ToolsMetadata{},
 		PublicKey:       simplestreamsToolsPublicKey,
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, StreamsVersion, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, currentStreamsVersion, cons, onlySigned, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -374,13 +378,14 @@ func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex(StreamsVersion), index},
+		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
 		{ProductMetadataPath, products},
 	}
 	if writeMirrors {
 		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
 		mirrorsInfo := strings.Replace(PublicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
-		metadataInfo = append(metadataInfo, MetadataFile{simplestreams.UnsignedMirror(StreamsVersion), []byte(mirrorsInfo)})
+		metadataInfo = append(
+			metadataInfo, MetadataFile{simplestreams.UnsignedMirror(currentStreamsVersion), []byte(mirrorsInfo)})
 	}
 	for _, md := range metadataInfo {
 		logger.Infof("Writing %s", "tools/"+md.Path)

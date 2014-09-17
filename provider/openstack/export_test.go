@@ -247,13 +247,13 @@ func UseTestImageData(stor storage.Storage, cred *identity.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	stor.Put(simplestreams.UnsignedIndex(imagemetadata.StreamsVersion), bytes.NewReader(data), int64(len(data)))
+	stor.Put(simplestreams.UnsignedIndex(imagemetadata.StreamsVersionV1), bytes.NewReader(data), int64(len(data)))
 	stor.Put(
 		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
 func RemoveTestImageData(stor storage.Storage) {
-	stor.Remove(simplestreams.UnsignedIndex(imagemetadata.StreamsVersion))
+	stor.Remove(simplestreams.UnsignedIndex("v1"))
 	stor.Remove(productMetadatafile)
 }
 

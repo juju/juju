@@ -71,7 +71,7 @@ func registerSimpleStreamsTests() {
 				"test roundtripper", "test:", utils.VerifySSLHostnames),
 			RequireSigned:  false,
 			DataType:       imagemetadata.ImageIds,
-			StreamsVersion: imagemetadata.StreamsVersion,
+			StreamsVersion: imagemetadata.CurrentStreamsVersion,
 			ValidConstraint: imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",

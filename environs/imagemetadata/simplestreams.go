@@ -20,10 +20,14 @@ func init() {
 }
 
 const (
+	// ImageIds is the simplestreams image content type.
 	ImageIds = "image-ids"
 
-	StreamsVersion = "v1"
+	// StreamsVersionV1 is used to construct the path for accessing streams data.
+	StreamsVersionV1 = "v1"
 )
+
+var currentStreamsVersion = StreamsVersionV1
 
 // simplestreamsImagesPublicKey is the public key required to
 // authenticate the simple streams data on http://cloud-images.ubuntu.com.
@@ -178,7 +182,7 @@ func Fetch(
 		ValueTemplate: ImageMetadata{},
 		PublicKey:     simplestreamsImagesPublicKey,
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, StreamsVersion, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, currentStreamsVersion, cons, onlySigned, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}
