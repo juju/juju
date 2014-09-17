@@ -53,7 +53,6 @@ EXPECTED_FIELDS = set((
     'ticket[via_followup_source_id]', EMAIL_FIELD_NAME, SUBJECT_FIELD_NAME,
     DESCRIPTION_FIELD_NAME, SEVERITY_FIELD_NAME, IP_ADDRESS_FIELD_NAME,
     COMMENT_BODY_FIELD_NAME))
-FROM_ADDRESS = 'curtis.hovey@canonical.com'
 
 
 class SupportRequestError(Exception):
@@ -228,7 +227,8 @@ class Client:
         print("Deleting machine {}".format(machine_id))
         headers, content = self._request(path, method='DELETE')
 
-    def send_stuck_machine_support_request(self, machine_id, machine_address):
+    def send_stuck_machine_support_request(
+            self, machine_id, machine_address, contact_mail_address):
         session = Session()
         req = Request('GET', SUPPORT_HOST + 'anonymous_requests/new')
         resp = session.send(session.prepare_request(req))
@@ -251,7 +251,7 @@ class Client:
             print("Warning: Expected severity 'sev-2' not found in form data.")
 
         form_data = parser.hidden_fields
-        form_data[EMAIL_FIELD_NAME] = FROM_ADDRESS
+        form_data[EMAIL_FIELD_NAME] = contact_mail_address
         form_data[SUBJECT_FIELD_NAME] = 'Machine stuck in provisioning state'
         form_data[DESCRIPTION_FIELD_NAME] = dedent("""\
         Please unlock the machine {} which is stuck in provisioning.
@@ -283,7 +283,7 @@ class Client:
                 "Warning: could not find the expected confirmation message "
                 "in the support server's response.")
 
-    def request_deletion(self, current_stuck):
+    def request_deletion(self, current_stuck, contact_mail_address):
         if os.path.exists(STUCK_MACHINES_PATH):
             with open(STUCK_MACHINES_PATH) as stuck_file:
                 known_stuck_ids = set(json.load(stuck_file))
@@ -297,11 +297,11 @@ class Client:
                 if machine['id'] in new_stuck_ids]
             for machine in new_stuck_machines:
                 self.send_stuck_machine_support_request(
-                    machine['id'], machine['primaryIp'])
+                    machine['id'], machine['primaryIp'], contact_mail_address)
         with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
             json.dump(list(current_stuck_ids), stuck_file)
 
-    def delete_old_machines(self):
+    def delete_old_machines(self, contact_mail_address):
         procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
         for proc in procs.splitlines():
             command = proc.split()
@@ -334,7 +334,7 @@ class Client:
                         break
                 print("stopped")
                 self.delete_machine(machine_id)
-        self.request_deletion(current_stuck)
+        self.request_deletion(current_stuck, contact_mail_address)
 
 
 def main():
@@ -353,6 +353,10 @@ def main():
         "-k", "--key-id", dest="key_id",
         help="SSH key fingerprint.  Environment: MANTA_KEY_ID=FINGERPRINT",
         default=os.environ.get("MANTA_KEY_ID"))
+    parser.add_argument(
+        "-c", "--contact-mail-address", dest="contact_mail_address",
+        help="Email address used in the Joyent support form",
+        default=os.environ.get("CONTACT_MAIL_ADDRESS"))
     parser.add_argument('action', help='The action to perform.')
     parser.add_argument('machine_id', help='The machine id.', nargs="?", default=None)
     args = parser.parse_args()
@@ -366,7 +370,7 @@ def main():
     elif args.action == 'list-tags':
         client.list_machine_tags(args.machine_id)
     elif args.action == 'delete-old-machines':
-        client.delete_old_machines()
+        client.delete_old_machines(args.contact_mail_address)
     else:
         print("action not understood.")
 
