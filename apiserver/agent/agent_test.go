@@ -34,7 +34,7 @@ func newAgentAPIV0(st *state.State, resources *common.Resources, auth common.Aut
 	return agent.NewAgentAPIV0(st, resources, auth)
 }
 
-// agentAPIV1 is compatible to V0.
+// agentAPIV1 is compatible with V0.
 type agentAPIV1 interface {
 	agentAPIV0
 }
@@ -86,10 +86,6 @@ func (s *baseAgentSuite) SetUpTest(c *gc.C) {
 // up to the next incompatible change.
 type authorizationAgentSuiteV0 struct {
 	baseAgentSuite
-}
-
-func (s *authorizationAgentSuiteV0) SetUpTest(c *gc.C) {
-	s.baseAgentSuite.SetUpTest(c)
 }
 
 func (s *authorizationAgentSuiteV0) TestAgentFailsWithNonAgent(c *gc.C) {

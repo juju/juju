@@ -135,7 +135,7 @@ type AgentAPIV1 struct {
 
 // NewAgentAPIV1 returns an object implementing version 1 of the Agent API
 // with the given authorizer representing the currently logged in client.
-// The functionality is like V0, it only knows the additional machine job
+// The functionality is like V0, except that it also knows about the additional
 // JobManageNetworking.
 func NewAgentAPIV1(st *state.State, resources *common.Resources, auth common.Authorizer) (*AgentAPIV1, error) {
 	apiV0, err := NewAgentAPIV0(st, resources, auth)
