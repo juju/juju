@@ -29,11 +29,17 @@ def env_from_client(client):
                        client.env.config)
 
 
-def bootstrap_env(client):
+def bootstrap_client(client):
+    """Bootstrap using a client and its environment.
+
+    Any stale environment is destroyed, first.
+    The machine's DNS name or IP address is returned.
+    If bootstrapping fails, the environment is forcibly torn down.
+    """
     client.destroy_environment()
     juju_home = get_juju_home()
+    env = env_from_client(client)
     try:
-        env = env_from_client(client)
         bootstrap_from_env(juju_home, env)
         host = get_machine_dns_name(env, 0)
         return host
@@ -44,6 +50,11 @@ def bootstrap_env(client):
 
 @contextmanager
 def dumping_env(client, host, log_dir):
+    """Provide a context that always has its logs dumped at the end.
+
+    If an exception is encountered, the environment is destroyed after
+    dumping logs.
+    """
     try:
         try:
             yield
@@ -55,6 +66,7 @@ def dumping_env(client, host, log_dir):
 
 
 def prepare_dummy_env(client):
+    """Use a client to prepare a dummy environment."""
     client.deploy('local:dummy-source')
     client.deploy('local:dummy-sink')
     token = get_random_string()
@@ -65,6 +77,12 @@ def prepare_dummy_env(client):
 
 
 def assess_foreign(native, foreign, base_env, environment_name, log_dir):
+    """Top level function that prepares the clients and environment.
+
+    native and foreign are paths to the native and foreign binaries for this
+    test.  base_env is the name of the environment to base the environment on
+    and environment_name is the new name for the environment.
+    """
     environment = SimpleEnvironment.from_config(base_env)
     update_env(environment, environment_name, series='precise')
     environment.config.pop('tools-metadata-url', None)
@@ -74,7 +92,8 @@ def assess_foreign(native, foreign, base_env, environment_name, log_dir):
 
 
 def test_control_foreign(native, foreign, log_dir):
-    host = bootstrap_env(native)
+    """Test if one binary can control an environment set up by the other."""
+    host = bootstrap_client(native)
     with dumping_env(foreign, host, log_dir):
         token = prepare_dummy_env(native)
         native.wait_for_started()
@@ -119,13 +138,14 @@ def test_control_foreign(native, foreign, log_dir):
         wait_until_removed(foreign, lxc_machine)
         foreign.juju('remove-machine', (lxc_holder,))
         status = wait_until_removed(foreign, lxc_holder)
+    # Test clean shutdown of an environment.
     foreign.juju(
         'destroy-environment', (foreign.env.environment, '-y'),
         include_e=False)
 
 
-
 def wait_until_removed(client, agent_id):
+    """Wait for an agent to be removed from the environment."""
     for ignored in until_timeout(30):
         status = client.get_status()
         if agent_id not in dict(status.agent_items()):
@@ -134,11 +154,8 @@ def wait_until_removed(client, agent_id):
         raise AssertionError('Machine not destroyed')
 
 
-def get_agent_version(env):
-    return env.client.get_env_option(env, 'agent-version')
-
-
 def check_series(client):
+    """Use 'juju ssh' to check that the deployed series meets expectations."""
     result = client.get_juju_output('ssh', '0', 'lsb_release', '-c')
     label, codename = result.rstrip().split('\t')
     if label != 'Codename:':
