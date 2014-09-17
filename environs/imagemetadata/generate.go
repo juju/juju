@@ -38,8 +38,7 @@ func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath)
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, imageConstraint, false)
+	existingMetadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, imageConstraint, false)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -99,7 +98,7 @@ func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpe
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex, index},
+		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
 		{ProductMetadataPath, products},
 	}
 	for _, md := range metadataInfo {

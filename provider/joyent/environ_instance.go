@@ -335,7 +335,7 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 		return nil, err
 	}
 
-	matchingImages, _, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
