@@ -170,6 +170,7 @@ var commandNames = []string{
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"bootstrap",
+	"charm-sync",
 	"debug-hooks",
 	"debug-log",
 	"deploy",
