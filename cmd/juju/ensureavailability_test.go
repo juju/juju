@@ -163,6 +163,20 @@ adding machines: 1, 2
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithPlacement(c *gc.C) {
+	ctx, err := runEnsureAvailability(c, "--to", "valid", "-n", "3")
+	c.Assert(err, gc.IsNil)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+		`maintaining machines: 0
+adding machines: 1, 2
+
+`)
+
+	m, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Placement(), gc.Equals, "valid")
+}
+
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	for i := 0; i < 2; i++ {
 		_, err := runEnsureAvailability(c, "-n", "1")

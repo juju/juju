@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 )
 
 // Client provides access to the high availability service, used to manage state servers.
@@ -27,7 +26,7 @@ func NewClient(caller base.APICallCloser, environTag string) *Client {
 
 // EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(
-	numStateServers int, cons constraints.Value, series string, placement []*instance.Placement,
+	numStateServers int, cons constraints.Value, series string, placement []string,
 ) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{

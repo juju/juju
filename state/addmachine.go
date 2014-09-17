@@ -495,7 +495,13 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 // EnsureAvailability adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
-func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (StateServersChanges, error) {
+// If placement is not empty, any new machines which may be required are started
+// according to the specified placement directives until the placement list is
+// exhausted; thereafter any new machines are started according to the constraints and series.
+func (st *State) EnsureAvailability(
+	numStateServers int, cons constraints.Value, series string, placement []string,
+) (StateServersChanges, error) {
+
 	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
 		return StateServersChanges{}, fmt.Errorf("number of state servers must be odd and non-negative")
 	}
@@ -541,7 +547,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 
 		var ops []txn.Op
-		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
+		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series, placement)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
@@ -566,6 +572,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
+	placement []string,
 ) ([]txn.Op, StateServersChanges, error) {
 	var ops []txn.Op
 	var change StateServersChanges
@@ -577,6 +584,18 @@ func (st *State) ensureAvailabilityIntentionOps(
 		ops = append(ops, demoteStateServerOps(m)...)
 		change.Demoted = append(change.Demoted, m.doc.Id)
 	}
+	// Use any placement directives that have been provided
+	// when adding new machines, until the directives have
+	// been all used up. Set up a helper function to do the
+	// work required.
+	placementCount := 0
+	getPlacement := func(i int) string {
+		if i >= len(placement) {
+			return ""
+		}
+		placementCount++
+		return placement[i]
+	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
 		template := MachineTemplate{
@@ -586,6 +605,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 				JobManageEnviron,
 			},
 			Constraints: cons,
+			Placement:   getPlacement(placementCount),
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {

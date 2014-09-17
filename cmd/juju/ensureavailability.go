@@ -36,8 +36,8 @@ type EnsureAvailabilityCommand struct {
 	// new state servers. If there are more state servers required than
 	// machines specified, new machines will be created.
 	// Placement is passed verbatim to the API, to be evaluated and used server-side.
-	Placement []*instance.Placement
-	// PlacementSpec holds the unparsed placement directives.
+	Placement []string
+	// PlacementSpec holds the unparsed placement directives argument (--to).
 	PlacementSpec string
 }
 
@@ -140,14 +140,14 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
-		c.Placement = make([]*instance.Placement, len(placementSpecs))
+		c.Placement = make([]string, len(placementSpecs))
 		for i, spec := range placementSpecs {
-			placement, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			_, err := instance.ParsePlacement(strings.TrimSpace(spec))
 			if err != instance.ErrPlacementScopeMissing {
 				// We only support unscoped placement directives.
 				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
 			}
-			c.Placement[i] = placement
+			c.Placement[i] = spec
 		}
 	}
 	return cmd.CheckEmpty(args)
