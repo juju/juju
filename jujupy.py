@@ -294,7 +294,7 @@ class EnvJujuClient:
             args += ('--version', version)
         if self.env.local:
             args += ('--upload-tools',)
-        self.juju(self, 'upgrade-juju', args)
+        self.juju('upgrade-juju', args)
 
 
 class Status:

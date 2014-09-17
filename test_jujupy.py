@@ -102,7 +102,7 @@ class TestEnvJujuClient(TestCase):
         with patch.object(client, 'juju') as juju_mock:
             client.upgrade_juju()
         juju_mock.assert_called_with(
-            client, 'upgrade-juju', ('--version', '1.234'))
+            'upgrade-juju', ('--version', '1.234'))
 
     def test_upgrade_juju_local(self):
         client = EnvJujuClient(
@@ -110,7 +110,7 @@ class TestEnvJujuClient(TestCase):
         with patch.object(client, 'juju') as juju_mock:
             client.upgrade_juju()
         juju_mock.assert_called_with(
-            client, 'upgrade-juju', ('--version', '1.234', '--upload-tools',))
+            'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
     def test_by_version(self):
         def juju_cmd_iterator():
@@ -980,7 +980,7 @@ class TestEnvironment(TestCase):
             with patch.object(env_client, 'juju') as juju_mock:
                 env.upgrade_juju()
         juju_mock.assert_called_with(
-            env_client, 'upgrade-juju', ('--version', '1.234'))
+            'upgrade-juju', ('--version', '1.234'))
 
     def test_get_matching_agent_version(self):
         client = JujuClientDevel('1.23-series-arch', None)
@@ -1000,8 +1000,7 @@ class TestEnvironment(TestCase):
             with patch.object(env_client, 'juju') as juju_mock:
                 env.upgrade_juju()
         juju_mock.assert_called_with(
-            env_client, 'upgrade-juju', ('--version', '1.234',
-                                         '--upload-tools',))
+            'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
     def test_deploy_non_joyent(self):
         env = Environment('foo', MagicMock(), {'type': 'local'})
