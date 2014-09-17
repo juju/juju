@@ -184,6 +184,20 @@ class EnvJujuClient:
                             self.env.environment)
         return status
 
+    def wait_for_version(self, version, timeout=300):
+        for ignored in until_timeout(timeout):
+            try:
+                versions = self.get_status(120).get_agent_versions()
+            except CannotConnectEnv:
+                print('Supressing "Unable to connect to environment"')
+                continue
+            if versions.keys() == [version]:
+                break
+            print(format_listing(versions, version))
+            sys.stdout.flush()
+        else:
+            raise Exception('Some versions did not update.')
+
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
         return self.get_juju_output('get-env', option)
@@ -376,21 +390,11 @@ class Environment(SimpleEnvironment):
 
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
-        return self.client.get_env_client(self).wait_for_started()
+        return self.client.get_env_client(self).wait_for_started(timeout)
 
     def wait_for_version(self, version, timeout=300):
-        for ignored in until_timeout(timeout):
-            try:
-                versions = self.get_status(120).get_agent_versions()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            if versions.keys() == [version]:
-                break
-            print(format_listing(versions, version))
-            sys.stdout.flush()
-        else:
-            raise Exception('Some versions did not update.')
+        env_client = self.client.get_env_client(self)
+        return env_client.wait_for_version(version, timeout)
 
     def get_matching_agent_version(self, no_build=False):
         env_client = self.client.get_env_client(self)

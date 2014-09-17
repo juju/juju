@@ -285,7 +285,7 @@ class TestEnvJujuClient(TestCase):
                     client.get_status()
 
     def test_get_status_raises_on_timeout_2(self):
-        env = Environment('foo', '')
+        env = SimpleEnvironment('foo')
         client = EnvJujuClient(env, None, None)
         with patch('jujupy.until_timeout', return_value=iter([1])) as mock_ut:
             with patch.object(client, 'get_juju_output',
@@ -322,6 +322,62 @@ class TestEnvJujuClient(TestCase):
                         Exception,
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started()
+
+    def test_wait_for_version(self):
+        value = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            client.wait_for_version('1.17.2')
+
+    def test_wait_for_version_timeout(self):
+        value = self.make_status_yaml('agent-version', '1.17.2', '1.17.1')
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch('jujupy.until_timeout', lambda x: range(0)):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception, 'Some versions did not update'):
+                    client.wait_for_version('1.17.2')
+
+    def test_wait_for_version_handles_connection_error(self):
+        err = subprocess.CalledProcessError(2, 'foo')
+        err.stderr = 'Unable to connect to environment'
+        err = CannotConnectEnv(err)
+        status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
+        actions = [err, status]
+
+        def get_juju_output_fake(*args):
+            action = actions.pop(0)
+            if isinstance(action, Exception):
+                raise action
+            else:
+                return action
+
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
+        devnull = open(os.devnull, 'w')
+        with patch('sys.stdout', devnull):
+            with patch(output_real, get_juju_output_fake):
+                client.wait_for_version('1.17.2')
+
+    def test_wait_for_version_raises_non_connection_error(self):
+        err = Exception('foo')
+        status = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
+        actions = [err, status]
+
+        def get_juju_output_fake(*args):
+            action = actions.pop(0)
+            if isinstance(action, Exception):
+                raise action
+            else:
+                return action
+
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        output_real = 'test_jujupy.EnvJujuClient.get_juju_output'
+        devnull = open(os.devnull, 'w')
+        with patch('sys.stdout', devnull):
+            with patch(output_real, get_juju_output_fake):
+                with self.assertRaisesRegexp(Exception, 'foo'):
+                    client.wait_for_version('1.17.2')
 
     def test_get_env_option(self):
         env = Environment('foo', '')
