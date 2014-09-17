@@ -24,6 +24,12 @@ func NewClient(caller base.APICallCloser, environTag string) *Client {
 	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}
 }
 
+// BestAPIVersion returns the API version that we were able to
+// determine is supported by both the client and the API Server
+func (c *Client) BestAPIVersion() int {
+	return c.facade.BestAPIVersion()
+}
+
 // EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(
 	numStateServers int, cons constraints.Value, series string, placement []string,

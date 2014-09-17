@@ -13,7 +13,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -73,7 +73,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
-	s.PatchValue(&highAvailabilityVersion, func(_ *api.State) int {
+	s.PatchValue(&highAvailabilityVersion, func(_ *highavailability.Client) int {
 		return 0
 	})
 	ctx, err := runEnsureAvailability(c, "-n", "1")
@@ -90,7 +90,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
-	s.PatchValue(&highAvailabilityVersion, func(_ *api.State) int {
+	s.PatchValue(&highAvailabilityVersion, func(_ *highavailability.Client) int {
 		return 0
 	})
 	_, err := runEnsureAvailability(c, "-n", "1", "--to", "machine")

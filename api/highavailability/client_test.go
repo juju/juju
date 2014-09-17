@@ -81,3 +81,8 @@ func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 }
+
+func (s *clientSuite) ClientEnsureAvailabilityVersion(c *gc.C) {
+	client := highavailability.NewClient(s.APIState, s.State.EnvironTag().String())
+	c.Assert(client.BestAPIVersion(), gc.Equals, 1)
+}

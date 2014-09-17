@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -164,8 +163,8 @@ type availabilityInfo struct {
 // highAvailabilityVersion returns the version of the HighAvailability facade
 // available on the server.
 // Override for testing.
-var highAvailabilityVersion = func(root *api.State) int {
-	return root.BestFacadeVersion("HighAvailability")
+var highAvailabilityVersion = func(client *highavailability.Client) int {
+	return client.BestAPIVersion()
 }
 
 // Run connects to the environment specified on the command line
@@ -177,7 +176,9 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 	}
 	var ensureAvailabilityResult params.StateServersChanges
 	// Use the new HighAvailability facade if it exists.
-	if highAvailabilityVersion(root) < 1 {
+	haClient := highavailability.NewClient(root, root.EnvironTag())
+	defer haClient.Close()
+	if highAvailabilityVersion(haClient) < 1 {
 		if len(c.Placement) > 0 {
 			return fmt.Errorf("placement directives not supported with this version of Juju")
 		}
@@ -185,9 +186,7 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		defer client.Close()
 		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
 	} else {
-		client := highavailability.NewClient(root, root.EnvironTag())
-		defer client.Close()
-		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
+		ensureAvailabilityResult, err = haClient.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
 	}
 	if err != nil {
 		return err
