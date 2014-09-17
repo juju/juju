@@ -351,6 +351,13 @@ func CurrentConfig(session *mgo.Session) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replset config: %s", err.Error())
 	}
+
+	members := make([]Member, len(cfg.Members), len(cfg.Members))
+	for index, member := range cfg.Members {
+		member.Address = unFixIpv6Address(member.Address)
+		members[index] = member
+	}
+	cfg.Members = members
 	return cfg, nil
 }
 
