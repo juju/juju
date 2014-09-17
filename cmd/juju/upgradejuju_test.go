@@ -526,7 +526,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	err = cmd.Run(coretesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
 		"\n"+
-		"please wait for the upgrade to complete or if there was a problem with\n"+
+		"Please wait for the upgrade to complete or if there was a problem with\n"+
 		"the last upgrade that has been resolved, consider running the\n"+
 		"upgrade-juju command with the --reset-previous-upgrade flag.",
 	)
