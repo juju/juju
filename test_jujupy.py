@@ -112,6 +112,14 @@ class TestEnvJujuClient(TestCase):
         juju_mock.assert_called_with(
             'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
+    def test_upgrade_juju_no_force_version(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.upgrade_juju(force_version=False)
+        juju_mock.assert_called_with(
+            'upgrade-juju', ('--upload-tools',))
+
     def test_by_version(self):
         def juju_cmd_iterator():
             yield '1.17'
