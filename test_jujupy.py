@@ -568,7 +568,7 @@ class TestJujuClientDevel(TestCase):
                 - b
                 - c
                 """)
-        client = JujuClient(None, None)
+        client = JujuClientDevel(None, None)
         env = Environment('foo', '')
         with patch.object(EnvJujuClient, 'get_juju_output',
                           return_value=output_text):

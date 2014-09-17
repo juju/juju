@@ -60,171 +60,6 @@ class CannotConnectEnv(subprocess.CalledProcessError):
         super(CannotConnectEnv, self).__init__(e.returncode, e.cmd, e.output)
 
 
-class EnvJujuClient:
-
-    @staticmethod
-    def get_full_path():
-        if sys.platform == 'win32':
-            return WIN_JUJU_CMD
-        return subprocess.check_output(('which', 'juju')).rstrip('\n')
-
-    @classmethod
-    def by_version(cls, env):
-        version = cls.get_version()
-        full_path = cls.get_full_path()
-        if version.startswith('1.16'):
-            raise Exception('Unsupported juju: %s' % version)
-        else:
-            return EnvJujuClient(env, version, full_path)
-
-    def __init__(self, env, version, full_path, debug=False):
-        if env is None:
-            self.env = None
-        else:
-            self.env = SimpleEnvironment(env.environment, env.config)
-        self.version = version
-        self.full_path = full_path
-        self.debug = debug
-
-    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
-        # sudo is not needed for devel releases.
-        if self.env is None or not include_e:
-            e_arg = ()
-        else:
-            e_arg = ('-e', self.env.environment)
-        if timeout is None:
-            prefix = ()
-        else:
-            prefix = ('timeout', '%.2fs' % timeout)
-        logging = '--debug' if self.debug else '--show-log'
-        return prefix + ('juju', logging, command,) + e_arg + args
-
-    def _shell_environ(self):
-        """Generate a suitable shell environment.
-
-        Juju's directory must be in the PATH to support plugins.
-        """
-        env = dict(os.environ)
-        if self.full_path is not None:
-            env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),
-                                         env['PATH'])
-        return env
-
-    def juju(self, command, args, sudo=False, check=True, include_e=True):
-        """Run a command under juju for the current environment."""
-        args = self._full_args(command, sudo, args, include_e=include_e)
-        print(' '.join(args))
-        sys.stdout.flush()
-        env = self._shell_environ()
-        if check:
-            return subprocess.check_call(args, env=env)
-        return subprocess.call(args, env=env)
-
-    def get_juju_output(self, command, *args, **kwargs):
-        args = self._full_args(command, False, args,
-                               timeout=kwargs.get('timeout'))
-        env = self._shell_environ()
-        with tempfile.TemporaryFile() as stderr:
-            try:
-                return subprocess.check_output(args, stderr=stderr, env=env)
-            except subprocess.CalledProcessError as e:
-                stderr.seek(0)
-                e.stderr = stderr.read()
-                if ('Unable to connect to environment' in e.stderr
-                        or 'MissingOrIncorrectVersionHeader' in e.stderr
-                        or '307: Temporary Redirect' in e.stderr):
-                    raise CannotConnectEnv(e)
-                print('!!! ' + e.stderr)
-                raise
-
-    @staticmethod
-    def get_version():
-        return subprocess.check_output(('juju', '--version')).strip()
-
-    def bootstrap(self):
-        """Bootstrap, using sudo if necessary."""
-        if self.env.hpcloud:
-            constraints = 'mem=2G'
-        else:
-            constraints = 'mem=2G'
-        self.juju('bootstrap', ('--constraints', constraints),
-                  self.env.needs_sudo())
-
-    def destroy_environment(self):
-        self.juju(
-            'destroy-environment', (self.env.environment, '--force', '-y'),
-            self.env.needs_sudo(), check=False, include_e=False)
-
-    def get_status(self, timeout=60):
-        """Get the current status as a dict."""
-        for ignored in until_timeout(timeout):
-            try:
-                return Status(yaml_loads(
-                    self.get_juju_output('status')))
-            except subprocess.CalledProcessError as e:
-                pass
-        raise Exception(
-            'Timed out waiting for juju status to succeed: %s' % e)
-
-    def wait_for_started(self, timeout=1200):
-        """Wait until all unit/machine agents are 'started'."""
-        for ignored in until_timeout(timeout):
-            try:
-                status = self.get_status()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            states = status.check_agents_started()
-            if states is None:
-                break
-            print(format_listing(states, 'started'))
-            sys.stdout.flush()
-        else:
-            raise Exception('Timed out waiting for agents to start in %s.' %
-                            self.env.environment)
-        return status
-
-    def wait_for_version(self, version, timeout=300):
-        for ignored in until_timeout(timeout):
-            try:
-                versions = self.get_status(120).get_agent_versions()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            if versions.keys() == [version]:
-                break
-            print(format_listing(versions, version))
-            sys.stdout.flush()
-        else:
-            raise Exception('Some versions did not update.')
-
-    def get_env_option(self, option):
-        """Return the value of the environment's configured option."""
-        return self.get_juju_output('get-env', option)
-
-    def set_env_option(self, option, value):
-        """Set the value of the option in the environment."""
-        option_value = "%s=%s" % (option, value)
-        return self.juju('set-env', (option_value,))
-
-    def get_matching_agent_version(self, no_build=False):
-        # strip the series and srch from the built version.
-        version_parts = self.version.split('-')
-        if len(version_parts) == 4:
-            version_number = '-'.join(version_parts[0:2])
-        else:
-            version_number = version_parts[0]
-        if not no_build and self.env.local:
-            version_number += '.1'
-        return version_number
-
-    def upgrade_juju(self):
-        args = ('--version', self.get_matching_agent_version(no_build=True))
-        if self.env.local:
-            args += ('--upload-tools',)
-        self.juju(self, 'upgrade-juju', args)
-
-
 class JujuClientDevel:
     # This client is meant to work with the latest version of juju.
     # Subclasses will retain support for older versions of juju, so that the
@@ -284,6 +119,171 @@ class JujuClientDevel:
         """Run a command under juju for the current environment."""
         return self.get_env_client(environment).juju(
             command, args, sudo, check)
+
+
+class EnvJujuClient:
+
+    @classmethod
+    def get_version(cls):
+        return subprocess.check_output(('juju', '--version')).strip()
+
+    @classmethod
+    def get_full_path(cls):
+        if sys.platform == 'win32':
+            return WIN_JUJU_CMD
+        return subprocess.check_output(('which', 'juju')).rstrip('\n')
+
+    @classmethod
+    def by_version(cls, env):
+        version = cls.get_version()
+        full_path = cls.get_full_path()
+        if version.startswith('1.16'):
+            raise Exception('Unsupported juju: %s' % version)
+        else:
+            return EnvJujuClient(env, version, full_path)
+
+    def _full_args(self, command, sudo, args, timeout=None, include_e=True):
+        # sudo is not needed for devel releases.
+        if self.env is None or not include_e:
+            e_arg = ()
+        else:
+            e_arg = ('-e', self.env.environment)
+        if timeout is None:
+            prefix = ()
+        else:
+            prefix = ('timeout', '%.2fs' % timeout)
+        logging = '--debug' if self.debug else '--show-log'
+        return prefix + ('juju', logging, command,) + e_arg + args
+
+    def __init__(self, env, version, full_path, debug=False):
+        if env is None:
+            self.env = None
+        else:
+            self.env = SimpleEnvironment(env.environment, env.config)
+        self.version = version
+        self.full_path = full_path
+        self.debug = debug
+
+    def _shell_environ(self):
+        """Generate a suitable shell environment.
+
+        Juju's directory must be in the PATH to support plugins.
+        """
+        env = dict(os.environ)
+        if self.full_path is not None:
+            env['PATH'] = '{}:{}'.format(os.path.dirname(self.full_path),
+                                         env['PATH'])
+        return env
+
+    def bootstrap(self):
+        """Bootstrap, using sudo if necessary."""
+        if self.env.hpcloud:
+            constraints = 'mem=2G'
+        else:
+            constraints = 'mem=2G'
+        self.juju('bootstrap', ('--constraints', constraints),
+                  self.env.needs_sudo())
+
+    def destroy_environment(self):
+        self.juju(
+            'destroy-environment', (self.env.environment, '--force', '-y'),
+            self.env.needs_sudo(), check=False, include_e=False)
+
+    def get_juju_output(self, command, *args, **kwargs):
+        args = self._full_args(command, False, args,
+                               timeout=kwargs.get('timeout'))
+        env = self._shell_environ()
+        with tempfile.TemporaryFile() as stderr:
+            try:
+                return subprocess.check_output(args, stderr=stderr, env=env)
+            except subprocess.CalledProcessError as e:
+                stderr.seek(0)
+                e.stderr = stderr.read()
+                if ('Unable to connect to environment' in e.stderr
+                        or 'MissingOrIncorrectVersionHeader' in e.stderr
+                        or '307: Temporary Redirect' in e.stderr):
+                    raise CannotConnectEnv(e)
+                print('!!! ' + e.stderr)
+                raise
+
+    def get_status(self, timeout=60):
+        """Get the current status as a dict."""
+        for ignored in until_timeout(timeout):
+            try:
+                return Status(yaml_loads(
+                    self.get_juju_output('status')))
+            except subprocess.CalledProcessError as e:
+                pass
+        raise Exception(
+            'Timed out waiting for juju status to succeed: %s' % e)
+
+    def get_env_option(self, option):
+        """Return the value of the environment's configured option."""
+        return self.get_juju_output('get-env', option)
+
+    def set_env_option(self, option, value):
+        """Set the value of the option in the environment."""
+        option_value = "%s=%s" % (option, value)
+        return self.juju('set-env', (option_value,))
+
+    def juju(self, command, args, sudo=False, check=True, include_e=True):
+        """Run a command under juju for the current environment."""
+        args = self._full_args(command, sudo, args, include_e=include_e)
+        print(' '.join(args))
+        sys.stdout.flush()
+        env = self._shell_environ()
+        if check:
+            return subprocess.check_call(args, env=env)
+        return subprocess.call(args, env=env)
+
+    def wait_for_started(self, timeout=1200):
+        """Wait until all unit/machine agents are 'started'."""
+        for ignored in until_timeout(timeout):
+            try:
+                status = self.get_status()
+            except CannotConnectEnv:
+                print('Supressing "Unable to connect to environment"')
+                continue
+            states = status.check_agents_started()
+            if states is None:
+                break
+            print(format_listing(states, 'started'))
+            sys.stdout.flush()
+        else:
+            raise Exception('Timed out waiting for agents to start in %s.' %
+                            self.env.environment)
+        return status
+
+    def wait_for_version(self, version, timeout=300):
+        for ignored in until_timeout(timeout):
+            try:
+                versions = self.get_status(120).get_agent_versions()
+            except CannotConnectEnv:
+                print('Supressing "Unable to connect to environment"')
+                continue
+            if versions.keys() == [version]:
+                break
+            print(format_listing(versions, version))
+            sys.stdout.flush()
+        else:
+            raise Exception('Some versions did not update.')
+
+    def get_matching_agent_version(self, no_build=False):
+        # strip the series and srch from the built version.
+        version_parts = self.version.split('-')
+        if len(version_parts) == 4:
+            version_number = '-'.join(version_parts[0:2])
+        else:
+            version_number = version_parts[0]
+        if not no_build and self.env.local:
+            version_number += '.1'
+        return version_number
+
+    def upgrade_juju(self):
+        args = ('--version', self.get_matching_agent_version(no_build=True))
+        if self.env.local:
+            args += ('--upload-tools',)
+        self.juju(self, 'upgrade-juju', args)
 
 
 class Status:
