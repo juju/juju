@@ -1,8 +1,8 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build sender
-
+// Package metricsender contains types and functions for sending
+// metrics from a state server to a remote metric collector.
 package metricsender
 
 import (

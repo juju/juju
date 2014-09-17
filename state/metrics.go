@@ -236,7 +236,7 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 }
 
 // MarshalJSON defines how the MetricBatch type should be
-// marhsaled as json
+// converted to json.
 func (m *MetricBatch) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.doc)
 }
