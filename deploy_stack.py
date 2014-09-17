@@ -101,6 +101,28 @@ def run_instances(count, job_name):
         sleep(1)
 
 
+def deploy_dummy_stack(env, charm_prefix):
+    """"Deploy a dummy stack in the specified environment.
+    """
+    env.deploy(charm_prefix + 'dummy-source')
+    token = get_random_string()
+    env.juju('set', 'dummy-source', 'token=%s' % token)
+    env.deploy(charm_prefix + 'dummy-sink')
+    env.juju('add-relation', 'dummy-source', 'dummy-sink')
+    env.juju('expose', 'dummy-sink')
+    if env.kvm:
+        # A single virtual machine may need up to 30 minutes before
+        # "apt-get update" and other initialisation steps are
+        # finished; two machines initializing concurrently may
+        # need even 40 minutes.
+        env.wait_for_started(3600)
+    else:
+        env.wait_for_started()
+    check_token(env, token)
+
+
+
+
 def check_token(env, token):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
@@ -138,26 +160,6 @@ def check_token(env, token):
 def get_random_string():
     allowed_chars = string.ascii_uppercase + string.digits
     return ''.join(random.choice(allowed_chars) for n in range(20))
-
-
-def deploy_dummy_stack(env, charm_prefix):
-    """"Deploy a dummy stack in the specified environment.
-    """
-    env.deploy(charm_prefix + 'dummy-source')
-    token = get_random_string()
-    env.juju('set', 'dummy-source', 'token=%s' % token)
-    env.deploy(charm_prefix + 'dummy-sink')
-    env.juju('add-relation', 'dummy-source', 'dummy-sink')
-    env.juju('expose', 'dummy-sink')
-    if env.kvm:
-        # A single virtual machine may need up to 30 minutes before
-        # "apt-get update" and other initialisation steps are
-        # finished; two machines initializing concurrently may
-        # need even 40 minutes.
-        env.wait_for_started(3600)
-    else:
-        env.wait_for_started()
-    check_token(env, token)
 
 
 def dump_env_logs(env, bootstrap_host, directory, host_id=None):
