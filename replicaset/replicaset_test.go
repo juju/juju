@@ -163,10 +163,8 @@ func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
 
 	root := newServer(c)
 	defer root.Destroy()
-	// Note: we use the ::1:port format because mongo doesn't understand
-	// [::1]:port
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
-		return fmt.Sprintf("::1:%v", inst.Port())
+		return fmt.Sprintf("[::1]:%v", inst.Port())
 	}
 	dialAndTestInitiate(c, root, getAddr(root))
 	assertAddRemoveSet(c, root, getAddr)

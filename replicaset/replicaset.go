@@ -303,6 +303,12 @@ func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	results.Address = unFixIpv6Address(results.Address)
+	results.PrimaryAddress = unFixIpv6Address(results.PrimaryAddress)
+	for index, address := range results.Addresses {
+		results.Addresses[index] = unFixIpv6Address(address)
+	}
 	return results, nil
 }
 
@@ -362,6 +368,10 @@ func CurrentStatus(session *mgo.Session) (*Status, error) {
 	err := session.Run("replSetGetStatus", status)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replica set status: %v", err)
+	}
+
+	for index, member := range status.Members {
+		status.Members[index].Address = unFixIpv6Address(member.Address)
 	}
 	return status, nil
 }
