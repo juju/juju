@@ -30,6 +30,7 @@ type clientSuite struct {
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
 	haServer   *highavailability.HighAvailabilityAPI
+	pinger     *presence.Pinger
 }
 
 type Killer interface {
@@ -60,6 +61,17 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.haServer, err = highavailability.NewHighAvailabilityAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	// We have to ensure the agents are alive, or EnsureAvailability will
+	// create more to replace them.
+	s.pinger = s.setAgentPresence(c, "0")
+}
+
+func (s *clientSuite) TearDownTest(c *gc.C) {
+	assertKill(c, s.pinger)
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
@@ -92,13 +104,6 @@ func (s *clientSuite) ensureAvailability(
 }
 
 func (s *clientSuite) TestEnsureAvailabilitySeries(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	// We have to ensure the agents are alive, or EnsureAvailability will
-	// create more to replace them.
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 1)
@@ -141,12 +146,6 @@ func (s *clientSuite) TestEnsureAvailabilitySeries(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	pinger := s.setAgentPresence(c, "0")
-	defer assertKill(c, pinger)
-
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
@@ -169,12 +168,6 @@ func (s *clientSuite) TestEnsureAvailabilityConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	pinger := s.setAgentPresence(c, "0")
-	defer assertKill(c, pinger)
-
 	placement := []string{"valid"}
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 3, constraints.MustParse("mem=4G"), defaultSeries, placement)
 	c.Assert(err, gc.IsNil)
@@ -200,11 +193,6 @@ func (s *clientSuite) TestEnsureAvailabilityPlacement(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnsureAvailability0Preserves(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 0, emptyCons, defaultSeries, nil)
@@ -232,11 +220,6 @@ func (s *clientSuite) TestEnsureAvailability0Preserves(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnsureAvailability0Preserves5(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
 	// Start off with 5 servers
 	ensureAvailabilityResult, err := s.ensureAvailability(c, 5, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.IsNil)
@@ -268,12 +251,6 @@ func (s *clientSuite) TestEnsureAvailability0Preserves5(c *gc.C) {
 }
 
 func (s *clientSuite) TestEnsureAvailabilityErrors(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	pinger := s.setAgentPresence(c, "0")
-	assertKill(c, pinger)
-
 	ensureAvailabilityResult, err := s.ensureAvailability(c, -1, emptyCons, defaultSeries, nil)
 	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
 

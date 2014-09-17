@@ -136,10 +136,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--series", "series", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
@@ -150,10 +148,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C)
 	ctx, err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
@@ -167,14 +163,15 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithPlacement(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--to", "valid", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Placement(), gc.Equals, "valid")
+	m, err = s.State.Machine("2")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Placement(), gc.Equals, "")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
@@ -209,10 +206,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -236,10 +231,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	_, err = runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
@@ -249,10 +242,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -263,10 +254,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
 	ctx, err := runEnsureAvailability(c)
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)

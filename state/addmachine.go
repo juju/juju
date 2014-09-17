@@ -589,12 +589,13 @@ func (st *State) ensureAvailabilityIntentionOps(
 	// been all used up. Set up a helper function to do the
 	// work required.
 	placementCount := 0
-	getPlacement := func(i int) string {
-		if i >= len(placement) {
+	getPlacement := func() string {
+		if placementCount >= len(placement) {
 			return ""
 		}
+		result := placement[placementCount]
 		placementCount++
-		return placement[i]
+		return result
 	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
@@ -605,7 +606,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 				JobManageEnviron,
 			},
 			Constraints: cons,
-			Placement:   getPlacement(placementCount),
+			Placement:   getPlacement(),
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
