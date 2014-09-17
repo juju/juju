@@ -7,7 +7,7 @@ import sys
 from launchpadlib.launchpad import Launchpad
 
 
-def copy_packages(lp, version, archive_name):
+def copy_packages(lp, version, source_name, archive_name):
     packaging_team = lp.people['juju-packaging']
     build_archive = packaging_team.getPPAByName(name=archive_name)
     package_histories = build_archive.getPublishedSources(
@@ -35,4 +35,4 @@ if __name__ == '__main__':
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
         version='devel')
-    sys.exit(copy_packages(lp, version, archive_name))
+    sys.exit(copy_packages(lp, version, archive_name, archive_name))
