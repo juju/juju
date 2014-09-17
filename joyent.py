@@ -38,7 +38,8 @@ echo -n "date:" {0} |
 
 
 JOYENT_PROCS = "ps ax -eo pid,etime,command | grep joyent | grep juju"
-STUCK_MACHINES_PATH = os.path.expanduser('~/joyent-stuck-machines')
+STUCK_MACHINES_PATH = os.path.join(
+    os.environ['HOME'], '.config/juju-release-tools/joyent-stuck-machines')
 SUPPORT_HOST = 'https://help.joyent.com/'
 EMAIL_FIELD_NAME = 'email'
 SUBJECT_FIELD_NAME = 'ticket[subject]'
@@ -298,6 +299,9 @@ class Client:
             for machine in new_stuck_machines:
                 self.send_stuck_machine_support_request(
                     machine['id'], machine['primaryIp'], contact_mail_address)
+        stuck_machines_dir = os.path.split(STUCK_MACHINES_PATH)[0]
+        if not os.path.exists(stuck_machines_dir):
+            os.makedirs(stuck_machines_dir)
         with open(STUCK_MACHINES_PATH, 'w') as stuck_file:
             json.dump(list(current_stuck_ids), stuck_file)
 
