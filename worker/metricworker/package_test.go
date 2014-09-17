@@ -1,11 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metricsmanager_test
+package metricworker_test
 
 import (
-	"github.com/juju/juju/testing"
 	stdtesting "testing"
+
+	"github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {
