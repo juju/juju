@@ -27,6 +27,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID     string    `bson:"_id"`
+	EnvUUID  string    `bson:"envuuid"`
 	Unit     string    `bson:"unit"`
 	CharmUrl string    `bson:"charmurl"`
 	Sent     bool      `bson:"sent"`
@@ -57,6 +58,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
+			EnvUUID:  st.EnvironTag().String(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
@@ -90,7 +92,26 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 	return metric, nil
 }
 
-// MetricBatch returns the metric batch with the given id
+// MetricBatches returns all metric batches currently stored in state.
+// TODO (tasdomas): this method is currently only used in the uniter worker test -
+//                  it needs to be modified to restrict the scope of the values it
+//                  returns if it is to be used outside of tests.
+func (st *State) MetricBatches() ([]MetricBatch, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	docs := []metricBatchDoc{}
+	err := c.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]MetricBatch, len(docs))
+	for i, doc := range docs {
+		results[i] = MetricBatch{st: st, doc: doc}
+	}
+	return results, nil
+}
+
+// MetricBatch returns the metric batch with the given id.
 func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
@@ -123,6 +144,11 @@ func (st *State) CleanupOldMetrics() error {
 // UUID returns to uuid of the metric.
 func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
+}
+
+// EnvUUID returns the environment UUID this metric applies to.
+func (m *MetricBatch) EnvUUID() string {
+	return m.doc.EnvUUID
 }
 
 // Unit returns the name of the unit this metric was generated in.

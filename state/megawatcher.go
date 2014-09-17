@@ -87,11 +87,12 @@ type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.UnitInfo{
-		Name:      u.Name,
-		Service:   u.Service,
-		Series:    u.Series,
-		MachineId: u.MachineId,
-		Ports:     u.Ports,
+		Name:        u.Name,
+		Service:     u.Service,
+		Series:      u.Series,
+		MachineId:   u.MachineId,
+		Ports:       u.Ports,
+		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -158,12 +159,13 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		return errors.Trace(err)
 	}
 	info := &params.ServiceInfo{
-		Name:     svc.Name,
-		Exposed:  svc.Exposed,
-		CharmURL: svc.CharmURL.String(),
-		OwnerTag: svc.fixOwnerTag(env),
-		Life:     params.Life(svc.Life.String()),
-		MinUnits: svc.MinUnits,
+		Name:        svc.Name,
+		Exposed:     svc.Exposed,
+		CharmURL:    svc.CharmURL.String(),
+		OwnerTag:    svc.fixOwnerTag(env),
+		Life:        params.Life(svc.Life.String()),
+		MinUnits:    svc.MinUnits,
+		Subordinate: svc.Subordinate,
 	}
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false

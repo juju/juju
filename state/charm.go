@@ -11,12 +11,18 @@ import (
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	URL           *charm.URL `bson:"_id"`
-	Meta          *charm.Meta
-	Config        *charm.Config
-	Actions       *charm.Actions
-	BundleURL     *url.URL
+	URL     *charm.URL `bson:"_id"`
+	Meta    *charm.Meta
+	Config  *charm.Config
+	Actions *charm.Actions
+
+	// DEPRECATED: BundleURL is deprecated, and exists here
+	// only for migration purposes. We should remove this
+	// when migrations are no longer necessary.
+	BundleURL *url.URL `bson:"bundleurl,omitempty"`
+
 	BundleSha256  string
+	StoragePath   string
 	PendingUpload bool
 	Placeholder   bool
 }
@@ -27,8 +33,8 @@ type Charm struct {
 	doc charmDoc
 }
 
-func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
-	return &Charm{st: st, doc: *cdoc}, nil
+func newCharm(st *State, cdoc *charmDoc) *Charm {
+	return &Charm{st: st, doc: *cdoc}
 }
 
 func (c *Charm) String() string {
@@ -62,8 +68,16 @@ func (c *Charm) Actions() *charm.Actions {
 	return c.doc.Actions
 }
 
+// StoragePath returns the storage path of the charm bundle.
+func (c *Charm) StoragePath() string {
+	return c.doc.StoragePath
+}
+
 // BundleURL returns the url to the charm bundle in
 // the provider storage.
+//
+// DEPRECATED: this is only to be used for migrating
+// charm archives to environment storage.
 func (c *Charm) BundleURL() *url.URL {
 	return c.doc.BundleURL
 }
@@ -74,7 +88,7 @@ func (c *Charm) BundleSha256() string {
 }
 
 // IsUploaded returns whether the charm has been uploaded to the
-// provider storage.
+// environment storage.
 func (c *Charm) IsUploaded() bool {
 	return !c.doc.PendingUpload
 }

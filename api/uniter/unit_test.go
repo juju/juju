@@ -6,6 +6,7 @@ package uniter_test
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -387,7 +388,7 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(result interface{}) error {
 			return fmt.Errorf("Test error")
 		},
@@ -398,7 +399,7 @@ func (s *unitSuite) TestWatchActionsError(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 1)
@@ -418,7 +419,7 @@ func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(results interface{}) error {
 			return nil
 		},
@@ -429,7 +430,7 @@ func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit,
+	uniter.PatchUnitResponse(s, s.apiUnit, "WatchActions",
 		func(results interface{}) error {
 			if results, ok := results.(*params.StringsWatchResults); ok {
 				results.Results = make([]params.StringsWatchResult, 2)
@@ -498,4 +499,47 @@ func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.apiUnit.WatchAddresses()
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
+}
+
+func (s *unitSuite) TestAddMetrics(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		},
+	)
+	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	err := s.apiUnit.AddMetrics(metrics)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *unitSuite) TestAddMetricsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return fmt.Errorf("test error")
+		},
+	)
+	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	err := s.apiUnit.AddMetrics(metrics)
+	c.Assert(err, gc.ErrorMatches, "unable to add metric: test error")
+}
+
+func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "AddMetrics",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			result.Results[0].Error = &params.Error{
+				Message: "error adding metrics",
+				Code:    params.CodeNotAssigned,
+			}
+			return nil
+		},
+	)
+	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
+	err := s.apiUnit.AddMetrics(metrics)
+	c.Assert(err, gc.ErrorMatches, "error adding metrics")
 }

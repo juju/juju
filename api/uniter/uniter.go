@@ -5,6 +5,7 @@ package uniter
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v3"
@@ -24,16 +25,20 @@ type State struct {
 	facade base.FacadeCaller
 	// unitTag contains the authenticated unit's tag.
 	unitTag names.UnitTag
+
+	// charmsURL is the root URL used to fetch charm archives.
+	charmsURL *url.URL
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller base.APICaller, authTag names.UnitTag) *State {
+func NewState(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) *State {
 	facadeCaller := base.NewFacadeCaller(caller, uniterFacade)
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
 		facade:         facadeCaller,
 		unitTag:        authTag,
+		charmsURL:      charmsURL,
 	}
 }
 
@@ -142,8 +147,8 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("charm url cannot be nil")
 	}
 	return &Charm{
-		st:  st,
-		url: curl.String(),
+		st:   st,
+		curl: curl,
 	}, nil
 }
 

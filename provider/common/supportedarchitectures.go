@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 )
 
 // SupportedArchitectures returns all the image architectures for env matching the constraints.
@@ -17,7 +16,7 @@ func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata
 	if err != nil {
 		return nil, err
 	}
-	matchingImages, _, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, false)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

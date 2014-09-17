@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -200,13 +201,14 @@ var newCommandTests = []struct {
 	{"relation-list", ""},
 	{"relation-set", ""},
 	{"unit-get", ""},
-	{"random", "unknown command: random"},
+	// The error message contains .exe on Windows
+	{"random", "unknown command: random(.exe)?"},
 }
 
 func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range newCommandTests {
-		com, err := jujuc.NewCommand(ctx, t.name)
+		com, err := jujuc.NewCommand(ctx, cmdString(t.name))
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.

@@ -15,24 +15,30 @@ import (
 
 type MetricSuite struct {
 	ConnSuite
+	unit *state.Unit
 }
 
 var _ = gc.Suite(&MetricSuite{})
 
+func (s *MetricSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.unit = s.assertAddUnit(c)
+}
+
 func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 	now := state.NowToTheSecond()
-	unit := s.assertAddUnit(c)
-	_, err := unit.AddMetrics(now, []state.Metric{})
+	_, err := s.unit.AddMetrics(now, []state.Metric{})
 	c.Assert(err, gc.ErrorMatches, "cannot add a batch of 0 metrics")
 }
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
-	unit := s.assertAddUnit(c)
 	now := state.NowToTheSecond()
+	environTag := s.State.EnvironTag().String()
 	m := state.Metric{"item", "5", now, []byte("creds")}
-	metricBatch, err := unit.AddMetrics(now, []state.Metric{m})
+	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "wordpress/0")
+	c.Assert(metricBatch.EnvUUID(), gc.Equals, environTag)
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
 	c.Assert(metricBatch.Sent(), gc.Equals, false)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
@@ -78,28 +84,25 @@ func (s *MetricSuite) assertAddUnit(c *gc.C) *state.Unit {
 }
 
 func (s *MetricSuite) TestAddMetricNonExitentUnit(c *gc.C) {
-	unit := s.assertAddUnit(c)
-	assertUnitRemoved(c, unit)
+	assertUnitRemoved(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte{}}
-	_, err := unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `wordpress/0 not found`)
 }
 
 func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
-	unit := s.assertAddUnit(c)
-	assertUnitDead(c, unit)
+	assertUnitDead(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte{}}
-	_, err := unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `wordpress/0 not found`)
 }
 
 func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
-	unit := s.assertAddUnit(c)
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte{}}
-	added, err := unit.AddMetrics(now, []state.Metric{m})
+	added, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
 	c.Assert(err, gc.IsNil)
@@ -112,16 +115,15 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 }
 
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
-	unit := s.assertAddUnit(c)
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	m := state.Metric{"item", "5", oldTime, []byte("creds")}
-	oldMetric, err := unit.AddMetrics(oldTime, []state.Metric{m})
+	oldMetric, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	oldMetric.SetSent()
 
 	now := time.Now()
 	m = state.Metric{"item", "5", now, []byte("creds")}
-	newMetric, err := unit.AddMetrics(now, []state.Metric{m})
+	newMetric, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	newMetric.SetSent()
 	err = s.State.CleanupOldMetrics()
@@ -132,4 +134,18 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 
 	_, err = s.State.MetricBatch(oldMetric.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MetricSuite) TestMetricBatches(c *gc.C) {
+	now := state.NowToTheSecond()
+	m := state.Metric{"item", "5", now, []byte("creds")}
+	_, err := s.unit.AddMetrics(now, []state.Metric{m})
+	c.Assert(err, gc.IsNil)
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+	c.Assert(metricBatches[0].Unit(), gc.Equals, "wordpress/0")
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
+	c.Assert(metricBatches[0].Sent(), gc.Equals, false)
+	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
 }
