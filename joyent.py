@@ -53,7 +53,7 @@ EXPECTED_FIELDS = set((
     'ticket[via_followup_source_id]', EMAIL_FIELD_NAME, SUBJECT_FIELD_NAME,
     DESCRIPTION_FIELD_NAME, SEVERITY_FIELD_NAME, IP_ADDRESS_FIELD_NAME,
     COMMENT_BODY_FIELD_NAME))
-FROM_ADDRESS = 'curtis.hovey.@canonical.com'
+FROM_ADDRESS = 'curtis.hovey@canonical.com'
 
 
 class SupportRequestError(Exception):
