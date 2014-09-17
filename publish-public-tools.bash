@@ -122,13 +122,9 @@ publish_to_joyent() {
 
 publish_to_streams() {
     [[ $DESTINATIONS == 'streams' ]] ||  return 0
-    if [[ $PURPOSE == "release" ]]; then
-        local destination=$STREAMS_OFFICIAL_DEST
-    else
-        local destination=$STREAMS_TESTING_DEST
-    fi
     echo "Phase 6: Publishing $PURPOSE to streams.canonical.com."
     source $JUJU_DIR/streamsrc
+    destination=$STREAMS_OFFICIAL_DEST
     rsync -avzh $JUJU_DIST/ $destination
 }
 
