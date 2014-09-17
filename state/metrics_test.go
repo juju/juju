@@ -224,9 +224,9 @@ func (s *MetricSuite) TestCountMetrics(c *gc.C) {
 func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
 	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
-	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	for i := 0; i < 3; i++ {
+		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	}
 	err := s.State.SendMetrics(&metricsender.NopSender{}, 10)
 	c.Assert(err, gc.IsNil)
 	sent, err := state.CountofSentMetrics(s.State)
@@ -238,10 +238,10 @@ func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
 func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
-	ma := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	mb := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	mc := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	metrics := []*state.MetricBatch{ma, mb, mc}
+	metrics := make([]*state.MetricBatch, 3)
+	for i, _ := range metrics {
+		metrics[i] = s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	}
 	err := state.SetMetricBatchesSent(s.State, metrics)
 	c.Assert(err, gc.IsNil)
 	sent, err := state.CountofSentMetrics(s.State)

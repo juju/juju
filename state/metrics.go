@@ -156,7 +156,7 @@ type MetricSender interface {
 
 // SendMetrics will send any unsent metrics
 // over the MetricSender interface in batches
-// of no more than 1k.
+// no larger than batchSize.
 func (st *State) SendMetrics(sender MetricSender, batchSize int) error {
 	for {
 		var docs []metricBatchDoc
