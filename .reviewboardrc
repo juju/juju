@@ -1,3 +1,4 @@
 REVIEWBOARD_URL = "https://reviews.vapour.ws/"
 REPOSITORY = "juju (core)"
 BRANCH = "replicaset-ipv6-fix"
+TRACKING_BRANCH = "upstream/master
