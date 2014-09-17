@@ -31,8 +31,8 @@ if __name__ == '__main__':
         print('Usage: %s <version> <devel|stable>')
         sys.exit(1)
     version = sys.argv[1]
-    from_archive_name= sys.argv[2]
-    to_archive_name= sys.argv[3]
+    from_archive_name = sys.argv[2]
+    to_archive_name = sys.argv[3]
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
         version='devel')
