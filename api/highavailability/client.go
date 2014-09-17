@@ -24,21 +24,10 @@ func NewClient(caller base.APICallCloser, environTag string) *Client {
 	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}
 }
 
-// bestAPIVersion returns the API version that we were able to
-// determine is supported by both the client and the API Server
-// Override for testing.
-var bestAPIVersion = func(c *Client) int {
-	return c.facade.BestAPIVersion()
-}
-
 // EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(
 	numStateServers int, cons constraints.Value, series string, placement []string,
 ) (params.StateServersChanges, error) {
-
-	if bestAPIVersion(c) < 1 && len(placement) > 0 {
-		return params.StateServersChanges{}, errors.Errorf("placement directives not supported with this version of Juju")
-	}
 
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
@@ -49,7 +38,19 @@ func (c *Client) EnsureAvailability(
 			Series:          series,
 			Placement:       placement,
 		}}}
-	err := c.facade.FacadeCall("EnsureAvailability", arg, &results)
+
+	var err error
+	// We need to retain compatibility with older Juju deployments without the new HighAvailability facade.
+	if c.facade.BestAPIVersion() < 1 {
+		if len(placement) > 0 {
+			return params.StateServersChanges{}, errors.Errorf("placement directives not supported with this version of Juju")
+		}
+		caller := c.facade.RawAPICaller()
+		err = caller.APICall("Client", caller.BestFacadeVersion("Client"), "", "EnsureAvailability", arg, &results)
+	} else {
+		err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
+	}
+
 	if err != nil {
 		return params.StateServersChanges{}, err
 	}
