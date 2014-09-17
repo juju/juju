@@ -728,6 +728,21 @@ class TestStatus(TestCase):
             ('1', {'foo': 'bar'}), ('jenkins/1', {'baz': 'qux'})]
         self.assertItemsEqual(expected, status.agent_items())
 
+    def test_agent_items_containers(self):
+        status = Status({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {
+                    '2': {'qux': 'baz'},
+                }}
+            },
+            'services': {}
+        })
+        expected = [
+                ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
+                ('2', {'qux': 'baz'})
+        ]
+        self.assertItemsEqual(expected, status.agent_items())
+
     def test_agent_states(self):
         status = Status({
             'machines': {
