@@ -12,17 +12,15 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var (
-	cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")
-	notify        chan struct{}
-)
+var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
 
-// NewCleanup creates a new periodic worker that calls the CleanupOldMetrics api.
-func NewCleanup(client *metricsmanager.Client) worker.Worker {
+// NewSender creates a new periodic worker that sends metrics
+// to a collection service.
+func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
-		err := client.CleanupOldMetrics()
+		err := client.SendMetrics()
 		if err != nil {
-			cleanupLogger.Warningf("failed to cleanup %v - will retry later", err)
+			senderLogger.Warningf("failed to send metrics %v - will retry later", err)
 			return nil
 		}
 		select {
