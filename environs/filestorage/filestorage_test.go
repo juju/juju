@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package filestorage_test
@@ -79,7 +79,11 @@ func (s *filestorageSuite) TestList(c *gc.C) {
 		c.Logf("test %d: prefix=%q", i, test.prefix)
 		files, err := storage.List(s.reader, test.prefix)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(files, gc.DeepEquals, test.expected)
+		c.Assert(err, gc.IsNil)
+		c.Assert(len(files), gc.Equals, len(test.expected))
+		for i := range files {
+			c.Check(files[i], jc.SamePath, test.expected[i])
+		}
 	}
 }
 
@@ -235,5 +239,5 @@ func (s *filestorageSuite) TestRelativePath(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	url, err := reader.URL("")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(url, gc.Equals, utils.MakeFileURL(dir)+"/a")
+	c.Assert(url, gc.Equals, utils.MakeFileURL(filepath.Join(dir, "a")))
 }
