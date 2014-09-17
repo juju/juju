@@ -160,13 +160,6 @@ type availabilityInfo struct {
 	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
 }
 
-// highAvailabilityVersion returns the version of the HighAvailability facade
-// available on the server.
-// Override for testing.
-var highAvailabilityVersion = func(client *highavailability.Client) int {
-	return client.BestAPIVersion()
-}
-
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
 func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
@@ -175,19 +168,9 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot get API connection")
 	}
 	var ensureAvailabilityResult params.StateServersChanges
-	// Use the new HighAvailability facade if it exists.
 	haClient := highavailability.NewClient(root, root.EnvironTag())
 	defer haClient.Close()
-	if highAvailabilityVersion(haClient) < 1 {
-		if len(c.Placement) > 0 {
-			return fmt.Errorf("placement directives not supported with this version of Juju")
-		}
-		client := root.Client()
-		defer client.Close()
-		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
-	} else {
-		ensureAvailabilityResult, err = haClient.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
-	}
+	ensureAvailabilityResult, err = haClient.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
 	if err != nil {
 		return err
 	}

@@ -57,7 +57,7 @@ func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	return pinger
 }
 
-func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
+func (s *clientSuite) assertEnsureAvailability(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
@@ -82,7 +82,27 @@ func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
 }
 
-func (s *clientSuite) ClientEnsureAvailabilityVersion(c *gc.C) {
+func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
+	s.assertEnsureAvailability(c)
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityVersion(c *gc.C) {
 	client := highavailability.NewClient(s.APIState, s.State.EnvironTag().String())
 	c.Assert(client.BestAPIVersion(), gc.Equals, 1)
+}
+
+func (s *clientSuite) TestEnsureAvailabilityLegacy(c *gc.C) {
+	s.PatchValue(highavailability.BestAPIVesrion, func(_ *highavailability.Client) int {
+		return 0
+	})
+	s.assertEnsureAvailability(c)
+}
+
+func (s *clientSuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
+	s.PatchValue(highavailability.BestAPIVesrion, func(_ *highavailability.Client) int {
+		return 0
+	})
+	_, err := highavailability.NewClient(
+		s.APIState, s.State.EnvironTag().String()).EnsureAvailability(3, constraints.Value{}, "", []string{"machine"})
+	c.Assert(err, gc.ErrorMatches, "placement directives not supported with this version of Juju")
 }

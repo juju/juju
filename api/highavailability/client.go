@@ -24,9 +24,10 @@ func NewClient(caller base.APICallCloser, environTag string) *Client {
 	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}
 }
 
-// BestAPIVersion returns the API version that we were able to
+// bestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server
-func (c *Client) BestAPIVersion() int {
+// Override for testing.
+var bestAPIVersion = func(c *Client) int {
 	return c.facade.BestAPIVersion()
 }
 
@@ -34,6 +35,11 @@ func (c *Client) BestAPIVersion() int {
 func (c *Client) EnsureAvailability(
 	numStateServers int, cons constraints.Value, series string, placement []string,
 ) (params.StateServersChanges, error) {
+
+	if bestAPIVersion(c) < 1 && len(placement) > 0 {
+		return params.StateServersChanges{}, errors.Errorf("placement directives not supported with this version of Juju")
+	}
+
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
