@@ -62,6 +62,7 @@ func (c *BackupsCommandBase) NewAPIClient() (APIClient, error) {
 	return backups.NewClient(root), nil
 }
 
+// dumpMetadata writes the formatted backup metadata to stdout.
 func (c *BackupsCommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
 	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
 	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
