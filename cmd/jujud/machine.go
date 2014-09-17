@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
@@ -56,6 +57,7 @@ import (
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
@@ -414,6 +416,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+		})
+	}
+
+	// Start metric workers only on the bootstrap machine
+	if a.MachineId == bootstrapMachineId {
+		a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
+			return metricworker.NewCleanup(metricsmanager.NewClient(st)), nil
+		})
+		a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
+			return metricworker.NewSender(metricsmanager.NewClient(st)), nil
 		})
 	}
 
