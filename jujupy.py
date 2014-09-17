@@ -78,7 +78,10 @@ class EnvJujuClient:
             return EnvJujuClient(env, version, full_path)
 
     def __init__(self, env, version, full_path, debug=False):
-        self.env = env
+        if env is None:
+            self.env = None
+        else:
+            self.env = SimpleEnvironment(env.environment, env.config)
         self.version = version
         self.full_path = full_path
         self.debug = debug
@@ -283,11 +286,10 @@ class Status:
         return versions
 
 
-class Environment:
+class SimpleEnvironment:
 
-    def __init__(self, environment, client=None, config=None):
+    def __init__(self, environment, config=None):
         self.environment = environment
-        self.client = client
         self.config = config
         if self.config is not None:
             self.local = bool(self.config.get('type') == 'local')
@@ -301,11 +303,22 @@ class Environment:
 
     @classmethod
     def from_config(cls, name):
-        client = JujuClientDevel.by_version()
-        return cls(name, client, get_selected_environment(name)[0])
+        return cls(name, get_selected_environment(name)[0])
 
     def needs_sudo(self):
         return self.local
+
+
+class Environment(SimpleEnvironment):
+
+    def __init__(self, environment, client=None, config=None):
+        super(Environment, self).__init__(environment, config)
+        self.client = client
+
+    @classmethod
+    def from_config(cls, name):
+        client = JujuClientDevel.by_version()
+        return cls(name, client, get_selected_environment(name)[0])
 
     def bootstrap(self):
         return self.client.bootstrap(self)

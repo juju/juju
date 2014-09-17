@@ -22,6 +22,7 @@ from jujupy import (
     ErroredUnit,
     format_listing,
     JujuClientDevel,
+    SimpleEnvironment,
     Status,
     until_timeout,
 )
@@ -135,16 +136,17 @@ class TestEnvJujuClient(TestCase):
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
-        with patch.object(env, 'needs_sudo', lambda: False):
-            with patch.object(EnvJujuClient, 'juju') as mock:
-                EnvJujuClient(env, None, None).bootstrap()
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client = EnvJujuClient(env, None, None)
+            with patch.object(client.env, 'needs_sudo', lambda: False):
+                client.bootstrap()
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), False)
 
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
-        with patch.object(env, 'needs_sudo', lambda: True):
+        with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.bootstrap()
             mock.assert_called_with(
@@ -153,7 +155,7 @@ class TestEnvJujuClient(TestCase):
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
-        with patch.object(env, 'needs_sudo', lambda: False):
+        with patch.object(client.env, 'needs_sudo', lambda: False):
             with patch.object(client, 'juju') as mock:
                 client.destroy_environment()
             mock.assert_called_with(
@@ -163,7 +165,7 @@ class TestEnvJujuClient(TestCase):
     def test_destroy_environment_sudo(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
-        with patch.object(env, 'needs_sudo', lambda: True):
+        with patch.object(client.env, 'needs_sudo', lambda: True):
             with patch.object(client, 'juju') as mock:
                 client.destroy_environment()
             mock.assert_called_with(
@@ -368,7 +370,7 @@ class TestJujuClientDevel(TestCase):
 
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
-        with patch.object(env, 'needs_sudo', lambda: False):
+        with patch.object(SimpleEnvironment, 'needs_sudo', return_value=False):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 JujuClientDevel(None, None).bootstrap(env)
             mock.assert_called_with(
@@ -377,7 +379,7 @@ class TestJujuClientDevel(TestCase):
     def test_bootstrap_sudo(self):
         env = Environment('foo', '')
         client = JujuClientDevel(None, None)
-        with patch.object(env, 'needs_sudo', lambda: True):
+        with patch.object(SimpleEnvironment, 'needs_sudo', return_value=True):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client.bootstrap(env)
             mock.assert_called_with(
@@ -386,7 +388,7 @@ class TestJujuClientDevel(TestCase):
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
         client = JujuClientDevel(None, None)
-        with patch.object(env, 'needs_sudo', lambda: False):
+        with patch.object(SimpleEnvironment, 'needs_sudo', return_value=False):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client.destroy_environment(env)
             mock.assert_called_with(
@@ -396,7 +398,7 @@ class TestJujuClientDevel(TestCase):
     def test_destroy_environment_sudo(self):
         env = Environment('foo', '')
         client = JujuClientDevel(None, None)
-        with patch.object(env, 'needs_sudo', lambda: True):
+        with patch.object(SimpleEnvironment, 'needs_sudo', return_value=True):
             with patch.object(EnvJujuClient, 'juju') as mock:
                 client.destroy_environment(env)
             mock.assert_called_with(
@@ -691,6 +693,50 @@ def fast_timeout(count):
         yield
 
 
+class TestSimpleEnvironment(TestCase):
+
+    def test_local_from_config(self):
+        env = SimpleEnvironment('local', {'type': 'openstack'})
+        self.assertFalse(env.local, 'Does not respect config type.')
+        env = SimpleEnvironment('local', {'type': 'local'})
+        self.assertTrue(env.local, 'Does not respect config type.')
+
+    def test_kvm_from_config(self):
+        env = SimpleEnvironment('local', {'type': 'local'})
+        self.assertFalse(env.kvm, 'Does not respect config type.')
+        env = SimpleEnvironment('local',
+                                {'type': 'local', 'container': 'kvm'})
+        self.assertTrue(env.kvm, 'Does not respect config type.')
+
+    def test_hpcloud_from_config(self):
+        env = SimpleEnvironment('cloud', {'auth-url': 'before.keystone.after'})
+        self.assertFalse(env.hpcloud, 'Does not respect config type.')
+        env = SimpleEnvironment('hp', {'auth-url': 'before.hpcloudsvc.after/'})
+        self.assertTrue(env.hpcloud, 'Does not respect config type.')
+
+    def test_from_config(self):
+        home = tempfile.mkdtemp()
+        try:
+            environments_path = os.path.join(home, 'environments.yaml')
+            old_home = os.environ.get('JUJU_HOME')
+            os.environ['JUJU_HOME'] = home
+            try:
+                with open(environments_path, 'w') as environments:
+                    yaml.dump({'environments': {
+                        'foo': {'type': 'local'}
+                    }}, environments)
+                env = SimpleEnvironment.from_config('foo')
+                self.assertIs(SimpleEnvironment, type(env))
+                self.assertEqual({'type': 'local'}, env.config)
+            finally:
+                if old_home is None:
+                    del os.environ['JUJU_HOME']
+                else:
+                    os.environ['JUJU_HOME'] = old_home
+        finally:
+            shutil.rmtree(home)
+
+
 class TestEnvironment(TestCase):
 
     @staticmethod
@@ -781,24 +827,6 @@ class TestEnvironment(TestCase):
             with patch(output_real, get_juju_output_fake):
                 with self.assertRaisesRegexp(Exception, 'foo'):
                     env.wait_for_version('1.17.2')
-
-    def test_local_from_config(self):
-        env = Environment('local', '', {'type': 'openstack'})
-        self.assertFalse(env.local, 'Does not respect config type.')
-        env = Environment('local', '', {'type': 'local'})
-        self.assertTrue(env.local, 'Does not respect config type.')
-
-    def test_kvm_from_config(self):
-        env = Environment('local', '', {'type': 'local'})
-        self.assertFalse(env.kvm, 'Does not respect config type.')
-        env = Environment('local', '', {'type': 'local', 'container': 'kvm'})
-        self.assertTrue(env.kvm, 'Does not respect config type.')
-
-    def test_hpcloud_from_config(self):
-        env = Environment('cloud', '', {'auth-url': 'before.keystone.after'})
-        self.assertFalse(env.hpcloud, 'Does not respect config type.')
-        env = Environment('hp', '', {'auth-url': 'before.hpcloudsvc.after/'})
-        self.assertTrue(env.hpcloud, 'Does not respect config type.')
 
     def test_from_config(self):
         home = tempfile.mkdtemp()
