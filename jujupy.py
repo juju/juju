@@ -175,6 +175,23 @@ class EnvJujuClient:
         option_value = "%s=%s" % (option, value)
         return self.juju('set-env', (option_value,))
 
+    def get_matching_agent_version(self, no_build=False):
+        # strip the series and srch from the built version.
+        version_parts = self.version.split('-')
+        if len(version_parts) == 4:
+            version_number = '-'.join(version_parts[0:2])
+        else:
+            version_number = version_parts[0]
+        if not no_build and self.env.local:
+            version_number += '.1'
+        return version_number
+
+    def upgrade_juju(self):
+        args = ('--version', self.get_matching_agent_version(no_build=True))
+        if self.env.local:
+            args += ('--upload-tools',)
+        self.juju(self, 'upgrade-juju', args)
+
 
 class JujuClientDevel:
     # This client is meant to work with the latest version of juju.
@@ -204,36 +221,36 @@ class JujuClientDevel:
         else:
             return JujuClientDevel(version, full_path)
 
-    def _get_env_client(self, environment):
+    def get_env_client(self, environment):
         return EnvJujuClient(environment, self.version, self.full_path,
                              self.debug)
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
-        return self._get_env_client(environment).bootstrap()
+        return self.get_env_client(environment).bootstrap()
 
     def destroy_environment(self, environment):
-        return self._get_env_client(environment).destroy_environment()
+        return self.get_env_client(environment).destroy_environment()
 
     def get_juju_output(self, environment, command, *args, **kwargs):
-        return self._get_env_client(environment).get_juju_output(
+        return self.get_env_client(environment).get_juju_output(
             command, *args, **kwargs)
 
     def get_status(self, environment, timeout=60):
         """Get the current status as a dict."""
-        return self._get_env_client(environment).get_status(timeout)
+        return self.get_env_client(environment).get_status(timeout)
 
     def get_env_option(self, environment, option):
         """Return the value of the environment's configured option."""
-        return self._get_env_client(environment).get_env_option(option)
+        return self.get_env_client(environment).get_env_option(option)
 
     def set_env_option(self, environment, option, value):
         """Set the value of the option in the environment."""
-        return self._get_env_client(environment).set_env_option(option, value)
+        return self.get_env_client(environment).set_env_option(option, value)
 
     def juju(self, environment, command, args, sudo=False, check=True):
         """Run a command under juju for the current environment."""
-        return self._get_env_client(environment).juju(
+        return self.get_env_client(environment).juju(
             command, args, sudo, check)
 
 
@@ -324,10 +341,7 @@ class Environment(SimpleEnvironment):
         return self.client.bootstrap(self)
 
     def upgrade_juju(self):
-        args = ('--version', self.get_matching_agent_version(no_build=True))
-        if self.local:
-            args += ('--upload-tools',)
-        self.client.juju(self, 'upgrade-juju', args)
+        self.client.get_env_client(self).upgrade_juju()
 
     def destroy_environment(self):
         return self.client.destroy_environment(self)
@@ -375,15 +389,8 @@ class Environment(SimpleEnvironment):
             raise Exception('Some versions did not update.')
 
     def get_matching_agent_version(self, no_build=False):
-        # strip the series and srch from the built version.
-        version_parts = self.client.version.split('-')
-        if len(version_parts) == 4:
-            version_number = '-'.join(version_parts[0:2])
-        else:
-            version_number = version_parts[0]
-        if not no_build and self.local:
-            version_number += '.1'
-        return version_number
+        env_client = self.client.get_env_client(self)
+        return env_client.get_matching_agent_version(no_build)
 
     def set_testing_tools_metadata_url(self):
         url = self.client.get_env_option(self, 'tools-metadata-url')

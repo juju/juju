@@ -82,6 +82,31 @@ class TestEnvJujuClient(TestCase):
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
+    def test_get_matching_agent_version(self):
+        client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
+                               '1.23-series-arch', None)
+        self.assertEqual('1.23.1', client.get_matching_agent_version())
+        self.assertEqual('1.23', client.get_matching_agent_version(
+                         no_build=True))
+        client.version = '1.20-beta1-series-arch'
+        self.assertEqual('1.20-beta1.1', client.get_matching_agent_version())
+
+    def test_upgrade_juju_nonlocal(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'nonlocal'}), '1.234-76', None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.upgrade_juju()
+        juju_mock.assert_called_with(
+            client, 'upgrade-juju', ('--version', '1.234'))
+
+    def test_upgrade_juju_local(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.upgrade_juju()
+        juju_mock.assert_called_with(
+            client, 'upgrade-juju', ('--version', '1.234', '--upload-tools',))
+
     def test_by_version(self):
         def juju_cmd_iterator():
             yield '1.17'
@@ -851,15 +876,18 @@ class TestEnvironment(TestCase):
             shutil.rmtree(home)
 
     def test_upgrade_juju_nonlocal(self):
-        env = Environment('foo', MagicMock(), {'type': 'nonlocal'})
-        env.client.version = '1.234-76'
-        env.upgrade_juju()
-        env.client.juju.assert_called_with(env, 'upgrade-juju',
-                                           ('--version', '1.234'))
+        client = JujuClientDevel('1.234-76', None)
+        env = Environment('foo', client, {'type': 'nonlocal'})
+        env_client = client.get_env_client(env)
+        with patch.object(client, 'get_env_client', return_value=env_client):
+            with patch.object(env_client, 'juju') as juju_mock:
+                env.upgrade_juju()
+        juju_mock.assert_called_with(
+            env_client, 'upgrade-juju', ('--version', '1.234'))
 
     def test_get_matching_agent_version(self):
-        env = Environment('foo', MagicMock(), {'type': 'local'})
-        env.client.version = '1.23-series-arch'
+        client = JujuClientDevel('1.23-series-arch', None)
+        env = Environment('foo', client, {'type': 'local'})
         self.assertEqual('1.23.1', env.get_matching_agent_version())
         self.assertEqual('1.23', env.get_matching_agent_version(
                          no_build=True))
@@ -867,11 +895,16 @@ class TestEnvironment(TestCase):
         self.assertEqual('1.20-beta1.1', env.get_matching_agent_version())
 
     def test_upgrade_juju_local(self):
-        env = Environment('foo', MagicMock(), {'type': 'local'})
+        client = JujuClientDevel(None, None)
+        env = Environment('foo', client, {'type': 'local'})
         env.client.version = '1.234-76'
-        env.upgrade_juju()
-        env.client.juju.assert_called_with(
-            env, 'upgrade-juju', ('--version', '1.234', '--upload-tools',))
+        env_client = client.get_env_client(env)
+        with patch.object(client, 'get_env_client', return_value=env_client):
+            with patch.object(env_client, 'juju') as juju_mock:
+                env.upgrade_juju()
+        juju_mock.assert_called_with(
+            env_client, 'upgrade-juju', ('--version', '1.234',
+                                         '--upload-tools',))
 
     def test_deploy_non_joyent(self):
         env = Environment('foo', MagicMock(), {'type': 'local'})
