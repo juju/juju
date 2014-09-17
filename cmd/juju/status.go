@@ -50,8 +50,9 @@ func (c *StatusCommand) Info() *cmd.Info {
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"oneline": FormatOneline,
 	})
 }
 
