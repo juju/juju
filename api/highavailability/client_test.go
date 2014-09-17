@@ -103,11 +103,11 @@ func (s *clientLegacySuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
-func (s *clientSuite) TestEnsureAvailabilityLegacy(c *gc.C) {
+func (s *clientLegacySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
 	assertEnsureAvailability(c, &s.JujuConnSuite)
 }
 
-func (s *clientSuite) xTestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
+func (s *clientLegacySuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
 	_, err := highavailability.NewClient(
 		s.APIState, s.State.EnvironTag().String()).EnsureAvailability(3, constraints.Value{}, "", []string{"machine"})
 	c.Assert(err, gc.ErrorMatches, "placement directives not supported with this version of Juju")
