@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package httpstorage_test
@@ -132,7 +132,10 @@ func (s *storageSuite) TestPersistence(c *gc.C) {
 func checkList(c *gc.C, stor storage.StorageReader, prefix string, names []string) {
 	lnames, err := storage.List(stor, prefix)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lnames, gc.DeepEquals, names)
+	c.Assert(len(lnames), gc.Equals, len(names))
+	for i := range lnames {
+		c.Check(lnames[i], jc.SamePath, names[i])
+	}
 }
 
 type readerWithClose struct {

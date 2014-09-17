@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package httpstorage_test
@@ -272,7 +272,10 @@ func testList(c *gc.C, client *http.Client, url string) {
 		_, err = buf.ReadFrom(resp.Body)
 		c.Assert(err, jc.ErrorIsNil)
 		names := strings.Split(buf.String(), "\n")
-		c.Assert(names, gc.DeepEquals, tc.found)
+		c.Assert(len(names), gc.Equals, len(tc.found))
+		for i := range names {
+			c.Check(names[i], jc.SamePath, tc.found[i])
+		}
 	}
 	for i, tc := range listTests {
 		c.Logf("test %d", i)
