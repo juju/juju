@@ -90,7 +90,26 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 	return metric, nil
 }
 
-// MetricBatch returns the metric batch with the given id
+// MetricBatches returns all metric batches currently stored in state.
+// TODO (tasdomas): this method is currently only used in the uniter worker test -
+//                  it needs to be modified to restrict the scope of the values it
+//                  returns if it is to be used outside of tests.
+func (st *State) MetricBatches() ([]MetricBatch, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	docs := []metricBatchDoc{}
+	err := c.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]MetricBatch, len(docs))
+	for i, doc := range docs {
+		results[i] = MetricBatch{st: st, doc: doc}
+	}
+	return results, nil
+}
+
+// MetricBatch returns the metric batch with the given id.
 func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()

@@ -45,7 +45,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		if err != nil {
 			return err
 		}
-		info.Status = sdoc.Status
+		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status and
@@ -87,11 +87,12 @@ type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.UnitInfo{
-		Name:      u.Name,
-		Service:   u.Service,
-		Series:    u.Series,
-		MachineId: u.MachineId,
-		Ports:     u.Ports,
+		Name:        u.Name,
+		Service:     u.Service,
+		Series:      u.Series,
+		MachineId:   u.MachineId,
+		Ports:       u.Ports,
+		Subordinate: u.Principal != "",
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -104,7 +105,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		if err != nil {
 			return err
 		}
-		info.Status = sdoc.Status
+		info.Status = params.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
@@ -158,12 +159,13 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		return errors.Trace(err)
 	}
 	info := &params.ServiceInfo{
-		Name:     svc.Name,
-		Exposed:  svc.Exposed,
-		CharmURL: svc.CharmURL.String(),
-		OwnerTag: svc.fixOwnerTag(env),
-		Life:     params.Life(svc.Life.String()),
-		MinUnits: svc.MinUnits,
+		Name:        svc.Name,
+		Exposed:     svc.Exposed,
+		CharmURL:    svc.CharmURL.String(),
+		OwnerTag:    svc.fixOwnerTag(env),
+		Life:        params.Life(svc.Life.String()),
+		MinUnits:    svc.MinUnits,
+		Subordinate: svc.Subordinate,
 	}
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false
@@ -294,13 +296,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		return nil
 	case *params.UnitInfo:
 		newInfo := *info
-		newInfo.Status = s.Status
+		newInfo.Status = params.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
-		newInfo.Status = s.Status
+		newInfo.Status = params.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo

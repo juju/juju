@@ -40,7 +40,7 @@ type BundleInfo interface {
 	URL() *charm.URL
 
 	// Archive URL returns the location of the bundle data.
-	ArchiveURL() (*url.URL, utils.SSLHostnameVerification, error)
+	ArchiveURL() *url.URL
 
 	// ArchiveSha256 returns the hex-encoded SHA-256 digest of the bundle data.
 	ArchiveSha256() (string, error)

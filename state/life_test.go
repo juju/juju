@@ -7,6 +7,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
@@ -156,6 +157,22 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			err = living.Remove()
 			c.Assert(err, gc.IsNil)
 		}
+	}
+}
+
+func (s *LifeSuite) TestLifeString(c *gc.C) {
+	var tests = []struct {
+		life state.Life
+		want params.Life
+	}{
+		{state.Alive, params.Alive},
+		{state.Dying, params.Dying},
+		{state.Dead, params.Dead},
+		{42, "unknown"},
+	}
+	for _, test := range tests {
+		got := test.life.String()
+		c.Assert(got, gc.Equals, string(test.want))
 	}
 }
 

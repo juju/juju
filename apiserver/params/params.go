@@ -529,6 +529,7 @@ type ServiceInfo struct {
 	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
+	Subordinate bool
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
@@ -550,6 +551,7 @@ type UnitInfo struct {
 	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
+	Subordinate    bool
 }
 
 func (i *UnitInfo) EntityId() EntityId {
@@ -763,6 +765,8 @@ type StateServersSpec struct {
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
 	Series string `json:series,omitempty`
+	// Placement defines specific machines to become new state server machines.
+	Placement []*instance.Placement `json:placement,omitempty`
 }
 
 // StateServersSpecs contains all the arguments

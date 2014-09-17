@@ -424,6 +424,22 @@ func (st *State) IsUpgrading() (bool, error) {
 	}
 }
 
+// AbortCurrentUpgrade archives any current UpgradeInfo and sets its
+// status to UpgradeAborted. Nothing happens if there's no current
+// UpgradeInfo.
+func (st *State) AbortCurrentUpgrade() error {
+	doc, err := currentUpgradeInfoDoc(st)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	info := &UpgradeInfo{st: st, doc: *doc}
+	return errors.Trace(info.Abort())
+
+}
+
 func currentUpgradeInfoDoc(st *State) (*upgradeInfoDoc, error) {
 	var doc upgradeInfoDoc
 	upgradeInfo, closer := st.getCollection(upgradeInfoC)

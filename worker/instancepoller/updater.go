@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -42,7 +41,7 @@ type machine interface {
 	String() string
 	Refresh() error
 	Life() state.Life
-	Status() (status params.Status, info string, data map[string]interface{}, err error)
+	Status() (status state.Status, info string, data map[string]interface{}, err error)
 	IsManual() (bool, error)
 }
 
@@ -195,13 +194,13 @@ func machineLoop(context machineContext, m machine, changed <-chan struct{}) err
 					return err
 				}
 			}
-			machineStatus := params.StatusPending
+			machineStatus := state.StatusPending
 			if err == nil {
 				if machineStatus, _, _, err = m.Status(); err != nil {
 					logger.Warningf("cannot get current machine status for machine %v: %v", m.Id(), err)
 				}
 			}
-			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == params.StatusStarted {
+			if len(instInfo.addresses) > 0 && instInfo.status != "" && machineStatus == state.StatusStarted {
 				// We've got at least one address and a status and instance is started, so poll infrequently.
 				pollInterval = LongPoll
 			} else if pollInterval < LongPoll {

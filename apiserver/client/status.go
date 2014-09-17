@@ -606,7 +606,7 @@ type stateAgent interface {
 	lifer
 	AgentPresence() (bool, error)
 	AgentTools() (*tools.Tools, error)
-	Status() (params.Status, string, map[string]interface{}, error)
+	Status() (state.Status, string, map[string]interface{}, error)
 }
 
 // processAgent retrieves version and status information from the given entity.
@@ -619,7 +619,9 @@ func processAgent(entity stateAgent) (
 		out.Version = t.Version.Number.String()
 	}
 
-	out.Status, out.Info, out.Data, out.Err = entity.Status()
+	var st state.Status
+	st, out.Info, out.Data, out.Err = entity.Status()
+	out.Status = params.Status(st)
 	compatStatus = out.Status
 	compatInfo = out.Info
 	out.Data = filterStatusData(out.Data)

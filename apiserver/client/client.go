@@ -5,7 +5,7 @@ package client
 
 import (
 	"fmt"
-	"net/url"
+	"io"
 	"os"
 	"strings"
 
@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/highavailability"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
@@ -32,7 +32,11 @@ func init() {
 	common.RegisterStandardFacade("Client", 0, NewClient)
 }
 
-var logger = loggo.GetLogger("juju.apiserver.client")
+var (
+	logger = loggo.GetLogger("juju.apiserver.client")
+
+	stateStorage = (*state.State).Storage
+)
 
 type API struct {
 	state     *state.State
@@ -681,13 +685,30 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
-		newJob, err := state.MachineJobFromParams(job)
+		newJob, err := machineJobFromParams(job)
 		if err != nil {
 			return nil, err
 		}
 		newJobs[i] = newJob
 	}
 	return newJobs, nil
+}
+
+// machineJobFromParams returns the job corresponding to params.MachineJob.
+// TODO(dfc) this function should live in apiserver/params, move there once
+// state does not depend on apiserver/params
+func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+	switch job {
+	case params.JobHostUnits:
+		return state.JobHostUnits, nil
+	case params.JobManageEnviron:
+		return state.JobManageEnviron, nil
+	case params.JobManageStateDeprecated:
+		// Deprecated in 1.18.
+		return state.JobManageStateDeprecated, nil
+	default:
+		return -1, errors.Errorf("invalid machine job %q", job)
+	}
 }
 
 // ProvisioningScript returns a shell script that, when run,
@@ -952,6 +973,12 @@ func (c *Client) SetEnvironAgentVersion(args params.SetEnvironAgentVersion) erro
 	return c.api.state.SetEnvironAgentVersion(args.Version)
 }
 
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	return c.api.state.AbortCurrentUpgrade()
+}
+
 // FindTools returns a List containing all tools matching the given parameters.
 func (c *Client) FindTools(args params.FindToolsParams) (params.FindToolsResult, error) {
 	return c.api.toolsFinder.FindTools(args)
@@ -1022,44 +1049,53 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		return errors.Annotate(err, "cannot rewind charm archive")
 	}
 
-	// Get the environment storage and upload the charm.
-	env, err := environs.New(envConfig)
+	// Store the charm archive in environment storage.
+	return StoreCharmArchive(
+		c.api.state,
+		charmURL,
+		downloadedCharm,
+		archive,
+		size,
+		bundleSHA256,
+	)
+}
+
+// StoreCharmArchive stores a charm archive in environment storage.
+func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
+	storage, err := stateStorage(st)
 	if err != nil {
-		return errors.Annotate(err, "cannot access environment")
+		return errors.Annotate(err, "cannot get charm storage")
 	}
-	storage := env.Storage()
-	archiveName, err := CharmArchiveName(charmURL.Name, charmURL.Revision)
+	defer storage.Close()
+
+	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")
 	}
-	if err := storage.Put(archiveName, archive, size); err != nil {
-		return errors.Annotate(err, "cannot upload charm to provider storage")
-	}
-	storageURL, err := storage.URL(archiveName)
-	if err != nil {
-		return errors.Annotate(err, "cannot get storage URL for charm")
-	}
-	bundleURL, err := url.Parse(storageURL)
-	if err != nil {
-		return errors.Annotate(err, "cannot parse storage URL")
+	if err := storage.Put(storagePath, r, size); err != nil {
+		return errors.Annotate(err, "cannot add charm to storage")
 	}
 
-	// Finally, update the charm data in state and mark it as no longer pending.
-	_, err = c.api.state.UpdateUploadedCharm(downloadedCharm, charmURL, bundleURL, bundleSHA256)
-	cause := errors.Cause(err)
-	if err == state.ErrCharmRevisionAlreadyModified ||
-		cause == state.ErrCharmRevisionAlreadyModified ||
-		state.IsCharmAlreadyUploadedError(err) {
-		// This is not an error, it just signifies somebody else
-		// managed to upload and update the charm in state before
-		// us. This means we have to delete what we just uploaded
-		// to storage.
-		if err := storage.Remove(archiveName); err != nil {
-			errors.Annotate(err, "cannot remove duplicated charm from storage")
+	// Now update the charm data in state and mark it as no longer pending.
+	_, err = st.UpdateUploadedCharm(ch, curl, storagePath, sha256)
+	if err != nil {
+		alreadyUploaded := err == state.ErrCharmRevisionAlreadyModified ||
+			errors.Cause(err) == state.ErrCharmRevisionAlreadyModified ||
+			state.IsCharmAlreadyUploadedError(err)
+		if err := storage.Remove(storagePath); err != nil {
+			if alreadyUploaded {
+				logger.Errorf("cannot remove duplicated charm archive from storage: %v", err)
+			} else {
+				logger.Errorf("cannot remove unsuccessfully recorded charm archive from storage: %v", err)
+			}
 		}
-		return nil
+		if alreadyUploaded {
+			// Somebody else managed to upload and update the charm in
+			// state before us. This is not an error.
+			return nil
+		}
 	}
-	return err
+	return nil
 }
 
 func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmResults, error) {
@@ -1093,15 +1129,15 @@ func (c *Client) resolveCharm(ref *charm.Reference, repo charm.Repository) (*cha
 	return repo.Resolve(ref)
 }
 
-// CharmArchiveName returns a string that is suitable as a file name
-// in a storage URL. It is constructed from the charm name, revision
-// and a random UUID string.
-func CharmArchiveName(name string, revision int) (string, error) {
+// charmArchiveStoragePath returns a string that is suitable as a
+// storage path, using a random UUID to avoid colliding with concurrent
+// uploads.
+func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 	uuid, err := utils.NewUUID()
 	if err != nil {
 		return "", err
 	}
-	return charm.Quote(fmt.Sprintf("%s-%d-%s", name, revision, uuid)), nil
+	return fmt.Sprintf("charms/%s-%s", curl.String(), uuid), nil
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
@@ -1123,74 +1159,15 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
-// Convert machine ids to tags.
-func machineIdsToTags(ids ...string) []string {
-	var result []string
-	for _, id := range ids {
-		result = append(result, names.NewMachineTag(id).String())
-	}
-	return result
-}
-
-// Generate a StateServersChanges structure.
-func stateServersChanges(change state.StateServersChanges) params.StateServersChanges {
-	return params.StateServersChanges{
-		Added:      machineIdsToTags(change.Added...),
-		Maintained: machineIdsToTags(change.Maintained...),
-		Removed:    machineIdsToTags(change.Removed...),
-		Promoted:   machineIdsToTags(change.Promoted...),
-		Demoted:    machineIdsToTags(change.Demoted...),
-	}
-}
-
 // EnsureAvailability ensures the availability of Juju state servers.
+// DEPRECATED: remove when we stop supporting 1.20 and earlier clients.
+// This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
 	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
 	for i, stateServersSpec := range args.Specs {
-		result, err := c.ensureAvailabilitySingle(stateServersSpec)
+		result, err := highavailability.EnsureAvailabilitySingle(c.api.state, stateServersSpec)
 		results.Results[i].Result = result
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
-}
-
-// ensureAvailabilitySingle applies a single StateServersSpec specification to the current environment.
-func (c *Client) ensureAvailabilitySingle(spec params.StateServersSpec) (params.StateServersChanges, error) {
-	// Validate the environment tag if present.
-	if spec.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(spec.EnvironTag)
-		if err != nil {
-			return params.StateServersChanges{}, errors.Errorf("invalid environment tag: %v", err)
-		}
-		if _, err := c.api.state.FindEntity(tag); err != nil {
-			return params.StateServersChanges{}, err
-		}
-	}
-
-	series := spec.Series
-	if series == "" {
-		ssi, err := c.api.state.StateServerInfo()
-		if err != nil {
-			return params.StateServersChanges{}, err
-		}
-
-		// We should always have at least one voting machine
-		// If we *really* wanted we could just pick whatever series is
-		// in the majority, but really, if we always copy the value of
-		// the first one, then they'll stay in sync.
-		if len(ssi.VotingMachineIds) == 0 {
-			// Better than a panic()?
-			return params.StateServersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
-		}
-		templateMachine, err := c.api.state.Machine(ssi.VotingMachineIds[0])
-		if err != nil {
-			return params.StateServersChanges{}, err
-		}
-		series = templateMachine.Series()
-	}
-	changes, err := c.api.state.EnsureAvailability(spec.NumStateServers, spec.Constraints, series)
-	if err != nil {
-		return params.StateServersChanges{}, err
-	}
-	return stateServersChanges(changes), nil
 }

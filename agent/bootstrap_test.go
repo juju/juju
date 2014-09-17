@@ -57,7 +57,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		APIPort:        1234,
@@ -198,7 +198,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	}
 	cfg, err := agent.NewAgentConfig(configParams)
 	c.Assert(err, gc.IsNil)
-	cfg.SetStateServingInfo(state.StateServingInfo{
+	cfg.SetStateServingInfo(params.StateServingInfo{
 		APIPort:        5555,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           "foo",
@@ -229,6 +229,34 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		st.Close()
 	}
 	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized .*")
+}
+
+func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
+	var tests = []struct {
+		name params.MachineJob
+		want state.MachineJob
+		err  string
+	}{{
+		name: params.JobHostUnits,
+		want: state.JobHostUnits,
+	}, {
+		name: params.JobManageEnviron,
+		want: state.JobManageEnviron,
+	}, {
+		name: params.JobManageStateDeprecated,
+		want: state.JobManageStateDeprecated,
+	}, {
+		name: "invalid",
+		want: -1,
+		err:  `invalid machine job "invalid"`,
+	}}
+	for _, test := range tests {
+		got, err := agent.MachineJobFromParams(test.name)
+		if err != nil {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+		c.Check(got, gc.Equals, test.want)
+	}
 }
 
 func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {

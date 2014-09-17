@@ -3,6 +3,11 @@
 
 package client
 
-var ParseSettingsCompatible = parseSettingsCompatible
-var RemoteParamsForMachine = remoteParamsForMachine
-var GetAllUnitNames = getAllUnitNames
+var (
+	ParseSettingsCompatible = parseSettingsCompatible
+	RemoteParamsForMachine  = remoteParamsForMachine
+	GetAllUnitNames         = getAllUnitNames
+	StateStorage            = &stateStorage
+)
+
+var MachineJobFromParams = machineJobFromParams

@@ -504,11 +504,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, "no matching tools available")
 		break
 	}
@@ -535,11 +535,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, brokenMsg)
 		break
 	}
@@ -656,11 +656,11 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Matches, `aborted instance "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
@@ -1092,7 +1092,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-thatsAllFolks:
 				return
 			case <-time.After(coretesting.ShortWait):
-				err := m3.SetStatus(params.StatusError, "info", map[string]interface{}{"transient": true})
+				err := m3.SetStatus(state.StatusError, "info", map[string]interface{}{"transient": true})
 				c.Assert(err, gc.IsNil)
 			}
 		}
@@ -1103,7 +1103,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	status, _, _, err := m4.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 }

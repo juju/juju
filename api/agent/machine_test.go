@@ -36,14 +36,21 @@ var _ = gc.Suite(&servingInfoSuite{})
 func (s *servingInfoSuite) TestStateServingInfo(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 
-	expected := state.StateServingInfo{
+	ssi := state.StateServingInfo{
 		PrivateKey:   "some key",
 		Cert:         "Some cert",
 		SharedSecret: "really, really secret",
 		APIPort:      33,
 		StatePort:    44,
 	}
-	s.State.SetStateServingInfo(expected)
+	expected := params.StateServingInfo{
+		PrivateKey:   ssi.PrivateKey,
+		Cert:         ssi.Cert,
+		SharedSecret: ssi.SharedSecret,
+		APIPort:      ssi.APIPort,
+		StatePort:    ssi.StatePort,
+	}
+	s.State.SetStateServingInfo(ssi)
 	info, err := st.Agent().StateServingInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, expected)

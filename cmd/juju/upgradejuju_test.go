@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -22,7 +23,9 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -507,4 +510,151 @@ upgrade to this version by running
 		output := coretesting.Stderr(ctx)
 		c.Assert(output, gc.Equals, test.expectedCmdOutput)
 	}
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.setVersionErr = &params.Error{
+		Message: "a message from the server about the problem",
+		Code:    params.CodeUpgradeInProgress,
+	}
+	fakeAPI.patch(s)
+	cmd := &UpgradeJujuCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(cmd), []string{})
+	c.Assert(err, gc.IsNil)
+
+	err = cmd.Run(coretesting.Context(c))
+	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
+		"\n"+
+		"please wait for the upgrade to complete or if there was a problem with\n"+
+		"the last upgrade that has been resolved, consider running the\n"+
+		"upgrade-juju command with the --reset-previous-upgrade flag.",
+	)
+}
+
+func (s *UpgradeJujuSuite) TestResetPreviousUpgrade(c *gc.C) {
+	fakeAPI := NewFakeUpgradeJujuAPI(c, s.State)
+	fakeAPI.patch(s)
+
+	ctx := coretesting.Context(c)
+	var stdin bytes.Buffer
+	ctx.Stdin = &stdin
+
+	run := func(answer string, expect bool, args ...string) {
+		stdin.Reset()
+		if answer != "" {
+			stdin.WriteString(answer)
+		}
+
+		fakeAPI.reset()
+
+		cmd := &UpgradeJujuCommand{}
+		err := coretesting.InitCommand(envcmd.Wrap(cmd),
+			append([]string{"--reset-previous-upgrade"}, args...))
+		c.Assert(err, gc.IsNil)
+		err = cmd.Run(ctx)
+		if expect {
+			c.Assert(err, gc.IsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "previous upgrade not reset and no new upgrade triggered")
+		}
+
+		c.Assert(fakeAPI.abortCurrentUpgradeCalled, gc.Equals, expect)
+		expectedVersion := version.Number{}
+		if expect {
+			expectedVersion = fakeAPI.nextVersion.Number
+		}
+		c.Assert(fakeAPI.setVersionCalledWith, gc.Equals, expectedVersion)
+	}
+
+	const expectUpgrade = true
+	const expectNoUpgrade = false
+
+	// EOF on stdin - equivalent to answering no.
+	run("", expectNoUpgrade)
+
+	// -y on command line - no confirmation required
+	run("", expectUpgrade, "-y")
+
+	// --yes on command line - no confirmation required
+	run("", expectUpgrade, "--yes")
+
+	// various ways of saying "yes" to the prompt
+	for _, answer := range []string{"y", "Y", "yes", "YES"} {
+		run(answer, expectUpgrade)
+	}
+
+	// various ways of saying "no" to the prompt
+	for _, answer := range []string{"n", "N", "no", "foo"} {
+		run(answer, expectNoUpgrade)
+	}
+}
+
+func NewFakeUpgradeJujuAPI(c *gc.C, st *state.State) *fakeUpgradeJujuAPI {
+	nextVersion := version.Current
+	nextVersion.Minor++
+	return &fakeUpgradeJujuAPI{
+		c:           c,
+		st:          st,
+		nextVersion: nextVersion,
+	}
+}
+
+type fakeUpgradeJujuAPI struct {
+	c                         *gc.C
+	st                        *state.State
+	nextVersion               version.Binary
+	setVersionErr             error
+	abortCurrentUpgradeCalled bool
+	setVersionCalledWith      version.Number
+}
+
+func (a *fakeUpgradeJujuAPI) reset() {
+	a.setVersionErr = nil
+	a.abortCurrentUpgradeCalled = false
+	a.setVersionCalledWith = version.Number{}
+}
+
+func (a *fakeUpgradeJujuAPI) patch(s *UpgradeJujuSuite) {
+	s.PatchValue(&getUpgradeJujuAPI, func(*UpgradeJujuCommand) (upgradeJujuAPI, error) {
+		return a, nil
+	})
+}
+
+func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
+	config, err := a.st.EnvironConfig()
+	if err != nil {
+		return make(map[string]interface{}), err
+	}
+	return config.AllAttrs(), nil
+}
+
+func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
+	result params.FindToolsResult, err error,
+) {
+	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", []string{a.nextVersion.String()})
+	return params.FindToolsResult{
+		List:  tools,
+		Error: nil,
+	}, nil
+}
+
+func (a *fakeUpgradeJujuAPI) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (
+	*coretools.Tools, error,
+) {
+	panic("not implemented")
+}
+
+func (a *fakeUpgradeJujuAPI) AbortCurrentUpgrade() error {
+	a.abortCurrentUpgradeCalled = true
+	return nil
+}
+
+func (a *fakeUpgradeJujuAPI) SetEnvironAgentVersion(v version.Number) error {
+	a.setVersionCalledWith = v
+	return a.setVersionErr
+}
+
+func (a *fakeUpgradeJujuAPI) Close() error {
+	return nil
 }
