@@ -294,6 +294,35 @@ class TestEnvJujuClient(TestCase):
                     client.get_status(500)
         mock_ut.assert_called_with(500)
 
+    @staticmethod
+    def make_status_yaml(key, machine_value, unit_value):
+        return dedent("""\
+            machines:
+              "0":
+                {0}: {1}
+            services:
+              jenkins:
+                units:
+                  jenkins/0:
+                    {0}: {2}
+        """.format(key, machine_value, unit_value))
+
+    def test_wait_for_started(self):
+        value = self.make_status_yaml('agent-state', 'started', 'started')
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            client.wait_for_started()
+
+    def test_wait_for_started_timeout(self):
+        value = self.make_status_yaml('agent-state', 'pending', 'started')
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch('jujupy.until_timeout', lambda x: range(0)):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for agents to start in local'):
+                    client.wait_for_started()
+
     def test_get_env_option(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)

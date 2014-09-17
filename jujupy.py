@@ -166,6 +166,24 @@ class EnvJujuClient:
         raise Exception(
             'Timed out waiting for juju status to succeed: %s' % e)
 
+    def wait_for_started(self, timeout=1200):
+        """Wait until all unit/machine agents are 'started'."""
+        for ignored in until_timeout(timeout):
+            try:
+                status = self.get_status()
+            except CannotConnectEnv:
+                print('Supressing "Unable to connect to environment"')
+                continue
+            states = status.check_agents_started()
+            if states is None:
+                break
+            print(format_listing(states, 'started'))
+            sys.stdout.flush()
+        else:
+            raise Exception('Timed out waiting for agents to start in %s.' %
+                            self.env.environment)
+        return status
+
     def get_env_option(self, option):
         """Return the value of the environment's configured option."""
         return self.get_juju_output('get-env', option)
@@ -277,7 +295,7 @@ class Status:
             states[item.get('agent-state', 'no-agent')].append(item_name)
         return states
 
-    def check_agents_started(self, environment_name):
+    def check_agents_started(self, environment_name=None):
         """Check whether all agents are in the 'started' state.
 
         If not, return agent_states output.  If so, return None.
@@ -358,21 +376,7 @@ class Environment(SimpleEnvironment):
 
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
-        for ignored in until_timeout(timeout):
-            try:
-                status = self.get_status()
-            except CannotConnectEnv:
-                print('Supressing "Unable to connect to environment"')
-                continue
-            states = status.check_agents_started(self.environment)
-            if states is None:
-                break
-            print(format_listing(states, 'started'))
-            sys.stdout.flush()
-        else:
-            raise Exception('Timed out waiting for agents to start in %s.' %
-                            self.environment)
-        return status
+        return self.client.get_env_client(self).wait_for_started()
 
     def wait_for_version(self, version, timeout=300):
         for ignored in until_timeout(timeout):
