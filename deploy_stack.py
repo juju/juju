@@ -443,7 +443,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
-        update_env(env, job_name, bootstrap_host, series)
+        update_env(env, job_name, series=series, bootstrap_host=bootstrap_host)
         try:
             host = bootstrap_host
             ssh_machines = [] + machines
