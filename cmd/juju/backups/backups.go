@@ -21,13 +21,13 @@ var backupsDoc = `
 const backupsPurpose = "create, manage, and restore backups of juju's state"
 
 // BackupsCommand is the top-level command wrapping all backups functionality.
-type BackupsCommand struct {
+type Command struct {
 	cmd.SuperCommand
 }
 
 // NewBackupsCommand returns a new BackupsCommand.
-func NewBackupsCommand() cmd.Command {
-	backupsCmd := BackupsCommand{
+func NewCommand() cmd.Command {
+	backupsCmd := Command{
 		SuperCommand: *cmd.NewSuperCommand(
 			cmd.SuperCommandParams{
 				Name:        "backups",
@@ -37,7 +37,7 @@ func NewBackupsCommand() cmd.Command {
 			},
 		),
 	}
-	backupsCmd.Register(envcmd.Wrap(&BackupsCreateCommand{}))
+	backupsCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	return &backupsCmd
 }
 
@@ -49,12 +49,12 @@ type APIClient interface {
 }
 
 // BackupsCommandBase is the base type for backups sub-commands.
-type BackupsCommandBase struct {
+type CommandBase struct {
 	envcmd.EnvCommandBase
 }
 
 // NewAPIClient returns a client for the backups api endpoint.
-func (c *BackupsCommandBase) NewAPIClient() (APIClient, error) {
+func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func (c *BackupsCommandBase) NewAPIClient() (APIClient, error) {
 }
 
 // dumpMetadata writes the formatted backup metadata to stdout.
-func (c *BackupsCommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
+func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
 	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
 	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
 	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)

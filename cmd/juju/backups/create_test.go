@@ -4,35 +4,21 @@
 package backups_test
 
 import (
+	"strings"
+
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/testing"
 )
-
-const createExpectedHelp = `
-usage: juju backups create [options] [<notes>]
-purpose: create a backup
-
-options:
--e, --environment (= "")
-    juju environment to operate in
---quiet  (= false)
-    do not print the metadata
-
-"create" requests that juju create a backup of its state and print the
-backup's unique ID.  You may provide a note to associate with the backup.
-
-The backup archive and associated metadata are stored in juju and
-will be lost when the environment is destroyed.
-`
 
 type createSuite struct {
 	BackupsSuite
-	Error   string
-	command *backups.BackupsCreateCommand
+	Error      string
+	subcommand *backups.CreateCommand
 }
 
 var _ = gc.Suite(&createSuite{})
@@ -42,7 +28,7 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 
 	s.PatchValue(
 		backups.SendCreateRequest,
-		func(cmd *backups.BackupsCreateCommand) (*params.BackupsMetadataResult, error) {
+		func(cmd *backups.CreateCommand) (*params.BackupsMetadataResult, error) {
 			if s.Error != "" {
 				return nil, errors.New(s.Error)
 			}
@@ -51,16 +37,26 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	)
 
 	s.Error = ""
-	s.command = &backups.BackupsCreateCommand{}
+	s.subcommand = &backups.CreateCommand{}
 }
 
 func (s *createSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, "create", createExpectedHelp[1:])
+	ctx, err := testing.RunCommand(c, s.command, "create", "--help")
+	c.Assert(err, gc.IsNil)
+
+	info := s.subcommand.Info()
+	expected := "(?sm)usage: juju backups create [options] " + info.Args + "$.*"
+	expected = strings.Replace(expected, "[", `\[`, -1)
+	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	expected = "(?sm).*^purpose: " + info.Purpose + "$.*"
+	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	expected = "(?sm).*^" + info.Doc + "$.*"
+	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 }
 
 func (s *createSuite) TestOkay(c *gc.C) {
 	ctx := cmdtesting.Context(c)
-	err := s.command.Run(ctx)
+	err := s.subcommand.Run(ctx)
 	c.Check(err, gc.IsNil)
 
 	out := MetaResultString + s.metaresult.ID + "\n"
@@ -68,9 +64,9 @@ func (s *createSuite) TestOkay(c *gc.C) {
 }
 
 func (s *createSuite) TestQuiet(c *gc.C) {
-	s.command.Quiet = true
+	s.subcommand.Quiet = true
 	ctx := cmdtesting.Context(c)
-	err := s.command.Run(ctx)
+	err := s.subcommand.Run(ctx)
 	c.Check(err, gc.IsNil)
 
 	out := s.metaresult.ID + "\n"
@@ -80,7 +76,7 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 func (s *createSuite) TestError(c *gc.C) {
 	s.Error = "failed!"
 	ctx := cmdtesting.Context(c)
-	err := s.command.Run(ctx)
+	err := s.subcommand.Run(ctx)
 
 	c.Check(errors.Cause(err), gc.ErrorMatches, "failed!")
 }

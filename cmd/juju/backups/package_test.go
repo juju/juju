@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd/juju"
+	"github.com/juju/juju/cmd/juju/backups"
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -49,11 +50,13 @@ func TestRunMain(t *testing.T) {
 
 type BackupsSuite struct {
 	jujutesting.FakeJujuHomeSuite
+	command    *backups.Command
 	metaresult *params.BackupsMetadataResult
 }
 
 func (s *BackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.command = backups.NewCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
@@ -98,18 +101,4 @@ func (s *BackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
 	c.Check(ctx.Stdin.(*bytes.Buffer).String(), gc.Equals, "")
 	s.checkString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
 	s.checkString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
-}
-
-func (s *BackupsSuite) checkHelp(c *gc.C, subcommand, expected string) {
-
-	// Run the command, ensuring it is actually there.
-	args := []string{"juju", "backups"}
-	if subcommand != "" {
-		args = append(args, subcommand)
-	}
-	args = append(args, "--help")
-	out := cmdtesting.BadRun(c, 0, args...)
-
-	// Check the output.
-	s.checkString(c, out, expected)
 }

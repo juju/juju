@@ -21,7 +21,7 @@ The backup archive and associated metadata are stored in juju and
 will be lost when the environment is destroyed.
 `
 
-var sendCreateRequest = func(cmd *BackupsCreateCommand) (*params.BackupsMetadataResult, error) {
+var sendCreateRequest = func(cmd *CreateCommand) (*params.BackupsMetadataResult, error) {
 	client, err := cmd.NewAPIClient()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -31,9 +31,9 @@ var sendCreateRequest = func(cmd *BackupsCreateCommand) (*params.BackupsMetadata
 	return client.Create(cmd.Notes)
 }
 
-// BackupsCreateCommand is the sub-command for creating a new backup.
-type BackupsCreateCommand struct {
-	BackupsCommandBase
+// CreateCommand is the sub-command for creating a new backup.
+type CreateCommand struct {
+	CommandBase
 	// Quiet indicates that the full metadata should not be dumped.
 	Quiet bool
 	// Notes is the custom message to associated with the new backup.
@@ -41,7 +41,7 @@ type BackupsCreateCommand struct {
 }
 
 // Info implements Command.Info.
-func (c *BackupsCreateCommand) Info() *cmd.Info {
+func (c *CreateCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create",
 		Args:    "[<notes>]",
@@ -51,12 +51,12 @@ func (c *BackupsCreateCommand) Info() *cmd.Info {
 }
 
 // SetFlags implements Command.SetFlags.
-func (c *BackupsCreateCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
 }
 
 // Init implements Command.Init.
-func (c *BackupsCreateCommand) Init(args []string) error {
+func (c *CreateCommand) Init(args []string) error {
 	notes, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (c *BackupsCreateCommand) Init(args []string) error {
 }
 
 // Run implements Command.Run.
-func (c *BackupsCreateCommand) Run(ctx *cmd.Context) error {
+func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	result, err := sendCreateRequest(c)
 	if err != nil {
 		return errors.Trace(err)

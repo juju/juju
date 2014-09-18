@@ -4,25 +4,17 @@
 package backups_test
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
+
+	"github.com/juju/juju/testing"
 )
 
-const expectedHelp = `
-usage: juju backups [options] <command> ...
-purpose: create, manage, and restore backups of juju's state
-
-options:
---description  (= false)
-
--h, --help  (= false)
-    show help on a command or other topic
-
-"juju backups" is used to manage backups of the state of a juju environment.
-
-commands:
-    create - create a backup
-    help   - show help on a command or other topic
-`
+var expectedSubCommmandNames = []string{
+	"create",
+	"help",
+}
 
 type backupsSuite struct {
 	BackupsSuite
@@ -30,6 +22,32 @@ type backupsSuite struct {
 
 var _ = gc.Suite(&backupsSuite{})
 
+func (s *backupsSuite) checkHelpCommands(c *gc.C) {
+	ctx, err := testing.RunCommand(c, s.command, "--help")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we have registered all the sub commands by
+	// inspecting the help output.
+	var namesFound []string
+	commandHelp := strings.SplitAfter(testing.Stdout(ctx), "commands:")[1]
+	commandHelp = strings.TrimSpace(commandHelp)
+	for _, line := range strings.Split(commandHelp, "\n") {
+		name := strings.TrimSpace(strings.Split(line, " - ")[0])
+		namesFound = append(namesFound, name)
+	}
+	c.Check(namesFound, gc.DeepEquals, expectedSubCommmandNames)
+}
+
 func (s *backupsSuite) TestHelp(c *gc.C) {
-	s.checkHelp(c, "", expectedHelp[1:])
+	ctx, err := testing.RunCommand(c, s.command, "--help")
+	c.Assert(err, gc.IsNil)
+
+	expected := "(?s)usage: backups <command> .+"
+	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	expected = "(?sm).*^purpose: " + s.command.Purpose + "$.*"
+	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+	expected = "(?sm).*^" + s.command.Doc + "$.*"
+	c.Check(testing.Stdout(ctx), gc.Matches, expected)
+
+	s.checkHelpCommands(c)
 }

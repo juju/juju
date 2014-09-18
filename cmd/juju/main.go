@@ -139,7 +139,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(&HelpToolCommand{})
 
 	// Manage backups.
-	r.Register(backups.NewBackupsCommand())
+	r.Register(backups.NewCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAuthorizedKeysCommand())
