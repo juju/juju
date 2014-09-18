@@ -48,7 +48,7 @@ def get_archives(to_archive_name):
     return from_archive, to_archive
 
 
-def copy_packages(lp, version, from_archive_name, to_archive_name):
+def copy_packages(lp, version, to_archive_name):
     """Copy the juju-core source and binary packages to and archive."""
     from_archive, to_archive = get_archives(to_archive_name)
     package_histories = from_archive.getPublishedSources(
@@ -56,16 +56,16 @@ def copy_packages(lp, version, from_archive_name, to_archive_name):
     package_histories = [
         package for package in package_histories
         if package.source_package_version.startswith(version)]
+    if len(package_histories) == 0:
+        raise ValueError(
+            'No packages matching {} were found in {} to copy to {}.'.format(
+                version, from_archive.web_link, to_archive.web_link))
     for package in package_histories:
         to_archive.copyPackage(
             from_archive=from_archive,
             source_name=package.source_package_name,
             version=package.source_package_version,
             to_pocket='Release', include_binaries=True, unembargo=True)
-    else:
-        raise ValueError(
-            'No packages matching {} were found in {} to copy to {}.'.format(
-                version, from_archive.name, to_archive_name))
     return 0
 
 
