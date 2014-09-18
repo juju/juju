@@ -123,35 +123,46 @@ def test_control_heterogeneous(initial, other, log_dir):
             raise AssertionError('Sink2 not destroyed')
         other.juju('add-relation', ('dummy-source', 'dummy-sink'))
         status = other.get_status()
+        relations = status.status['services']['dummy-sink']['relations']
+        if not relations['source'] == ['dummy-source']:
+            raise AssertionError('source is not dummy-source.')
         other.juju('expose', ('dummy-sink',))
         status = other.get_status()
+        if not status.status['services']['dummy-sink']['exposed']:
+            raise AssertionError('dummy-sink is not exposed')
         other.juju('add-unit', ('dummy-sink',))
-        status = other.get_status()
+        if not has_agent(other, 'dummy-sink/1'):
+            raise AssertionError('dummy-sink/1 was not added.')
         other.juju('remove-unit', ('dummy-sink/1',))
         status = other.get_status()
+        if has_agent(other, 'dummy-sink/1'):
+            raise AssertionError('dummy-sink/1 was not removed.')
         other.juju('add-machine', ('lxc',))
-        status = other.wait_for_started()
+        status = other.get_status()
         lxc_machine, = set(k for k, v in status.agent_items() if
-                          k.endswith('/lxc/0'))
+                           k.endswith('/lxc/0'))
         lxc_holder = lxc_machine.split('/')[0]
         other.juju('remove-machine', (lxc_machine,))
         wait_until_removed(other, lxc_machine)
         other.juju('remove-machine', (lxc_holder,))
-        status = wait_until_removed(other, lxc_holder)
+        wait_until_removed(other, lxc_holder)
     # Test clean shutdown of an environment.
     other.juju(
         'destroy-environment', (other.env.environment, '-y'),
         include_e=False)
 
 
+def has_agent(client, agent_id):
+    return bool(agent_id in dict(client.get_status().agent_items()))
+
+
 def wait_until_removed(client, agent_id):
     """Wait for an agent to be removed from the environment."""
-    for ignored in until_timeout(30):
-        status = client.get_status()
-        if agent_id not in dict(status.agent_items()):
-            return status
+    for ignored in until_timeout(240):
+        if not has_agent(client, agent_id):
+            return
     else:
-        raise AssertionError('Machine not destroyed')
+        raise AssertionError('Machine not destroyed: {}.'.format(agent_id))
 
 
 def check_series(client):
