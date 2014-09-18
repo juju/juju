@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -43,6 +45,16 @@ func (s *backupSuite) checkMetadata(
 	c.Check(metadata.Size(), gc.Equals, expected.Size())
 	c.Check(metadata.Origin(), gc.DeepEquals, expected.Origin())
 	c.Check(metadata.Stored(), gc.DeepEquals, expected.Stored())
+}
+
+func (s *backupSuite) TestNewBackupID(c *gc.C) {
+	origin := metadata.NewOrigin("spam", "0", "localhost")
+	started := time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
+	meta := metadata.NewMetadata(*origin, "", &started)
+
+	id := state.NewBackupID(meta)
+
+	c.Check(id, gc.Equals, "20140912-131927.spam")
 }
 
 func (s *backupSuite) TestGetBackupMetadataFound(c *gc.C) {

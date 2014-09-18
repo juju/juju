@@ -155,7 +155,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 
 	jobs := make([]state.MachineJob, len(cfg.Jobs))
 	for i, job := range cfg.Jobs {
-		machineJob, err := state.MachineJobFromParams(job)
+		machineJob, err := machineJobFromParams(job)
 		if err != nil {
 			return nil, fmt.Errorf("invalid bootstrap machine job %q: %v", job, err)
 		}
@@ -199,4 +199,21 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
 	hostPorts := network.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
+}
+
+// machineJobFromParams returns the job corresponding to params.MachineJob.
+// TODO(dfc) this function should live in apiserver/params, move there once
+// state does not depend on apiserver/params
+func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+	switch job {
+	case params.JobHostUnits:
+		return state.JobHostUnits, nil
+	case params.JobManageEnviron:
+		return state.JobManageEnviron, nil
+	case params.JobManageStateDeprecated:
+		// Deprecated in 1.18.
+		return state.JobManageStateDeprecated, nil
+	default:
+		return -1, errors.Errorf("invalid machine job %q", job)
+	}
 }

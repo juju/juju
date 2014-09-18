@@ -23,6 +23,7 @@ import (
 )
 
 var (
+	NewBackupID           = newBackupID
 	GetBackupMetadata     = getBackupMetadata
 	AddBackupMetadata     = addBackupMetadata
 	AddBackupMetadataID   = addBackupMetadataID
@@ -140,8 +141,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 }
 
 var MachineIdLessThan = machineIdLessThan
-
-var JobNames = jobNames
 
 // SCHEMACHANGE
 // This method is used to reset a deprecated machine attribute.
@@ -286,4 +285,16 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func CountofSentMetrics(st *State) (int, error) {
+	return st.countofSentMetrics()
+}
+
+func CountofUnsentMetrics(st *State) (int, error) {
+	return st.countofUnsentMetrics()
+}
+
+func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
+	return st.setMetricBatchesSent(metrics)
 }

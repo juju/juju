@@ -3,12 +3,38 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"github.com/juju/errors"
 	"reflect"
 	"sort"
-	"strconv"
 	"strings"
 	"text/tabwriter"
 )
+
+// FormatOneline returns a brief list of units and their subordinates.
+// Subordinates will be indented 2 spaces and listed under their
+// superiors.
+func FormatOneline(value interface{}) ([]byte, error) {
+	fs, valueConverted := value.(formattedStatus)
+	if !valueConverted {
+		return nil, fmt.Errorf("could not convert the incoming value to type formattedStatus.")
+	}
+	var out bytes.Buffer
+
+	pprint := func(uName string, u unitStatus, level int) {
+		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)"), uName, u.PublicAddress, u.AgentState)
+	}
+
+	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
+		svc := fs.Services[svcName]
+		for _, uName := range sortStrings(stringKeysFromMap(svc.Units)) {
+			unit := svc.Units[uName]
+			pprint(uName, unit, 0)
+			recurseUnits(unit, 1, pprint)
+		}
+	}
+
+	return out.Bytes(), nil
+}
 
 // FormatTabular returns a tabular summary of machines, services, and
 // units. Any subordinate items are indented by two spaces beneath
@@ -16,11 +42,11 @@ import (
 func FormatTabular(value interface{}) ([]byte, error) {
 	fs, ok := value.(formattedStatus)
 	if !ok {
-		return nil, fmt.Errorf("could not convert the incoming value to type formattedStatus.")
+		return nil, errors.Errorf("could not convert the incoming value to type formattedStatus.")
 	}
-	out := new(bytes.Buffer)
+	var out bytes.Buffer
 	// To format things into columns.
-	tw := tabwriter.NewWriter(out, 0, 1, 1, ' ', 0)
+	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
 	p := func(values ...interface{}) {
 		for _, v := range values {
 			fmt.Fprintf(tw, "%s\t", v)
@@ -40,15 +66,12 @@ func FormatTabular(value interface{}) ([]byte, error) {
 
 	p("\n[Services]")
 	p("NAME\tEXPOSED\tCHARM")
-	for _, name := range sortStrings(stringKeysFromMap(fs.Services)) {
-		s := fs.Services[name]
-		for un, u := range s.Units {
-			if _, ok := units[un]; ok {
-				panic("Doh")
-			}
+	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
+		svc := fs.Services[svcName]
+		for un, u := range svc.Units {
 			units[un] = u
 		}
-		p(name, fmt.Sprintf("%t", s.Exposed), s.Charm)
+		p(svcName, fmt.Sprintf("%t", svc.Exposed), svc.Charm)
 	}
 	tw.Flush()
 
@@ -105,5 +128,5 @@ func recurseUnits(u unitStatus, il int, recurseMap func(string, unitStatus, int)
 
 // indent prepends a format string with the given number of spaces.
 func indent(prepend string, level int, append string) string {
-	return prepend + fmt.Sprintf("%"+strconv.Itoa(level)+"s", "") + append
+	return fmt.Sprintf("%s%*s%s", prepend, level, "", append)
 }

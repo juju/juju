@@ -125,6 +125,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNoAddressSet
 	case state.IsNotProvisionedError(err):
 		code = params.CodeNotProvisioned
+	case state.IsUpgradeInProgressError(err):
+		code = params.CodeUpgradeInProgress
 	case IsUnknownEnviromentError(err):
 		code = params.CodeNotFound
 	default:

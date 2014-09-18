@@ -328,6 +328,6 @@ func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
 	results, err := s.usermanager.SetPassword(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	expectedError := apiservertesting.ServerError("Can only change the password of the current user (admin@local)")
+	expectedError := apiservertesting.ServerError("can only change the password of the current user (admin@local)")
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }

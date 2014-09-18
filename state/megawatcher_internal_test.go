@@ -118,6 +118,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
+		Subordinate: false,
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -129,11 +130,12 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"), s.owner)
 	add(&params.ServiceInfo{
-		Name:     "logging",
-		CharmURL: serviceCharmURL(logging).String(),
-		OwnerTag: s.owner.String(),
-		Life:     params.Alive,
-		Config:   charm.Settings{},
+		Name:        "logging",
+		CharmURL:    serviceCharmURL(logging).String(),
+		OwnerTag:    s.owner.String(),
+		Life:        params.Alive,
+		Config:      charm.Settings{},
+		Subordinate: true,
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -158,12 +160,13 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
 		add(&params.UnitInfo{
-			Name:      fmt.Sprintf("wordpress/%d", i),
-			Service:   wordpress.Name(),
-			Series:    m.Series(),
-			MachineId: m.Id(),
-			Ports:     []network.Port{},
-			Status:    params.StatusPending,
+			Name:        fmt.Sprintf("wordpress/%d", i),
+			Service:     wordpress.Name(),
+			Series:      m.Series(),
+			MachineId:   m.Id(),
+			Ports:       []network.Port{},
+			Status:      params.StatusPending,
+			Subordinate: false,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -212,11 +215,12 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(ok, gc.Equals, true)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&params.UnitInfo{
-			Name:    fmt.Sprintf("logging/%d", i),
-			Service: "logging",
-			Series:  "quantal",
-			Ports:   []network.Port{},
-			Status:  params.StatusPending,
+			Name:        fmt.Sprintf("logging/%d", i),
+			Service:     "logging",
+			Series:      "quantal",
+			Ports:       []network.Port{},
+			Status:      params.StatusPending,
+			Subordinate: true,
 		})
 	}
 	return

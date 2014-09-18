@@ -36,5 +36,12 @@ func stepsFor121() []Step {
 				return migrateCharmStorage(context.State(), context.AgentConfig())
 			},
 		},
+		&upgradeStep{
+			description: "set environment owner and server uuid",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.SetOwnerAndServerUUIDForEnvironment(context.State())
+			},
+		},
 	}
 }
