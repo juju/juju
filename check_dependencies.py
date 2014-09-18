@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Script for checking if a directory tree matches a dependencies list"""
+"""Script for checking if a directory tree matches a dependencies list."""
 
 from __future__ import print_function
 
@@ -9,7 +9,7 @@ import sys
 
 
 def get_dependencies(filename):
-    """Get path of each dependency from tsv file"""
+    """Get path of each dependency from tsv file."""
     deps = set()
     with open(filename) as f:
         for line in f:
@@ -18,7 +18,7 @@ def get_dependencies(filename):
 
 
 def compare_dependencies(deps, srcdir):
-    """Give the difference between expected deps and go src directory"""
+    """Give the difference between expected deps and go src directory."""
     present = []
     unknown = []
     for r, ds, fs in os.walk(srcdir):
@@ -39,7 +39,7 @@ def main():
     args = get_arg_parser().parse_args()
     deps = get_dependencies(args.depfile)
     known = deps.union(args.ignore)
-    present, unknown  = compare_dependencies(known, args.srcdir)
+    present, unknown = compare_dependencies(known, args.srcdir)
     missing = deps.difference(present)
     if missing:
         print("Given dependencies missing:\n {}".format("\n ".join(missing)))
