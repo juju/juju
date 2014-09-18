@@ -21,12 +21,12 @@ var backupsDoc = `
 
 const backupsPurpose = "create, manage, and restore backups of juju's state"
 
-// BackupsCommand is the top-level command wrapping all backups functionality.
+// Command is the top-level command wrapping all backups functionality.
 type Command struct {
 	cmd.SuperCommand
 }
 
-// NewBackupsCommand returns a new BackupsCommand.
+// NewCommand returns a new backups super-command.
 func NewCommand() cmd.Command {
 	backupsCmd := Command{
 		SuperCommand: *cmd.NewSuperCommand(
@@ -50,7 +50,7 @@ type APIClient interface {
 	Create(notes string) (*params.BackupsMetadataResult, error)
 }
 
-// BackupsCommandBase is the base type for backups sub-commands.
+// CommandBase is the base type for backups sub-commands.
 type CommandBase struct {
 	envcmd.EnvCommandBase
 }
