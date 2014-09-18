@@ -212,12 +212,12 @@ def main():
     elif args.command == LIST:
         return list_published_files(args.purpose)
     elif args.command == PUBLISH:
-        if args.path == None or len(args.path) != 1:
+        if args.path is None or len(args.path) != 1:
             parser.print_usage()
             return BAD_ARGS
         return publish_files(args.purpose, args.path[0], args)
     elif args.command == DELETE:
-        if args.path == None:
+        if args.path is None:
             parser.print_usage()
             return BAD_ARGS
         return delete_files(args.purpose, args.path, args)
@@ -234,7 +234,8 @@ def get_option_parser():
         help='Increse verbosity.')
     parser.add_argument('command', help="<list | publish | delete>")
     parser.add_argument('purpose', help="<{}>".format(' | '.join(PURPOSES)))
-    parser.add_argument('path', nargs="*", default=None,
+    parser.add_argument(
+        'path', nargs="*", default=None,
         help='The path to publish or files to delete')
     return parser
 

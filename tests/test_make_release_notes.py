@@ -66,7 +66,7 @@ class MakeReleaseNotes(TestCase):
             '  Lp 1\n'
             '\n'
             '* Long text Long text Long text Long text Long text Long text '
-                'Long\n'
+            'Long\n'
             '  text Long text Long text Long text\n'
             '  Lp 2'
         )

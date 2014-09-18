@@ -78,7 +78,8 @@ def get_argument_parser():
         '--dry-run', action="store_true", default=False,
         help='Explain what will happen without making changes')
     parser.add_argument('version', help='The package version like 1.20.8')
-    parser.add_argument('to_archive_name',
+    parser.add_argument(
+        'to_archive_name',
         help='The archive to copy the source and binary packages to.')
     return parser
 

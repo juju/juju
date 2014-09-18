@@ -190,8 +190,6 @@ class Client:
                 self.delete_machine(machine_id)
 
 
-
-
 def main():
     parser = ArgumentParser('Query and manage joyent.')
     parser.add_argument(
@@ -209,7 +207,8 @@ def main():
         help="SSH key fingerprint.  Environment: MANTA_KEY_ID=FINGERPRINT",
         default=os.environ.get("MANTA_KEY_ID"))
     parser.add_argument('action', help='The action to perform.')
-    parser.add_argument('machine_id', help='The machine id.', nargs="?", default=None)
+    parser.add_argument(
+        'machine_id', help='The machine id.', nargs="?", default=None)
     args = parser.parse_args()
     if not args.sdc_url:
         print('SDC_URL must be sourced into the environment.')
