@@ -28,8 +28,7 @@ type Storage interface {
 	Remove(path string) error
 }
 
-// Storage returns a Storage for the environment with the specified UUID.
-// The caller must close the storage when it is no longer needed.
+// Storage returns a Storage for the environment.
 func (st *State) Storage() Storage {
 	return stateStorage{st}
 }
