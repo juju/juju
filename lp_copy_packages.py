@@ -46,7 +46,7 @@ def get_archives(to_archive_name):
     return from_archive, to_archive
 
 
-def copy_packages(lp, version, to_archive_name):
+def copy_packages(lp, version, to_archive_name, dry_run=False):
     """Copy the juju-core source and binary packages to and archive."""
     from_archive, to_archive = get_archives(to_archive_name)
     package_histories = from_archive.getPublishedSources(
@@ -59,17 +59,24 @@ def copy_packages(lp, version, to_archive_name):
             'No packages matching {} were found in {} to copy to {}.'.format(
                 version, from_archive.web_link, to_archive.web_link))
     for package in package_histories:
-        to_archive.copyPackage(
-            from_archive=from_archive,
-            source_name=package.source_package_name,
-            version=package.source_package_version,
-            to_pocket='Release', include_binaries=True, unembargo=True)
+        print(
+            'Copying {} and its binaries to {}.'.format(
+                package.display_name, to_archive_name))
+        if not dry_run:
+            to_archive.copyPackage(
+                from_archive=from_archive,
+                source_name=package.source_package_name,
+                version=package.source_package_version,
+                to_pocket='Release', include_binaries=True, unembargo=True)
     return 0
 
 
-def get_option_parser():
+def get_argument_parser():
     """Return the option parser for this program."""
     parser = ArgumentParser('Copy juju-core from one archive to another')
+    parser.add_argument(
+        '--dry-run', action="store_true", default=False,
+        help='Explain what will happen without making changes')
     parser.add_argument('version', help='The package version like 1.20.8')
     parser.add_argument('to_archive_name',
         help='The archive to copy the source and binary packages to.')
@@ -77,9 +84,11 @@ def get_option_parser():
 
 
 if __name__ == '__main__':
-    parser = get_option_parser()
+    parser = get_argument_parser()
     args = parser.parse_args()
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
         version='devel')
-    sys.exit(copy_packages(lp, args.version, args.to_archive_name))
+    ret_code = copy_packages(
+        lp, args.version, args.to_archive_name, args.dry_run)
+    sys.exit(ret_code)
