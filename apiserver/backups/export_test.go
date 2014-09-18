@@ -8,10 +8,6 @@ import (
 	"github.com/juju/juju/state/backups"
 )
 
-var (
-	NewBackupsStorage = &newBackupsStorage
-)
-
 func SetBackups(api *API, impl backups.Backups) {
 	api.backups = impl
 }

@@ -446,12 +446,13 @@ func (s *envFileStorage) RemoveFile(id string) error {
 
 // NewBackupsStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewBackupsStorage(st *State, envStor blobstore.ManagedStorage) (filestorage.FileStorage, error) {
-	environ, err := st.Environment()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	files := newBackupFileStorage(environ.UUID(), envStor, backupStorageRoot)
+func NewBackupsStorage(st *State) filestorage.FileStorage {
+	envUUID := st.EnvironTag().Id()
+	session := st.db.Session.Copy()
+
+	envStor := st.getManagedStorage(envUUID, session)
+
+	files := newBackupFileStorage(envUUID, envStor, backupStorageRoot)
 	docs := newBackupMetadataStorage(st)
-	return filestorage.NewFileStorage(docs, files), nil
+	return filestorage.NewFileStorage(docs, files)
 }

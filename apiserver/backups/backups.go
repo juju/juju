@@ -6,10 +6,8 @@ package backups
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 )
@@ -32,27 +30,10 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	stor, err := newBackupsStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+	stor := state.NewBackupsStorage(st)
 	b := API{
 		st:      st,
 		backups: backups.NewBackups(stor),
 	}
 	return &b, nil
-}
-
-var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	environ, err := st.Environment()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	uuid := environ.UUID()
-	session := st.db.Session.Copy()
-	envStor := st.getManagedStorage(uuid, session)
-
-	storage := state.NewBackupsStorage(st, envStor)
-	return storage, nil
 }
