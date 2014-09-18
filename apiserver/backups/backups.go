@@ -45,10 +45,13 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 }
 
 var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	envStor, err := environs.GetStorage(st)
+	environ, err := st.Environment()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	uuid := environ.UUID()
+	session := st.db.Session.Copy()
+	envStor := st.getManagedStorage(uuid, session)
 
 	storage := state.NewBackupsStorage(st, envStor)
 	return storage, nil
