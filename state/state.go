@@ -1729,6 +1729,32 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get state servers document")
 	}
+
+	if doc.EnvUUID == "" {
+		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
+
+		// This only happens when migrating from 1.20 to 1.21 before
+		// upgrade steps have been run. Without this hack environTag
+		// on State ends up empty, breaking basic functionality needed
+		// to run upgrade steps (a chicken-and-egg scenario).
+		environments, closer := st.getCollection(environmentsC)
+		defer closer()
+
+		var envDoc environmentDoc
+		query := environments.Find(nil)
+		count, err := query.Count()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get environment document count")
+		}
+		if count != 1 {
+			return nil, errors.New("expected just one environment to get UUID from")
+		}
+		if err := query.One(&envDoc); err != nil {
+			return nil, errors.Annotate(err, "cannot load environment document")
+		}
+		doc.EnvUUID = envDoc.UUID
+	}
+
 	return &StateServerInfo{
 		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
 		MachineIds:       doc.MachineIds,

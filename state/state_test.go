@@ -2887,6 +2887,18 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 	// state servers.
 }
 
+func (s *StateSuite) TestStateServerInfoWithPreMigrationDoc(c *gc.C) {
+	err := s.stateServers.Update(
+		nil,
+		bson.D{{"$unset", bson.D{{"env-uuid", 1}}}},
+	)
+	c.Assert(err, gc.IsNil)
+
+	ids, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids.EnvironmentTag, gc.Equals, s.envTag)
+}
+
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	expected := &state.StateServerInfo{
 		EnvironmentTag: s.envTag,
