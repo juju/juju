@@ -31,5 +31,5 @@ func NewCleanup(client *metricsmanager.Client) worker.Worker {
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, time.Second)
+	return worker.NewPeriodicWorker(f, 1*time.Hour)
 }

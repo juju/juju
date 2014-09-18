@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/metricworker"
@@ -22,6 +23,11 @@ type CleanupSuite struct {
 }
 
 var _ = gc.Suite(&CleanupSuite{})
+
+func (s *CleanupSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.APIState, _ = s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+}
 
 // TestCleaner create 2 metrics, one old and one new.
 // After a single run of the cleanup worker it expects the

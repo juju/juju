@@ -421,6 +421,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Start metric workers only on the bootstrap machine
 	if a.MachineId == bootstrapMachineId {
+		logger.Infof("starting metric workers")
 		a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
 			return metricworker.NewCleanup(metricsmanager.NewClient(st)), nil
 		})
