@@ -356,7 +356,9 @@ Code review
 
 The juju project uses peer review of pull requests prior to merging to
 facilitate improvements both in code quality and in design.  The code
-review tool is ReviewBoard, hosted at http://reviews.vapour.ws/.
+review tool is ReviewBoard, hosted at http://reviews.vapour.ws/.  In the
+event that the site is down, the project will temporarily fall back to
+github for reviews of critical pull requests.
 
 The site uses github OAuth for authentication.  To log in simply go to
 login page and click the "github" button.  The first time you do this,
