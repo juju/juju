@@ -27,18 +27,16 @@ def get_archives(to_archive_name):
     5. After evaluation, the stable packages in public proposed can be copied
        to the public stable PPA.
     """
+    to_team_name = 'juju'
     if to_archive_name == DEVEL:
         from_archive_name = DEVEL
         from_team_name = 'juju-packaging'
-        to_team_name = 'juju'
     elif to_archive_name == PROPOSED:
         from_archive_name = STABLE
         from_team_name = 'juju-packaging'
-        to_team_name = 'juju'
     elif to_archive_name == STABLE:
         from_archive_name = PROPOSED
         from_team_name = 'juju'
-        to_team_name = 'juju'
     else:
         raise ValueError('{} is not a valid archive'.format(to_archive_name))
     from_team = lp.people[from_team_name]
