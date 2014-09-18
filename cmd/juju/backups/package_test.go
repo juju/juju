@@ -49,13 +49,13 @@ func TestRunMain(t *testing.T) {
 	}
 }
 
-type BackupsSuite struct {
+type BaseBackupsSuite struct {
 	jujutesting.FakeJujuHomeSuite
 	command    *backups.Command
 	metaresult *params.BackupsMetadataResult
 }
 
-func (s *BackupsSuite) SetUpTest(c *gc.C) {
+func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.command = backups.NewCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
@@ -63,7 +63,7 @@ func (s *BackupsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BackupsSuite) setSuccess() {
+func (s *BaseBackupsSuite) setSuccess() {
 	s.PatchValue(backups.NewAPIClient,
 		func(c *backups.CommandBase) (backups.APIClient, error) {
 			return &fakeAPIClient{metaresult: s.metaresult}, nil
@@ -71,7 +71,7 @@ func (s *BackupsSuite) setSuccess() {
 	)
 }
 
-func (s *BackupsSuite) setFailure(failure string) {
+func (s *BaseBackupsSuite) setFailure(failure string) {
 	s.PatchValue(backups.NewAPIClient,
 		func(c *backups.CommandBase) (backups.APIClient, error) {
 			return &fakeAPIClient{err: errors.New(failure)}, nil
@@ -79,7 +79,7 @@ func (s *BackupsSuite) setFailure(failure string) {
 	)
 }
 
-func (s *BackupsSuite) diffStrings(c *gc.C, value, expected string) {
+func (s *BaseBackupsSuite) diffStrings(c *gc.C, value, expected string) {
 	// If only Go had a diff library.
 	vlines := strings.Split(value, "\n")
 	elines := strings.Split(expected, "\n")
@@ -108,13 +108,13 @@ func (s *BackupsSuite) diffStrings(c *gc.C, value, expected string) {
 
 }
 
-func (s *BackupsSuite) checkString(c *gc.C, value, expected string) {
+func (s *BaseBackupsSuite) checkString(c *gc.C, value, expected string) {
 	if !c.Check(value, gc.Equals, expected) {
 		s.diffStrings(c, value, expected)
 	}
 }
 
-func (s *BackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
+func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
 	c.Check(ctx.Stdin.(*bytes.Buffer).String(), gc.Equals, "")
 	s.checkString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
 	s.checkString(c, ctx.Stderr.(*bytes.Buffer).String(), err)

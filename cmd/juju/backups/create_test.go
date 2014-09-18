@@ -15,14 +15,14 @@ import (
 )
 
 type createSuite struct {
-	BackupsSuite
+	BaseBackupsSuite
 	subcommand *backups.CreateCommand
 }
 
 var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
-	s.BackupsSuite.SetUpTest(c)
+	s.BaseBackupsSuite.SetUpTest(c)
 	s.subcommand = &backups.CreateCommand{}
 }
 

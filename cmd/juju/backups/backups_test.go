@@ -17,7 +17,7 @@ var expectedSubCommmandNames = []string{
 }
 
 type backupsSuite struct {
-	BackupsSuite
+	BaseBackupsSuite
 }
 
 var _ = gc.Suite(&backupsSuite{})
