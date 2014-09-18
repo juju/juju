@@ -112,7 +112,7 @@ if [[ -d $WORK/pkg ]]; then
 fi
 
 # Validate the go src tree against dependencies.tsv
-./check_dependencies.py --ignore $PACKAGE \
+$(dirname $0)/check_dependencies.py --ignore $PACKAGE \
     "$WORK/src/$PACKAGE/dependencies.tsv" "$WORK/src"
 
 # Change the generic release to the proper juju-core version.
