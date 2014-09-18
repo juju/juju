@@ -935,9 +935,18 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 func (st *State) updateCharmDoc(
 	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
+	// Make sure we escape any "$" and "." in config option names
+	// first. See http://pad.lv/1308146.
+	cfg := ch.Config()
+	escapedConfig := charm.NewConfig()
+	for optionName, option := range cfg.Options {
+		escapedName := escapeReplacer.Replace(optionName)
+		escapedConfig.Options[escapedName] = option
+	}
+
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
-		{"config", ch.Config()},
+		{"config", escapedConfig},
 		{"actions", ch.Actions()},
 		{"bundleurl", bundleURL},
 		{"bundlesha256", bundleSha256},

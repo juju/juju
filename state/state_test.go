@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -356,6 +357,51 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
 	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
 	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+}
+
+func (s *StateSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
+	// Make sure when we have mongodb special characters like "$" and
+	// "." in the name of any charm config option, we do proper
+	// escaping before storing them and unescaping after loading. See
+	// also http://pad.lv/1308146.
+
+	// Clone the dummy charm and change the config.
+	configWithProblematicKeys := []byte(`
+options:
+  $bad.key: {default: bad, description: bad, type: string}
+  not.ok.key: {description: not ok, type: int}
+  valid-key: {description: all good, type: boolean}
+  still$bad.: {description: not good, type: float}
+  $.$: {description: awful, type: string}
+  ...: {description: oh boy, type: int}
+  just$: {description: no no, type: float}
+`[1:])
+	chDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	err := utils.AtomicWriteFile(
+		filepath.Join(chDir, "config.yaml"),
+		configWithProblematicKeys,
+		0666,
+	)
+	c.Assert(err, gc.IsNil)
+	ch, err := charm.ReadDir(chDir)
+	c.Assert(err, gc.IsNil)
+	missingCurl := charm.MustParseURL("local:quantal/missing-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	c.Assert(err, gc.IsNil)
+	bundleSHA256 := "dummy-1-sha-256"
+
+	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
+	c.Assert(err, gc.IsNil)
+	sch, err := s.State.UpdateUploadedCharm(ch, missingCurl, bundleURL, bundleSHA256)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
+	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(sch.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(sch.BundleSha256(), gc.Equals, bundleSHA256)
 }
 
 func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
