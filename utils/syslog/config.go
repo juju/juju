@@ -139,10 +139,15 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 // The logrotate conf for state serve nodes.
 // default size is 512MB, ensuring that the log + one rotation
 // will never take up more than 1GB of space.
+//
+// The size of the logrotate configuration is low for
+// a very specific reason, see config comment.
 const logrotateConf = `
 {{.LogDir}}/all-machines.log {
-    # this is driven by rsyslogd, so our size here is just an arbitrary
-    # unit that will ensure rotation happens
+    # rsyslogd informs logrotate when to rotate.
+    # The size specified here must be less than or equal to the log size
+    # when rsyslogd informs logrotate, or logrotate will take no action.
+    # The size value is otherwise unimportant.
     size 1K
     # maximum of one old file
     rotate 1
