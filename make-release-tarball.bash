@@ -103,12 +103,17 @@ fi
 
 # Remove godeps, non-free data, and any binaries.
 rm -r $WORK/src/launchpad.net/godeps
+rm -r $WORK/src/github.com/kisielk/gotool
 rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
 rm $WORK/src/code.google.com/p/go.net/html/charset/*test.go
 rm -r $WORK/bin
 if [[ -d $WORK/pkg ]]; then
     rm -r $WORK/pkg
 fi
+
+# Validate the go src tree against dependencies.tsv
+./check_dependencies.py --ignore $PACKAGE \
+    "$WORK/src/$PACKAGE/dependencies.tsv" "$WORK/src"
 
 # Change the generic release to the proper juju-core version.
 VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
