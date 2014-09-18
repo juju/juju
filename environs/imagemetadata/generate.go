@@ -6,7 +6,7 @@ package imagemetadata
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +15,16 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/version"
 )
+
+// IndexStoragePath returns the storage path for the image metadata index file.
+func IndexStoragePath() string {
+	return path.Join(storage.BaseImagesPath, simplestreams.UnsignedIndex(currentStreamsVersion))
+}
+
+// ProductMetadataStoragePath returns the storage path for the image metadata products file.
+func ProductMetadataStoragePath() string {
+	return path.Join(storage.BaseImagesPath, ProductMetadataPath)
+}
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with supplied metadata, writing the resulting metadata is written to storage.
@@ -98,12 +108,11 @@ func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpe
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex(CurrentStreamsVersion), index},
-		{ProductMetadataPath, products},
+		{IndexStoragePath(), index},
+		{ProductMetadataStoragePath(), products},
 	}
 	for _, md := range metadataInfo {
-		err = metadataStore.Put(
-			filepath.Join(storage.BaseImagesPath, md.Path), bytes.NewReader(md.Data), int64(len(md.Data)))
+		err = metadataStore.Put(md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}

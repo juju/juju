@@ -26,8 +26,8 @@ const (
 	// StreamsVersionV1 is used to construct the path for accessing streams data.
 	StreamsVersionV1 = "v1"
 
-	// CurrentStreamsVersion is the current version of image simplestreams data.
-	CurrentStreamsVersion = StreamsVersionV1
+	// currentStreamsVersion is the current version of image simplestreams data.
+	currentStreamsVersion = StreamsVersionV1
 )
 
 // simplestreamsImagesPublicKey is the public key required to
@@ -187,7 +187,7 @@ func Fetch(
 		ValueTemplate: ImageMetadata{},
 		PublicKey:     simplestreamsImagesPublicKey,
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, CurrentStreamsVersion, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, currentStreamsVersion, cons, onlySigned, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

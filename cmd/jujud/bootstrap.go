@@ -40,6 +40,7 @@ import (
 var (
 	agentInitializeState = agent.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
+	stateStorage         = (*state.State).Storage
 	minSocketTimeout     = 1 * time.Minute
 )
 
@@ -218,8 +219,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 
 	// Add custom image metadata to environment storage.
-	if err := c.storeCustomImageMetadata(st); err != nil {
-		return err
+	if c.ImageMetadataDir != "" {
+		if err := c.storeCustomImageMetadata(stateStorage(st)); err != nil {
+			return err
+		}
 	}
 
 	// bootstrap machine always gets the vote
@@ -362,16 +365,7 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 // storeCustomImageMetadata reads the custom image metadata from disk,
 // and stores the files in environment storage with the same relative
 // paths.
-func (c *BootstrapCommand) storeCustomImageMetadata(st *state.State) error {
-	if c.ImageMetadataDir == "" {
-		logger.Debugf("no image metadata to store")
-		return nil
-	}
-	stor, err := st.Storage()
-	if err != nil {
-		return err
-	}
-	defer stor.Close()
+func (c *BootstrapCommand) storeCustomImageMetadata(stor state.Storage) error {
 	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
 	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
 		if err != nil {

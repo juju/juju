@@ -4,9 +4,9 @@
 package environs_test
 
 import (
-	"errors"
 	"strings"
 
+	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
@@ -82,7 +82,7 @@ func (s *URLsSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	})
 	// overwrite the one previously registered against id1
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return nil, errors.New("oyvey")
+		return nil, errors.NewNotSupported(nil, "oyvey")
 	})
 	defer environs.UnregisterImageDataSourceFunc("id0")
 	defer environs.UnregisterImageDataSourceFunc("id1")
@@ -95,6 +95,17 @@ func (s *URLsSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 		"betwixt/releases/",
 		"http://cloud-images.ubuntu.com/releases/",
 	})
+}
+
+func (s *URLsSuite) TestImageMetadataURLsRegisteredFuncsError(c *gc.C) {
+	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		return nil, errors.New("oyvey!")
+	})
+	defer environs.UnregisterImageDataSourceFunc("id0")
+
+	env := s.env(c, "config-image-metadata-url", "")
+	_, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.ErrorMatches, "oyvey!")
 }
 
 func (s *URLsSuite) TestImageMetadataURLsNonReleaseStream(c *gc.C) {

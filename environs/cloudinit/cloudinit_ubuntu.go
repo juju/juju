@@ -21,7 +21,6 @@ import (
 	agenttool "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/service/upstart"
 )
 
@@ -252,8 +251,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 			if err != nil {
 				return err
 			}
-			indexFile := path.Join(metadataDir, "images", simplestreams.UnsignedIndex(imagemetadata.CurrentStreamsVersion))
-			productFile := path.Join(metadataDir, "images", imagemetadata.ProductMetadataPath)
+			indexFile := path.Join(metadataDir, imagemetadata.IndexStoragePath())
+			productFile := path.Join(metadataDir, imagemetadata.ProductMetadataStoragePath())
 			w.conf.AddTextFile(indexFile, string(index), 0644)
 			w.conf.AddTextFile(productFile, string(products), 0644)
 			metadataDir = "  --image-metadata " + shquote(metadataDir)

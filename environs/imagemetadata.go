@@ -6,6 +6,7 @@ package environs
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/imagemetadata"
@@ -26,8 +27,8 @@ var (
 // returns a simplestreams datasource.
 //
 // ImageDataSourceFunc will be used in ImageMetadataSources.
-// If the function returns an error, the error will be logged and
-// the result ignored.
+// Any error satisfying errors.IsNotSupported will be ignored;
+// any other error will be cause ImageMetadataSources to fail.
 type ImageDataSourceFunc func(Environ) (simplestreams.DataSource, error)
 
 // RegisterImageDataSourceFunc registers an ImageDataSourceFunc
@@ -72,7 +73,12 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 		}
 		sources = append(sources, simplestreams.NewURLDataSource("image-metadata-url", userURL, verify))
 	}
-	sources = append(sources, environmentDataSources(env)...)
+
+	envDataSources, err := environmentDataSources(env)
+	if err != nil {
+		return nil, err
+	}
+	sources = append(sources, envDataSources...)
 
 	// Add the default, public datasource.
 	defaultURL, err := imagemetadata.ImageMetadataURL(imagemetadata.DefaultBaseURL, config.ImageStream())
@@ -89,7 +95,7 @@ func ImageMetadataSources(env Environ) ([]simplestreams.DataSource, error) {
 // environmentDataSources returns simplestreams datasources for the environment
 // by calling the functions registered in RegisterImageDataSourceFunc.
 // The datasources returned will be in the same order the functions were registered.
-func environmentDataSources(env Environ) []simplestreams.DataSource {
+func environmentDataSources(env Environ) ([]simplestreams.DataSource, error) {
 	datasourceFuncsMu.RLock()
 	defer datasourceFuncsMu.RUnlock()
 	var datasources []simplestreams.DataSource
@@ -97,10 +103,12 @@ func environmentDataSources(env Environ) []simplestreams.DataSource {
 		logger.Debugf("trying datasource %q", f.id)
 		datasource, err := f.f(env)
 		if err != nil {
-			logger.Debugf("failed to get datasource %q: %v", f.id, err)
-			continue
+			if errors.IsNotSupported(err) {
+				continue
+			}
+			return nil, err
 		}
 		datasources = append(datasources, datasource)
 	}
-	return datasources
+	return datasources, nil
 }

@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -574,7 +575,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
-	// The tools should have been added to state, and
+	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
 	st, err := state.Open(&mongo.MongoInfo{
@@ -631,6 +632,11 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 
+	var stor statetesting.MapStorage
+	s.PatchValue(&stateStorage, func(*state.State) state.Storage {
+		return &stor
+	})
+
 	_, cmd, err := s.initBootstrapCommand(
 		c, nil,
 		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
@@ -640,23 +646,10 @@ func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	// The contents of the directory should have been added to state.
-	st, err := state.Open(&mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-			CACert: testing.CACert,
-		},
-		Password: testPasswordHash(),
-	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	storage, err := st.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-
+	// The contents of the directory should have been added to
+	// environment storage.
 	for _, pair := range expected {
-		r, length, err := storage.Get(pair.path)
+		r, length, err := stor.Get(pair.path)
 		c.Assert(err, gc.IsNil)
 		data, err := ioutil.ReadAll(r)
 		r.Close()

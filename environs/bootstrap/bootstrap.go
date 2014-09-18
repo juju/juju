@@ -280,11 +280,9 @@ func validateConstraints(env environs.Environ, cons constraints.Value) error {
 	}
 	unsupported, err := validator.Validate(cons)
 	if len(unsupported) > 0 {
-		logger.Warningf("unsupported constraints: %v", err)
-	} else if err != nil {
-		return err
+		logger.Warningf("unsupported constraints: %v", unsupported)
 	}
-	return nil
+	return err
 }
 
 // EnsureNotBootstrapped returns nil if the environment is not

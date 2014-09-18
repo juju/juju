@@ -547,7 +547,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
-	registerSimplestreamsDataSource(st)
+	registerSimplestreamsDataSource(st.Storage())
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)

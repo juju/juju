@@ -19,13 +19,13 @@ import (
 // environmentStorageDataSource is a simplestreams.DataSource that
 // retrieves simplestreams metadata from environment storage.
 type environmentStorageDataSource struct {
-	st *state.State
+	stor state.Storage
 }
 
 // NewEnvironmentStorageDataSource returns a new datasource that retrieves
 // metadata from environment storage.
-func NewEnvironmentStorageDataSource(st *state.State) simplestreams.DataSource {
-	return environmentStorageDataSource{st}
+func NewEnvironmentStorageDataSource(stor state.Storage) simplestreams.DataSource {
+	return environmentStorageDataSource{stor}
 }
 
 // Description is defined in simplestreams.DataSource.
@@ -37,13 +37,7 @@ func (d environmentStorageDataSource) Description() string {
 func (d environmentStorageDataSource) Fetch(file string) (io.ReadCloser, string, error) {
 	logger.Debugf("fetching %q", file)
 
-	stor, err := d.st.Storage()
-	if err != nil {
-		return nil, "", err
-	}
-	defer stor.Close()
-
-	r, _, err := stor.Get(path.Join(storage.BaseImagesPath, file))
+	r, _, err := d.stor.Get(path.Join(storage.BaseImagesPath, file))
 	if err != nil {
 		return nil, "", err
 	}
@@ -67,9 +61,9 @@ func (d environmentStorageDataSource) SetAllowRetry(allow bool) {
 }
 
 // registerSimplestreamsDataSource registers a environmentStorageDataSource.
-func registerSimplestreamsDataSource(st *state.State) {
-	ds := NewEnvironmentStorageDataSource(st)
-	environs.RegisterImageDataSourceFunc("environment storage", func(environs.Environ) (simplestreams.DataSource, error) {
+func registerSimplestreamsDataSource(stor state.Storage) {
+	ds := NewEnvironmentStorageDataSource(stor)
+	environs.RegisterImageDataSourceFunc(ds.Description(), func(environs.Environ) (simplestreams.DataSource, error) {
 		return ds, nil
 	})
 }

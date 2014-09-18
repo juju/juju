@@ -174,7 +174,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 			return errors.Trace(err)
 		}
 
-		registerSimplestreamsDataSource(c.st)
+		registerSimplestreamsDataSource(c.st.Storage())
 	}
 	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
