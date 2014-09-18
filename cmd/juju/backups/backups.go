@@ -46,6 +46,7 @@ func NewCommand() cmd.Command {
 // the backups command.
 type APIClient interface {
 	io.Closer
+	// Create sends an RPC request to create a new backup.
 	Create(notes string) (*params.BackupsMetadataResult, error)
 }
 
