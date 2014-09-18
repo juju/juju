@@ -52,13 +52,13 @@ func (c *CharmSyncCommand) Info() *cmd.Info {
 func (c *CharmSyncCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return fmt.Errorf("unit name is missing")
+		return errors.Errorf("unit name is missing")
 	case 1:
 		c.toUnit = args[0]
+		return nil
 	default:
-		return fmt.Errorf("too many arguments provided.")
+		return errors.Errorf("too many arguments provided.")
 	}
-	return nil
 }
 
 func (c *CharmSyncCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -106,7 +106,6 @@ func (c *CharmSyncCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	return nil
-
 }
 
 var apiRun = func(c *CharmSyncCommand, runParams params.RunParams) ([]params.RunResult, error) {
@@ -118,35 +117,32 @@ var apiRun = func(c *CharmSyncCommand, runParams params.RunParams) ([]params.Run
 func (c *CharmSyncCommand) uploadCharm(charmSeries, charmDirPath string) ([]params.RunResult, error) {
 	unitHostPort, err := wrapUnitURL(c)
 	if err != nil {
-		return []params.RunResult{}, err
+		return nil, err
 	}
 
 	charmTransientFolder, err := wrapRemoteTempPath(c, charmSeries)
 	if err != nil {
-		return []params.RunResult{}, errors.Annotatef(err, "cannote determine remote machine temp folder")
+		return nil, errors.Annotatef(err, "cannote determine remote machine temp folder")
 	}
 
 	args := []string{"-r", charmDirPath, unitHostPort + ":" + charmTransientFolder}
 	if err := sshCopy(args, &ssh.Options{}); err != nil {
-		return []params.RunResult{}, errors.Annotatef(err, "cannot copy charm to %q", unitHostPort)
+		return nil, errors.Annotatef(err, "cannot copy charm to %q", unitHostPort)
 	}
 
 	unitPath, err := wrapRemoteUnitPath(c, charmSeries)
 	if err != nil {
-		return []params.RunResult{}, errors.Annotatef(err, "cannot determine remote charm path")
+		return nil, errors.Annotatef(err, "cannot determine remote charm path")
 	}
 	//TODO (perrito666) extend this to windows workloads when we know what is te equivalent.
+	// sudo is used because everything under DataDir belongs to root
 	remoteRunParams := params.RunParams{
 		Commands: fmt.Sprintf("sudo cp -rax %s/* %s; rm -rf %s", charmTransientFolder, unitPath, charmTransientFolder),
 		Timeout:  5 * time.Minute,
 		Units:    []string{c.toUnit},
 	}
 	runResults, err := apiRun(c, remoteRunParams)
-	if err != nil {
-		return []params.RunResult{}, errors.Annotatef(err, "cannot copy charm to destination")
-	}
-	return runResults, nil
-
+	return runResults, errors.Annotatef(err, "cannot copy charm to destination")
 }
 
 var wrapUnitURL = func(c *CharmSyncCommand) (string, error) { return c.unitURL() }
@@ -155,14 +151,13 @@ var wrapUnitURL = func(c *CharmSyncCommand) (string, error) { return c.unitURL()
 // required to connect to the unit
 func (c *CharmSyncCommand) unitURL() (string, error) {
 	if c.toUnit == "" {
-		return "", fmt.Errorf("the unit name must be specified")
+		return "", errors.Errorf("the unit name must be specified")
 	}
 	host, err := wrapHostFromTarget(c, c.toUnit)
 	if err != nil {
 		return "", err
 	}
 	return "ubuntu@" + host, nil
-
 }
 
 // initAPIClient initialises the API connection.
@@ -185,11 +180,7 @@ func (c *CharmSyncCommand) hostFromTarget(target string) (string, error) {
 	if !names.IsValidMachine(target) && !names.IsValidUnit(target) {
 		return target, nil
 	}
-	addr, err := c.apiClient.PublicAddress(target)
-	if err != nil {
-		return "", err
-	}
-	return addr, nil
+	return c.apiClient.PublicAddress(target)
 }
 
 // inferCharm will return the local charm folder physical location
@@ -216,15 +207,15 @@ func (c *CharmSyncCommand) remoteUnitSeries(charmName string) (string, error) {
 	}
 	charmService, ok := status.Services[charmName]
 	if !ok {
-		return "", fmt.Errorf("cannot find service %q", charmName)
+		return "", errors.Errorf("cannot find service %q", charmName)
 	}
 	charmUnit, ok := charmService.Units[c.toUnit]
 	if !ok {
-		return "", fmt.Errorf("cannot find unit %q in service %q", c.toUnit, charmService.Charm)
+		return "", errors.Errorf("cannot find unit %q in service %q", c.toUnit, charmService.Charm)
 	}
 	charmMachine, ok := status.Machines[charmUnit.Machine]
 	if !ok {
-		return "", fmt.Errorf("cannot find machine %q", charmUnit.Machine)
+		return "", errors.Errorf("cannot find machine %q", charmUnit.Machine)
 	}
 	return charmMachine.Series, nil
 
@@ -237,7 +228,7 @@ var wrapDataDir = paths.DataDir
 // target or error if it cannot be determined.
 func (c *CharmSyncCommand) remoteUnitPath(charmSeries string) (string, error) {
 	if !names.IsValidUnit(c.toUnit) {
-		return "", fmt.Errorf("invalid unit name specified: %q", c.toUnit)
+		return "", errors.Errorf("invalid unit name specified: %q", c.toUnit)
 	}
 	unitTag := names.NewUnitTag(c.toUnit)
 	dataDir, err := wrapDataDir(charmSeries)
@@ -297,7 +288,7 @@ var wrapCwdCharm = cwdCharm
 func cwdCharm() (*charm.Dir, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("cannot determine current work dir: %v", err)
+		return nil, errors.Errorf("cannot determine current work dir: %v", err)
 	}
 
 	if charmDir, err := pathCharm(cwd); err != nil {
