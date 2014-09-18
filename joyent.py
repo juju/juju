@@ -270,7 +270,7 @@ class Client:
         if resp.status_code != 200:
             raise SupportRequestError(
                 'Server response to support form POST: {}'.format(
-                resp.status_code))
+                    resp.status_code))
         with open('joyent-form-response.html', 'w') as f:
             f.write(resp.text.encode('utf-8'))
         mo = re.search('<div id="error">(.*?)</div>', resp.text)

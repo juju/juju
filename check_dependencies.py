@@ -53,7 +53,8 @@ def main():
 def get_arg_parser():
     """Return the argument parser for this program."""
     parser = argparse.ArgumentParser("Compare dependencies with src tree")
-    parser.add_argument("-i", "--ignore", action="append",
+    parser.add_argument(
+        "-i", "--ignore", action="append",
         help="The dependencies.tsv file to check")
     parser.add_argument("depfile", help="The dependencies.tsv file to check")
     parser.add_argument("srcdir", help="The go src dir to compare")
