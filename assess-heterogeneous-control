@@ -76,71 +76,71 @@ def prepare_dummy_env(client):
     return token
 
 
-def assess_foreign(native, foreign, base_env, environment_name, log_dir):
+def assess_heterogeneous(initial, other, base_env, environment_name, log_dir):
     """Top level function that prepares the clients and environment.
 
-    native and foreign are paths to the native and foreign binaries for this
-    test.  base_env is the name of the environment to base the environment on
-    and environment_name is the new name for the environment.
+    initial and other are paths to the binariy used initially, and a binary
+    used later.  base_env is the name of the environment to base the
+    environment on and environment_name is the new name for the environment.
     """
     environment = SimpleEnvironment.from_config(base_env)
     update_env(environment, environment_name, series='precise')
     environment.config.pop('tools-metadata-url', None)
-    native_client = EnvJujuClient.by_version(environment, native)
-    foreign_client = EnvJujuClient.by_version(environment, foreign)
-    test_control_foreign(native_client, foreign_client, log_dir)
+    initial_client = EnvJujuClient.by_version(environment, initial)
+    other_client = EnvJujuClient.by_version(environment, other)
+    test_control_heterogeneous(initial_client, other_client, log_dir)
 
 
-def test_control_foreign(native, foreign, log_dir):
+def test_control_heterogeneous(initial, other, log_dir):
     """Test if one binary can control an environment set up by the other."""
-    host = bootstrap_client(native)
-    with dumping_env(foreign, host, log_dir):
-        token = prepare_dummy_env(native)
-        native.wait_for_started()
-        check_token(env_from_client(native), token)
-        check_series(foreign)
-        foreign.juju('run', ('--all', 'uname -a'))
-        dummy_source = foreign.get_juju_output('get', 'dummy-source')
-        env_output = foreign.get_juju_output('get-env')
-        foreign.juju('remove-relation', ('dummy-source', 'dummy-sink'))
-        status = foreign.get_status()
-        foreign.juju('unexpose', ('dummy-sink',))
-        status = foreign.get_status()
-        foreign.juju('deploy', ('local:dummy-sink', 'sink2'))
-        foreign.wait_for_started()
-        foreign.juju('add-relation', ('dummy-source', 'sink2'))
-        status = foreign.get_status()
-        foreign.juju('expose', ('sink2',))
-        status = foreign.get_status()
+    host = bootstrap_client(initial)
+    with dumping_env(other, host, log_dir):
+        token = prepare_dummy_env(initial)
+        initial.wait_for_started()
+        check_token(env_from_client(initial), token)
+        check_series(other)
+        other.juju('run', ('--all', 'uname -a'))
+        dummy_source = other.get_juju_output('get', 'dummy-source')
+        env_output = other.get_juju_output('get-env')
+        other.juju('remove-relation', ('dummy-source', 'dummy-sink'))
+        status = other.get_status()
+        other.juju('unexpose', ('dummy-sink',))
+        status = other.get_status()
+        other.juju('deploy', ('local:dummy-sink', 'sink2'))
+        other.wait_for_started()
+        other.juju('add-relation', ('dummy-source', 'sink2'))
+        status = other.get_status()
+        other.juju('expose', ('sink2',))
+        status = other.get_status()
         if 'sink2' not in status.status['services']:
             raise AssertionError('Sink2 missing')
-        foreign.juju('destroy-service', ('sink2',))
+        other.juju('destroy-service', ('sink2',))
         for ignored in until_timeout(30):
-            status = foreign.get_status()
+            status = other.get_status()
             if 'sink2' not in status.status['services']:
                 break
         else:
             raise AssertionError('Sink2 not destroyed')
-        foreign.juju('add-relation', ('dummy-source', 'dummy-sink'))
-        status = foreign.get_status()
-        foreign.juju('expose', ('dummy-sink',))
-        status = foreign.get_status()
-        foreign.juju('add-unit', ('dummy-sink',))
-        status = foreign.get_status()
-        foreign.juju('remove-unit', ('dummy-sink/1',))
-        status = foreign.get_status()
-        foreign.juju('add-machine', ('lxc',))
-        status = foreign.wait_for_started()
+        other.juju('add-relation', ('dummy-source', 'dummy-sink'))
+        status = other.get_status()
+        other.juju('expose', ('dummy-sink',))
+        status = other.get_status()
+        other.juju('add-unit', ('dummy-sink',))
+        status = other.get_status()
+        other.juju('remove-unit', ('dummy-sink/1',))
+        status = other.get_status()
+        other.juju('add-machine', ('lxc',))
+        status = other.wait_for_started()
         lxc_machine, = set(k for k, v in status.agent_items() if
                           k.endswith('/lxc/0'))
         lxc_holder = lxc_machine.split('/')[0]
-        foreign.juju('remove-machine', (lxc_machine,))
-        wait_until_removed(foreign, lxc_machine)
-        foreign.juju('remove-machine', (lxc_holder,))
-        status = wait_until_removed(foreign, lxc_holder)
+        other.juju('remove-machine', (lxc_machine,))
+        wait_until_removed(other, lxc_machine)
+        other.juju('remove-machine', (lxc_holder,))
+        status = wait_until_removed(other, lxc_holder)
     # Test clean shutdown of an environment.
-    foreign.juju(
-        'destroy-environment', (foreign.env.environment, '-y'),
+    other.juju(
+        'destroy-environment', (other.env.environment, '-y'),
         include_e=False)
 
 
@@ -171,14 +171,14 @@ def main():
         Determine whether one juju version can control an environment created
         by another version.
     """))
-    parser.add_argument('native', help='The native juju binary.')
-    parser.add_argument('foreign', help='The foreign juju binary.')
+    parser.add_argument('initial', help='The initial juju binary.')
+    parser.add_argument('other', help='A different juju binary.')
     parser.add_argument('base_environment', help='The environment to base on.')
     parser.add_argument('environment_name', help='The new environment name.')
     parser.add_argument('log_dir', help='The directory to dump logs to.')
     args = parser.parse_args()
-    assess_foreign(args.native, args.foreign, args.base_environment,
-                   args.environment_name, args.log_dir)
+    assess_heterogeneous(args.initial, args.other, args.base_environment,
+                         args.environment_name, args.log_dir)
 
 
 if __name__ == '__main__':
