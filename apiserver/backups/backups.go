@@ -8,10 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/files"
@@ -66,34 +64,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	return &b, nil
 }
 
-// NewBackups returns a new Backups based on the given state.
-func NewBackups(st *state.State) (backups.Backups, error) {
-	stor, err := newBackupsStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return backups.NewBackups(stor), nil
-}
-
-var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	// TODO(axw,ericsnow) 2014-09-24 #1373236
-	// Migrate away from legacy provider storage.
-	envStor, err := environs.LegacyStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	storage := state.NewBackupsStorage(st, envStor)
-	return storage, nil
-}
-
 var newBackups = func(st *state.State) (backups.Backups, io.Closer, error) {
-	stor, err := newBackupsStorage(st)
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	backups := backups.NewBackups(stor)
+	backups, stor := state.NewBackups(st)
 	return backups, stor, nil
 }

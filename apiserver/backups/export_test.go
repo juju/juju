@@ -6,7 +6,3 @@ package backups
 var (
 	NewBackups = &newBackups
 )
-
-var (
-	NewBackupsStorage = &newBackupsStorage
-)

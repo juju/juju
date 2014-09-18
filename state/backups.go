@@ -10,6 +10,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
@@ -17,7 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -210,6 +211,8 @@ func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 type DBOperator struct {
 	session *mgo.Session
 
+	// EnvUUID is the UUID of the environment.
+	EnvUUID string
 	// Target is the DB collection on which to operate.
 	Target *mgo.Collection
 	// TXNRunner is the DB transaction runner to use when needed.
@@ -217,7 +220,7 @@ type DBOperator struct {
 }
 
 // NewDBOperator returns a DB operator for the target, with its own session.
-func NewDBOperator(db *mgo.Database, target string) *DBOperator {
+func NewDBOperator(db *mgo.Database, target, envUUID string) *DBOperator {
 	session := db.Session.Copy()
 	db = db.With(session)
 
@@ -225,6 +228,7 @@ func NewDBOperator(db *mgo.Database, target string) *DBOperator {
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	dbOp := DBOperator{
 		session:   session,
+		EnvUUID:   envUUID,
 		Target:    coll,
 		TXNRunner: txnRunner,
 	}
@@ -384,7 +388,8 @@ type backupsDocStorage struct {
 
 type backupsMetadataStorage struct {
 	filestorage.MetadataDocStorage
-	db *mgo.Database
+	db      *mgo.Database
+	envUUID string
 }
 
 func newBackupMetadataStorage(dbOp *DBOperator) *backupsMetadataStorage {
@@ -395,6 +400,7 @@ func newBackupMetadataStorage(dbOp *DBOperator) *backupsMetadataStorage {
 	stor := backupsMetadataStorage{
 		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
 		db:                 db,
+		envUUID:            dbOp.EnvUUID,
 	}
 	return &stor
 }
@@ -458,7 +464,7 @@ func (s *backupsDocStorage) Close() error {
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	dbOp := NewDBOperator(s.db, backupsMetaC)
+	dbOp := NewDBOperator(s.db, backupsMetaC, s.envUUID)
 	defer dbOp.Close()
 
 	err := setBackupStored(dbOp, id, time.Now())
@@ -480,15 +486,25 @@ var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
 
 type envFileStorage struct {
-	envStor storage.Storage
+	dbOp *DBOperator
+
+	envUUID string
+	raw     blobstore.ManagedStorage
 	root    string
 }
 
-func newBackupFileStorage(envStor storage.Storage, root string) filestorage.RawFileStorage {
-	// Due to circular imports we cannot simply get the storage from
-	// State using environs.GetStorage().
+func newBackupFileStorage(dbOp *DBOperator, root string) filestorage.RawFileStorage {
+	dbOp = dbOp.Copy()
+	db := dbOp.Target.Database
+	dbName := blobstoreDB
+
+	dataStore := blobstore.NewGridFS(dbName, dbOp.EnvUUID, db.Session)
+	managed := blobstore.NewManagedStorage(db, dataStore)
+
 	stor := envFileStorage{
-		envStor: envStor,
+		dbOp:    dbOp,
+		envUUID: dbOp.EnvUUID,
+		raw:     managed,
 		root:    root,
 	}
 	return &stor
@@ -501,20 +517,21 @@ func (s *envFileStorage) path(id string) string {
 }
 
 func (s *envFileStorage) File(id string) (io.ReadCloser, error) {
-	return s.envStor.Get(s.path(id))
+	file, _, err := s.raw.GetForEnvironment(s.envUUID, s.path(id))
+	return file, err
 }
 
 func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.envStor.Put(s.path(id), file, size)
+	return s.raw.PutForEnvironment(s.envUUID, s.path(id), file, size)
 }
 
 func (s *envFileStorage) RemoveFile(id string) error {
-	return s.envStor.Remove(s.path(id))
+	return s.raw.RemoveForEnvironment(s.envUUID, s.path(id))
 }
 
 // Close closes the storage.
 func (s *envFileStorage) Close() error {
-	return nil
+	return s.dbOp.Close()
 }
 
 //---------------------------
@@ -524,12 +541,21 @@ const BackupsDB = "juju"
 
 // NewBackupsStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewBackupsStorage(st *State, envStor storage.Storage) filestorage.FileStorage {
+func NewBackupsStorage(st *State) filestorage.FileStorage {
+	envUUID := st.EnvironTag().Id()
 	db := st.db
-	dbOp := NewDBOperator(db, backupsMetaC)
+	dbOp := NewDBOperator(db, backupsMetaC, envUUID)
 	defer dbOp.Close()
 
-	files := newBackupFileStorage(envStor, backupStorageRoot)
+	files := newBackupFileStorage(dbOp, backupStorageRoot)
 	docs := newBackupMetadataStorage(dbOp)
 	return filestorage.NewFileStorage(docs, files)
+}
+
+// NewBackups returns a new backups based on the state.
+func NewBackups(st *State) (backups.Backups, io.Closer) {
+	stor := NewBackupsStorage(st)
+
+	backups := backups.NewBackups(stor)
+	return backups, stor
 }

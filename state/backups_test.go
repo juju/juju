@@ -41,10 +41,12 @@ func (s *backupSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *backupSuite) newDBOp() *state.DBOperator {
+	envUUID := s.State.EnvironTag().Id()
+
 	var dbOp *state.DBOperator
 	if len(s.dbOps) == 0 {
 		db := s.session.DB(state.BackupsDB)
-		dbOp = state.NewDBOperator(db, state.BackupsMetaC)
+		dbOp = state.NewDBOperator(db, state.BackupsMetaC, envUUID)
 	} else {
 		dbOp = s.dbOps[0].Copy()
 	}
