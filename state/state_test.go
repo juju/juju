@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -363,6 +364,49 @@ func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
 	_, err = s.State.PrepareLocalCharmUpload(missingCurl)
 	c.Assert(err, gc.IsNil)
 	sch, err = s.State.UpdateUploadedCharm(ch, missingCurl, storagePath, "missing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
+	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
+	c.Assert(sch.IsUploaded(), jc.IsTrue)
+	c.Assert(sch.IsPlaceholder(), jc.IsFalse)
+	c.Assert(sch.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(sch.Config(), gc.DeepEquals, ch.Config())
+	c.Assert(sch.StoragePath(), gc.DeepEquals, storagePath)
+	c.Assert(sch.BundleSha256(), gc.Equals, "missing")
+}
+
+func (s *StateSuite) TestUpdateUploadedCharmEscapesSpecialCharsInConfig(c *gc.C) {
+	// Make sure when we have mongodb special characters like "$" and
+	// "." in the name of any charm config option, we do proper
+	// escaping before storing them and unescaping after loading. See
+	// also http://pad.lv/1308146.
+
+	// Clone the dummy charm and change the config.
+	configWithProblematicKeys := []byte(`
+options:
+  $bad.key: {default: bad, description: bad, type: string}
+  not.ok.key: {description: not ok, type: int}
+  valid-key: {description: all good, type: boolean}
+  still$bad.: {description: not good, type: float}
+  $.$: {description: awful, type: string}
+  ...: {description: oh boy, type: int}
+  just$: {description: no no, type: float}
+`[1:])
+	chDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	err := utils.AtomicWriteFile(
+		filepath.Join(chDir, "config.yaml"),
+		configWithProblematicKeys,
+		0666,
+	)
+	c.Assert(err, gc.IsNil)
+	ch, err := charm.ReadCharmDir(chDir)
+	c.Assert(err, gc.IsNil)
+	missingCurl := charm.MustParseURL("local:quantal/missing-1")
+	storagePath := "dummy-1"
+
+	preparedCurl, err := s.State.PrepareLocalCharmUpload(missingCurl)
+	c.Assert(err, gc.IsNil)
+	sch, err := s.State.UpdateUploadedCharm(ch, preparedCurl, storagePath, "missing")
 	c.Assert(err, gc.IsNil)
 	c.Assert(sch.URL(), gc.DeepEquals, missingCurl)
 	c.Assert(sch.Revision(), gc.Equals, missingCurl.Revision)
@@ -2885,6 +2929,18 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 
 	// TODO(rog) more testing here when we can actually add
 	// state servers.
+}
+
+func (s *StateSuite) TestStateServerInfoWithPreMigrationDoc(c *gc.C) {
+	err := s.stateServers.Update(
+		nil,
+		bson.D{{"$unset", bson.D{{"env-uuid", 1}}}},
+	)
+	c.Assert(err, gc.IsNil)
+
+	ids, err := s.State.StateServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids.EnvironmentTag, gc.Equals, s.envTag)
 }
 
 func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
