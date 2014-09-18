@@ -366,7 +366,8 @@ def main():
         help="Email address used in the Joyent support form",
         default=os.environ.get("CONTACT_MAIL_ADDRESS"))
     parser.add_argument('action', help='The action to perform.')
-    parser.add_argument('machine_id', help='The machine id.', nargs="?", default=None)
+    parser.add_argument(
+        'machine_id', help='The machine id.', nargs="?", default=None)
     args = parser.parse_args()
     if not args.sdc_url:
         print('SDC_URL must be sourced into the environment.')
