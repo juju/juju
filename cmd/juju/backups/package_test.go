@@ -127,9 +127,14 @@ func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) 
 type fakeAPIClient struct {
 	metaresult *params.BackupsMetadataResult
 	err        error
+
+	args  []string
+	notes string
 }
 
 func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, error) {
+	c.args = append(c.args, "notes")
+	c.notes = notes
 	if c.err != nil {
 		return nil, c.err
 	}
