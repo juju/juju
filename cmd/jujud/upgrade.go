@@ -144,6 +144,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	c.toVersion = version.Current.Number
 	if c.fromVersion == c.toVersion {
 		logger.Infof("upgrade to %v already completed.", c.toVersion)
+		close(c.UpgradeComplete)
 		return nil
 	}
 
