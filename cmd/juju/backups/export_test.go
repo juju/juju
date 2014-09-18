@@ -4,5 +4,5 @@
 package backups
 
 var (
-	SendCreateRequest = &sendCreateRequest
+	NewAPIClient = &newAPIClient
 )

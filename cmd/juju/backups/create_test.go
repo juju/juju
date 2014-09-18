@@ -10,14 +10,12 @@ import (
 	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/testing"
 )
 
 type createSuite struct {
 	BackupsSuite
-	Error      string
 	subcommand *backups.CreateCommand
 }
 
@@ -25,18 +23,6 @@ var _ = gc.Suite(&createSuite{})
 
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.BackupsSuite.SetUpTest(c)
-
-	s.PatchValue(
-		backups.SendCreateRequest,
-		func(cmd *backups.CreateCommand) (*params.BackupsMetadataResult, error) {
-			if s.Error != "" {
-				return nil, errors.New(s.Error)
-			}
-			return s.metaresult, nil
-		},
-	)
-
-	s.Error = ""
 	s.subcommand = &backups.CreateCommand{}
 }
 
@@ -55,6 +41,7 @@ func (s *createSuite) TestHelp(c *gc.C) {
 }
 
 func (s *createSuite) TestOkay(c *gc.C) {
+	s.setSuccess()
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
 	c.Check(err, gc.IsNil)
@@ -64,6 +51,7 @@ func (s *createSuite) TestOkay(c *gc.C) {
 }
 
 func (s *createSuite) TestQuiet(c *gc.C) {
+	s.setSuccess()
 	s.subcommand.Quiet = true
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
@@ -74,7 +62,7 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 }
 
 func (s *createSuite) TestError(c *gc.C) {
-	s.Error = "failed!"
+	s.setFailure("failed!")
 	ctx := cmdtesting.Context(c)
 	err := s.subcommand.Run(ctx)
 

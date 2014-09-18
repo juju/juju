@@ -56,6 +56,10 @@ type CommandBase struct {
 
 // NewAPIClient returns a client for the backups api endpoint.
 func (c *CommandBase) NewAPIClient() (APIClient, error) {
+	return newAPIClient(c)
+}
+
+var newAPIClient = func(c *CommandBase) (APIClient, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)

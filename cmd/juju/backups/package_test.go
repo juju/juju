@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
@@ -62,6 +63,22 @@ func (s *BackupsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+func (s *BackupsSuite) setSuccess() {
+	s.PatchValue(backups.NewAPIClient,
+		func(c *backups.CommandBase) (backups.APIClient, error) {
+			return &fakeAPIClient{metaresult: s.metaresult}, nil
+		},
+	)
+}
+
+func (s *BackupsSuite) setFailure(failure string) {
+	s.PatchValue(backups.NewAPIClient,
+		func(c *backups.CommandBase) (backups.APIClient, error) {
+			return &fakeAPIClient{err: errors.New(failure)}, nil
+		},
+	)
+}
+
 func (s *BackupsSuite) diffStrings(c *gc.C, value, expected string) {
 	// If only Go had a diff library.
 	vlines := strings.Split(value, "\n")
@@ -101,4 +118,20 @@ func (s *BackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
 	c.Check(ctx.Stdin.(*bytes.Buffer).String(), gc.Equals, "")
 	s.checkString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
 	s.checkString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
+}
+
+type fakeAPIClient struct {
+	metaresult *params.BackupsMetadataResult
+	err        error
+}
+
+func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.metaresult, nil
+}
+
+func (c *fakeAPIClient) Close() error {
+	return nil
 }

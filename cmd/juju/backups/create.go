@@ -9,8 +9,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 const createDoc = `
@@ -20,16 +18,6 @@ backup's unique ID.  You may provide a note to associate with the backup.
 The backup archive and associated metadata are stored in juju and
 will be lost when the environment is destroyed.
 `
-
-var sendCreateRequest = func(cmd *CreateCommand) (*params.BackupsMetadataResult, error) {
-	client, err := cmd.NewAPIClient()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	defer client.Close()
-
-	return client.Create(cmd.Notes)
-}
 
 // CreateCommand is the sub-command for creating a new backup.
 type CreateCommand struct {
@@ -67,7 +55,13 @@ func (c *CreateCommand) Init(args []string) error {
 
 // Run implements Command.Run.
 func (c *CreateCommand) Run(ctx *cmd.Context) error {
-	result, err := sendCreateRequest(c)
+	client, err := c.NewAPIClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+
+	result, err := client.Create(c.Notes)
 	if err != nil {
 		return errors.Trace(err)
 	}
