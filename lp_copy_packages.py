@@ -8,19 +8,56 @@ import sys
 from launchpadlib.launchpad import Launchpad
 
 
+DEVEL = 'devel'
+PROPOSED = 'proposed'
+STABLE = 'stable'
+
+
+def get_archives(from_archive_name, to_archive_name):
+    """Return the archives used in the copy.
+
+    The build archives are private and owned by a different team than the
+    public archives. The policy for building and copying is:
+    1. Always build in private PPAs because the client cannot be made public
+       before the tools made from the client package.
+    2. Devel packages are built in a separate PPA from stable packages
+       because devel can change the archive deps.
+    3. Built devel packages can be copied to the public devel PPA.
+    4. Built stable packages can be copied to the public proposed PPA.
+    5. After evaluation, the stable packages in public proposed can be copied
+       to the public stable PPA.
+    """
+    if from_archive_name == DEVEL and to_archive_name == DEVEL:
+        from_team_name = 'juju-packaging'
+        to_team_name = 'juju'
+    elif from_archive_name == STABLE and to_archive_name == PROPOSED:
+        from_team_name = 'juju-packaging'
+        to_team_name = 'juju'
+    elif from_archive_name == PROPOSED and to_archive_name == STABLE:
+        from_team_name = 'juju'
+        to_team_name = 'juju'
+    else:
+        raise ValueError(
+            'packages cannot move from {} to {}'.format(
+            from_archive_name, to_archive_name))
+    from_team = lp.people[from_team_name]
+    from_archive = from_team.getPPAByName(name=from_archive_name)
+    to_team = lp.people[to_team_name]
+    to_archive = to_team.getPPAByName(name=to_archive_name)
+    return from_archive, to_archive
+
+
 def copy_packages(lp, version, from_archive_name, to_archive_name):
-    packaging_team = lp.people['juju-packaging']
-    build_archive = packaging_team.getPPAByName(name=from_archive_name)
-    package_histories = build_archive.getPublishedSources(
+    """Copy the juju-core source and binary packages to and archive."""
+    from_archive, to_archive = get_archives(from_archive_name, to_archive_name)
+    package_histories = from_archive.getPublishedSources(
         source_name='juju-core', status='Published')
     package_histories = [
         package for package in package_histories
         if package.source_package_version.startswith(version)]
-    juju_team = lp.people['juju']
-    public_archive = juju_team.getPPAByName(name=to_archive_name)
     for package in package_histories:
-        public_archive.copyPackage(
-            from_archive=build_archive,
+        to_archive.copyPackage(
+            from_archive=from_archive,
             source_name=package.source_package_name,
             version=package.source_package_version,
             to_pocket='Release', include_binaries=True, unembargo=True)
