@@ -465,12 +465,16 @@ func (state MemberState) String() string {
 	return memberStateStrings[state]
 }
 
+// Turn normal ipv6 addresses into the "bad format" that mongo requires us
+// to use. (Mongo can't parse square brackets in ipv6 addresses.)
 func fixIpv6Address(address string) string {
 	address = strings.Replace(address, "[", "", 1)
 	address = strings.Replace(address, "]", "", 1)
 	return address
 }
 
+// Turn "bad format" ipv6 addresses ("::1:port"), that mongo uses,  into good
+// format addresses ("[::1]:port").
 func unFixIpv6Address(address string) string {
 	if strings.Count(address, ":") >= 2 && strings.Count(address, "[") == 0 {
 		lastColon := strings.LastIndex(address, ":")
