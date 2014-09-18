@@ -63,20 +63,20 @@ func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *BaseBackupsSuite) setSuccess() {
+func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
 	s.PatchValue(backups.NewAPIClient,
 		func(c *backups.CommandBase) (backups.APIClient, error) {
-			return &fakeAPIClient{metaresult: s.metaresult}, nil
+			return client, nil
 		},
 	)
 }
 
+func (s *BaseBackupsSuite) setSuccess() {
+	s.patchAPIClient(&fakeAPIClient{metaresult: s.metaresult})
+}
+
 func (s *BaseBackupsSuite) setFailure(failure string) {
-	s.PatchValue(backups.NewAPIClient,
-		func(c *backups.CommandBase) (backups.APIClient, error) {
-			return &fakeAPIClient{err: errors.New(failure)}, nil
-		},
-	)
+	s.patchAPIClient(&fakeAPIClient{err: errors.New(failure)})
 }
 
 func (s *BaseBackupsSuite) diffStrings(c *gc.C, value, expected string) {
