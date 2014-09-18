@@ -22,7 +22,10 @@ GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 
 
 def get_json(uri):
-    data = urllib2.urlopen(uri).read()
+    request = urllib2.Request(uri, headers={
+        "Cache-Control": "max-age=0, must-revalidate",
+    })
+    data = urllib2.urlopen(request).read()
     if data:
         return json.loads(data)
     return None
