@@ -82,6 +82,11 @@ class TestEnvJujuClient(TestCase):
         self.assertEqual('5.6', version)
         vsn.assert_called_with(('juju', '--version'))
 
+    def test_get_version_path(self):
+        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+            EnvJujuClient.get_version('foo/bar/baz')
+        vsn.assert_called_once_with(('foo/bar/baz', '--version'))
+
     def test_get_matching_agent_version(self):
         client = EnvJujuClient(SimpleEnvironment(None, {'type': 'local'}),
                                '1.23-series-arch', None)
@@ -107,6 +112,14 @@ class TestEnvJujuClient(TestCase):
         juju_mock.assert_called_with(
             'upgrade-juju', ('--version', '1.234', '--upload-tools',))
 
+    def test_upgrade_juju_no_force_version(self):
+        client = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(client, 'juju') as juju_mock:
+            client.upgrade_juju(force_version=False)
+        juju_mock.assert_called_with(
+            'upgrade-juju', ('--upload-tools',))
+
     def test_by_version(self):
         def juju_cmd_iterator():
             yield '1.17'
@@ -116,7 +129,7 @@ class TestEnvJujuClient(TestCase):
 
         context = patch.object(
             EnvJujuClient, 'get_version',
-            side_effect=juju_cmd_iterator().next)
+            side_effect=juju_cmd_iterator().send)
         with context:
             self.assertIs(EnvJujuClient,
                           type(EnvJujuClient.by_version(None)))
@@ -128,6 +141,13 @@ class TestEnvJujuClient(TestCase):
             client = EnvJujuClient.by_version(None)
             self.assertIs(EnvJujuClient, type(client))
             self.assertEqual('1.15', client.version)
+
+    def test_by_version_path(self):
+        with patch('subprocess.check_output', return_value=' 4.3') as vsn:
+            client = EnvJujuClient.by_version(None, 'foo/bar/qux')
+        vsn.assert_called_once_with(('foo/bar/qux', '--version'))
+        self.assertNotEqual(client.full_path, 'foo/bar/qux')
+        self.assertEqual(client.full_path, os.path.abspath('foo/bar/qux'))
 
     def test_full_args(self):
         env = Environment('foo', '')
@@ -306,6 +326,20 @@ class TestEnvJujuClient(TestCase):
                   jenkins/0:
                     {0}: {2}
         """.format(key, machine_value, unit_value))
+
+    def test_deploy_non_joyent(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb')
+        mock_juju.assert_called_with('deploy', ('mondogb',))
+
+    def test_deploy_joyent(self):
+        env = EnvJujuClient(
+            SimpleEnvironment('foo', {'type': 'local'}), '1.234-76', None)
+        with patch.object(env, 'juju') as mock_juju:
+            env.deploy('mondogb')
+        mock_juju.assert_called_with('deploy', ('mondogb',))
 
     def test_wait_for_started(self):
         value = self.make_status_yaml('agent-state', 'started', 'started')
@@ -694,6 +728,21 @@ class TestStatus(TestCase):
             ('1', {'foo': 'bar'}), ('jenkins/1', {'baz': 'qux'})]
         self.assertItemsEqual(expected, status.agent_items())
 
+    def test_agent_items_containers(self):
+        status = Status({
+            'machines': {
+                '1': {'foo': 'bar', 'containers': {
+                    '2': {'qux': 'baz'},
+                }}
+            },
+            'services': {}
+        })
+        expected = [
+                ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
+                ('2', {'qux': 'baz'})
+        ]
+        self.assertItemsEqual(expected, status.agent_items())
+
     def test_agent_states(self):
         status = Status({
             'machines': {
@@ -802,6 +851,27 @@ def fast_timeout(count):
     if False:
         yield
 
+@contextmanager
+def temp_config():
+    home = tempfile.mkdtemp()
+    try:
+        environments_path = os.path.join(home, 'environments.yaml')
+        old_home = os.environ.get('JUJU_HOME')
+        os.environ['JUJU_HOME'] = home
+        try:
+            with open(environments_path, 'w') as environments:
+                yaml.dump({'environments': {
+                    'foo': {'type': 'local'}
+                }}, environments)
+            yield
+        finally:
+            if old_home is None:
+                del os.environ['JUJU_HOME']
+            else:
+                os.environ['JUJU_HOME'] = old_home
+    finally:
+        shutil.rmtree(home)
+
 
 class TestSimpleEnvironment(TestCase):
 
@@ -825,26 +895,10 @@ class TestSimpleEnvironment(TestCase):
         self.assertTrue(env.hpcloud, 'Does not respect config type.')
 
     def test_from_config(self):
-        home = tempfile.mkdtemp()
-        try:
-            environments_path = os.path.join(home, 'environments.yaml')
-            old_home = os.environ.get('JUJU_HOME')
-            os.environ['JUJU_HOME'] = home
-            try:
-                with open(environments_path, 'w') as environments:
-                    yaml.dump({'environments': {
-                        'foo': {'type': 'local'}
-                    }}, environments)
-                env = SimpleEnvironment.from_config('foo')
-                self.assertIs(SimpleEnvironment, type(env))
-                self.assertEqual({'type': 'local'}, env.config)
-            finally:
-                if old_home is None:
-                    del os.environ['JUJU_HOME']
-                else:
-                    os.environ['JUJU_HOME'] = old_home
-        finally:
-            shutil.rmtree(home)
+        with temp_config():
+            env = SimpleEnvironment.from_config('foo')
+            self.assertIs(SimpleEnvironment, type(env))
+            self.assertEqual({'type': 'local'}, env.config)
 
 
 class TestEnvironment(TestCase):
@@ -939,26 +993,10 @@ class TestEnvironment(TestCase):
                     env.wait_for_version('1.17.2')
 
     def test_from_config(self):
-        home = tempfile.mkdtemp()
-        try:
-            environments_path = os.path.join(home, 'environments.yaml')
-            old_home = os.environ.get('JUJU_HOME')
-            os.environ['JUJU_HOME'] = home
-            try:
-                with open(environments_path, 'w') as environments:
-                    yaml.dump({'environments': {
-                        'foo': {'type': 'local'}
-                    }}, environments)
-                env = Environment.from_config('foo')
-                self.assertIs(Environment, type(env))
-                self.assertEqual({'type': 'local'}, env.config)
-            finally:
-                if old_home is None:
-                    del os.environ['JUJU_HOME']
-                else:
-                    os.environ['JUJU_HOME'] = old_home
-        finally:
-            shutil.rmtree(home)
+        with temp_config():
+            env = Environment.from_config('foo')
+            self.assertIs(Environment, type(env))
+            self.assertEqual({'type': 'local'}, env.config)
 
     def test_upgrade_juju_nonlocal(self):
         client = JujuClientDevel('1.234-76', None)

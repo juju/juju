@@ -104,9 +104,8 @@ def run_instances(count, job_name):
 def deploy_dummy_stack(env, charm_prefix):
     """"Deploy a dummy stack in the specified environment.
     """
-    allowed_chars = string.ascii_uppercase + string.digits
-    token=''.join(random.choice(allowed_chars) for n in range(20))
     env.deploy(charm_prefix + 'dummy-source')
+    token = get_random_string()
     env.juju('set', 'dummy-source', 'token=%s' % token)
     env.deploy(charm_prefix + 'dummy-sink')
     env.juju('add-relation', 'dummy-source', 'dummy-sink')
@@ -119,6 +118,12 @@ def deploy_dummy_stack(env, charm_prefix):
         env.wait_for_started(3600)
     else:
         env.wait_for_started()
+    check_token(env, token)
+
+
+
+
+def check_token(env, token):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
@@ -151,6 +156,10 @@ def deploy_dummy_stack(env, charm_prefix):
     result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
         raise ValueError('Token is %r' % result)
+
+def get_random_string():
+    allowed_chars = string.ascii_uppercase + string.digits
+    return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
 def dump_env_logs(env, bootstrap_host, directory, host_id=None):
@@ -309,6 +318,8 @@ def check_free_disk_space(path, required, purpose):
 
 
 def bootstrap_from_env(juju_home, env):
+    # Always bootstrap a matching environment.
+    env.config['agent-version'] = env.get_matching_agent_version()
     if env.config['type'] == 'local':
         env.config.setdefault('root-dir', get_local_root(juju_home, env))
     new_config = {'environments': {env.environment: env.config}}
@@ -402,6 +413,15 @@ def deploy_job():
                        args.machine, args.series, log_dir, args.debug)
 
 
+def update_env(env, new_env_name, series=None, bootstrap_host=None):
+    # Rename to the new name.
+    env.environment = new_env_name
+    if series is not None:
+        env.config['default-series'] = series
+    if bootstrap_host is not None:
+        env.config['bootstrap-host'] = bootstrap_host
+
+
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 bootstrap_host, machines, series, log_dir, debug):
     logging.basicConfig(
@@ -417,21 +437,15 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(base_env)
         env.client.debug = debug
-        # Rename to the job name.
-        env.environment = job_name
-        if bootstrap_host is not None:
-            env.config['bootstrap-host'] = bootstrap_host
-        elif env.config['type'] == 'manual':
+        if env.config['type'] == 'manual' and bootstrap_host is None:
             instances = run_instances(3, job_name)
             created_machines = True
-            env.config['bootstrap-host'] = instances[0][1]
+            bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
-        if series:
-            env.config['default-series'] = series
+        update_env(env, job_name, bootstrap_host, series)
         try:
-            host = env.config.get('bootstrap-host')
-            env.config['agent-version'] = env.get_matching_agent_version()
+            host = bootstrap_host
             ssh_machines = [] + machines
             if host is not None:
                 ssh_machines.append(host)

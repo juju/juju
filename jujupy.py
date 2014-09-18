@@ -124,8 +124,10 @@ class JujuClientDevel:
 class EnvJujuClient:
 
     @classmethod
-    def get_version(cls):
-        return subprocess.check_output(('juju', '--version')).strip()
+    def get_version(cls, juju_path=None):
+        if juju_path is None:
+            juju_path = 'juju'
+        return subprocess.check_output((juju_path, '--version')).strip()
 
     @classmethod
     def get_full_path(cls):
@@ -134,9 +136,12 @@ class EnvJujuClient:
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
-    def by_version(cls, env):
-        version = cls.get_version()
-        full_path = cls.get_full_path()
+    def by_version(cls, env, juju_path=None):
+        version = cls.get_version(juju_path)
+        if juju_path is None:
+            full_path = cls.get_full_path()
+        else:
+            full_path = os.path.abspath(juju_path)
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         else:
@@ -236,6 +241,10 @@ class EnvJujuClient:
             return subprocess.check_call(args, env=env)
         return subprocess.call(args, env=env)
 
+    def deploy(self, charm):
+        args = (charm,)
+        return self.juju('deploy', args)
+
     def wait_for_started(self, timeout=1200):
         """Wait until all unit/machine agents are 'started'."""
         for ignored in until_timeout(timeout):
@@ -279,8 +288,11 @@ class EnvJujuClient:
             version_number += '.1'
         return version_number
 
-    def upgrade_juju(self):
-        args = ('--version', self.get_matching_agent_version(no_build=True))
+    def upgrade_juju(self, force_version=True):
+        args = ()
+        if force_version:
+            version = self.get_matching_agent_version(no_build=True)
+            args += ('--version', version)
         if self.env.local:
             args += ('--upload-tools',)
         self.juju('upgrade-juju', args)
@@ -296,8 +308,10 @@ class Status:
             yield machine_name, machine
 
     def agent_items(self):
-        for result in self.iter_machines():
-            yield result
+        for machine_name, machine in self.iter_machines():
+            yield machine_name, machine
+            for contained, unit in machine.get('containers', {}).items():
+                yield contained, unit
         for service in sorted(self.status['services'].values()):
             for unit_name, unit in service.get('units', {}).items():
                 yield unit_name, unit
