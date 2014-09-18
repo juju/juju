@@ -13,7 +13,7 @@ PROPOSED = 'proposed'
 STABLE = 'stable'
 
 
-def get_archives(from_archive_name, to_archive_name):
+def get_archives(to_archive_name):
     """Return the archives used in the copy.
 
     The build archives are private and owned by a different team than the
@@ -27,19 +27,20 @@ def get_archives(from_archive_name, to_archive_name):
     5. After evaluation, the stable packages in public proposed can be copied
        to the public stable PPA.
     """
-    if from_archive_name == DEVEL and to_archive_name == DEVEL:
+    if to_archive_name == DEVEL:
+        from_archive_name = DEVEL
         from_team_name = 'juju-packaging'
         to_team_name = 'juju'
-    elif from_archive_name == STABLE and to_archive_name == PROPOSED:
+    elif to_archive_name == PROPOSED:
+        from_archive_name = STABLE
         from_team_name = 'juju-packaging'
         to_team_name = 'juju'
-    elif from_archive_name == PROPOSED and to_archive_name == STABLE:
+    elif to_archive_name == STABLE:
+        from_archive_name = PROPOSED
         from_team_name = 'juju'
         to_team_name = 'juju'
     else:
-        raise ValueError(
-            'packages cannot move from {} to {}'.format(
-            from_archive_name, to_archive_name))
+        raise ValueError('{} is not a valid archive'.format(to_archive_name))
     from_team = lp.people[from_team_name]
     from_archive = from_team.getPPAByName(name=from_archive_name)
     to_team = lp.people[to_team_name]
@@ -49,7 +50,7 @@ def get_archives(from_archive_name, to_archive_name):
 
 def copy_packages(lp, version, from_archive_name, to_archive_name):
     """Copy the juju-core source and binary packages to and archive."""
-    from_archive, to_archive = get_archives(from_archive_name, to_archive_name)
+    from_archive, to_archive = get_archives(to_archive_name)
     package_histories = from_archive.getPublishedSources(
         source_name='juju-core', status='Published')
     package_histories = [
@@ -61,6 +62,10 @@ def copy_packages(lp, version, from_archive_name, to_archive_name):
             source_name=package.source_package_name,
             version=package.source_package_version,
             to_pocket='Release', include_binaries=True, unembargo=True)
+    else:
+        raise ValueError(
+            'No packages matching {} were found in {} to copy to {}.'.format(
+                version, from_archive.name, to_archive_name))
     return 0
 
 
@@ -68,10 +73,8 @@ def get_option_parser():
     """Return the option parser for this program."""
     parser = ArgumentParser('Copy juju-core from one archive to another')
     parser.add_argument('version', help='The package version like 1.20.8')
-    parser.add_argument('from_archive_name',
-        help='The archive to copy source and binary packages from')
     parser.add_argument('to_archive_name',
-        help='The archive to copy the source and binary packages to')
+        help='The archive to copy the source and binary packages to.')
     return parser
 
 
@@ -81,5 +84,4 @@ if __name__ == '__main__':
     lp = Launchpad.login_with(
         'lp-copy-packages', service_root='https://api.launchpad.net',
         version='devel')
-    sys.exit(copy_packages(
-        lp, args.version, args.from_archive_name, args.to_archive_name))
+    sys.exit(copy_packages(lp, args.version, args.to_archive_name))
