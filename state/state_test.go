@@ -1319,7 +1319,7 @@ var inferEndpointsTests = []struct {
 		summary: "invalid args",
 		inputs: [][]string{
 			{"ping:"},
-			{"pong"},
+			{":pong"},
 			{":"},
 		},
 		err: `invalid endpoint ".*"`,
