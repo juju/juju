@@ -5,12 +5,11 @@ package client_test
 
 import (
 	"fmt"
-	"net/url"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -27,14 +26,11 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
-	envstorage "github.com/juju/juju/environs/storage"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -48,6 +44,286 @@ type clientSuite struct {
 
 type Killer interface {
 	Kill() error
+}
+
+type serverSuite struct {
+	baseSuite
+	client *client.Client
+}
+
+var _ = gc.Suite(&serverSuite{})
+
+func (s *serverSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+
+	var err error
+	auth := testing.FakeAuthorizer{
+		Tag:            names.NewUserTag(state.AdminUser),
+		EnvironManager: true,
+	}
+	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
+	m, err := s.State.Machine(machineId)
+	c.Assert(err, gc.IsNil)
+	pinger, err := m.SetAgentPresence()
+	c.Assert(err, gc.IsNil)
+	s.State.StartSync()
+	err = m.WaitAgentPresence(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
+	return pinger
+}
+
+func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
+	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	// We have to ensure the agents are alive, or EnsureAvailability will
+	// create more to replace them.
+	pingerA := s.setAgentPresence(c, "0")
+	defer assertKill(c, pingerA)
+
+	machines, err := s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+
+	arg := params.StateServersSpecs{[]params.StateServersSpec{{NumStateServers: 3}}}
+	results, err := s.client.EnsureAvailability(arg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+	ensureAvailabilityResult := result.Result
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
+	machines, err = s.State.AllMachines()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 3)
+	c.Assert(machines[0].Series(), gc.Equals, "quantal")
+	c.Assert(machines[1].Series(), gc.Equals, "quantal")
+	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+}
+
+func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: names.NewUserTag("foobar").String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	expectedErr := `could not share environment: user "foobar" does not exist locally: user "foobar" not found`
+	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
+	user := s.Factory.MakeEnvUser(c, nil)
+	_, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.UserTag().String(),
+			Action:  params.RemoveEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.Tag().String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
+	user := names.NewUserTag("foobar@ubuntuone")
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: user.String(),
+			Action:  params.AddEnvUser,
+		}}}
+
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.OneError(), gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
+	for _, testParam := range []struct {
+		tag      string
+		validTag bool
+	}{{
+		tag:      "unit-foo/0",
+		validTag: true,
+	}, {
+		tag:      "service-foo",
+		validTag: true,
+	}, {
+		tag:      "relation-wordpress:db mysql:db",
+		validTag: true,
+	}, {
+		tag:      "machine-0",
+		validTag: true,
+	}, {
+		tag:      "user@local",
+		validTag: false,
+	}, {
+		tag:      "user-Mua^h^h^h^arh",
+		validTag: true,
+	}, {
+		tag:      "user@",
+		validTag: false,
+	}, {
+		tag:      "user@ubuntuone",
+		validTag: false,
+	}, {
+		tag:      "user@ubuntuone",
+		validTag: false,
+	}, {
+		tag:      "@ubuntuone",
+		validTag: false,
+	}, {
+		tag:      "in^valid.",
+		validTag: false,
+	}, {
+		tag:      "",
+		validTag: false,
+	},
+	} {
+		var expectedErr string
+		errPart := `could not share environment: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
+
+		if testParam.validTag {
+
+			// The string is a valid tag, but not a user tag.
+			expectedErr = errPart + `user tag`
+		} else {
+
+			// The string is not a valid tag of any kind.
+			expectedErr = errPart + `tag`
+		}
+
+		args := params.ModifyEnvironUsers{
+			Changes: []params.ModifyEnvironUser{{
+				UserTag: testParam.tag,
+				Action:  params.AddEnvUser,
+			}}}
+
+		_, err := s.client.ShareEnvironment(args)
+		result, err := s.client.ShareEnvironment(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+		c.Assert(result.Results, gc.HasLen, 1)
+		c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+	}
+}
+
+func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
+	args := params.ModifyEnvironUsers{Changes: []params.ModifyEnvironUser{{}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	expectedErr := `could not share environment: "" is not a valid tag`
+	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
+	var dance params.EnvironAction = "dance"
+	args := params.ModifyEnvironUsers{
+		Changes: []params.ModifyEnvironUser{{
+			UserTag: "user-user@local",
+			Action:  dance,
+		}}}
+
+	_, err := s.client.ShareEnvironment(args)
+	result, err := s.client.ShareEnvironment(args)
+	c.Assert(err, gc.IsNil)
+	expectedErr := `unknown action "dance"`
+	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *serverSuite) TestSetEnvironAgentVersion(c *gc.C) {
+	args := params.SetEnvironAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetEnvironAgentVersion(args)
+	c.Assert(err, gc.IsNil)
+
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, found := envConfig.AllAttrs()["agent-version"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, "9.8.7")
+}
+
+func (s *serverSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	// Create a provisioned state server.
+	machine, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	// Start an upgrade.
+	_, err = s.State.EnsureUpgradeInfo(
+		machine.Id(),
+		version.MustParse("1.2.3"),
+		version.MustParse("9.8.7"),
+	)
+	c.Assert(err, gc.IsNil)
+	isUpgrading, err := s.State.IsUpgrading()
+	c.Assert(err, gc.IsNil)
+	c.Assert(isUpgrading, jc.IsTrue)
+
+	// Abort it.
+	err = s.client.AbortCurrentUpgrade()
+	c.Assert(err, gc.IsNil)
+
+	isUpgrading, err = s.State.IsUpgrading()
+	c.Assert(err, gc.IsNil)
+	c.Assert(isUpgrading, jc.IsFalse)
 }
 
 var _ = gc.Suite(&clientSuite{})
@@ -608,7 +884,7 @@ func (s *clientSuite) TestDestroyPrincipalUnits(c *gc.C) {
 	for i := range units {
 		unit, err := wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
-		err = unit.SetStatus(params.StatusStarted, "", nil)
+		err = unit.SetStatus(state.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 		units[i] = unit
 	}
@@ -677,7 +953,7 @@ func (s *clientSuite) testClientUnitResolved(c *gc.C, retry bool, expectedResolv
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
 	c.Assert(err, gc.IsNil)
-	err = u.SetStatus(params.StatusError, "gaaah", nil)
+	err = u.SetStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	// Code under test:
 	err = s.APIState.Client().Resolved("wordpress/0", retry)
@@ -1586,17 +1862,6 @@ func (s *clientSuite) TestClientEnvironmentSet(c *gc.C) {
 	c.Assert(value, gc.Equals, "value")
 }
 
-func (s *clientSuite) TestClientSetEnvironAgentVersion(c *gc.C) {
-	err := s.APIState.Client().SetEnvironAgentVersion(version.MustParse("9.8.7"))
-	c.Assert(err, gc.IsNil)
-
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	agentVersion, found := envConfig.AllAttrs()["agent-version"]
-	c.Assert(found, jc.IsTrue)
-	c.Assert(agentVersion, gc.Equals, "9.8.7")
-}
-
 func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
 	args := map[string]interface{}{"agent-version": "9.9.9"}
 	err := s.APIState.Client().EnvironmentSet(args)
@@ -1648,202 +1913,6 @@ func (s *clientSuite) TestClientEnvironmentUnsetError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, found = envConfig.AllAttrs()["abc"]
 	c.Assert(found, jc.IsTrue)
-}
-
-type serverSuite struct {
-	baseSuite
-	client *client.Client
-}
-
-var _ = gc.Suite(&serverSuite{})
-
-func (s *serverSuite) SetUpTest(c *gc.C) {
-	s.baseSuite.SetUpTest(c)
-
-	var err error
-	auth := testing.FakeAuthorizer{
-		Tag:            names.NewUserTag(state.AdminUser),
-		EnvironManager: true,
-	}
-	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
-			UserTag: names.NewUserTag("foobar").String(),
-			Action:  params.AddEnvUser,
-		}}}
-
-	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
-	expectedErr := `could not share environment: user "foobar" does not exist locally: user "foobar" not found`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
-}
-
-func (s *serverSuite) TestUnshareEnvironment(c *gc.C) {
-	user := s.Factory.MakeEnvUser(c, nil)
-	_, err := s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
-
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
-			UserTag: user.UserTag().String(),
-			Action:  params.RemoveEnvUser,
-		}}}
-
-	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	_, err = s.State.EnvironmentUser(user.UserTag())
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
-}
-
-func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", NoEnvUser: true})
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
-			UserTag: user.Tag().String(),
-			Action:  params.AddEnvUser,
-		}}}
-
-	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	envUser, err := s.State.EnvironmentUser(user.UserTag())
-	c.Assert(err, gc.IsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
-	c.Assert(envUser.LastConnection(), gc.IsNil)
-}
-
-func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
-	user := names.NewUserTag("foobar@ubuntuone")
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
-			UserTag: user.String(),
-			Action:  params.AddEnvUser,
-		}}}
-
-	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
-
-	envUser, err := s.State.EnvironmentUser(user)
-	c.Assert(err, gc.IsNil)
-	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
-	c.Assert(envUser.LastConnection(), gc.IsNil)
-}
-
-func (s *serverSuite) TestShareEnvironmentInvalidTags(c *gc.C) {
-	for _, testParam := range []struct {
-		tag      string
-		validTag bool
-	}{{
-		tag:      "unit-foo/0",
-		validTag: true,
-	}, {
-		tag:      "service-foo",
-		validTag: true,
-	}, {
-		tag:      "relation-wordpress:db mysql:db",
-		validTag: true,
-	}, {
-		tag:      "machine-0",
-		validTag: true,
-	}, {
-		tag:      "user@local",
-		validTag: false,
-	}, {
-		tag:      "user-Mua^h^h^h^arh",
-		validTag: true,
-	}, {
-		tag:      "user@",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "user@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "@ubuntuone",
-		validTag: false,
-	}, {
-		tag:      "in^valid.",
-		validTag: false,
-	}, {
-		tag:      "",
-		validTag: false,
-	},
-	} {
-		var expectedErr string
-		errPart := `could not share environment: "` + regexp.QuoteMeta(testParam.tag) + `" is not a valid `
-
-		if testParam.validTag {
-
-			// The string is a valid tag, but not a user tag.
-			expectedErr = errPart + `user tag`
-		} else {
-
-			// The string is not a valid tag of any kind.
-			expectedErr = errPart + `tag`
-		}
-
-		args := params.ModifyEnvironUsers{
-			Changes: []params.ModifyEnvironUser{{
-				UserTag: testParam.tag,
-				Action:  params.AddEnvUser,
-			}}}
-
-		_, err := s.client.ShareEnvironment(args)
-		result, err := s.client.ShareEnvironment(args)
-		c.Assert(err, gc.IsNil)
-		c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-		c.Assert(result.Results, gc.HasLen, 1)
-		c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
-	}
-}
-
-func (s *serverSuite) TestShareEnvironmentZeroArgs(c *gc.C) {
-	args := params.ModifyEnvironUsers{Changes: []params.ModifyEnvironUser{{}}}
-
-	_, err := s.client.ShareEnvironment(args)
-	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
-	expectedErr := `could not share environment: "" is not a valid tag`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
-}
-
-func (s *serverSuite) TestShareEnvironmentInvalidAction(c *gc.C) {
-	var dance params.EnvironAction = "dance"
-	args := params.ModifyEnvironUsers{
-		Changes: []params.ModifyEnvironUser{{
-			UserTag: "user-user@local",
-			Action:  dance,
-		}}}
-
-	_, err := s.client.ShareEnvironment(args)
-	result, err := s.client.ShareEnvironment(args)
-	c.Assert(err, gc.IsNil)
-	expectedErr := `unknown action "dance"`
-	c.Assert(result.OneError(), gc.ErrorMatches, expectedErr)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
 func (s *clientSuite) TestClientFindTools(c *gc.C) {
@@ -2234,6 +2303,15 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
+	blobs := make(map[string]bool)
+	s.PatchValue(client.StateStorage, func(st *state.State) (state.Storage, error) {
+		storage, err := st.Storage()
+		if err != nil {
+			return nil, err
+		}
+		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}, nil
+	})
+
 	client := s.APIState.Client()
 	// First test the sanity checks.
 	err := client.AddCharm(&charm.URL{Name: "nonsense"})
@@ -2248,21 +2326,13 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	charmDir := charmtesting.Charms.CharmDir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
+	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
 	c.Assert(err, gc.IsNil)
-	sch, err := s.State.AddCharm(charmDir, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, gc.IsNil)
-
-	name := charm.Quote(sch.URL().String())
-	storage := s.Environ.Storage()
-	_, err = storage.Get(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
-	_, err = storage.Get(name)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(blobs, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = addCharm(c, store, "wordpress")
@@ -2270,9 +2340,12 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Verify it's in state and it got uploaded.
+	storage, err := s.State.Storage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
 var resolveCharmCases = []struct {
@@ -2325,18 +2398,48 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	}
 }
 
+type recordingStorage struct {
+	*sync.Mutex
+	state.Storage
+	blobs map[string]bool
+}
+
+func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
+	err := s.Storage.Put(path, r, size)
+	if err == nil {
+		s.Lock()
+		defer s.Unlock()
+		s.blobs[path] = true
+	}
+	return err
+}
+
+func (s *recordingStorage) Remove(path string) error {
+	err := s.Storage.Remove(path)
+	if err == nil {
+		s.Lock()
+		defer s.Unlock()
+		s.blobs[path] = false
+	}
+	return err
+}
+
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 
+	var blobsMu sync.Mutex
+	blobs := make(map[string]bool)
+	s.PatchValue(client.StateStorage, func(st *state.State) (state.Storage, error) {
+		storage, err := st.Storage()
+		if err != nil {
+			return nil, err
+		}
+		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs}, nil
+	})
+
 	client := s.APIState.Client()
 	curl, _ := addCharm(c, store, "wordpress")
-
-	// Expect storage Put() to be called once for each goroutine
-	// below.
-	ops := make(chan dummy.Operation, 500)
-	dummy.Listen(ops)
-	go s.assertPutCalled(c, ops, 10)
 
 	// Try adding the same charm concurrently from multiple goroutines
 	// to test no "duplicate key errors" are reported (see lp bug
@@ -2353,24 +2456,28 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 			sch, err := s.State.Charm(curl)
 			c.Assert(err, gc.IsNil, gc.Commentf("goroutine %d", index))
 			c.Assert(sch.URL(), jc.DeepEquals, curl, gc.Commentf("goroutine %d", index))
-			expectedName := fmt.Sprintf("%s-%d-[0-9a-f-]+", curl.Name, curl.Revision)
-			c.Assert(getArchiveName(sch.BundleURL()), gc.Matches, expectedName)
 		}(i)
 	}
 	wg.Wait()
-	close(ops)
+
+	c.Assert(blobs, gc.HasLen, 10)
 
 	// Verify there is only a single uploaded charm remains and it
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
-	storage, err := environs.GetStorage(s.State)
+	storagePath := sch.StoragePath()
+	c.Assert(blobs[storagePath], jc.IsTrue)
+	for path, exists := range blobs {
+		if path != storagePath {
+			c.Assert(exists, jc.IsFalse)
+		}
+	}
+
+	storage, err := s.State.Storage()
 	c.Assert(err, gc.IsNil)
-	uploads, err := storage.List(fmt.Sprintf("%s-%d-", curl.Name, curl.Revision))
-	c.Assert(err, gc.IsNil)
-	c.Assert(uploads, gc.HasLen, 1)
-	c.Assert(getArchiveName(sch.BundleURL()), gc.Equals, uploads[0])
-	s.assertUploaded(c, storage, sch.BundleURL(), sch.BundleSha256())
+	defer storage.Close()
+	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 
 func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
@@ -2399,40 +2506,8 @@ func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
 }
 
-func (s *clientSuite) TestCharmArchiveName(c *gc.C) {
-	for rev, name := range []string{"Foo", "bar", "wordpress", "mysql"} {
-		archiveFormat := fmt.Sprintf("%s-%d-[0-9a-f-]+", name, rev)
-		archiveName, err := client.CharmArchiveName(name, rev)
-		c.Check(err, gc.IsNil)
-		c.Check(archiveName, gc.Matches, archiveFormat)
-	}
-}
-
-func (s *clientSuite) assertPutCalled(c *gc.C, ops chan dummy.Operation, numCalls int) {
-	calls := 0
-	select {
-	case op, ok := <-ops:
-		if !ok {
-			return
-		}
-		if op, ok := op.(dummy.OpPutFile); ok {
-			calls++
-			if calls > numCalls {
-				c.Fatalf("storage Put() called %d times, expected %d times", calls, numCalls)
-				return
-			}
-			nameFormat := "[0-9a-z-]+-[0-9]+-[0-9a-f-]+"
-			c.Assert(op.FileName, gc.Matches, nameFormat)
-		}
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out while waiting for a storage Put() calls")
-		return
-	}
-}
-
-func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundleURL *url.URL, expectedSHA256 string) {
-	archiveName := getArchiveName(bundleURL)
-	reader, err := storage.Get(archiveName)
+func (s *clientSuite) assertUploaded(c *gc.C, storage state.Storage, storagePath, expectedSHA256 string) {
+	reader, _, err := storage.Get(storagePath)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
@@ -2440,202 +2515,19 @@ func (s *clientSuite) assertUploaded(c *gc.C, storage envstorage.Storage, bundle
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }
 
-func getArchiveName(bundleURL *url.URL) string {
-	return strings.TrimPrefix(bundleURL.RequestURI(), "/dummyenv/private/")
-}
-
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetStatus(params.StatusError, "error", nil)
+	err = machine.SetStatus(state.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
 	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := machine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "error")
 	c.Assert(data["transient"], gc.Equals, true)
-}
-
-func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
-	m, err := s.BackingState.Machine(machineId)
-	c.Assert(err, gc.IsNil)
-	pinger, err := m.SetAgentPresence()
-	c.Assert(err, gc.IsNil)
-	s.BackingState.StartSync()
-	err = m.WaitAgentPresence(coretesting.LongWait)
-	c.Assert(err, gc.IsNil)
-	return pinger
-}
-
-var (
-	emptyCons     = constraints.Value{}
-	defaultSeries = ""
-)
-
-func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	// We have to ensure the agents are alive, or EnsureAvailability will
-	// create more to replace them.
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machines, gc.HasLen, 1)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err = s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machines, gc.HasLen, 3)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	c.Assert(machines[1].Series(), gc.Equals, "quantal")
-	c.Assert(machines[2].Series(), gc.Equals, "quantal")
-
-	pingerB := s.setAgentPresence(c, "1")
-	defer assertKill(c, pingerB)
-
-	pingerC := s.setAgentPresence(c, "2")
-	defer assertKill(c, pingerC)
-
-	ensureAvailabilityResult, err = s.APIState.Client().EnsureAvailability(5, emptyCons, "non-default")
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-3", "machine-4"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	c.Assert(err, gc.IsNil)
-	machines, err = s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machines, gc.HasLen, 5)
-	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	c.Assert(machines[1].Series(), gc.Equals, "quantal")
-	c.Assert(machines[2].Series(), gc.Equals, "quantal")
-	c.Assert(machines[3].Series(), gc.Equals, "non-default")
-	c.Assert(machines[4].Series(), gc.Equals, "non-default")
-}
-
-func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	pinger := s.setAgentPresence(c, "0")
-	defer assertKill(c, pinger)
-
-	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(
-		3, constraints.MustParse("mem=4G"), defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(err, gc.IsNil)
-	c.Assert(machines, gc.HasLen, 3)
-	expectedCons := []constraints.Value{
-		constraints.Value{},
-		constraints.MustParse("mem=4G"),
-		constraints.MustParse("mem=4G"),
-	}
-	for i, m := range machines {
-		cons, err := m.Constraints()
-		c.Assert(err, gc.IsNil)
-		c.Check(cons, gc.DeepEquals, expectedCons[i])
-	}
-}
-
-func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
-	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
-	// current HA settings".
-	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(machines, gc.HasLen, 3)
-
-	pingerB := s.setAgentPresence(c, "1")
-	defer assertKill(c, pingerB)
-
-	// Now, we keep agent 1 alive, but not agent 2, calling
-	// EnsureAvailability(0) again will cause us to start another machine
-	ensureAvailabilityResult, err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-3"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err = s.State.AllMachines()
-	c.Assert(machines, gc.HasLen, 4)
-}
-
-func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	pingerA := s.setAgentPresence(c, "0")
-	defer assertKill(c, pingerA)
-
-	// Start off with 5 servers
-	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(5, emptyCons, defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2", "machine-3", "machine-4"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err := s.State.AllMachines()
-	c.Assert(machines, gc.HasLen, 5)
-	pingerB := s.setAgentPresence(c, "1")
-	defer assertKill(c, pingerB)
-
-	pingerC := s.setAgentPresence(c, "2")
-	defer assertKill(c, pingerC)
-
-	pingerD := s.setAgentPresence(c, "3")
-	defer assertKill(c, pingerD)
-	// Keeping all alive but one, will bring up 1 more server to preserve 5
-	ensureAvailabilityResult, err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0", "machine-1",
-		"machine-2", "machine-3"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-5"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	machines, err = s.State.AllMachines()
-	c.Assert(machines, gc.HasLen, 6)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	pinger := s.setAgentPresence(c, "0")
-	assertKill(c, pinger)
-
-	_, err = s.APIState.Client().EnsureAvailability(-1, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
-	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"machine-0"})
-	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"machine-1", "machine-2"})
-	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
-
-	_, err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
@@ -2673,4 +2565,32 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, current)
+}
+
+func (s *clientSuite) TestMachineJobFromParams(c *gc.C) {
+	var tests = []struct {
+		name params.MachineJob
+		want state.MachineJob
+		err  string
+	}{{
+		name: params.JobHostUnits,
+		want: state.JobHostUnits,
+	}, {
+		name: params.JobManageEnviron,
+		want: state.JobManageEnviron,
+	}, {
+		name: params.JobManageStateDeprecated,
+		want: state.JobManageStateDeprecated,
+	}, {
+		name: "invalid",
+		want: -1,
+		err:  `invalid machine job "invalid"`,
+	}}
+	for _, test := range tests {
+		got, err := client.MachineJobFromParams(test.name)
+		if err != nil {
+			c.Check(err, gc.ErrorMatches, test.err)
+		}
+		c.Check(got, gc.Equals, test.want)
+	}
 }

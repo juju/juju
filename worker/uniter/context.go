@@ -98,6 +98,9 @@ type HookContext struct {
 
 	// proxySettings are the current proxy settings that the uniter knows about
 	proxySettings proxy.Settings
+
+	// metrics are the metrics recorded by calls to add-metric
+	metrics []jujuc.Metric
 }
 
 func NewHookContext(
@@ -203,6 +206,12 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
+// AddMetrics adds metrics to the hook context.
+func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
+	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
+	return nil
+}
+
 // mergeEnvironment takes in a string array representing the desired environment
 // and merges it with the current environment. On Windows, clearing the environment,
 // or having missing environment variables, may lead to standard go packages not working
@@ -305,6 +314,28 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 			}
 		}
 		rctx.ClearCache()
+	}
+	if err != nil {
+		return err
+	}
+
+	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
+	//                             changes in one api call to minimize the risk
+	//                             of partial failures.
+	if len(ctx.metrics) > 0 {
+		if writeChanges {
+			metrics := make([]params.Metric, len(ctx.metrics))
+			for i, metric := range ctx.metrics {
+				metrics[i] = params.Metric{Key: metric.Key, Value: metric.Value, Time: metric.Time}
+			}
+			if e := ctx.unit.AddMetrics(metrics); e != nil {
+				logger.Errorf("%v", e)
+				if err == nil {
+					err = e
+				}
+			}
+		}
+		ctx.metrics = nil
 	}
 	return err
 }

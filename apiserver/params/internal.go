@@ -88,21 +88,6 @@ type StringResults struct {
 	Results []StringResult
 }
 
-// CharmArchiveURLResult holds a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResult struct {
-	Error                          *Error
-	Result                         string
-	DisableSSLHostnameVerification bool
-}
-
-// CharmArchiveURLResults holds the bulk operation result of an API
-// call that returns a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResults struct {
-	Results []CharmArchiveURLResult
-}
-
 // EnvironmentResult holds the result of an API call returning a name and UUID
 // for an environment.
 type EnvironmentResult struct {
@@ -650,4 +635,22 @@ type ProvisioningInfoResult struct {
 // ProvisioningInfoResults holds multiple machine provisioning info results.
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult
+}
+
+// Metric holds a single metric.
+type Metric struct {
+	Key   string
+	Value string
+	Time  time.Time
+}
+
+// MetricsParam contains the metrics for a single unit.
+type MetricsParam struct {
+	Tag     string
+	Metrics []Metric
+}
+
+// MetricsParams contains the metrics for multiple units.
+type MetricsParams struct {
+	Metrics []MetricsParam
 }

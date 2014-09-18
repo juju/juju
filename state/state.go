@@ -9,7 +9,6 @@ package state
 import (
 	"fmt"
 	"net"
-	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -67,7 +66,9 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
-	toolsmetadataC     = "toolsmetadata"
+
+	// toolsmetadataC is the collection used to store tools metadata.
+	toolsmetadataC = "toolsmetadata"
 
 	// This collection is used just for storing metadata.
 	backupsMetaC = "backupsmetadata"
@@ -113,6 +114,17 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
+}
+
+// ForEnviron returns a connection to mongo for the specified environment. The
+// connection uses the same credentails and policy as the existing connection.
+func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
+	newState, err := open(st.mongoInfo, mongo.DialOpts{}, st.policy)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newState.environTag = env
+	return newState, nil
 }
 
 // EnvironTag() returns the environment tag for the environment controlled by
@@ -299,6 +311,13 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	return nil
 }
 
+var UpgradeInProgressError = errors.New("an upgrade is already in progress or the last upgrade did not complete")
+
+// IsUpgradeInProgressError returns true if the error given is UpgradeInProgressError.
+func IsUpgradeInProgressError(err error) bool {
+	return errors.Cause(err) == UpgradeInProgressError
+}
+
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
@@ -325,16 +344,30 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 			return nil, errors.Trace(err)
 		}
 
-		ops := []txn.Op{{
-			C:      settingsC,
-			Id:     environGlobalKey,
-			Assert: bson.D{{"txn-revno", settings.txnRevno}},
-			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
-		}}
+		ops := []txn.Op{
+			// Can't set agent-version if there's an active upgradeInfo doc.
+			{
+				C:      upgradeInfoC,
+				Id:     currentUpgradeId,
+				Assert: txn.DocMissing,
+			}, {
+				C:      settingsC,
+				Id:     environGlobalKey,
+				Assert: bson.D{{"txn-revno", settings.txnRevno}},
+				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
+			},
+		}
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
-		err = errors.Annotate(err, "cannot set agent version")
+		// Although there is a small chance of a race here, try to
+		// return a more helpful error message in the case of an
+		// active upgradeInfo document being in place.
+		if upgrading, _ := st.IsUpgrading(); upgrading {
+			err = UpgradeInProgressError
+		} else {
+			err = errors.Annotate(err, "cannot set agent version")
+		}
 	}
 	return errors.Trace(err)
 }
@@ -605,10 +638,9 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 	return coll, id, nil
 }
 
-// AddCharm adds the ch charm with curl to the state. bundleURL must
-// be set to a URL where the bundle for ch may be downloaded from. On
-// success the newly added charm state is returned.
-func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (stch *Charm, err error) {
+// AddCharm adds the ch charm with curl to the state.
+// On success the newly added charm state is returned.
+func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (stch *Charm, err error) {
 	// The charm may already exist in state as a placeholder, so we
 	// check for that situation and update the existing charm record
 	// if necessary, otherwise add a new record.
@@ -623,18 +655,31 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
 			Actions:      ch.Actions(),
-			BundleURL:    bundleURL,
 			BundleSha256: bundleSha256,
+			StoragePath:  storagePath,
 		}
 		err = charms.Insert(cdoc)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot add charm %q", curl)
 		}
-		return newCharm(st, cdoc)
+		return newCharm(st, cdoc), nil
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPlaceholder)
+	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPlaceholder)
+}
+
+// AllCharms returns all charms in state.
+func (st *State) AllCharms() ([]*Charm, error) {
+	charmsCollection, closer := st.getCollection(charmsC)
+	defer closer()
+	var cdoc charmDoc
+	var charms []*Charm
+	iter := charmsCollection.Find(nil).Iter()
+	for iter.Next(&cdoc) {
+		charms = append(charms, newCharm(st, &cdoc))
+	}
+	return charms, errors.Trace(iter.Close())
 }
 
 // Charm returns the charm with the given URL. Charms pending upload
@@ -659,7 +704,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err := cdoc.Meta.Check(); err != nil {
 		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
 	}
-	return newCharm(st, cdoc)
+	return newCharm(st, cdoc), nil
 }
 
 // LatestPlaceholderCharm returns the latest charm described by the
@@ -685,7 +730,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	if latest.URL == nil {
 		return nil, errors.NotFoundf("placeholder charm %q", noRevURL)
 	}
-	return newCharm(st, &latest)
+	return newCharm(st, &latest), nil
 }
 
 // PrepareLocalCharmUpload must be called before a local charm is
@@ -827,7 +872,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		return ops, nil
 	}
 	if err = st.run(buildTxn); err == nil {
-		return newCharm(st, &uploadedCharm)
+		return newCharm(st, &uploadedCharm), nil
 	}
 	return nil, errors.Trace(err)
 }
@@ -948,7 +993,7 @@ var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modifie
 
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
-func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string) (*Charm, error) {
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
@@ -964,7 +1009,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 		return nil, errors.Trace(&ErrCharmAlreadyUploaded{curl})
 	}
 
-	return st.updateCharmDoc(ch, curl, bundleURL, bundleSha256, stillPending)
+	return st.updateCharmDoc(ch, curl, storagePath, bundleSha256, stillPending)
 }
 
 // updateCharmDoc updates the charm with specified URL with the given
@@ -972,13 +1017,21 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 // charm is no longer a placeholder or pending (depending on preReq),
 // it returns ErrCharmRevisionAlreadyModified.
 func (st *State) updateCharmDoc(
-	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
+	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
+	// Make sure we escape any "$" and "." in config option names
+	// first. See http://pad.lv/1308146.
+	cfg := ch.Config()
+	escapedConfig := charm.NewConfig()
+	for optionName, option := range cfg.Options {
+		escapedName := escapeReplacer.Replace(optionName)
+		escapedConfig.Options[escapedName] = option
+	}
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
-		{"config", ch.Config()},
+		{"config", escapedConfig},
 		{"actions", ch.Actions()},
-		{"bundleurl", bundleURL},
+		{"storagepath", storagePath},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
 		{"placeholder", false},
@@ -1684,6 +1737,32 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get state servers document")
 	}
+
+	if doc.EnvUUID == "" {
+		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
+
+		// This only happens when migrating from 1.20 to 1.21 before
+		// upgrade steps have been run. Without this hack environTag
+		// on State ends up empty, breaking basic functionality needed
+		// to run upgrade steps (a chicken-and-egg scenario).
+		environments, closer := st.getCollection(environmentsC)
+		defer closer()
+
+		var envDoc environmentDoc
+		query := environments.Find(nil)
+		count, err := query.Count()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get environment document count")
+		}
+		if count != 1 {
+			return nil, errors.New("expected just one environment to get UUID from")
+		}
+		if err := query.One(&envDoc); err != nil {
+			return nil, errors.Annotate(err, "cannot load environment document")
+		}
+		doc.EnvUUID = envDoc.UUID
+	}
+
 	return &StateServerInfo{
 		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
 		MachineIds:       doc.MachineIds,

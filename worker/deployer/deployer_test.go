@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
-	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -81,7 +80,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
 	// Cause a unit to become Dying, and check no change.
-	err = u1.SetStatus(params.StatusInstalled, "", nil)
+	err = u1.SetStatus(state.StatusInstalled, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -124,7 +123,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 	// note: this is not a sane state; for the unit to have a status it must
 	// have been deployed. But it's instructive to check that the right thing
 	// would happen if it were possible to have a dying unit in this situation.
-	err = u1.SetStatus(params.StatusInstalled, "", nil)
+	err = u1.SetStatus(state.StatusInstalled, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = u1.Destroy()
 	c.Assert(err, gc.IsNil)

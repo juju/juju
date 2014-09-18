@@ -4,10 +4,12 @@
 package state
 
 import (
+	"github.com/juju/names"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -115,5 +117,56 @@ func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 		}}},
 	}}
 
+	return st.runTransaction(ops)
+}
+
+// AddCharmStoragePaths adds storagepath fields
+// to the specified charms.
+func AddCharmStoragePaths(st *State, storagePaths map[*charm.URL]string) error {
+	var ops []txn.Op
+	for curl, storagePath := range storagePaths {
+		upgradesLogger.Debugf("adding storage path %q to %s", storagePath, curl)
+		op := txn.Op{
+			C:      charmsC,
+			Id:     curl.String(),
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"storagepath", storagePath}}},
+				{"$unset", bson.D{{"bundleurl", nil}}},
+			},
+		}
+		ops = append(ops, op)
+	}
+	err := st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		return errors.NotFoundf("charms")
+	}
+	return err
+}
+
+// SetOwnerAndServerUUIDForEnvironment adds the environment uuid as the server
+// uuid as well (it is the initial environment, so all good), and the owner to
+// "admin@local", again all good as all existing environments have a user
+// called "admin".
+func SetOwnerAndServerUUIDForEnvironment(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return err
+	}
+
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Annotate(err, "failed to load environment")
+	}
+	owner := names.NewLocalUserTag("admin")
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     env.UUID(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{
+			{"server-uuid", env.UUID()},
+			{"owner", owner.Username()},
+		}}},
+	}}
 	return st.runTransaction(ops)
 }

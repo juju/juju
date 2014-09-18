@@ -134,7 +134,9 @@ func (st *State) Provisioner() *provisioner.State {
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
 	// TODO(dfc) yes, this can panic, we never checked before
-	return uniter.NewState(st, st.authTag.(names.UnitTag))
+	unitTag := st.authTag.(names.UnitTag)
+	charmsURL := uniter.CharmsURL(st.Addr(), st.EnvironTag())
+	return uniter.NewState(st, unitTag, charmsURL)
 }
 
 // Firewaller returns a version of the state that provides functionality

@@ -165,7 +165,8 @@ func (s *commonMachineSuite) configureMachine(c *gc.C, machineId string, vers ve
 		agentConfig, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
 		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
-		err = s.State.SetStateServingInfo(info)
+		ssi := paramsStateServingInfoToStateStateServingInfo(info)
+		err = s.State.SetStateServingInfo(ssi)
 		c.Assert(err, gc.IsNil)
 	} else {
 		agentConfig, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
@@ -308,7 +309,7 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
 	// check that it's kept deployed despite being Dying.
-	err = u0.SetStatus(params.StatusStarted, "", nil)
+	err = u0.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = u0.Destroy()
 	c.Assert(err, gc.IsNil)

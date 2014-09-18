@@ -1,4 +1,5 @@
 // Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -222,7 +223,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		hctx := s.GetHookContext(c, -1, "")
 		hctx.actionParams = t.actionParams
 
-		com, err := jujuc.NewCommand(hctx, "action-get")
+		com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -240,7 +241,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 
 func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "action-get")
+	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
