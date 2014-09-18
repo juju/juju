@@ -1062,12 +1062,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 // StoreCharmArchive stores a charm archive in environment storage.
 func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
-	storage, err := stateStorage(st)
-	if err != nil {
-		return errors.Annotate(err, "cannot get charm storage")
-	}
-	defer storage.Close()
-
+	storage := stateStorage(st)
 	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")

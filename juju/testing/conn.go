@@ -413,11 +413,7 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 		return nil, err
 	}
 
-	stor, err := st.Storage()
-	if err != nil {
-		return nil, err
-	}
-	defer stor.Close()
+	stor := st.Storage()
 	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
 	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
