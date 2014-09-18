@@ -28,6 +28,17 @@ type Charm struct {
 }
 
 func newCharm(st *State, cdoc *charmDoc) (*Charm, error) {
+	// Because we probably just read the doc from state, make sure we
+	// unescape any config option names for "$" and ".". See
+	// http://pad.lv/1308146
+	if cdoc != nil && cdoc.Config != nil {
+		unescapedConfig := charm.NewConfig()
+		for optionName, option := range cdoc.Config.Options {
+			unescapedName := unescapeReplacer.Replace(optionName)
+			unescapedConfig.Options[unescapedName] = option
+		}
+		cdoc.Config = unescapedConfig
+	}
 	return &Charm{st: st, doc: *cdoc}, nil
 }
 
