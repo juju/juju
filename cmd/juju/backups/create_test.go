@@ -61,6 +61,15 @@ func (s *createSuite) TestQuiet(c *gc.C) {
 	s.checkStd(c, ctx, out, "")
 }
 
+func (s *createSuite) TestNotes(c *gc.C) {
+	client := s.setSuccess()
+	_, err := testing.RunCommand(c, s.command, "create", "spam")
+	c.Assert(err, gc.IsNil)
+
+	c.Check(client.args, gc.DeepEquals, []string{"notes"})
+	c.Check(client.notes, gc.Equals, "spam")
+}
+
 func (s *createSuite) TestError(c *gc.C) {
 	s.setFailure("failed!")
 	ctx := cmdtesting.Context(c)
