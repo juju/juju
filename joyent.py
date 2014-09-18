@@ -255,9 +255,9 @@ class Client:
         form_data[EMAIL_FIELD_NAME] = contact_mail_address
         form_data[SUBJECT_FIELD_NAME] = 'Machine stuck in provisioning state'
         form_data[DESCRIPTION_FIELD_NAME] = dedent("""\
-        Please unlock the machine {} which is stuck in provisioning.
+            Please delete the machine {} which is stuck in provisioning.
 
-        Thank you
+            Thank you
         """).format(machine_id)
         form_data[SEVERITY_FIELD_NAME] = 'sev-2'
         form_data[IP_ADDRESS_FIELD_NAME] = machine_address
@@ -297,8 +297,12 @@ class Client:
                 machine for machine in current_stuck
                 if machine['id'] in new_stuck_ids]
             for machine in new_stuck_machines:
+                machine_id = machine['id']
+                machine_address = machine.get('primaryIp')
+                if not machine_address:
+                    machine_address = 'n/a'
                 self.send_stuck_machine_support_request(
-                    machine['id'], machine['primaryIp'], contact_mail_address)
+                    machine_id, machine_address, contact_mail_address)
         stuck_machines_dir = os.path.split(STUCK_MACHINES_PATH)[0]
         if not os.path.exists(stuck_machines_dir):
             os.makedirs(stuck_machines_dir)
