@@ -184,6 +184,9 @@ func (s *CloudInitSuite) TestStateServerUserData(c *gc.C) {
 func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	testJujuHome := c.MkDir()
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
+	// Use actual series paths instead of local defaults
+	logDir := must(paths.LogDir("quantal"))
+	dataDir := must(paths.DataDir("quantal"))
 	tools := &tools.Tools{
 		URL:     "http://foo.com/tools/releases/juju1.2.3-quantal-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
@@ -214,8 +217,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 			CACert:   "CA CERT\n" + testing.CACert,
 			Tag:      names.NewMachineTag("10"),
 		},
-		DataDir:                 environs.DataDir,
-		LogDir:                  agent.DefaultLogDir,
+		DataDir:                 dataDir,
+		LogDir:                  path.Join(logDir, "juju"),
 		Jobs:                    allJobs,
 		CloudInitOutputLog:      cloudInitOutputLog,
 		Config:                  envConfig,

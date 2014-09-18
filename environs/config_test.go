@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
@@ -245,7 +246,11 @@ environments:
 
 	info, err = os.Lstat(outfile)
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(0600))
+	// Windows is not fully POSIX compliant. Normal permission
+	// checking will yield unexpected results
+	if runtime.GOOS != "windows" {
+		c.Assert(info.Mode().Perm(), gc.Equals, os.FileMode(0600))
+	}
 
 	info, err = os.Lstat(filepath.Dir(outfile))
 	c.Assert(err, gc.IsNil)

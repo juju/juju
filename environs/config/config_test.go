@@ -5,7 +5,9 @@ package config_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	stdtesting "testing"
 	"time"
 
@@ -22,6 +24,16 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
+
+func pathSeparator() string {
+	pathSeparator := "/"
+
+	if runtime.GOOS == "windows" {
+		pathSeparator = `\\`
+	}
+
+	return pathSeparator
+}
 
 func Test(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -242,7 +254,7 @@ var configTests = []configTest{
 			"name":         "my-name",
 			"ca-cert-path": "no-such-file",
 		},
-		err: `open .*\.juju/no-such-file: .*`,
+		err: fmt.Sprintf(`open .*\.juju%sno-such-file: .*`, pathSeparator()),
 	}, {
 		about:       "CA key specified as non-existent file",
 		useDefaults: config.UseDefaults,
@@ -251,7 +263,7 @@ var configTests = []configTest{
 			"name":                "my-name",
 			"ca-private-key-path": "no-such-file",
 		},
-		err: `open .*\.juju/no-such-file: .*`,
+		err: fmt.Sprintf(`open .*\.juju%sno-such-file: .*`, pathSeparator()),
 	}, {
 		about:       "Specified agent version",
 		useDefaults: config.UseDefaults,
@@ -813,16 +825,16 @@ type testFile struct {
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/id_dsa.pub", "dsa"},
-		{".ssh/id_rsa.pub", "rsa\n"},
-		{".ssh/identity.pub", "identity"},
-		{".ssh/authorized_keys", "auth0\n# first\nauth1\n\n"},
-		{".ssh/authorized_keys2", "auth2\nauth3\n"},
+		{filepath.Join(".ssh", "id_dsa.pub"), "dsa"},
+		{filepath.Join(".ssh", "id_rsa.pub"), "rsa\n"},
+		{filepath.Join(".ssh", "identity.pub"), "identity"},
+		{filepath.Join(".ssh", "authorized_keys"), "auth0\n# first\nauth1\n\n"},
+		{filepath.Join(".ssh", "authorized_keys2"), "auth2\nauth3\n"},
 
-		{".juju/my-name-cert.pem", caCert},
-		{".juju/my-name-private-key.pem", caKey},
-		{".juju/cacert2.pem", caCert2},
-		{".juju/cakey2.pem", caKey2},
+		{filepath.Join(".juju", "my-name-cert.pem"), caCert},
+		{filepath.Join(".juju", "my-name-private-key.pem"), caKey},
+		{filepath.Join(".juju", "cacert2.pem"), caCert2},
+		{filepath.Join(".juju", "cakey2.pem"), caKey2},
 		{"othercert.pem", caCert3},
 		{"otherkey.pem", caKey3},
 	}
@@ -872,7 +884,7 @@ var emptyCertFilesTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-private-key":  caKey,
 		},
-		err: `file ".*/my-name-cert.pem" is empty`,
+		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, pathSeparator()),
 	}, {
 		about:       "Cert and key unspecified",
 		useDefaults: config.UseDefaults,
@@ -881,7 +893,7 @@ var emptyCertFilesTests = []configTest{
 			"name":            "my-name",
 			"authorized-keys": testing.FakeAuthKeys,
 		},
-		err: `file ".*/my-name-cert.pem" is empty`,
+		err: fmt.Sprintf(`file ".*%smy-name-cert.pem" is empty`, pathSeparator()),
 	}, {
 		about:       "Cert specified, key unspecified",
 		useDefaults: config.UseDefaults,
@@ -891,7 +903,7 @@ var emptyCertFilesTests = []configTest{
 			"authorized-keys": testing.FakeAuthKeys,
 			"ca-cert":         caCert,
 		},
-		err: `file ".*/my-name-private-key.pem" is empty`,
+		err: fmt.Sprintf(`file ".*%smy-name-private-key.pem" is empty`, pathSeparator()),
 	}, /* {
 		about: "Cert and key specified as absent",
 		useDefaults: config.UseDefaults,
@@ -917,8 +929,8 @@ var emptyCertFilesTests = []configTest{
 
 func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".juju/my-name-cert.pem", ""},
-		{".juju/my-name-private-key.pem", ""},
+		{filepath.Join(".juju", "my-name-cert.pem"), ""},
+		{filepath.Join(".juju", "my-name-private-key.pem"), ""},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
@@ -1040,7 +1052,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else if ok {
 		c.Check(cert, gc.HasLen, 0)
 		c.Assert(certPresent, jc.IsFalse)
-	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-cert.pem") {
+	} else if bool(test.useDefaults) && home.FileExists(filepath.Join(".juju", "my-name-cert.pem")) {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, "my-name-cert.pem"))
 	} else {
@@ -1058,7 +1070,7 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else if ok {
 		c.Check(key, gc.HasLen, 0)
 		c.Assert(keyPresent, jc.IsFalse)
-	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-private-key.pem") {
+	} else if bool(test.useDefaults) && home.FileExists(filepath.Join(".juju", "my-name-private-key.pem")) {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, "my-name-private-key.pem"))
 	} else {
@@ -1316,7 +1328,7 @@ var validationTests = []validationTest{{
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []gitjujutesting.TestFile{
-		{".ssh/identity.pub", "identity"},
+		{filepath.Join(".ssh", "identity.pub"), "identity"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
@@ -1335,9 +1347,9 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
 	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
-		{".ssh/id_rsa.pub", "rsa\n"},
-		{".juju/myenv-cert.pem", caCert},
-		{".juju/myenv-private-key.pem", caKey},
+		{filepath.Join(".ssh", "id_rsa.pub"), "rsa\n"},
+		{filepath.Join(".juju", "myenv-cert.pem"), caCert},
+		{filepath.Join(".juju", "myenv-private-key.pem"), caKey},
 	}...)
 }
 
@@ -1499,7 +1511,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// Add a cert.
-	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{filepath.Join(".ssh", "id_rsa.pub"), "rsa\n"})
 
 	for _, test := range []struct {
 		configValues map[string]interface{}

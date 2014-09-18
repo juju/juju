@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -270,6 +272,10 @@ func (s *uploadSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {
+	// Find alternate way to unarchive file
+	if runtime.GOOS == "windows" {
+		c.Skip("tar command not available for windows")
+	}
 	t, err := sync.Upload(s.env.Storage(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
@@ -277,7 +283,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	// TODO(waigani) Does this test need to download tools? If not,
 	// sync.bundleTools can be mocked to improve test speed.
 	dir := downloadTools(c, t)
-	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
+	out, err := exec.Command(filepath.Join(dir, names.Jujud), "version").CombinedOutput()
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
 }
@@ -409,6 +415,24 @@ var badGo = `
 exit 1
 `[1:]
 
+var badGoWin = `
+@echo off
+exit 1
+`[1:]
+
+func writeBadGo(path string) error {
+	var err error = nil
+	switch runtime.GOOS {
+	case "windows":
+		e := filepath.Join(path, "go.bat")
+		err = ioutil.WriteFile(e, []byte(badGoWin), 0755)
+	default:
+		e := filepath.Join(path, "go")
+		err = ioutil.WriteFile(e, []byte(badGo), 0755)
+	}
+	return err
+}
+
 func (s *badBuildSuite) SetUpSuite(c *gc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
@@ -432,8 +456,7 @@ func (s *badBuildSuite) SetUpTest(c *gc.C) {
 	// Mock go cmd
 	testPath := c.MkDir()
 	s.PatchEnvPathPrepend(testPath)
-	path := filepath.Join(testPath, "go")
-	err = ioutil.WriteFile(path, []byte(badGo), 0755)
+	err = writeBadGo(testPath)
 	c.Assert(err, gc.IsNil)
 
 	// Check mocked go cmd errors

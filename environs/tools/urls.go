@@ -6,6 +6,7 @@ package tools
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/juju/utils"
@@ -78,7 +79,9 @@ func ToolsURL(source string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid default tools URL %s: %v", defaultURL, err)
 	}
-	if u.Scheme == "" {
+
+	_, err = os.Stat(defaultURL)
+	if u.Scheme == "" || err == nil {
 		defaultURL = "file://" + defaultURL
 		if !strings.HasSuffix(defaultURL, "/"+storage.BaseToolsPath) {
 			defaultURL = fmt.Sprintf("%s/%s", defaultURL, storage.BaseToolsPath)
