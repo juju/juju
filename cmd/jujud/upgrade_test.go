@@ -586,7 +586,7 @@ func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machine
 	machine0, _, _ := s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
 	machineIdA = machine0.Id()
 
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineIdB = changes.Added[0]

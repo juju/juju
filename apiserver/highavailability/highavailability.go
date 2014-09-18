@@ -111,7 +111,7 @@ func EnsureAvailabilitySingle(st *state.State, spec params.StateServersSpec) (pa
 		}
 		series = templateMachine.Series()
 	}
-	changes, err := st.EnsureAvailability(spec.NumStateServers, spec.Constraints, series)
+	changes, err := st.EnsureAvailability(spec.NumStateServers, spec.Constraints, series, spec.Placement)
 	if err != nil {
 		return params.StateServersChanges{}, err
 	}

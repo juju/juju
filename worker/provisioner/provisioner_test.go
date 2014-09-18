@@ -400,7 +400,7 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(networks []stri
 }
 
 func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries)
+	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
 	c.Assert(err, gc.IsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
