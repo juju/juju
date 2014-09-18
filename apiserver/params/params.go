@@ -881,6 +881,12 @@ type StateServersChanges struct {
 	Demoted    []string `json:"demoted,omitempty"`
 }
 
+type Restore struct {
+	FileName string
+	Uploaded bool
+	Machine  string
+}
+
 // FindToolsParams defines parameters for the FindTools method.
 type FindToolsParams struct {
 	// Number will be used to match tools versions exactly if non-zero.
