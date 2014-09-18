@@ -8,6 +8,7 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
@@ -57,7 +58,7 @@ type CommandBase struct {
 func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return backups.NewClient(root), nil
 }
