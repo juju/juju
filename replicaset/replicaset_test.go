@@ -436,16 +436,16 @@ func (s *MongoIPV6Suite) TestAddressFixing(c *gc.C) {
 	status, err := CurrentStatus(session)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(status.Members), jc.DeepEquals, 1)
-	c.Check(status.Members[0].Address, jc.DeepEquals, ipv6GetAddr(root))
+	c.Check(status.Members[0].Address, gc.Equals, ipv6GetAddr(root))
 
 	cfg, err := CurrentConfig(session)
 	c.Assert(err, gc.IsNil)
 	c.Check(len(cfg.Members), jc.DeepEquals, 1)
-	c.Check(cfg.Members[0].Address, jc.DeepEquals, ipv6GetAddr(root))
+	c.Check(cfg.Members[0].Address, gc.Equals, ipv6GetAddr(root))
 
 	result, err := IsMaster(session)
 	c.Assert(err, gc.IsNil)
-	c.Check(result.Address, jc.DeepEquals, ipv6GetAddr(root))
-	c.Check(result.PrimaryAddress, jc.DeepEquals, ipv6GetAddr(root))
+	c.Check(result.Address, gc.Equals, ipv6GetAddr(root))
+	c.Check(result.PrimaryAddress, gc.Equals, ipv6GetAddr(root))
 	c.Check(result.Addresses, jc.DeepEquals, []string{ipv6GetAddr(root)})
 }
