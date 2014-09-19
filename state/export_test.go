@@ -226,6 +226,10 @@ func ParseTag(st *State, tag names.Tag) (string, string, error) {
 	return st.parseTag(tag)
 }
 
+func IDForEnv(st *State, name string) string {
+	return st.idForEnv(name)
+}
+
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash

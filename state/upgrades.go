@@ -4,11 +4,11 @@
 package state
 
 import (
-	"github.com/juju/names"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -168,5 +168,48 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 			{"owner", owner.Username()},
 		}}},
 	}}
+	return st.runTransaction(ops)
+}
+
+// AddEnvUUIDToServicesID prepends the environment UUID to the ID of all service docs.
+func AddEnvUUIDToServicesID(st *State) error {
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Annotate(err, "failed to load environment")
+	}
+
+	var servicesDocs []serviceDoc
+	services, closer := st.getCollection(servicesC)
+	defer closer()
+
+	if err = services.Find(bson.D{{"env-uuid", ""}}).All(&servicesDocs); err != nil {
+		return errors.Trace(err)
+	}
+
+	upgradesLogger.Debugf("adding env uuid %q", env.UUID())
+
+	uuid := env.UUID()
+	ops := []txn.Op{}
+	for _, service := range servicesDocs {
+		service.EnvUUID = uuid
+		service.Name = service.DocID
+		ops = append(ops,
+			[]txn.Op{{
+				C:      servicesC,
+				Id:     service.DocID,
+				Assert: txn.DocExists,
+				Remove: true,
+			}, {
+				C: servicesC,
+
+				// In the old serialization, _id was mapped to the Name field.
+				// Now _id is mapped to DocID. As such, we have to get the old
+				// doc Name from the DocID field.
+				Id:     st.idForEnv(service.DocID),
+				Assert: txn.DocMissing,
+				Insert: service,
+			}}...)
+	}
+
 	return st.runTransaction(ops)
 }

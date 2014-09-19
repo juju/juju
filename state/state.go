@@ -615,6 +615,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 		coll = machinesC
 	case names.ServiceTag:
 		coll = servicesC
+		id = st.idForEnv(id)
 	case names.UnitTag:
 		coll = unitsC
 	case names.UserTag:
@@ -1108,10 +1109,13 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	serviceID := st.idForEnv(name)
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
+		DocID:         serviceID,
 		Name:          name,
+		EnvUUID:       env.UUID(),
 		Series:        ch.URL().Series,
 		Subordinate:   ch.Meta().Subordinate,
 		CharmURL:      ch.URL(),
@@ -1137,7 +1141,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		},
 		{
 			C:      servicesC,
-			Id:     name,
+			Id:     serviceID,
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
 		}}
@@ -1260,7 +1264,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 		return nil, errors.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
-	sel := bson.D{{"_id", name}}
+	sel := bson.D{{"_id", st.idForEnv(name)}}
 	err = services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q", name)
@@ -1285,6 +1289,11 @@ func (st *State) AllServices() (services []*Service, err error) {
 		services = append(services, newService(st, &v))
 	}
 	return services, nil
+}
+
+// idForEnv returns the environment specific ID for the given ID.
+func (st *State) idForEnv(ID string) string {
+	return st.EnvironTag().Id() + ":" + ID
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
@@ -1458,7 +1467,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			}
 			ops = append(ops, txn.Op{
 				C:      servicesC,
-				Id:     ep.ServiceName,
+				Id:     st.idForEnv(ep.ServiceName),
 				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
 				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 			})

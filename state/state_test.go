@@ -1564,7 +1564,9 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(alive.Name(), dying.Name())
+	aliveID := state.IDForEnv(s.State, alive.Name())
+	dyingID := state.IDForEnv(s.State, dying.Name())
+	wc.AssertChange(aliveID, dyingID)
 	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported.
@@ -1572,7 +1574,7 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = keepDying.Destroy()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(alive.Name(), dying.Name())
+	wc.AssertChange(aliveID, dyingID)
 	wc.AssertNoChange()
 }
 
@@ -1586,7 +1588,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 
 	// Add a service: reported.
 	service := s.AddTestingService(c, "service", s.AddTestingCharm(c, "dummy"))
-	wc.AssertChange("service")
+	wc.AssertChange(state.IDForEnv(s.State, "service"))
 	wc.AssertNoChange()
 
 	// Change the service: not reported.
@@ -1597,13 +1599,13 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	// Make it Dying: reported.
 	err = service.Destroy()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("service")
+	wc.AssertChange(state.IDForEnv(s.State, "service"))
 	wc.AssertNoChange()
 
 	// Make it Dead(/removed): reported.
 	err = keepDying.Destroy()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("service")
+	wc.AssertChange(state.IDForEnv(s.State, "service"))
 	wc.AssertNoChange()
 }
 
@@ -2412,7 +2414,7 @@ func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, svc.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
-	c.Assert(id, gc.Equals, svc.Name())
+	c.Assert(id, gc.Equals, state.IDForEnv(s.State, svc.Name()))
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {

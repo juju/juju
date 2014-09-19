@@ -23,6 +23,7 @@ func (s *steps121Suite) TestUpgradeOperationsContent(c *gc.C) {
 		"add all users in state as environment users",
 		"migrate charm archives into environment storage",
 		"set environment owner and server uuid",
+		"prepend the environment UUID to the ID of all service docs",
 	}
 
 	upgradeSteps := upgrades.StepsFor121()
