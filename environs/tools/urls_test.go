@@ -4,10 +4,7 @@
 package tools_test
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
@@ -51,32 +48,15 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	// Put a file in tools since the dummy storage provider requires a
-	// file to exist before the URL can be found. This is to ensure it behaves
-	// the same way as MAAS.
-	err = env.Storage().Put("tools/dummy", strings.NewReader("dummy"), 5)
-	c.Assert(err, gc.IsNil)
-	privateStorageURL, err := env.Storage().URL("tools")
-	c.Assert(err, gc.IsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		privateStorageURL, "https://streams.canonical.com/juju/tools/"})
+	sstesting.AssertExpectedSources(c, sources, []string{"https://streams.canonical.com/juju/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	// Put a file in tools since the dummy storage provider requires a
-	// file to exist before the URL can be found. This is to ensure it behaves
-	// the same way as MAAS.
-	err = env.Storage().Put("tools/dummy", strings.NewReader("dummy"), 5)
-	c.Assert(err, gc.IsNil)
-	privateStorageURL, err := env.Storage().URL("tools")
-	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-metadata-url/", privateStorageURL, "https://streams.canonical.com/juju/tools/"})
-	haveExpectedSources := false
-	c.Assert(haveExpectedSources, jc.IsTrue)
+		"config-tools-metadata-url/", "https://streams.canonical.com/juju/tools/"})
 }
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
@@ -93,13 +73,13 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	defer tools.UnregisterToolsDataSourceFunc("id0")
 	defer tools.UnregisterToolsDataSourceFunc("id1")
 
-	env := s.env(c, "config-tools-metadata-url", "")
+	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-tools-metadata-url/",
 		"betwixt/releases/",
-		"http://streams.canonical.com/juju/tools/",
+		"https://streams.canonical.com/juju/tools/",
 	})
 }
 
@@ -109,7 +89,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 	})
 	defer tools.UnregisterToolsDataSourceFunc("id0")
 
-	env := s.env(c, "config-tools-metadata-url", "")
+	env := s.env(c, "config-tools-metadata-url")
 	_, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.ErrorMatches, "oyvey!")
 }

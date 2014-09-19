@@ -159,7 +159,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -184,7 +184,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	_, err := envtools.FindTools(
-		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
+		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
