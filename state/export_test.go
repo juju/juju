@@ -21,12 +21,15 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
+const BackupsMetaC = backupsMetaC
+
 var (
-	NewBackupID           = newBackupID
-	GetBackupMetadata     = getBackupMetadata
-	AddBackupMetadata     = addBackupMetadata
-	AddBackupMetadataID   = addBackupMetadataID
-	SetBackupStored       = setBackupStored
+	NewBackupID         = newBackupID
+	GetBackupMetadata   = getBackupMetadata
+	AddBackupMetadata   = addBackupMetadata
+	AddBackupMetadataID = addBackupMetadataID
+	SetBackupStored     = setBackupStored
+
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
