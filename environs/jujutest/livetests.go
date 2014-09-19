@@ -79,6 +79,13 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.ConfigStore = configstore.NewMem()
 }
 
+func (t *LiveTests) SetUpTest(c *gc.C) {
+	storageDir := c.MkDir()
+	t.DefaultBaseURL = "file://" + storageDir + "/tools"
+	t.ToolsFixture.SetUpTest(c)
+	t.UploadFakeToolsToDirectory(c, storageDir)
+}
+
 func publicAttrs(e environs.Environ) map[string]interface{} {
 	cfg := e.Config()
 	secrets, err := e.Provider().SecretAttrs(cfg)
@@ -123,7 +130,6 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.Env.Storage(), nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
-	t.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
@@ -158,7 +164,6 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.BootstrapOnce(c)
-	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
@@ -212,7 +217,6 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.BootstrapOnce(c)
-	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
@@ -303,7 +307,6 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	t.BootstrapOnce(c)
-	t.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
 	oldConfig := t.Env.Config()
