@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
 )
 
 func init() {
@@ -20,8 +19,7 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 
 // API serves backup-specific API methods.
 type API struct {
-	st      *state.State
-	backups backups.Backups
+	st *state.State
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -29,11 +27,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
 	}
-
-	stor := state.NewBackupsStorage(st)
-	b := API{
-		st:      st,
-		backups: backups.NewBackups(stor),
-	}
-	return &b, nil
+	return &API{st: st}, nil
 }
+
+var newBackups = state.NewBackups

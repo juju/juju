@@ -17,6 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -444,9 +445,25 @@ func (s *envFileStorage) RemoveFile(id string) error {
 //---------------------------
 // backup storage
 
+// ClosingFileStorage is a FileStorage that also implements Close().
+type ClosingFileStorage interface {
+	filestorage.FileStorage
+	io.Closer
+}
+
+type backupsStorage struct {
+	filestorage.FileStorage
+	session *mgo.Session
+}
+
+func (stor *backupsStorage) Close() error {
+	stor.session.Close()
+	return nil
+}
+
 // NewBackupsStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewBackupsStorage(st *State) filestorage.FileStorage {
+func NewBackupsStorage(st *State) ClosingFileStorage {
 	envUUID := st.EnvironTag().Id()
 	session := st.db.Session.Copy()
 
@@ -454,5 +471,14 @@ func NewBackupsStorage(st *State) filestorage.FileStorage {
 
 	files := newBackupFileStorage(envUUID, envStor, backupStorageRoot)
 	docs := newBackupMetadataStorage(st)
-	return filestorage.NewFileStorage(docs, files)
+	stor := filestorage.NewFileStorage(docs, files)
+
+	return &backupsStorage{stor, session}
+}
+
+// NewBackups returns a new Backups that uses state's storage.
+func NewBackups(st *State) (backups.Backups, io.Closer) {
+	stor := NewBackupsStorage(st)
+	backups := backups.NewBackups(stor)
+	return backups, stor
 }
