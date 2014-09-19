@@ -2304,12 +2304,9 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	defer restore()
 
 	blobs := make(map[string]bool)
-	s.PatchValue(client.StateStorage, func(st *state.State) (state.Storage, error) {
-		storage, err := st.Storage()
-		if err != nil {
-			return nil, err
-		}
-		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}, nil
+	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
+		storage := st.Storage()
+		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}
 	})
 
 	client := s.APIState.Client()
@@ -2340,9 +2337,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -2430,12 +2425,9 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	var blobsMu sync.Mutex
 	blobs := make(map[string]bool)
-	s.PatchValue(client.StateStorage, func(st *state.State) (state.Storage, error) {
-		storage, err := st.Storage()
-		if err != nil {
-			return nil, err
-		}
-		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs}, nil
+	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
+		storage := st.Storage()
+		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs}
 	})
 
 	client := s.APIState.Client()
@@ -2474,9 +2466,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 

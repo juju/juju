@@ -1629,11 +1629,9 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage, err := ctx.st.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := ctx.st.Storage()
 	for storagePath, data := range ctx.charms {
-		err = storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
+		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, gc.IsNil)
 		delete(ctx.charms, storagePath)
 	}
