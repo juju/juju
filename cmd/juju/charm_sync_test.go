@@ -49,7 +49,7 @@ func (s *CharmSyncSuite) TestTargetArgParsing(c *gc.C) {
 		},
 		{
 			message:   "passing download",
-			args:      []string{"someCharm/0", "--charm=/some/charm/folder", "--down"},
+			args:      []string{"someCharm/0", "--charm=/some/charm/folder", "--pull"},
 			charmPath: "/some/charm/folder",
 			download:  true,
 			errMatch:  "",
@@ -79,19 +79,19 @@ func (s *CharmSyncSuite) prepareUploadCharm(c *gc.C, fakeSeries, fakeDirPath str
 		*unitURLCalled = true
 		return "ubuntu@fakeUnitURL", nil
 	}
-	s.PatchValue(&wrapUnitURL, fakeUnitUrl)
+	s.PatchValue(&unitURL, fakeUnitUrl)
 
 	fakeRemoteTempPath := func(_ *CharmSyncCommand, charmSeries string) (string, error) {
 		c.Assert(charmSeries, gc.Equals, fakeSeries)
 		return "/tmp/fake", nil
 	}
-	s.PatchValue(&wrapRemoteTempPath, fakeRemoteTempPath)
+	s.PatchValue(&remoteTempPath, fakeRemoteTempPath)
 
 	fakeRemoteUnitPath := func(_ *CharmSyncCommand, charmSeries string) (string, error) {
 		c.Assert(charmSeries, gc.Equals, fakeSeries)
 		return "/fake/remote/unit", nil
 	}
-	s.PatchValue(&wrapRemoteUnitPath, fakeRemoteUnitPath)
+	s.PatchValue(&remoteUnitPath, fakeRemoteUnitPath)
 
 	fakeSshCopy := func(scpArgs []string, _ *ssh.Options) error {
 		expectedSCPArgs := []string{"-r", fakeDirPath, "ubuntu@fakeUnitURL:/tmp/fake"}
@@ -115,7 +115,7 @@ func (s *CharmSyncSuite) TestUploadCharm(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	s.prepareUploadCharm(c, fakeSeries, fakeDirPath, &unitURLCalled)
 
-	_, err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
+	err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unitURLCalled, jc.IsTrue)
 }
@@ -131,9 +131,9 @@ func (s *CharmSyncSuite) TestUploadCharmFailsUnitURL(c *gc.C) {
 		unitURLCalled = true
 		return "", fmt.Errorf("unitURL failed")
 	}
-	s.PatchValue(&wrapUnitURL, fakeUnitUrl)
+	s.PatchValue(&unitURL, fakeUnitUrl)
 
-	_, err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
+	err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
 	c.Assert(err, gc.ErrorMatches, "unitURL failed")
 	c.Assert(unitURLCalled, jc.IsTrue)
 }
@@ -149,9 +149,9 @@ func (s *CharmSyncSuite) TestUploadCharmFailsTransientFolder(c *gc.C) {
 		c.Assert(charmSeries, gc.Equals, fakeSeries)
 		return "", fmt.Errorf("test fails transient folder")
 	}
-	s.PatchValue(&wrapRemoteTempPath, fakeRemoteTempPath)
+	s.PatchValue(&remoteTempPath, fakeRemoteTempPath)
 
-	_, err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
+	err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
 	c.Assert(err, gc.ErrorMatches, "cannote determine remote machine temp folder: test fails transient folder")
 	c.Assert(unitURLCalled, jc.IsTrue)
 }
@@ -170,7 +170,7 @@ func (s *CharmSyncSuite) TestUploadCharmFailsSshCopy(c *gc.C) {
 	}
 	s.PatchValue(&sshCopy, fakeSshCopy)
 
-	_, err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
+	err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
 	c.Assert(err, gc.ErrorMatches, "cannot copy charm to \"ubuntu@fakeUnitURL\": testing ssh copy error")
 	c.Assert(unitURLCalled, jc.IsTrue)
 }
@@ -188,7 +188,7 @@ func (s *CharmSyncSuite) TestUploadCharmFailsRemoteCharmCopy(c *gc.C) {
 	}
 	s.PatchValue(&apiRun, fakeRun)
 
-	_, err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
+	err := charmSyncCmd.uploadCharm(fakeSeries, fakeDirPath)
 	c.Assert(err, gc.ErrorMatches, "cannot copy charm to destination: run sudo cp failed")
 	c.Assert(unitURLCalled, jc.IsTrue)
 }
@@ -197,7 +197,7 @@ func (s *CharmSyncSuite) TestUnitUrl(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "aFakeUnit"
 	fakeHostFromTarget := func(_ *CharmSyncCommand, _ string) (string, error) { return "aFakeUnitHost", nil }
-	s.PatchValue(&wrapHostFromTarget, fakeHostFromTarget)
+	s.PatchValue(&hostFromTarget, fakeHostFromTarget)
 	charmUnitURL, err := charmSyncCmd.unitURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(charmUnitURL, gc.Equals, "ubuntu@aFakeUnitHost")
@@ -208,7 +208,7 @@ func (s *CharmSyncSuite) TestUnitUrlFailsMissingToUnit(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = ""
 	fakeHostFromTarget := func(_ *CharmSyncCommand, _ string) (string, error) { return "aFakeUnitHost", nil }
-	s.PatchValue(&wrapHostFromTarget, fakeHostFromTarget)
+	s.PatchValue(&hostFromTarget, fakeHostFromTarget)
 	_, err := charmSyncCmd.unitURL()
 	c.Assert(err, gc.ErrorMatches, "the unit name must be specified")
 }
@@ -217,7 +217,7 @@ func (s *CharmSyncSuite) TestUnitUrlFailsHostFromTarget(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "aFakeUnit"
 	fakeHostFromTarget := func(_ *CharmSyncCommand, _ string) (string, error) { return "", fmt.Errorf("host from target failed") }
-	s.PatchValue(&wrapHostFromTarget, fakeHostFromTarget)
+	s.PatchValue(&hostFromTarget, fakeHostFromTarget)
 	_, err := charmSyncCmd.unitURL()
 	c.Assert(err, gc.ErrorMatches, "host from target failed")
 }
@@ -229,7 +229,7 @@ func (s *CharmSyncSuite) TestInferCharm(c *gc.C) {
 		pathCharmCalled = true
 		return &charm.Dir{}, nil
 	}
-	s.PatchValue(&wrapPathCharm, fakePathCharm)
+	s.PatchValue(&PathCharm, fakePathCharm)
 	charmSyncCmd.charmPath = "/fake/charm/path"
 	_, err := charmSyncCmd.inferCharm()
 	c.Assert(err, gc.IsNil)
@@ -252,8 +252,8 @@ func (s *CharmSyncSuite) TestInferCharmNoCharmPath(c *gc.C) {
 		return &charm.Dir{}, nil
 	}
 
-	s.PatchValue(&wrapPathCharm, fakePathCharm)
-	s.PatchValue(&wrapCwdCharm, fakeCwdPathCharm)
+	s.PatchValue(&PathCharm, fakePathCharm)
+	s.PatchValue(&CwdCharm, fakeCwdPathCharm)
 	_, err := charmSyncCmd.inferCharm()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pathCharmCalled, jc.IsFalse)
@@ -276,10 +276,10 @@ func (s *CharmSyncSuite) TestInferCharmNoCharmPathCwdFails(c *gc.C) {
 		return &charm.Dir{}, fmt.Errorf("fake testing error of cwdPathCharm")
 	}
 
-	s.PatchValue(&wrapPathCharm, fakePathCharm)
-	s.PatchValue(&wrapCwdCharm, fakeCwdPathCharm)
+	s.PatchValue(&PathCharm, fakePathCharm)
+	s.PatchValue(&CwdCharm, fakeCwdPathCharm)
 	_, err := charmSyncCmd.inferCharm()
-	c.Assert(err, gc.ErrorMatches, "charm path not supplied and current work dir cannot be used: fake testing error of cwdPathCharm")
+	c.Assert(err, gc.ErrorMatches, "charm path not supplied and current working dir cannot be used: fake testing error of cwdPathCharm")
 	c.Assert(pathCharmCalled, jc.IsFalse)
 	c.Assert(cwdPathCharmCalled, jc.IsTrue)
 }
@@ -288,7 +288,7 @@ func (s *CharmSyncSuite) TestRemoteUnitPath(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "wordpress/0"
 	fakeDataDir := func(series string) (string, error) { return "/a/fake/path", nil }
-	s.PatchValue(&wrapDataDir, fakeDataDir)
+	s.PatchValue(&pathsDataDir, fakeDataDir)
 
 	remotePath, err := charmSyncCmd.remoteUnitPath("fakeSeries")
 	c.Assert(err, gc.IsNil)
@@ -299,7 +299,7 @@ func (s *CharmSyncSuite) TestRemoteUnitPathDatarDirFails(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "wordpress/0"
 	fakeDataDir := func(series string) (string, error) { return "", fmt.Errorf("fake invalid series") }
-	s.PatchValue(&wrapDataDir, fakeDataDir)
+	s.PatchValue(&pathsDataDir, fakeDataDir)
 
 	_, err := charmSyncCmd.remoteUnitPath("fakeSeries")
 	c.Assert(err, gc.ErrorMatches, "cannot determine target data directory: fake invalid series")
@@ -309,7 +309,7 @@ func (s *CharmSyncSuite) TestRemoteUnitPathErrsOnInvalidUnit(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "invalid unit/0"
 	fakeDataDir := func(series string) (string, error) { return "/a/fake/path", nil }
-	s.PatchValue(&wrapDataDir, fakeDataDir)
+	s.PatchValue(&pathsDataDir, fakeDataDir)
 
 	_, err := charmSyncCmd.remoteUnitPath("fakeSeries")
 	c.Assert(err, gc.ErrorMatches, "invalid unit name specified: \"invalid unit/0\"")
@@ -319,13 +319,13 @@ func (s *CharmSyncSuite) TestRemoteTempPath(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "wordpress/0"
 	fakeTempDir := func(series string) (string, error) { return "/a/fake/temp/dir", nil }
-	s.PatchValue(&wrapTempDir, fakeTempDir)
+	s.PatchValue(&tempDir, fakeTempDir)
 
 	deterministicUUID, err := utils.UUIDFromString("12345678-90ab-4cde-8123-4567890abcde")
 	c.Check(err, gc.IsNil)
 
 	fakeNewUUID := func() (utils.UUID, error) { return deterministicUUID, nil }
-	s.PatchValue(&wrapNewUUID, fakeNewUUID)
+	s.PatchValue(&newUUID, fakeNewUUID)
 
 	remoteTempPath, err := charmSyncCmd.remoteTempPath("fakeSeries")
 	c.Assert(err, gc.IsNil)
@@ -336,10 +336,10 @@ func (s *CharmSyncSuite) TestRemoteTempPathUUIDFails(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "wordpress/0"
 	fakeTempDir := func(series string) (string, error) { return "/a/fake/temp/dir", nil }
-	s.PatchValue(&wrapTempDir, fakeTempDir)
+	s.PatchValue(&tempDir, fakeTempDir)
 
 	fakeNewUUID := func() (utils.UUID, error) { return utils.UUID{}, fmt.Errorf("fake uuid generation error") }
-	s.PatchValue(&wrapNewUUID, fakeNewUUID)
+	s.PatchValue(&newUUID, fakeNewUUID)
 
 	_, err := charmSyncCmd.remoteTempPath("fakeSeries")
 	c.Assert(err, gc.ErrorMatches, "cannot generate an UUID for the transient charm folder: fake uuid generation error")
@@ -349,10 +349,10 @@ func (s *CharmSyncSuite) TestRemoteTempPathTempDirFails(c *gc.C) {
 	charmSyncCmd := &CharmSyncCommand{}
 	charmSyncCmd.toUnit = "wordpress/0"
 	fakeTempDir := func(series string) (string, error) { return "", fmt.Errorf("Fake TempDir error") }
-	s.PatchValue(&wrapTempDir, fakeTempDir)
+	s.PatchValue(&tempDir, fakeTempDir)
 
 	fakeNewUUID := func() (utils.UUID, error) { return utils.UUID{}, nil }
-	s.PatchValue(&wrapNewUUID, fakeNewUUID)
+	s.PatchValue(&newUUID, fakeNewUUID)
 
 	_, err := charmSyncCmd.remoteTempPath("fakeSeries")
 	c.Assert(err, gc.ErrorMatches, "cannot generate a remote temp folder name: Fake TempDir error")
@@ -363,12 +363,12 @@ func (s *CharmSyncSuite) TestUnitPath(c *gc.C) {
 	fakeUnitUrl := func(_ *CharmSyncCommand) (string, error) {
 		return "ubuntu@fakeUnitURL", nil
 	}
-	s.PatchValue(&wrapUnitURL, fakeUnitUrl)
+	s.PatchValue(&unitURL, fakeUnitUrl)
 
 	fakeRemoteUnitPath := func(_ *CharmSyncCommand, _ string) (string, error) {
 		return "/fake/remote/unit", nil
 	}
-	s.PatchValue(&wrapRemoteUnitPath, fakeRemoteUnitPath)
+	s.PatchValue(&remoteUnitPath, fakeRemoteUnitPath)
 
 	unitHostPort, err := charmSyncCmd.unitPath("fakeSeries")
 	c.Assert(err, gc.IsNil)
