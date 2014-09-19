@@ -5,7 +5,6 @@ package state
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/juju/loggo"
@@ -241,9 +240,7 @@ func (m *MetricBatch) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.doc)
 }
 
-// Refresh refreshes the contents of the MetricBatch from the underlying
-// state. It an error that satisfies errors.IsNotFound if the unit has
-// been removed.
+// Refresh refreshes the contents of the MetricBatch from the underlying state.
 func (m *MetricBatch) Refresh() error {
 	metrics, closer := m.st.getCollection(metricsC)
 	defer closer()
@@ -253,7 +250,7 @@ func (m *MetricBatch) Refresh() error {
 		return errors.NotFoundf("metric %q", m)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh metric %q: %v", m, err)
+		return errors.Annotatef(err, "cannot refresh metric %q", m)
 	}
 	return nil
 }
