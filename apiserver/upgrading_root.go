@@ -34,7 +34,7 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 	if _, _, err := r.lookupMethod(rootName, version, methodName); err != nil {
 		return nil, err
 	}
-	if !isMethodAllowedDuringUpgrade(rootName, methodName) {
+	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
 		return nil, inUpgradeError
 	}
 	return r.srvRoot.FindMethod(rootName, version, methodName)
@@ -48,7 +48,7 @@ var allowedMethodsDuringUpgrades = set.NewStrings(
 	"Client.WatchDebugLog",  // for "juju debug-log"
 )
 
-func isMethodAllowedDuringUpgrade(rootName, methodName string) bool {
+func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
 	fullName := rootName + "." + methodName
 	return allowedMethodsDuringUpgrades.Contains(fullName)
 }
