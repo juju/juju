@@ -50,12 +50,10 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	s.owner = names.NewLocalUserTag("test-admin")
+	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.State = st
-	env, err := st.Environment()
-	c.Assert(err, gc.IsNil)
-	s.owner = env.Owner()
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {

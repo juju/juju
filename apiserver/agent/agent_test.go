@@ -66,7 +66,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
-	auth.Tag = names.NewUserTag("admin")
+	auth.Tag = names.NewLocalUserTag("admin")
 	api, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
