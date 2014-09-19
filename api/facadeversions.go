@@ -9,7 +9,7 @@ package api
 // This map should be updated whenever the API server exposes a new version (so
 // that the client will use it whenever it is available).
 var facadeVersions = map[string]int{
-	"Agent":                0,
+	"Agent":                1,
 	"AllWatcher":           0,
 	"Backups":              0,
 	"Deployer":             0,
