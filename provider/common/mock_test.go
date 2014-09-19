@@ -79,11 +79,6 @@ func (env *mockEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{datasource}, nil
 }
 
-func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
-	datasource := storage.NewStorageSimpleStreamsDataSource("test cloud storage", env.Storage(), storage.BaseImagesPath)
-	return []simplestreams.DataSource{datasource}, nil
-}
-
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
 type instanceAvailabilityZoneNamesFunc func([]instance.Id) ([]string, error)
 

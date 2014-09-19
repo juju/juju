@@ -169,6 +169,7 @@ var commandNames = []string{
 	"api-endpoints",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
+	"backups",
 	"bootstrap",
 	"charm-sync",
 	"debug-hooks",

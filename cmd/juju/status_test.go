@@ -2056,7 +2056,7 @@ type relateServices struct {
 }
 
 func (rs relateServices) step(c *gc.C, ctx *context) {
-	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
+	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
 	c.Assert(err, gc.IsNil)
 	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2070,7 +2070,7 @@ type addSubordinate struct {
 func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
 	c.Assert(err, gc.IsNil)
-	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
+	eps, err := ctx.st.InferEndpoints(u.ServiceName(), as.subService)
 	c.Assert(err, gc.IsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, gc.IsNil)

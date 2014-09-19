@@ -51,7 +51,7 @@ var _ = gc.Suite(&backupsSuite{})
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	tag := names.NewUserTag("spam")
+	tag := names.NewLocalUserTag("spam")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
 	s.api, err = backups.NewAPI(s.State, s.resources, s.authorizer)

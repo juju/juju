@@ -53,6 +53,9 @@ var (
 	RestrictedAPIExposed exposedAPI = false
 )
 
+const fails = true
+const succeeds = false
+
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
@@ -166,6 +169,19 @@ func (s *UpgradeSuite) TestIsUpgradeRunning(c *gc.C) {
 	c.Assert(context.IsUpgradeRunning(), jc.IsFalse)
 }
 
+func (s *UpgradeSuite) TestNoUpgradeNecessary(c *gc.C) {
+	attemptsP := s.countUpgradeAttempts(nil)
+	s.captureLogs(c)
+	s.oldVersion = version.Current // nothing to do
+
+	workerErr, config, _, context := s.runUpgradeWorker(c, params.JobHostUnits)
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(*attemptsP, gc.Equals, 0)
+	c.Check(config.Version, gc.Equals, version.Current.Number)
+	assertUpgradeComplete(c, context)
+}
+
 func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// This test checks what happens when every upgrade attempt fails.
 	// A number of retries should be observed and the agent should end
@@ -185,8 +201,10 @@ func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 
 	c.Check(*attemptsP, gc.Equals, maxUpgradeRetries)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(maxUpgradeRetries))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(maxUpgradeRetries, "hostMachine"))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
+		s.makeExpectedStatusCalls(maxUpgradeRetries-1, fails, "boom"))
+	c.Assert(s.logWriter.Log(), jc.LogMatches,
+		s.makeExpectedUpgradeLogs(maxUpgradeRetries-1, "hostMachine", fails, "boom"))
 	assertUpgradeNotComplete(c, context)
 }
 
@@ -213,9 +231,36 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attempts, gc.Equals, 2)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(1))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(1, "hostMachine"))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(1, succeeds, "boom"))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(1, "hostMachine", succeeds, "boom"))
 	assertUpgradeComplete(c, context)
+}
+
+func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
+	// This test checks what happens something other than the upgrade
+	// steps themselves fails, ensuring the something is logged and
+	// the agent status is updated.
+
+	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
+		// Delete UpgradeInfo for the upgrade so that finaliseUpgrade() will fail
+		s.State.ClearUpgradeInfo()
+		return nil
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
+	s.captureLogs(c)
+
+	workerErr, config, agent, context := s.runUpgradeWorker(c, params.JobManageEnviron)
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade almost finished
+	failReason := `upgrade done but: cannot set upgrade status to "finishing": ` +
+		`Another status change may have occurred concurrently`
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
+		s.makeExpectedStatusCalls(0, fails, failReason))
+	c.Assert(s.logWriter.Log(), jc.LogMatches,
+		s.makeExpectedUpgradeLogs(0, "databaseMaster", fails, failReason))
+	assertUpgradeNotComplete(c, context)
 }
 
 func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
@@ -263,14 +308,14 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	causeMsg := " timed out after 60ms"
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "waiting for other state servers to be ready for upgrade"},
-		{loggo.ERROR, fmt.Sprintf(
-			`other state servers failed to come up for upgrade to %s - aborting:`+causeMsg,
-			version.Current.Number)},
+		{loggo.ERROR, "aborted wait for other state servers: timed out after 60ms"},
+		{loggo.ERROR, `upgrade from .+ to .+ for "machine-0" failed \(giving up\): ` +
+			"aborted wait for other state servers:" + causeMsg},
 	})
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, []MachineStatusCall{{
 		params.StatusError,
 		fmt.Sprintf(
-			"upgrade to %s aborted while waiting for other state servers:"+causeMsg,
+			"upgrade to %s failed (giving up): aborted wait for other state servers:"+causeMsg,
 			version.Current.Number),
 	}})
 }
@@ -339,8 +384,8 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 1)
 	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0))
-	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, target))
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals, s.makeExpectedStatusCalls(0, succeeds, ""))
+	c.Assert(s.logWriter.Log(), jc.LogMatches, s.makeExpectedUpgradeLogs(0, target, succeeds, ""))
 	assertUpgradeComplete(c, context)
 
 	err = info.Refresh()
@@ -404,7 +449,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
 
 	// Only user and local logins are allowed during upgrade. Users get a restricted API.
-	checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
+	s.checkLoginToAPIAsUser(c, machine0Conf, RestrictedAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, false)
 
@@ -413,7 +458,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	waitForUpgradeToFinish(c, machine0Conf)
 
 	// All logins are allowed after upgrade
-	checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
+	s.checkLoginToAPIAsUser(c, machine0Conf, FullAPIExposed)
 	c.Assert(canLoginToAPIAsMachine(c, machine0Conf, machine0Conf), gc.Equals, true)
 	c.Assert(canLoginToAPIAsMachine(c, machine1Conf, machine0Conf), gc.Equals, true)
 }
@@ -448,7 +493,7 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 
 	// Test that unrestricted API logins are possible (i.e. no
 	// "upgrade mode" in force)
-	checkLoginToAPIAsUser(c, agentConf, FullAPIExposed)
+	s.checkLoginToAPIAsUser(c, agentConf, FullAPIExposed)
 	c.Assert(attempts, gc.Equals, 0) // There should have been no attempt to upgrade.
 
 	// Even though no upgrade was done upgradedToVersion should have been updated.
@@ -541,7 +586,7 @@ func (s *UpgradeSuite) createUpgradingStateServers(c *gc.C) (machineIdA, machine
 	machine0, _, _ := s.primeAgent(c, s.oldVersion, state.JobManageEnviron)
 	machineIdA = machine0.Id()
 
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(changes.Added), gc.Equals, 2)
 	machineIdB = changes.Added[0]
@@ -586,21 +631,21 @@ func (s *UpgradeSuite) setInstantRetryStrategy() {
 	})
 }
 
-func (s *UpgradeSuite) makeExpectedStatusCalls(failCount int) []MachineStatusCall {
+func (s *UpgradeSuite) makeExpectedStatusCalls(retryCount int, expectFail bool, failReason string) []MachineStatusCall {
 	calls := []MachineStatusCall{{
 		params.StatusStarted,
 		fmt.Sprintf("upgrading to %s", version.Current.Number),
 	}}
-	for i := 0; i < calcNumRetries(failCount); i++ {
+	for i := 0; i < retryCount; i++ {
 		calls = append(calls, MachineStatusCall{
 			params.StatusError,
-			fmt.Sprintf("upgrade to %s failed (will retry): boom", version.Current.Number),
+			fmt.Sprintf("upgrade to %s failed (will retry): %s", version.Current.Number, failReason),
 		})
 	}
-	if failCount >= maxUpgradeRetries {
+	if expectFail {
 		calls = append(calls, MachineStatusCall{
 			params.StatusError,
-			fmt.Sprintf("upgrade to %s failed (giving up): boom", version.Current.Number),
+			fmt.Sprintf("upgrade to %s failed (giving up): %s", version.Current.Number, failReason),
 		})
 	} else {
 		calls = append(calls, MachineStatusCall{params.StatusStarted, ""})
@@ -608,13 +653,26 @@ func (s *UpgradeSuite) makeExpectedStatusCalls(failCount int) []MachineStatusCal
 	return calls
 }
 
-func (s *UpgradeSuite) makeExpectedUpgradeLogs(failCount int, target string) []jc.SimpleMessage {
+func (s *UpgradeSuite) makeExpectedUpgradeLogs(
+	retryCount int,
+	target string,
+	expectFail bool,
+	failReason string,
+) []jc.SimpleMessage {
 	outLogs := []jc.SimpleMessage{}
 
 	if target == "databaseMaster" || target == "stateServer" {
 		outLogs = append(outLogs, jc.SimpleMessage{
 			loggo.INFO, "waiting for other state servers to be ready for upgrade",
 		})
+		var waitMsg string
+		switch target {
+		case "databaseMaster":
+			waitMsg = "all state servers are ready to run upgrade steps"
+		case "stateServer":
+			waitMsg = "the master has completed its upgrade steps"
+		}
+		outLogs = append(outLogs, jc.SimpleMessage{loggo.INFO, "finished waiting - " + waitMsg})
 	}
 
 	outLogs = append(outLogs, jc.SimpleMessage{
@@ -624,29 +682,19 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(failCount int, target string) []j
 	})
 
 	failMessage := fmt.Sprintf(
-		`upgrade from %s to %s for %s "machine-0" failed \(%%s\): boom`,
-		s.oldVersion.Number, version.Current.Number, target)
+		`upgrade from %s to %s for "machine-0" failed \(%%s\): %s`,
+		s.oldVersion.Number, version.Current.Number, failReason)
 
-	for i := 0; i < calcNumRetries(failCount); i++ {
+	for i := 0; i < retryCount; i++ {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "will retry")})
 	}
-	if failCount >= maxUpgradeRetries {
+	if expectFail {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR, fmt.Sprintf(failMessage, "giving up")})
-		outLogs = append(outLogs, jc.SimpleMessage{loggo.ERROR,
-			fmt.Sprintf(`upgrade to %s failed.`, version.Current.Number)})
 	} else {
 		outLogs = append(outLogs, jc.SimpleMessage{loggo.INFO,
 			fmt.Sprintf(`upgrade to %s completed successfully.`, version.Current.Number)})
 	}
 	return outLogs
-}
-
-func calcNumRetries(failCount int) int {
-	n := failCount
-	if failCount >= maxUpgradeRetries {
-		n--
-	}
-	return n
 }
 
 func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
@@ -732,9 +780,9 @@ func readConfigFromDisk(c *gc.C, dir string, tag names.Tag) agent.Config {
 	return conf
 }
 
-func checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
+func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, conf agent.Config, expectFullApi exposedAPI) {
 	info := conf.APIInfo()
-	info.Tag = names.NewUserTag("admin")
+	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	info.Nonce = ""
 
