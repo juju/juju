@@ -1214,8 +1214,12 @@ func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, erro
 	if err != nil {
 		return nothing, err
 	}
+	ownerTag, err := service.GetOwnerTag()
+	if err != nil {
+		return params.StringResult{}, errors.Trace(err)
+	}
 	return params.StringResult{
-		Result: service.GetOwnerTag(),
+		Result: ownerTag.String(),
 	}, nil
 }
 
