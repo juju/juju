@@ -10,10 +10,16 @@ import (
 )
 
 // List provides the implementation of the API method.
-func (b *API) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
+func (a *API) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
 	var result params.BackupsListResult
 
-	metaList, err := b.backups.List()
+	backups, closer, err := newBackups(a.st)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	defer closer.Close()
+
+	metaList, err := backups.List()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
