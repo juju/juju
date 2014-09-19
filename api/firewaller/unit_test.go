@@ -63,6 +63,8 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchV0(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV0)
+
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
 
 	w, err := s.apiUnit.Watch()

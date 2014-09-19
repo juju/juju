@@ -1943,7 +1943,9 @@ func (w *openedPortsWatcher) initial() (*set.Strings, error) {
 	var doc portsDoc
 	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
 	for iter.Next(&doc) {
-		w.known[doc.Id] = doc.TxnRevno
+		if doc.TxnRevno != -1 {
+			w.known[doc.Id] = doc.TxnRevno
+		}
 		portDocs.Add(doc.Id)
 	}
 	return &portDocs, errors.Trace(iter.Close())
@@ -1958,10 +1960,7 @@ func (w *openedPortsWatcher) loop() error {
 	w.st.watcher.WatchCollection(openedPortsC, in)
 	defer w.st.watcher.UnwatchCollection(openedPortsC, in)
 
-	var out chan []string
-	if !changes.IsEmpty() {
-		out = w.out
-	}
+	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():

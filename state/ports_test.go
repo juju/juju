@@ -332,6 +332,10 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	// The first change we get is an empty one, as there are no ports
+	// opened yet and we need an initial event for the API watcher to
+	// work.
+	wc.AssertChange()
 	wc.AssertNoChange()
 
 	portRange := state.PortRange{
