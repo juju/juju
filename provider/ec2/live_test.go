@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
@@ -77,14 +78,6 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
-	// TODO: Share code from jujutest.LiveTests for creating environment
-	e, err := environs.NewFromAttrs(t.TestConfig)
-	c.Assert(err, gc.IsNil)
-
-	// Put some fake tools in place so that tests that are simply
-	// starting instances without any need to check if those instances
-	// are running will find them in the public bucket.
-	envtesting.UploadFakeTools(c, e.Storage())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -100,6 +93,13 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
+
+	// Put some fake tools in place so that tests that are simply
+	// starting instances without any need to check if those instances
+	// are running will find them locally.
+	storageDir := c.MkDir()
+	t.PatchValue(&tools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	envtesting.UploadFakeToolsToDirectory(c, storageDir)
 }
 
 func (t *LiveTests) TearDownTest(c *gc.C) {

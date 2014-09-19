@@ -229,6 +229,17 @@ func uploadFakeTools(stor storage.Storage) error {
 	return nil
 }
 
+// UploadFakeToolsToDirectory puts fake tools into the supplied storage
+// directory with a binary version matching version.Current; if
+// version.Current's series is different to coretesting.FakeDefaultSeries,
+// matching fake tools will be uploaded for that series.  This is useful
+// for tests that are kinda casual about specifying their environment.
+func UploadFakeToolsToDirectory(c *gc.C, dir string) {
+	stor, err := filestorage.NewFileStorageWriter(dir)
+	c.Assert(err, gc.IsNil)
+	UploadFakeTools(c, stor)
+}
+
 // UploadFakeTools puts fake tools into the supplied storage with a binary
 // version matching version.Current; if version.Current's series is different
 // to coretesting.FakeDefaultSeries, matching fake tools will be uploaded for that
