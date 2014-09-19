@@ -10,10 +10,8 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/testing"
 )
 
@@ -22,12 +20,6 @@ type instanceTypeSuite struct {
 }
 
 var _ = gc.Suite(&instanceTypeSuite{})
-
-func (s *instanceTypeSuite) SetUpTest(c *gc.C) {
-	s.providerSuite.SetUpTest(c)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
-	s.PatchValue(&signedImageDataOnly, false)
-}
 
 // setDummyStorage injects the local provider's fake storage implementation
 // into the given environment, so that tests can manipulate storage as if it
@@ -126,7 +118,7 @@ func (s *instanceTypeSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 			Endpoint:   "https://management.core.windows.net/",
 		},
 	}
-	makeTestMetadata(c, env, "precise", "West US", images)
+	s.makeTestMetadata(c, "precise", "West US", images)
 	return env
 }
 
@@ -161,7 +153,7 @@ func (s *instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 			Stream:     "daily",
 		},
 	}
-	makeTestMetadata(c, env, "precise", "West US", images)
+	s.makeTestMetadata(c, "precise", "West US", images)
 	images, err := findMatchingImages(env, "West US", "precise", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(images, gc.HasLen, 1)
@@ -215,25 +207,16 @@ func (s *instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
 	c.Assert(types, gc.DeepEquals, expectation)
 }
 
-func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
+func (s *instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 	impossibleConstraint := &instances.InstanceConstraint{
 		Series: "precise",
 		Arches: []string{"axp"},
 	}
 
-	env := makeEnviron(c)
+	env := s.setupEnvWithDummyMetadata(c)
 	_, err := findInstanceSpec(env, impossibleConstraint)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
-}
-
-func makeTestMetadata(c *gc.C, env environs.Environ, series, location string, im []*imagemetadata.ImageMetadata) {
-	cloudSpec := simplestreams.CloudSpec{
-		Region:   location,
-		Endpoint: "https://management.core.windows.net/",
-	}
-	err := imagemetadata.MergeAndWriteMetadata(series, im, &cloudSpec, env.Storage())
-	c.Assert(err, gc.IsNil)
 }
 
 var findInstanceSpecTests = []struct {

@@ -173,6 +173,8 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		if c.isMaster, err = isMachineMaster(c.st, c.machineId); err != nil {
 			return errors.Trace(err)
 		}
+
+		registerSimplestreamsDataSource(c.st.Storage())
 	}
 	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
