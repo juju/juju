@@ -30,7 +30,7 @@ var facadeVersions = map[string]int{
 	"Client":               0,
 	"NotifyWatcher":        0,
 	"Upgrader":             0,
-	"Firewaller":           0,
+	"Firewaller":           1,
 	"Rsyslog":              0,
 	"Uniter":               0,
 }

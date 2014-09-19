@@ -27,6 +27,11 @@ func (u *Unit) Name() string {
 	return u.tag.Id()
 }
 
+// Tag returns the unit tag.
+func (u *Unit) Tag() names.UnitTag {
+	return u.tag
+}
+
 // Life returns the unit's life cycle value.
 func (u *Unit) Life() params.Life {
 	return u.life
@@ -44,12 +49,16 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
+	if u.st.BestAPIVersion() > 0 {
+		// Watch() for units is not allowed in FirewallerAPIV1 and
+		// later.
+		return nil, errors.NotImplementedf("unit.Watch() (in V1+)")
+	}
 	return common.Watch(u.st.facade, u.tag)
 }
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	// TODO(dfc) seriously ?!?
 	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,
@@ -69,6 +78,11 @@ func (u *Unit) Service() (*Service, error) {
 // NOTE: This differs from state.Unit.OpenedPorts() by returning
 // an error as well, because it needs to make an API call.
 func (u *Unit) OpenedPorts() ([]network.Port, error) {
+	if u.st.BestAPIVersion() > 0 {
+		// OpenedPorts() is no longer implemented in FirewallerAPIV1
+		// and later.
+		return nil, errors.NotImplementedf("unit.OpenedPorts() (in V1+)")
+	}
 	var results params.PortsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -89,21 +103,22 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 
 // AssignedMachine returns the tag of this unit's assigned machine (if
 // any), or a CodeNotAssigned error.
-func (u *Unit) AssignedMachine() (names.Tag, error) {
+func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
+	emptyTag := names.NewMachineTag("")
 	err := u.st.facade.FacadeCall("GetAssignedMachine", args, &results)
 	if err != nil {
-		return nil, err
+		return emptyTag, err
 	}
 	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+		return emptyTag, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return emptyTag, result.Error
 	}
 	return names.ParseMachineTag(result.Result)
 }
