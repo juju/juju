@@ -776,9 +776,9 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	ctx := uniter.HookContext{}
 	_, err := ctx.ActionParams()
-	c.Check(err, gc.ErrorMatches, "actionparams cannot be retrieved, hook context had no action")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed("oops")
-	c.Check(err, gc.ErrorMatches, "action cannot be failed, hook context had no action")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {

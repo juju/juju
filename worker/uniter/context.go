@@ -200,7 +200,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 // ActionParams simply returns the arguments to the Action.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
-		return nil, fmt.Errorf("actionparams cannot be retrieved, hook context had no action")
+		return nil, fmt.Errorf("not running an action")
 	}
 	return ctx.actionData.ActionParams, nil
 }
@@ -209,7 +209,7 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 // message to the string argument.
 func (ctx *HookContext) SetActionFailed(message string) error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("action cannot be failed, hook context had no action")
+		return fmt.Errorf("not running an action")
 	}
 	ctx.actionData.ResultsMessage = message
 	ctx.actionData.ActionFailed = true
@@ -332,9 +332,15 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	return vars
 }
 
-func (ctx *HookContext) finalizeContext(process string, err error) error {
+func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
+	// In the case of Actions, handle any errors using finalizeAction.
+	if ctx.actionData != nil {
+		defer func() { e = ctx.finalizeAction(e) }()
+	}
+
+	writeChanges := err == nil
 	for id, rctx := range ctx.relations {
-		if err == nil {
+		if writeChanges {
 			if err = rctx.WriteSettings(); err != nil {
 				err = errors.Annotatef(err,
 					"could not write settings from %q to relation %d",
@@ -368,24 +374,16 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 		}
 		ctx.metrics = nil
 	}
+
 	return err
+}
 
-	// This short-circuits the Action related error, which otherwise is
-	// overwritten.  If ctx.actionTag was not empty, it is an Action.
-	if err != nil || (ctx.actionTag == names.ActionTag{}) {
-		if (ctx.actionTag == names.ActionTag{}) {
-			return err
-		}
-		// Otherwise, it was an action, but there was an error.
-		errMsg := err.Error()
-	}
-
-	// If it was not an Action, just short-circuit to return err.
-	if ctx.actionData == nil {
-		return err
-	}
-
-	// Otherwise, set up for handling ActionFinish.
+// finalizeAction passes back the final status of an Action hook to state.
+// It wraps any errors which occurred in the hook or other pieces, leaving
+// the unit without errors; an Action error should only return a failed
+// Action and failure message.
+// TODO (binary132): synchronize with gsamfira's reboot logic
+func (ctx *HookContext) finalizeAction(err error) error {
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.ActionTag
@@ -395,12 +393,11 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 	}
 
 	// If we had a RunHook error, we'll simply encapsulate it in the response
-	// and discard the error state.  Actions should not error out the unit
-	// except in the case of State call failure of ActionFinish per @fwereade.
+	// and discard the error state.  Actions should not error out the unit.
 	if err != nil {
 		message = err.Error()
 		if IsMissingHookError(err) {
-			message = fmt.Sprintf("action failed (not implemented on unit %q)", ctx.UnitName())
+			message = fmt.Sprintf("action not implemented on unit %q", ctx.UnitName())
 		}
 		status = params.ActionFailed
 	}

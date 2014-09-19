@@ -172,10 +172,9 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case info := <-u.f.ActionEvents():
-			if err := u.runAction(hook.Info{Kind: info.Kind, ActionId: info.ActionId}); err != nil {
+			if err := u.runHook(hook.Info{Kind: info.Kind, ActionId: info.ActionId}); err != nil {
 				return nil, err
 			}
-			continue
 		case _, ok := <-w.Changes():
 			if !ok {
 				return nil, watcher.EnsureErr(w)

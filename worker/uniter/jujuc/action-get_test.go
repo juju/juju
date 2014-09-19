@@ -19,7 +19,7 @@ type ActionGetSuite struct {
 }
 
 type nonActionContext struct {
-	Context
+	jujuc.Context
 }
 
 func (ctx *nonActionContext) ActionParams() (map[string]interface{}, error) {
@@ -36,7 +36,7 @@ func (s *ActionGetSuite) TestNonActionRunFail(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	expect := fmt.Sprintf(`(.|\n)*error: %s\n`, "ActionParams queried from non-Action hook context")
+	expect := fmt.Sprintf(`(\n)*error: %s\n`, "ActionParams queried from non-Action hook context")
 	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 }
 

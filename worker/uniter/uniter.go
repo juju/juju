@@ -542,19 +542,16 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if actionParamsErr != nil {
 		// If we already had a param validation error, no need
 		// to run the Action.  Simply finalize the context.
-		err = hctx.finalizeContext(hookName, actionParamsErr)
+		err = hctx.finalizeAction(actionParamsErr)
 	} else {
 		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
 	}
 
 	if err != nil {
-		// The only case in which an Action run will return an
-		// error is if the API call-home failed.  This should
-		// trigger a unit failure.
 		err = errors.Annotatef(err, "action %q had unexpected failure", hookName)
 		logger.Errorf("action failed: %s", err.Error())
 		u.notifyHookFailed(hookName, hctx)
-		return errHookFailed
+		return err
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
@@ -567,6 +564,10 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
+	if hi.Kind == hooks.Action {
+		return u.runAction(hi)
+	}
+
 	if err = hi.Validate(); err != nil {
 		return err
 	}
