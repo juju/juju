@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/state"
 )
 
@@ -37,6 +39,9 @@ func (s *DefaultSender) Send(metrics []*state.MetricBatch) error {
 	resp, err := client.Post(metricsHost, "application/json", r)
 	if err != nil {
 		return err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("failed to send metrics http %v", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	return nil
