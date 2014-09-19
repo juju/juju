@@ -21,15 +21,15 @@ type agentSuiteV1 struct {
 var _ = gc.Suite(&agentSuiteV1{})
 
 func (s *agentSuiteV1) TestAgentFailsWithNonAgent(c *gc.C) {
-	testAgentFailsWithNonAgentV0(c, &s.baseSuite, factoryWrapperV1)
+	s.testAgentFailsWithNonAgentV0(c, factoryWrapperV1)
 }
 
 func (s *agentSuiteV1) TestAgentSucceedsWithUnitAgent(c *gc.C) {
-	testAgentSucceedsWithUnitAgentV0(c, &s.baseSuite, factoryWrapperV1)
+	s.testAgentSucceedsWithUnitAgentV0(c, factoryWrapperV1)
 }
 
 func (s *agentSuiteV1) TestGetEntities(c *gc.C) {
-	testGetEntitiesV0(c, &s.baseSuite, s.newAPI(c))
+	s.testGetEntitiesV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV1) TestGetEntitiesContainer(c *gc.C) {
@@ -37,19 +37,19 @@ func (s *agentSuiteV1) TestGetEntitiesContainer(c *gc.C) {
 	auth.Tag = s.container.Tag()
 	api, err := agent.NewAgentAPIV1(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
-	testGetEntitiesContainerV0(c, &s.baseSuite, api)
+	s.testGetEntitiesContainerV0(c, api)
 }
 
 func (s *agentSuiteV1) TestGetEntitiesNotFound(c *gc.C) {
-	testGetEntitiesNotFoundV0(c, &s.baseSuite, s.newAPI(c))
+	s.testGetEntitiesNotFoundV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV1) TestSetPasswords(c *gc.C) {
-	testSetPasswordsV0(c, &s.baseSuite, s.newAPI(c))
+	s.testSetPasswordsV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV1) TestSetPasswordsShort(c *gc.C) {
-	testSetPasswordsShortV0(c, &s.baseSuite, s.newAPI(c))
+	s.testSetPasswordsShortV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV1) newAPI(c *gc.C) *agent.AgentAPIV1 {

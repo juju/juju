@@ -440,6 +440,50 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 		expectScripts: `
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --debug
 `,
+	}, {
+		// custom image metadata.
+		cfg: cloudinit.MachineConfig{
+			MachineId:        "0",
+			AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			// precise currently needs mongo from PPA
+			Tools:            newSimpleTools("1.2.3-precise-amd64"),
+			Series:           "precise",
+			Bootstrap:        true,
+			StateServingInfo: stateServingInfo,
+			MachineNonce:     "FAKE_NONCE",
+			MongoInfo: &mongo.MongoInfo{
+				Password: "arble",
+				Info: mongo.Info{
+					CACert: "CA CERT\n" + testing.CACert,
+				},
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   "CA CERT\n" + testing.CACert,
+			},
+			DataDir:                 environs.DataDir,
+			LogDir:                  agent.DefaultLogDir,
+			Jobs:                    allMachineJobs,
+			CloudInitOutputLog:      cloudInitOutputLog,
+			InstanceId:              "i-bootstrap",
+			MachineAgentServiceName: "jujud-machine-0",
+			EnableOSRefreshUpdate:   true,
+			CustomImageMetadata: []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
+				Id:         "image-id",
+				Storage:    "ebs",
+				VirtType:   "pv",
+				Arch:       "amd64",
+				Version:    "14.04",
+				RegionName: "us-east1",
+			}},
+		},
+		setEnvConfig: true,
+		inexactMatch: true,
+		expectScripts: `
+printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/index\.json'
+printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud:released:imagemetadata\.json'
+`,
 	},
 }
 

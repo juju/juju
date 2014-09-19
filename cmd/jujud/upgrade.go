@@ -144,6 +144,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	c.toVersion = version.Current.Number
 	if c.fromVersion == c.toVersion {
 		logger.Infof("upgrade to %v already completed.", c.toVersion)
+		close(c.UpgradeComplete)
 		return nil
 	}
 
@@ -172,6 +173,8 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		if c.isMaster, err = isMachineMaster(c.st, c.machineId); err != nil {
 			return errors.Trace(err)
 		}
+
+		registerSimplestreamsDataSource(c.st.Storage())
 	}
 	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
@@ -185,8 +188,12 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		if isAPILostDuringUpgrade(err) {
 			return err
 		}
+		c.reportUpgradeFailure(err, false)
+
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
+		logger.Infof("upgrade to %v completed successfully.", c.toVersion)
+		c.agent.setMachineStatus(c.apiState, params.StatusStarted, "")
 		close(c.UpgradeComplete)
 	}
 	return nil
@@ -216,7 +223,6 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 	}
 
 	if err := c.agent.ChangeConfig(c.runUpgradeSteps); err != nil {
-		logger.Errorf("upgrade to %v failed: %v", c.toVersion, err)
 		return err
 	}
 
@@ -224,8 +230,6 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		return err
 	}
 
-	logger.Infof("upgrade to %v completed successfully.", c.toVersion)
-	c.agent.setMachineStatus(c.apiState, params.StatusStarted, "")
 	return nil
 }
 
@@ -247,13 +251,7 @@ func (c *upgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 		if err == agentTerminating {
 			logger.Warningf(`stopped waiting for other state servers: %v`, err)
 		} else {
-			// Wait for other state servers failed.
-			logger.Errorf(`other state servers failed to come up for upgrade `+
-				`to %s - aborting: %v`, c.toVersion, err)
-			c.agent.setMachineStatus(c.apiState, params.StatusError,
-				fmt.Sprintf("upgrade to %v aborted while waiting for other state servers: %v",
-					c.toVersion, err))
-
+			logger.Errorf(`aborted wait for other state servers: %v`, err)
 			// If master, trigger a rollback to the previous agent version.
 			if c.isMaster {
 				logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
@@ -264,9 +262,13 @@ func (c *upgradeWorkerContext) prepareForUpgrade() (*state.UpgradeInfo, error) {
 				}
 			}
 		}
-		return nil, err
+		return nil, errors.Annotate(err, "aborted wait for other state servers")
 	}
-
+	if c.isMaster {
+		logger.Infof("finished waiting - all state servers are ready to run upgrade steps")
+	} else {
+		logger.Infof("finished waiting - the master has completed its upgrade steps")
+	}
 	return info, nil
 }
 
@@ -341,15 +343,9 @@ func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) e
 				// API connection has gone away - abort!
 				return &apiLostDuringUpgrade{upgradeErr}
 			}
-			retryText := "will retry"
-			if !attempt.HasNext() {
-				retryText = "giving up"
+			if attempt.HasNext() {
+				c.reportUpgradeFailure(upgradeErr, true)
 			}
-			logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
-				c.fromVersion, c.toVersion, target, c.tag, retryText, upgradeErr)
-			a.setMachineStatus(c.apiState, params.StatusError,
-				fmt.Sprintf("upgrade to %v failed (%s): %v",
-					c.toVersion, retryText, upgradeErr))
 		}
 	}
 	if upgradeErr != nil {
@@ -357,6 +353,17 @@ func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) e
 	}
 	agentConfig.SetUpgradedToVersion(c.toVersion)
 	return nil
+}
+
+func (c *upgradeWorkerContext) reportUpgradeFailure(err error, willRetry bool) {
+	retryText := "will retry"
+	if !willRetry {
+		retryText = "giving up"
+	}
+	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
+		c.fromVersion, c.toVersion, c.tag, retryText, err)
+	c.agent.setMachineStatus(c.apiState, params.StatusError,
+		fmt.Sprintf("upgrade to %v failed (%s): %v", c.toVersion, retryText, err))
 }
 
 func (c *upgradeWorkerContext) finaliseUpgrade(info *state.UpgradeInfo) error {
@@ -368,14 +375,12 @@ func (c *upgradeWorkerContext) finaliseUpgrade(info *state.UpgradeInfo) error {
 		// Tell other state servers that the master has completed its
 		// upgrade steps.
 		if err := info.SetStatus(state.UpgradeFinishing); err != nil {
-			logger.Errorf("upgrade done but failed to set status: %v", err)
-			return err
+			return errors.Annotate(err, "upgrade done but")
 		}
 	}
 
 	if err := info.SetStateServerDone(c.machineId); err != nil {
-		logger.Errorf("upgrade done but failed to synchronise: %v", err)
-		return err
+		return errors.Annotate(err, "upgrade done but failed to synchronise")
 	}
 
 	return nil

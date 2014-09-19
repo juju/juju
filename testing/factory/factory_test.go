@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -56,7 +57,8 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 		Timeout: testing.LongWait,
 	}
 	cfg := testing.EnvironConfig(c)
-	st, err := state.Initialize(info, cfg, opts, &policy)
+	owner := names.NewLocalUserTag("factory-admin")
+	st, err := state.Initialize(owner, info, cfg, opts, &policy)
 	c.Assert(err, gc.IsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(s.State)

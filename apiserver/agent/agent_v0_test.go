@@ -16,19 +16,19 @@ import (
 
 type factoryV0 func(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error)
 
-func testAgentFailsWithNonAgentV0(c *gc.C, bs *baseSuite, factory factoryV0) {
-	auth := bs.authorizer
+func (s *baseSuite) testAgentFailsWithNonAgentV0(c *gc.C, factory factoryV0) {
+	auth := s.authorizer
 	auth.Tag = names.NewUserTag("admin")
-	api, err := factory(bs.State, bs.resources, auth)
+	api, err := factory(s.State, s.resources, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func testAgentSucceedsWithUnitAgentV0(c *gc.C, bs *baseSuite, factory factoryV0) {
-	auth := bs.authorizer
+func (s *baseSuite) testAgentSucceedsWithUnitAgentV0(c *gc.C, factory factoryV0) {
+	auth := s.authorizer
 	auth.Tag = names.NewUnitTag("foosball/1")
-	_, err := factory(bs.State, bs.resources, auth)
+	_, err := factory(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -36,8 +36,8 @@ type getEntitiesV0 interface {
 	GetEntities(args params.Entities) params.AgentGetEntitiesResults
 }
 
-func testGetEntitiesV0(c *gc.C, bs *baseSuite, api getEntitiesV0) {
-	err := bs.container.Destroy()
+func (s *baseSuite) testGetEntitiesV0(c *gc.C, api getEntitiesV0) {
+	err := s.container.Destroy()
 	c.Assert(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -61,8 +61,8 @@ func testGetEntitiesV0(c *gc.C, bs *baseSuite, api getEntitiesV0) {
 	})
 }
 
-func testGetEntitiesContainerV0(c *gc.C, bs *baseSuite, api getEntitiesV0) {
-	err := bs.container.Destroy()
+func (s *baseSuite) testGetEntitiesContainerV0(c *gc.C, api getEntitiesV0) {
+	err := s.container.Destroy()
 	c.Assert(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -87,20 +87,20 @@ func testGetEntitiesContainerV0(c *gc.C, bs *baseSuite, api getEntitiesV0) {
 	})
 }
 
-func testGetEntitiesNotFoundV0(c *gc.C, bs *baseSuite, api getEntitiesV0) {
+func (s *baseSuite) testGetEntitiesNotFoundV0(c *gc.C, api getEntitiesV0) {
 	// Destroy the container first, so we can destroy its parent.
-	err := bs.container.Destroy()
+	err := s.container.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = bs.container.EnsureDead()
+	err = s.container.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = bs.container.Remove()
+	err = s.container.Remove()
 	c.Assert(err, gc.IsNil)
 
-	err = bs.machine1.Destroy()
+	err = s.machine1.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = bs.machine1.EnsureDead()
+	err = s.machine1.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = bs.machine1.Remove()
+	err = s.machine1.Remove()
 	c.Assert(err, gc.IsNil)
 	results := api.GetEntities(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
@@ -120,7 +120,7 @@ type setPasswordsV0 interface {
 	SetPasswords(args params.EntityPasswords) (params.ErrorResults, error)
 }
 
-func testSetPasswordsV0(c *gc.C, bs *baseSuite, api setPasswordsV0) {
+func (s *baseSuite) testSetPasswordsV0(c *gc.C, api setPasswordsV0) {
 	results, err := api.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
@@ -136,13 +136,13 @@ func testSetPasswordsV0(c *gc.C, bs *baseSuite, api setPasswordsV0) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	err = bs.machine1.Refresh()
+	err = s.machine1.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed := bs.machine1.PasswordValid("yyy-12345678901234567890")
+	changed := s.machine1.PasswordValid("yyy-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 }
 
-func testSetPasswordsShortV0(c *gc.C, bs *baseSuite, api setPasswordsV0) {
+func (s *baseSuite) testSetPasswordsShortV0(c *gc.C, api setPasswordsV0) {
 	results, err := api.SetPasswords(params.EntityPasswords{
 		Changes: []params.EntityPassword{
 			{Tag: "machine-1", Password: "yyy"},
@@ -167,15 +167,15 @@ type agentSuiteV0 struct {
 var _ = gc.Suite(&agentSuiteV0{})
 
 func (s *agentSuiteV0) TestAgentFailsWithNonAgent(c *gc.C) {
-	testAgentFailsWithNonAgentV0(c, &s.baseSuite, factoryWrapperV0)
+	s.testAgentFailsWithNonAgentV0(c, factoryWrapperV0)
 }
 
 func (s *agentSuiteV0) TestAgentSucceedsWithUnitAgent(c *gc.C) {
-	testAgentSucceedsWithUnitAgentV0(c, &s.baseSuite, factoryWrapperV0)
+	s.testAgentSucceedsWithUnitAgentV0(c, factoryWrapperV0)
 }
 
 func (s *agentSuiteV0) TestGetEntities(c *gc.C) {
-	testGetEntitiesV0(c, &s.baseSuite, s.newAPI(c))
+	s.testGetEntitiesV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV0) TestGetEntitiesContainer(c *gc.C) {
@@ -183,19 +183,19 @@ func (s *agentSuiteV0) TestGetEntitiesContainer(c *gc.C) {
 	auth.Tag = s.container.Tag()
 	api, err := agent.NewAgentAPIV0(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
-	testGetEntitiesContainerV0(c, &s.baseSuite, api)
+	s.testGetEntitiesContainerV0(c, api)
 }
 
 func (s *agentSuiteV0) TestGetEntitiesNotFound(c *gc.C) {
-	testGetEntitiesNotFoundV0(c, &s.baseSuite, s.newAPI(c))
+	s.testGetEntitiesNotFoundV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV0) TestSetPasswords(c *gc.C) {
-	testSetPasswordsV0(c, &s.baseSuite, s.newAPI(c))
+	s.testSetPasswordsV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV0) TestSetPasswordsShort(c *gc.C) {
-	testSetPasswordsShortV0(c, &s.baseSuite, s.newAPI(c))
+	s.testSetPasswordsShortV0(c, s.newAPI(c))
 }
 
 func (s *agentSuiteV0) newAPI(c *gc.C) *agent.AgentAPIV0 {

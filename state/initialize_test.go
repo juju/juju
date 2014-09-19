@@ -58,7 +58,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	uuid, _ := cfg.UUID()
 	initial := cfg.AllAttrs()
-	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
+	owner := names.NewLocalUserTag("initialize-admin")
+	st, err := state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	envTag := st.EnvironTag()
@@ -76,7 +77,6 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Tag(), gc.Equals, envTag)
 	// Check that the owner has been created.
-	owner := names.NewLocalUserTag("admin")
 	c.Assert(env.Owner(), gc.Equals, owner)
 	// Check that the owner can be retrieved by the tag.
 	entity, err := s.State.FindEntity(env.Owner())
@@ -85,7 +85,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	// Check that the owner has an EnvUser created for the bootstrapped environment.
 	envUser, err := s.State.EnvironmentUser(env.Owner())
 	c.Assert(err, gc.IsNil)
-	c.Assert(envUser.UserTag().Username(), gc.Equals, env.Owner().Username())
+	c.Assert(envUser.UserTag(), gc.Equals, owner)
 	c.Assert(envUser.EnvironmentTag(), gc.Equals, env.Tag())
 
 	// Check that the environment can be found through the tag.
@@ -111,7 +111,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st := TestingInitialize(c, cfg, nil)
+	owner := names.NewLocalUserTag("initialize-admin")
+	st := TestingInitialize(c, owner, cfg, nil)
 	st.Close()
 
 	// A second initialize returns an open *State, but ignores its params.
@@ -119,7 +120,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
 	c.Assert(err, gc.IsNil)
-	st, err = state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
+	st, err = state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	st.Close()
@@ -135,12 +136,13 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	good := testing.EnvironConfig(c)
 	badUpdateAttrs := map[string]interface{}{"admin-secret": "foo"}
 	bad, err := good.Apply(badUpdateAttrs)
+	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateEnvironConfig.
-	st := TestingInitialize(c, good, nil)
+	st := TestingInitialize(c, owner, good, nil)
 	st.Close()
 
 	s.openState(c)
@@ -160,11 +162,12 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	delete(attrs, "agent-version")
 	bad, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
+	owner := names.NewLocalUserTag("initialize-admin")
 
-	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(owner, state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
-	st := TestingInitialize(c, good, nil)
+	st := TestingInitialize(c, owner, good, nil)
 	// yay side effects
 	st.Close()
 

@@ -12,6 +12,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -275,7 +276,7 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User(names.NewUserTag(s.adminName))
+	adminUser, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
@@ -308,7 +309,7 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	c.Assert(results.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User(names.NewUserTag(s.adminName))
+	adminUser, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password2"), gc.Equals, true)
@@ -328,6 +329,7 @@ func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
 	results, err := s.usermanager.SetPassword(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	expectedError := apiservertesting.ServerError("can only change the password of the current user (admin@local)")
+	msg := "can only change the password of the current user (" + dummy.AdminUserTag().Username() + ")"
+	expectedError := apiservertesting.ServerError(msg)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 )
 
 // Client provides access to the high availability service, used to manage state servers.
@@ -27,8 +26,9 @@ func NewClient(caller base.APICallCloser, environTag string) *Client {
 
 // EnsureAvailability ensures the availability of Juju state servers.
 func (c *Client) EnsureAvailability(
-	numStateServers int, cons constraints.Value, series string, placement []*instance.Placement,
+	numStateServers int, cons constraints.Value, series string, placement []string,
 ) (params.StateServersChanges, error) {
+
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
@@ -38,7 +38,19 @@ func (c *Client) EnsureAvailability(
 			Series:          series,
 			Placement:       placement,
 		}}}
-	err := c.facade.FacadeCall("EnsureAvailability", arg, &results)
+
+	var err error
+	// We need to retain compatibility with older Juju deployments without the new HighAvailability facade.
+	if c.facade.BestAPIVersion() < 1 {
+		if len(placement) > 0 {
+			return params.StateServersChanges{}, errors.Errorf("placement directives not supported with this version of Juju")
+		}
+		caller := c.facade.RawAPICaller()
+		err = caller.APICall("Client", caller.BestFacadeVersion("Client"), "", "EnsureAvailability", arg, &results)
+	} else {
+		err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
+	}
+
 	if err != nil {
 		return params.StateServersChanges{}, err
 	}

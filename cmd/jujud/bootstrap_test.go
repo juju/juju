@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -491,7 +492,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, gc.Equals, true)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -508,7 +509,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, gc.Equals, true)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -574,7 +575,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
-	// The tools should have been added to state, and
+	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
 	st, err := state.Open(&mongo.MongoInfo{
@@ -608,6 +609,54 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(metadata, gc.HasLen, expectedSeries.Size())
 	for _, m := range metadata {
 		c.Assert(expectedSeries.Contains(m.Version.Series), jc.IsTrue)
+	}
+}
+
+func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
+	metadataDir := c.MkDir()
+	expected := []struct{ path, content string }{{
+		path:    "images/streams/v1/index.json",
+		content: "abc",
+	}, {
+		path:    "images/streams/v1/products.json",
+		content: "def",
+	}, {
+		path:    "wayward/file.txt",
+		content: "ghi",
+	}}
+	for _, pair := range expected {
+		path := filepath.Join(metadataDir, pair.path)
+		err := os.MkdirAll(filepath.Dir(path), 0755)
+		c.Assert(err, gc.IsNil)
+		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
+		c.Assert(err, gc.IsNil)
+	}
+
+	var stor statetesting.MapStorage
+	s.PatchValue(&stateStorage, func(*state.State) state.Storage {
+		return &stor
+	})
+
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", metadataDir,
+	)
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	// The contents of the directory should have been added to
+	// environment storage.
+	for _, pair := range expected {
+		r, length, err := stor.Get(pair.path)
+		c.Assert(err, gc.IsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, gc.IsNil)
+		c.Assert(length, gc.Equals, int64(len(pair.content)))
+		c.Assert(data, gc.HasLen, int(length))
+		c.Assert(string(data), gc.Equals, pair.content)
 	}
 }
 

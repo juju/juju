@@ -105,7 +105,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// principal and a subordinate.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

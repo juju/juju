@@ -12,7 +12,7 @@ import (
 
 // SupportedArchitectures returns all the image architectures for env matching the constraints.
 func SupportedArchitectures(env environs.Environ, imageConstraint *imagemetadata.ImageConstraint) ([]string, error) {
-	sources, err := imagemetadata.GetMetadataSources(env)
+	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}

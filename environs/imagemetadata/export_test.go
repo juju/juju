@@ -3,7 +3,7 @@
 
 package imagemetadata
 
-var CurrentStreamsVersion = currentStreamsVersion
+const CurrentStreamsVersion = currentStreamsVersion
 
 // SetSigningPublicKey sets a new public key for testing and returns the original key.
 func SetSigningPublicKey(key string) string {

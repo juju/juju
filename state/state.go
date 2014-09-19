@@ -77,9 +77,6 @@ const (
 	txnLogC = "txns.log"
 	txnsC   = "txns"
 
-	// AdminUser is the mongo admin username.
-	AdminUser = "admin"
-
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 )
@@ -1292,7 +1289,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
-func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
+func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
 	switch len(names) {
@@ -1737,6 +1734,32 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get state servers document")
 	}
+
+	if doc.EnvUUID == "" {
+		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
+
+		// This only happens when migrating from 1.20 to 1.21 before
+		// upgrade steps have been run. Without this hack environTag
+		// on State ends up empty, breaking basic functionality needed
+		// to run upgrade steps (a chicken-and-egg scenario).
+		environments, closer := st.getCollection(environmentsC)
+		defer closer()
+
+		var envDoc environmentDoc
+		query := environments.Find(nil)
+		count, err := query.Count()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get environment document count")
+		}
+		if count != 1 {
+			return nil, errors.New("expected just one environment to get UUID from")
+		}
+		if err := query.One(&envDoc); err != nil {
+			return nil, errors.Annotate(err, "cannot load environment document")
+		}
+		doc.EnvUUID = envDoc.UUID
+	}
+
 	return &StateServerInfo{
 		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
 		MachineIds:       doc.MachineIds,
