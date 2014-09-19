@@ -28,6 +28,7 @@ var (
 	AddBackupMetadata     = addBackupMetadata
 	AddBackupMetadataID   = addBackupMetadataID
 	SetBackupStored       = setBackupStored
+	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
 
@@ -285,4 +286,16 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func CountofSentMetrics(st *State) (int, error) {
+	return st.countofSentMetrics()
+}
+
+func CountofUnsentMetrics(st *State) (int, error) {
+	return st.countofUnsentMetrics()
+}
+
+func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
+	return st.setMetricBatchesSent(metrics)
 }

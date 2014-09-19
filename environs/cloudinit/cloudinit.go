@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	coretools "github.com/juju/juju/tools"
@@ -145,6 +146,11 @@ type MachineConfig struct {
 
 	// The type of Simple Stream to download and deploy on this machine.
 	ImageStream string
+
+	// CustomImageMetadata is optional custom simplestreams image metadata
+	// to store in environment storage at bootstrap time. This is ignored
+	// in non-bootstrap machines.
+	CustomImageMetadata []*imagemetadata.ImageMetadata
 
 	// EnableOSRefreshUpdate specifies whether Juju will refresh its
 	// respective OS's updates list.

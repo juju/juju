@@ -25,9 +25,10 @@ const (
 
 	// StreamsVersionV1 is used to construct the path for accessing streams data.
 	StreamsVersionV1 = "v1"
-)
 
-var currentStreamsVersion = StreamsVersionV1
+	// currentStreamsVersion is the current version of image simplestreams data.
+	currentStreamsVersion = StreamsVersionV1
+)
 
 // simplestreamsImagesPublicKey is the public key required to
 // authenticate the simple streams data on http://cloud-images.ubuntu.com.
@@ -98,6 +99,10 @@ const (
 
 // This needs to be a var so we can override it for testing and in bootstrap.
 var DefaultBaseURL = UbuntuCloudImagesURL
+
+// PrivateMetadataDir is a directory possibly containing private image
+// metadata, used during bootstrap.
+var PrivateMetadataDir string
 
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {

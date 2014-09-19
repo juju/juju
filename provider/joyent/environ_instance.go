@@ -330,7 +330,7 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 	})
-	sources, err := imagemetadata.GetMetadataSources(env)
+	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}

@@ -23,6 +23,7 @@ type upgradesSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
 	state *State
+	owner names.UserTag
 }
 
 func (s *upgradesSuite) SetUpSuite(c *gc.C) {
@@ -39,12 +40,15 @@ func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	var err error
-	s.state, err = Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
+	s.owner = names.NewLocalUserTag("upgrade-admin")
+	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *upgradesSuite) TearDownTest(c *gc.C) {
-	s.state.Close()
+	if s.state != nil {
+		s.state.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -96,7 +100,6 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, gc.IsNil)
-	adminTag := names.NewUserTag("admin")
 	bobTag := stateBob.UserTag()
 
 	_, err = s.state.EnvironmentUser(bobTag)
@@ -105,9 +108,9 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)
 
-	admin, err := s.state.EnvironmentUser(adminTag)
+	admin, err := s.state.EnvironmentUser(s.owner)
 	c.Assert(err, gc.IsNil)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
@@ -116,7 +119,6 @@ func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, gc.IsNil)
-	adminTag := names.NewUserTag("admin")
 	bobTag := stateBob.UserTag()
 
 	err = AddStateUsersAsEnvironUsers(s.state)
@@ -125,8 +127,8 @@ func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
 	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)
 
-	admin, err := s.state.EnvironmentUser(adminTag)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	admin, err := s.state.EnvironmentUser(s.owner)
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())

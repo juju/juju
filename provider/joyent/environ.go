@@ -183,14 +183,6 @@ func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (env *joyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)}
-	return sources, nil
-}
-
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (env *joyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
 	// Add the simplestreams source off the control bucket.
