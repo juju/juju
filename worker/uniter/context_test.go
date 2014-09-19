@@ -751,7 +751,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.AddTestingService(c, name, s.relch)
-	eps, err := s.State.InferEndpoints([]string{"u", name})
+	eps, err := s.State.InferEndpoints("u", name)
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

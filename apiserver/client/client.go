@@ -553,7 +553,7 @@ func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	inEps, err := c.api.state.InferEndpoints(args.Endpoints)
+	inEps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
@@ -574,7 +574,7 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	eps, err := c.api.state.InferEndpoints(args.Endpoints)
+	eps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return err
 	}

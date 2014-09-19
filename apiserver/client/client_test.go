@@ -923,7 +923,7 @@ func (s *clientSuite) TestDestroySubordinateUnits(c *gc.C) {
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1552,7 +1552,7 @@ func (s *clientSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	s.setUpScenario(c)
 	// Add a relation between wordpress and mysql.
 	endpoints := []string{"wordpress", "mysql"}
-	eps, err := s.State.InferEndpoints(endpoints)
+	eps, err := s.State.InferEndpoints(endpoints...)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1564,7 +1564,7 @@ func (s *clientSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
 	s.setUpScenario(c)
 	// Add a relation between the endpoints.
-	eps, err := s.State.InferEndpoints(endpoints)
+	eps, err := s.State.InferEndpoints(endpoints...)
 	c.Assert(err, gc.IsNil)
 	relation, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1623,7 +1623,7 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 	s.setUpScenario(c)
 
 	// Add a relation between wordpress and mysql.
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

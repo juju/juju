@@ -1292,7 +1292,7 @@ func (st *State) AllServices() (services []*Service, err error) {
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
-func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
+func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
 	switch len(names) {

@@ -147,7 +147,7 @@ func (s *deployerSuite) prepareSubordinates(c *gc.C) (*state.Unit, []*state.Rela
 	logging := s.AddTestingCharm(c, "logging")
 	for _, name := range []string{"subsvc0", "subsvc1"} {
 		s.AddTestingService(c, name, logging)
-		eps, err := s.State.InferEndpoints([]string{"wordpress", name})
+		eps, err := s.State.InferEndpoints("wordpress", name)
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)
 		c.Assert(err, gc.IsNil)

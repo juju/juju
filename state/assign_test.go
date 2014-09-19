@@ -41,7 +41,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 
 func (s *AssignSuite) addSubordinate(c *gc.C, principal *state.Unit) *state.Unit {
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
