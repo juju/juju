@@ -1265,14 +1265,6 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 	return &context, nil
 }
 
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (env *azureEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}
-	return sources, nil
-}
-
 // Region is specified in the HasRegion interface.
 func (env *azureEnviron) Region() (simplestreams.CloudSpec, error) {
 	ecfg := env.getSnapshot().ecfg

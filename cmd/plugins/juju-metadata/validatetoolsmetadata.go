@@ -160,7 +160,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 			if err != nil {
 				return err
 			}
-			params.Sources, err = tools.GetMetadataSources(environ)
+			params.Sources, err = tools.ToolsMetadataSources(environ)
 			if err != nil {
 				return err
 			}

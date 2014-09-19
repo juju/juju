@@ -46,9 +46,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/tools"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
@@ -244,7 +242,6 @@ type environ struct {
 	ecfgUnlocked *environConfig
 }
 
-var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
 // discardOperations discards all Operations written to it.
@@ -611,12 +608,6 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 		return fmt.Errorf("%s placement is invalid", placement)
 	}
 	return nil
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
