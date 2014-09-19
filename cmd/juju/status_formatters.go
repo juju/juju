@@ -91,7 +91,8 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	for _, name := range sortStrings(stringKeysFromMap(units)) {
 		u := units[name]
 		pUnit(name, u, 0)
-		recurseUnits(u, 1, pUnit)
+		const indentationLevel = 1
+		recurseUnits(u, indentationLevel, pUnit)
 	}
 	tw.Flush()
 
