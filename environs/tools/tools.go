@@ -99,7 +99,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int,
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-	sources, err := ToolsMetadataSources(env)
+	sources, err := GetMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}

@@ -1470,7 +1470,7 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	data := []byte{1, 2, 3, 4}
 	env.Storage().Put("tools/filename", bytes.NewReader(data), int64(len(data)))
 
-	sources, err := tools.GetMetadataSources(env)
+	sources, err := tools.MetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(sources), gc.Equals, 1)
 	assertSourceContents(c, sources[0], "filename", data)

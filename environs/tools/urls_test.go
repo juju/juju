@@ -49,7 +49,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 
 func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
-	sources, err := tools.ToolsMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	// Put a file in tools since the dummy storage provider requires a
 	// file to exist before the URL can be found. This is to ensure it behaves
@@ -64,7 +64,7 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
-	sources, err := tools.ToolsMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	// Put a file in tools since the dummy storage provider requires a
 	// file to exist before the URL can be found. This is to ensure it behaves
@@ -94,7 +94,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	defer tools.UnregisterToolsDataSourceFunc("id1")
 
 	env := s.env(c, "config-tools-metadata-url", "")
-	sources, err := tools.ToolsMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
 		"config-tools-metadata-url/",
@@ -110,7 +110,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 	defer tools.UnregisterToolsDataSourceFunc("id0")
 
 	env := s.env(c, "config-tools-metadata-url", "")
-	_, err := tools.ToolsMetadataSources(env)
+	_, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.ErrorMatches, "oyvey!")
 }
 

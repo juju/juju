@@ -30,9 +30,9 @@ var (
 // ToolsDataSourceFunc is a function type that takes an environment and
 // returns a simplestreams datasource.
 //
-// ToolsDataSourceFunc will be used in ToolsMetadataSources.
+// ToolsDataSourceFunc will be used in GetMetadataSources.
 // Any error satisfying errors.IsNotSupported will be ignored;
-// any other error will be cause ToolsMetadataSources to fail.
+// any other error will be cause GetMetadataSources to fail.
 type ToolsDataSourceFunc func(environs.Environ) (simplestreams.DataSource, error)
 
 // RegisterToolsDataSourceFunc registers an ToolsDataSourceFunc
@@ -63,9 +63,9 @@ func UnregisterToolsDataSourceFunc(id string) {
 	}
 }
 
-// ToolsMetadataSources returns the sources to use when looking for
+// GetMetadataSources returns the sources to use when looking for
 // simplestreams tools metadata for the given stream.
-func ToolsMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error) {
+func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error) {
 	config := env.Config()
 
 	// Add configured and environment-specific datasources.

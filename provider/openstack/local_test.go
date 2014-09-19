@@ -763,7 +763,7 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := s.Open(c)
-	sources, err := tools.ToolsMetadataSources(env)
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sources, gc.HasLen, 2)
 	var urls = make([]string, len(sources))
@@ -1171,7 +1171,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
 	c.Assert(err, gc.IsNil)
-	sources, err := tools.ToolsMetadataSources(s.env)
+	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sources, gc.HasLen, 3)
 
