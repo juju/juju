@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
@@ -15,27 +17,59 @@ import (
 	"github.com/juju/juju/environs/storage"
 )
 
-// SupportsCustomSources represents an environment that
-// can host tools metadata at provider specific sources.
-type SupportsCustomSources interface {
-	GetToolsSources() ([]simplestreams.DataSource, error)
+type toolsDatasourceFuncId struct {
+	id string
+	f  ToolsDataSourceFunc
 }
 
-// GetMetadataSources returns the sources to use when looking for
-// simplestreams tools metadata. If env implements SupportsCustomSurces,
-// the sources returned from that method will also be considered.
-// The sources are configured to not use retries.
-func GetMetadataSources(env environs.ConfigGetter) ([]simplestreams.DataSource, error) {
-	return GetMetadataSourcesWithRetries(env, false)
+var (
+	toolsDatasourceFuncsMu sync.RWMutex
+	toolsDatasourceFuncs   []toolsDatasourceFuncId
+)
+
+// ToolsDataSourceFunc is a function type that takes an environment and
+// returns a simplestreams datasource.
+//
+// ToolsDataSourceFunc will be used in ToolsMetadataSources.
+// Any error satisfying errors.IsNotSupported will be ignored;
+// any other error will be cause ToolsMetadataSources to fail.
+type ToolsDataSourceFunc func(environs.Environ) (simplestreams.DataSource, error)
+
+// RegisterToolsDataSourceFunc registers an ToolsDataSourceFunc
+// with the specified id, overwriting any function previously registered
+// with the same id.
+func RegisterToolsDataSourceFunc(id string, f ToolsDataSourceFunc) {
+	toolsDatasourceFuncsMu.Lock()
+	defer toolsDatasourceFuncsMu.Unlock()
+	for i := range toolsDatasourceFuncs {
+		if toolsDatasourceFuncs[i].id == id {
+			toolsDatasourceFuncs[i].f = f
+			return
+		}
+	}
+	toolsDatasourceFuncs = append(toolsDatasourceFuncs, toolsDatasourceFuncId{id, f})
 }
 
-// GetMetadataSourcesWithRetries returns the sources to use when looking for
-// simplestreams tools metadata. If env implements SupportsCustomSurces,
-// the sources returned from that method will also be considered.
-// The sources are configured to use retries according to the value of allowRetry.
-func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) ([]simplestreams.DataSource, error) {
-	var sources []simplestreams.DataSource
+// UnregisterToolsDataSourceFunc unregisters an ToolsDataSourceFunc
+// with the specified id.
+func UnregisterToolsDataSourceFunc(id string) {
+	for i, f := range toolsDatasourceFuncs {
+		if f.id == id {
+			head := toolsDatasourceFuncs[:i]
+			tail := toolsDatasourceFuncs[i+1:]
+			toolsDatasourceFuncs = append(head, tail...)
+			return
+		}
+	}
+}
+
+// ToolsMetadataSources returns the sources to use when looking for
+// simplestreams tools metadata for the given stream.
+func ToolsMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error) {
 	config := env.Config()
+
+	// Add configured and environment-specific datasources.
+	var sources []simplestreams.DataSource
 	if userURL, ok := config.ToolsURL(); ok {
 		verify := utils.VerifySSLHostnames
 		if !config.SSLHostnameVerification() {
@@ -43,14 +77,14 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		}
 		sources = append(sources, simplestreams.NewURLDataSource("tools-metadata-url", userURL, verify))
 	}
-	if custom, ok := env.(SupportsCustomSources); ok {
-		customSources, err := custom.GetToolsSources()
-		if err != nil {
-			return nil, err
-		}
-		sources = append(sources, customSources...)
-	}
 
+	envDataSources, err := environmentDataSources(env)
+	if err != nil {
+		return nil, err
+	}
+	sources = append(sources, envDataSources...)
+
+	// Add the default, public datasource.
 	defaultURL, err := ToolsURL(DefaultBaseURL)
 	if err != nil {
 		return nil, err
@@ -59,10 +93,28 @@ func GetMetadataSourcesWithRetries(env environs.ConfigGetter, allowRetry bool) (
 		sources = append(sources,
 			simplestreams.NewURLDataSource("default simplestreams", defaultURL, utils.VerifySSLHostnames))
 	}
-	for _, source := range sources {
-		source.SetAllowRetry(allowRetry)
-	}
 	return sources, nil
+}
+
+// environmentDataSources returns simplestreams datasources for the environment
+// by calling the functions registered in RegisterToolsDataSourceFunc.
+// The datasources returned will be in the same order the functions were registered.
+func environmentDataSources(env environs.Environ) ([]simplestreams.DataSource, error) {
+	toolsDatasourceFuncsMu.RLock()
+	defer toolsDatasourceFuncsMu.RUnlock()
+	var datasources []simplestreams.DataSource
+	for _, f := range toolsDatasourceFuncs {
+		logger.Debugf("trying datasource %q", f.id)
+		datasource, err := f.f(env)
+		if err != nil {
+			if errors.IsNotSupported(err) {
+				continue
+			}
+			return nil, err
+		}
+		datasources = append(datasources, datasource)
+	}
+	return datasources, nil
 }
 
 // ToolsURL returns a valid tools URL constructed from source.
