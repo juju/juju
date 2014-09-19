@@ -36,7 +36,7 @@ if [[ -d ~/ci-director ]]; then
 fi
 
 sudo apt-get update || "! $host is not setup for sudo"
-sudo apt-get install s3cmd
+sudo apt-get install s3cmd python-requests
 
 if [[ "$NEW_JUJU" == "true" ]]; then
     sudo apt-get install -y juju-local juju \

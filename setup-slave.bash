@@ -53,7 +53,7 @@ ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo apt-get install -y juju-local juju \
-    uvtool-libvirt uvtool python-novaclient euca2ools s3cmd
+    uvtool-libvirt uvtool python-novaclient euca2ools s3cmd python-requests
 sudo /usr/share/jenkins/bin/download-slave.sh $MASTER
 EOT
 
