@@ -42,6 +42,7 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
 	"Client.FullStatus",     // for "juju status"
+	"Client.EnvironmentGet", // for "juju ssh"
 	"Client.PrivateAddress", // for "juju ssh"
 	"Client.PublicAddress",  // for "juju ssh"
 	"Client.WatchDebugLog",  // for "juju debug-log"
