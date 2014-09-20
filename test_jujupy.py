@@ -1,7 +1,6 @@
 __metaclass__ = type
 
 from contextlib import contextmanager
-from datetime import timedelta
 import os
 import shutil
 import subprocess
@@ -10,22 +9,32 @@ from textwrap import dedent
 from unittest import TestCase
 
 from mock import (
+    call,
     MagicMock,
     patch,
 )
 import yaml
 
+from jujuconfig import (
+    get_environments_path,
+    get_jenv_path,
+    )
 from jujupy import (
+    bootstrap_from_env,
     CannotConnectEnv,
     Environment,
     EnvJujuClient,
     ErroredUnit,
     format_listing,
+    get_local_root,
     JujuClientDevel,
     SimpleEnvironment,
     Status,
-    until_timeout,
 )
+from utility import (
+    scoped_environ,
+    temp_dir,
+    )
 
 
 class TestErroredUnit(TestCase):
@@ -33,44 +42,6 @@ class TestErroredUnit(TestCase):
     def test_output(self):
         e = ErroredUnit('bar', 'baz')
         self.assertEqual('bar is in state baz', str(e))
-
-
-class TestUntilTimeout(TestCase):
-
-    def test_no_timeout(self):
-
-        iterator = until_timeout(0)
-
-        def now_iter():
-            yield iterator.start
-            yield iterator.start
-            assert False
-
-        with patch.object(iterator, 'now', now_iter().next):
-            for x in iterator:
-                self.assertIs(None, x)
-                break
-
-    @contextmanager
-    def patched_until(self, timeout, deltas):
-        iterator = until_timeout(timeout)
-        def now_iter():
-            for d in deltas:
-                yield iterator.start + d
-            assert False
-        with patch.object(iterator, 'now', now_iter().next):
-            yield iterator
-
-    def test_timeout(self):
-        with self.patched_until(
-            5, [timedelta(), timedelta(0, 4), timedelta(0, 5)]) as until:
-            results = list(until)
-        self.assertEqual([5, 1], results)
-
-    def test_long_timeout(self):
-        deltas = [timedelta(), timedelta(4, 0), timedelta(5, 0)]
-        with self.patched_until(86400 * 5, deltas) as until:
-            self.assertEqual([86400 * 5, 86400], list(until))
 
 
 class TestEnvJujuClient(TestCase):
@@ -471,6 +442,129 @@ class TestEnvJujuClient(TestCase):
             client.juju('foo', ('bar', 'baz'), check=False)
         self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
+
+@contextmanager
+def bootstrap_context(client):
+    with patch.object(client, 'bootstrap', side_effect=stub_bootstrap):
+        # Avoid unnecessary syscalls.
+        with patch('jujupy.check_free_disk_space'):
+            with scoped_environ():
+                with temp_dir() as fake_home:
+                    os.environ['JUJU_HOME'] = fake_home
+                    yield fake_home
+
+
+def stub_bootstrap():
+    jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
+    os.mkdir(os.path.dirname(jenv_path))
+    with open(jenv_path, 'w') as f:
+        f.write('Bogus jenv')
+
+
+class TestBootstrapFromEnv(TestCase):
+
+    def test_no_config_mangling_side_effect(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            bootstrap_from_env(fake_home, client)
+        self.assertEqual(env.config, {'type': 'local'})
+
+    def test_bootstrap_from_env_environment(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        agent_version = client.get_matching_agent_version()
+        check_environment_ran = {'value': False}
+        with bootstrap_context(client) as fake_home:
+            def check_environment():
+                check_environment_ran['value'] = True
+                temp_home = os.environ['JUJU_HOME']
+                self.assertNotEqual(temp_home, fake_home)
+                symlink_path = get_jenv_path(fake_home, 'qux')
+                symlink_target = os.path.realpath(symlink_path)
+                expected_target = get_jenv_path(temp_home, 'qux')
+                self.assertEqual(symlink_target, expected_target)
+                config = yaml.safe_load(
+                    open(get_environments_path(temp_home)))
+                self.assertEqual(config, {'environments': {'qux': {
+                    'type': 'local',
+                    'root-dir': get_local_root(fake_home, client.env),
+                    'agent-version': agent_version,
+                    }}})
+                stub_bootstrap()
+            with patch.object(client, 'bootstrap', check_environment):
+                bootstrap_from_env(fake_home, client)
+        self.assertEqual(check_environment_ran['value'], True)
+
+    def test_output(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            bootstrap_from_env(fake_home, client)
+            jenv_path = get_jenv_path(fake_home, 'qux')
+            self.assertFalse(os.path.islink(jenv_path))
+            self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
+
+    def test_rename_on_exception(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            def except_bootstrap():
+                stub_bootstrap()
+                raise Exception('test-rename')
+            with patch.object(client, 'bootstrap', except_bootstrap):
+                with self.assertRaisesRegexp(Exception, 'test-rename'):
+                    bootstrap_from_env(fake_home, client)
+            jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
+            self.assertFalse(os.path.islink(jenv_path))
+            self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
+
+    def test_exception_no_jenv(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            def except_bootstrap():
+                jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
+                os.mkdir(os.path.dirname(jenv_path))
+                raise Exception('test-rename')
+            with patch.object(client, 'bootstrap', except_bootstrap):
+                with self.assertRaisesRegexp(Exception, 'test-rename'):
+                    bootstrap_from_env(fake_home, client)
+            jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
+            self.assertFalse(os.path.lexists(jenv_path))
+
+    def test_check_space_local_lxc(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            with patch('jujupy.check_free_disk_space') as mock_cfds:
+                bootstrap_from_env(fake_home, client)
+        self.assertEqual(mock_cfds.mock_calls, [
+            call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
+            call('/var/lib/lxc', 2000000, 'LXC containers'),
+            ])
+
+    def test_check_space_local_kvm(self):
+        env = SimpleEnvironment('qux', {'type': 'local', 'container': 'kvm'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            with patch('jujupy.check_free_disk_space') as mock_cfds:
+                bootstrap_from_env(fake_home, client)
+        self.assertEqual(mock_cfds.mock_calls, [
+            call(os.path.join(fake_home, 'qux'), 8000000, 'MongoDB files'),
+            call('/var/lib/uvtool/libvirt/images', 2000000, 'KVM disk files'),
+            ])
+
+    def test_error_on_jenv(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            jenv_path = get_jenv_path(fake_home, 'qux')
+            os.mkdir(os.path.dirname(jenv_path))
+            with open(jenv_path, 'w') as f:
+                f.write('In the way')
+            with self.assertRaisesRegexp(Exception, '.* already exists!'):
+                bootstrap_from_env(fake_home, client)
 
 
 class TestJujuClientDevel(TestCase):

@@ -5,6 +5,7 @@ from textwrap import dedent
 
 from jujuconfig import get_juju_home
 from jujupy import (
+    bootstrap_from_env,
     Environment,
     EnvJujuClient,
     JujuClientDevel,
@@ -12,7 +13,6 @@ from jujupy import (
     SimpleEnvironment,
     )
 from deploy_stack import (
-    bootstrap_from_env,
     check_token,
     dump_logs,
     get_machine_dns_name,
@@ -38,10 +38,9 @@ def bootstrap_client(client):
     """
     client.destroy_environment()
     juju_home = get_juju_home()
-    env = env_from_client(client)
     try:
-        bootstrap_from_env(juju_home, env)
-        host = get_machine_dns_name(env, 0)
+        bootstrap_from_env(juju_home, client)
+        host = get_machine_dns_name(env_from_client(client), 0)
         return host
     except:
         client.destroy_environment()
