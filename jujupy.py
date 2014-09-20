@@ -165,14 +165,16 @@ class EnvJujuClient:
                                          env['PATH'])
         return env
 
-    def bootstrap(self):
+    def bootstrap(self, upload_tools=False):
         """Bootstrap, using sudo if necessary."""
         if self.env.hpcloud:
             constraints = 'mem=2G'
         else:
             constraints = 'mem=2G'
-        self.juju('bootstrap', ('--constraints', constraints),
-                  self.env.needs_sudo())
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        self.juju('bootstrap', args, self.env.needs_sudo())
 
     def destroy_environment(self):
         self.juju(
