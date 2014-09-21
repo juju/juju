@@ -75,15 +75,8 @@ do
 done
 fi
 
-mkdir -p new-tools
-if [[ -n ${LOCAL_TOOLS_CACHE:-} ]]; then
-    # Using the local cache is much faster, and represents how
-    # streams.canonical.com manages its tools
-    mkdir -p new-tools/tools/releases
-    cp $LOCAL_TOOLS_CACHE/*.tgz new-tools/tools/releases
-fi
-$RELEASE_TOOLS/assemble-public-tools.bash -t $WORKSPACE/ $VERSION new-tools
-PUBLISH_ARGS="testing new-tools/juju-dist-testing cpc"
+$RELEASE_TOOLS/assemble-streams.bash -t $WORKSPACE/ $VERSION $STREAMS
+PUBLISH_ARGS="testing $STREAMS/juju-dist/testing cpc"
 $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
     $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
         $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS
