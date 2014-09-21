@@ -76,7 +76,7 @@ do
 done
 fi
 
-$RELEASE_TOOLS/assemble-streams.bash -t $WORKSPACE/ $VERSION $STREAMS
+$RELEASE_TOOLS/assemble-streams.bash -t $WORKSPACE/ testing $VERSION $STREAMS
 PUBLISH_ARGS="testing $STREAMS/juju-dist/testing cpc"
 $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
     $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
