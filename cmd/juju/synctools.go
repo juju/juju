@@ -62,7 +62,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
-	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
+	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
 	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to sync metadata")
