@@ -5,12 +5,12 @@ from textwrap import dedent
 
 from jujuconfig import get_juju_home
 from jujupy import (
-    bootstrap_from_env,
     Environment,
     EnvJujuClient,
     JujuClientDevel,
-    until_timeout,
     SimpleEnvironment,
+    temp_bootstrap_env,
+    until_timeout,
     )
 from deploy_stack import (
     check_token,
@@ -29,7 +29,7 @@ def env_from_client(client):
                        client.env.config)
 
 
-def bootstrap_client(client):
+def bootstrap_client(client, upload_tools):
     """Bootstrap using a client and its environment.
 
     Any stale environment is destroyed, first.
@@ -39,7 +39,8 @@ def bootstrap_client(client):
     client.destroy_environment()
     juju_home = get_juju_home()
     try:
-        bootstrap_from_env(juju_home, client)
+        with temp_bootstrap_env(juju_home, client):
+            client.bootstrap(upload_tools=upload_tools)
         host = get_machine_dns_name(env_from_client(client), 0)
         return host
     except:
@@ -75,7 +76,8 @@ def prepare_dummy_env(client):
     return token
 
 
-def assess_heterogeneous(initial, other, base_env, environment_name, log_dir):
+def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
+                         upload_tools, debug):
     """Top level function that prepares the clients and environment.
 
     initial and other are paths to the binariy used initially, and a binary
@@ -85,14 +87,16 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir):
     environment = SimpleEnvironment.from_config(base_env)
     update_env(environment, environment_name, series='precise')
     environment.config.pop('tools-metadata-url', None)
-    initial_client = EnvJujuClient.by_version(environment, initial)
-    other_client = EnvJujuClient.by_version(environment, other)
-    test_control_heterogeneous(initial_client, other_client, log_dir)
+    initial_client = EnvJujuClient.by_version(environment, initial,
+                                              debug=debug)
+    other_client = EnvJujuClient.by_version(environment, other, debug=debug)
+    test_control_heterogeneous(initial_client, other_client, log_dir,
+                               upload_tools)
 
 
-def test_control_heterogeneous(initial, other, log_dir):
+def test_control_heterogeneous(initial, other, log_dir, upload_tools):
     """Test if one binary can control an environment set up by the other."""
-    host = bootstrap_client(initial)
+    host = bootstrap_client(initial, upload_tools)
     with dumping_env(other, host, log_dir):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
@@ -186,9 +190,15 @@ def main():
     parser.add_argument('base_environment', help='The environment to base on.')
     parser.add_argument('environment_name', help='The new environment name.')
     parser.add_argument('log_dir', help='The directory to dump logs to.')
+    parser.add_argument(
+        '--upload-tools', action='store_true', default=False,
+        help='Upload local version of tools before bootstrapping.')
+    parser.add_argument('--debug', help='Run juju with --debug',
+                        action='store_true', default=False)
     args = parser.parse_args()
     assess_heterogeneous(args.initial, args.other, args.base_environment,
-                         args.environment_name, args.log_dir)
+                         args.environment_name, args.log_dir,
+                         args.upload_tools, args.debug)
 
 
 if __name__ == '__main__':

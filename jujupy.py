@@ -3,6 +3,7 @@ from __future__ import print_function
 __metaclass__ = type
 
 from collections import defaultdict
+from contextlib import contextmanager
 from cStringIO import StringIO
 import errno
 import os
@@ -121,7 +122,7 @@ class EnvJujuClient:
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
-    def by_version(cls, env, juju_path=None):
+    def by_version(cls, env, juju_path=None, debug=False):
         version = cls.get_version(juju_path)
         if juju_path is None:
             full_path = cls.get_full_path()
@@ -130,7 +131,7 @@ class EnvJujuClient:
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         else:
-            return EnvJujuClient(env, version, full_path)
+            return EnvJujuClient(env, version, full_path, debug=debug)
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
@@ -165,14 +166,16 @@ class EnvJujuClient:
                                          env['PATH'])
         return env
 
-    def bootstrap(self):
+    def bootstrap(self, upload_tools=False):
         """Bootstrap, using sudo if necessary."""
         if self.env.hpcloud:
             constraints = 'mem=2G'
         else:
             constraints = 'mem=2G'
-        self.juju('bootstrap', ('--constraints', constraints),
-                  self.env.needs_sudo())
+        args = ('--constraints', constraints)
+        if upload_tools:
+            args = ('--upload-tools',) + args
+        self.juju('bootstrap', args, self.env.needs_sudo())
 
     def destroy_environment(self):
         self.juju(
@@ -296,6 +299,12 @@ def ensure_dir(path):
 
 
 def bootstrap_from_env(juju_home, client):
+    with temp_bootstrap_env(juju_home, client):
+        client.bootstrap()
+
+
+@contextmanager
+def temp_bootstrap_env(juju_home, client):
     # Always bootstrap a matching environment.
     config = dict(client.env.config)
     config['agent-version'] = client.get_matching_agent_version()
@@ -332,7 +341,7 @@ def bootstrap_from_env(juju_home, client):
         with scoped_environ():
             os.environ['JUJU_HOME'] = temp_juju_home
             try:
-                client.bootstrap()
+                yield
             finally:
                 # replace symlink with file before deleting temp home.
                 try:
