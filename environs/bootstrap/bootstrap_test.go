@@ -130,7 +130,7 @@ func (s *bootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	c.Assert(env.args.KeepBroken, gc.DeepEquals, true)
 }
 
-func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
@@ -138,7 +138,24 @@ func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
 	s.PatchValue(bootstrap.FindTools, func(environs.ConfigGetter, int, int, tools.Filter, bool) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	env := newEnviron("foo", useDefaultKeys, nil)
+	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+		"tools-stream": "proposed"})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	// bootstrap.Bootstrap leaves it to the provider to
+	// locate bootstrap tools.
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
+	s.PatchValue(&version.Current.Arch, "arm64")
+	s.PatchValue(&arch.HostArch, func() string {
+		return "arm64"
+	})
+	s.PatchValue(bootstrap.FindTools, func(environs.ConfigGetter, int, int, tools.Filter, bool) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+		"development": true})
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.

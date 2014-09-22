@@ -134,8 +134,14 @@ func idStream(stream string) string {
 	return idstream
 }
 
-// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
-func (ic *ImageConstraint) Ids() ([]string, error) {
+// IndexIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (ic *ImageConstraint) IndexIds() []string {
+	// Image constraints do not filter on index ids.
+	return nil
+}
+
+// ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (ic *ImageConstraint) ProductIds() ([]string, error) {
 	stream := idStream(ic.Stream)
 	nrArches := len(ic.Arches)
 	nrSeries := len(ic.Series)
@@ -181,13 +187,19 @@ func (im *ImageMetadata) productId() string {
 func Fetch(
 	sources []simplestreams.DataSource, cons *ImageConstraint,
 	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
-	params := simplestreams.ValueParams{
-		DataType:      ImageIds,
-		FilterFunc:    appendMatchingImages,
-		ValueTemplate: ImageMetadata{},
-		PublicKey:     simplestreamsImagesPublicKey,
+
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   currentStreamsVersion,
+		OnlySigned:       onlySigned,
+		LookupConstraint: cons,
+		ValueParams: simplestreams.ValueParams{
+			DataType:      ImageIds,
+			FilterFunc:    appendMatchingImages,
+			ValueTemplate: ImageMetadata{},
+			PublicKey:     simplestreamsImagesPublicKey,
+		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, currentStreamsVersion, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

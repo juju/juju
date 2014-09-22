@@ -98,11 +98,17 @@ openstack:
     #
     # image-metadata-url:  https://your-image-metadata-url
 
-    # image-stream chooses a simplestreams stream to select OS images
-    # from, for example daily or released images (or any other stream
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
     # available on simplestreams).
     #
     # image-stream: "released"
+
+    # tools-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # tools-stream: "released"
 
     # auth-url defaults to the value of the environment variable
     # OS_AUTH_URL, but can be specified here.
@@ -176,11 +182,17 @@ hpcloud:
     #
     # tenant-name: <your tenant name>
 
-    # image-stream chooses a simplestreams stream to select OS images
-    # from, for example daily or released images (or any other stream
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
     # available on simplestreams).
     #
     # image-stream: "released"
+
+    # tools-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # tools-stream: "released"
 
     # auth-url holds the keystone url for authentication. It defaults
     # to the value of the environment variable OS_AUTH_URL.

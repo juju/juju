@@ -63,6 +63,7 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 	final := map[string]interface{}{
 		"tools-metadata-url": "file://" + s.customToolsDir,
+		"tools-stream":       "proposed",
 	}
 	for k, v := range attrs {
 		final[k] = v
@@ -82,11 +83,11 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return toolstesting.UploadToDirectory(c, s.customToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, "proposed", s.customToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return toolstesting.UploadToDirectory(c, s.publicToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, "proposed", s.publicToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
@@ -176,19 +177,6 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}
-}
-
-func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
-	s.reset(c, nil)
-	custom := toolstesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
-	s.uploadPublic(c, envtesting.VAll...)
-	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{}, envtools.DoNotAllowRetry)
-	c.Assert(err, gc.IsNil)
-	expect := map[version.Binary]string{}
-	for _, expected := range envtesting.V110p {
-		expect[expected] = custom[expected]
-	}
-	c.Assert(actual.URLs(), gc.DeepEquals, expect)
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {

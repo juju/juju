@@ -90,11 +90,6 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	tests := []test{{
 		version: nil,
 		arch:    nil,
-		dev:     false,
-		filter:  tools.Filter{Released: true},
-	}, {
-		version: nil,
-		arch:    nil,
 		dev:     true,
 		filter:  tools.Filter{},
 	}, {
@@ -102,11 +97,6 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		arch:    nil,
 		dev:     false,
 		filter:  tools.Filter{Number: vers},
-	}, {
-		version: nil,
-		arch:    &arm64,
-		dev:     false,
-		filter:  tools.Filter{Arch: arm64, Released: true},
 	}, {
 		version: &vers,
 		arch:    &arm64,
@@ -116,7 +106,7 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %#v", i, test)
-		bootstrap.FindBootstrapTools(nil, test.version, test.arch, test.dev)
+		bootstrap.FindBootstrapTools(nil, test.version, test.arch)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
 	}
@@ -191,7 +181,8 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
 		return tools.List{trustyTools}, nil
 	})
-	env := newEnviron("foo", useDefaultKeys, nil)
+	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+		"tools-stream": "proposed"})
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)

@@ -34,6 +34,7 @@ type SyncToolsCommand struct {
 	dev          bool
 	public       bool
 	source       string
+	stream       string
 	localDir     string
 	destination  string
 }
@@ -64,6 +65,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
+	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to sync metadata")
 	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
 	f.StringVar(&c.destination, "destination", "", "local destination directory")
 }
@@ -79,6 +81,12 @@ func (c *SyncToolsCommand) Init(args []string) error {
 		if c.majorVersion, c.minorVersion, err = version.ParseMajorMinor(c.versionStr); err != nil {
 			return err
 		}
+	}
+	if c.dev {
+		c.stream = envtools.TestingStream
+	}
+	if c.stream == "" {
+		c.stream = envtools.ReleasedStream
 	}
 	return cmd.CheckEmpty(args)
 }
@@ -105,7 +113,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 		MajorVersion: c.majorVersion,
 		MinorVersion: c.minorVersion,
 		DryRun:       c.dryRun,
-		Dev:          c.dev,
+		Stream:       c.stream,
 		Source:       c.source,
 	}
 
@@ -162,7 +170,7 @@ func (s syncToolsAPIAdapter) FindTools(majorVersion int) (coretools.List, error)
 	return result.List, nil
 }
 
-func (s syncToolsAPIAdapter) UploadTools(tools *coretools.Tools, data []byte) error {
+func (s syncToolsAPIAdapter) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
 	_, err := s.syncToolsAPI.UploadTools(bytes.NewReader(data), tools.Version)
 	return err
 }

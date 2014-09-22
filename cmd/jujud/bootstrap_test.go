@@ -571,7 +571,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 
 	// We don't write metadata at bootstrap anymore.
-	simplestreamsMetadata, err := envtools.ReadMetadata(env.Storage())
+	simplestreamsMetadata, err := envtools.ReadMetadata(env.Storage(), "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
