@@ -9,17 +9,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	stdtesting "testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/cert"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/metricsender"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -28,11 +26,6 @@ type SenderSuite struct {
 }
 
 var _ = gc.Suite(&SenderSuite{})
-
-// TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
 	certCaPem, keyCaPem, err := cert.NewCA("sender-test", time.Now().Add(time.Minute))
