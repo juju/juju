@@ -27,6 +27,16 @@ type StatusCommand struct {
 var statusDoc = `
 This command will report on the runtime state of various system entities.
 
+There are a number of ways to format the status output:
+
+- oneline: List units and their subordinates. For each unit, the IP
+           address and agent status are listed.
+- summary: Displays the subnet(s) and port(s) the environment utilizes.
+           Also displays aggregate information about:
+           - MACHINES: total #, and # in each state.
+           - UNITS: total #, and # in each state.
+           - SERVICES: total #, and # exposed of each service.
+
 Service or unit names may be specified to filter the status to only those
 services and units that match, along with the related machines, services
 and units. If a subordinate unit is matched, then its principal unit will

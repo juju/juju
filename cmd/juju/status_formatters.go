@@ -3,14 +3,15 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/params"
 	"net"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 )
 
 // FormatOneline returns a brief list of units and their subordinates.
@@ -39,9 +40,16 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// FormatTabular returns a tabular summary of machines, services, and
-// units. Any subordinate items are indented by two spaces beneath
-// their superior.
+// FormatSummary returns a summary of the current environment
+// including the following information:
+// - Headers:
+//   - All subnets the environment occupies.
+//   - All ports the environment utilizes.
+// - Sections:
+//   - Machines: Displays total #, and then the # in each state.
+//   - Units: Displays total #, and then # in each state.
+//   - Services: Displays total #, their names, and how many of each
+//     are exposed.
 func FormatSummary(value interface{}) ([]byte, error) {
 	fs, ok := value.(formattedStatus)
 	if !ok {
@@ -94,16 +102,34 @@ func FormatSummary(value interface{}) ([]byte, error) {
 		)
 	}
 
-	var openPorts []string
+	// Utilize map-key as a makeshift set so we don't duplicate ports.
+	// Value is not used.
+	openPorts := make(map[string]interface{})
 	stateToUnit := make(map[params.Status]int)
 	numUnits := 0
 	trackUnit := func(name string, status unitStatus, indentLevel int) {
 		if err := resolveAndTrackIp(status.PublicAddress); err != nil {
 			logIPResolutionWarning(status.PublicAddress, err)
 		}
-		openPorts = append(openPorts, status.OpenedPorts...)
+		for _, p := range status.OpenedPorts {
+			if p != "" {
+				openPorts[p] = nil
+			}
+		}
 		numUnits += 1
 		stateToUnit[status.AgentState] += 1
+	}
+	portsInColumnsOf := func(col int) string {
+		unqOpenPorts := sortStrings(stringKeysFromMap(openPorts))
+		var b bytes.Buffer
+		for i, p := range unqOpenPorts {
+			if i != 0 && i%col == 0 {
+				fmt.Fprintf(&b, "\n\t")
+			}
+			fmt.Fprintf(&b, "%s, ", p)
+		}
+		// Elide the last delimiter
+		return b.String()[:b.Len()-2]
 	}
 
 	// Aggregate machine states.
@@ -141,7 +167,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 
 	// Print everything out
 	p("Running on subnets:", strings.Join(netStrings, ", "))
-	p("Utilizing ports:", strings.Join(openPorts, ", "), "\n")
+	p("Utilizing ports:", portsInColumnsOf(3))
 	tw.Flush()
 
 	// Right align summary information
