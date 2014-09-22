@@ -14,7 +14,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -55,16 +54,16 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 	err = s.machine.SetRebootFlag(true)
 	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: (.*)")
 
-	err = s.machine.SetRebootFlag(false)
-	c.Assert(err, gc.IsNil)
-
 	rFlag, err := s.machine.GetRebootFlag()
 	c.Assert(err, gc.IsNil)
 	c.Assert(rFlag, jc.IsFalse)
 
+	err = s.machine.SetRebootFlag(false)
+	c.Assert(err, gc.IsNil)
+
 	action, err := s.machine.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(action, gc.Equals, params.ShouldDoNothing)
+	c.Assert(action, gc.Equals, state.ShouldDoNothing)
 }
 
 func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
@@ -125,15 +124,15 @@ func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
 
 	rAction, err := s.machine.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldDoNothing)
+	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
 
 	rAction, err = c1.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldDoNothing)
+	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
 
 	rAction, err = c2.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldReboot)
+	c.Assert(rAction, gc.Equals, state.ShouldReboot)
 
 	// // Reboot happens on the root node
 	err = c2.SetRebootFlag(false)
@@ -144,15 +143,15 @@ func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
 
 	rAction, err = s.machine.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldReboot)
+	c.Assert(rAction, gc.Equals, state.ShouldReboot)
 
 	rAction, err = c1.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldShutdown)
+	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
 
 	rAction, err = c2.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldShutdown)
+	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
 }
 
 func (s *MachineSuite) TestContainerDefaults(c *gc.C) {

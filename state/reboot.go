@@ -4,15 +4,30 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	// "gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 var _ RebootFlagSetter = (*Machine)(nil)
 var _ RebootActionGetter = (*Machine)(nil)
+
+// RebootAction defines the action a machine should
+// take when a hook needs to reboot
+type RebootAction string
+
+const (
+	// ShouldDoNothing instructs a machine agent that no action
+	// is required on its part
+	ShouldDoNothing RebootAction = "noop"
+	// ShouldReboot instructs a machine to reboot
+	// this happens when a hook running on a machine, requests
+	// a reboot
+	ShouldReboot RebootAction = "reboot"
+	// ShouldShutdown instructs a machine to shut down. This usually
+	// happens when running inside a container, and a hook on the parent
+	// machine requests a reboot
+	ShouldShutdown RebootAction = "shutdown"
+)
 
 // rebootDoc will hold the reboot flag for a machine.
 type rebootDoc struct {
@@ -94,7 +109,7 @@ func (m *Machine) machinesToCareAboutRebootsFor() []string {
 // ShouldRebootOrShutdown check if the current node should reboot or shutdown
 // If we are a container, and our parent needs to reboot, this should return:
 // ShouldShutdown
-func (m *Machine) ShouldRebootOrShutdown() (params.RebootAction, error) {
+func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
 	rebootCol, closer := m.st.getCollection(rebootC)
 	defer closer()
 
@@ -103,20 +118,20 @@ func (m *Machine) ShouldRebootOrShutdown() (params.RebootAction, error) {
 	docs := []rebootDoc{}
 	sel := bson.D{{"_id", bson.D{{"$in", machines}}}}
 	if err := rebootCol.Find(sel).All(&docs); err != nil {
-		return params.ShouldDoNothing, errors.Trace(err)
+		return ShouldDoNothing, errors.Trace(err)
 	}
 
 	iNeedReboot := false
 	for _, val := range docs {
 		if val.Id != m.doc.Id {
-			return params.ShouldShutdown, nil
+			return ShouldShutdown, nil
 		}
 		iNeedReboot = true
 	}
 	if iNeedReboot {
-		return params.ShouldReboot, nil
+		return ShouldReboot, nil
 	}
-	return params.ShouldDoNothing, nil
+	return ShouldDoNothing, nil
 }
 
 type RebootFlagSetter interface {
@@ -124,5 +139,5 @@ type RebootFlagSetter interface {
 }
 
 type RebootActionGetter interface {
-	ShouldRebootOrShutdown() (params.RebootAction, error)
+	ShouldRebootOrShutdown() (RebootAction, error)
 }
