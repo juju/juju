@@ -52,7 +52,7 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: (.*)")
+	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: transaction aborted")
 
 	rFlag, err := s.machine.GetRebootFlag()
 	c.Assert(err, gc.IsNil)
@@ -76,7 +76,7 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, setFlag).Check()
 
 	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: (.*)")
+	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: transaction aborted")
 }
 
 func (s *MachineSuite) TestSetRebootFlag(c *gc.C) {
