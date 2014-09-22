@@ -184,6 +184,8 @@ class EnvJujuClient:
         """Bootstrap, using sudo if necessary."""
         if self.env.hpcloud:
             constraints = 'mem=2G'
+        elif self.env.maas:
+            constraints = 'mem=2G arch=amd64'
         else:
             constraints = 'mem=2G'
         self.juju('bootstrap', ('--constraints', constraints),
@@ -360,9 +362,11 @@ class SimpleEnvironment:
                 self.local and bool(self.config.get('container') == 'kvm'))
             self.hpcloud = bool(
                 'hpcloudsvc' in self.config.get('auth-url', ''))
+            self.maas = bool(self.config.get('type') == 'maas')
         else:
             self.local = False
             self.hpcloud = False
+            self.maas = False
 
     @classmethod
     def from_config(cls, name):
