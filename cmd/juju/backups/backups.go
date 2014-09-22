@@ -60,6 +60,8 @@ type APIClient interface {
 	Download(id string) (io.ReadCloser, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
+	Restore(string, string) error
+	PublicAddress(target string) (string, error)
 }
 
 // CommandBase is the base type for backups sub-commands.

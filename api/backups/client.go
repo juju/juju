@@ -34,3 +34,23 @@ func NewClient(st httpAPICallCloser) *Client {
 		http:         st,
 	}
 }
+
+// Restore is responsable for finishing a restore after a placeholder
+// machine has been bootstraped, it receives the name of a backup
+// file on server and will return error on failure.
+func (c *Client) Restore(backupFileName, backupId string) error {
+	params := params.Restore{FileName: backupFileName,
+		BackupId: backupId,
+		Machine:  "0"}
+	err := c.facade.FacadeCall("Restore", params, nil)
+	return err
+}
+
+// PublicAddress returns the public address of the specified
+// machine or unit. For a machine, target is an id not a tag.
+func (c *Client) PublicAddress(target string) (string, error) {
+	var results params.PublicAddressResults
+	p := params.PublicAddress{Target: target}
+	err := c.facade.FacadeCall("PublicAddress", p, &results)
+	return results.PublicAddress, err
+}

@@ -12,28 +12,21 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/utils/ssh"
 )
 
-type restoreClient interface {
-	Restore(string, bool) error
-}
-
 type RestoreCommand struct {
 	CommandBase
-	Constraints constraints.Value
-	Filename    string
-	Upload      bool
-	Bootstrap   bool
+	constraints constraints.Value
+	filename    string
+	backupId    string
+	bootstrap   bool
 }
 
 var restoreDoc = `
@@ -63,42 +56,42 @@ func (c *RestoreCommand) Info() *cmd.Info {
 }
 
 func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints},
+	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set environment constraints")
 
-	f.BoolVar(&c.Upload, "u", false, "upload the file")
-	f.BoolVar(&c.Bootstrap, "b", false, "bootstrap a new state machine")
+	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
+	f.StringVar(&c.filename, "file", "", "profide a file to be used as the backup.")
+	f.StringVar(&c.backupId, "name", "", "provide the name of the backup to be restored.")
+
 }
 
 func (c *RestoreCommand) Init(args []string) error {
-	if len(args) == 0 {
-		return errors.Errorf("no backup name specified")
+	if c.filename == "" && c.backupId == "" {
+		return errors.Errorf("you must specify either a file or a backup name.")
 	}
-	c.Filename = args[0]
 	return nil
 }
 
 const restoreAPIIncompatibility = "server version not compatible for " +
 	"restore with client version"
 
-func (c *RestoreCommand) runRestore(ctx *cmd.Context, client restoreClient) error {
+func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 
-	fileName := filepath.Base(c.Filename)
+	fileName := filepath.Base(c.filename)
 
-	if err := client.Restore(fileName, c.Upload); err != nil {
+	if err := client.Restore(fileName, c.backupId); err != nil {
 
-		logger.Debugf("------------> Called Restore")
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
 		return err
 	}
-	fmt.Fprintf(ctx.Stdout, "restore from %s completed\n", c.Filename)
+	fmt.Fprintf(ctx.Stdout, "restore from %s completed\n", c.filename)
 	return nil
 }
 
 func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error) {
-	cons := c.Constraints
+	cons := c.constraints
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, err
@@ -154,16 +147,15 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 	return env, nil
 }
 
-func (c *RestoreCommand) doUpload(client *api.Client) error {
-	// The
+func (c *RestoreCommand) doUpload(client APIClient) error {
 	addr, err := client.PublicAddress("0")
 	if err != nil {
 		return err
 	}
 
-	fileName := filepath.Base(c.Filename)
+	fileName := filepath.Base(c.filename)
 
-	if err := ssh.Copy([]string{c.Filename, fmt.Sprintf("ubuntu@%s:%s", addr, fileName)}, nil); err != nil {
+	if err := ssh.Copy([]string{c.filename, fmt.Sprintf("ubuntu@%s:%s", addr, fileName)}, nil); err != nil {
 		return err
 	}
 	//TODO(perrito666) add to envstorage, is it worthy? or will I need to remove afer?
@@ -172,27 +164,23 @@ func (c *RestoreCommand) doUpload(client *api.Client) error {
 }
 
 func (c *RestoreCommand) Run(ctx *cmd.Context) error {
-	if c.Bootstrap {
+	if c.bootstrap {
 		_, err := c.rebootstrap(ctx)
 		if err != nil {
 			return err
 		}
 	}
 
-	logger.Debugf("------------> bootstrapped")
 	// Empty string will get a client for current default
-	client, err := juju.NewAPIClientFromName("")
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
-
-	logger.Debugf("------------> have a client")
 	defer client.Close()
 
-	if c.Upload {
+	if c.filename == "" {
 		c.doUpload(client)
 	}
-	logger.Debugf("------------> uploaded")
 
 	return c.runRestore(ctx, client)
 }

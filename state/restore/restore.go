@@ -472,7 +472,7 @@ func runViaSSH(addr string, script string) error {
 // * updates and writes configuration files
 // * updates existing db entries to make sure they hold no references to
 // old instances
-func Restore(backupFile, privateAddress string, status *state.State) error { //, environ environs.Environ) error {
+func Restore(backupFile, privateAddress string, status *state.State) error {
 	machine, err := status.Machine("0")
 	if err != nil {
 		return errors.Annotate(err, "cannot find bootstrap machine in status")
@@ -484,7 +484,8 @@ func Restore(backupFile, privateAddress string, status *state.State) error { //,
 
 	workDir := os.TempDir()
 
-	// XXX (perrito666) obtain this from the proper place here and in backup
+	// TODO (perrito666) obtain this pat pathh from the proper place here and in backup
+	// if the backup contains the series of the machine we can generate it.
 	const agentFile string = "var/lib/juju/agents/machine-0/agent.conf"
 
 	// Extract outer container

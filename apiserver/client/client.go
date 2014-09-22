@@ -150,6 +150,9 @@ func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.S
 
 // Restore implements the server side of Client.Restore
 func (c *Client) Restore(p params.Restore) error {
+	if p.BackupId != "" {
+		return fmt.Errorf("Backup from backups list not implemented")
+	}
 	filename := p.FileName
 	filename = "/home/ubuntu/" + filename
 	machine, err := c.api.state.Machine(p.Machine)

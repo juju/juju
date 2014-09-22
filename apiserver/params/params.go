@@ -883,7 +883,7 @@ type StateServersChanges struct {
 
 type Restore struct {
 	FileName string
-	Uploaded bool
+	BackupId string
 	Machine  string
 }
 
