@@ -41,14 +41,16 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 }
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
-	"Client.FullStatus",     // for "juju status"
-	"Client.EnvironmentGet", // for "juju ssh"
-	"Client.PrivateAddress", // for "juju ssh"
-	"Client.PublicAddress",  // for "juju ssh"
-	"Client.WatchDebugLog",  // for "juju debug-log"
+	"FullStatus",     // for "juju status"
+	"EnvironmentGet", // for "juju ssh"
+	"PrivateAddress", // for "juju ssh"
+	"PublicAddress",  // for "juju ssh"
+	"WatchDebugLog",  // for "juju debug-log"
 )
 
 func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
-	fullName := rootName + "." + methodName
-	return allowedMethodsDuringUpgrades.Contains(fullName)
+	if rootName != "Client" {
+		return false
+	}
+	return allowedMethodsDuringUpgrades.Contains(methodName)
 }
