@@ -577,3 +577,74 @@ func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "error adding metrics")
 }
+
+func (s *unitSuite) TestMeterStatus(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			result.Results[0].Code = "GREEN"
+			result.Results[0].Info = "All ok."
+			return nil
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.IsNil)
+	c.Assert(statusCode, gc.Equals, "GREEN")
+	c.Assert(statusInfo, gc.Equals, "All ok.")
+}
+
+func (s *unitSuite) TestMeterStatusError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			return fmt.Errorf("boo")
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "boo")
+	c.Assert(statusCode, gc.Equals, "")
+	c.Assert(statusInfo, gc.Equals, "")
+}
+
+func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			result.Results[0].Error = &params.Error{
+				Message: "error getting meter status",
+				Code:    params.CodeNotAssigned,
+			}
+			return nil
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "error getting meter status")
+	c.Assert(statusCode, gc.Equals, "")
+	c.Assert(statusInfo, gc.Equals, "")
+}
+
+func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
+	w, err := s.apiUnit.WatchMeterStatus()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	err = s.wordpressUnit.SetMeterStatus("GREEN", "ok")
+	c.Assert(err, gc.IsNil)
+	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Non-change is not reported.
+	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}

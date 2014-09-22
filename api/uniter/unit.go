@@ -533,3 +533,45 @@ func (u *Unit) JoinedRelations() ([]string, error) {
 	}
 	return result.Result, nil
 }
+
+// MeterStatus returns the meter status of the unit.
+func (u *Unit) MeterStatus() (statusCode, statusInfo string, rErr error) {
+	var results params.MeterStatusResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("GetMeterStatus", args, &results)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", "", errors.Trace(result.Error)
+	}
+	return result.Code, result.Info, nil
+}
+
+// WatchMeterStatus returns a watcher for observing changes to the
+// unit's meter status.
+func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchMeterStatus", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}

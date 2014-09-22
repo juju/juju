@@ -41,6 +41,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Start}, ""},
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
 	{hook.Info{Kind: hooks.CollectMetrics}, ""},
+	{hook.Info{Kind: hooks.MeterStatusChanged}, ""},
 	{
 		hook.Info{Kind: hooks.Action},
 		`action id "" cannot be parsed as an action tag`,

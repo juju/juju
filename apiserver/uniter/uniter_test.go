@@ -1930,3 +1930,86 @@ func (s *uniterSuite) TestAddMetricsUnauthenticated(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(metrics, gc.HasLen, 0)
 }
+
+func (s *uniterSuite) TestGetMeterStatus(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}}}
+	result, err := s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Code, gc.Equals, "NOT SET")
+	c.Assert(result.Results[0].Info, gc.Equals, "")
+
+	newCode := "GREEN"
+	newInfo := "All is ok."
+
+	err = s.wordpressUnit.SetMeterStatus(newCode, newInfo)
+	c.Assert(err, gc.IsNil)
+
+	result, err = s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Code, gc.DeepEquals, newCode)
+	c.Assert(result.Results[0].Info, gc.DeepEquals, newInfo)
+}
+
+func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
+	result, err := s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(result.Results[0].Code, gc.Equals, "")
+	c.Assert(result.Results[0].Info, gc.Equals, "")
+}
+
+func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
+	tags := []string{"user-admin", "unit-nosuchunit", "thisisnotatag", "machine-0", "environment-blah"}
+
+	args := params.Entities{Entities: make([]params.Entity, len(tags))}
+	for i, tag := range tags {
+		args.Entities[i] = params.Entity{Tag: tag}
+	}
+	result, err := s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, len(tags))
+	for i, result := range result.Results {
+		c.Logf("checking result %d", i)
+		c.Assert(result.Code, gc.Equals, "")
+		c.Assert(result.Info, gc.Equals, "")
+		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
+	}
+}
+
+func (s *uniterSuite) TestWatchMeterStatus(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.WatchMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	err = s.wordpressUnit.SetMeterStatus("GREEN", "No additional information.")
+	wc.AssertOneChange()
+}

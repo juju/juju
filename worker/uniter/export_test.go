@@ -46,6 +46,18 @@ func GetStubActionContext(in map[string]interface{}) *HookContext {
 	}
 }
 
+// PatchMeterStatus changes the meter status of the context.
+func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
+	oldMeterStatus := ctx.meterStatus
+	ctx.meterStatus = &meterStatus{
+		code: code,
+		info: info,
+	}
+	return func() {
+		ctx.meterStatus = oldMeterStatus
+	}
+}
+
 var MergeEnvironment = mergeEnvironment
 
 var SearchHook = searchHook

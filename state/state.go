@@ -67,6 +67,9 @@ const (
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
 
+	// meterStatusC is the collection used to store meter status information.
+	meterStatusC = "meterStatus"
+
 	// toolsmetadataC is the collection used to store tools metadata.
 	toolsmetadataC = "toolsmetadata"
 
