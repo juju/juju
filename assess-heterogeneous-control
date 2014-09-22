@@ -5,12 +5,12 @@ from textwrap import dedent
 
 from jujuconfig import get_juju_home
 from jujupy import (
-    bootstrap_from_env,
     Environment,
     EnvJujuClient,
     JujuClientDevel,
-    until_timeout,
     SimpleEnvironment,
+    temp_bootstrap_env,
+    until_timeout,
     )
 from deploy_stack import (
     check_token,
@@ -29,7 +29,7 @@ def env_from_client(client):
                        client.env.config)
 
 
-def bootstrap_client(client):
+def bootstrap_client(client, upload_tools):
     """Bootstrap using a client and its environment.
 
     Any stale environment is destroyed, first.
@@ -39,7 +39,8 @@ def bootstrap_client(client):
     client.destroy_environment()
     juju_home = get_juju_home()
     try:
-        bootstrap_from_env(juju_home, client)
+        with temp_bootstrap_env(juju_home, client):
+            client.bootstrap(upload_tools=upload_tools)
         host = get_machine_dns_name(env_from_client(client), 0)
         return host
     except:
@@ -95,9 +96,9 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
 
 def test_control_heterogeneous(initial, other, log_dir, upload_tools):
     """Test if one binary can control an environment set up by the other."""
-    host = bootstrap_client(initial)
+    host = bootstrap_client(initial, upload_tools)
     with dumping_env(other, host, log_dir):
-        token = prepare_dummy_env(initial, upload_tools)
+        token = prepare_dummy_env(initial)
         initial.wait_for_started()
         check_token(env_from_client(initial), token)
         check_series(other)
