@@ -360,6 +360,19 @@ review tool is ReviewBoard, hosted at http://reviews.vapour.ws/.  In the
 event that the site is down, the project will temporarily fall back to
 github for reviews of critical pull requests.
 
+A review request is automatically created for every pull request.  A
+link to that review request is added as a comment to the pull request.
+Whenever the pull request is updated, the review request is likewise
+updated.  Thus for the normal workflow of contribution, there should
+be no need to worry about creating or updating review requests.
+
+Once you have created your pull request, it will be reviewed.  Make sure
+to address the feedback.  Your request might go through several rounds
+of feedback before the patch is approved or rejected.  Once you get a
+"ship it" from a member of the juju project, and there are not any
+"NOT LGTM" comments in ReviewBoard or github, you are ready to have your
+patch merged by a member of the juju team.  Congratulations!
+
 The site uses github OAuth for authentication.  To log in simply go to
 login page and click the "github" button.  The first time you do this,
 it will redirect you to github to approve access and then redirect you
@@ -372,65 +385,9 @@ you using your github username.  However, your email address is not
 added.  If you want to receive review-related email, be sure to add your
 email address to your ReviewBoard profile.
 
-Once you have logged in to ReviewBoard for the first time you are ready
-to create new review requests.  Each review request should be associated
-with a pull request on github.  So after your pull request is created,
-follow these steps:
+For more information on ReviewBoard see:
 
-1. run "rbt post" (see more info below on RBTools)
-2. follow the link and hit the "publish" button (or use the "-p" option)
-3. add a comment to the PR with a link to the review request
-
-At this point your review request should get reviewed.  Make sure to
-address the feedback.  Your request might go through several cycles of
-feedback before the patch is approved or rejected.  Once you get a
-"ship it" from a member of the juju project, and there are not any
-"NOT LGTM" comments in ReviewBoard or github, you are ready to have your
-patch merged:
-
-1. notify the landing bot to test and merge the branch into master
-  - this is done by a member of the juju project by adding the magic
-    string `$$merge$$` in a comment on the PR.
-2. once merged, close your review request as "submitted"
-3. congratulations!
-
-To update an existing pull request:
-
-1. push your updated branch to your github clone (this will
-   automatically update the pull request)
-2. run "rbt post -u" or "rbt post -r #"
-3. hit the "publish" button (or use the "-p" option)
-
-Important: Make sure you use one of those two options.  Otherwise there
-is a good chance that ReviewBoard will create a new review request,
-which is a problem because revisions are linked to review requests
-(even discarded ones).  So the accidental review request would prevent
-you from updating the correct one after that.  If that happens you will
-need to get one of the ReviewBoard admins to delete the accidental
-review request.  Considering the overhead involved for everyone, it
-would be better just make sure you always use "-u" or "-r" for updates.
-
-Here is more information about RBTools and the "rbt" command:
-
-* see https://www.reviewboard.org/docs/rbtools/0.6/
-* you will need to install rbt before you can use it
-* the first time you run "rbt post", rbtools will request your
-  ReviewBoard credentials.  Since users do not have passwords you must
-  trigger OAuth authentication:
-  - username: <github username>
-  - password: oauth:<github username>@github
-* when using rbt, make sure you are on the branch that matches the PR
-  for which you are creating a review request
-* make sure that branch is based on an up-to-date master
-* the rbtools documentation includes information on various helpful
-  command-line options
-* for instance, "rbt post --parent" allows you to chain review requests
-* if the repo does not have a .reviewboardrc file, you will need to run
-  "rbt setup-repo" to generate one; however if one of the juju repos is
-  missing that file, it should be generated and committed
-* if you followed the recommendation above on git "remotes" (which you
-  should have), you will need to make sure you have the following in
-  the .reviewboardrc file: TRACKING_BRANCH = "upstream/master"
+ doc/contributions/reviewboard.md
 
 Continuous integration
 ----------------------
