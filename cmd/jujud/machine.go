@@ -419,17 +419,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		})
 	}
 
-	// Start metric workers only on the bootstrap machine
-	if a.MachineId == bootstrapMachineId {
-		logger.Infof("starting metric workers")
-		a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
-			return metricworker.NewCleanup(metricsmanager.NewClient(st)), nil
-		})
-		a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
-			return metricworker.NewSender(metricsmanager.NewClient(st)), nil
-		})
-	}
-
 	// Perform the operations needed to set up hosting for containers.
 	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
 		cause := errors.Cause(err)
@@ -459,6 +448,14 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
+			})
+
+			logger.Infof("starting metric workers")
+			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
+				return metricworker.NewCleanup(metricsmanager.NewClient(st)), nil
+			})
+			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
+				return metricworker.NewSender(metricsmanager.NewClient(st)), nil
 			})
 		case params.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
