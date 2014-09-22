@@ -464,7 +464,7 @@ def bootstrap_context(client):
                     yield fake_home
 
 
-def stub_bootstrap():
+def stub_bootstrap(upload_tools=False):
     jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
     os.mkdir(os.path.dirname(jenv_path))
     with open(jenv_path, 'w') as f:
@@ -486,7 +486,7 @@ class TestBootstrapFromEnv(TestCase):
         agent_version = client.get_matching_agent_version()
         check_environment_ran = {'value': False}
         with bootstrap_context(client) as fake_home:
-            def check_environment():
+            def check_environment(upload_tools):
                 check_environment_ran['value'] = True
                 temp_home = os.environ['JUJU_HOME']
                 self.assertNotEqual(temp_home, fake_home)
@@ -514,12 +514,13 @@ class TestBootstrapFromEnv(TestCase):
             jenv_path = get_jenv_path(fake_home, 'qux')
             self.assertFalse(os.path.islink(jenv_path))
             self.assertEqual(open(jenv_path).read(), 'Bogus jenv')
+            client.bootstrap.assert_called_once_with(upload_tools=False)
 
     def test_rename_on_exception(self):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = EnvJujuClient.by_version(env)
         with bootstrap_context(client) as fake_home:
-            def except_bootstrap():
+            def except_bootstrap(upload_tools):
                 stub_bootstrap()
                 raise Exception('test-rename')
             with patch.object(client, 'bootstrap', except_bootstrap):
@@ -533,7 +534,7 @@ class TestBootstrapFromEnv(TestCase):
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = EnvJujuClient.by_version(env)
         with bootstrap_context(client) as fake_home:
-            def except_bootstrap():
+            def except_bootstrap(upload_tools):
                 jenv_path = get_jenv_path(os.environ['JUJU_HOME'], 'qux')
                 os.mkdir(os.path.dirname(jenv_path))
                 raise Exception('test-rename')
@@ -566,6 +567,22 @@ class TestBootstrapFromEnv(TestCase):
             ])
 
     def test_error_on_jenv(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            jenv_path = get_jenv_path(fake_home, 'qux')
+            os.mkdir(os.path.dirname(jenv_path))
+            with open(jenv_path, 'w') as f:
+                f.write('In the way')
+            with self.assertRaisesRegexp(Exception, '.* already exists!'):
+                bootstrap_from_env(fake_home, client)
+
+    def test_propagates_upload_tools(self):
+        env = SimpleEnvironment('qux', {'type': 'local'})
+        client = EnvJujuClient.by_version(env)
+        with bootstrap_context(client) as fake_home:
+            bootstrap_from_env(fake_home, client, upload_tools=True)
+            client.bootstrap.assert_called_once_with(upload_tools=True)
         env = SimpleEnvironment('qux', {'type': 'local'})
         client = EnvJujuClient.by_version(env)
         with bootstrap_context(client) as fake_home:

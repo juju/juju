@@ -121,7 +121,7 @@ class EnvJujuClient:
         return subprocess.check_output(('which', 'juju')).rstrip('\n')
 
     @classmethod
-    def by_version(cls, env, juju_path=None):
+    def by_version(cls, env, juju_path=None, debug=False):
         version = cls.get_version(juju_path)
         if juju_path is None:
             full_path = cls.get_full_path()
@@ -130,7 +130,7 @@ class EnvJujuClient:
         if version.startswith('1.16'):
             raise Exception('Unsupported juju: %s' % version)
         else:
-            return EnvJujuClient(env, version, full_path)
+            return EnvJujuClient(env, version, full_path, debug=debug)
 
     def _full_args(self, command, sudo, args, timeout=None, include_e=True):
         # sudo is not needed for devel releases.
@@ -297,7 +297,7 @@ def ensure_dir(path):
             raise
 
 
-def bootstrap_from_env(juju_home, client):
+def bootstrap_from_env(juju_home, client, upload_tools=False):
     # Always bootstrap a matching environment.
     config = dict(client.env.config)
     config['agent-version'] = client.get_matching_agent_version()
@@ -334,7 +334,7 @@ def bootstrap_from_env(juju_home, client):
         with scoped_environ():
             os.environ['JUJU_HOME'] = temp_juju_home
             try:
-                client.bootstrap()
+                client.bootstrap(upload_tools=upload_tools)
             finally:
                 # replace symlink with file before deleting temp home.
                 try:
