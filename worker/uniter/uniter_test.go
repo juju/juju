@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -1310,12 +1310,11 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitHooks{"action-log"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  "complete",
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}}},
 	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
@@ -1337,12 +1336,11 @@ var actionEventTests = []uniterTest{
 			params: map[string]interface{}{"outfile": "foo.bar"},
 		},
 		waitHooks{"snapshot"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "snapshot",
-				results: map[string]interface{}{},
-				status:  "complete",
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "snapshot",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}}},
 	), ut(
 		"actions with incorrect params passed are not an error but fail",
 		createCharm{
@@ -1364,13 +1362,12 @@ var actionEventTests = []uniterTest{
 			params: map[string]interface{}{"outfile": 2},
 		},
 		waitHooks{"snapshot"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "snapshot",
-				results: map[string]interface{}{},
-				status:  "fail",
-				message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "snapshot",
+			results: map[string]interface{}{},
+			status:  "fail",
+			message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
+		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not defined in actions.yaml fail without causing a uniter error",
@@ -1389,13 +1386,12 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
 		waitHooks{"snapshot"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "snapshot",
-				results: map[string]interface{}{},
-				status:  "fail",
-				message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "snapshot",
+			results: map[string]interface{}{},
+			status:  "fail",
+			message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
+		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"pending actions get consumed",
@@ -1423,25 +1419,19 @@ var actionEventTests = []uniterTest{
 			"action-log",
 			"action-log",
 		},
-		verifyActionResults{
-			[]actionResult{
-				{
-					name:    "action-log",
-					results: map[string]interface{}{},
-					status:  "complete",
-				},
-				{
-					name:    "action-log",
-					results: map[string]interface{}{},
-					status:  "complete",
-				},
-				{
-					name:    "action-log",
-					results: map[string]interface{}{},
-					status:  "complete",
-				},
-			},
-		},
+		verifyActionResults{[]actionResult{{
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}, {
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}, {
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not implemented fail but are not errors",

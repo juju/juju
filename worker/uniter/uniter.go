@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -508,21 +508,21 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 
 	actionParams := action.Params()
-	hookName := action.Name()
-	_, actionParamsErr := u.validateAction(hookName, actionParams)
+	actionName := action.Name()
+	_, actionParamsErr := u.validateAction(actionName, actionParams)
 	if actionParamsErr != nil {
-		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", hookName)
+		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", actionName)
 	}
 
-	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
+	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), actionName, u.rand.Int63())
 
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), actionName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "", actionParams, &tag)
+	hctx, err := u.getHookContext(hctxId, hi.Kind, -1, "", actionParams, &tag)
 	if err != nil {
 		return err
 	}
@@ -533,31 +533,23 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 	defer srv.Close()
 
-	// Run the hook.
-	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
-		return err
-	}
-	logger.Infof("running %q action", hookName)
-
 	if actionParamsErr != nil {
-		// If we already had a param validation error, no need
-		// to run the Action.  Simply finalize the context.
-		err = hctx.finalizeAction(actionParamsErr)
-	} else {
-		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
+		hctx.SetActionFailed(actionParamsErr.Error())
 	}
+	// err will be any unhandled error from finalizeContext.
+	err = hctx.RunAction(actionName, u.charmPath, u.toolsDir, socketPath)
 
 	if err != nil {
-		err = errors.Annotatef(err, "action %q had unexpected failure", hookName)
+		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
 		logger.Errorf("action failed: %s", err.Error())
-		u.notifyHookFailed(hookName, hctx)
+		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	logger.Infof(hctx.actionData.ResultsMessage)
-	u.notifyHookCompleted(hookName, hctx)
+	u.notifyHookCompleted(actionName, hctx)
 	return u.commitHook(hi)
 }
 

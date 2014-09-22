@@ -779,6 +779,8 @@ func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed("oops")
 	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 }
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {

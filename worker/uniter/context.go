@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -333,20 +333,32 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 }
 
 func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
+	writeChanges := err == nil
+
 	// In the case of Actions, handle any errors using finalizeAction.
 	if ctx.actionData != nil {
-		defer func() { e = ctx.finalizeAction(e) }()
+		// If we had an error in err at this point, it's part of the
+		// normal behavior of an Action.  Errors which happen during
+		// the finalize should be handed back to the uniter.  Close
+		// over the existing err, clear it, and only return errors
+		// which occur during the finalize, e.g. API call errors.
+		defer func(err error) {
+			e = ctx.finalizeAction(err, e)
+		}(err)
+		err = nil
 	}
 
-	writeChanges := err == nil
 	for id, rctx := range ctx.relations {
 		if writeChanges {
-			if err = rctx.WriteSettings(); err != nil {
-				err = errors.Annotatef(err,
-					"could not write settings from %q to relation %d",
-					process, id,
+			if e := rctx.WriteSettings(); e != nil {
+				e = fmt.Errorf(
+					"could not write settings from %q to relation %d: %v",
+					process, id, e,
 				)
-				logger.Errorf("%v", err)
+				logger.Errorf("%v", e)
+				if err == nil {
+					err = e
+				}
 			}
 		}
 		rctx.ClearCache()
@@ -379,11 +391,10 @@ func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
 }
 
 // finalizeAction passes back the final status of an Action hook to state.
-// It wraps any errors which occurred in the hook or other pieces, leaving
-// the unit without errors; an Action error should only return a failed
-// Action and failure message.
+// It wraps any errors which occurred in normal behavior of the Action run;
+// only errors passed in unhandledErr will be returned.
 // TODO (binary132): synchronize with gsamfira's reboot logic
-func (ctx *HookContext) finalizeAction(err error) error {
+func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.ActionTag
@@ -392,8 +403,8 @@ func (ctx *HookContext) finalizeAction(err error) error {
 		status = params.ActionFailed
 	}
 
-	// If we had a RunHook error, we'll simply encapsulate it in the response
-	// and discard the error state.  Actions should not error out the unit.
+	// If we had an action error, we'll simply encapsulate it in the response
+	// and discard the error state.  Actions should not error the uniter.
 	if err != nil {
 		message = err.Error()
 		if IsMissingHookError(err) {
@@ -402,7 +413,11 @@ func (ctx *HookContext) finalizeAction(err error) error {
 		status = params.ActionFailed
 	}
 
-	return ctx.state.ActionFinish(tag, status, results, message)
+	callErr := ctx.state.ActionFinish(tag, status, results, message)
+	if callErr != nil {
+		unhandledErr = errors.Wrap(unhandledErr, callErr)
+	}
+	return unhandledErr
 }
 
 // RunCommands executes the commands in an environment which allows it to to
@@ -424,6 +439,14 @@ func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
 // RunAction executes a hook from the charm's actions in an environment which
 // allows it to to call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunAction(hookName, charmDir, toolsDir, socketPath string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
+	// If the action had already failed (i.e. from invalid params), we
+	// just want to finalize without running it.
+	if ctx.actionData.ActionFailed {
+		return ctx.finalizeContext(hookName, nil)
+	}
 	return ctx.runCharmHookWithLocation(hookName, "actions", charmDir, toolsDir, socketPath)
 }
 
