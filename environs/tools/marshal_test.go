@@ -27,18 +27,18 @@ func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 			FileType: "tar.gz",
 		},
 	}
-	_, products, err := tools.MarshalToolsMetadataJSON(metadata, time.Now())
+	_, products, err := tools.MarshalToolsMetadataJSON(metadata, "proposed", time.Now())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(products), jc.Contains, `"size": 9223372036854775807`)
 }
 
 var expectedIndex = `{
     "index": {
-        "com.ubuntu.juju:released:tools": {
+        "com.ubuntu.juju:proposed:tools": {
             "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
-            "path": "streams/v1/com.ubuntu.juju:released:tools.json",
+            "path": "streams/v1/com.ubuntu.juju:proposed:tools.json",
             "products": [
                 "com.ubuntu.juju:12.04:amd64",
                 "com.ubuntu.juju:12.04:arm",
@@ -112,7 +112,7 @@ var expectedProducts = `{
     },
     "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
     "format": "products:1.0",
-    "content_id": "com.ubuntu.juju:released:tools"
+    "content_id": "com.ubuntu.juju:proposed:tools"
 }`
 
 var toolMetadataForTesting = []*tools.ToolsMetadata{
@@ -143,19 +143,19 @@ var toolMetadataForTesting = []*tools.ToolsMetadata{
 }
 
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
-	index, err := tools.MarshalToolsMetadataIndexJSON(toolMetadataForTesting, time.Unix(0, 0).UTC())
+	index, err := tools.MarshalToolsMetadataIndexJSON(toolMetadataForTesting, "proposed", time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
 }
 
 func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
-	products, err := tools.MarshalToolsMetadataProductsJSON(toolMetadataForTesting, time.Unix(0, 0).UTC())
+	products, err := tools.MarshalToolsMetadataProductsJSON(toolMetadataForTesting, "proposed", time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(products), gc.Equals, expectedProducts)
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
-	index, products, err := tools.MarshalToolsMetadataJSON(toolMetadataForTesting, time.Unix(0, 0).UTC())
+	index, products, err := tools.MarshalToolsMetadataJSON(toolMetadataForTesting, "proposed", time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(index), gc.Equals, expectedIndex)
 	c.Assert(string(products), gc.Equals, expectedProducts)

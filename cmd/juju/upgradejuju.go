@@ -375,7 +375,7 @@ func (context *upgradeContext) validate() (err error) {
 		}
 	} else {
 		// If not completely specified already, pick a single tools version.
-		filter := coretools.Filter{Number: context.chosen, Released: !context.chosen.IsDev()}
+		filter := coretools.Filter{Number: context.chosen}
 		if context.tools, err = context.tools.Match(filter); err != nil {
 			return err
 		}

@@ -632,7 +632,7 @@ func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
 func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
 	result params.FindToolsResult, err error,
 ) {
-	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", []string{a.nextVersion.String()})
+	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", "released", []string{a.nextVersion.String()})
 	return params.FindToolsResult{
 		List:  tools,
 		Error: nil,

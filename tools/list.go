@@ -142,11 +142,6 @@ func (l List) Less(i, j int) bool { return l[i].Version.String() < l[j].Version.
 
 // Filter holds criteria for choosing tools.
 type Filter struct {
-
-	// Release, if true, causes the filter to match only tools with a
-	// non-development version number.
-	Released bool
-
 	// Number, if non-zero, causes the filter to match only tools with
 	// that exact version number.
 	Number version.Number
@@ -162,9 +157,6 @@ type Filter struct {
 
 // match returns true if the supplied tools match f.
 func (f Filter) match(tools *Tools) bool {
-	if f.Released && tools.Version.IsDev() {
-		return false
-	}
 	if f.Number != version.Zero && tools.Version.Number != f.Number {
 		return false
 	}

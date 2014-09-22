@@ -32,11 +32,12 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 	}
 	var toolsConstraint *ToolsConstraint
 	if params.Version == "" {
-		toolsConstraint = NewGeneralToolsConstraint(params.Major, params.Minor, false, simplestreams.LookupParams{
+		toolsConstraint = NewGeneralToolsConstraint(params.Major, params.Minor, simplestreams.LookupParams{
 			CloudSpec: simplestreams.CloudSpec{
 				Region:   params.Region,
 				Endpoint: params.Endpoint,
 			},
+			Stream: params.Stream,
 			Series: []string{params.Series},
 			Arches: params.Architectures,
 		})
@@ -50,6 +51,7 @@ func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, *simple
 				Region:   params.Region,
 				Endpoint: params.Endpoint,
 			},
+			Stream: params.Stream,
 			Series: []string{params.Series},
 			Arches: params.Architectures,
 		})

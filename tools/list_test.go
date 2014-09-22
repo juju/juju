@@ -249,14 +249,6 @@ var matchTests = []struct {
 	tAllBefore210,
 }, {
 	tAllBefore210,
-	tools.Filter{Released: true},
-	extend(t100all, t200all),
-}, {
-	t190all,
-	tools.Filter{Released: true},
-	nil,
-}, {
-	tAllBefore210,
 	tools.Filter{Number: version.MustParse("1.9.0")},
 	t190all,
 }, {
@@ -282,10 +274,9 @@ var matchTests = []struct {
 }, {
 	tAllBefore210,
 	tools.Filter{
-		Released: true,
-		Number:   version.MustParse("2.0.0"),
-		Series:   "quantal",
-		Arch:     "i386",
+		Number: version.MustParse("2.0.0"),
+		Series: "quantal",
+		Arch:   "i386",
 	},
 	tools.List{t200quantal32},
 }}
