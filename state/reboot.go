@@ -47,28 +47,22 @@ func removeRebootDocOps(machineId string) txn.Op {
 func (m *Machine) SetRebootFlag(flag bool) error {
 	reboot, closer := m.st.getCollection(rebootC)
 	defer closer()
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		return addRebootDocOps(m.Id()), nil
-	}
+	t := addRebootDocOps(m.Id())
 
 	count, err := reboot.FindId(m.Id()).Count()
 	if flag == false {
 		if count == 0 {
 			return nil
 		} else {
-			buildTxn = func(attempt int) ([]txn.Op, error) {
-				op := []txn.Op{
-					removeRebootDocOps(m.Id()),
-				}
-				return op, nil
+			t = []txn.Op{
+				removeRebootDocOps(m.Id()),
 			}
 		}
 	}
 
-	// Run the transaction using the state transaction runner.
-	err = m.st.run(buildTxn)
+	err = m.st.runTransaction(t)
 	if err != nil {
-		return errors.Annotate(err, "Failed to run mongo transaction")
+		return errors.Errorf("Failed to set reboot flag: %v", err)
 	}
 	return nil
 }
@@ -80,7 +74,7 @@ func (m *Machine) GetRebootFlag() (bool, error) {
 
 	count, err := rebootCol.FindId(m.Id()).Count()
 	if err != nil {
-		return false, fmt.Errorf("failed to get reboot doc %v: %v", m.Id(), err)
+		return false, fmt.Errorf("Failed to get reboot flag: %v", err)
 	}
 	if count == 0 {
 		return false, nil

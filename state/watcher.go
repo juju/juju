@@ -2050,7 +2050,9 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	return nil
 }
 
-// TODO (gsamfira)
+// WatchForRebootEvent returns a notify watcher that will trigger an event
+// when the reboot flag is set on our machine agent, our parent machine agent
+// or grandparent machine agent
 func (m *Machine) WatchForRebootEvent() (NotifyWatcher, error) {
 	machineIds := m.machinesToCareAboutRebootsFor()
 	machines := set.NewStrings(machineIds...)
@@ -2090,7 +2092,7 @@ func (w *rebootWatcher) loop() error {
 				return true
 			}
 		} else {
-			w.tomb.Kill(fmt.Errorf("expected string, got %T", key))
+			w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
 		}
 		return false
 	}

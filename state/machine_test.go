@@ -53,7 +53,7 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.ErrorMatches, contentionErr)
+	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: (.*)")
 
 	err = s.machine.SetRebootFlag(false)
 	c.Assert(err, gc.IsNil)
@@ -70,21 +70,14 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
 	setFlag := txn.TestHook{
 		Before: func() {
-			err := s.machine.SetRebootFlag(true)
+			err := s.machine.EnsureDead()
 			c.Assert(err, gc.IsNil)
-		},
-		After: func() {
-			err := s.machine.SetRebootFlag(false)
-			c.Assert(err, gc.IsNil)
-
-			err = s.machine.SetRebootFlag(true)
-			c.Assert(err, gc.ErrorMatches, contentionErr)
 		},
 	}
 	defer state.SetTestHooks(c, s.State, setFlag).Check()
 
-	err := s.machine.EnsureDead()
-	c.Assert(err, gc.IsNil)
+	err := s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.ErrorMatches, "Failed to set reboot flag: (.*)")
 }
 
 func (s *MachineSuite) TestSetRebootFlag(c *gc.C) {

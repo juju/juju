@@ -91,19 +91,18 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 	s.wcC3.AssertOneChange()
 }
 
+func (s *RebootSuite) TearDownSuit(c *gc.C) {
+	statetesting.AssertStop(c, s.w)
+	statetesting.AssertStop(c, s.wC1)
+	statetesting.AssertStop(c, s.wC2)
+	statetesting.AssertStop(c, s.wC3)
+}
+
 func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
-	w, err := s.machine.WatchForRebootEvent()
-	c.Assert(err, gc.IsNil)
-	defer statetesting.AssertStop(c, w)
-
-	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	err = s.machine.SetRebootFlag(true)
+	err := s.machine.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
 
-	wc.AssertOneChange()
+	s.wc.AssertOneChange()
 
 	inState, err := s.machine.GetRebootFlag()
 	c.Assert(err, gc.IsNil)
@@ -112,7 +111,7 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	err = s.machine.SetRebootFlag(false)
 	c.Assert(err, gc.IsNil)
 
-	wc.AssertOneChange()
+	s.wc.AssertOneChange()
 
 	inState, err = s.machine.GetRebootFlag()
 	c.Assert(err, gc.IsNil)
@@ -125,14 +124,20 @@ func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	err = s.machine.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
 
-	wc.AssertOneChange()
+	s.wc.AssertOneChange()
+
+	// Stop all watchers and check they are closed
+	statetesting.AssertStop(c, s.w)
+	s.wc.AssertClosed()
+	statetesting.AssertStop(c, s.wC1)
+	s.wcC1.AssertClosed()
+	statetesting.AssertStop(c, s.wC2)
+	s.wcC2.AssertClosed()
+	statetesting.AssertStop(c, s.wC3)
+	s.wcC3.AssertClosed()
 }
 
 func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
-	defer statetesting.AssertStop(c, s.w)
-	defer statetesting.AssertStop(c, s.wC1)
-	defer statetesting.AssertStop(c, s.wC2)
-	defer statetesting.AssertStop(c, s.wC3)
 	// Reboot request happens on machine: everyone see it (including container3)
 	err := s.machine.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
@@ -141,13 +146,18 @@ func (s *RebootSuite) TestWatchRebootHappensOnMachine(c *gc.C) {
 	s.wcC1.AssertOneChange()
 	s.wcC2.AssertOneChange()
 	s.wcC3.AssertOneChange()
+
+	statetesting.AssertStop(c, s.w)
+	s.wc.AssertClosed()
+	statetesting.AssertStop(c, s.wC1)
+	s.wcC1.AssertClosed()
+	statetesting.AssertStop(c, s.wC2)
+	s.wcC2.AssertClosed()
+	statetesting.AssertStop(c, s.wC3)
+	s.wcC3.AssertClosed()
 }
 
 func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
-	defer statetesting.AssertStop(c, s.w)
-	defer statetesting.AssertStop(c, s.wC1)
-	defer statetesting.AssertStop(c, s.wC2)
-	defer statetesting.AssertStop(c, s.wC3)
 	// Reboot request happens on container1: only container1 andcontainer2
 	// react
 	err := s.c1.SetRebootFlag(true)
@@ -157,13 +167,19 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer1(c *gc.C) {
 	s.wcC1.AssertOneChange()
 	s.wcC2.AssertOneChange()
 	s.wcC3.AssertNoChange()
+
+	// Stop all watchers and check they are closed
+	statetesting.AssertStop(c, s.w)
+	s.wc.AssertClosed()
+	statetesting.AssertStop(c, s.wC1)
+	s.wcC1.AssertClosed()
+	statetesting.AssertStop(c, s.wC2)
+	s.wcC2.AssertClosed()
+	statetesting.AssertStop(c, s.wC3)
+	s.wcC3.AssertClosed()
 }
 
 func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
-	defer statetesting.AssertStop(c, s.w)
-	defer statetesting.AssertStop(c, s.wC1)
-	defer statetesting.AssertStop(c, s.wC2)
-	defer statetesting.AssertStop(c, s.wC3)
 	// Reboot request happens on container2: only container2 sees it
 	err := s.c2.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
@@ -172,13 +188,19 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer2(c *gc.C) {
 	s.wcC1.AssertNoChange()
 	s.wcC2.AssertOneChange()
 	s.wcC3.AssertNoChange()
+
+	// Stop all watchers and check they are closed
+	statetesting.AssertStop(c, s.w)
+	s.wc.AssertClosed()
+	statetesting.AssertStop(c, s.wC1)
+	s.wcC1.AssertClosed()
+	statetesting.AssertStop(c, s.wC2)
+	s.wcC2.AssertClosed()
+	statetesting.AssertStop(c, s.wC3)
+	s.wcC3.AssertClosed()
 }
 
 func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *gc.C) {
-	defer statetesting.AssertStop(c, s.w)
-	defer statetesting.AssertStop(c, s.wC1)
-	defer statetesting.AssertStop(c, s.wC2)
-	defer statetesting.AssertStop(c, s.wC3)
 	// Reboot request happens on container2: only container2 sees it
 	err := s.c3.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
@@ -187,4 +209,14 @@ func (s *RebootSuite) TestWatchRebootHappensOnContainer3(c *gc.C) {
 	s.wcC1.AssertNoChange()
 	s.wcC2.AssertNoChange()
 	s.wcC3.AssertOneChange()
+
+	// Stop all watchers and check they are closed
+	statetesting.AssertStop(c, s.w)
+	s.wc.AssertClosed()
+	statetesting.AssertStop(c, s.wC1)
+	s.wcC1.AssertClosed()
+	statetesting.AssertStop(c, s.wC2)
+	s.wcC2.AssertClosed()
+	statetesting.AssertStop(c, s.wC3)
+	s.wcC3.AssertClosed()
 }
