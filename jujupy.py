@@ -3,6 +3,7 @@ from __future__ import print_function
 __metaclass__ = type
 
 from collections import defaultdict
+from contextlib import contextmanager
 from cStringIO import StringIO
 import errno
 import os
@@ -297,7 +298,13 @@ def ensure_dir(path):
             raise
 
 
-def bootstrap_from_env(juju_home, client, upload_tools=False):
+def bootstrap_from_env(juju_home, client):
+    with temp_bootstrap_env(juju_home, client):
+        client.bootstrap()
+
+
+@contextmanager
+def temp_bootstrap_env(juju_home, client):
     # Always bootstrap a matching environment.
     config = dict(client.env.config)
     config['agent-version'] = client.get_matching_agent_version()
@@ -334,7 +341,7 @@ def bootstrap_from_env(juju_home, client, upload_tools=False):
         with scoped_environ():
             os.environ['JUJU_HOME'] = temp_juju_home
             try:
-                client.bootstrap(upload_tools=upload_tools)
+                yield
             finally:
                 # replace symlink with file before deleting temp home.
                 try:
