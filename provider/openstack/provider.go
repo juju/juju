@@ -47,6 +47,8 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 
 var providerInstance environProvider
 
+var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
+
 // Use shortAttempt to poll for short-term events.
 // TODO: This was kept to a long timeout because Nova needs more time than EC2.
 // For example, HP Cloud takes around 9.1 seconds (10 samples) to return a
@@ -784,9 +786,9 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 		}
 	}
 
-	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
+	productStreamsURL, err := makeServiceURL(e.client, "product-streams", nil)
 	if err != nil {
-		return nil, err
+		return nil, jujuerrors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
 	verify := utils.VerifySSLHostnames
 	if !e.Config().SSLHostnameVerification() {

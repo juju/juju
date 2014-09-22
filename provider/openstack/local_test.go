@@ -5,6 +5,7 @@ package openstack_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -742,10 +743,22 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
-func (s *localServerSuite) TestmageMetadataSources(c *gc.C) {
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	s.assertGetImageMetadataSources(c, "", "releases")
 	s.assertGetImageMetadataSources(c, "released", "releases")
 	s.assertGetImageMetadataSources(c, "daily", "daily")
+}
+
+func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) {
+	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
+		return "", errors.New("cannae do it captain")
+	})
+	env := s.Open(c)
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sources, gc.HasLen, 2)
+	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
+	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
