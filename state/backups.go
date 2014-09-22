@@ -326,32 +326,35 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 }
 
 // Ensure we satisfy the interface.
-var _ = filestorage.MetadataStorage((*backupMetadataStorage)(nil))
+var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 
-type backupMetadataStorage struct {
+type backupsDocStorage struct {
+	state *State
+}
+
+type backupsMetadataStorage struct {
+	filestorage.MetadataDocStorage
 	state *State
 }
 
 func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
-	stor := backupMetadataStorage{
-		state: st,
+	docStor := &backupsDocStorage{state: st}
+	stor := backupsMetadataStorage{
+		MetadataDocStorage: filestorage.MetadataDocStorage{docStor},
+		state:              st,
 	}
 	return &stor
 }
 
-func (s *backupMetadataStorage) AddDoc(doc interface{}) (string, error) {
-	meta, ok := doc.(*metadata.Metadata)
+func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
+	metadata, ok := doc.(*metadata.Metadata)
 	if !ok {
 		return "", errors.Errorf("doc must be of type state.backups.metadata.Metadata")
 	}
-	return addBackupMetadata(s.state, meta)
+	return addBackupMetadata(s.state, metadata)
 }
 
-func (s *backupMetadataStorage) Doc(id string) (interface{}, error) {
-	return s.Metadata(id)
-}
-
-func (s *backupMetadataStorage) Metadata(id string) (filestorage.Metadata, error) {
+func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 	metadata, err := getBackupMetadata(s.state, id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -359,19 +362,7 @@ func (s *backupMetadataStorage) Metadata(id string) (filestorage.Metadata, error
 	return metadata, nil
 }
 
-func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
-	metas, err := s.ListMetadata()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	docs := []interface{}{}
-	for _, meta := range metas {
-		docs = append(docs, meta)
-	}
-	return docs, nil
-}
-
-func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
+func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 	collection, closer := s.state.getCollection(backupsMetaC)
 	defer closer()
 
@@ -379,7 +370,8 @@ func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
 	if err := collection.Find(nil).All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	list := make([]filestorage.Metadata, len(docs))
+
+	list := make([]filestorage.Document, len(docs))
 	for i, doc := range docs {
 		meta := doc.asMetadata()
 		list[i] = meta
@@ -387,20 +379,20 @@ func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
 	return list, nil
 }
 
-func (s *backupMetadataStorage) RemoveDoc(id string) error {
+func (s *backupsDocStorage) RemoveDoc(id string) error {
 	collection, closer := s.state.getCollection(backupsMetaC)
 	defer closer()
 
 	return errors.Trace(collection.RemoveId(id))
 }
 
-func (s *backupMetadataStorage) New() filestorage.Metadata {
-	origin := NewBackupsOrigin(s.state, "")
-	return metadata.NewMetadata(*origin, "", nil)
+// Close implements io.Closer.Close.
+func (s *backupsDocStorage) Close() error {
+	return nil
 }
 
 // SetStored records in the metadata the fact that the file was stored.
-func (s *backupMetadataStorage) SetStored(id string) error {
+func (s *backupsMetadataStorage) SetStored(id string) error {
 	err := setBackupStored(s.state, id)
 	if err != nil {
 		return errors.Trace(err)
@@ -447,6 +439,11 @@ func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
 
 func (s *envFileStorage) RemoveFile(id string) error {
 	return s.envStor.Remove(s.path(id))
+}
+
+// Close implements io.Closer.Close.
+func (s *envFileStorage) Close() error {
+	return nil
 }
 
 //---------------------------
