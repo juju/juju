@@ -25,7 +25,7 @@ def get_releases(root):
 
 def calculate_jobs(root):
     releases = list(get_releases(root))
-    candidates = ['1.18.4']
+    candidates = ['master', 'stable']
     for candidate in candidates:
         for release in releases:
             if release == candidate:
