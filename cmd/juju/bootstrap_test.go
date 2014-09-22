@@ -140,7 +140,6 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
-	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")

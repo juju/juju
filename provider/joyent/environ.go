@@ -155,7 +155,10 @@ func (env *joyentEnviron) StateServerInstances() ([]instance.Id, error) {
 }
 
 func (env *joyentEnviron) Destroy() error {
-	return common.Destroy(env)
+	if err := common.Destroy(env); err != nil {
+		return err
+	}
+	return env.Storage().RemoveAll()
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {

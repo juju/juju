@@ -24,6 +24,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1051,6 +1052,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
@@ -1083,7 +1089,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 	if securityGroupNames != nil {
 		return e.deleteSecurityGroups(securityGroupNames)
 	}
-	return nil
+	return common.RemoveStateInstances(e.Storage(), ids...)
 }
 
 // collectInstances tries to get information on each instance id in ids.
@@ -1225,6 +1231,9 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 func (e *environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
+		return err
+	}
+	if err := e.Storage().RemoveAll(); err != nil {
 		return err
 	}
 	novaClient := e.nova()

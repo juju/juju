@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
@@ -156,6 +158,12 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		env:     env,
 	}
 
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
+
 	disk64 := uint64(machine.Disk)
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
@@ -261,8 +269,7 @@ func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
 		return fmt.Errorf("cannot stop all instances: %v", err)
 	default:
 	}
-
-	return nil
+	return common.RemoveStateInstances(env.Storage(), ids...)
 }
 
 func (env *joyentEnviron) stopInstance(id string) error {

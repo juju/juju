@@ -25,7 +25,7 @@ func Destroy(env environs.Environ) error {
 		}
 		fallthrough
 	case environs.ErrNoInstances:
-		return env.Storage().RemoveAll()
+		return nil
 	}
 	return err
 }
