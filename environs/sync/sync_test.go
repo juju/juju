@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"testing"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -23,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -514,4 +517,43 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
 	}
 	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+}
+
+func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {
+	s.testStorageToolsUploaderWriteMirrors(c, envtools.WriteMirrors)
+}
+
+func (s *uploadSuite) TestStorageToolsUploaderDontWriteMirrors(c *gc.C) {
+	s.testStorageToolsUploaderWriteMirrors(c, envtools.DoNotWriteMirrors)
+}
+
+func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors envtools.ShouldWriteMirrors) {
+	storageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+
+	uploader := &sync.StorageToolsUploader{
+		Storage:       stor,
+		WriteMetadata: true,
+		WriteMirrors:  writeMirrors,
+	}
+
+	err = uploader.UploadTools(&coretools.Tools{
+		Version: version.Current,
+		Size:    7,
+		SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+	}, []byte("content"))
+	c.Assert(err, gc.IsNil)
+
+	mirrorsPath := simplestreams.MirrorsPath(envtools.StreamsVersionV1) + simplestreams.UnsignedSuffix
+	r, err := stor.Get(path.Join(storage.BaseToolsPath, mirrorsPath))
+	if writeMirrors == envtools.WriteMirrors {
+		c.Assert(err, gc.IsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+	} else {
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
 }

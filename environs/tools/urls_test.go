@@ -68,6 +68,8 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 	})
 	// overwrite the one previously registered against id1
 	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		// NotSupported errors do not cause GetMetadataSources to fail,
+		// they just cause the datasource function to be ignored.
 		return nil, errors.NewNotSupported(nil, "oyvey")
 	})
 	defer tools.UnregisterToolsDataSourceFunc("id0")
@@ -85,6 +87,7 @@ func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
 
 func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
 	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		// Non-NotSupported errors cause GetMetadataSources to fail.
 		return nil, errors.New("oyvey!")
 	})
 	defer tools.UnregisterToolsDataSourceFunc("id0")

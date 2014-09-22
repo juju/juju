@@ -53,6 +53,8 @@ func RegisterToolsDataSourceFunc(id string, f ToolsDataSourceFunc) {
 // UnregisterToolsDataSourceFunc unregisters an ToolsDataSourceFunc
 // with the specified id.
 func UnregisterToolsDataSourceFunc(id string) {
+	toolsDatasourceFuncsMu.Lock()
+	defer toolsDatasourceFuncsMu.Unlock()
 	for i, f := range toolsDatasourceFuncs {
 		if f.id == id {
 			head := toolsDatasourceFuncs[:i]

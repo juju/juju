@@ -9,7 +9,6 @@ import (
 	"compress/gzip"
 	"io"
 	"io/ioutil"
-
 	"strings"
 
 	jc "github.com/juju/testing/checkers"

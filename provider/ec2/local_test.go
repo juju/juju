@@ -183,10 +183,6 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
 	})
-
-	storageDir := c.MkDir()
-	t.PatchValue(&tools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	envtesting.UploadFakeToolsToDirectory(c, storageDir)
 }
 
 func (t *localServerSuite) TearDownTest(c *gc.C) {
