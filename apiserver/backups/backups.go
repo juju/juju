@@ -6,12 +6,11 @@ package backups
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backupstorage"
 )
 
 func init() {
@@ -20,10 +19,14 @@ func init() {
 
 var logger = loggo.GetLogger("juju.apiserver.backups")
 
+var ( // for testing (patching)
+	newBackups        = backups.NewBackups
+	newBackupsStorage = backupstorage.NewStorage
+)
+
 // API serves backup-specific API methods.
 type API struct {
-	st      *state.State
-	backups backups.Backups
+	st *state.State
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -32,24 +35,5 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	stor, err := newBackupsStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	b := API{
-		st:      st,
-		backups: backups.NewBackups(stor),
-	}
-	return &b, nil
-}
-
-var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	envStor, err := environs.GetStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	storage := state.NewBackupsStorage(st, envStor)
-	return storage, nil
+	return &API{st: st}, nil
 }
