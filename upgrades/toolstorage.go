@@ -31,7 +31,7 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 
 	tstor, err := stateToolsStorage(st)
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get tools storage")
 	}
 	defer tstor.Close()
 
@@ -66,7 +66,7 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 		return nil
 	}
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot find tools in provider storage")
 	}
 
 	for _, tools := range toolsList {

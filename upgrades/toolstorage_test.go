@@ -46,12 +46,14 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) 
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
 	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
-	s.testMigrateToolsStorage(c, &mockAgentConfig{
-		values: map[string]string{
-			agent.ProviderType: "local",
-			agent.StorageDir:   storageDir,
-		},
-	})
+	for _, providerType := range []string{"local", "manual"} {
+		s.testMigrateToolsStorage(c, &mockAgentConfig{
+			values: map[string]string{
+				agent.ProviderType: providerType,
+				agent.StorageDir:   storageDir,
+			},
+		})
+	}
 }
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
