@@ -845,3 +845,32 @@ var dummyStoreInfo = &environInfo{
 		EnvironUUID: fakeUUID,
 	},
 }
+
+type EnvironInfoTest struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&EnvironInfoTest{})
+
+func (*EnvironInfoTest) TestNullInfo(c *gc.C) {
+	c.Assert(juju.EnvironInfoUserTag(nil), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
+}
+
+type fakeEnvironInfo struct {
+	configstore.EnvironInfo
+	user string
+}
+
+func (fake *fakeEnvironInfo) APICredentials() configstore.APICredentials {
+	return configstore.APICredentials{User: fake.user}
+}
+
+func (*EnvironInfoTest) TestEmptyUser(c *gc.C) {
+	info := &fakeEnvironInfo{}
+	c.Assert(juju.EnvironInfoUserTag(info), gc.Equals, names.NewUserTag(configstore.DefaultAdminUsername))
+}
+
+func (*EnvironInfoTest) TestRealUser(c *gc.C) {
+	info := &fakeEnvironInfo{user: "eric"}
+	c.Assert(juju.EnvironInfoUserTag(info), gc.Equals, names.NewUserTag("eric"))
+}
