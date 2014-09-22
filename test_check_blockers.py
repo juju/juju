@@ -1,5 +1,5 @@
 from unittest import TestCase
-from mock import patch
+from mock import Mock, patch
 
 import check_blockers
 
@@ -124,3 +124,15 @@ class CheckBlockers(TestCase):
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(0, code)
             self.assertEqual("Engineer says JFDI", reason)
+
+    def test_get_json(self):
+        response = Mock()
+        response.read.side_effect = ["{\"result\"": []}]
+        with patch('check_blockers.urllib2.urlopen') as urlopen:
+            urlopen.return_value = response
+            json = check_blockers.get_json("http://api.testing/")
+            request = urlopen.call_args[0][0]
+            self.assertEqual(request.get_full_url(), "http://api.testing/")
+            self.assertEqual(request.get_header("Cache-control"),
+                "max-age=0, must-revalidate")
+            self.assertEqual(json, {"result": []})
