@@ -6,7 +6,8 @@ BUILD_PACKAGES=${BUILD_PACKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
-if [[ -f "$LOCAL_TOOLS_CACHE/juju-$VERSION-trusty-amd64.tgz" ]]; then
+OFFICIAL_VERSIONS="$STREAMS/juju-dist/proposed/tools/releases" 
+if [[ -f $OFFICIAL_VERSIONS/juju-$VERSION-trusty-amd64.tgz ]]; then
     echo "$VERSION was published. This version is invalid to test."
     echo "Maybe juju's version needs updating?"
     exit 1
@@ -75,15 +76,8 @@ do
 done
 fi
 
-mkdir -p new-tools
-if [[ -n ${LOCAL_TOOLS_CACHE:-} ]]; then
-    # Using the local cache is much faster, and represents how
-    # streams.canonical.com manages its tools
-    mkdir -p new-tools/tools/releases
-    cp $LOCAL_TOOLS_CACHE/*.tgz new-tools/tools/releases
-fi
-$RELEASE_TOOLS/assemble-public-tools.bash -t $WORKSPACE/ $VERSION new-tools
-PUBLISH_ARGS="testing new-tools/juju-dist-testing cpc"
+$RELEASE_TOOLS/assemble-streams.bash -t $WORKSPACE/ testing $VERSION $STREAMS
+PUBLISH_ARGS="testing $STREAMS/juju-dist/testing cpc"
 $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
     $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
         $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS
