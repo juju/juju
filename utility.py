@@ -1,13 +1,14 @@
 from contextlib import contextmanager
+from datetime import datetime
 import errno
 import os
+import re
 from shutil import rmtree
+import subprocess
 import socket
 import sys
 from time import sleep
 from tempfile import mkdtemp
-
-from jujupy import until_timeout
 
 
 @contextmanager
@@ -22,6 +23,31 @@ def scoped_environ():
 
 class PortTimeoutError(Exception):
     pass
+
+
+class until_timeout:
+
+    """Yields remaining number of seconds.  Stops when timeout is reached.
+
+    :ivar timeout: Number of seconds to wait.
+    """
+    def __init__(self, timeout):
+        self.timeout = timeout
+        self.start = self.now()
+
+    def __iter__(self):
+        return self
+
+    @staticmethod
+    def now():
+        return datetime.now()
+
+    def next(self):
+        elapsed = self.now() - self.start
+        remaining = self.timeout - elapsed.total_seconds()
+        if remaining <= 0:
+            raise StopIteration
+        return remaining
 
 
 def wait_for_port(host, port, closed=False, timeout=30):
@@ -89,3 +115,21 @@ def builds_for_revision(job, revision_build, jenkins):
             build_info['result'] == 'SUCCESS'):
             result.append(build_info)
     return result
+
+
+def check_free_disk_space(path, required, purpose):
+    df_result = subprocess.check_output(["df", "-k", path])
+    df_result = df_result.split('\n')[1]
+    df_result = re.split(' +', df_result)
+    available = int(df_result[3])
+    if available < required:
+        message = (
+            "Warning: Probably not enough disk space available for\n"
+            "%(purpose)s in directory %(path)s,\n"
+            "mount point %(mount)s\n"
+            "required: %(required)skB, available: %(available)skB."
+            )
+        print(message % {
+            'path': path, 'mount': df_result[5], 'required': required,
+            'available': available, 'purpose': purpose
+            })

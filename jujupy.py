@@ -2,17 +2,27 @@ from __future__ import print_function
 
 __metaclass__ = type
 
-import yaml
-
 from collections import defaultdict
 from cStringIO import StringIO
-from datetime import datetime
+import errno
 import os
 import subprocess
 import sys
 import tempfile
 
-from jujuconfig import get_selected_environment
+import yaml
+
+from jujuconfig import (
+    get_environments_path,
+    get_jenv_path,
+    get_selected_environment,
+    )
+from utility import (
+    check_free_disk_space,
+    scoped_environ,
+    temp_dir,
+    until_timeout,
+    )
 
 
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
@@ -23,31 +33,6 @@ class ErroredUnit(Exception):
     def __init__(self, unit_name, state):
         msg = '%s is in state %s' % (unit_name, state)
         Exception.__init__(self, msg)
-
-
-class until_timeout:
-
-    """Yields remaining number of seconds.  Stops when timeout is reached.
-
-    :ivar timeout: Number of seconds to wait.
-    """
-    def __init__(self, timeout):
-        self.timeout = timeout
-        self.start = self.now()
-
-    def __iter__(self):
-        return self
-
-    @staticmethod
-    def now():
-        return datetime.now()
-
-    def next(self):
-        elapsed = self.now() - self.start
-        remaining = self.timeout - elapsed.total_seconds()
-        if remaining <= 0:
-            raise StopIteration
-        return remaining
 
 
 def yaml_loads(yaml_str):
@@ -296,6 +281,67 @@ class EnvJujuClient:
         if self.env.local:
             args += ('--upload-tools',)
         self.juju('upgrade-juju', args)
+
+
+def get_local_root(juju_home, env):
+    return os.path.join(juju_home, env.environment)
+
+
+def ensure_dir(path):
+    try:
+        os.mkdir(path)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise
+
+
+def bootstrap_from_env(juju_home, client):
+    # Always bootstrap a matching environment.
+    config = dict(client.env.config)
+    config['agent-version'] = client.get_matching_agent_version()
+    if config['type'] == 'local':
+        config.setdefault('root-dir', get_local_root(juju_home, client.env))
+        # MongoDB requires a lot of free disk space, and the only
+        # visible error message is from "juju bootstrap":
+        # "cannot initiate replication set" if disk space is low.
+        # What "low" exactly means, is unclear, but 8GB should be
+        # enough.
+        ensure_dir(config['root-dir'])
+        check_free_disk_space(config['root-dir'], 8000000, "MongoDB files")
+        if client.env.kvm:
+            check_free_disk_space(
+                "/var/lib/uvtool/libvirt/images", 2000000,
+                "KVM disk files")
+        else:
+            check_free_disk_space(
+                "/var/lib/lxc", 2000000, "LXC containers")
+    new_config = {'environments': {client.env.environment: config}}
+    jenv_path = get_jenv_path(juju_home, client.env.environment)
+    with temp_dir(juju_home) as temp_juju_home:
+        if os.path.lexists(jenv_path):
+            raise Exception('%s already exists!' % jenv_path)
+        new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
+        # Create a symlink to allow access while bootstrapping, and to reduce
+        # races.  Can't use a hard link because jenv doesn't exist until
+        # partway through bootstrap.
+        ensure_dir(os.path.join(juju_home, 'environments'))
+        os.symlink(new_jenv_path, jenv_path)
+        temp_environments = get_environments_path(temp_juju_home)
+        with open(temp_environments, 'w') as config_file:
+            yaml.safe_dump(new_config, config_file)
+        with scoped_environ():
+            os.environ['JUJU_HOME'] = temp_juju_home
+            try:
+                client.bootstrap()
+            finally:
+                # replace symlink with file before deleting temp home.
+                try:
+                    os.rename(new_jenv_path, jenv_path)
+                except OSError as e:
+                    if e.errno != errno.ENOENT:
+                        raise
+                    # Remove dangling symlink
+                    os.unlink(jenv_path)
 
 
 class Status:

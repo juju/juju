@@ -14,20 +14,19 @@ import string
 import subprocess
 import sys
 from time import sleep
-import yaml
 
 from jujuconfig import (
-    get_environments_path,
     get_jenv_path,
     get_juju_home,
 )
 from jujupy import (
+    bootstrap_from_env,
     Environment,
+    get_local_root,
 )
 from utility import (
     PortTimeoutError,
     scoped_environ,
-    temp_dir,
     until_timeout,
     wait_for_port,
 )
@@ -216,10 +215,6 @@ def dump_logs(env, host, directory, host_id=None):
     dump_euca_console(host_id, directory)
 
 
-def get_local_root(juju_home, env):
-    return os.path.join(juju_home, env.environment)
-
-
 def copy_local_logs(directory, env):
     local = get_local_root(get_juju_home(), env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
@@ -297,71 +292,6 @@ def describe_instances(instances=None, running=False, job_name=None,
 def get_job_instances(job_name):
     description = describe_instances(job_name=job_name, running=True)
     return (machine_id for machine_id, name in description)
-
-
-def check_free_disk_space(path, required, purpose):
-    df_result = subprocess.check_output(["df", "-k", path])
-    df_result = df_result.split('\n')[1]
-    df_result = re.split(' +', df_result)
-    available = int(df_result[3])
-    if available < required:
-        message = (
-            "Warning: Probably not enough disk space available for\n"
-            "%(purpose)s in directory %(path)s,\n"
-            "mount point %(mount)s\n"
-            "required: %(required)skB, available: %(available)skB."
-            )
-        print(message % {
-            'path': path, 'mount': df_result[5], 'required': required,
-            'available': available, 'purpose': purpose
-            })
-
-
-def bootstrap_from_env(juju_home, env):
-    # Always bootstrap a matching environment.
-    env.config['agent-version'] = env.get_matching_agent_version()
-    if env.config['type'] == 'local':
-        env.config.setdefault('root-dir', get_local_root(juju_home, env))
-    new_config = {'environments': {env.environment: env.config}}
-    jenv_path = get_jenv_path(juju_home, env.environment)
-    with temp_dir(juju_home) as temp_juju_home:
-        if os.path.lexists(jenv_path):
-            raise Exception('%s already exists!' % jenv_path)
-        new_jenv_path = get_jenv_path(temp_juju_home, env.environment)
-        if env.local:
-            # MongoDB requires a lot of free disk space, and the only
-            # visible error message is from "juju bootstrap":
-            # "cannot initiate replication set" if disk space is low.
-            # What "low" exactly means, is unclear, but 8GB should be
-            # enough.
-            check_free_disk_space(temp_juju_home, 8000000, "MongoDB files")
-            if env.kvm:
-                check_free_disk_space(
-                    "/var/lib/uvtool/libvirt/images", 2000000,
-                    "KVM disk files")
-            else:
-                check_free_disk_space(
-                    "/var/lib/lxc", 2000000, "LXC containers")
-        # Create a symlink to allow access while bootstrapping, and to reduce
-        # races.  Can't use a hard link because jenv doesn't exist until
-        # partway through bootstrap.
-        try:
-            os.mkdir(os.path.join(juju_home, 'environments'))
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise
-        os.symlink(new_jenv_path, jenv_path)
-        try:
-            temp_environments = get_environments_path(temp_juju_home)
-            with open(temp_environments, 'w') as config_file:
-                yaml.safe_dump(new_config, config_file)
-            with scoped_environ():
-                os.environ['JUJU_HOME'] = temp_juju_home
-                env.bootstrap()
-            # replace symlink with file before deleting temp home.
-            os.rename(new_jenv_path, jenv_path)
-        except:
-            os.unlink(jenv_path)
 
 
 def deploy_job():
@@ -459,7 +389,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 if e.errno != errno.ENOENT:
                     raise
             try:
-                bootstrap_from_env(juju_home, env)
+                bootstrap_from_env(juju_home, env.client.get_env_client(env))
             except:
                 if host is not None:
                     dump_logs(env, host, log_dir, bootstrap_id)
