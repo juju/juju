@@ -7,7 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
@@ -32,12 +34,12 @@ func NewID(metadata *metadata.Metadata) string {
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewStorage(st *state.State) (filestorage.FileStorage, error) {
+func NewStorage(st *state.State, coll *mgo.Collection, txnRunner jujutxn.Runner) (filestorage.FileStorage, error) {
 	envStor, err := environs.GetStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	files := newEnvFileStorage(envStor, envStorageRoot)
-	docs := NewMetadataStorage(st)
+	docs := NewMetadataStorage(coll, txnRunner)
 	return filestorage.NewFileStorage(docs, files), nil
 }

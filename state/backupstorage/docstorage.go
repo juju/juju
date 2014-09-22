@@ -5,24 +5,31 @@ package backupstorage
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/metadata"
 )
+
+const collName = "backupsmetadata"
 
 // Ensure we satisfy the interface.
 var _ filestorage.DocStorage = (*docStorage)(nil)
 
 type docStorage struct {
-	state *state.State
+	coll      *mgo.Collection
+	txnRunner jujutxn.Runner
 }
 
 // NewDocStorage returns a new doc storage.
-func NewDocStorage(st *state.State) filestorage.DocStorage {
-	return &docStorage{state: st}
+func NewDocStorage(coll *mgo.Collection, txnRunner jujutxn.Runner) filestorage.DocStorage {
+	stor := docStorage{
+		coll:      coll,
+		txnRunner: txnRunner,
+	}
+	return &stor
 }
 
 func (s *docStorage) AddDoc(doc filestorage.Doc) (string, error) {
@@ -52,13 +59,16 @@ func (s *docStorage) addMetadataID(meta *metadata.Metadata, id string) error {
 		return errors.Trace(err)
 	}
 
-	ops := []txn.Op{{
-		C:      state.BackupsMetaC,
-		Id:     doc.ID,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-	if err := state.RunTransaction(s.state, ops); err != nil {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops := []txn.Op{{
+			C:      s.coll.Name,
+			Id:     doc.ID,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}
+		return ops, nil
+	}
+	if err := s.txnRunner.Run(buildTxn); err != nil {
 		if err == txn.ErrAborted {
 			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
@@ -69,12 +79,9 @@ func (s *docStorage) addMetadataID(meta *metadata.Metadata, id string) error {
 }
 
 func (s *docStorage) Doc(id string) (filestorage.Doc, error) {
-	collection, closer := state.GetCollection(s.state, state.BackupsMetaC)
-	defer closer()
-
 	var doc metadataDoc
 	// There can only be one!
-	err := collection.FindId(id).One(&doc)
+	err := s.coll.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("backup metadata %q", id)
 	} else if err != nil {
