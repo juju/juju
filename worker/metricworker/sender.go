@@ -12,7 +12,10 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
+var (
+	senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
+	senderPeriod = 15 * time.Minute
+)
 
 // NewSender creates a new periodic worker that sends metrics
 // to a collection service.
@@ -29,5 +32,5 @@ func NewSender(client metricsmanager.MetricsManagerClient) worker.Worker {
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, 15*time.Minute)
+	return worker.NewPeriodicWorker(f, senderPeriod)
 }

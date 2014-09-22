@@ -100,6 +100,8 @@ var (
 	// reportOpenedAPI is exposed for tests to know when
 	// the API has been successfully opened.
 	reportOpenedAPI = func(eitherState) {}
+
+	getMetricAPI = metricAPI
 )
 
 // PrepareRestore will flag the agent to allow only one command:
@@ -190,6 +192,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
+
 	return nil
 }
 
@@ -452,10 +455,10 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 			logger.Infof("starting metric workers")
 			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
-				return metricworker.NewCleanup(metricsmanager.NewClient(st)), nil
+				return metricworker.NewCleanup(getMetricAPI(st)), nil
 			})
 			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
-				return metricworker.NewSender(metricsmanager.NewClient(st)), nil
+				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
 		case params.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -1039,4 +1042,8 @@ func (c singularStateConn) IsMaster() (bool, error) {
 
 func (c singularStateConn) Ping() error {
 	return c.session.Ping()
+}
+
+func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
+	return metricsmanager.NewClient(st)
 }
