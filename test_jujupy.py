@@ -168,16 +168,6 @@ class TestEnvJujuClient(TestCase):
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), True)
 
-    def test_bootstrap_upload_tools(self):
-        env = Environment('foo', '')
-        client = EnvJujuClient(env, None, None)
-        with patch.object(client.env, 'needs_sudo', lambda: True):
-            with patch.object(client, 'juju') as mock:
-                client.bootstrap(upload_tools=True)
-            mock.assert_called_with(
-                'bootstrap', ('--upload-tools', '--constraints', 'mem=2G'),
-                True)
-
     def test_destroy_environment_non_sudo(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
