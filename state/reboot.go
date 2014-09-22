@@ -77,7 +77,7 @@ func (m *Machine) SetRebootFlag(flag bool) error {
 
 	err = m.st.runTransaction(t)
 	if err != nil {
-		return errors.Errorf("Failed to set reboot flag: %v", err)
+		return errors.Errorf("failed to set reboot flag: %v", err)
 	}
 	return nil
 }
@@ -89,7 +89,7 @@ func (m *Machine) GetRebootFlag() (bool, error) {
 
 	count, err := rebootCol.FindId(m.Id()).Count()
 	if err != nil {
-		return false, fmt.Errorf("Failed to get reboot flag: %v", err)
+		return false, fmt.Errorf("failed to get reboot flag: %v", err)
 	}
 	if count == 0 {
 		return false, nil
