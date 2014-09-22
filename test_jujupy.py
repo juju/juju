@@ -150,6 +150,16 @@ class TestEnvJujuClient(TestCase):
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G'), False)
 
+    def test_bootstrap_maas(self):
+        env = Environment('maas', '')
+        with patch.object(EnvJujuClient, 'juju') as mock:
+            client = EnvJujuClient(env, None, None)
+            with patch.object(client.env, 'maas', lambda: True):
+                client.bootstrap()
+            mock.assert_called_with(
+                'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
+
+
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
         with patch.object(EnvJujuClient, 'juju') as mock:
