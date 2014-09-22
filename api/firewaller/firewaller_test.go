@@ -4,16 +4,14 @@
 package firewaller_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -32,10 +30,6 @@ type firewallerSuite struct {
 }
 
 var _ = gc.Suite(&firewallerSuite{})
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -75,6 +69,15 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Create the firewaller API facade.
+	s.firewaller = s.st.Firewaller()
+	c.Assert(s.firewaller, gc.NotNil)
+}
+
+func (s *firewallerSuite) patchNewState(
+	c *gc.C,
+	patchFunc func(_ base.APICaller) *firewaller.State,
+) {
+	s.PatchValue(&firewaller.NewState, patchFunc)
 	s.firewaller = s.st.Firewaller()
 	c.Assert(s.firewaller, gc.NotNil)
 }

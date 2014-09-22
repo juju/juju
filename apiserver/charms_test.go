@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -22,7 +21,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -106,10 +104,16 @@ func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
-func (s *charmsSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "GET", s.charmsURI(c, ""), "", nil)
+func (s *charmsSuite) TestPOSTRequiresAuth(c *gc.C) {
+	resp, err := s.sendRequest(c, "", "", "POST", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
+}
+
+func (s *charmsSuite) TestGETDoesNotRequireAuth(c *gc.C) {
+	resp, err := s.sendRequest(c, "", "", "GET", s.charmsURI(c, ""), "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument")
 }
 
 func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
@@ -129,14 +133,14 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag().String(), password, "GET", s.charmsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, machine.Tag().String(), password, "POST", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 
 	// Now try a user login.
-	resp, err = s.authRequest(c, "GET", s.charmsURI(c, ""), "", nil)
+	resp, err = s.authRequest(c, "POST", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
-	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected url=CharmURL query argument")
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "expected series=URL argument")
 }
 
 func (s *charmsSuite) TestUploadRequiresSeries(c *gc.C) {
@@ -168,13 +172,11 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	_, err := s.State.AddCharm(ch, curl, "dummy-storage-path", "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
 
 	// Now try uploading the same revision and verify it gets bumped,
-	// and the BundleURL and BundleSha256 are calculated.
+	// and the BundleSha256 is calculated.
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-2")
@@ -184,9 +186,8 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	c.Assert(sch.URL(), gc.DeepEquals, expectedURL)
 	c.Assert(sch.Revision(), gc.Equals, 2)
 	c.Assert(sch.IsUploaded(), jc.IsTrue)
-	// No more checks for these two here, because they
-	// are verified in TestUploadRespectsLocalRevision.
-	c.Assert(sch.BundleURL(), gc.Not(gc.Equals), "")
+	// No more checks for the hash here, because it is
+	// verified in TestUploadRespectsLocalRevision.
 	c.Assert(sch.BundleSha256(), gc.Not(gc.Equals), "")
 }
 
@@ -217,19 +218,14 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	_, err = tempFile.Seek(0, 0)
 	c.Assert(err, gc.IsNil)
 
-	// Finally, verify the SHA256 and uploaded URL.
+	// Finally, verify the SHA256.
 	expectedSHA256, _, err := utils.ReadSHA256(tempFile)
 	c.Assert(err, gc.IsNil)
-	name := charm.Quote(expectedURL.String())
-	storage, err := environs.GetStorage(s.State)
-	c.Assert(err, gc.IsNil)
-	expectedUploadURL, err := storage.URL(name)
-	c.Assert(err, gc.IsNil)
 
-	c.Assert(sch.BundleURL().String(), gc.Equals, expectedUploadURL)
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	reader, err := storage.Get(name)
+	storage := s.State.Storage()
+	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	downloadedSHA256, _, err := utils.ReadSHA256(reader)
@@ -305,10 +301,8 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	archiveName := strings.TrimPrefix(sch.BundleURL().RequestURI(), "/dummyenv/private/")
-	storage, err := environs.GetStorage(s.State)
-	c.Assert(err, gc.IsNil)
-	reader, err := storage.Get(archiveName)
+	storage := s.State.Storage()
+	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 
@@ -343,8 +337,8 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 	resp, err := s.authRequest(c, "GET", uri, "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(
-		c, resp, http.StatusBadRequest,
-		"unable to retrieve and save the charm: charm not found in the provider storage: .*",
+		c, resp, http.StatusNotFound,
+		`unable to retrieve and save the charm: cannot get charm from state: charm "local:precise/no-such" not found`,
 	)
 }
 
@@ -413,6 +407,22 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		s.assertGetFileResponse(c, resp, t.response, "text/plain; charset=utf-8")
 	}
+}
+
+func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
+	// Add the dummy charm.
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
+	_, err := s.uploadRequest(
+		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+
+	data, err := ioutil.ReadFile(ch.Path)
+	c.Assert(err, gc.IsNil)
+
+	uri := s.charmsURI(c, "?url=local:quantal/dummy-1&file=*")
+	resp, err := s.authRequest(c, "GET", uri, "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertGetFileResponse(c, resp, string(data), "application/zip")
 }
 
 func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {

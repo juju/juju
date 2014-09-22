@@ -6,7 +6,7 @@ package imagemetadata
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,6 +15,16 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/version"
 )
+
+// IndexStoragePath returns the storage path for the image metadata index file.
+func IndexStoragePath() string {
+	return path.Join(storage.BaseImagesPath, simplestreams.UnsignedIndex(currentStreamsVersion))
+}
+
+// ProductMetadataStoragePath returns the storage path for the image metadata products file.
+func ProductMetadataStoragePath() string {
+	return path.Join(storage.BaseImagesPath, ProductMetadataPath)
+}
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with supplied metadata, writing the resulting metadata is written to storage.
@@ -38,8 +48,7 @@ func readMetadata(metadataStore storage.Storage) ([]*ImageMetadata, error) {
 	// Read any existing metadata so we can merge the new tools metadata with what's there.
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", metadataStore, storage.BaseImagesPath)
 	imageConstraint := NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, imageConstraint, false)
+	existingMetadata, _, err := Fetch([]simplestreams.DataSource{dataSource}, imageConstraint, false)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -99,12 +108,11 @@ func writeMetadata(metadata []*ImageMetadata, cloudSpec []simplestreams.CloudSpe
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex, index},
-		{ProductMetadataPath, products},
+		{IndexStoragePath(), index},
+		{ProductMetadataStoragePath(), products},
 	}
 	for _, md := range metadataInfo {
-		err = metadataStore.Put(
-			filepath.Join(storage.BaseImagesPath, md.Path), bytes.NewReader(md.Data), int64(len(md.Data)))
+		err = metadataStore.Put(md.Path, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}

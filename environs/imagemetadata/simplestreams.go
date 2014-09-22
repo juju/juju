@@ -20,7 +20,14 @@ func init() {
 }
 
 const (
+	// ImageIds is the simplestreams image content type.
 	ImageIds = "image-ids"
+
+	// StreamsVersionV1 is used to construct the path for accessing streams data.
+	StreamsVersionV1 = "v1"
+
+	// currentStreamsVersion is the current version of image simplestreams data.
+	currentStreamsVersion = StreamsVersionV1
 )
 
 // simplestreamsImagesPublicKey is the public key required to
@@ -92,6 +99,10 @@ const (
 
 // This needs to be a var so we can override it for testing and in bootstrap.
 var DefaultBaseURL = UbuntuCloudImagesURL
+
+// PrivateMetadataDir is a directory possibly containing private image
+// metadata, used during bootstrap.
+var PrivateMetadataDir string
 
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
@@ -168,7 +179,7 @@ func (im *ImageMetadata) productId() string {
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(
-	sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint,
+	sources []simplestreams.DataSource, cons *ImageConstraint,
 	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
 	params := simplestreams.ValueParams{
 		DataType:      ImageIds,
@@ -176,7 +187,7 @@ func Fetch(
 		ValueTemplate: ImageMetadata{},
 		PublicKey:     simplestreamsImagesPublicKey,
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, currentStreamsVersion, cons, onlySigned, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

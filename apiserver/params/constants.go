@@ -18,8 +18,9 @@ const (
 type MachineJob string
 
 const (
-	JobHostUnits     MachineJob = "JobHostUnits"
-	JobManageEnviron MachineJob = "JobManageEnviron"
+	JobHostUnits        MachineJob = "JobHostUnits"
+	JobManageEnviron    MachineJob = "JobManageEnviron"
+	JobManageNetworking MachineJob = "JobManageNetworking"
 	// Deprecated in 1.18
 	JobManageStateDeprecated MachineJob = "JobManageState"
 )
@@ -41,6 +42,9 @@ const (
 
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
+// TODO(dfc) once state does not depend on apisever/params
+// this type will be rewritten to be
+// type Status state.Status
 type Status string
 
 const (

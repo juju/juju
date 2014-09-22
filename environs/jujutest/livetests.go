@@ -395,8 +395,12 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("opening state")
 	st := t.Env.(testing.GetStater).GetStateInAPIServer()
 
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	owner := env.Owner()
+
 	c.Logf("opening API connection")
-	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
+	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer apiState.Close()
 
@@ -441,7 +445,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := charmtesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := testing.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := st.AddService("dummy", "user-admin", sch, nil)
+	svc, err := st.AddService("dummy", owner.String(), sch, nil)
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(st, svc, 1, "")
 	c.Assert(err, gc.IsNil)
@@ -547,7 +551,13 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	}
 	t.BootstrapOnce(c)
 
-	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
+	c.Logf("opening state")
+	st := t.Env.(testing.GetStater).GetStateInAPIServer()
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	owner := env.Owner()
+
+	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	apiState.Close()
 }
@@ -795,7 +805,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-trusty-amd64"))
 	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,

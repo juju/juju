@@ -32,7 +32,7 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
 	err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
+	_, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -46,19 +46,20 @@ func (s *usermanagerSuite) TestAddUserOldClient(c *gc.C) {
 	// type of argument.
 	err := s.APIState.APICall("UserManager", 0, "", "AddUser", userArgs, results)
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
+	_, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
 	err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
+	userTag := names.NewLocalUserTag("foobar")
+	_, err = s.State.User(userTag)
 	c.Assert(err, gc.IsNil)
 
 	err = s.usermanager.RemoveUser("foobar")
 	c.Assert(err, gc.IsNil)
-	user, err := s.State.User("foobar")
+	user, err := s.State.User(userTag)
 	c.Assert(user.IsDeactivated(), gc.Equals, true)
 }
 
@@ -73,12 +74,13 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 	err := s.usermanager.RemoveUser(s.AdminUserTag(c).Name())
-	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate admin user")
+	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate initial environment owner")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
-	tag := names.NewUserTag("foobar")
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: tag.Id(), DisplayName: "Foo Bar"})
+	tag := names.NewLocalUserTag("foobar")
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: tag.Name(), DisplayName: "Foo Bar"})
 
 	obtained, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.IsNil)
@@ -101,7 +103,7 @@ func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
 			return nil
 		},
 	)
-	tag := names.NewUserTag("foobar")
+	tag := names.NewLocalUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
@@ -115,16 +117,16 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 			return nil
 		},
 	)
-	tag := names.NewUserTag("foobar")
+	tag := names.NewLocalUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
-	name := s.AdminUserTag(c).Name()
-	err := s.usermanager.SetPassword(name, "new-password")
+	tag := s.AdminUserTag(c)
+	err := s.usermanager.SetPassword(tag.Name(), "new-password")
 	c.Assert(err, gc.IsNil)
-	user, err := s.State.User(name)
+	user, err := s.State.User(tag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.PasswordValid("new-password"), gc.Equals, true)
 }

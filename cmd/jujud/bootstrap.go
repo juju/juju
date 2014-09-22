@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils"
+	"github.com/juju/names"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
@@ -26,14 +27,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/sync"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
@@ -42,16 +40,19 @@ import (
 var (
 	agentInitializeState = agent.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
+	stateStorage         = (*state.State).Storage
 	minSocketTimeout     = 1 * time.Minute
 )
 
 type BootstrapCommand struct {
 	cmd.CommandBase
 	AgentConf
-	EnvConfig   map[string]interface{}
-	Constraints constraints.Value
-	Hardware    instance.HardwareCharacteristics
-	InstanceId  string
+	EnvConfig        map[string]interface{}
+	Constraints      constraints.Value
+	Hardware         instance.HardwareCharacteristics
+	InstanceId       string
+	AdminUsername    string
+	ImageMetadataDir string
 }
 
 // Info returns a decription of the command.
@@ -68,6 +69,8 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
+	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
+	f.StringVar(&c.ImageMetadataDir, "image-metadata", "", "custom image metadata source dir")
 }
 
 // Init initializes the command for running.
@@ -77,6 +80,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 	}
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
+	}
+	if !names.IsValidUser(c.AdminUsername) {
+		return errors.Errorf("%q is not a valid username", c.AdminUsername)
 	}
 	return c.AgentConf.CheckArgs(args)
 }
@@ -184,7 +190,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
 
+		adminTag := names.NewLocalUserTag(c.AdminUsername)
 		st, m, stateErr = agentInitializeState(
+			adminTag,
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -206,8 +214,15 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	// Populate the tools catalogue.
-	if err := c.populateTools(env); err != nil {
+	if err := c.populateTools(st, env); err != nil {
 		return err
+	}
+
+	// Add custom image metadata to environment storage.
+	if c.ImageMetadataDir != "" {
+		if err := c.storeCustomImageMetadata(stateStorage(st)); err != nil {
+			return err
+		}
 	}
 
 	// bootstrap machine always gets the vote
@@ -297,63 +312,80 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 
 // populateTools stores uploaded tools in provider storage
 // and updates the tools metadata.
-//
-// TODO(axw) store tools in gridfs, catalogue in state.
-func (c *BootstrapCommand) populateTools(env environs.Environ) error {
+func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) error {
 	agentConfig := c.CurrentConfig()
 	dataDir := agentConfig.DataDir()
 	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
 		return err
 	}
-	if !strings.HasPrefix(tools.URL, "file://") {
-		// Nothing to do since the tools were not uploaded.
-		return nil
-	}
 
-	// This is a hack: providers using localstorage (local, manual)
-	// can't use storage during bootstrap as the localstorage worker
-	// isn't running. Use filestorage instead.
-	var stor storage.Storage
-	storageDir := agentConfig.Value(agent.StorageDir)
-	if storageDir != "" {
-		stor, err = filestorage.NewFileStorageWriter(storageDir)
-		if err != nil {
-			return err
-		}
-	} else {
-		stor = env.Storage()
-	}
-
-	// Create a temporary directory to contain source and cloned tools.
-	tempDir, err := ioutil.TempDir("", "juju-sync-tools")
+	data, err := ioutil.ReadFile(filepath.Join(
+		agenttools.SharedToolsDir(dataDir, version.Current),
+		"tools.tar.gz",
+	))
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempDir)
-	destTools := filepath.Join(tempDir, filepath.FromSlash(envtools.StorageName(tools.Version)))
-	if err := os.MkdirAll(filepath.Dir(destTools), 0700); err != nil {
+
+	storage, err := st.ToolsStorage()
+	if err != nil {
 		return err
 	}
-	srcTools := filepath.Join(
-		agenttools.SharedToolsDir(dataDir, version.Current),
-		"tools.tar.gz",
-	)
-	if err := utils.CopyFile(destTools, srcTools); err != nil {
-		return err
+	defer storage.Close()
+
+	var toolsVersions []version.Binary
+	if strings.HasPrefix(tools.URL, "file://") {
+		// Tools were uploaded: clone for each series of the same OS.
+		osSeries := version.OSSupportedSeries(tools.Version.OS)
+		for _, series := range osSeries {
+			toolsVersion := tools.Version
+			toolsVersion.Series = series
+			toolsVersions = append(toolsVersions, toolsVersion)
+		}
+	} else {
+		// Tools were downloaded from an external source: don't clone.
+		toolsVersions = []version.Binary{tools.Version}
 	}
 
-	// Until we catalogue tools in state, we clone the tools
-	// for each of the supported series of the same OS.
-	otherSeries := version.OSSupportedSeries(version.Current.OS)
-	_, err = sync.SyncBuiltTools(stor, &sync.BuiltTools{
-		Version:     tools.Version,
-		Dir:         tempDir,
-		StorageName: envtools.StorageName(tools.Version),
-		Sha256Hash:  tools.SHA256,
-		Size:        tools.Size,
-	}, otherSeries...)
-	return err
+	for _, toolsVersion := range toolsVersions {
+		metadata := toolstorage.Metadata{
+			Version: toolsVersion,
+			Size:    tools.Size,
+			SHA256:  tools.SHA256,
+		}
+		logger.Debugf("Adding tools: %v", toolsVersion)
+		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// storeCustomImageMetadata reads the custom image metadata from disk,
+// and stores the files in environment storage with the same relative
+// paths.
+func (c *BootstrapCommand) storeCustomImageMetadata(stor state.Storage) error {
+	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
+	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		relpath, err := filepath.Rel(c.ImageMetadataDir, abspath)
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(abspath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
+		return stor.Put(relpath, f, info.Size())
+	})
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

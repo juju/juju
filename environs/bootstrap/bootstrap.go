@@ -5,14 +5,20 @@ package bootstrap
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
@@ -42,6 +48,14 @@ type BootstrapParams struct {
 	// UploadTools reports whether we should upload the local tools and
 	// override the environment's specified agent-version.
 	UploadTools bool
+
+	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
+	// if there is an error during bootstrap.
+	KeepBroken bool
+
+	// MetadataDir is an optional path to a local directory containing
+	// tools and/or image metadata.
+	MetadataDir string
 }
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -70,6 +84,21 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 
 	// Write out the bootstrap-init file, and confirm storage is writeable.
 	if err := environsVerifyStorage(environ.Storage()); err != nil {
+		return err
+	}
+
+	// Set default tools metadata source, add image metadata source,
+	// then verify constraints. Providers may rely on image metadata
+	// for constraint validation.
+	var imageMetadata []*imagemetadata.ImageMetadata
+	if args.MetadataDir != "" {
+		var err error
+		imageMetadata, err = setPrivateMetadataSources(environ, args.MetadataDir)
+		if err != nil {
+			return err
+		}
+	}
+	if err := validateConstraints(environ, args.Constraints); err != nil {
 		return err
 	}
 
@@ -102,6 +131,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
+		KeepBroken:     args.KeepBroken,
 		AvailableTools: availableTools,
 	})
 	if err != nil {
@@ -140,6 +170,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		return err
 	}
 	machineConfig.Tools = selectedTools
+	machineConfig.CustomImageMetadata = imageMetadata
 	if err := finalizer(ctx, machineConfig); err != nil {
 		return err
 	}
@@ -206,6 +237,52 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 	v1.Build = 0
 	v2.Build = 0
 	return v1.Compare(v2) == 0
+}
+
+// setPrivateMetadataSources sets the default tools metadata source
+// for tools syncing, and adds an image metadata source after verifying
+// the contents.
+func setPrivateMetadataSources(env environs.Environ, metadataDir string) ([]*imagemetadata.ImageMetadata, error) {
+	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
+	tools.DefaultBaseURL = metadataDir
+
+	imageMetadataDir := filepath.Join(metadataDir, storage.BaseImagesPath)
+	if _, err := os.Stat(imageMetadataDir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Annotate(err, "cannot access image metadata")
+		}
+		return nil, nil
+	}
+
+	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))
+	datasource := simplestreams.NewURLDataSource("bootstrap metadata", baseURL, utils.NoVerifySSLHostnames)
+
+	// Read the image metadata, as we'll want to upload it to the environment.
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
+	existingMetadata, _, err := imagemetadata.Fetch(
+		[]simplestreams.DataSource{datasource}, imageConstraint, false)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Annotate(err, "cannot read image metadata")
+	}
+
+	// Add an image metadata datasource for constraint validation, etc.
+	environs.RegisterImageDataSourceFunc("bootstrap metadata", func(environs.Environ) (simplestreams.DataSource, error) {
+		return datasource, nil
+	})
+	logger.Infof("custom image metadata added to search path")
+	return existingMetadata, nil
+}
+
+func validateConstraints(env environs.Environ, cons constraints.Value) error {
+	validator, err := env.ConstraintsValidator()
+	if err != nil {
+		return err
+	}
+	unsupported, err := validator.Validate(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf("unsupported constraints: %v", unsupported)
+	}
+	return err
 }
 
 // EnsureNotBootstrapped returns nil if the environment is not

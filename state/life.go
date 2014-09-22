@@ -7,7 +7,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 )
 
@@ -22,14 +21,17 @@ const (
 	nLife
 )
 
-var lifeStrings = [nLife]params.Life{
-	Alive: params.Alive,
-	Dying: params.Dying,
-	Dead:  params.Dead,
-}
-
 func (l Life) String() string {
-	return string(lifeStrings[l])
+	switch l {
+	case Alive:
+		return "alive"
+	case Dying:
+		return "dying"
+	case Dead:
+		return "dead"
+	default:
+		return "unknown"
+	}
 }
 
 var isAliveDoc = bson.D{{"life", Alive}}

@@ -726,9 +726,9 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	sources, err := imagemetadata.GetMetadataSources(env)
+	sources, err := environs.ImageMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 4)
+	c.Assert(sources, gc.HasLen, 3)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -737,14 +737,12 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	}
 	// The image-metadata-url ends with "/juju-dist-test/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/"), jc.IsTrue)
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/images"), jc.IsTrue)
 	// The product-streams URL ends with "/imagemetadata".
-	c.Check(strings.HasSuffix(urls[2], "/imagemetadata/"), jc.IsTrue)
-	c.Assert(urls[3], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+	c.Check(strings.HasSuffix(urls[1], "/imagemetadata/"), jc.IsTrue)
+	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
-func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
+func (s *localServerSuite) TestmageMetadataSources(c *gc.C) {
 	s.assertGetImageMetadataSources(c, "", "releases")
 	s.assertGetImageMetadataSources(c, "released", "releases")
 	s.assertGetImageMetadataSources(c, "daily", "daily")
@@ -831,7 +829,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
-	spec, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.tiny")
+	spec, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.tiny")
 	c.Assert(err, gc.IsNil)
 	c.Assert(spec.InstanceType.Name, gc.Equals, "m1.tiny")
 }
@@ -841,7 +839,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
-	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
+	_, err := openstack.FindInstanceSpec(env, coretesting.FakeDefaultSeries, "amd64", "instance-type=m1.large")
 	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
 }
 
@@ -849,7 +847,7 @@ func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
 	env := s.Open(c)
 	cons := constraints.MustParse("instance-type=m1.small")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -857,28 +855,28 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	env := s.Open(c)
 	cons := constraints.MustParse("instance-type=m1.large")
 	placement := ""
-	err := env.PrecheckInstance("precise", cons, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-available"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unavailable"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
@@ -886,7 +884,7 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
 	t.srv.Service.Nova.SetAvailabilityZones() // no availability zone support
 	env := t.Prepare(c)
 	placement := "zone=test-unknown"
-	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
 	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
 }
 
@@ -894,7 +892,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
-	params.Sources, err = imagemetadata.GetMetadataSources(env)
+	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
@@ -1111,15 +1109,11 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
 	c.Assert(err, gc.IsNil)
-	sources, err := imagemetadata.GetMetadataSources(s.env)
+	sources, err := environs.ImageMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 4)
+	c.Assert(sources, gc.HasLen, 3)
 
 	// Make sure there is something to download from each location
-	private := "private-content"
-	err = s.env.Storage().Put("images/"+private, bytes.NewBufferString(private), int64(len(private)))
-	c.Assert(err, gc.IsNil)
-
 	metadata := "metadata-content"
 	metadataStorage := openstack.ImageMetadataStorage(s.env)
 	err = metadataStorage.Put(metadata, bytes.NewBufferString(metadata), int64(len(metadata)))
@@ -1138,17 +1132,8 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	c.Assert(string(content), gc.Equals, custom)
 	c.Check(url[:8], gc.Equals, "https://")
 
-	// Read from the private bucket
-	contentReader, url, err = sources[1].Fetch(private)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(content), gc.Equals, private)
-	c.Check(url[:8], gc.Equals, "https://")
-
 	// Check the entry we got from keystone
-	contentReader, url, err = sources[2].Fetch(metadata)
+	contentReader, url, err = sources[1].Fetch(metadata)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)

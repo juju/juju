@@ -12,15 +12,17 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.metricworker.cleanup")
+var (
+	cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")
+	notify        chan struct{}
+)
 
 // NewCleanup creates a new periodic worker that calls the CleanupOldMetrics api.
-// If a notify channel is provided it will be signalled everytime the call is made.
-func NewCleanup(client *metricsmanager.Client, notify chan struct{}) worker.Worker {
+func NewCleanup(client *metricsmanager.Client) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.CleanupOldMetrics()
 		if err != nil {
-			logger.Warningf("failed to cleanup %v - will retry later", err)
+			cleanupLogger.Warningf("failed to cleanup %v - will retry later", err)
 			return nil
 		}
 		select {

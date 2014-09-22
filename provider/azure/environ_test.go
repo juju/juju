@@ -1377,13 +1377,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to true for now.  Once we support other base URLs, this
-	// may have to become configurable.
-	c.Check(env.getImageMetadataSigningRequired(), gc.Equals, true)
-}
-
 func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	forcedImage := "my-image"
@@ -1397,7 +1390,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 
 	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      "West US",
-		Series:      "precise",
+		Series:      coretesting.FakeDefaultSeries,
 		Constraints: cons,
 	})
 	c.Assert(err, gc.IsNil)
@@ -1411,8 +1404,6 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	envAttrs["location"] = "North Europe"
 	env := makeEnvironWithConfig(c, envAttrs)
 	s.setDummyStorage(c, env)
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
-	s.PatchValue(&signedImageDataOnly, false)
 	images := []*imagemetadata.ImageMetadata{
 		{
 			Id:         "image-id",
@@ -1422,7 +1413,7 @@ func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 			Endpoint:   "https://management.core.windows.net/",
 		},
 	}
-	makeTestMetadata(c, env, "precise", "North Europe", images)
+	s.makeTestMetadata(c, coretesting.FakeDefaultSeries, "North Europe", images)
 	return env
 }
 
@@ -1436,7 +1427,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(
 	}
 	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
 		Region:      "North Europe",
-		Series:      "precise",
+		Series:      coretesting.FakeDefaultSeries,
 		Constraints: cons,
 	})
 	c.Assert(err, gc.IsNil)
@@ -1470,32 +1461,6 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	retrieved, err := ioutil.ReadAll(rc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(retrieved, gc.DeepEquals, content)
-}
-
-func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	envAttrs := makeAzureConfigMap(c)
-	if stream != "" {
-		envAttrs["image-stream"] = stream
-	}
-	env := makeEnvironWithConfig(c, envAttrs)
-	s.setDummyStorage(c, env)
-
-	data := []byte{1, 2, 3, 4}
-	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
-
-	sources, err := imagemetadata.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	assertSourceContents(c, sources[0], "filename", data)
-	url, err := sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
-}
-
-func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	s.assertGetImageMetadataSources(c, "", "releases")
-	s.assertGetImageMetadataSources(c, "released", "releases")
-	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -1703,7 +1668,7 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 		return nil, fmt.Errorf("no instance for you")
 	})
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
-	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
+	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120t...)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

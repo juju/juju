@@ -6,9 +6,9 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
-	"gopkg.in/mgo.v2"
 	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -90,6 +90,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State)
 }
@@ -109,7 +110,9 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	return names.NewUserTag(state.AdminUser)
+	env, err := s.State.InitialEnvironment()
+	c.Assert(err, gc.IsNil)
+	return env.Owner()
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -182,7 +185,9 @@ func PreferredDefaultVersions(conf *config.Config, template version.Binary) []ve
 	prefVersion := template
 	prefVersion.Series = config.PreferredSeries(conf)
 	defaultVersion := template
-	defaultVersion.Series = testing.FakeDefaultSeries
+	if prefVersion.Series != testing.FakeDefaultSeries {
+		defaultVersion.Series = testing.FakeDefaultSeries
+	}
 	return []version.Binary{prefVersion, defaultVersion}
 }
 
@@ -240,10 +245,43 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
 
-	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	s.APIState, err = juju.NewAPIState(s.AdminUserTag(c), environ, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
 	c.Assert(err, gc.IsNil)
 
 	s.Environ = environ
+}
+
+// AddToolsToState adds tools to tools storage.
+func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	for _, v := range versions {
+		content := v.String()
+		hash := fmt.Sprintf("sha256(%s)", content)
+		err := storage.AddTools(strings.NewReader(content), toolstorage.Metadata{
+			Version: v,
+			Size:    int64(len(content)),
+			SHA256:  hash,
+		})
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+// AddDefaultToolsToState adds tools to tools storage for
+// {Number: version.Current.Number, Arch: amd64}, for the
+// "precise" series and the environment's preferred series.
+// The preferred series is default-series if specified,
+// otherwise the latest LTS.
+func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
+	preferredVersion := version.Current
+	preferredVersion.Arch = "amd64"
+	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
+	versions = append(versions, version.Current)
+	s.AddToolsToState(c, versions...)
 }
 
 var redialStrategy = utils.AttemptStrategy{
@@ -377,27 +415,13 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	stor := env.Storage()
-	if err := stor.Put(name, f, size); err != nil {
+
+	stor := st.Storage()
+	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
+	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	ustr, err := stor.URL(name)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
-	}
-	u, err := url.Parse(ustr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
-	}
-	sch, err := st.AddCharm(ch, curl, u, digest)
+	sch, err := st.AddCharm(ch, curl, storagePath, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
@@ -447,13 +471,8 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 	}
-	// Close close state.
-	var dbSession *mgo.Session
+	// Close state.
 	if s.State != nil {
-		// Copy the mongo session so we can reset the mongo password below.
-		if serverAlive {
-			dbSession = s.State.MongoSession().Copy()
-		}
 		err := s.State.Close()
 		if serverAlive {
 			// This happens way too often with failing tests,
@@ -463,17 +482,6 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			)
 		}
 		s.State = nil
-	}
-
-	// Bootstrap will set the admin password, and render non-authorized use
-	// impossible. s.State may still hold the right password, so try to reset
-	// the password so that the MgoSuite soft-resetting works. If that fails,
-	// it will still work, but it will take a while since it has to kill the
-	// whole database and start over.
-	if dbSession != nil {
-		err := mongo.SetAdminMongoPassword(dbSession, mongo.AdminUser, "")
-		c.Check(err, gc.IsNil)
-		dbSession.Close()
 	}
 
 	dummy.Reset()
@@ -519,7 +527,8 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch, networks)
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(name, owner, ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }

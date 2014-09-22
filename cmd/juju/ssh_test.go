@@ -6,15 +6,17 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"github.com/juju/cmd"
+	jc "github.com/juju/testing/checkers"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -102,9 +104,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
-	c.Assert(err, gc.IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
+	dummy, err := s.State.AddCharm(ch, curl, "dummy-path", "dummy-1-sha256")
 	c.Assert(err, gc.IsNil)
 	srv := s.AddTestingService(c, "mysql", dummy)
 	s.addUnit(srv, m[0], c)
@@ -138,6 +138,27 @@ func (s *SSHSuite) TestSSHCommandEnvironProxySSH(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 	c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, sshArgsNoProxy+"ubuntu@dummyenv-0.dns\n")
+}
+
+func (s *SSHSuite) TestSSHWillWorkInUpgrade(c *gc.C) {
+	// Check the API client interface used by "juju ssh" against what
+	// the API server will allow during upgrades. Ensure that the API
+	// server will allow all required API calls to support SSH.
+	type concrete struct {
+		sshAPIClient
+	}
+	t := reflect.TypeOf(concrete{})
+	for i := 0; i < t.NumMethod(); i++ {
+		name := t.Method(i).Name
+
+		// Close isn't an API method and ServiceCharmRelations is not
+		// relevant to "juju ssh".
+		if name == "Close" || name == "ServiceCharmRelations" {
+			continue
+		}
+		c.Logf("checking %q", name)
+		c.Check(apiserver.IsMethodAllowedDuringUpgrade("Client", name), jc.IsTrue)
+	}
 }
 
 type callbackAttemptStarter struct {

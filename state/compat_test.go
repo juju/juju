@@ -4,6 +4,7 @@
 package state
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2/bson"
@@ -39,11 +40,10 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	owner := names.NewLocalUserTag("test-admin")
+	st, err := Initialize(owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.state = st
-	_, err = s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env
@@ -164,9 +164,9 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	// Check if port conflicts are detected.
+	// Port conflicts should be ignored, OpenPort should not return an error here.
 	err = unit.OpenPort("tcp", 80)
-	c.Assert(err, gc.ErrorMatches, "cannot open ports 80-80/tcp for unit \"mysql/0\": cannot open ports 80-80/tcp on machine 0 due to conflict")
+	c.Assert(err, gc.IsNil)
 
 	err = unit.OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)

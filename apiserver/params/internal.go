@@ -70,6 +70,39 @@ type PortsResult struct {
 	Ports []network.Port
 }
 
+// MachinePorts holds a machine and network tags. It's used when
+// referring to opened ports on the machine for a network.
+type MachinePorts struct {
+	MachineTag string
+	NetworkTag string
+}
+
+// MachinePortRange holds a single port range open on a machine for
+// the given unit tag.
+type MachinePortRange struct {
+	UnitTag   string
+	PortRange network.PortRange
+}
+
+// MachinePortsParams holds the arguments for making a
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsParams struct {
+	Params []MachinePorts
+}
+
+// MachinePortsResult holds a single result of the
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsResult struct {
+	Error *Error
+	Ports []MachinePortRange
+}
+
+// MachinePortsResults holds all the results of the
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsResults struct {
+	Results []MachinePortsResult
+}
+
 // StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {
@@ -86,21 +119,6 @@ type StringResult struct {
 // that returns a string or an error.
 type StringResults struct {
 	Results []StringResult
-}
-
-// CharmArchiveURLResult holds a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResult struct {
-	Error                          *Error
-	Result                         string
-	DisableSSLHostnameVerification bool
-}
-
-// CharmArchiveURLResults holds the bulk operation result of an API
-// call that returns a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResults struct {
-	Results []CharmArchiveURLResult
 }
 
 // EnvironmentResult holds the result of an API call returning a name and UUID
@@ -650,4 +668,22 @@ type ProvisioningInfoResult struct {
 // ProvisioningInfoResults holds multiple machine provisioning info results.
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult
+}
+
+// Metric holds a single metric.
+type Metric struct {
+	Key   string
+	Value string
+	Time  time.Time
+}
+
+// MetricsParam contains the metrics for a single unit.
+type MetricsParam struct {
+	Tag     string
+	Metrics []Metric
+}
+
+// MetricsParams contains the metrics for multiple units.
+type MetricsParams struct {
+	Metrics []MetricsParam
 }

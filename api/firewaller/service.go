@@ -25,6 +25,11 @@ func (s *Service) Name() string {
 	return s.tag.Id()
 }
 
+// Tag returns the service tag.
+func (s *Service) Tag() names.ServiceTag {
+	return s.tag
+}
+
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	return common.Watch(s.st.facade, s.tag)

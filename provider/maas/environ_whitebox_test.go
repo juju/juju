@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -64,11 +63,6 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	stor := NewStorage(suite.makeEnviron())
 	envtesting.UploadFakeTools(c, stor)
-}
-
-func (suite *environSuite) setupFakeImageMetadata(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	UseTestImageMetadata(c, stor)
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -535,44 +529,6 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 	c.Assert(retrieved, gc.DeepEquals, content)
 }
 
-func (suite *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
-	// Make an env configured with the stream.
-	testAttrs := maasEnvAttrs
-	testAttrs = testAttrs.Merge(coretesting.Attrs{
-		"maas-server": suite.testMAASObject.TestServer.URL,
-	})
-	if stream != "" {
-		testAttrs = testAttrs.Merge(coretesting.Attrs{
-			"image-stream": stream,
-		})
-	}
-	attrs := coretesting.FakeConfig().Merge(testAttrs)
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, gc.IsNil)
-	env, err := NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
-
-	// Add a dummy file to storage so we can use that to check the
-	// obtained source later.
-	data := makeRandomBytes(10)
-	stor := NewStorage(env)
-	err = stor.Put("images/filename", bytes.NewBuffer([]byte(data)), int64(len(data)))
-	c.Assert(err, gc.IsNil)
-	sources, err := imagemetadata.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	assertSourceContents(c, sources[0], "filename", data)
-	url, err := sources[1].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
-}
-
-func (suite *environSuite) TestGetImageMetadataSources(c *gc.C) {
-	suite.assertGetImageMetadataSources(c, "", "releases")
-	suite.assertGetImageMetadataSources(c, "released", "releases")
-	suite.assertGetImageMetadataSources(c, "daily", "daily")
-}
-
 func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := suite.makeEnviron()
 	// Add a dummy file to storage so we can use that to check the
@@ -588,15 +544,29 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "amd64", "release": "precise"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "ppc64el", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, jc.SameContents, []string{"amd64"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "ppc64el"})
+}
+
+func (suite *environSuite) TestSupportedArchitecturesFallback(c *gc.C) {
+	// If we cannot query boot-images (e.g. MAAS server version 1.4),
+	// then Juju will fall over to listing all the available nodes.
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "architecture": "amd64/generic"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "architecture": "armhf"}`)
+	env := suite.makeEnviron()
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, jc.SameContents, []string{"amd64", "armhf"})
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
@@ -607,13 +577,14 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
-	suite.setupFakeImageMetadata(c)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-0", `{"architecture": "amd64", "release": "trusty"}`)
+	suite.testMAASObject.TestServer.AddBootImage("uuid-1", `{"architecture": "armhf", "release": "precise"}`)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are: \\[amd64 armhf\\]")
 }
 
 func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {

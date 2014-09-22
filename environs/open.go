@@ -165,57 +165,70 @@ func New(config *config.Config) (Environ, error) {
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
 func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
-	p, err := Provider(cfg.Type())
-	if err != nil {
+
+	if p, err := Provider(cfg.Type()); err != nil {
 		return nil, err
-	}
-	info, err := store.ReadInfo(cfg.Name())
-	if errors.IsNotFound(errors.Cause(err)) {
+	} else if info, err := store.ReadInfo(cfg.Name()); errors.IsNotFound(errors.Cause(err)) {
 		info = store.CreateInfo(cfg.Name())
-		env, err := prepare(ctx, cfg, info, p)
-		if err != nil {
+		if env, err := prepare(ctx, cfg, info, p); err == nil {
+			return env, decorateAndWriteInfo(info, env.Config())
+		} else {
 			if err := info.Destroy(); err != nil {
 				logger.Warningf("cannot destroy newly created environment info: %v", err)
 			}
 			return nil, err
 		}
-		cfg = env.Config()
-		creds := configstore.APICredentials{
-			User:     "admin", // TODO(waigani) admin@local once we have that set
-			Password: cfg.AdminSecret(),
-		}
-		info.SetAPICredentials(creds)
-		endpoint := configstore.APIEndpoint{}
-		var ok bool
-		endpoint.CACert, ok = cfg.CACert()
-		if !ok {
-			return nil, errors.Errorf("CACert is not set")
-		}
-		endpoint.EnvironUUID, ok = cfg.UUID()
-		if !ok {
-			return nil, errors.Errorf("CACert is not set")
-		}
-		info.SetAPIEndpoint(endpoint)
-		info.SetBootstrapConfig(env.Config().AllAttrs())
-		if err := info.Write(); err != nil {
-			return nil, errors.Annotatef(err, "cannot create environment info %q", env.Config().Name())
-		}
-		return env, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
-	}
-	if !info.Initialized() {
-		return nil, errors.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", cfg.Name())
-	}
-	if len(info.BootstrapConfig()) == 0 {
+	} else if !info.Initialized() {
+		return nil,
+			errors.Errorf(
+				"found uninitialized environment info for %q; environment preparation probably in progress or interrupted",
+				cfg.Name(),
+			)
+	} else if len(info.BootstrapConfig()) == 0 {
 		return nil, errors.New("found environment info but no bootstrap config")
+	} else {
+		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot parse bootstrap config")
+		}
+		return New(cfg)
 	}
-	cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse bootstrap config")
+}
+
+// decorateAndWriteInfo decorates the info struct with information
+// from the given cfg, and the writes that out to the filesystem.
+func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) error {
+
+	// Sanity check our config.
+	var endpoint configstore.APIEndpoint
+	if cert, ok := cfg.CACert(); !ok {
+		return errors.Errorf("CACert is not set")
+	} else if uuid, ok := cfg.UUID(); !ok {
+		return errors.Errorf("UUID is not set")
+	} else if adminSecret := cfg.AdminSecret(); adminSecret == "" {
+		return errors.Errorf("admin-secret is not set")
+	} else {
+		endpoint = configstore.APIEndpoint{
+			CACert:      cert,
+			EnvironUUID: uuid,
+		}
 	}
-	return New(cfg)
+
+	creds := configstore.APICredentials{
+		User:     configstore.DefaultAdminUsername,
+		Password: cfg.AdminSecret(),
+	}
+	info.SetAPICredentials(creds)
+	info.SetAPIEndpoint(endpoint)
+	info.SetBootstrapConfig(cfg.AllAttrs())
+
+	if err := info.Write(); err != nil {
+		return errors.Annotatef(err, "cannot create environment info %q", cfg.Name())
+	}
+
+	return nil
 }
 
 func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {

@@ -4,10 +4,14 @@
 package state
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
@@ -19,6 +23,7 @@ type upgradesSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
 	state *State
+	owner names.UserTag
 }
 
 func (s *upgradesSuite) SetUpSuite(c *gc.C) {
@@ -35,12 +40,15 @@ func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	var err error
-	s.state, err = Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
+	s.owner = names.NewLocalUserTag("upgrade-admin")
+	s.state, err = Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *upgradesSuite) TearDownTest(c *gc.C) {
-	s.state.Close()
+	if s.state != nil {
+		s.state.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -75,7 +83,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 
 	err = MigrateUserLastConnectionToLastLogin(s.state)
 	c.Assert(err, gc.IsNil)
-	user, err := s.state.User(userId)
+	user, err := s.state.User(names.NewLocalUserTag(userId))
 	c.Assert(err, gc.IsNil)
 	c.Assert(*user.LastLogin(), gc.Equals, now)
 
@@ -90,35 +98,27 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnviron(c *gc.C) {
-	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
-	c.Assert(err, gc.IsNil)
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, gc.IsNil)
-	adminTag := stateAdmin.UserTag()
 	bobTag := stateBob.UserTag()
 
-	_, err = s.state.EnvironmentUser(adminTag)
-	c.Assert(err, gc.ErrorMatches, `envUser "admin@local" not found`)
 	_, err = s.state.EnvironmentUser(bobTag)
-	c.Assert(err, gc.ErrorMatches, `envUser "bob@local" not found`)
+	c.Assert(err, gc.ErrorMatches, `environment user "bob@local" not found`)
 
 	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)
 
-	admin, err := s.state.EnvironmentUser(adminTag)
+	admin, err := s.state.EnvironmentUser(s.owner)
 	c.Assert(err, gc.IsNil)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
 }
 
 func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
-	stateAdmin, err := s.state.AddUser("admin", "notused", "notused", "admin")
-	c.Assert(err, gc.IsNil)
 	stateBob, err := s.state.AddUser("bob", "notused", "notused", "bob")
 	c.Assert(err, gc.IsNil)
-	adminTag := stateAdmin.UserTag()
 	bobTag := stateBob.UserTag()
 
 	err = AddStateUsersAsEnvironUsers(s.state)
@@ -127,8 +127,8 @@ func (s *upgradesSuite) TestAddStateUsersToEnvironIdempotent(c *gc.C) {
 	err = AddStateUsersAsEnvironUsers(s.state)
 	c.Assert(err, gc.IsNil)
 
-	admin, err := s.state.EnvironmentUser(adminTag)
-	c.Assert(admin.UserTag().Username(), gc.DeepEquals, adminTag.Username())
+	admin, err := s.state.EnvironmentUser(s.owner)
+	c.Assert(admin.UserTag().Username(), gc.DeepEquals, s.owner.Username())
 	bob, err := s.state.EnvironmentUser(bobTag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(bob.UserTag().Username(), gc.DeepEquals, bobTag.Username())
@@ -178,4 +178,105 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C
 	info, err = s.state.StateServerInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.EnvironmentTag, gc.Equals, tag)
+}
+
+func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
+	ch := charmtesting.Charms.CharmDir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+
+	bundleSHA256 := "dummy-1-sha256"
+	dummyCharm, err := s.state.AddCharm(ch, curl, "", bundleSHA256)
+	c.Assert(err, gc.IsNil)
+	SetCharmBundleURL(c, s.state, curl, "http://anywhere.com")
+	dummyCharm, err = s.state.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummyCharm.BundleURL(), gc.NotNil)
+	c.Assert(dummyCharm.BundleURL().String(), gc.Equals, "http://anywhere.com")
+	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
+
+	storagePaths := map[*charm.URL]string{curl: "/some/where"}
+	err = AddCharmStoragePaths(s.state, storagePaths)
+	c.Assert(err, gc.IsNil)
+
+	dummyCharm, err = s.state.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummyCharm.BundleURL(), gc.IsNil)
+	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
+}
+
+func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
+	ch := charmtesting.Charms.CharmDir("dummy")
+	curl := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
+	)
+
+	bundleSHA256 := "dummy-1-sha256"
+	dummyCharm, err := s.state.AddCharm(ch, curl, "", bundleSHA256)
+	c.Assert(err, gc.IsNil)
+
+	curl2 := charm.MustParseURL(
+		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()+1),
+	)
+	storagePaths := map[*charm.URL]string{
+		curl:  "/some/where",
+		curl2: "/some/where/else",
+	}
+	err = AddCharmStoragePaths(s.state, storagePaths)
+	c.Assert(err, gc.ErrorMatches, "charms not found")
+
+	// The charm entry for "curl" should not have been touched.
+	dummyCharm, err = s.state.Charm(curl)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummyCharm.StoragePath(), gc.Equals, "")
+}
+
+func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironment(c *gc.C) {
+	env, err := s.state.Environment()
+	c.Assert(err, gc.IsNil)
+
+	// force remove the server-uuid and owner
+	ops := []txn.Op{{
+		C:      environmentsC,
+		Id:     env.UUID(),
+		Assert: txn.DocExists,
+		Update: bson.D{{"$unset", bson.D{
+			{"server-uuid", nil}, {"owner", nil},
+		}}},
+	}}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+	// Make sure it has gone.
+	environments, closer := s.state.getCollection(environmentsC)
+	defer closer()
+
+	var envDoc environmentDoc
+	err = environments.FindId(env.UUID()).One(&envDoc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envDoc.ServerUUID, gc.Equals, "")
+	c.Assert(envDoc.Owner, gc.Equals, "")
+
+	// Run the upgrade step
+	err = SetOwnerAndServerUUIDForEnvironment(s.state)
+	c.Assert(err, gc.IsNil)
+	// Make sure it is there now
+	env, err = s.state.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
+}
+
+func (s *upgradesSuite) TestSetOwnerAndServerUUIDForEnvironmentIdempotent(c *gc.C) {
+	// Run the upgrade step
+	err := SetOwnerAndServerUUIDForEnvironment(s.state)
+	c.Assert(err, gc.IsNil)
+	// Run the upgrade step gagain
+	err = SetOwnerAndServerUUIDForEnvironment(s.state)
+	c.Assert(err, gc.IsNil)
+	// Check as expected
+	env, err := s.state.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.ServerTag().Id(), gc.Equals, env.UUID())
+	c.Assert(env.Owner().Id(), gc.Equals, "admin@local")
 }

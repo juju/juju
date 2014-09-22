@@ -61,9 +61,6 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(*gc.C) {
 		*upgrader.RetryAfter = oldRetryAfter
 	})
-	// Set API host ports for tools URL.
-	err := s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
-	c.Assert(err, gc.IsNil)
 }
 
 type mockConfig struct {

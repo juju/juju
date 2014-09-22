@@ -4,7 +4,6 @@
 package usermanager
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -97,9 +96,9 @@ func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
-	user := api.getLoggedInUser()
-	if user == nil {
-		return result, fmt.Errorf("api connection is not through a user")
+	user, err := api.getLoggedInUser()
+	if err != nil {
+		return result, errors.Wrap(err, common.ErrPerm)
 	}
 	for i, arg := range args.Changes {
 		username := arg.Username
@@ -125,14 +124,18 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 		return result, nil
 	}
 	for i, arg := range args.Entities {
-		user, err := api.state.User(arg.Tag)
+		if !names.IsValidUserName(arg.Tag) {
+			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
+			continue
+		}
+		user, err := api.state.User(names.NewLocalUserTag(arg.Tag))
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		err = user.Deactivate()
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to remove user: %s", err))
+			result.Results[i].Error = common.ServerError(errors.Errorf("Failed to remove user: %s", err))
 			continue
 		}
 	}
@@ -151,9 +154,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 			results.Results[0].Error = common.ServerError(err)
 			continue
 		}
-		username := tag.Id()
-
-		user, err := api.state.User(username)
+		user, err := api.state.User(tag)
 		var result UserInfoResult
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -163,7 +164,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 			}
 		} else {
 			info := UserInfo{
-				Username:       username,
+				Username:       tag.Name(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
@@ -185,42 +186,47 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 		return result, nil
 	}
 	for i, arg := range args.Changes {
+		loggedInUser, err := api.getLoggedInUser()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
 		username := arg.Username
 		if username == "" {
 			username = arg.Tag
 		}
 
-		argUser, err := api.state.User(username)
+		if !names.IsValidUserName(username) {
+			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
+			continue
+		}
+		searchTag := names.NewLocalUserTag(username)
+		if loggedInUser != searchTag {
+			result.Results[i].Error = common.ServerError(errors.Errorf("can only change the password of the current user (%s)", loggedInUser.Id()))
+			continue
+		}
+
+		argUser, err := api.state.User(searchTag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %v", err))
-			continue
-		}
-
-		loggedInUser := api.getLoggedInUser()
-		if _, ok := loggedInUser.(names.UserTag); !ok {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Not a user"))
-			continue
-		}
-
-		if loggedInUser != argUser.Tag() {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Id()))
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "failed to find user"))
 			continue
 		}
 
 		err = argUser.SetPassword(arg.Password)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to set password %v", err))
+			result.Results[i].Error = common.ServerError(errors.Annotate(err, "failed to set password"))
 			continue
 		}
 	}
 	return result, nil
 }
 
-func (api *UserManagerAPI) getLoggedInUser() names.Tag {
+func (api *UserManagerAPI) getLoggedInUser() (names.UserTag, error) {
 	switch tag := api.authorizer.GetAuthTag().(type) {
 	case names.UserTag:
-		return tag
+		return tag, nil
 	default:
-		return nil
+		return names.UserTag{}, errors.New("authorizer not a user")
 	}
 }

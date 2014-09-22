@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -105,6 +107,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
+	c.Assert(env.args.KeepBroken, gc.DeepEquals, false)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
@@ -115,6 +118,16 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
+	c.Assert(env.args.KeepBroken, gc.DeepEquals, false)
+}
+
+func (s *bootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{KeepBroken: true})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.args.KeepBroken, gc.DeepEquals, true)
 }
 
 func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
@@ -187,6 +200,68 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 		agentVersion, _ := env.Config().AgentVersion()
 		c.Assert(agentVersion, gc.Equals, t.expectedAgentVersion)
 	}
+}
+
+// createImageMetadata creates some image metadata in a local directory.
+func createImageMetadata(c *gc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
+	// Generate some image metadata.
+	im := []*imagemetadata.ImageMetadata{{
+		Id:         "1234",
+		Arch:       "amd64",
+		Version:    "13.04",
+		RegionName: "region",
+		Endpoint:   "endpoint",
+	}}
+	cloudSpec := &simplestreams.CloudSpec{
+		Region:   "region",
+		Endpoint: "endpoint",
+	}
+	sourceDir := c.MkDir()
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
+	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
+	c.Assert(err, gc.IsNil)
+	return sourceDir, im
+}
+
+func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
+	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+
+	metadataDir, metadata := createImageMetadata(c)
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+		MetadataDir: metadataDir,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
+
+	datasources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(datasources, gc.HasLen, 2)
+	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
+	c.Assert(env.machineConfig, gc.NotNil)
+	c.Assert(env.machineConfig.CustomImageMetadata, gc.HasLen, 1)
+	c.Assert(env.machineConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
+	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+
+	emptyDir := c.MkDir()
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+		MetadataDir: emptyDir,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+
+	datasources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(datasources, gc.HasLen, 1)
+	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
 }
 
 type bootstrapEnviron struct {
@@ -271,4 +346,8 @@ func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 
 func (e *bootstrapEnviron) SupportNetworks() bool {
 	return true
+}
+
+func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
 }

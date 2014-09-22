@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 )
@@ -25,7 +24,6 @@ var providerInstance = joyentProvider{}
 var _ environs.EnvironProvider = providerInstance
 
 var _ simplestreams.HasRegion = (*joyentEnviron)(nil)
-var _ imagemetadata.SupportsCustomSources = (*joyentEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*joyentEnviron)(nil)
 
 func init() {

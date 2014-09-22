@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/mgo.v2/txn"
@@ -57,7 +58,8 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
 	cfg := testing.EnvironConfig(c)
-	state, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), Policy(nil))
+	owner := names.NewLocalUserTag("settings-admin")
+	state, err := Initialize(owner, TestingMongoInfo(), cfg, TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 	s.AddCleanup(func(*gc.C) { state.Close() })
 	s.state = state

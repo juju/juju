@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/rpc"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,7 +18,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	gitjujutesting "github.com/juju/testing"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -58,7 +56,6 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	coretesting.GitSuite
 	testing.JujuConnSuite
-	gitjujutesting.HTTPSuite
 	dataDir  string
 	oldLcAll string
 	unitDir  string
@@ -72,7 +69,6 @@ var _ = gc.Suite(&UniterSuite{})
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
 	s.GitSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
-	s.HTTPSuite.SetUpSuite(c)
 	s.dataDir = c.MkDir()
 	toolsDir := tools.ToolsDir(s.dataDir, "unit-u-0")
 	err := os.MkdirAll(toolsDir, 0755)
@@ -89,7 +85,6 @@ func (s *UniterSuite) SetUpSuite(c *gc.C) {
 
 func (s *UniterSuite) TearDownSuite(c *gc.C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
-	s.HTTPSuite.TearDownSuite(c)
 	s.JujuConnSuite.TearDownSuite(c)
 	s.GitSuite.TearDownSuite(c)
 }
@@ -97,12 +92,10 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 func (s *UniterSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
-	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *UniterSuite) TearDownTest(c *gc.C) {
 	s.ResetContext(c)
-	s.HTTPSuite.TearDownTest(c)
 	s.JujuConnSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
@@ -113,7 +106,6 @@ func (s *UniterSuite) Reset(c *gc.C) {
 }
 
 func (s *UniterSuite) ResetContext(c *gc.C) {
-	gitjujutesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, gc.IsNil)
 }
@@ -151,7 +143,7 @@ type context struct {
 	dataDir       string
 	s             *UniterSuite
 	st            *state.State
-	charms        gitjujutesting.ResponseMap
+	charms        map[string][]byte
 	hooks         []string
 	sch           *state.Charm
 	svc           *state.Service
@@ -337,9 +329,7 @@ var bootstrapTests = []uniterTest{
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
-		custom{func(c *gc.C, ctx *context) {
-			gitjujutesting.Server.Response(404, nil, nil)
-		}},
+		// don't serve charm
 		createUniter{},
 		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
 	),
@@ -1361,6 +1351,7 @@ var actionEventTests = []uniterTest{
 			params: map[string]interface{}{"outfile": 2},
 		},
 		waitHooks{"fail-snapshot"},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not defined in actions.yaml fail without an error",
 		createCharm{
@@ -1378,15 +1369,14 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
 		waitHooks{"fail-snapshot"},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"pending actions get consumed",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeAction(c, path, "action-log-fail")
 				ctx.writeActionsYaml(c, path, []string{
 					"action-log",
-					"action-log-fail",
 				})
 			},
 		},
@@ -1394,9 +1384,8 @@ var actionEventTests = []uniterTest{
 		ensureStateWorker{},
 		createServiceAndUnit{},
 		addAction{"action-log", nil},
-		addAction{"action-log-fail", nil},
 		addAction{"action-log", nil},
-		addAction{"action-log-fail", nil},
+		addAction{"action-log", nil},
 		startUniter{},
 		waitAddresses{},
 		waitUnit{status: params.StatusStarted},
@@ -1404,10 +1393,10 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		waitHooks{
 			"action-log",
-			"fail-action-log-fail",
 			"action-log",
-			"fail-action-log-fail",
+			"action-log",
 		},
+		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions not implemented are not errors, similarly to hooks",
 		createCharm{},
@@ -1421,6 +1410,19 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitNoHooks{"action-log", "fail-action-log"},
+		waitUnit{status: params.StatusStarted},
+	), ut(
+		"actions are not attempted from ModeHookError and do not clear the error",
+		startupError{"install"},
+		addAction{"action-log", nil},
+		waitNoHooks{"action-log"},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "install"`,
+			data: map[string]interface{}{
+				"remote-unit": "mysql/0",
+			},
+		},
 	),
 }
 
@@ -1473,7 +1475,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				uuid:    env.UUID(),
 				path:    s.unitDir,
 				dataDir: s.dataDir,
-				charms:  gitjujutesting.ResponseMap{},
+				charms:  make(map[string][]byte),
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -1509,7 +1511,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		st:      s.State,
 		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir: s.dataDir,
-		charms:  gitjujutesting.ResponseMap{},
+		charms:  make(map[string][]byte),
 	}
 
 	testing.AddStateServerMachine(c, ctx.st)
@@ -1526,7 +1528,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wpu, err := wps.AddUnit()
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "u"})
+	eps, err := s.State.InferEndpoints("wordpress", "u")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1617,18 +1619,22 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	body := buf.Bytes()
 	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
-	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
-	hurl, err := url.Parse(gitjujutesting.Server.URL + key)
-	c.Assert(err, gc.IsNil)
-	ctx.charms[key] = gitjujutesting.Response{200, nil, body}
-	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
+
+	storagePath := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
+	ctx.charms[storagePath] = body
+	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, storagePath, hash)
 	c.Assert(err, gc.IsNil)
 }
 
 type serveCharm struct{}
 
-func (serveCharm) step(c *gc.C, ctx *context) {
-	gitjujutesting.Server.ResponseMap(1, ctx.charms)
+func (s serveCharm) step(c *gc.C, ctx *context) {
+	storage := ctx.st.Storage()
+	for storagePath, data := range ctx.charms {
+		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
+		c.Assert(err, gc.IsNil)
+		delete(ctx.charms, storagePath)
+	}
 }
 
 type createServiceAndUnit struct {
@@ -1901,7 +1907,7 @@ func (s waitUnit) step(c *gc.C, ctx *context) {
 			}
 			status, info, data, err := ctx.unit.Status()
 			c.Assert(err, gc.IsNil)
-			if status != s.status {
+			if string(status) != string(s.status) {
 				c.Logf("want unit status %q, got %q; still waiting", s.status, status)
 				continue
 			}
@@ -2021,7 +2027,8 @@ type upgradeCharm struct {
 }
 
 func (s upgradeCharm) step(c *gc.C, ctx *context) {
-	sch, err := ctx.st.Charm(curl(s.revision))
+	curl := curl(s.revision)
+	sch, err := ctx.st.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	err = ctx.svc.SetCharm(sch, s.forced)
 	c.Assert(err, gc.IsNil)
@@ -2104,7 +2111,7 @@ func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
 			// to reset the error status, we can avoid a race in which a subsequent
 			// fixUpgradeError lands just before the restarting uniter retries the
 			// upgrade; and thus puts us in an unexpected state for future steps.
-			ctx.unit.SetStatus(params.StatusStarted, "", nil)
+			ctx.unit.SetStatus(state.StatusStarted, "", nil)
 		}},
 		startUniter{},
 	}
@@ -2134,7 +2141,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 	if ctx.relatedSvc == nil {
 		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
-	eps, err := ctx.st.InferEndpoints([]string{"u", "mysql"})
+	eps, err := ctx.st.InferEndpoints("u", "mysql")
 	c.Assert(err, gc.IsNil)
 	ctx.relation, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2228,7 +2235,7 @@ func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Service("logging"); errors.IsNotFound(err) {
 		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
-	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, gc.IsNil)
 	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2239,7 +2246,7 @@ type removeSubordinateRelation struct {
 }
 
 func (s removeSubordinateRelation) step(c *gc.C, ctx *context) {
-	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, gc.IsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, gc.IsNil)

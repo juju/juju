@@ -1897,3 +1897,111 @@ func (w *machineInterfacesWatcher) loop() error {
 		}
 	}
 }
+
+// openedPortsWatcher notifies of changes in the openedPorts
+// collection
+type openedPortsWatcher struct {
+	commonWatcher
+	known map[string]int64
+	out   chan []string
+}
+
+var _ Watcher = (*openedPortsWatcher)(nil)
+
+// WatchOpenedPorts starts and returns a StringsWatcher notifying of
+// changes to the openedPorts collection.
+func (st *State) WatchOpenedPorts() StringsWatcher {
+	return newOpenedPortsWatcher(st)
+}
+
+func newOpenedPortsWatcher(st *State) StringsWatcher {
+	w := &openedPortsWatcher{
+		commonWatcher: commonWatcher{st: st},
+		known:         make(map[string]int64),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+// Changes returns the event channel for w
+func (w *openedPortsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *openedPortsWatcher) initial() (*set.Strings, error) {
+	ports, closer := w.st.getCollection(openedPortsC)
+	defer closer()
+
+	portDocs := set.NewStrings()
+	var doc portsDoc
+	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
+	for iter.Next(&doc) {
+		w.known[doc.Id] = doc.TxnRevno
+		portDocs.Add(doc.Id)
+	}
+	return &portDocs, errors.Trace(iter.Close())
+}
+
+func (w *openedPortsWatcher) loop() error {
+	in := make(chan watcher.Change)
+	changes, err := w.initial()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.st.watcher.WatchCollection(openedPortsC, in)
+	defer w.st.watcher.UnwatchCollection(openedPortsC, in)
+
+	var out chan []string
+	if !changes.IsEmpty() {
+		out = w.out
+	}
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			if err = w.merge(changes, ch); err != nil {
+				return errors.Trace(err)
+			}
+			if !changes.IsEmpty() {
+				out = w.out
+			}
+		case out <- changes.Values():
+			out = nil
+			changes = &set.Strings{}
+		}
+	}
+}
+
+func (w *openedPortsWatcher) merge(ids *set.Strings, change watcher.Change) error {
+	id, ok := change.Id.(string)
+	if !ok {
+		return errors.Errorf("id %v is not of type string, got %T", id, id)
+	}
+	if change.Revno == -1 {
+		delete(w.known, id)
+		ids.Remove(id)
+		return nil
+	}
+
+	openedPorts, closer := w.st.getCollection(openedPortsC)
+	currentRevno, err := getTxnRevno(openedPorts, id)
+	closer()
+	if err != nil {
+		return err
+	}
+	knownRevno, isKnown := w.known[id]
+	w.known[id] = currentRevno
+	if !isKnown || currentRevno > knownRevno {
+		ids.Add(id)
+	}
+	return nil
+}

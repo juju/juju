@@ -4,14 +4,15 @@
 package apiserver
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path"
+	"net/url"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -19,9 +20,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/sync"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -50,12 +50,13 @@ func (h *toolsDownloadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 
 	switch r.Method {
 	case "GET":
-		tools, verifyHostname, err := h.processGet(r)
+		tarball, err := h.processGet(r)
 		if err != nil {
+			logger.Errorf("GET(%s) failed: %v", r.URL, err)
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		h.sendTools(w, http.StatusOK, tools, verifyHostname)
+		h.sendTools(w, http.StatusOK, tarball)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -75,15 +76,12 @@ func (h *toolsUploadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "POST":
 		// Add tools to storage.
-		agentTools, disableSSLHostnameVerification, err := h.processPost(r)
+		agentTools, err := h.processPost(r)
 		if err != nil {
 			h.sendError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		h.sendJSON(w, http.StatusOK, &params.ToolsResult{
-			Tools: agentTools,
-			DisableSSLHostnameVerification: disableSSLHostnameVerification,
-		})
+		h.sendJSON(w, http.StatusOK, &params.ToolsResult{Tools: agentTools})
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
@@ -103,6 +101,7 @@ func (h *toolsHandler) sendJSON(w http.ResponseWriter, statusCode int, response 
 
 // sendError sends a JSON-encoded error response.
 func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
+	logger.Debugf("sending error: %v %v", statusCode, message)
 	err := common.ServerError(errors.New(message))
 	if err := h.sendJSON(w, statusCode, &params.ToolsResult{Error: err}); err != nil {
 		logger.Errorf("failed to send error: %v", err)
@@ -110,167 +109,202 @@ func (h *toolsHandler) sendError(w http.ResponseWriter, statusCode int, message 
 }
 
 // processGet handles a tools GET request.
-func (h *toolsDownloadHandler) processGet(r *http.Request) (*tools.Tools, utils.SSLHostnameVerification, error) {
+func (h *toolsDownloadHandler) processGet(r *http.Request) ([]byte, error) {
 	version, err := version.ParseBinary(r.URL.Query().Get(":version"))
 	if err != nil {
-		return nil, false, err
+		return nil, errors.Annotate(err, "error parsing version")
 	}
-	cfg, err := h.state.EnvironConfig()
+	storage, err := h.state.ToolsStorage()
 	if err != nil {
-		return nil, false, err
+		return nil, errors.Annotate(err, "error getting tools storage")
 	}
-	env, err := environs.New(cfg)
+	defer storage.Close()
+	_, reader, err := storage.Tools(version)
+	if errors.IsNotFound(err) {
+		// Tools could not be found in toolstorage,
+		// so look for them in simplestreams, fetch
+		// them and cache in toolstorage.
+		logger.Infof("%v tools not found locally, fetching", version)
+		reader, err = h.fetchAndCacheTools(version, storage)
+		if err != nil {
+			err = errors.Annotate(err, "error fetching tools")
+		}
+	}
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	filter := tools.Filter{
-		Number: version.Number,
-		Series: version.Series,
-		Arch:   version.Arch,
-	}
-	tools, err := envtools.FindTools(env, version.Major, version.Minor, filter, false)
+	defer reader.Close()
+	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, false, errors.Annotate(err, "failed to find tools")
+		return nil, errors.Annotate(err, "failed to read tools tarball")
 	}
-	verify := utils.SSLHostnameVerification(cfg.SSLHostnameVerification())
-	return tools[0], verify, nil
+	return data, nil
+}
+
+// fetchAndCacheTools fetches tools with the specified version by searching for a URL
+// in simplestreams and GETting it, caching the result in toolstorage before returning
+// to the caller.
+func (h *toolsDownloadHandler) fetchAndCacheTools(v version.Binary, stor toolstorage.Storage) (io.ReadCloser, error) {
+	envcfg, err := h.state.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	env, err := environs.New(envcfg)
+	if err != nil {
+		return nil, err
+	}
+	tools, err := envtools.FindExactTools(env, v.Number, v.Series, v.Arch)
+	if err != nil {
+		return nil, err
+	}
+
+	// No need to verify the server's identity because we verify the SHA-256 hash.
+	logger.Infof("fetching %v tools from %v", v, tools.URL)
+	resp, err := utils.GetNonValidatingHTTPClient().Get(tools.URL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		msg := fmt.Sprintf("bad HTTP response: %v", resp.Status)
+		if body, err := ioutil.ReadAll(resp.Body); err == nil {
+			msg += fmt.Sprintf(" (%s)", bytes.TrimSpace(body))
+		}
+		return nil, errors.New(msg)
+	}
+	data, sha256, err := readAndHash(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) != tools.Size {
+		return nil, errors.Errorf("size mismatch for %s", tools.URL)
+	}
+	if sha256 != tools.SHA256 {
+		return nil, errors.Errorf("hash mismatch for %s", tools.URL)
+	}
+
+	// Cache tarball in toolstorage before returning.
+	metadata := toolstorage.Metadata{
+		Version: v,
+		Size:    tools.Size,
+		SHA256:  tools.SHA256,
+	}
+	if err := stor.AddTools(bytes.NewReader(data), metadata); err != nil {
+		return nil, errors.Annotate(err, "error caching tools")
+	}
+	return ioutil.NopCloser(bytes.NewReader(data)), nil
 }
 
 // sendTools streams the tools tarball to the client.
-func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tools *tools.Tools, verify utils.SSLHostnameVerification) {
-	client := utils.GetHTTPClient(verify)
-	resp, err := client.Get(tools.URL)
-	if err != nil {
-		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to get %q: %v", tools.URL, err))
-		return
-	}
-	defer resp.Body.Close()
-	data, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to read tools: %v", err))
-		return
-	}
-	w.Header().Set("Content-Type", "application/x-gtar")
-	w.Header().Set("Content-Length", fmt.Sprint(len(data)))
+func (h *toolsDownloadHandler) sendTools(w http.ResponseWriter, statusCode int, tarball []byte) {
+	w.Header().Set("Content-Type", "application/x-tar-gz")
+	w.Header().Set("Content-Length", fmt.Sprint(len(tarball)))
 	w.WriteHeader(statusCode)
-	if _, err := w.Write(data); err != nil {
+	if _, err := w.Write(tarball); err != nil {
 		h.sendError(w, http.StatusBadRequest, fmt.Sprintf("failed to write tools: %v", err))
 		return
 	}
 }
 
 // processPost handles a tools upload POST request after authentication.
-func (h *toolsUploadHandler) processPost(r *http.Request) (*tools.Tools, bool, error) {
+func (h *toolsUploadHandler) processPost(r *http.Request) (*tools.Tools, error) {
 	query := r.URL.Query()
+
 	binaryVersionParam := query.Get("binaryVersion")
 	if binaryVersionParam == "" {
-		return nil, false, errors.New("expected binaryVersion argument")
+		return nil, errors.New("expected binaryVersion argument")
 	}
 	toolsVersion, err := version.ParseBinary(binaryVersionParam)
 	if err != nil {
-		return nil, false, errors.Annotatef(err, "invalid tools version %q", binaryVersionParam)
+		return nil, errors.Annotatef(err, "invalid tools version %q", binaryVersionParam)
 	}
-	logger.Debugf("request to upload tools %s", toolsVersion)
+
 	// Make sure the content type is x-tar-gz.
 	contentType := r.Header.Get("Content-Type")
 	if contentType != "application/x-tar-gz" {
-		return nil, false, errors.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
+		return nil, errors.Errorf("expected Content-Type: application/x-tar-gz, got: %v", contentType)
 	}
-	return h.handleUpload(r.Body, toolsVersion)
+
+	// Get the server root, so we know how to form the URL in the Tools returned.
+	serverRoot, err := h.getServerRoot(r, query)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot to determine server root")
+	}
+
+	// We'll clone the tools for each additional series specified.
+	cloneSeries := strings.Split(query.Get("series"), ",")
+	logger.Debugf("request to upload tools: %s", toolsVersion)
+	logger.Debugf("additional series: %s", cloneSeries)
+
+	toolsVersions := []version.Binary{toolsVersion}
+	for _, series := range cloneSeries {
+		if series != toolsVersion.Series {
+			v := toolsVersion
+			v.Series = series
+			toolsVersions = append(toolsVersions, v)
+		}
+	}
+	return h.handleUpload(r.Body, toolsVersions, serverRoot)
+}
+
+func (h *toolsUploadHandler) getServerRoot(r *http.Request, query url.Values) (string, error) {
+	uuid := query.Get(":envuuid")
+	if uuid == "" {
+		env, err := h.state.Environment()
+		if err != nil {
+			return "", err
+		}
+		uuid = env.UUID()
+	}
+	return fmt.Sprintf("https://%s/environment/%s", r.Host, uuid), nil
 }
 
 // handleUpload uploads the tools data from the reader to env storage as the specified version.
-func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersion version.Binary) (*tools.Tools, bool, error) {
-	// Set up a local temp directory for the tools tarball.
-	tmpDir, err := ioutil.TempDir("", "juju-upload-tools-")
+func (h *toolsUploadHandler) handleUpload(r io.Reader, toolsVersions []version.Binary, serverRoot string) (*tools.Tools, error) {
+	storage, err := h.state.ToolsStorage()
 	if err != nil {
-		return nil, false, errors.Annotate(err, "cannot create temp dir")
+		return nil, err
 	}
-	defer os.RemoveAll(tmpDir)
-	toolsFilename := envtools.StorageName(toolsVersion)
-	toolsDir := path.Dir(toolsFilename)
-	fullToolsDir := path.Join(tmpDir, toolsDir)
-	err = os.MkdirAll(fullToolsDir, 0700)
-	if err != nil {
-		return nil, false, errors.Annotatef(err, "cannot create tools dir %s", toolsDir)
-	}
+	defer storage.Close()
 
 	// Read the tools tarball from the request, calculating the sha256 along the way.
-	fullToolsFilename := path.Join(tmpDir, toolsFilename)
-	toolsFile, err := os.Create(fullToolsFilename)
+	data, sha256, err := readAndHash(r)
 	if err != nil {
-		return nil, false, errors.Annotatef(err, "cannot create tools file %s", fullToolsFilename)
+		return nil, err
 	}
-	logger.Debugf("saving uploaded tools to temp file: %s", fullToolsFilename)
-	defer toolsFile.Close()
-	sha256hash := sha256.New()
-	var size int64
-	if size, err = io.Copy(toolsFile, io.TeeReader(r, sha256hash)); err != nil {
-		return nil, false, errors.Annotate(err, "error processing file upload")
-	}
-	if size == 0 {
-		return nil, false, errors.New("no tools uploaded")
+	if len(data) == 0 {
+		return nil, errors.New("no tools uploaded")
 	}
 
 	// TODO(wallyworld): check integrity of tools tarball.
 
-	// Create a tools record and sync to storage.
-	uploadedTools := &tools.Tools{
-		Version: toolsVersion,
-		Size:    size,
-		SHA256:  fmt.Sprintf("%x", sha256hash.Sum(nil)),
+	// Store tools and metadata in toolstorage.
+	for _, v := range toolsVersions {
+		metadata := toolstorage.Metadata{
+			Version: v,
+			Size:    int64(len(data)),
+			SHA256:  sha256,
+		}
+		logger.Debugf("uploading tools %+v to storage", metadata)
+		if err := storage.AddTools(bytes.NewReader(data), metadata); err != nil {
+			return nil, err
+		}
 	}
-	logger.Debugf("about to upload tools %+v to storage", uploadedTools)
-	return h.uploadToStorage(uploadedTools, tmpDir, toolsFilename)
+
+	tools := &tools.Tools{
+		Version: toolsVersions[0],
+		Size:    int64(len(data)),
+		SHA256:  sha256,
+		URL:     common.ToolsURL(serverRoot, toolsVersions[0]),
+	}
+	return tools, nil
 }
 
-// uploadToStorage uploads the tools from the specified directory to environment storage.
-func (h *toolsUploadHandler) uploadToStorage(uploadedTools *tools.Tools, toolsDir, toolsFilename string) (*tools.Tools, bool, error) {
-	// SyncTools requires simplestreams metadata to find the tools to upload.
-	stor, err := filestorage.NewFileStorageWriter(toolsDir)
+func readAndHash(r io.Reader) (data []byte, sha256hex string, err error) {
+	hash := sha256.New()
+	data, err = ioutil.ReadAll(io.TeeReader(r, hash))
 	if err != nil {
-		return nil, false, errors.Annotate(err, "cannot create metadata storage")
+		return nil, "", errors.Annotate(err, "error processing file upload")
 	}
-	// Generate metadata for each series of the same OS as the uploaded tools.
-	// The URL for each fake series record points to the same tools tarball.
-	allToolsMetadata := []*tools.Tools{uploadedTools}
-	osSeries := version.OSSupportedSeries(uploadedTools.Version.OS)
-	for _, series := range osSeries {
-		vers := uploadedTools.Version
-		vers.Series = series
-		allToolsMetadata = append(allToolsMetadata, &tools.Tools{
-			Version: vers,
-			URL:     uploadedTools.URL,
-			Size:    uploadedTools.Size,
-			SHA256:  uploadedTools.SHA256,
-		})
-	}
-	err = envtools.MergeAndWriteMetadata(stor, allToolsMetadata, false)
-	if err != nil {
-		return nil, false, errors.Annotate(err, "cannot get environment config")
-	}
-
-	// Create the environment so we can get the storage to which we upload the tools.
-	envConfig, err := h.state.EnvironConfig()
-	if err != nil {
-		return nil, false, errors.Annotate(err, "cannot get environment config")
-	}
-	env, err := environs.New(envConfig)
-	if err != nil {
-		return nil, false, errors.Annotate(err, "cannot access environment")
-	}
-
-	// Now perform the upload.
-	builtTools := &sync.BuiltTools{
-		Version:     uploadedTools.Version,
-		Dir:         toolsDir,
-		StorageName: toolsFilename,
-		Size:        uploadedTools.Size,
-		Sha256Hash:  uploadedTools.SHA256,
-	}
-	uploadedTools, err = sync.SyncBuiltTools(env.Storage(), builtTools, osSeries...)
-	if err != nil {
-		return nil, false, err
-	}
-	return uploadedTools, !envConfig.SSLHostnameVerification(), nil
+	return data, fmt.Sprintf("%x", hash.Sum(nil)), nil
 }

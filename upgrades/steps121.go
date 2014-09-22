@@ -29,5 +29,26 @@ func stepsFor121() []Step {
 				return state.AddStateUsersAsEnvironUsers(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "migrate charm archives into environment storage",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return migrateCharmStorage(context.State(), context.AgentConfig())
+			},
+		},
+		&upgradeStep{
+			description: "migrate custom image metadata into environment storage",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return migrateCustomImageMetadata(context.State(), context.AgentConfig())
+			},
+		},
+		&upgradeStep{
+			description: "set environment owner and server uuid",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.SetOwnerAndServerUUIDForEnvironment(context.State())
+			},
+		},
 	}
 }

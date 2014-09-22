@@ -332,12 +332,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
-		hi := hook.Info{}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
-		case info := <-u.f.ActionEvents():
-			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
 			case params.ResolvedRetryHooks:
@@ -358,11 +355,6 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return ModeContinue, nil
 		case curl := <-u.f.UpgradeEvents():
 			return ModeUpgrading(curl), nil
-		}
-		if err := u.runHook(hi); err == errHookFailed {
-			return ModeHookError, nil
-		} else if err != nil {
-			return nil, err
 		}
 	}
 }

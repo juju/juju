@@ -378,6 +378,31 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	})
 }
 
+func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened",
+		perm: 0700,
+	})
+
+	now := time.Now()
+	ctx.AddMetrics("key", "50", now)
+
+	// Run the hook.
+	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+	metrics := metricBatches[0].Metrics()
+	c.Assert(metrics, gc.HasLen, 1)
+	c.Assert(metrics[0].Key, gc.Equals, "key")
+	c.Assert(metrics[0].Value, gc.Equals, "50")
+}
+
 type ContextRelationSuite struct {
 	testing.JujuConnSuite
 	svc *state.Service
@@ -726,7 +751,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.AddTestingService(c, name, s.relch)
-	eps, err := s.State.InferEndpoints([]string{"u", name})
+	eps, err := s.State.InferEndpoints("u", name)
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

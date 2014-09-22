@@ -179,6 +179,9 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	info, cleanup := s.setupMachineAndServer(c)
 	defer cleanup()
 
+	err := s.State.SetAPIHostPorts(nil)
+	c.Assert(err, gc.IsNil)
+
 	// Initially just the address we connect with is returned,
 	// despite there being no APIHostPorts in state.
 	connectedAddr, hostPorts := s.loginHostPorts(c, info)
@@ -442,6 +445,16 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	for err := range errResults {
 		c.Check(err, gc.IsNil)
 	}
+}
+
+func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoEnvUser: true})
+	info.Password = "dummy-password"
+	info.Tag = user.UserTag()
+	_, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 }
 
 func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {

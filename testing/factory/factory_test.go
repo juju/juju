@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -55,7 +57,8 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 		Timeout: testing.LongWait,
 	}
 	cfg := testing.EnvironConfig(c)
-	st, err := state.Initialize(info, cfg, opts, &policy)
+	owner := names.NewLocalUserTag("factory-admin")
+	st, err := state.Initialize(owner, info, cfg, opts, &policy)
 	c.Assert(err, gc.IsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(s.State)
@@ -73,7 +76,7 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -87,21 +90,21 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	username := "bob"
 	displayName := "Bob the Builder"
-	creator := "eric"
+	creator := s.Factory.MakeUser(c, nil)
 	password := "sekrit"
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        username,
 		DisplayName: displayName,
-		Creator:     creator,
+		Creator:     creator.Name(),
 		Password:    password,
 	})
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 	c.Assert(user.Name(), gc.Equals, username)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
-	c.Assert(user.CreatedBy(), gc.Equals, creator)
+	c.Assert(user.CreatedBy(), gc.Equals, creator.Name())
 	c.Assert(user.PasswordValid(password), jc.IsTrue)
 
-	saved, err := s.State.User(user.Name())
+	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Tag(), gc.Equals, user.Tag())
 	c.Assert(saved.Name(), gc.Equals, user.Name())
@@ -110,6 +113,28 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
+
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
+	username := "bob"
+	displayName := "Bob the Builder"
+	creator := "eric"
+	password := "sekrit"
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        username,
+		DisplayName: displayName,
+		Creator:     creator,
+		Password:    password,
+		NoEnvUser:   true,
+	})
+
+	_, err := s.State.User(user.UserTag())
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.EnvironmentUser(user.UserTag())
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
@@ -123,7 +148,7 @@ func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123", NoEnvUser: true})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User: "foobar123"})
 
@@ -138,37 +163,33 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	s.Factory.MakeUser(c, &factory.UserParams{
-		Name:        "foobar",
-		DisplayName: "displayName",
-		Creator:     "created-by",
+		Name:      "foobar",
+		Creator:   "created-by",
+		NoEnvUser: true,
 	})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:        "foobar",
-		DisplayName: "displayName",
-		CreatedBy:   "created-by",
+		User:      "foobar",
+		CreatedBy: "created-by",
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
-	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
 	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
 }
 
 func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
-		User:        "foobar@ubuntuone",
-		DisplayName: "displayName",
-		CreatedBy:   "created-by",
+		User:      "foobar@ubuntuone",
+		CreatedBy: "created-by",
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
-	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
 	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
 }
 
@@ -241,7 +262,7 @@ func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
 
 	c.Assert(saved.URL(), gc.DeepEquals, charm.URL())
 	c.Assert(saved.Meta(), gc.DeepEquals, charm.Meta())
-	c.Assert(saved.BundleURL(), gc.DeepEquals, charm.BundleURL())
+	c.Assert(saved.StoragePath(), gc.Equals, charm.StoragePath())
 	c.Assert(saved.BundleSha256(), gc.Equals, charm.BundleSha256())
 }
 
@@ -264,7 +285,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	c.Assert(saved.URL(), gc.DeepEquals, ch.URL())
 	c.Assert(saved.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(saved.Meta().Name, gc.Equals, name)
-	c.Assert(saved.BundleURL(), gc.DeepEquals, ch.BundleURL())
+	c.Assert(saved.StoragePath(), gc.Equals, ch.StoragePath())
 	c.Assert(saved.BundleSha256(), gc.Equals, ch.BundleSha256())
 }
 
@@ -318,7 +339,8 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	service := s.Factory.MakeService(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Service: service,
+		Service:     service,
+		SetCharmURL: true,
 	})
 	c.Assert(unit, gc.NotNil)
 
@@ -404,7 +426,7 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 
 func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit:    unit,
 		Time:    &now,

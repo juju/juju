@@ -38,11 +38,12 @@ func (s *UpgradeSuite) provision(c *gc.C, machineIds ...string) {
 			fmt.Sprintf("nonce-%s", machineId),
 			nil,
 		)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
 func (s *UpgradeSuite) addStateServers(c *gc.C) (machineId1, machineId2 string) {
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, gc.IsNil)
 	return changes.Added[0], changes.Added[1]
 }
@@ -139,7 +140,7 @@ func (s *UpgradeSuite) TestEnsureUpgradeInfoDowngrade(c *gc.C) {
 
 func (s *UpgradeSuite) TestEnsureUpgradeInfoNonStateServer(c *gc.C) {
 	info, err := s.State.EnsureUpgradeInfo("2345678", vers("1.2.3"), vers("2.3.4"))
-	c.Assert(err, gc.ErrorMatches, "machine \"2345678\" is not a state server")
+	c.Assert(err, gc.ErrorMatches, `machine "2345678" is not a state server`)
 	c.Assert(info, gc.IsNil)
 }
 
@@ -413,15 +414,22 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 		c.Assert(info.Status(), gc.Equals, expect)
 	}
 	err = info.SetStatus(state.UpgradePending)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade pending")
+	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "pending"`)
 	assertStatus(state.UpgradePending)
+
 	err = info.SetStatus(state.UpgradeFinishing)
-	c.Assert(err, gc.ErrorMatches, "cannot set upgrade status to \"finishing\": "+
+	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "finishing": `+
 		"Another status change may have occurred concurrently")
 	assertStatus(state.UpgradePending)
+
 	err = info.SetStatus(state.UpgradeComplete)
-	c.Assert(err, gc.ErrorMatches, "cannot explicitly set upgrade complete")
+	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "complete"`)
 	assertStatus(state.UpgradePending)
+
+	err = info.SetStatus(state.UpgradeAborted)
+	c.Assert(err, gc.ErrorMatches, `cannot explicitly set upgrade status to "aborted"`)
+	assertStatus(state.UpgradePending)
+
 	err = info.SetStatus(state.UpgradeStatus("lol"))
 	c.Assert(err, gc.ErrorMatches, "unknown upgrade status: lol")
 	assertStatus(state.UpgradePending)
@@ -440,7 +448,7 @@ func (s *UpgradeSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	assertStatus(state.UpgradeFinishing)
 	err = info.SetStatus(state.UpgradeRunning)
-	c.Assert(err, gc.ErrorMatches, "cannot set upgrade status to \"running\": "+
+	c.Assert(err, gc.ErrorMatches, `cannot set upgrade status to "running": `+
 		"Another status change may have occurred concurrently")
 	assertStatus(state.UpgradeFinishing)
 }
@@ -463,7 +471,7 @@ func (s *UpgradeSuite) TestSetStateServerDone(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertUpgrading(c, false)
 
-	s.checkUpgradeInfoArchived(c, 1, info)
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeComplete, 1)
 }
 
 func (s *UpgradeSuite) TestSetStateServerDoneMultipleServers(c *gc.C) {
@@ -496,7 +504,7 @@ func (s *UpgradeSuite) TestSetStateServerDoneMultipleServers(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertUpgrading(c, false)
 
-	s.checkUpgradeInfoArchived(c, 3, info)
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeComplete, 3)
 }
 
 func (s *UpgradeSuite) TestSetStateServerDoneMultipleServersRace(c *gc.C) {
@@ -531,6 +539,48 @@ func (s *UpgradeSuite) TestSetStateServerDoneMultipleServersRace(c *gc.C) {
 	c.Assert(info.StateServersDone(), jc.SameContents, []string{"0", "1", "2"})
 }
 
+func (s *UpgradeSuite) TestAbort(c *gc.C) {
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.3.4"))
+	c.Assert(err, gc.IsNil)
+
+	err = info.Abort()
+	c.Assert(err, gc.IsNil)
+
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeAborted, 0)
+}
+
+func (s *UpgradeSuite) TestAbortRace(c *gc.C) {
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("2.3.4"))
+	c.Assert(err, gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err = info.Abort()
+		c.Assert(err, gc.IsNil)
+	}).Check()
+	err = info.Abort()
+	c.Assert(err, gc.IsNil)
+
+	s.checkUpgradeInfoArchived(c, info, state.UpgradeAborted, 0)
+}
+
+func (s *UpgradeSuite) checkUpgradeInfoArchived(
+	c *gc.C,
+	initialInfo *state.UpgradeInfo,
+	expectedStatus state.UpgradeStatus,
+	expectedStateServers int,
+) {
+	info := s.getOneUpgradeInfo(c)
+	c.Assert(info.Status(), gc.Equals, expectedStatus)
+	c.Assert(info.PreviousVersion(), gc.Equals, initialInfo.PreviousVersion())
+	c.Assert(info.TargetVersion(), gc.Equals, initialInfo.TargetVersion())
+	// Truncate because mongo only stores times down to millisecond resolution.
+	c.Assert(info.Started().Equal(initialInfo.Started().Truncate(time.Millisecond)), jc.IsTrue)
+	c.Assert(len(info.StateServersDone()), gc.Equals, expectedStateServers)
+	if expectedStateServers > 0 {
+		c.Assert(info.StateServersDone(), jc.SameContents, info.StateServersReady())
+	}
+}
+
 func (s *UpgradeSuite) getOneUpgradeInfo(c *gc.C) *state.UpgradeInfo {
 	upgradeInfos, err := state.GetAllUpgradeInfos(s.State)
 	c.Assert(err, gc.IsNil)
@@ -538,15 +588,27 @@ func (s *UpgradeSuite) getOneUpgradeInfo(c *gc.C) *state.UpgradeInfo {
 	return upgradeInfos[0]
 }
 
-func (s *UpgradeSuite) checkUpgradeInfoArchived(c *gc.C, expectedStateServers int, initialInfo *state.UpgradeInfo) {
+func (s *UpgradeSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	// First try with nothing to abort.
+	err := s.State.AbortCurrentUpgrade()
+	c.Assert(err, gc.IsNil)
+
+	upgradeInfos, err := state.GetAllUpgradeInfos(s.State)
+	c.Assert(len(upgradeInfos), gc.Equals, 0)
+
+	// Now create a UpgradeInfo to abort.
+	_, err = s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.1.1"), vers("1.2.3"))
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.AbortCurrentUpgrade()
+	c.Assert(err, gc.IsNil)
+
 	info := s.getOneUpgradeInfo(c)
-	c.Assert(info.Status(), gc.Equals, state.UpgradeComplete)
-	c.Assert(info.PreviousVersion(), gc.Equals, initialInfo.PreviousVersion())
-	c.Assert(info.TargetVersion(), gc.Equals, initialInfo.TargetVersion())
-	// Truncate because mongo only stores times down to millisecond resolution.
-	c.Assert(info.Started().Equal(initialInfo.Started().Truncate(time.Millisecond)), jc.IsTrue)
-	c.Assert(len(info.StateServersDone()), gc.Equals, expectedStateServers)
-	c.Assert(info.StateServersDone(), jc.SameContents, info.StateServersReady())
+	c.Check(info.Status(), gc.Equals, state.UpgradeAborted)
+
+	// It should now be possible to start another upgrade.
+	_, err = s.State.EnsureUpgradeInfo(s.serverIdA, vers("1.2.3"), vers("1.3.0"))
+	c.Check(err, gc.IsNil)
 }
 
 func (s *UpgradeSuite) TestClearUpgradeInfo(c *gc.C) {

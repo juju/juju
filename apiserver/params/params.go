@@ -529,6 +529,7 @@ type ServiceInfo struct {
 	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
+	Subordinate bool
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
@@ -550,6 +551,7 @@ type UnitInfo struct {
 	Status         Status
 	StatusInfo     string
 	StatusData     map[string]interface{}
+	Subordinate    bool
 }
 
 func (i *UnitInfo) EntityId() EntityId {
@@ -660,6 +662,26 @@ type EnvironmentUnset struct {
 	Keys []string
 }
 
+// ModifyEnvironUsers holds the parameters for making Client ShareEnvironment calls.
+type ModifyEnvironUsers struct {
+	Changes []ModifyEnvironUser
+}
+
+// EnvironAction is an action that can be preformed on an environment.
+type EnvironAction string
+
+// Actions that can be preformed on an environment.
+const (
+	AddEnvUser    EnvironAction = "add"
+	RemoveEnvUser EnvironAction = "remove"
+)
+
+// ModifyEnvironUser stores the parameters used for a Client.ShareEnvironment call.
+type ModifyEnvironUser struct {
+	UserTag string        `json:"user-tag"`
+	Action  EnvironAction `json:"action"`
+}
+
 // SetEnvironAgentVersion contains the arguments for
 // SetEnvironAgentVersion client API call.
 type SetEnvironAgentVersion struct {
@@ -743,6 +765,8 @@ type StateServersSpec struct {
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
 	Series string `json:series,omitempty`
+	// Placement defines specific machines to become new state server machines.
+	Placement []string `json:placement,omitempty`
 }
 
 // StateServersSpecs contains all the arguments

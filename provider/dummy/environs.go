@@ -46,7 +46,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
@@ -84,12 +83,21 @@ func SampleConfig() testing.Attrs {
 		"state-port":                1234,
 		"api-port":                  4321,
 		"syslog-port":               2345,
-		"default-series":            "precise",
+		"default-series":            config.LatestLtsSeries(),
 
 		"secret":       "pork",
 		"state-server": true,
 		"prefer-ipv6":  true,
 	}
+}
+
+// AdminUserTag returns the user tag used to bootstrap the dummy environment.
+// The dummy bootstrapping is handled slightly differently, and the user is
+// created as part of the bootstrap process.  This method is used to provide
+// tests a way to get to the user name that was used to initialise the
+// database, and as such, is the owner of the initial environment.
+func AdminUserTag() names.UserTag {
+	return names.NewLocalUserTag("dummy-admin")
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -236,7 +244,6 @@ type environ struct {
 	ecfgUnlocked *environConfig
 }
 
-var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
@@ -606,12 +613,6 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	return nil
 }
 
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}, nil
-}
-
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
@@ -675,7 +676,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// so that we can call it here.
 
 		info := stateInfo(estate.preferIPv6)
-		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts(), estate.statePolicy)
+		// Since the admin user isn't setup until after here,
+		// the password in the info structure is empty, so the admin
+		// user is constructed with an empty password here.
+		// It is set just below.
+		st, err := state.Initialize(
+			AdminUserTag(), info, cfg,
+			mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}
@@ -688,10 +695,20 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
 			panic(err)
 		}
-		_, err = st.AddAdminUser(password)
+		env, err := st.Environment()
 		if err != nil {
 			panic(err)
 		}
+		owner, err := st.User(env.Owner())
+		if err != nil {
+			panic(err)
+		}
+		// We log this out for test purposes only. No one in real life can use
+		// a dummy provider for anything other than testing, so logging the password
+		// here is fine.
+		logger.Debugf("setting password for %q to %q", owner.Name(), password)
+		owner.SetPassword(password)
+
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),

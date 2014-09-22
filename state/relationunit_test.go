@@ -221,7 +221,7 @@ func (s *RelationUnitSuite) TestContainerSettings(c *gc.C) {
 func (s *RelationUnitSuite) TestContainerCreateSubordinate(c *gc.C) {
 	psvc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	rsvc := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -779,7 +779,7 @@ func NewProReqRelation(c *gc.C, s *ConnSuite, scope charm.RelationScope) *ProReq
 	} else {
 		rsvc = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	}
-	eps, err := s.State.InferEndpoints([]string{"mysql", rsvc.Name()})
+	eps, err := s.State.InferEndpoints("mysql", rsvc.Name())
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

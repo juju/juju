@@ -100,6 +100,51 @@ var (
 	reportOpenedAPI = func(eitherState) {}
 )
 
+// PrepareRestore will flag the agent to allow only one command:
+// Restore, this will ensure that we can do all the file movements
+// required for restore and no one will do changes while we do that.
+// it will return error if the machine is already in this state.
+func (a *MachineAgent) PrepareRestore() error {
+	if a.restoreMode {
+		return fmt.Errorf("already in restore mode")
+	}
+	a.restoreMode = true
+	return nil
+}
+
+// BeginRestore will flag the agent to disallow all commands since
+// restore should be running and therefore making changes that
+// would override anything done.
+func (a *MachineAgent) BeginRestore() error {
+	switch {
+	case !a.restoreMode:
+		return fmt.Errorf("not in restore mode, cannot begin restoration")
+	case a.restoring:
+		return fmt.Errorf("already restoring")
+	}
+	a.restoring = true
+	return nil
+}
+
+// FinishRestore will restart jujud and err if restore flag is not true
+func (a *MachineAgent) FinishRestore() error {
+	if !a.restoring {
+		return fmt.Errorf("restore is not in progress")
+	}
+	a.tomb.Kill(worker.ErrTerminateAgent)
+	return nil
+}
+
+// IsRestorePreparing returns bool representing if we are in restore mode
+// but not running restore
+func (a *MachineAgent) IsRestorePreparing() bool {
+	return a.restoreMode && !a.restoring
+}
+
+func (a *MachineAgent) IsRestoreRunning() bool {
+	return a.restoring
+}
+
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
 	cmd.CommandBase
@@ -110,6 +155,8 @@ type MachineAgent struct {
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
+	restoreMode          bool
+	restoring            bool
 	workersStarted       chan struct{}
 	st                   *state.State
 
@@ -155,6 +202,12 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
+// Dying returns the channel that can be used to see if the machine
+// agent is terminating.
+func (a *MachineAgent) Dying() <-chan struct{} {
+	return a.tomb.Dying()
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old
@@ -166,13 +219,16 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
+	agentConfig := a.CurrentConfig()
+	if err := setupLogging(agentConfig); err != nil {
+		return err
+	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
 	}
 	a.configChangedVal.Set(struct{}{})
-	agentConfig := a.CurrentConfig()
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
@@ -491,6 +547,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
+	registerSimplestreamsDataSource(st.Storage())
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
@@ -602,6 +659,48 @@ func init() {
 	}
 }
 
+// limitLogin is called by the API server for each login attempt.
+// it returns an error if upgrads or restore are running.
+func (a *MachineAgent) limitLogins(creds params.Creds) error {
+	err := a.limitLoginsDuringRestore(creds)
+	if err != nil {
+		return err
+	}
+	err = a.limitLoginsDuringUpgrade(creds)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *MachineAgent) limitLoginsDuringRestore(creds params.Creds) error {
+	var err error
+	switch {
+	case a.IsRestoreRunning():
+		err = apiserver.RestoreInProgressError
+	case a.IsRestorePreparing():
+		err = apiserver.AboutToRestoreError
+	}
+	if err != nil {
+		authTag, parseErr := names.ParseTag(creds.AuthTag)
+		if parseErr != nil {
+			return errors.Annotate(err, "could not parse auth tag")
+		}
+		switch authTag := authTag.(type) {
+		case names.UserTag:
+			// use a restricted API mode
+			return err
+		case names.MachineTag:
+			if authTag == a.Tag() {
+				// allow logins from the local machine
+				return nil
+			}
+		}
+		return errors.Errorf("login for %q blocked because restore is in progress", authTag)
+	}
+	return nil
+}
+
 // limitLoginsDuringUpgrade is called by the API server for each login
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
@@ -680,7 +779,8 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		if err != nil {
 			return err
 		}
-		if err := st.SetStateServingInfo(servingInfo); err != nil {
+		ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+		if err := st.SetStateServingInfo(ssi); err != nil {
 			st.Close()
 			return fmt.Errorf("cannot set state serving info: %v", err)
 		}
@@ -727,6 +827,17 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		return err
 	}
 	return nil
+}
+
+func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
+	}
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {

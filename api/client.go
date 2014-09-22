@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api
@@ -212,11 +212,11 @@ func (c *Client) Resolved(unit string, retry bool) error {
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
-func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, error) {
+func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
 	p := params.Entities{}
 	p.Entities = make([]params.Entity, len(machines))
 	for i, machine := range machines {
-		p.Entities[i] = params.Entity{Tag: machine}
+		p.Entities[i] = params.Entity{Tag: machine.String()}
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("RetryProvisioning", p, &results)
@@ -504,6 +504,38 @@ func (c *Client) EnvironmentUUID() string {
 	return ""
 }
 
+// ShareEnvironment allows the given users access to the environment.
+func (c *Client) ShareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
+	var args params.ModifyEnvironUsers
+	for _, user := range users {
+		if &user != nil {
+			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+				UserTag: user.String(),
+				Action:  params.AddEnvUser,
+			})
+		}
+	}
+
+	err = c.facade.FacadeCall("ShareEnvironment", args, &result)
+	return result, err
+}
+
+// UnshareEnvironment removes access to the environment for the given users.
+func (c *Client) UnshareEnvironment(users []names.UserTag) (result params.ErrorResults, err error) {
+	var args params.ModifyEnvironUsers
+	for _, user := range users {
+		if &user != nil {
+			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+				UserTag: user.String(),
+				Action:  params.RemoveEnvUser,
+			})
+		}
+	}
+
+	err = c.facade.FacadeCall("ShareEnvironment", args, &result)
+	return result, err
+}
+
 // WatchAll holds the id of the newly-created AllWatcher.
 type WatchAll struct {
 	AllWatcherId string
@@ -567,6 +599,12 @@ func (c *Client) EnvironmentUnset(keys ...string) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.facade.FacadeCall("SetEnvironAgentVersion", args, nil)
+}
+
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
@@ -715,14 +753,14 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.Reader, vers version.Binary) (*tools.Tools, error) {
-	// Older versions of Juju expect to be told which series to expand
-	// the uploaded tools to on the server-side. In new versions we
-	// do this automatically, and the parameter will be ignored.
-	fakeSeries := version.OSSupportedSeries(vers.OS)
-
+func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
-	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
+	url := fmt.Sprintf(
+		"%s/tools?binaryVersion=%s&series=%s",
+		c.st.serverRoot,
+		vers,
+		strings.Join(additionalSeries, ","),
+	)
 	req, err := http.NewRequest("POST", url, r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
@@ -775,6 +813,8 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
+// DEPRECATED: remove when we stop supporting 1.20 and earlier servers.
+// This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
