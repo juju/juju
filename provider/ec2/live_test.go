@@ -86,7 +86,7 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
-	t.PatchValue(&version.Current, version.Binary{
+	t.BaseSuite.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,

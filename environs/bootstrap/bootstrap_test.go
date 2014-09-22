@@ -48,6 +48,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(bootstrap.EnvironsVerifyStorage, func(storage.Storage) error { return nil })
+
+	storageDir := c.MkDir()
+	s.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -78,15 +84,8 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
-	uploadTools(c, env)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
-}
-
-func uploadTools(c *gc.C, env environs.Environ) {
-	usefulVersion := version.Current
-	usefulVersion.Series = config.PreferredSeries(env.Config())
-	envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
@@ -245,9 +244,13 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
 
 	metadataDir, metadata := createImageMetadata(c)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
+
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
 		MetadataDir: metadataDir,
 	})
 	c.Assert(err, gc.IsNil)
@@ -266,11 +269,15 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
 
-	emptyDir := c.MkDir()
+	noImagesDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
+
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
-		MetadataDir: emptyDir,
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+		MetadataDir: noImagesDir,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -319,7 +326,6 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = stor
-	envtesting.UploadFakeTools(c, env.storage)
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
