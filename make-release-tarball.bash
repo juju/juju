@@ -11,6 +11,8 @@ unset GOBIN
 DEFAULT_GIT_JUJU_CORE="https://github.com/juju/juju.git"
 PACKAGE="github.com/juju/juju"
 
+SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
+
 usage() {
     echo "usage: $0 <GIT_REV> [GIT_REPO] [MERGE_REF] [MERGE_REPO] [MERGE_REV]"
     echo "  GIT_REV: The juju core git revision or branch to build"
@@ -112,7 +114,7 @@ if [[ -d $WORK/pkg ]]; then
 fi
 
 # Validate the go src tree against dependencies.tsv
-$(dirname $0)/check_dependencies.py --ignore $PACKAGE \
+$SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
     "$WORK/src/$PACKAGE/dependencies.tsv" "$WORK/src"
 
 # Change the generic release to the proper juju-core version.
