@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
-
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
