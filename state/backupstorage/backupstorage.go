@@ -6,9 +6,10 @@ package backupstorage
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/metadata"
 )
@@ -31,8 +32,12 @@ func NewID(metadata *metadata.Metadata) string {
 
 // NewStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewStorage(st *state.State, envStor storage.Storage) filestorage.FileStorage {
+func NewStorage(st *state.State) (filestorage.FileStorage, error) {
+	envStor, err := environs.GetStorage(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	files := newEnvFileStorage(envStor, envStorageRoot)
 	docs := NewMetadataStorage(st)
-	return filestorage.NewFileStorage(docs, files)
+	return filestorage.NewFileStorage(docs, files), nil
 }
