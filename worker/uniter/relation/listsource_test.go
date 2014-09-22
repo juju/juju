@@ -5,10 +5,10 @@ package relation_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )

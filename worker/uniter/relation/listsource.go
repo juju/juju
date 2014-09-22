@@ -3,7 +3,7 @@ package relation
 import (
 	"sort"
 
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
