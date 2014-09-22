@@ -111,13 +111,14 @@ func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {
 		return err
 	}
 	var anyFound bool
-	for i := range state.StateInstances {
+	for i := 0; i < len(state.StateInstances); i++ {
 		for _, id := range ids {
 			if state.StateInstances[i] == id {
 				head := state.StateInstances[:i]
 				tail := state.StateInstances[i+1:]
 				state.StateInstances = append(head, tail...)
 				anyFound = true
+				i--
 				break
 			}
 		}
