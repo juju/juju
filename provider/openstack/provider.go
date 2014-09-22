@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -60,6 +59,7 @@ var shortAttempt = utils.AttemptStrategy{
 
 func init() {
 	environs.RegisterProvider("openstack", environProvider{})
+	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -315,15 +315,17 @@ type environ struct {
 	supportedArchitectures []string
 
 	ecfgMutex       sync.Mutex
-	imageBaseMutex  sync.Mutex
 	toolsBaseMutex  sync.Mutex
 	ecfgUnlocked    *environConfig
 	client          client.AuthenticatingClient
 	novaUnlocked    *nova.Client
 	storageUnlocked storage.Storage
+
 	// An ordered list of sources in which to find the simplestreams index files used to
 	// look up image ids.
-	imageSources []simplestreams.DataSource
+	keystoneImageDataSourceMutex sync.Mutex
+	keystoneImageDataSource      simplestreams.DataSource
+
 	// An ordered list of paths in which to find the simplestreams index files used to
 	// look up tools ids.
 	toolsSources []simplestreams.DataSource
@@ -333,8 +335,6 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
-var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
-var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
@@ -765,34 +765,35 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	e.imageBaseMutex.Lock()
-	defer e.imageBaseMutex.Unlock()
+// getKeystoneImageSource is an imagemetadata.EnvironDataSourceFunc that
+// retyrns a DataSource using the "product-streams" keystone URL.
+func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*environ)
+	if !ok {
+		return nil, jujuerrors.NotSupportedf("non-openstack environment")
+	}
 
-	if e.imageSources != nil {
-		return e.imageSources, nil
+	e.keystoneImageDataSourceMutex.Lock()
+	defer e.keystoneImageDataSourceMutex.Unlock()
+	if e.keystoneImageDataSource != nil {
+		return e.keystoneImageDataSource, nil
 	}
 	if !e.client.IsAuthenticated() {
-		err := e.client.Authenticate()
-		if err != nil {
+		if err := e.client.Authenticate(); err != nil {
 			return nil, err
 		}
 	}
-	// Add the simplestreams source off the control bucket.
-	e.imageSources = append(e.imageSources, storage.NewStorageSimpleStreamsDataSource(
-		"cloud storage", e.Storage(), storage.BaseImagesPath))
-	// Add the simplestreams base URL from keystone if it is defined.
+
 	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
-	if err == nil {
-		verify := utils.VerifySSLHostnames
-		if !e.Config().SSLHostnameVerification() {
-			verify = utils.NoVerifySSLHostnames
-		}
-		source := simplestreams.NewURLDataSource("keystone catalog", productStreamsURL, verify)
-		e.imageSources = append(e.imageSources, source)
+	if err != nil {
+		return nil, err
 	}
-	return e.imageSources, nil
+	verify := utils.VerifySSLHostnames
+	if !e.Config().SSLHostnameVerification() {
+		verify = utils.NoVerifySSLHostnames
+	}
+	e.keystoneImageDataSource = simplestreams.NewURLDataSource("keystone catalog", productStreamsURL, verify)
+	return e.keystoneImageDataSource, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.

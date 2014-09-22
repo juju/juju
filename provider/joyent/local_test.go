@@ -322,21 +322,6 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(addresses, gc.HasLen, 2)
 }
 
-func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
-	env := s.Prepare(c)
-	sources, err := imagemetadata.GetMetadataSources(env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 2)
-	var urls = make([]string, len(sources))
-	for i, source := range sources {
-		url, err := source.URL("")
-		c.Assert(err, gc.IsNil)
-		urls[i] = url
-	}
-	// The control bucket URL contains the bucket name.
-	c.Assert(strings.Contains(urls[0], joyent.ControlBucketName(env)+"/images"), jc.IsTrue)
-}
-
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := s.Prepare(c)
 	sources, err := tools.GetMetadataSources(env)
@@ -363,7 +348,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Prepare(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
-	params.Sources, err = imagemetadata.GetMetadataSources(env)
+	params.Sources, err = environs.ImageMetadataSources(env)
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)

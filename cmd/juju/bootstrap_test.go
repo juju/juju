@@ -24,9 +24,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
-	imtesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -180,7 +178,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "conflicting --constraints",
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
-	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
+	err:  `failed to bootstrap environment: ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
 	info: "bad --series",
 	args: []string{"--series", "1bad1"},
@@ -480,82 +478,20 @@ func createImageMetadata(c *gc.C) (string, []*imagemetadata.ImageMetadata) {
 	return sourceDir, im
 }
 
-// checkImageMetadata checks that the environment contains the expected image metadata.
-func checkImageMetadata(c *gc.C, stor storage.StorageReader, expected []*imagemetadata.ImageMetadata) {
-	metadata := imtesting.ParseMetadataFromStorage(c, stor)
-	c.Assert(metadata, gc.HasLen, 1)
-	c.Assert(expected[0], gc.DeepEquals, metadata[0])
-}
-
-func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
-	sourceDir, expected := createImageMetadata(c)
-	env := resetJujuHome(c)
-
-	// Bootstrap the environment with the valid source.
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	devVersion := version.Current
-	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
-
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir)
-	c.Assert(err, gc.IsNil)
-	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
-
-	// Now check the image metadata has been uploaded.
-	checkImageMetadata(c, env.Storage(), expected)
-}
-
-func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
+func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
 	resetJujuHome(c)
 
-	// Bootstrap the environment with the valid source.
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	devVersion := version.Current
-	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
-
-	var calledFuncs []string
-	s.PatchValue(&uploadCustomMetadata, func(metadataDir string, env environs.Environ) error {
-		c.Assert(metadataDir, gc.DeepEquals, sourceDir)
-		calledFuncs = append(calledFuncs, "uploadCustomMetadata")
-		return nil
+	_bootstrap := &fakeBootstrapFuncs{}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return _bootstrap
 	})
-	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
-		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		calledFuncs = append(calledFuncs, "validateConstraints")
-		return nil
-	})
-	_, err := coretesting.RunCommand(
-		c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir, "--constraints", "mem=4G")
-	c.Assert(err, gc.IsNil)
-	c.Assert(calledFuncs, gc.DeepEquals, []string{"uploadCustomMetadata", "validateConstraints"})
-}
 
-func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
-	// Bootstrap the environment with the valid source.
-	// Force a dev version by having a non zero build number.
-	// This is because we have not uploaded any tools and auto
-	// upload is only enabled for dev versions.
-	devVersion := version.Current
-	devVersion.Build = 1234
-	s.PatchValue(&version.Current, devVersion)
-
-	validateCalled := 0
-	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
-		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		validateCalled++
-		return nil
-	})
-	resetJujuHome(c)
-	_, err := coretesting.RunCommand(
-		c, envcmd.Wrap(&BootstrapCommand{}), "--constraints", "mem=4G")
-	c.Assert(err, gc.IsNil)
-	c.Assert(validateCalled, gc.Equals, 1)
+	coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}),
+		"--metadata-source", sourceDir, "--constraints", "mem=4G",
+	)
+	c.Assert(_bootstrap.args.MetadataDir, gc.Equals, sourceDir)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -774,12 +710,14 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 // test scenarios. This could help improve some of the tests in this
 // file which execute large amounts of external functionality.
 type fakeBootstrapFuncs struct {
+	args bootstrap.BootstrapParams
 }
 
 func (fake *fakeBootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
 	return nil
 }
 
-func (fake fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
+func (fake *fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args bootstrap.BootstrapParams) error {
+	fake.args = args
 	return nil
 }

@@ -69,7 +69,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 	serviceName := service.Name()
 	ops := []txn.Op{{
 		C:      servicesC,
-		Id:     state.idForEnv(serviceName),
+		Id:     state.docID(serviceName),
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"minunits", minUnits}}}},
 	}}

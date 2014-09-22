@@ -53,11 +53,11 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config, policy state.Policy) *state.State {
+func TestingInitialize(c *gc.C, owner names.UserTag, cfg *config.Config, policy state.Policy) *state.State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
+	st, err := state.Initialize(owner, state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
 	c.Assert(err, gc.IsNil)
 	return st
 }
@@ -76,6 +76,14 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+}
+
+func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
+	id := "wordpress"
+	docID := state.DocID(s.State, id)
+	c.Assert(docID, gc.Equals, s.State.EnvironTag().Id()+":"+id)
+	localID := state.LocalID(s.State, docID)
+	c.Assert(localID, gc.Equals, id)
 }
 
 func (s *StateSuite) TestDialAgain(c *gc.C) {
@@ -1074,7 +1082,7 @@ func (s *StateSuite) TestAllRelations(c *gc.C) {
 		wordpress := s.AddTestingService(c, serviceName, wordpressCharm)
 		_, err = wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
-		eps, err := s.State.InferEndpoints([]string{serviceName, "mysql"})
+		eps, err := s.State.InferEndpoints(serviceName, "mysql")
 		c.Assert(err, gc.IsNil)
 		_, err = s.State.AddRelation(eps...)
 		c.Assert(err, gc.IsNil)
@@ -1467,7 +1475,7 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 		c.Logf("test %d", i)
 		for j, input := range t.inputs {
 			c.Logf("  input %d", j)
-			eps, err := s.State.InferEndpoints(input)
+			eps, err := s.State.InferEndpoints(input...)
 			if t.err == "" {
 				c.Assert(err, gc.IsNil)
 				c.Assert(eps, gc.DeepEquals, t.eps)
@@ -1564,9 +1572,7 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	aliveID := state.IDForEnv(s.State, alive.Name())
-	dyingID := state.IDForEnv(s.State, dying.Name())
-	wc.AssertChange(aliveID, dyingID)
+	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported.
@@ -1574,7 +1580,7 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = keepDying.Destroy()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(aliveID, dyingID)
+	wc.AssertChange(alive.Name(), dying.Name())
 	wc.AssertNoChange()
 }
 
@@ -1588,7 +1594,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 
 	// Add a service: reported.
 	service := s.AddTestingService(c, "service", s.AddTestingCharm(c, "dummy"))
-	wc.AssertChange(state.IDForEnv(s.State, "service"))
+	wc.AssertChange("service")
 	wc.AssertNoChange()
 
 	// Change the service: not reported.
@@ -1599,13 +1605,13 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	// Make it Dying: reported.
 	err = service.Destroy()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(state.IDForEnv(s.State, "service"))
+	wc.AssertChange("service")
 	wc.AssertNoChange()
 
 	// Make it Dead(/removed): reported.
 	err = keepDying.Destroy()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(state.IDForEnv(s.State, "service"))
+	wc.AssertChange("service")
 	wc.AssertNoChange()
 }
 
@@ -2139,7 +2145,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 
 	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	relation1, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2345,7 +2351,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	s.factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
+	eps, err := s.State.InferEndpoints("wordpress", "ser-vice2")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2414,7 +2420,7 @@ func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, svc.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
-	c.Assert(id, gc.Equals, state.IDForEnv(s.State, svc.Name()))
+	c.Assert(id, gc.Equals, state.DocID(s.State, svc.Name()))
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {
@@ -2482,13 +2488,13 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Set up two relations for later use, check no events.
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	relM, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, gc.IsNil)
-	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	eps, err = s.State.InferEndpoints("wordpress", "varnish")
 	c.Assert(err, gc.IsNil)
 	relV, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -3679,7 +3685,8 @@ func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
 		},
 	}
 	cfg := testing.EnvironConfig(c)
-	st, err := state.Initialize(mongoInfo, cfg, state.TestingDialOpts(), nil)
+	owner := names.NewLocalUserTag("initialize-admin")
+	st, err := state.Initialize(owner, mongoInfo, cfg, state.TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

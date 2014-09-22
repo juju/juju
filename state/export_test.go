@@ -28,6 +28,7 @@ var (
 	AddBackupMetadata     = addBackupMetadata
 	AddBackupMetadataID   = addBackupMetadataID
 	SetBackupStored       = setBackupStored
+	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
 
@@ -226,10 +227,6 @@ func ParseTag(st *State, tag names.Tag) (string, string, error) {
 	return st.parseTag(tag)
 }
 
-func IDForEnv(st *State, name string) string {
-	return st.idForEnv(name)
-}
-
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
@@ -301,4 +298,11 @@ func CountofUnsentMetrics(st *State) (int, error) {
 
 func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
 	return st.setMetricBatchesSent(metrics)
+}
+
+func DocID(st *State, id string) string {
+	return st.docID(id)
+}
+func LocalID(st *State, id string) string {
+	return st.localID(id)
 }

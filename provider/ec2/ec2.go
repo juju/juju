@@ -72,7 +72,6 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
@@ -586,7 +585,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	arches := args.Tools.Arches()
 	stor := ebsStorage
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -1285,14 +1284,6 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}
-	return sources, nil
 }
 
 // GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.

@@ -178,38 +178,37 @@ func AddEnvUUIDToServicesID(st *State) error {
 		return errors.Annotate(err, "failed to load environment")
 	}
 
-	var servicesDocs []serviceDoc
 	services, closer := st.getCollection(servicesC)
 	defer closer()
 
-	if err = services.Find(bson.D{{"env-uuid", ""}}).All(&servicesDocs); err != nil {
-		return errors.Trace(err)
-	}
-
-	upgradesLogger.Debugf("adding env uuid %q", env.UUID())
-
+	upgradesLogger.Debugf("adding the env uuid %q to the services collection", env.UUID())
 	uuid := env.UUID()
+	iter := services.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+	defer iter.Close()
 	ops := []txn.Op{}
-	for _, service := range servicesDocs {
-		service.EnvUUID = uuid
+	var service serviceDoc
+	for iter.Next(&service) {
+		// In the old serialization, _id was mapped to the Name field.
+		// Now _id is mapped to DocID. As such, we have to get the old
+		// doc Name from the DocID field.
 		service.Name = service.DocID
+		service.EnvUUID = uuid
+		service.DocID = st.docID(service.Name)
 		ops = append(ops,
 			[]txn.Op{{
 				C:      servicesC,
-				Id:     service.DocID,
+				Id:     service.Name,
 				Assert: txn.DocExists,
 				Remove: true,
 			}, {
-				C: servicesC,
-
-				// In the old serialization, _id was mapped to the Name field.
-				// Now _id is mapped to DocID. As such, we have to get the old
-				// doc Name from the DocID field.
-				Id:     st.idForEnv(service.DocID),
+				C:      servicesC,
+				Id:     service.DocID,
 				Assert: txn.DocMissing,
 				Insert: service,
 			}}...)
 	}
-
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
 	return st.runTransaction(ops)
 }

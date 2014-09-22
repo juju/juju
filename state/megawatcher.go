@@ -567,7 +567,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 	}
 	col := db.C(c.Name)
 	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
-	id := b.idForEnv(c.Name, change.Id)
+	id := b.docID(c.Name, change.Id)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	// TODO(rog) avoid fetching documents that we have no interest
@@ -586,10 +586,12 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 // idForEnv is a helper function which returns the environment ID for those
 // collections that have been migrated. For those collections that have not
 // been migrated, it returns the id that was passed in.
-func (b *allWatcherStateBacking) idForEnv(collection string, id interface{}) interface{} {
+func (b *allWatcherStateBacking) docID(collection string, id interface{}) interface{} {
 	switch collection {
 	case servicesC:
-		return b.st.idForEnv(id.(string))
+		if id, ok := id.(string); ok {
+			return b.st.docID(id)
+		}
 	}
 	return id
 }
