@@ -135,7 +135,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
 	})
-	s.PatchValue(bootstrap.FindTools, func(environs.ConfigGetter, int, int, tools.Filter, bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -292,15 +292,6 @@ type bootstrapEnviron struct {
 	args                        environs.BootstrapParams
 	machineConfig               *cloudinit.MachineConfig
 	storage                     storage.Storage
-}
-
-var _ envtools.SupportsCustomSources = (*bootstrapEnviron)(nil)
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *bootstrapEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {

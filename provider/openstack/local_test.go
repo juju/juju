@@ -762,6 +762,8 @@ func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) 
 }
 
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+	s.PatchValue(&tools.DefaultBaseURL, "")
+
 	env := s.Open(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)

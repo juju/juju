@@ -118,12 +118,6 @@ func (test bootstrapTest) run(c *gc.C) {
 		defer func() { arch.HostArch = origVersion }()
 	}
 
-	if test.upload == "" {
-		usefulVersion := version.Current
-		usefulVersion.Series = config.PreferredSeries(env.Config())
-		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
-	}
-
 	// Run command and check for uploads.
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
 	// Check for remaining operations/errors.
@@ -450,7 +444,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
 }
 
@@ -661,7 +655,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
