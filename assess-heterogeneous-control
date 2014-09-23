@@ -2,6 +2,7 @@
 from argparse import ArgumentParser
 from contextlib import contextmanager
 from textwrap import dedent
+from subprocess import CalledProcessError
 
 from jujuconfig import get_juju_home
 from jujupy import (
@@ -114,7 +115,8 @@ def test_control_heterogeneous(initial, other, released, log_dir,
         status = other.get_status()
         other.juju('unexpose', ('dummy-sink',))
         status = other.get_status()
-        other.juju('deploy', ('local:dummy-sink', 'sink2'))
+        juju_with_fallback(other, released, 'deploy',
+                           ('local:dummy-sink', 'sink2'))
         other.wait_for_started()
         other.juju('add-relation', ('dummy-source', 'sink2'))
         status = other.get_status()
@@ -155,9 +157,23 @@ def test_control_heterogeneous(initial, other, released, log_dir,
         other.juju('remove-machine', (lxc_holder,))
         wait_until_removed(other, lxc_holder)
     # Test clean shutdown of an environment.
-    other.juju(
-        'destroy-environment', (other.env.environment, '-y'),
-        include_e=False)
+    juju_with_fallback(other, released, 'destroy-environment',
+                       (other.env.environment, '-y'), include_e=False)
+
+
+def juju_with_fallback(other, released, command, args, include_e=True):
+    """Fallback to released juju when 1.18 fails.
+
+    Get as much test coverage of 1.18 as we can, by falling back to a released
+    juju for commands that we expect to fail (due to unsupported agent version
+    format).
+    """
+    try:
+        other.juju(command, args, include_e=include_e)
+    except CalledProcessError:
+        if not other.version.startswith('1.18.'):
+            raise
+        released.juju(command, args, include_e=include_e)
 
 
 def has_agent(client, agent_id):
