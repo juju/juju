@@ -448,7 +448,7 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 
 	storageDir := c.MkDir()
-	s.PatchValue(&tools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
 

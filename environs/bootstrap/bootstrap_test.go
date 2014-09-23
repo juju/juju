@@ -50,7 +50,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(bootstrap.EnvironsVerifyStorage, func(storage.Storage) error { return nil })
 
 	storageDir := c.MkDir()
-	s.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, stor)
@@ -150,7 +150,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
 	})
-	s.PatchValue(bootstrap.FindTools, func(environs.ConfigGetter, int, int, tools.Filter, bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{

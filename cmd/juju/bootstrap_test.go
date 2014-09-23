@@ -56,6 +56,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	// Set version.Current to a known value, for which we
+	// will make tools available. Individual tests may
+	// override this.
+	s.PatchValue(&version.Current, v100p64)
+
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)

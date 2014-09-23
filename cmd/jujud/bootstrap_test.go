@@ -104,7 +104,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 
 	storageDir := c.MkDir()
-	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	s.AddSuiteCleanup(func(*gc.C) {
 		restorer()
 	})

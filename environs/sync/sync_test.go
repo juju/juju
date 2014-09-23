@@ -196,7 +196,7 @@ type fakeToolsUploader struct {
 	uploaded map[version.Binary]bool
 }
 
-func (u *fakeToolsUploader) UploadTools(tools *coretools.Tools, data []byte) error {
+func (u *fakeToolsUploader) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
 	u.uploaded[tools.Version] = true
 	return nil
 }
@@ -538,11 +538,13 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 		WriteMirrors:  writeMirrors,
 	}
 
-	err = uploader.UploadTools(&coretools.Tools{
-		Version: version.Current,
-		Size:    7,
-		SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
-	}, []byte("content"))
+	err = uploader.UploadTools(
+		"released",
+		&coretools.Tools{
+			Version: version.Current,
+			Size:    7,
+			SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+		}, []byte("content"))
 	c.Assert(err, gc.IsNil)
 
 	mirrorsPath := simplestreams.MirrorsPath(envtools.StreamsVersionV1) + simplestreams.UnsignedSuffix

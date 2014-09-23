@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -1636,6 +1637,12 @@ func (s *environSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
+	storageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	s.UploadFakeTools(c, stor)
+	s.PatchValue(&tools.DefaultBaseURL, storageDir)
+
 	env := s.setupEnvWithDummyMetadata(c)
 	var responses []gwacl.DispatcherResponse
 

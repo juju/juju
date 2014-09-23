@@ -244,7 +244,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	s.DefaultToolsStorageDir = c.MkDir()
-	s.PatchValue(&tools.DefaultBaseURL, "file://"+s.DefaultToolsStorageDir+"/tools")
+	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
 	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
 	c.Assert(err, gc.IsNil)
 	envtesting.AssertUploadFakeToolsVersions(c, stor, versions...)
