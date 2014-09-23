@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -56,23 +57,30 @@ func removeRebootDocOps(machineId string) txn.Op {
 	return ops
 }
 
-// SetRebootFlag sets the reboot flag of a machine to a boolean value. It will also
-// do a lazy create of a reboot document if needed; i.e. If a document
-// does not exist yet for this machine, it will create it.
-func (m *Machine) SetRebootFlag(flag bool) error {
+func (m *Machine) setFlag() error {
+	if m.Life() == Dead {
+		return ErrDead
+	}
+	t := addRebootDocOps(m.Id())
+	err := m.st.runTransaction(t)
+	if err == txn.ErrAborted {
+		return mgo.ErrNotFound
+	} else if err != nil {
+		return errors.Errorf("failed to set reboot flag: %v", err)
+	}
+	return nil
+}
+
+func (m *Machine) clearFlag() error {
 	reboot, closer := m.st.getCollection(rebootC)
 	defer closer()
-	t := addRebootDocOps(m.Id())
 
+	t := []txn.Op{
+		removeRebootDocOps(m.Id()),
+	}
 	count, err := reboot.FindId(m.Id()).Count()
-	if flag == false {
-		if count == 0 {
-			return nil
-		} else {
-			t = []txn.Op{
-				removeRebootDocOps(m.Id()),
-			}
-		}
+	if count == 0 {
+		return nil
 	}
 
 	err = m.st.runTransaction(t)
@@ -80,6 +88,16 @@ func (m *Machine) SetRebootFlag(flag bool) error {
 		return errors.Errorf("failed to set reboot flag: %v", err)
 	}
 	return nil
+}
+
+// SetRebootFlag sets the reboot flag of a machine to a boolean value. It will also
+// do a lazy create of a reboot document if needed; i.e. If a document
+// does not exist yet for this machine, it will create it.
+func (m *Machine) SetRebootFlag(flag bool) error {
+	if flag {
+		return m.setFlag()
+	}
+	return m.clearFlag()
 }
 
 // GetRebootFlag returns the reboot flag for this machine.
