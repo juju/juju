@@ -553,7 +553,7 @@ func (c *Client) SetEnvironmentConstraints(args params.SetConstraints) error {
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
 func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	inEps, err := c.api.state.InferEndpoints(args.Endpoints)
+	inEps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return params.AddRelationResults{}, err
 	}
@@ -574,7 +574,7 @@ func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(args params.DestroyRelation) error {
-	eps, err := c.api.state.InferEndpoints(args.Endpoints)
+	eps, err := c.api.state.InferEndpoints(args.Endpoints...)
 	if err != nil {
 		return err
 	}
@@ -1062,12 +1062,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 
 // StoreCharmArchive stores a charm archive in environment storage.
 func StoreCharmArchive(st *state.State, curl *charm.URL, ch charm.Charm, r io.Reader, size int64, sha256 string) error {
-	storage, err := stateStorage(st)
-	if err != nil {
-		return errors.Annotate(err, "cannot get charm storage")
-	}
-	defer storage.Close()
-
+	storage := stateStorage(st)
 	storagePath, err := charmArchiveStoragePath(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot generate charm archive name")

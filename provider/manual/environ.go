@@ -22,10 +22,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
@@ -66,8 +64,6 @@ type manualEnviron struct {
 	ubuntuUserInited    bool
 	ubuntuUserInitMutex sync.Mutex
 }
-
-var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
 
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
@@ -273,15 +269,6 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 		StorageDir: storageDir,
 		TmpDir:     storageTmpdir,
 	})
-}
-
-// GetToolsSources returns a list of sources which are
-// used to search for simplestreams tools metadata.
-func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off private storage.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath),
-	}, nil
 }
 
 func (e *manualEnviron) Storage() storage.Storage {

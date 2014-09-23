@@ -35,11 +35,7 @@ func migrateCharmStorage(st *state.State, agentConfig agent.Config) error {
 	if err != nil {
 		return err
 	}
-	storage, err := st.Storage()
-	if err != nil {
-		return err
-	}
-	defer storage.Close()
+	storage := st.Storage()
 
 	// Local and manual provider host storage on the state server's
 	// filesystem, and serve via HTTP storage. The storage worker

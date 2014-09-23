@@ -326,12 +326,12 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 }
 
 func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
+	// No port ranges open initially, no changes.
 	w := s.State.WatchOpenedPorts()
 	c.Assert(w, gc.NotNil)
 
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange()
 	wc.AssertNoChange()
 
 	portRange := state.PortRange{
@@ -341,15 +341,22 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 		Protocol: "TCP",
 	}
 	globalKey := state.PortsGlobalKey(s.machine.Id(), network.DefaultPublic)
+	// Open a port range, detect a change.
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(globalKey)
+	wc.AssertNoChange()
 
-	err = s.ports.Refresh()
-	c.Assert(err, gc.IsNil)
+	// Close the port range, detect a change.
 	err = s.ports.ClosePorts(portRange)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(globalKey)
+	wc.AssertNoChange()
+
+	// Close the port range again, no changes.
+	err = s.ports.ClosePorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
 }
 
 type PortRangeSuite struct{}

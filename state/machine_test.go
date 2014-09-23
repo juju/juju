@@ -900,7 +900,7 @@ func (s *MachineSuite) TestMachinePrincipalUnits(c *gc.C) {
 		}
 	}
 	// Add the logging units subordinate to the s2 units.
-	eps, err := s.State.InferEndpoints([]string{"s2", "s3"})
+	eps, err := s.State.InferEndpoints("s2", "s3")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1079,7 +1079,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 
 	// Add a subordinate to the Alive unit; no change.
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1183,7 +1183,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 
 	// Add a subordinate to the Alive unit; change detected.
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

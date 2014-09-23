@@ -228,7 +228,7 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 	}
 	err = st.setMetricBatchesSent(metrics)
 	if err != nil {
-		metricsLogger.Warningf("failed to setsent on metrics", err)
+		metricsLogger.Warningf("failed to set sent on metrics %v", err)
 	}
 	return nil
 }

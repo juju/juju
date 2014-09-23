@@ -15,6 +15,8 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -46,6 +48,12 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(bootstrap.EnvironsVerifyStorage, func(storage.Storage) error { return nil })
+
+	storageDir := c.MkDir()
+	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -76,15 +84,8 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
-	uploadTools(c, env)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
-}
-
-func uploadTools(c *gc.C, env environs.Environ) {
-	usefulVersion := version.Current
-	usefulVersion.Series = config.PreferredSeries(env.Config())
-	envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
@@ -128,15 +129,32 @@ func (s *bootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	c.Assert(env.args.KeepBroken, gc.DeepEquals, true)
 }
 
-func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
+func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	s.PatchValue(&version.Current.Arch, "arm64")
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
 	})
-	s.PatchValue(bootstrap.FindTools, func(environs.ConfigGetter, int, int, tools.Filter, bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
-	env := newEnviron("foo", useDefaultKeys, nil)
+	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+		"tools-stream": "proposed"})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	// bootstrap.Bootstrap leaves it to the provider to
+	// locate bootstrap tools.
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
+	s.PatchValue(&version.Current.Arch, "arm64")
+	s.PatchValue(&arch.HostArch, func() string {
+		return "arm64"
+	})
+	s.PatchValue(bootstrap.FindTools, func(environs.Environ, int, int, tools.Filter) (tools.List, error) {
+		return nil, errors.NotFoundf("tools")
+	})
+	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+		"development": true})
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
@@ -200,6 +218,76 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 	}
 }
 
+// createImageMetadata creates some image metadata in a local directory.
+func createImageMetadata(c *gc.C) (dir string, _ []*imagemetadata.ImageMetadata) {
+	// Generate some image metadata.
+	im := []*imagemetadata.ImageMetadata{{
+		Id:         "1234",
+		Arch:       "amd64",
+		Version:    "13.04",
+		RegionName: "region",
+		Endpoint:   "endpoint",
+	}}
+	cloudSpec := &simplestreams.CloudSpec{
+		Region:   "region",
+		Endpoint: "endpoint",
+	}
+	sourceDir := c.MkDir()
+	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
+	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata("raring", im, cloudSpec, sourceStor)
+	c.Assert(err, gc.IsNil)
+	return sourceDir, im
+}
+
+func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
+	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+
+	metadataDir, metadata := createImageMetadata(c)
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+		MetadataDir: metadataDir,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(envtools.DefaultBaseURL, gc.Equals, metadataDir)
+
+	datasources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(datasources, gc.HasLen, 2)
+	c.Assert(datasources[0].Description(), gc.Equals, "bootstrap metadata")
+	c.Assert(env.machineConfig, gc.NotNil)
+	c.Assert(env.machineConfig.CustomImageMetadata, gc.HasLen, 1)
+	c.Assert(env.machineConfig.CustomImageMetadata[0], gc.DeepEquals, metadata[0])
+}
+
+func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
+	environs.UnregisterImageDataSourceFunc("bootstrap metadata")
+
+	noImagesDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
+
+	env := newEnviron("foo", useDefaultKeys, nil)
+	s.setDummyStorage(c, env)
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+		MetadataDir: noImagesDir,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+
+	datasources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(datasources, gc.HasLen, 1)
+	c.Assert(datasources[0].Description(), gc.Equals, "default cloud images")
+}
+
 type bootstrapEnviron struct {
 	cfg              *config.Config
 	environs.Environ // stub out all methods we don't care about.
@@ -211,15 +299,6 @@ type bootstrapEnviron struct {
 	args                        environs.BootstrapParams
 	machineConfig               *cloudinit.MachineConfig
 	storage                     storage.Storage
-}
-
-var _ envtools.SupportsCustomSources = (*bootstrapEnviron)(nil)
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *bootstrapEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}) *bootstrapEnviron {
@@ -247,7 +326,6 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 	env.storage = stor
-	envtesting.UploadFakeTools(c, env.storage)
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
@@ -282,4 +360,8 @@ func (e *bootstrapEnviron) SupportedArchitectures() ([]string, error) {
 
 func (e *bootstrapEnviron) SupportNetworks() bool {
 	return true
+}
+
+func (e *bootstrapEnviron) ConstraintsValidator() (constraints.Validator, error) {
+	return constraints.NewValidator(), nil
 }

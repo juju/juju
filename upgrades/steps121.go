@@ -37,6 +37,20 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "migrate custom image metadata into environment storage",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return migrateCustomImageMetadata(context.State(), context.AgentConfig())
+			},
+		},
+		&upgradeStep{
+			description: "migrate tools into environment storage",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return migrateToolsStorage(context.State(), context.AgentConfig())
+			},
+		},
+		&upgradeStep{
 			description: "set environment owner and server uuid",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

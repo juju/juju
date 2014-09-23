@@ -57,7 +57,7 @@ var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
-	userTag := names.NewUserTag("not-touched")
+	userTag := names.NewLocalUserTag("not-touched")
 
 	expectedMcfg := &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
@@ -102,7 +102,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
-	userTag := names.NewUserTag("not-touched")
+	userTag := names.NewLocalUserTag("not-touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,

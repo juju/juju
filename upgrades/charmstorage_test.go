@@ -96,9 +96,7 @@ func (s *migrateCharmStorageSuite) testMigrateCharmStorage(c *gc.C, curl *charm.
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
 
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	r, length, err := storage.Get(storagePath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(r, gc.NotNil)
