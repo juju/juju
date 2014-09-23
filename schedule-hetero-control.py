@@ -10,6 +10,8 @@ from jenkins import Jenkins
 
 def get_args():
     parser = ArgumentParser()
+    parser.add_argument(
+        'root_dir', help='Directory containing releases and candidates dir')
     return parser.parse_args()
 
 
@@ -51,8 +53,7 @@ def build_jobs(root, jobs):
 
 def main():
     args = get_args()
-    root_dir = os.environ['HOME']
-    build_jobs(root_dir, calculate_jobs(root_dir))
+    build_jobs(args.root_dir, calculate_jobs(args.root_dir))
 
 
 if __name__ == '__main__':
