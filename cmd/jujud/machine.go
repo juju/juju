@@ -547,6 +547,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
+	registerSimplestreamsDataSource(st.Storage())
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
@@ -778,7 +779,8 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		if err != nil {
 			return err
 		}
-		if err := st.SetStateServingInfo(servingInfo); err != nil {
+		ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+		if err := st.SetStateServingInfo(ssi); err != nil {
 			st.Close()
 			return fmt.Errorf("cannot set state serving info: %v", err)
 		}
@@ -825,6 +827,17 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		return err
 	}
 	return nil
+}
+
+func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
+	}
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {

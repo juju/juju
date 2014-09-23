@@ -7,8 +7,8 @@ func ExtractCatalogsForProducts(metadata CloudMetadata, productIds []string) []M
 	return metadata.extractCatalogsForProducts(productIds)
 }
 
-func ExtractIndexes(ind Indices) IndexMetadataSlice {
-	return ind.extractIndexes()
+func ExtractIndexes(ind Indices, ids []string) IndexMetadataSlice {
+	return ind.extractIndexes(ids)
 }
 
 func HasCloud(metadata IndexMetadata, cloud CloudSpec) bool {

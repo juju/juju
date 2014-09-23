@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -45,7 +45,7 @@ type MachineConfig struct {
 	// This must only be set if the Bootstrap field is true
 	// (state servers started subsequently will acquire their serving info
 	// from another server)
-	StateServingInfo *state.StateServingInfo
+	StateServingInfo *params.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
 	// juju state database. Unless the new machine is running a state server
@@ -146,6 +146,11 @@ type MachineConfig struct {
 
 	// The type of Simple Stream to download and deploy on this machine.
 	ImageStream string
+
+	// CustomImageMetadata is optional custom simplestreams image metadata
+	// to store in environment storage at bootstrap time. This is ignored
+	// in non-bootstrap machines.
+	CustomImageMetadata []*imagemetadata.ImageMetadata
 
 	// EnableOSRefreshUpdate specifies whether Juju will refresh its
 	// respective OS's updates list.

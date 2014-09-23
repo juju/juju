@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -400,7 +400,7 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(networks []stri
 }
 
 func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
-	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries)
+	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries, nil)
 	c.Assert(err, gc.IsNil)
 	added := make([]*state.Machine, len(changes.Added))
 	for i, mid := range changes.Added {
@@ -447,10 +447,13 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 
 func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 
-	// Clear out all tools, and set a current version that does not match the
+	storageDir := c.MkDir()
+	s.PatchValue(&tools.DefaultBaseURL, storageDir)
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+
+	// Set a current version that does not match the
 	// agent-version in the environ config.
-	envStorage := s.Environ.Storage()
-	envtesting.RemoveFakeTools(c, envStorage)
 	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
 	s.PatchValue(&version.Current, currentVersion)
 
@@ -461,13 +464,13 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	availableVersions := []version.Binary{
 		currentVersion, compatibleVersion, ignoreVersion1, ignoreVersion2,
 	}
-	envtesting.AssertUploadFakeToolsVersions(c, envStorage, availableVersions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, availableVersions...)
 
 	// Extract the tools that we expect to actually match.
 	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
 		Number: currentVersion.Number,
 		Series: currentVersion.Series,
-	}, tools.DoNotAllowRetry)
+	})
 	c.Assert(err, gc.IsNil)
 
 	// Create the machine and check the tools that get passed into StartInstance.
@@ -504,11 +507,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, "no matching tools available")
 		break
 	}
@@ -535,11 +538,11 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Equals, brokenMsg)
 		break
 	}
@@ -656,11 +659,11 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 		// And check the machine status is set to error.
 		status, info, _, err := m.Status()
 		c.Assert(err, gc.IsNil)
-		if status == params.StatusPending {
+		if status == state.StatusPending {
 			time.Sleep(coretesting.ShortWait)
 			continue
 		}
-		c.Assert(status, gc.Equals, params.StatusError)
+		c.Assert(status, gc.Equals, state.StatusError)
 		c.Assert(info, gc.Matches, `aborted instance "dummyenv-0": cannot add network "bad-net1": invalid CIDR address: invalid`)
 		break
 	}
@@ -1092,7 +1095,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 			case <-thatsAllFolks:
 				return
 			case <-time.After(coretesting.ShortWait):
-				err := m3.SetStatus(params.StatusError, "info", map[string]interface{}{"transient": true})
+				err := m3.SetStatus(state.StatusError, "info", map[string]interface{}{"transient": true})
 				c.Assert(err, gc.IsNil)
 			}
 		}
@@ -1103,7 +1106,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// Machine 4 is never provisioned.
 	status, _, _, err := m4.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	_, err = m4.InstanceId()
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 }
@@ -1145,10 +1148,6 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 		b.retryCount[id] = retries + 1
 	}
 	return nil, nil, nil, fmt.Errorf("error: some error")
-}
-
-func (b *mockBroker) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return b.Environ.(tools.SupportsCustomSources).GetToolsSources()
 }
 
 type mockToolsFinder struct {

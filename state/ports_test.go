@@ -6,9 +6,13 @@ package state_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -35,13 +39,13 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	s.unit2 = f.MakeUnit(c, &factory.UnitParams{Service: s.service, Machine: s.machine})
 
 	var err error
-	s.ports, err = state.GetOrCreatePorts(s.State, s.machine.Id())
+	s.ports, err = state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.ports, gc.NotNil)
 }
 
 func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
-	ports, err := state.GetOrCreatePorts(s.State, s.machine.Id())
+	ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 	err = ports.OpenPorts(state.PortRange{
@@ -52,7 +56,7 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	ports, err = state.GetPorts(s.State, s.machine.Id())
+	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 
@@ -156,7 +160,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit2.Name(),
 			Protocol: "TCP",
 		},
-		expected: "cannot open ports 100-300/tcp on machine \"0\": port ranges 100-200/tcp \\(wordpress/0\\) and 100-300/tcp \\(wordpress/1\\) conflict",
+		expected: "cannot open ports 100-300/tcp on machine 0: port ranges 100-200/tcp \\(wordpress/0\\) and 100-300/tcp \\(wordpress/1\\) conflict",
 	}, {
 		about: "try to open an identical port range with different unit",
 		existing: []state.PortRange{{
@@ -171,7 +175,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit2.Name(),
 			Protocol: "TCP",
 		},
-		expected: "cannot open ports 100-200/tcp on machine \"0\": port ranges 100-200/tcp \\(wordpress/0\\) and 100-200/tcp \\(wordpress/1\\) conflict",
+		expected: "cannot open ports 100-200/tcp on machine 0: port ranges 100-200/tcp \\(wordpress/0\\) and 100-200/tcp \\(wordpress/1\\) conflict",
 	}, {
 		about: "try to open a port range with different protocol with different unit",
 		existing: []state.PortRange{{
@@ -207,7 +211,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 
-		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id())
+		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id(), network.DefaultPublic)
 		c.Assert(err, gc.IsNil)
 		c.Assert(ports, gc.NotNil)
 
@@ -243,6 +247,22 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 		err = ports.Remove()
 		c.Check(err, gc.IsNil)
 	}
+}
+
+func (s *PortsDocSuite) TestAllPortRanges(c *gc.C) {
+	portRange := state.PortRange{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: s.unit1.Name(),
+		Protocol: "TCP",
+	}
+	err := s.ports.OpenPorts(portRange)
+	c.Assert(err, gc.IsNil)
+
+	ranges := s.ports.AllPortRanges()
+	c.Assert(ranges, gc.HasLen, 1)
+
+	c.Assert(ranges[network.PortRange{100, 200, "TCP"}], gc.Equals, s.unit1.Name())
 }
 
 func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
@@ -287,11 +307,11 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
 
-	ports, err := state.GetPorts(s.State, s.machine.Id())
+	ports, err := state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 
-	allPorts, err := s.machine.OpenedPorts(s.State)
+	allPorts, err := s.machine.AllPorts()
 	c.Assert(err, gc.IsNil)
 
 	for _, prt := range allPorts {
@@ -299,9 +319,44 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 
-	ports, err = state.GetPorts(s.State, s.machine.Id())
+	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(ports, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "ports document for machine .* not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `ports for machine 0, network "juju-public" not found`)
+}
+
+func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
+	// No port ranges open initially, no changes.
+	w := s.State.WatchOpenedPorts()
+	c.Assert(w, gc.NotNil)
+
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertNoChange()
+
+	portRange := state.PortRange{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: s.unit1.Name(),
+		Protocol: "TCP",
+	}
+	globalKey := state.PortsGlobalKey(s.machine.Id(), network.DefaultPublic)
+	// Open a port range, detect a change.
+	err := s.ports.OpenPorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(globalKey)
+	wc.AssertNoChange()
+
+	// Close the port range, detect a change.
+	err = s.ports.ClosePorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(globalKey)
+	wc.AssertNoChange()
+
+	// Close the port range again, no changes.
+	err = s.ports.ClosePorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
 }
 
 type PortRangeSuite struct{}

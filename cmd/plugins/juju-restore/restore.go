@@ -19,6 +19,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
@@ -244,8 +245,12 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
+	// While specifying the admin user will work for now, as soon as we allow
+	// the users to have a different initial user name, or they have changed
+	// the password for the admin user, this will fail.
+	owner := names.NewUserTag("admin")
 	for a := attempt.Start(); a.Next(); {
-		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+		apiState, err = juju.NewAPIState(owner, env, api.DefaultDialOpts())
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}
@@ -261,7 +266,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	progress("restored bootstrap machine")
 
-	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+	apiState, err = juju.NewAPIState(owner, env, api.DefaultDialOpts())
 	progress("opening state")
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to api server")

@@ -20,7 +20,14 @@ func init() {
 }
 
 const (
+	// ImageIds is the simplestreams image content type.
 	ImageIds = "image-ids"
+
+	// StreamsVersionV1 is used to construct the path for accessing streams data.
+	StreamsVersionV1 = "v1"
+
+	// currentStreamsVersion is the current version of image simplestreams data.
+	currentStreamsVersion = StreamsVersionV1
 )
 
 // simplestreamsImagesPublicKey is the public key required to
@@ -93,6 +100,10 @@ const (
 // This needs to be a var so we can override it for testing and in bootstrap.
 var DefaultBaseURL = UbuntuCloudImagesURL
 
+// PrivateMetadataDir is a directory possibly containing private image
+// metadata, used during bootstrap.
+var PrivateMetadataDir string
+
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
 	simplestreams.LookupParams
@@ -123,8 +134,14 @@ func idStream(stream string) string {
 	return idstream
 }
 
-// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
-func (ic *ImageConstraint) Ids() ([]string, error) {
+// IndexIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (ic *ImageConstraint) IndexIds() []string {
+	// Image constraints do not filter on index ids.
+	return nil
+}
+
+// ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (ic *ImageConstraint) ProductIds() ([]string, error) {
 	stream := idStream(ic.Stream)
 	nrArches := len(ic.Arches)
 	nrSeries := len(ic.Series)
@@ -168,15 +185,21 @@ func (im *ImageMetadata) productId() string {
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(
-	sources []simplestreams.DataSource, indexPath string, cons *ImageConstraint,
+	sources []simplestreams.DataSource, cons *ImageConstraint,
 	onlySigned bool) ([]*ImageMetadata, *simplestreams.ResolveInfo, error) {
-	params := simplestreams.ValueParams{
-		DataType:      ImageIds,
-		FilterFunc:    appendMatchingImages,
-		ValueTemplate: ImageMetadata{},
-		PublicKey:     simplestreamsImagesPublicKey,
+
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   currentStreamsVersion,
+		OnlySigned:       onlySigned,
+		LookupConstraint: cons,
+		ValueParams: simplestreams.ValueParams{
+			DataType:      ImageIds,
+			FilterFunc:    appendMatchingImages,
+			ValueTemplate: ImageMetadata{},
+			PublicKey:     simplestreamsImagesPublicKey,
+		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, resolveInfo, err
 	}

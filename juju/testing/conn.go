@@ -6,7 +6,6 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +26,10 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
@@ -61,6 +63,10 @@ type JujuConnSuite struct {
 	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
+
+	DefaultToolsStorageDir string
+	DefaultToolsStorage    storage.Storage
+
 	State        *state.State
 	Environ      environs.Environ
 	APIState     *api.State
@@ -91,6 +97,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State)
 }
@@ -110,7 +117,9 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	return names.NewUserTag(state.AdminUser)
+	env, err := s.State.InitialEnvironment()
+	c.Assert(err, gc.IsNil)
+	return env.Owner()
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -234,7 +243,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	versions = append(versions, version.Current)
 
 	// Upload tools for both preferred and fake default series
-	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
+	s.DefaultToolsStorageDir = c.MkDir()
+	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
+	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, versions...)
+	s.DefaultToolsStorage = stor
+
 	err = bootstrap.Bootstrap(ctx, environ, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -243,7 +258,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
 
-	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	s.APIState, err = juju.NewAPIState(s.AdminUserTag(c), environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
@@ -293,9 +308,6 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	password := environ.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
-	if err := environs.CheckEnvironment(environ); err != nil {
-		return nil, err
 	}
 
 	mongoInfo.Password = password
@@ -413,27 +425,13 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	stor := env.Storage()
-	if err := stor.Put(name, f, size); err != nil {
+
+	stor := st.Storage()
+	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
+	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	ustr, err := stor.URL(name)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
-	}
-	u, err := url.Parse(ustr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
-	}
-	sch, err := st.AddCharm(ch, curl, u, digest)
+	sch, err := st.AddCharm(ch, curl, storagePath, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
@@ -539,7 +537,8 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch, networks)
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(name, owner, ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }

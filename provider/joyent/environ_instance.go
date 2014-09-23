@@ -330,12 +330,12 @@ func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*i
 		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
 	})
-	sources, err := imagemetadata.GetMetadataSources(env)
+	sources, err := environs.ImageMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}
 
-	matchingImages, _, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}

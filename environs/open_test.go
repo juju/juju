@@ -4,8 +4,6 @@
 package environs_test
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -15,7 +13,9 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -37,14 +37,19 @@ func (s *OpenSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
-func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
+func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, env.Storage())
+
+	storageDir := c.MkDir()
+	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, stor)
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
@@ -333,99 +338,4 @@ func (*OpenSuite) TestNewFromAttrs(c *gc.C) {
 	))
 	c.Assert(err, gc.ErrorMatches, "environment is not prepared")
 	c.Assert(e, gc.IsNil)
-}
-
-const checkEnv = `
-environments:
-    test:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
-`
-
-type checkEnvironmentSuite struct {
-	testing.FakeJujuHomeSuite
-}
-
-var _ = gc.Suite(&checkEnvironmentSuite{})
-
-func (s *checkEnvironmentSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	testing.WriteEnvironments(c, checkEnv)
-}
-
-func (s *checkEnvironmentSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	s.FakeJujuHomeSuite.TearDownTest(c)
-}
-
-func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
-	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-
-	// VerifyStorage is sufficient for our tests and much simpler
-	// than Bootstrap which calls it.
-	stor := environ.Storage()
-	err = environs.VerifyStorage(stor)
-	c.Assert(err, gc.IsNil)
-	err = environs.CheckEnvironment(environ)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
-	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-
-	// VerifyStorage is sufficient for our tests and much simpler
-	// than Bootstrap which calls it.
-	stor := environ.Storage()
-	err = environs.VerifyStorage(stor)
-	c.Assert(err, gc.IsNil)
-
-	// When the bootstrap-verify file does not exist, it still believes
-	// the environment is a juju-core one because earlier versions
-	// did not create that file.
-	err = stor.Remove(environs.VerificationFilename)
-	c.Assert(err, gc.IsNil)
-	err = environs.CheckEnvironment(environ)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
-	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-
-	// VerifyStorage is sufficient for our tests and much simpler
-	// than Bootstrap which calls it.
-	stor := environ.Storage()
-	err = environs.VerifyStorage(stor)
-	c.Assert(err, gc.IsNil)
-
-	// When fetching the verification file from storage fails,
-	// we get an InvalidEnvironmentError.
-	someError := errors.Unauthorizedf("you shall not pass")
-	dummy.Poison(stor, environs.VerificationFilename, someError)
-	err = environs.CheckEnvironment(environ)
-	c.Assert(err, gc.Equals, someError)
-}
-
-func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
-	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-
-	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.
-	stor := environ.Storage()
-	content := "bad verification content"
-	reader := strings.NewReader(content)
-	err = stor.Put(environs.VerificationFilename, reader, int64(len(content)))
-	c.Assert(err, gc.IsNil)
-
-	// When the bootstrap-verify file contains unexpected content,
-	// we get an InvalidEnvironmentError.
-	err = environs.CheckEnvironment(environ)
-	c.Assert(err, gc.Equals, environs.InvalidEnvironmentError)
 }

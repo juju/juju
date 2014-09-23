@@ -62,7 +62,7 @@ func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := open(info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,7 +80,6 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	owner := names.NewUserTag("admin")
 	logger.Infof("initializing environment, owner: %q", owner.Username())
 	logger.Infof("info: %#v", info)
 	if err := checkEnvironConfig(cfg); err != nil {
@@ -96,7 +95,7 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createInitialUserOp(st, owner, info.Password),
-		createEnvironmentOp(st, cfg.Name(), uuid),
+		createEnvironmentOp(st, owner, cfg.Name(), uuid, uuid),
 		newEnvUserOp,
 		{
 			C:      stateServersC,

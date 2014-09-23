@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -115,7 +114,7 @@ func must(s string, err error) string {
 	return s
 }
 
-var stateServingInfo = &state.StateServingInfo{
+var stateServingInfo = &params.StateServingInfo{
 	Cert:       string(serverCert),
 	PrivateKey: string(serverKey),
 	StatePort:  37017,
@@ -197,6 +196,8 @@ var cloudinitTests = []cloudinitTest{
 		},
 		setEnvConfig: true,
 		expectScripts: `
+install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
+printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
@@ -217,8 +218,6 @@ printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/relea
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
-install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
-printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
@@ -440,6 +439,50 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 		inexactMatch: true,
 		expectScripts: `
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --debug
+`,
+	}, {
+		// custom image metadata.
+		cfg: cloudinit.MachineConfig{
+			MachineId:        "0",
+			AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			// precise currently needs mongo from PPA
+			Tools:            newSimpleTools("1.2.3-precise-amd64"),
+			Series:           "precise",
+			Bootstrap:        true,
+			StateServingInfo: stateServingInfo,
+			MachineNonce:     "FAKE_NONCE",
+			MongoInfo: &mongo.MongoInfo{
+				Password: "arble",
+				Info: mongo.Info{
+					CACert: "CA CERT\n" + testing.CACert,
+				},
+			},
+			APIInfo: &api.Info{
+				Password: "bletch",
+				CACert:   "CA CERT\n" + testing.CACert,
+			},
+			DataDir:                 environs.DataDir,
+			LogDir:                  agent.DefaultLogDir,
+			Jobs:                    allMachineJobs,
+			CloudInitOutputLog:      cloudInitOutputLog,
+			InstanceId:              "i-bootstrap",
+			MachineAgentServiceName: "jujud-machine-0",
+			EnableOSRefreshUpdate:   true,
+			CustomImageMetadata: []*imagemetadata.ImageMetadata{&imagemetadata.ImageMetadata{
+				Id:         "image-id",
+				Storage:    "ebs",
+				VirtType:   "pv",
+				Arch:       "amd64",
+				Version:    "14.04",
+				RegionName: "us-east1",
+			}},
+		},
+		setEnvConfig: true,
+		inexactMatch: true,
+		expectScripts: `
+printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/index\.json'
+printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud:released:imagemetadata\.json'
 `,
 	},
 }

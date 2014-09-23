@@ -50,12 +50,10 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	s.owner = names.NewLocalUserTag("test-admin")
+	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.State = st
-	env, err := st.Environment()
-	c.Assert(err, gc.IsNil)
-	s.owner = env.Owner()
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
@@ -118,6 +116,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
+		Subordinate: false,
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -129,14 +128,15 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"), s.owner)
 	add(&params.ServiceInfo{
-		Name:     "logging",
-		CharmURL: serviceCharmURL(logging).String(),
-		OwnerTag: s.owner.String(),
-		Life:     params.Alive,
-		Config:   charm.Settings{},
+		Name:        "logging",
+		CharmURL:    serviceCharmURL(logging).String(),
+		OwnerTag:    s.owner.String(),
+		Life:        params.Alive,
+		Config:      charm.Settings{},
+		Subordinate: true,
 	})
 
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -158,12 +158,13 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
 		add(&params.UnitInfo{
-			Name:      fmt.Sprintf("wordpress/%d", i),
-			Service:   wordpress.Name(),
-			Series:    m.Series(),
-			MachineId: m.Id(),
-			Ports:     []network.Port{},
-			Status:    params.StatusPending,
+			Name:        fmt.Sprintf("wordpress/%d", i),
+			Service:     wordpress.Name(),
+			Series:      m.Series(),
+			MachineId:   m.Id(),
+			Ports:       []network.Port{},
+			Status:      params.StatusPending,
+			Subordinate: false,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = wu.SetAnnotations(pairs)
@@ -175,7 +176,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetStatus(params.StatusError, m.Tag().String(), nil)
+		err = m.SetStatus(StatusError, m.Tag().String(), nil)
 		c.Assert(err, gc.IsNil)
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, gc.IsNil)
@@ -212,11 +213,12 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(ok, gc.Equals, true)
 		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&params.UnitInfo{
-			Name:    fmt.Sprintf("logging/%d", i),
-			Service: "logging",
-			Series:  "quantal",
-			Ports:   []network.Port{},
-			Status:  params.StatusPending,
+			Name:        fmt.Sprintf("logging/%d", i),
+			Service:     "logging",
+			Series:      "quantal",
+			Ports:       []network.Port{},
+			Status:      params.StatusPending,
+			Subordinate: true,
 		})
 	}
 	return
@@ -295,7 +297,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			setUp: func(c *gc.C, st *State) {
 				m, err := st.AddMachine("quantal", JobHostUnits)
 				c.Assert(err, gc.IsNil)
-				err = m.SetStatus(params.StatusError, "failure", nil)
+				err = m.SetStatus(StatusError, "failure", nil)
 				c.Assert(err, gc.IsNil)
 			},
 			change: watcher.Change{
@@ -380,7 +382,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				c.Assert(err, gc.IsNil)
 				err = u.OpenPort("tcp", 12345)
 				c.Assert(err, gc.IsNil)
-				err = u.SetStatus(params.StatusError, "failure", nil)
+				err = u.SetStatus(StatusError, "failure", nil)
 				c.Assert(err, gc.IsNil)
 			},
 			change: watcher.Change{
@@ -447,7 +449,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 				err = m.SetAddresses(publicAddress, privateAddress)
 				c.Assert(err, gc.IsNil)
-				err = u.SetStatus(params.StatusError, "failure", nil)
+				err = u.SetStatus(StatusError, "failure", nil)
 				c.Assert(err, gc.IsNil)
 			},
 			change: watcher.Change{
@@ -585,7 +587,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 
 				AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
-				eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
+				eps, err := st.InferEndpoints("logging", "wordpress")
 				c.Assert(err, gc.IsNil)
 				_, err = st.AddRelation(eps...)
 				c.Assert(err, gc.IsNil)
@@ -709,7 +711,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
-				err = u.SetStatus(params.StatusStarted, "", nil)
+				err = u.SetStatus(StatusStarted, "", nil)
 				c.Assert(err, gc.IsNil)
 			},
 			change: watcher.Change{
@@ -733,7 +735,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 				u, err := wordpress.AddUnit()
 				c.Assert(err, gc.IsNil)
-				err = u.SetStatus(params.StatusError, "hook error", map[string]interface{}{
+				err = u.SetStatus(StatusError, "hook error", map[string]interface{}{
 					"1st-key": "one",
 					"2nd-key": 2,
 					"3rd-key": true,
@@ -792,7 +794,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			setUp: func(c *gc.C, st *State) {
 				m, err := st.AddMachine("quantal", JobHostUnits)
 				c.Assert(err, gc.IsNil)
-				err = m.SetStatus(params.StatusStarted, "", nil)
+				err = m.SetStatus(StatusStarted, "", nil)
 				c.Assert(err, gc.IsNil)
 			},
 			change: watcher.Change{

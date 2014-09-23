@@ -310,7 +310,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers ve
 	logger.Debugf("priming agent %s", tag.String())
 	stor := s.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
-	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	err := envtools.MergeAndWriteMetadata(stor, "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
@@ -377,7 +377,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
 		},
-		state.StateServingInfo{
+		params.StateServingInfo{
 			Cert:       coretesting.ServerCert,
 			PrivateKey: coretesting.ServerKey,
 			StatePort:  gitjujutesting.MgoServer.Port(),

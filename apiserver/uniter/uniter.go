@@ -7,6 +7,7 @@ package uniter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -63,7 +64,6 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		}
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
@@ -630,42 +630,6 @@ func (u *UniterAPI) WatchServiceRelations(args params.Entities) (params.StringsW
 		err = common.ErrPerm
 		if canAccess(tag) {
 			result.Results[i], err = u.watchOneServiceRelations(tag)
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// CharmArchiveURL returns the URL, corresponding to the charm archive
-// (bundle) in the provider storage for each given charm URL, along
-// with the DisableSSLHostnameVerification flag.
-func (u *UniterAPI) CharmArchiveURL(args params.CharmURLs) (params.CharmArchiveURLResults, error) {
-	result := params.CharmArchiveURLResults{
-		Results: make([]params.CharmArchiveURLResult, len(args.URLs)),
-	}
-	// Get the SSL hostname verification environment setting.
-	envConfig, err := u.st.EnvironConfig()
-	if err != nil {
-		return result, err
-	}
-	// SSLHostnameVerification defaults to true, so we need to
-	// invert that, for backwards-compatibility (older versions
-	// will have DisableSSLHostnameVerification: false by default).
-	disableSSLHostnameVerification := !envConfig.SSLHostnameVerification()
-	for i, arg := range args.URLs {
-		curl, err := charm.ParseURL(arg.URL)
-		if err != nil {
-			err = common.ErrPerm
-		} else {
-			var sch *state.Charm
-			sch, err = u.st.Charm(curl)
-			if errors.IsNotFound(err) {
-				err = common.ErrPerm
-			}
-			if err == nil {
-				result.Results[i].Result = sch.BundleURL().String()
-				result.Results[i].DisableSSLHostnameVerification = disableSSLHostnameVerification
-			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -1301,6 +1265,43 @@ func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatch
 			watcherId, err = u.watchOneUnitAddresses(unit)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// AddMetrics adds the metrics for the specified unit.
+func (u *UniterAPI) AddMetrics(args params.MetricsParams) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Metrics)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, common.ErrPerm
+	}
+	for i, unitMetrics := range args.Metrics {
+		tag, err := names.ParseUnitTag(unitMetrics.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		if canAccess(tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(tag)
+			if err == nil {
+				metricBatch := make([]state.Metric, len(unitMetrics.Metrics))
+				for j, metric := range unitMetrics.Metrics {
+					// TODO (tasdomas) 2014-08-26: set credentials for metrics when available
+					metricBatch[j] = state.Metric{
+						Key:   metric.Key,
+						Value: metric.Value,
+						Time:  metric.Time,
+					}
+				}
+				_, err = unit.AddMetrics(time.Now(), metricBatch)
+			}
+		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

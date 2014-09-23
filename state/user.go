@@ -103,9 +103,12 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 }
 
 // User returns the state User for the given name,
-func (st *State) User(name string) (*User, error) {
+func (st *State) User(tag names.UserTag) (*User, error) {
+	if !tag.IsLocal() {
+		return nil, errors.NotFoundf("user %q", tag.Username())
+	}
 	user := &User{st: st}
-	if err := st.getUser(name, &user.doc); err != nil {
+	if err := st.getUser(tag.Name(), &user.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return user, nil
@@ -131,7 +134,7 @@ type userDoc struct {
 
 // String returns "<name>@local" where <name> is the Name of the user.
 func (u *User) String() string {
-	return fmt.Sprintf("%s@%s", u.Name(), localUserProviderName)
+	return u.UserTag().Username()
 }
 
 // Name returns the User name.
@@ -161,7 +164,7 @@ func (u *User) Tag() names.Tag {
 
 // UserTag returns the Tag for the User.
 func (u *User) UserTag() names.UserTag {
-	return names.NewUserTag(u.doc.Name)
+	return names.NewLocalUserTag(u.doc.Name)
 }
 
 // LastLogin returns when this User last connected through the API in UTC.
@@ -267,8 +270,12 @@ func (u *User) Refresh() error {
 
 // Deactivate deactivates the user.  Deactivated identities cannot log in.
 func (u *User) Deactivate() error {
-	if u.doc.Name == AdminUser {
-		return errors.Unauthorizedf("cannot deactivate admin user")
+	initialEnv, err := u.st.InitialEnvironment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if u.doc.Name == initialEnv.Owner().Name() {
+		return errors.Unauthorizedf("cannot deactivate initial environment owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot deactivate user %q", u.Name())
 }

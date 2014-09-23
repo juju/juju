@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -38,6 +40,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -59,6 +62,8 @@ type BootstrapSuite struct {
 	mongoOplogSize  string
 	fakeEnsureMongo fakeEnsure
 	bootstrapName   string
+
+	toolsStorage storage.Storage
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -97,6 +102,15 @@ func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
+
+	storageDir := c.MkDir()
+	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	s.AddSuiteCleanup(func(*gc.C) {
+		restorer()
+	})
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -177,7 +191,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 			agent.MongoOplogSize: s.mongoOplogSize,
 		},
 	}
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:       "some cert",
 		PrivateKey: "some key",
 		APIPort:    3737,
@@ -218,7 +232,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(len(servingInfo.SystemIdentity), gc.Not(gc.Equals), 0)
 	servingInfo.SharedSecret = ""
 	servingInfo.SystemIdentity = ""
-	c.Assert(servingInfo, jc.DeepEquals, expectInfo)
+	expect := paramsStateServingInfoToStateStateServingInfo(expectInfo)
+	c.Assert(servingInfo, jc.DeepEquals, expect)
 	expectDialAddrs := []string{fmt.Sprintf("127.0.0.1:%d", expectInfo.StatePort)}
 	gotDialAddrs := s.fakeEnsureMongo.initiateParams.DialInfo.Addrs
 	c.Assert(gotDialAddrs, gc.DeepEquals, expectDialAddrs)
@@ -392,7 +407,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check that the admin user has been given an appropriate
 	// password
-	u, err := st.User("admin")
+	u, err := st.User(names.NewLocalUserTag("admin"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.PasswordValid(testPassword), gc.Equals, true)
 
@@ -490,7 +505,7 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 	var called int
-	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, gc.Equals, true)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
@@ -507,7 +522,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 
 func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
 	var called int
-	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	initializeState := func(_ names.UserTag, _ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 		called++
 		c.Assert(dialOpts.Direct, gc.Equals, true)
 		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
@@ -557,11 +572,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
-	provider, err := environs.Provider(s.envcfg.Type())
-	c.Assert(err, gc.IsNil)
-	env, err := provider.Open(s.envcfg)
-	c.Assert(err, gc.IsNil)
-	envtesting.RemoveFakeToolsMetadata(c, env.Storage())
+	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
@@ -569,11 +580,11 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 
 	// We don't write metadata at bootstrap anymore.
-	simplestreamsMetadata, err := envtools.ReadMetadata(env.Storage())
+	simplestreamsMetadata, err := envtools.ReadMetadata(s.toolsStorage, "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
-	// The tools should have been added to state, and
+	// The tools should have been added to tools storage, and
 	// exploded into each of the supported series of
 	// the same operating system if the tools were uploaded.
 	st, err := state.Open(&mongo.MongoInfo{
@@ -610,6 +621,54 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	}
 }
 
+func (s *BootstrapSuite) TestImageMetadata(c *gc.C) {
+	metadataDir := c.MkDir()
+	expected := []struct{ path, content string }{{
+		path:    "images/streams/v1/index.json",
+		content: "abc",
+	}, {
+		path:    "images/streams/v1/products.json",
+		content: "def",
+	}, {
+		path:    "wayward/file.txt",
+		content: "ghi",
+	}}
+	for _, pair := range expected {
+		path := filepath.Join(metadataDir, pair.path)
+		err := os.MkdirAll(filepath.Dir(path), 0755)
+		c.Assert(err, gc.IsNil)
+		err = ioutil.WriteFile(path, []byte(pair.content), 0644)
+		c.Assert(err, gc.IsNil)
+	}
+
+	var stor statetesting.MapStorage
+	s.PatchValue(&stateStorage, func(*state.State) state.Storage {
+		return &stor
+	})
+
+	_, cmd, err := s.initBootstrapCommand(
+		c, nil,
+		"--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId),
+		"--image-metadata", metadataDir,
+	)
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	// The contents of the directory should have been added to
+	// environment storage.
+	for _, pair := range expected {
+		r, length, err := stor.Get(pair.path)
+		c.Assert(err, gc.IsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, gc.IsNil)
+		c.Assert(length, gc.Equals, int64(len(pair.content)))
+		c.Assert(data, gc.HasLen, int(length))
+		c.Assert(string(data), gc.Equals, pair.content)
+	}
+}
+
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
@@ -625,7 +684,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	env, err := provider.Prepare(nullContext(), cfg)
 	c.Assert(err, gc.IsNil)
 
-	envtesting.MustUploadFakeTools(env.Storage())
+	envtesting.MustUploadFakeTools(s.toolsStorage)
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()

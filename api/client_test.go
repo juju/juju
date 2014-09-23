@@ -26,8 +26,10 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -190,7 +192,7 @@ func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
@@ -355,13 +357,46 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	defer api.PatchEnvironTag(s.APIState, "bad-env-uuid")()
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	_, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
+func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+	// This is an integration test which ensure that a test with the
+	// correct error code is seen by the client from the
+	// SetEnvironAgentVersion call when an upgrade is in progress.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	nextVersion := version.MustParse("9.8.7")
+	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.APIState.Client().SetEnvironAgentVersion(nextVersion)
+
+	// Expect an error with a error code that indicates this specific
+	// situation. The client needs to be able to reliably identify
+	// this error and handle it differently to other errors.
+	c.Assert(params.IsCodeUpgradeInProgress(err), jc.IsTrue)
+}
+
+func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	client := s.APIState.Client()
+	someErr := errors.New("random")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, args interface{}, response interface{}) error {
+			c.Assert(request, gc.Equals, "AbortCurrentUpgrade")
+			c.Assert(args, gc.IsNil)
+			c.Assert(response, gc.IsNil)
+			return someErr
+		},
+	)
+	defer cleanup()
+
+	err := client.AbortCurrentUpgrade()
+	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
 // badReader raises err when Read is called.

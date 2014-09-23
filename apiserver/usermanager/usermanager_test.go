@@ -12,6 +12,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -61,7 +62,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	// Check that the call results in a new user being created
-	user, err := s.State.User("foobar")
+	user, err := s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
@@ -81,13 +82,13 @@ func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
 	_, err := s.usermanager.AddUser(args)
 	c.Assert(err, gc.IsNil)
-	user, err := s.State.User("foobar")
+	user, err := s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(user.IsDeactivated(), gc.Equals, false) // The user should be active
 
 	result, err := s.usermanager.RemoveUser(removeArgs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{params.ErrorResult{Error: nil}}})
-	user, err = s.State.User("foobar")
+	user, err = s.State.User(names.NewLocalUserTag("foobar"))
 	c.Assert(err, gc.IsNil)
 	// Removal makes the user in active
 	c.Assert(user.IsDeactivated(), gc.Equals, true)
@@ -113,7 +114,7 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 
 	_, err = s.usermanager.RemoveUser(removeArgs)
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("addremove")
+	_, err = s.State.User(names.NewLocalUserTag("addremove"))
 	result, err := s.usermanager.AddUser(args)
 	expectedError := apiservertesting.ServerError("failed to create user: user already exists")
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
@@ -124,8 +125,8 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	foobar := "foobar"
 	barfoo := "barfoo"
-	fooTag := names.NewUserTag(foobar)
-	barTag := names.NewUserTag(barfoo)
+	fooTag := names.NewLocalUserTag(foobar)
+	barTag := names.NewLocalUserTag(barfoo)
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
 	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
 
@@ -160,7 +161,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 
 func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 	foobar := "foobar"
-	fooTag := names.NewUserTag(foobar)
+	fooTag := names.NewLocalUserTag(foobar)
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
 
 	args := params.Entities{
@@ -186,7 +187,7 @@ func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
-	userTag := names.NewUserTag("foobar")
+	userTag := names.NewLocalUserTag("foobar")
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: userTag.String()}},
 	}
@@ -263,6 +264,8 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
+	// We are using the admin user here until we add other checks about the
+	// owner of the initial environment.
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{{
 			Username: s.adminName,
@@ -273,7 +276,7 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User(s.adminName)
+	adminUser, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
@@ -306,7 +309,7 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 	c.Assert(results.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User(s.adminName)
+	adminUser, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password2"), gc.Equals, true)
@@ -326,6 +329,7 @@ func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
 	results, err := s.usermanager.SetPassword(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	expectedError := apiservertesting.ServerError("Can only change the password of the current user (admin)")
+	msg := "can only change the password of the current user (" + dummy.AdminUserTag().Username() + ")"
+	expectedError := apiservertesting.ServerError(msg)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }

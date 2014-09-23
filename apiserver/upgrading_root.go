@@ -25,23 +25,28 @@ func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
 var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
-	"Client.FullStatus",     // for "juju status"
-	"Client.PrivateAddress", // for "juju ssh"
-	"Client.PublicAddress",  // for "juju ssh"
-	"Client.WatchDebugLog",  // for "juju debug-log"
+	"FullStatus",     // for "juju status"
+	"EnvironmentGet", // for "juju ssh"
+	"PrivateAddress", // for "juju ssh"
+	"PublicAddress",  // for "juju ssh"
+	"WatchDebugLog",  // for "juju debug-log"
 )
 
-func isMethodAllowedDuringUpgrade(rootName, methodName string) bool {
-	fullName := rootName + "." + methodName
-	return allowedMethodsDuringUpgrades.Contains(fullName)
+func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
+	if rootName != "Client" {
+		return false
+	}
+	return allowedMethodsDuringUpgrades.Contains(methodName)
 }
 
+// FindMethod returns inUpgradeError for most API calls except those that are
+// deemed safe or important for use while Juju is upgrading.
 func (r *upgradingRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
 	}
-	if !isMethodAllowedDuringUpgrade(rootName, methodName) {
+	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
 		return nil, inUpgradeError
 	}
 	return caller, nil

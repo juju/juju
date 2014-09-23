@@ -24,6 +24,9 @@ type FacadeCaller interface {
 	// also known to the client.
 	FacadeCall(request string, params, response interface{}) error
 
+	// Name returns the facade name.
+	Name() string
+
 	// BestAPIVersion returns the API version that we were able to
 	// determine is supported by both the client and the API Server
 	BestAPIVersion() int
@@ -51,6 +54,11 @@ func (fc facadeCaller) FacadeCall(request string, params, response interface{}) 
 		request, params, response)
 }
 
+// Name returns the facade name.
+func (fc facadeCaller) Name() string {
+	return fc.facadeName
+}
+
 // BestAPIVersion returns the version of the Facade that is going to be used
 // for calls. It is determined using the algorithm defined in api
 // BestFacadeVersion. Callers can use this to determine what methods must be
@@ -66,11 +74,18 @@ func (fc facadeCaller) RawAPICaller() APICaller {
 	return fc.caller
 }
 
-// NewFacadeCaller wraps an APICaller for a given Facade
+// NewFacadeCaller wraps an APICaller for a given facade name and the
+// best available version.
 func NewFacadeCaller(caller APICaller, facadeName string) FacadeCaller {
+	return NewFacadeCallerForVersion(caller, facadeName, caller.BestFacadeVersion(facadeName))
+}
+
+// NewFacadeCallerForVersion wraps an APICaller for a given facade
+// name and version.
+func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int) FacadeCaller {
 	return facadeCaller{
 		facadeName:  facadeName,
-		bestVersion: caller.BestFacadeVersion(facadeName),
+		bestVersion: version,
 		caller:      caller,
 	}
 }

@@ -26,9 +26,10 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:        simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
-			RequireSigned: false,
-			DataType:      "image-ids",
+			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames),
+			RequireSigned:  false,
+			DataType:       "image-ids",
+			StreamsVersion: "v1",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -112,15 +113,15 @@ func (*simplestreamsSuite) TestExtractCatalogsForProductsPreservesOrder(c *gc.C)
 		})
 }
 
-func (*simplestreamsSuite) TestExtractIndexesAcceptsNil(c *gc.C) {
+func (*simplestreamsSuite) TestExtractIndexesAcceptsEmpty(c *gc.C) {
 	ind := simplestreams.Indices{}
-	c.Check(simplestreams.ExtractIndexes(ind), gc.HasLen, 0)
+	c.Check(simplestreams.ExtractIndexes(ind, nil), gc.HasLen, 0)
 }
 
 func (*simplestreamsSuite) TestExtractIndexesReturnsIndex(c *gc.C) {
 	metadata := simplestreams.IndexMetadata{}
 	ind := simplestreams.Indices{Indexes: map[string]*simplestreams.IndexMetadata{"foo": &metadata}}
-	c.Check(simplestreams.ExtractIndexes(ind), gc.DeepEquals, simplestreams.IndexMetadataSlice{&metadata})
+	c.Check(simplestreams.ExtractIndexes(ind, nil), gc.DeepEquals, simplestreams.IndexMetadataSlice{&metadata})
 }
 
 func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
@@ -131,7 +132,7 @@ func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
 		},
 	}
 
-	array := simplestreams.ExtractIndexes(ind)
+	array := simplestreams.ExtractIndexes(ind, nil)
 
 	c.Assert(array, gc.HasLen, len(ind.Indexes))
 	c.Check(array[0], gc.NotNil)
@@ -145,6 +146,20 @@ func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
 		(array[0] == ind.Indexes["bar"]),
 		gc.Not(gc.Equals),
 		(array[1] == ind.Indexes["bar"]))
+}
+
+func (*simplestreamsSuite) TestExtractIndexesReturnsSpecifiedIndexes(c *gc.C) {
+	ind := simplestreams.Indices{
+		Indexes: map[string]*simplestreams.IndexMetadata{
+			"foo":    {},
+			"bar":    {},
+			"foobar": {},
+		},
+	}
+
+	array := simplestreams.ExtractIndexes(ind, []string{"foobar"})
+	c.Assert(array, gc.HasLen, 1)
+	c.Assert(array[0], gc.Equals, ind.Indexes["foobar"])
 }
 
 func (*simplestreamsSuite) TestHasCloudAcceptsNil(c *gc.C) {
@@ -319,7 +334,6 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 		),
 	}
 	sources := []simplestreams.DataSource{source, source, source}
-	params := simplestreams.ValueParams{DataType: "image-ids"}
 	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{
 			Region:   "us-east-1",
@@ -328,14 +342,13 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 		Series: []string{"precise"},
 		Arches: []string{"not-a-real-arch"}, // never matches
 	})
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   s.StreamsVersion,
+		LookupConstraint: constraint,
+		ValueParams:      simplestreams.ValueParams{DataType: "image-ids"},
+	}
 
-	items, resolveInfo, err := simplestreams.GetMetadata(
-		sources,
-		simplestreams.DefaultIndexPath,
-		constraint,
-		false,
-		params,
-	)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(items, gc.HasLen, 0)
 	c.Assert(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
@@ -449,7 +462,8 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 			MirrorContentId: "com.ubuntu.juju:released:tools",
 		}
 		indexRef, err := simplestreams.GetIndexWithFormat(
-			s.Source, s.IndexPath(), sstesting.Index_v1, s.RequireSigned, cloud, params)
+			s.Source, simplestreams.UnsignedIndex("v1"), sstesting.Index_v1,
+			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, gc.IsNil) {
 			continue
 		}

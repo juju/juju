@@ -83,7 +83,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	asserter.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -137,7 +137,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	}
 	dyingAsserter.AssertNoReceive()
 
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -178,7 +178,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	resolvedAsserter.AssertNoReceive()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(params.StatusError, "blarg", nil)
+	err = s.unit.SetStatus(state.StatusError, "blarg", nil)
 	c.Assert(err, gc.IsNil)
 	resolvedAsserter.AssertNoReceive()
 
@@ -661,7 +661,7 @@ func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	c.Assert(err, gc.IsNil)
 	svcName := fmt.Sprintf("mysql%d", len(rels))
 	s.AddTestingService(c, svcName, s.mysqlcharm)
-	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
+	eps, err := s.State.InferEndpoints(svcName, "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

@@ -46,10 +46,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
@@ -92,13 +88,13 @@ func SampleConfig() testing.Attrs {
 	}
 }
 
-// AdminUser returns the name used to bootstrap the dummy environment. The
-// dummy bootstrapping is handled slightly differently, and the user is
+// AdminUserTag returns the user tag used to bootstrap the dummy environment.
+// The dummy bootstrapping is handled slightly differently, and the user is
 // created as part of the bootstrap process.  This method is used to provide
 // tests a way to get to the user name that was used to initialise the
 // database, and as such, is the owner of the initial environment.
 func AdminUserTag() names.UserTag {
-	return names.NewUserTag("admin")
+	return names.NewLocalUserTag("dummy-admin")
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -245,8 +241,6 @@ type environ struct {
 	ecfgUnlocked *environConfig
 }
 
-var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
-var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
 
 // discardOperations discards all Operations written to it.
@@ -615,18 +609,6 @@ func (*environ) PrecheckInstance(series string, cons constraints.Value, placemen
 	return nil
 }
 
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}, nil
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
-}
-
 func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	series = config.PreferredSeries(e.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
@@ -684,7 +666,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// so that we can call it here.
 
 		info := stateInfo(estate.preferIPv6)
-		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts(), estate.statePolicy)
+		// Since the admin user isn't setup until after here,
+		// the password in the info structure is empty, so the admin
+		// user is constructed with an empty password here.
+		// It is set just below.
+		st, err := state.Initialize(
+			AdminUserTag(), info, cfg,
+			mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}
@@ -701,8 +689,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		// TODO(thumper): make the state.User method require a names.UserTag.
-		owner, err := st.User(env.Owner().Name())
+		owner, err := st.User(env.Owner())
 		if err != nil {
 			panic(err)
 		}

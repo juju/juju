@@ -312,11 +312,11 @@ func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
+	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
+	err = s.machines[1].SetStatus(state.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really", nil)
+	err = s.machines[2].SetStatus(state.StatusError, "not really", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -343,23 +343,23 @@ func (s *withoutStateServerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertStatus(c, 0, params.StatusError, "not really", map[string]interface{}{"foo": "bar"})
-	s.assertStatus(c, 1, params.StatusStopped, "foobar", map[string]interface{}{})
-	s.assertStatus(c, 2, params.StatusStarted, "again", map[string]interface{}{})
+	s.assertStatus(c, 0, state.StatusError, "not really", map[string]interface{}{"foo": "bar"})
+	s.assertStatus(c, 1, state.StatusStopped, "foobar", map[string]interface{}{})
+	s.assertStatus(c, 2, state.StatusStarted, "again", map[string]interface{}{})
 }
 
 func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
+	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusError, "transient error",
+	err = s.machines[1].SetStatus(state.StatusError, "transient error",
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "error", map[string]interface{}{"transient": false})
+	err = s.machines[2].SetStatus(state.StatusError, "error", map[string]interface{}{"transient": false})
 	c.Assert(err, gc.IsNil)
-	err = s.machines[3].SetStatus(params.StatusError, "error", nil)
+	err = s.machines[3].SetStatus(state.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
 	// Machine 4 is provisioned but error not reset yet.
-	err = s.machines[4].SetStatus(params.StatusError, "transient error",
+	err = s.machines[4].SetStatus(state.StatusError, "transient error",
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, gc.IsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
@@ -383,14 +383,14 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *g
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
-	err = s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
+	err = s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusError, "transient error",
+	err = s.machines[1].SetStatus(state.StatusError, "transient error",
 		map[string]interface{}{"transient": true, "foo": "bar"})
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "error", map[string]interface{}{"transient": false})
+	err = s.machines[2].SetStatus(state.StatusError, "error", map[string]interface{}{"transient": false})
 	c.Assert(err, gc.IsNil)
-	err = s.machines[3].SetStatus(params.StatusError, "error", nil)
+	err = s.machines[3].SetStatus(state.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
 
 	result, err := aProvisioner.MachinesWithTransientErrors()
@@ -443,7 +443,7 @@ func (s *withoutStateServerSuite) assertLife(c *gc.C, index int, expectLife stat
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
 }
 
-func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus params.Status, expectInfo string,
+func (s *withoutStateServerSuite) assertStatus(c *gc.C, index int, expectStatus state.Status, expectInfo string,
 	expectData map[string]interface{}) {
 
 	status, info, data, err := s.machines[index].Status()
@@ -540,11 +540,11 @@ func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
 }
 
 func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
-	err := s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
+	err := s.machines[0].SetStatus(state.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[1].SetStatus(params.StatusStopped, "foo", nil)
+	err = s.machines[1].SetStatus(state.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machines[2].SetStatus(params.StatusError, "not really", map[string]interface{}{"foo": "bar"})
+	err = s.machines[2].SetStatus(state.StatusError, "not really", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -631,14 +631,14 @@ func (s *withoutStateServerSuite) TestDistributionGroup(c *gc.C) {
 	setProvisioned("3")
 
 	// Add a few state servers, provision two of them.
-	_, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	_, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, gc.IsNil)
 	setProvisioned("5")
 	setProvisioned("7")
 
 	// Create a logging service, subordinate to mysql.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

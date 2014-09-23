@@ -24,10 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -70,8 +67,6 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
-var _ imagemetadata.SupportsCustomSources = (*maasEnviron)(nil)
-var _ envtools.SupportsCustomSources = (*maasEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env := new(maasEnviron)
@@ -146,13 +141,143 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	if env.supportedArchitectures != nil {
 		return env.supportedArchitectures, nil
 	}
-	// Create a filter to get all images from our region and for the correct stream.
-	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
-		Stream: env.Config().ImageStream(),
-	})
-	var err error
-	env.supportedArchitectures, err = common.SupportedArchitectures(env, imageConstraint)
-	return env.supportedArchitectures, err
+	bootImages, err := env.allBootImages()
+	if err != nil {
+		logger.Debugf("error querying boot-images: %v", err)
+		logger.Debugf("falling back to listing nodes")
+		supportedArchitectures, err := env.nodeArchitectures()
+		if err != nil {
+			return nil, err
+		}
+		env.supportedArchitectures = supportedArchitectures
+	} else {
+		var architectures set.Strings
+		for _, image := range bootImages {
+			architectures.Add(image.architecture)
+		}
+		env.supportedArchitectures = architectures.SortedValues()
+	}
+	return env.supportedArchitectures, nil
+}
+
+// allBootImages queries MAAS for all of the boot-images across
+// all registered nodegroups.
+func (env *maasEnviron) allBootImages() ([]bootImage, error) {
+	nodegroups, err := env.getNodegroups()
+	if err != nil {
+		return nil, err
+	}
+	var allBootImages []bootImage
+	var seen set.Strings
+	for _, nodegroup := range nodegroups {
+		bootImages, err := env.nodegroupBootImages(nodegroup)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot get boot images for nodegroup %v", nodegroup)
+		}
+		for _, image := range bootImages {
+			str := fmt.Sprint(image)
+			if seen.Contains(str) {
+				continue
+			}
+			seen.Add(str)
+			allBootImages = append(allBootImages, image)
+		}
+	}
+	return allBootImages, nil
+}
+
+// getNodegroups returns the UUID corresponding to each nodegroup
+// in the MAAS installation.
+func (env *maasEnviron) getNodegroups() ([]string, error) {
+	nodegroupsListing := env.getMAASClient().GetSubObject("nodegroups")
+	nodegroupsResult, err := nodegroupsListing.CallGet("list", nil)
+	if err != nil {
+		return nil, err
+	}
+	list, err := nodegroupsResult.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	nodegroups := make([]string, len(list))
+	for i, obj := range list {
+		nodegroup, err := obj.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		uuid, err := nodegroup["uuid"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		nodegroups[i] = uuid
+	}
+	return nodegroups, nil
+}
+
+type bootImage struct {
+	architecture string
+	release      string
+}
+
+// nodegroupBootImages returns the set of boot-images for the specified nodegroup.
+func (env *maasEnviron) nodegroupBootImages(nodegroupUUID string) ([]bootImage, error) {
+	nodegroupObject := env.getMAASClient().GetSubObject("nodegroups").GetSubObject(nodegroupUUID)
+	bootImagesObject := nodegroupObject.GetSubObject("boot-images/")
+	result, err := bootImagesObject.CallGet("", nil)
+	if err != nil {
+		return nil, err
+	}
+	list, err := result.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	var bootImages []bootImage
+	for _, obj := range list {
+		bootimage, err := obj.GetMap()
+		if err != nil {
+			return nil, err
+		}
+		arch, err := bootimage["architecture"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		release, err := bootimage["release"].GetString()
+		if err != nil {
+			return nil, err
+		}
+		bootImages = append(bootImages, bootImage{
+			architecture: arch,
+			release:      release,
+		})
+	}
+	return bootImages, nil
+}
+
+// nodeArchitectures returns the architectures of all
+// available nodes in the system.
+//
+// Note: this should only be used if we cannot query
+// boot-images.
+func (env *maasEnviron) nodeArchitectures() ([]string, error) {
+	filter := make(url.Values)
+	filter.Add("status", gomaasapi.NodeStatusDeclared)
+	filter.Add("status", gomaasapi.NodeStatusCommissioning)
+	filter.Add("status", gomaasapi.NodeStatusReady)
+	filter.Add("status", gomaasapi.NodeStatusReserved)
+	filter.Add("status", gomaasapi.NodeStatusAllocated)
+	allInstances, err := env.instances(filter)
+	if err != nil {
+		return nil, err
+	}
+	var architectures set.Strings
+	for _, inst := range allInstances {
+		inst := inst.(*maasInstance)
+		arch, _, err := inst.architecture()
+		if err != nil {
+			return nil, err
+		}
+		architectures.Add(arch)
+	}
+	return architectures.SortedValues(), nil
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
@@ -578,13 +703,20 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	return err
 }
 
-// instances calls the MAAS API to list nodes.  The "ids" slice is a filter for
-// specific instance IDs.  Due to how this works in the HTTP API, an empty
-// "ids" matches all instances (not none as you might expect).
-func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
-	nodeListing := environ.getMAASClient().GetSubObject("nodes")
+// acquireInstances calls the MAAS API to list acquired nodes.
+//
+// The "ids" slice is a filter for specific instance IDs.
+// Due to how this works in the HTTP API, an empty "ids"
+// matches all instances (not none as you might expect).
+func (environ *maasEnviron) acquiredInstances(ids []instance.Id) ([]instance.Instance, error) {
 	filter := getSystemIdValues("id", ids)
 	filter.Add("agent_name", environ.ecfg().maasAgentName())
+	return environ.instances(filter)
+}
+
+// instances calls the MAAS API to list nodes matching the given filter.
+func (environ *maasEnviron) instances(filter url.Values) ([]instance.Instance, error) {
+	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
 		return nil, err
@@ -618,7 +750,7 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		// if no instances were found.
 		return nil, environs.ErrNoInstances
 	}
-	instances, err := environ.instances(ids)
+	instances, err := environ.acquiredInstances(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -662,7 +794,7 @@ func (*maasEnviron) ListNetworks() ([]network.BasicInfo, error) {
 
 // AllInstances returns all the instance.Instance in this provider.
 func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
-	return environ.instances(nil)
+	return environ.acquiredInstances(nil)
 }
 
 // Storage is defined by the Environ interface.
@@ -694,20 +826,6 @@ func (*maasEnviron) Ports() ([]network.PortRange, error) {
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
-}
-
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *maasEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}, nil
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // networkDetails holds information about a MAAS network.

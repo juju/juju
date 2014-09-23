@@ -9,10 +9,12 @@ package api
 // This map should be updated whenever the API server exposes a new version (so
 // that the client will use it whenever it is available).
 var facadeVersions = map[string]int{
-	"Agent":                0,
+	"Agent":                1,
 	"AllWatcher":           0,
+	"Backups":              0,
 	"Deployer":             0,
 	"KeyUpdater":           0,
+	"HighAvailability":     1,
 	"Machiner":             0,
 	"Networker":            0,
 	"StringsWatcher":       0,
@@ -28,7 +30,7 @@ var facadeVersions = map[string]int{
 	"Client":               0,
 	"NotifyWatcher":        0,
 	"Upgrader":             0,
-	"Firewaller":           0,
+	"Firewaller":           1,
 	"Rsyslog":              0,
 	"Uniter":               0,
 }

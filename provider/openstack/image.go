@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -38,12 +39,12 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		Arches:    ic.Arches,
 		Stream:    e.Config().ImageStream(),
 	})
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}
 	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
-	matchingImages, _, err := imagemetadata.Fetch(sources, simplestreams.DefaultIndexPath, imageConstraint, false)
+	matchingImages, _, err := imagemetadata.Fetch(sources, imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

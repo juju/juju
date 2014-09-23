@@ -16,8 +16,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/tools"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -175,7 +174,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return fmt.Errorf("the name of the environment must be specified")
 	}
 
-	environ, cleanup, err := environFromName(ctx, c.ConnectionName(), "Bootstrap")
+	environ, cleanup, err := environFromName(
+		ctx,
+		c.ConnectionName(),
+		"Bootstrap",
+		bootstrapFuncs.EnsureNotBootstrapped,
+	)
 
 	// If we error out for any reason, clean up the environment.
 	defer func() {
@@ -193,16 +197,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Handle any errors from environFromName(...).
 	if err != nil {
 		return errors.Annotatef(err, "there was an issue examining the environment")
-	}
-
-	// We want to validate constraints early. However, if a custom image metadata
-	// source is specified, we can't validate the arch because that depends on what
-	// images metadata is to be uploaded. So we validate here if no custom metadata
-	// source is specified, and defer till later if not.
-	if c.MetadataSource == "" {
-		if err := validateConstraints(c.Constraints, environ); err != nil {
-			return err
-		}
 	}
 
 	// Check to see if this environment is already bootstrapped. If it
@@ -231,15 +225,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
+	var metadataDir string
 	if c.MetadataSource != "" {
-		metadataDir := ctx.AbsPath(c.MetadataSource)
-		if err := uploadCustomMetadata(metadataDir, environ); err != nil {
-			return err
-		}
-		if err := validateConstraints(c.Constraints, environ); err != nil {
-			return err
-		}
+		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
+
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unnecessary upload.
@@ -252,6 +242,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,
 		KeepBroken:  c.KeepBrokenEnvironment,
+		MetadataDir: metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
@@ -304,34 +295,6 @@ func (c *BootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	err = writer.Write()
 	if err != nil {
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
-	}
-	return nil
-}
-
-var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {
-	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
-	tools.DefaultBaseURL = metadataDir
-	if err := imagemetadata.UploadImageMetadata(env.Storage(), metadataDir); err != nil {
-		// Do not error if image metadata directory doesn't exist.
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("uploading image metadata: %v", err)
-		}
-	} else {
-		logger.Infof("custom image metadata uploaded")
-	}
-	return nil
-}
-
-var validateConstraints = func(cons constraints.Value, env environs.Environ) error {
-	validator, err := env.ConstraintsValidator()
-	if err != nil {
-		return err
-	}
-	unsupported, err := validator.Validate(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf("unsupported constraints: %v", err)
-	} else if err != nil {
-		return err
 	}
 	return nil
 }

@@ -4,7 +4,6 @@
 package metricworker_test
 
 import (
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,10 +17,6 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
 type CleanupSuite struct {
 	testing.JujuConnSuite
 }
@@ -32,15 +27,17 @@ var _ = gc.Suite(&CleanupSuite{})
 // After a single run of the cleanup worker it expects the
 // old one to be deleted
 func (s *CleanupSuite) TestCleaner(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	now := time.Now()
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
 
 	notify := make(chan struct{})
+	cleanup := metricworker.PatchNotificationChannel(notify)
+	defer cleanup()
 	client := metricsmanager.NewClient(s.APIState)
-	worker := metricworker.NewCleanup(client, notify)
+	worker := metricworker.NewCleanup(client)
 	defer worker.Kill()
 	select {
 	case <-notify:

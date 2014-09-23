@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
@@ -38,16 +40,19 @@ import (
 var (
 	agentInitializeState = agent.InitializeState
 	sshGenerateKey       = ssh.GenerateKey
+	stateStorage         = (*state.State).Storage
 	minSocketTimeout     = 1 * time.Minute
 )
 
 type BootstrapCommand struct {
 	cmd.CommandBase
 	AgentConf
-	EnvConfig   map[string]interface{}
-	Constraints constraints.Value
-	Hardware    instance.HardwareCharacteristics
-	InstanceId  string
+	EnvConfig        map[string]interface{}
+	Constraints      constraints.Value
+	Hardware         instance.HardwareCharacteristics
+	InstanceId       string
+	AdminUsername    string
+	ImageMetadataDir string
 }
 
 // Info returns a decription of the command.
@@ -64,6 +69,8 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 	f.Var(&c.Hardware, "hardware", "hardware characteristics (space-separated strings)")
 	f.StringVar(&c.InstanceId, "instance-id", "", "unique instance-id for bootstrap machine")
+	f.StringVar(&c.AdminUsername, "admin-user", "admin", "set the name for the juju admin user")
+	f.StringVar(&c.ImageMetadataDir, "image-metadata", "", "custom image metadata source dir")
 }
 
 // Init initializes the command for running.
@@ -73,6 +80,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 	}
 	if c.InstanceId == "" {
 		return requiredError("instance-id")
+	}
+	if !names.IsValidUser(c.AdminUsername) {
+		return errors.Errorf("%q is not a valid username", c.AdminUsername)
 	}
 	return c.AgentConf.CheckArgs(args)
 }
@@ -180,7 +190,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
 
+		adminTag := names.NewLocalUserTag(c.AdminUsername)
 		st, m, stateErr = agentInitializeState(
+			adminTag,
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -204,6 +216,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Populate the tools catalogue.
 	if err := c.populateTools(st, env); err != nil {
 		return err
+	}
+
+	// Add custom image metadata to environment storage.
+	if c.ImageMetadataDir != "" {
+		if err := c.storeCustomImageMetadata(stateStorage(st)); err != nil {
+			return err
+		}
 	}
 
 	// bootstrap machine always gets the vote
@@ -341,6 +360,32 @@ func (c *BootstrapCommand) populateTools(st *state.State, env environs.Environ) 
 		}
 	}
 	return nil
+}
+
+// storeCustomImageMetadata reads the custom image metadata from disk,
+// and stores the files in environment storage with the same relative
+// paths.
+func (c *BootstrapCommand) storeCustomImageMetadata(stor state.Storage) error {
+	logger.Debugf("storing custom image metadata from %q", c.ImageMetadataDir)
+	return filepath.Walk(c.ImageMetadataDir, func(abspath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
+			return nil
+		}
+		relpath, err := filepath.Rel(c.ImageMetadataDir, abspath)
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(abspath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		logger.Debugf("storing %q in environment storage (%d bytes)", relpath, info.Size())
+		return stor.Put(relpath, f, info.Size())
+	})
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

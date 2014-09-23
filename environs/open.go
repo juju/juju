@@ -5,8 +5,6 @@ package environs
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,21 +13,9 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/storage"
-)
-
-// File named `VerificationFilename` in the storage will contain
-// `verificationContent`.  This is also used to differentiate between
-// Python Juju and juju-core environments, so change the content with
-// care (and update CheckEnvironment below when you do that).
-const (
-	VerificationFilename = "bootstrap-verify"
-	verificationContent  = "juju-core storage writing verified: ok\n"
 )
 
 var (
-	VerifyStorageError error = fmt.Errorf(
-		"provider storage is not writable")
 	InvalidEnvironmentError = fmt.Errorf(
 		"environment is not a juju-core environment")
 )
@@ -165,57 +151,70 @@ func New(config *config.Config) (Environ, error) {
 // Prepare prepares a new environment based on the provided configuration.
 // If the environment is already prepared, it behaves like New.
 func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage) (Environ, error) {
-	p, err := Provider(cfg.Type())
-	if err != nil {
+
+	if p, err := Provider(cfg.Type()); err != nil {
 		return nil, err
-	}
-	info, err := store.ReadInfo(cfg.Name())
-	if errors.IsNotFound(errors.Cause(err)) {
+	} else if info, err := store.ReadInfo(cfg.Name()); errors.IsNotFound(errors.Cause(err)) {
 		info = store.CreateInfo(cfg.Name())
-		env, err := prepare(ctx, cfg, info, p)
-		if err != nil {
+		if env, err := prepare(ctx, cfg, info, p); err == nil {
+			return env, decorateAndWriteInfo(info, env.Config())
+		} else {
 			if err := info.Destroy(); err != nil {
 				logger.Warningf("cannot destroy newly created environment info: %v", err)
 			}
 			return nil, err
 		}
-		cfg = env.Config()
-		creds := configstore.APICredentials{
-			User:     "admin", // TODO(waigani) admin@local once we have that set
-			Password: cfg.AdminSecret(),
-		}
-		info.SetAPICredentials(creds)
-		endpoint := configstore.APIEndpoint{}
-		var ok bool
-		endpoint.CACert, ok = cfg.CACert()
-		if !ok {
-			return nil, errors.Errorf("CACert is not set")
-		}
-		endpoint.EnvironUUID, ok = cfg.UUID()
-		if !ok {
-			return nil, errors.Errorf("CACert is not set")
-		}
-		info.SetAPIEndpoint(endpoint)
-		info.SetBootstrapConfig(env.Config().AllAttrs())
-		if err := info.Write(); err != nil {
-			return nil, errors.Annotatef(err, "cannot create environment info %q", env.Config().Name())
-		}
-		return env, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
-	}
-	if !info.Initialized() {
-		return nil, errors.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", cfg.Name())
-	}
-	if len(info.BootstrapConfig()) == 0 {
+	} else if !info.Initialized() {
+		return nil,
+			errors.Errorf(
+				"found uninitialized environment info for %q; environment preparation probably in progress or interrupted",
+				cfg.Name(),
+			)
+	} else if len(info.BootstrapConfig()) == 0 {
 		return nil, errors.New("found environment info but no bootstrap config")
+	} else {
+		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot parse bootstrap config")
+		}
+		return New(cfg)
 	}
-	cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot parse bootstrap config")
+}
+
+// decorateAndWriteInfo decorates the info struct with information
+// from the given cfg, and the writes that out to the filesystem.
+func decorateAndWriteInfo(info configstore.EnvironInfo, cfg *config.Config) error {
+
+	// Sanity check our config.
+	var endpoint configstore.APIEndpoint
+	if cert, ok := cfg.CACert(); !ok {
+		return errors.Errorf("CACert is not set")
+	} else if uuid, ok := cfg.UUID(); !ok {
+		return errors.Errorf("UUID is not set")
+	} else if adminSecret := cfg.AdminSecret(); adminSecret == "" {
+		return errors.Errorf("admin-secret is not set")
+	} else {
+		endpoint = configstore.APIEndpoint{
+			CACert:      cert,
+			EnvironUUID: uuid,
+		}
 	}
-	return New(cfg)
+
+	creds := configstore.APICredentials{
+		User:     configstore.DefaultAdminUsername,
+		Password: cfg.AdminSecret(),
+	}
+	info.SetAPICredentials(creds)
+	info.SetAPIEndpoint(endpoint)
+	info.SetBootstrapConfig(cfg.AllAttrs())
+
+	if err := info.Write(); err != nil {
+		return errors.Annotatef(err, "cannot create environment info %q", cfg.Name())
+	}
+
+	return nil
 }
 
 func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
@@ -307,45 +306,6 @@ func DestroyInfo(envName string, store configstore.Storage) error {
 	}
 	if err := info.Destroy(); err != nil {
 		return errors.Annotate(err, "cannot destroy environment configuration information")
-	}
-	return nil
-}
-
-// VerifyStorage writes the bootstrap init file to the storage to indicate
-// that the storage is writable.
-func VerifyStorage(stor storage.Storage) error {
-	reader := strings.NewReader(verificationContent)
-	err := stor.Put(VerificationFilename, reader,
-		int64(len(verificationContent)))
-	if err != nil {
-		logger.Warningf("failed to write bootstrap-verify file: %v", err)
-		return VerifyStorageError
-	}
-	return nil
-}
-
-// CheckEnvironment checks if an environment has a bootstrap-verify
-// that is written by juju-core commands (as compared to one being
-// written by Python juju).
-//
-// If there is no bootstrap-verify file in the storage, it is still
-// considered to be a Juju-core environment since early versions have
-// not written it out.
-//
-// Returns InvalidEnvironmentError on failure, nil otherwise.
-func CheckEnvironment(environ Environ) error {
-	stor := environ.Storage()
-	reader, err := storage.Get(stor, VerificationFilename)
-	if errors.IsNotFound(err) {
-		// When verification file does not exist, this is a juju-core
-		// environment.
-		return nil
-	} else if err != nil {
-		return err
-	} else if content, err := ioutil.ReadAll(reader); err != nil {
-		return err
-	} else if string(content) != verificationContent {
-		return InvalidEnvironmentError
 	}
 	return nil
 }

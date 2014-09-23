@@ -105,6 +105,10 @@ var errorTransformTests = []struct {
 	code:       params.CodeTryAgain,
 	helperFunc: params.IsCodeTryAgain,
 }, {
+	err:        state.UpgradeInProgressError,
+	code:       params.CodeUpgradeInProgress,
+	helperFunc: params.IsCodeUpgradeInProgress,
+}, {
 	err:  stderrors.New("an error"),
 	code: "",
 }, {
