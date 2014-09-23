@@ -22,7 +22,7 @@ describes how functionality has to be added, modified, or removed.
 ### Scope
 
 The [Juju API Design Specification](juju-api-design-specificaion.md) shows how the
-core packages of the API are implemented. They provide a comunication between client
+core packages of the API are implemented. They provide a communication between client
 and server using WebSockets and a JSON marshalling. Additionally the API server
 allows to register facades constructors for types and versions. Those are used to
 dispatch the requests to the responsible methods.
@@ -41,17 +41,19 @@ This document provides guide on
 
 ## Organization
 
-The business logic of the API is grouped by the types of entities it's acting on.
-This type is specified in the `Type` field of each request. Each type is represented
-by a package which implements and registers a *factory* for each version it supports.
-When a request for a given type is received the factory for the requested version is
-used to create a *facade*. The facade is an instance of a type implementing a set of
-*methods* for the handling of the requests as described in the specification document.
+The access to the business logic provided by the API is done through *facades*. Those
+are grouping *connected functionalities*, so that everything a worker or a client 
+needs can be provided optimally by only one factory each. The facade is specified
+in the `Type` field of each request. Each facade is represented by a package which 
+implements and registers a *factory* for each version it supports. When a request
+for a given type is received the factory for the requested version is used to create
+a facade instance. This type implements a set of *methods* for the handling of the
+requests as described in the [specification document](juju-api-design-specification.md).
 
-All API type packages are located inside the package 
+All API facade packages are located inside the package 
 [apiserver](https://github.com/juju/juju/tree/master/apiserver). Here you'll
 e.g. find the package [agent](https://github.com/juju/juju/tree/master/apiserver/agent)
-implementing the API interfaces used by the machine agent. As a first step it registers
+implementing the API interfaces used by the *machine agent*. As a first step it registers
 the factory for version 0 of the facade with
 
 ```
@@ -82,215 +84,275 @@ distribute the requests to them.
 
 ## Versioning
 
+***Remark***
+
+> Most of the current facade packages so far only implement the initial version and so
+> don't contain the postfix `V0`. They will be refactored step-by-step when adding a
+> `V1`.
+
+### Scenario
+
+The folling description uses a fictional API for monitoring purposes. So a monitoring worker
+on a machine can store vital data in state while other functions exist to retrieve them. The
+initial version 0 provides the function `WriteCPU()` and `WriteDisk()`, in version 1 the 
+function `WriteRAM()` is added while the arguments of `WriteCPU()` are changed. In version 2
+`WriteCPU()`is then dropped in favor of `WriteLoad()`.
+
 ### Server
 
 #### Implementation
 
-When implementing a new version of a facade, there are a couple of use cases. Depending on
-the changes most of them start by embedding the latest version of the facade into the new one.
+The implementation of version 0 of the monitoring API is done in a file named `monitoring_v0.go`.
+Here the type `MonitoringAPIV0` is defined and its factory function registered like decribed
+above. Also the initial functions are implemented here:
 
 ```
-type FantasticAPIV1 struct {
-        FantasticAPIV0
+func (api *MonitoringAPIV0) WriteCPU(args params.CPUMonitors) (params.Errors, error) {
+        ...
 }
-```
 
-When needed additional field can be added here. Note the convention of naming the facades
-by their deployment name, here `Fantastic`, the term `API` to signal where talking about the
-API and not an often same named worker counterpart, and `V0`, `V1`, etc to separate the
-different versions.
-
-The easiest use case is the adding of a new method without influencing existing ones. In
-this case it simply can be added to the new created type:
-
-```
-func (api *FantasticAPIV1) MyNewMethod(args params.FooArgs) (params.FooResults, error) {
+func (api *MonitoringAPIV0) WriteDisk(args params.DiskMonitors) (params.Errors, error) {
         ...
 }
 ```
 
-The second one is the change of the signature of a method by changing the arguments and/or
-the result. The change looks like this:
+When implementing version 1 we want to reuse the already written code. So in a new file
+named `monitoring_v1.go` in the same package the new type is defined by embedding the version
+0:
 
 ```
-func (api *FantasticAPIV1) MyOldMethod(args params.BarArgsV1) (params.BarResultsV1, error) {
+type MonitoringAPIV1 struct {
+        MonitoringAPIV0
+}
+```
+
+This way the new version already provides the functions of version 0 and can be registered
+like its predecessor. Now the new function can be added:
+
+```
+func (api *MonitoringAPIV1) WriteRAM(args params.RAMMonitors) (params.Errors, error) {
         ...
 }
 ```
 
-This change also effects the client side. In case of a newer version here the client has to
-be able to handle a lower version on the server. This is the reason to also use versioning
-at the arguments and results. A bit different is the change of the meaning of an existing
-method. The reimplementation on the new facade type is pretty simple:
+But beside adding a new functionality we also have to change our CPU monitoring functions
+as descibed. It now expects different arguments, so those have to be versioned too. The
+way Go embedds functions and the RPC mechanism resolves function calls we now can overload
+the initial version by defining the function new on the version 1:
 
 ```
-func (api *FantasticAPIV1) MyChangedMethod(args params.BazArgs) (params.BazArgs, error) {
+func (api *MonitoringAPIV1) WriteCPU(args params.CPUMonitorsV1) (params.Errors, error) {
         ...
 }
 ```
 
-Here the more important change is on the client side to explicitely check the best available
-API version and to act accordingly. Also the design of those changes has to take care that
-the client cannot expect the newest version on the server.
-
-Last but not least API methods may be removed. This cannot be done directly by not implementing
-when choosing the embedding pattern shown above. Here the best way is to move all common logic
-into a base type, only the method to remove is missing:
+As said above the version 2 renames a function. Technically this means dropping an existing
+one and adding a new one. The latter is no problem, it's like the adding of a new function
+shown above, even if the functionality stays the same. Dropping a function is the more
+complicated part and larger changes have to be done. First a private base type containing
+the fields of version 0 has to be implemented in the file `monitoring.go`:
 
 ```
-type FantasticAPIBase struct {
-        ...
-}
-
-func (api *FantasticAPIBase) MyBaseMethod(args params.YaddaArgs) (params.YaddaResults, error) {
+type monitoringAPIBase struct {
         ...
 }
 ```
 
-Now this base API has to be embedded into the individual version. The method to be removed will
-here only be implemented in those versions where it exists:
+Now in `monitoring_v0.go` the code of the API functions has to be moved into versioned private
+functions of the newly created base. This base now has to be embedded and the versioned moved
+code be called:
 
 ```
-// FantasticAPIV0 provides MyRemovedMethod.
-type FantasticAPIV0 struct {
-        FantasticAPIBase
-}
-
-func (api *FantasticAPIV0) MyRemovedMethod(args params.OldArgs) (params.OldResults, error) {
+func (api *monitoringAPIBase) writeCPUV0(args params.CPUMonitors) (params.Errors, error) {
         ...
 }
 
-// FantasticAPIV1 does not provide MyRemovedMethod anymore.
-type FantasticAPIV1 struct {
-        FantasticAPIBase
+type MonitoringAPIV0 struct {
+        monitoringAPIBase
+}
+
+func (api *MonitoringAPIV0) WriteCPU(args params.CPUMonitors) (params.Errors, error) {
+        return api.writeCPUV0(args)
 }
 ```
 
-***Alternative approach to discuss***
+Now also in the version 1 file move the code into according version functions of the base,
+embed it, and call it from inside the public functions. Also remove the embedding of the
+version 0. Instead the functions have to be implemented on the type itself and call the
+embedded code like in version 0. Thankfully this is a quick task.
 
-> The method described above will get more difficult in newer versions when more methods
-> have to be removed. Here it may be better to have a hidden private implementation of
-> API versions. The public versions contain these private ones as a field, their public
-> methods in the best case simply pass a call to the counterpart of the private type. A
-> removed method is in this case simply not implemented on the public type anymore. Also
-> signature changes may be easier. While the real change--without any semantic change, that's
-> a different use case--is done in private type the public wrappers do everything to make
-> it compatible for their versions.
+The coding of version 2 is now done the same way. First the new load monitoring function
+is implemented as private base function. Then the according public function added on the
+version 2 type. Again all exported functions are added like in version 1, only the removed
+function will be left out:
+
+```
+func (api *monitoringAPIBase) writeLoadV2(args params.LoadMonitors) (params.Errors, error) {
+        ...
+}
+
+type MonitoringAPIV2 struct {
+        monitoringAPIBase
+}
+
+func (api *MonitoringAPIV2) WriteLoad(args params.LoadMonitors) (params.Errors, error) {
+        return api.writeLoadV2(args)
+}
+```
+
+This way new or changed logic is implemented in their versioned files and can easily be
+reused, changed, or dropped.
 
 #### Testing
 
-Testing the API needs a different strategy than most other unit tests. We have to assure
-that the versions we provide are robust over the time. So each time we run the tests of a
-facade we have to do it for all existing versions. But the API changes over time, so the 
-tests have to be versioned too. Last but not least the tests have to be maintainable while 
-they are growing and changing.
+The testing of versioned APIs differs from most other unit tests. Each provided function
+of each version of a facade has to be tested, but while some tests don't differ between 
+versions because the function didn't changed others have to be reimplemented. So the idea
+of organizing the tests and reuse the code is very similar to the solution for the
+implementation described above.
 
-The approach to do so are *per-method suites*. Major idea is to group the tests for each
-individual method of the API into a suite starting with a version 0 here. As long as the
-methods are compatible over the versions the tests for new facades can use the existing
-suites. But when they are changing the used suites have to be changed too. This way we
-get a matrix.
-
-Take this scenario:
-
-| Method | Change  | Vsn | 0            | 1            | 2          |
-|--------|---------|:---:|--------------|--------------|------------|
-| Foo    | Stable  | 0   | FooSuiteV0   | FooSuiteV0   | FooSuiteV0 |
-| Bar    | Added   | 1   |              | BarSuiteV1   | BarSuiteV1 |
-| Baz    | Changed | 2   | BazSuiteV0   | BazSuiteV0   | BazSuiteV2 |
-| Yadda  | Removed | 2   | YaddaSuiteV0 | YaddaSuiteV0 |            |
-
-Here the `FooSuiteV0` has to be run for all three facade versions. The `BarSuiteV1` instead
-only for the facades `V1`and `V2`. The `BazSuiteV0` is valid for the facades `V0` and `V1`
-while a new `BazSuiteV2` has to be chosen for facade `V2`. Last but not least the `YaddaSuiteV0`.
-It lives for two versions and is not called anymore for `V2` and higher.
-
-Now the facades have to be injected into the suites. Instead of adding a field for the facade
-itself we add a factory field with the signature
+Once again the tests are split into one base file and one file per version. The base file
+`monitoring_test.go`contains a test suite with no pubic test functions. It's the container 
+for test variables and private prepared test functions. As long as there are no changes 
+needed it also may contain the definitions of `SetUpSuite()`/`TearDownSuite()` and 
+`SetUpTest()`/`TearDownTest()`. Otherwise those have to be implemented as private versioned
+methods like the test methods themselve.
 
 ```
-type Factory func(*state.State, *common.Resources, common.Authorizer) (interface{}, error)
-```
+type baseSuite struct {
+        ...
+}
 
-Additionally we we implement functions with this type for each facade version, using the 
-according real constructor function, like here for version 0:
-
-```
-func newFantasticAPIV0(
-        st *state.State, resources *Resources, authorizer Authorizer,
-) (interface{}, error) {
-	return fantastic.NewFantasticAPIV0(st, resources, authorizer)
+func (s *baseSuite) SetUpTest(c *gc.C) {
+        ...
 }
 ```
 
-When registering a suite for a version this factory can be injected to be used inside the
-tests. Here the factory can be used to instantiate the API it needs:
+Now in `monitoring_v0_test.go` the tests for the version 0 of the provided API functions
+have to be implemented. Additionally types to wrap the factory functions as well as 
+interfaces containing only one of the API functions to test have to be declared. Both are
+used to inject the real versions later.
 
 ```
-// Test method Baz for version 0 and 1.
-func (s *BazSuiteV0) TestBazOK(c *gc.C) {
-        api, err := s.factory(s.State, s.resources, s.authorizer)
+func factoryV0 func(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error)
+
+func (s *baseSuite) testNewMonitorSucceedsV0(c *gc.C, factory factoryV0) {
+        ...
+        api, err := factory(s.State, s.resources, s.authorizer)
         c.Assert(err, gc.IsNil)
-        fantasticAPI, ok := api.(fantasticAPIV0)
-        c.Assert(ok, gc.Equal, true)
         ...
 }
 
-// Test method Baz for version 2.
-func (s *BazSuiteV2) TestBazOK(c *gc.C) {
-        api, err := s.factory(s.State, s.resources, s.authorizer)
+func (s *baseSuite) testNewMonitorFailsV0(c *gc.C, factory factoryV0) {
+        ...
+}
+
+type writeCPUV0 interface {
+        WriteCPU(args params.CPUMonitors) (params.Errors, error)
+}
+
+func (s *baseSuite) testWriteCPUSucceedsV0(c *gc.C, api writeCPUV0) {
+        ...
+        results, err := api.WriteCPU(args)
         c.Assert(err, gc.IsNil)
-        fantasticAPI, ok := api.(fantasticAPIV2)
-        c.Assert(ok, gc.Equal, true)
         ...
 }
 ```
 
-The suite may contain more tests for the method `Baz()`, e.g. error situations, while
-the according other suites cover the other methods. When registering the suites the
-factories for the different versions have to be injected:
+As long as the functionality of the versions doesn't change those tests can
+be reused in future test. First the have to be integrated into the test suite
+for version 0 in the same file. First we need a factory for this version:
 
 ```
-var (
-         _ = gc.Suite(&FooSuiteV0{
-                baseFantasticAPISuite{
-                        factory: newFantasticAPIV0,
-                },
-         })
-         _ = gc.Suite(&FooSuiteV0{
-                baseFantasticAPISuite{
-                        factory: newFantasticAPIV1,
-                },
-         })
-         _ = gc.Suite(&FooSuiteV0{
-                baseFantasticAPISuite{
-                        factory: newFantasticAPIV2,
-                },
-         })
+func factoryWrapperV0(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error) {
+	return monitoring.NewMonitorAPIV0(st, resources, auth)
+}
+```
 
-         _ = gc.Suite(&BarSuiteV1{
-                baseFantasticAPISuite{
-                        factory: newFantasticAPIV1,
-                },
-         })
-         _ = gc.Suite(&BarSuiteV1{
-                baseFantasticAPISuite{
-                        factory: newFantasticAPIV2,
-                },
-         })
+Now the versioned suite itself can be implemented:
 
+```
+type monitoringSuiteV0 struct {
+        baseSuite
+}
+
+var _ = gc.Suite(&monitoringSuiteV0{})
+
+func (s *monitoringSuiteV0) TestNewMonitorSucceeds(c *gc.C) {
+        s.testNewMonitorSucceedsV0(c, factoryWrapperV0)
+}
+
+func (s *monitoringSuiteV0) TestWriteCPUSucceeds(c *gc.C) {
+        s.testWriteCPUSucceedsV0(c, s.newAPI(c))
+}
+```
+
+Here `newAPI()` is a little but useful helper:
+
+```
+func (s *monitoringSuiteV0) newAPI(c *gc.C) *monitoring.MonitoringAPIV0 {
+	api, err := monitoring.NewMonitorAPIV0(s.State, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+	return api
+}
+```
+
+When now implementing the version 1 of the monitoring suite the factory wrapper
+has to be reimplemented to return an instance of version 1 as well as the
+private tests for the changed or added functions have to be written. The interface 
+for the `WriteCPU()` function needs a new version too because its signature changed.
+
+```
+func factoryWrapperV1(st *state.State, resources *common.Resources, auth common.Authorizer) (interface{}, error) {
+	return monitoring.NewMonitorAPIV1(st, resources, auth)
+}
+
+func (s *baseSuite) testWriteCPUSucceedsV1(c *gc.C, api writeCPUV1) {
         ...
-)
+}
+
+func (s *baseSuite) testWriteRAMFailsV1(c *gc.C, api writeRAMV1) {
+        ...
+}
 ```
 
-In this example we see how the `FooSuiteV0` now runs the unchanged tests for `Foo()`
-for all three versions of the API while the `BarSuiteV1` tests `Bar()` only for 
-the versions 1 and 2.
+Now like already in version 0 the suite for version 1 can be implemented. It mostly
+looks like its predecessor and the tests for `WriteDisk()` can reuse the version 0
+tests of the base suite. The tests for `WriteRAM()` have to use the new base tests
+instead while the tests for `WriteRAM()` are added. Also the little `newAPI()` helper
+now has to return an instance of the version 1 API.
 
-***Alternative approach to discuss***
+```
+func (s *monitoringSuiteV1) TestWriteCPUSucceeds(c *gc.C) {
+	s.testWriteCPUSucceedsV1(c, s.newAPI(c))
+}
 
-> Instead of manual registrations the `init()` function can be used together with
-> a table defining the combination of suites and factories.
+func (s *monitoringSuiteV1) TestWriteDiskSucceeds(c *gc.C) {
+	s.testWriteDiskSucceedsV0(c, s.newAPI(c))
+}
+
+func (s *monitoringSuiteV1) TestWriteRAMFails(c *gc.C) {
+	s.testWriteRAMFailsV1(c, s.newAPI(c))
+}
+```
+
+Finally for version 2 the steps again are similar:
+
+- Create the file `monitoring_v2_test.go`
+- Add a factory wrapper returning the version 2 of the API
+- Add an interface for the new `WriteLoad()` function
+- Implement the private base tests for this new function
+- Add the `monitoringSuiteV2`
+- Implement `newAPI()` returning a version 2 API instance
+- Add all known test methods but those for `WriteCPU()` tests
+- Add tests for the new `WriteLoad()` using their according base tests
+
+This way test suites can easily grow version by version. The code is distributed
+to the versioned tests in a natural way, adding, changing, and removing is no
+problem. 
+
+**Take care:** Don't forget tests for existing functions when implementing the
+suite for a new version!
 
 ### Client
 
