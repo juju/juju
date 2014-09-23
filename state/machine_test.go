@@ -1038,6 +1038,9 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
+	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// identically named units and ensure there's no leakage.
+
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)

@@ -192,7 +192,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the service from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if s.doc.UnitCount > 0 {
-		ops = append(ops, s.st.newCleanupOp(cleanupUnitsForDyingService, s.doc.Name+"/"))
+		ops = append(ops, s.st.newCleanupOp(cleanupUnitsForDyingService, s.doc.Name))
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
@@ -571,9 +571,12 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, err
 	}
+	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	udoc := &unitDoc{
+		DocID:     docID,
 		Name:      name,
+		EnvUUID:   s.doc.EnvUUID,
 		Service:   s.doc.Name,
 		Series:    s.doc.Series,
 		Life:      Alive,
@@ -585,7 +588,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	ops := []txn.Op{
 		{
 			C:      unitsC,
-			Id:     name,
+			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
@@ -599,7 +602,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  unitsC,
-			Id: principalName,
+			Id: s.st.docID(principalName),
 			Assert: append(isAliveDoc, bson.DocElem{
 				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
 			}),
@@ -669,7 +672,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, txn.Op{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: append(observedFieldsMatch, asserts...),
 		Remove: true,
 	},
@@ -723,7 +726,10 @@ func (s *Service) Unit(name string) (*Unit, error) {
 	defer closer()
 
 	udoc := &unitDoc{}
-	sel := bson.D{{"_id", name}, {"service", s.doc.Name}}
+	sel := bson.D{
+		{"_id", s.st.docID(name)},
+		{"service", s.doc.Name},
+	}
 	if err := units.Find(sel).One(udoc); err != nil {
 		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
 	}

@@ -167,7 +167,7 @@ func beginUnitMigrationOps(st *State, unit *Unit, machineId string) (
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
-		Id:     unit.Name(),
+		Id:     unit.doc.DocID,
 		Assert: notDeadDoc,
 	}}
 
@@ -295,7 +295,7 @@ func finishUnitMigrationOps(
 	// Delete any remainging ports on the unit.
 	ops = append(ops, txn.Op{
 		C:      unitsC,
-		Id:     unit.Name(),
+		Id:     unit.doc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$unset", bson.D{{"ports", nil}}}},
 	})
@@ -316,7 +316,9 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	defer closer()
 
 	// Get all units ordered by their service and name.
-	err = units.Find(nil).Sort("service", "_id").All(&unitSlice)
+	// (Ignoring env-uuid becauuse this is steps happens during the
+	// upgrade where we know there's just one environment UUID)
+	err = units.Find(nil).Sort("service", "name").All(&unitSlice)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -488,6 +490,49 @@ func AddEnvUUIDToServicesID(st *State) error {
 				Id:     service.DocID,
 				Assert: txn.DocMissing,
 				Insert: service,
+			}}...)
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(ops)
+}
+
+// AddEnvUUIDToUnits prepends the environment UUID to the ID of all
+// unit docs and adds new "name" and "env-uuid" fields.
+func AddEnvUUIDToUnits(st *State) error {
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Annotate(err, "failed to load environment")
+	}
+
+	units, closer := st.getCollection(unitsC)
+	defer closer()
+
+	upgradesLogger.Debugf("adding the env uuid %q to the units collection", env.UUID())
+	uuid := env.UUID()
+	iter := units.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+	defer iter.Close()
+	ops := []txn.Op{}
+	var unit unitDoc
+	for iter.Next(&unit) {
+		// In the old serialization, _id was mapped to the Name field.
+		// Now _id is mapped to DocID. As such, we have to get the old
+		// doc Name from the DocID field.
+		unit.Name = unit.DocID
+		unit.EnvUUID = uuid
+		unit.DocID = st.docID(unit.Name)
+		ops = append(ops,
+			[]txn.Op{{
+				C:      unitsC,
+				Id:     unit.Name,
+				Assert: txn.DocExists,
+				Remove: true,
+			}, {
+				C:      unitsC,
+				Id:     unit.DocID,
+				Assert: txn.DocMissing,
+				Insert: unit,
 			}}...)
 	}
 	if err = iter.Err(); err != nil {

@@ -1478,6 +1478,8 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
+	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// identically named units and ensure there's no leakage.
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)

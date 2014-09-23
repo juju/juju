@@ -245,8 +245,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToServicesIDIdempotent(c *gc.C) {
 	err = services.Find(nil).All(&serviceResults)
 	c.Assert(err, gc.IsNil)
 	c.Assert(serviceResults, gc.HasLen, 1)
-
-	serviceResults[0].DocID = s.state.docID(serviceName)
+	c.Assert(serviceResults[0].DocID, gc.Equals, s.state.docID(serviceName))
 }
 
 func (s *upgradesSuite) addServiceNoEnvID(c *gc.C, name string) {
@@ -260,6 +259,61 @@ func (s *upgradesSuite) addServiceNoEnvID(c *gc.C, name string) {
 		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: oldService,
+	}}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToUnits(c *gc.C) {
+	unitName := "wordpress/0"
+	s.addUnitNoEnvUUID(c, unitName)
+
+	units, closer := s.state.getCollection(unitsC)
+	defer closer()
+
+	err := AddEnvUUIDToUnits(s.state)
+	c.Assert(err, gc.IsNil)
+
+	var unit unitDoc
+	err = units.Find(bson.D{{"_id", unitName}}).One(&unit)
+	c.Assert(err, gc.ErrorMatches, "not found")
+
+	err = units.Find(bson.D{{"_id", s.state.docID(unitName)}}).One(&unit)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unit.Name, gc.Equals, unitName)
+	c.Assert(unit.EnvUUID, gc.Equals, s.state.EnvironTag().Id())
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
+	unitName := "wordpress/0"
+	s.addUnitNoEnvUUID(c, unitName)
+
+	units, closer := s.state.getCollection(unitsC)
+	defer closer()
+
+	err := AddEnvUUIDToUnits(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = AddEnvUUIDToUnits(s.state)
+	c.Assert(err, gc.IsNil)
+
+	var docs []unitDoc
+	err = units.Find(nil).All(&docs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0].DocID, gc.Equals, s.state.docID(unitName))
+}
+
+func (s *upgradesSuite) addUnitNoEnvUUID(c *gc.C, name string) {
+	// Bare minimum unit document as of 1.21-alpha1
+	oldUnit := struct {
+		Name string `bson:"_id"`
+	}{Name: name}
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: oldUnit,
 	}}
 	err := s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
@@ -344,7 +398,7 @@ func openLegacyPort(c *gc.C, unit *Unit, number int, proto string) {
 	port := network.Port{Protocol: proto, Number: number}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     unit.Name(),
+		Id:     unit.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}

@@ -50,6 +50,13 @@ func stepsFor121a2() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all unit docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToUnits(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "migrate charm archives into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
