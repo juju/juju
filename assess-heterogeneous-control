@@ -36,7 +36,6 @@ def bootstrap_client(client, upload_tools):
     The machine's DNS name or IP address is returned.
     If bootstrapping fails, the environment is forcibly torn down.
     """
-    client.destroy_environment()
     juju_home = get_juju_home()
     try:
         with temp_bootstrap_env(juju_home, client):
@@ -90,14 +89,20 @@ def assess_heterogeneous(initial, other, base_env, environment_name, log_dir,
     initial_client = EnvJujuClient.by_version(environment, initial,
                                               debug=debug)
     other_client = EnvJujuClient.by_version(environment, other, debug=debug)
-    test_control_heterogeneous(initial_client, other_client, log_dir,
-                               upload_tools)
+    # System juju is assumed to be released and the best choice for tearing
+    # down environments reliably.  (For example, 1.18.x cannot tear down
+    # environments with alpha agent-versions.)
+    released_client = EnvJujuClient.by_version(environment, debug=debug)
+    test_control_heterogeneous(initial_client, other_client, released_client,
+                               log_dir, upload_tools)
 
 
-def test_control_heterogeneous(initial, other, log_dir, upload_tools):
+def test_control_heterogeneous(initial, other, released, log_dir,
+                               upload_tools):
     """Test if one binary can control an environment set up by the other."""
+    released.destroy_environment()
     host = bootstrap_client(initial, upload_tools)
-    with dumping_env(other, host, log_dir):
+    with dumping_env(released, host, log_dir):
         token = prepare_dummy_env(initial)
         initial.wait_for_started()
         check_token(env_from_client(initial), token)
