@@ -195,7 +195,11 @@ func FormatSummary(value interface{}) ([]byte, error) {
 			fmt.Fprintf(&b, "%s, ", p)
 		}
 		// Elide the last delimiter
-		return b.String()[:b.Len()-2]
+		if portList := b.String(); len(portList) >= 2 {
+			return portList[:b.Len()-2]
+		} else {
+			return portList
+		}
 	}
 
 	// Aggregate machine states.

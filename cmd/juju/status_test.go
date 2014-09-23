@@ -2360,7 +2360,6 @@ func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
 		gc.Equals,
 		"Running on subnets: 127.0.0.1/8, 10.0.0.1/8 \n"+
 			"Utilizing ports:                            \n"+
-			"                    \n"+
 			" # MACHINES: (3)\n"+
 			"    started:  3 \n"+
 			"            \n"+
