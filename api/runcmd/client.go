@@ -3,6 +3,8 @@ package runcmd
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -33,6 +35,11 @@ func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]par
 // Run the Commands specified on the machines identified through the ids
 // provided in the machines, services and units slices.
 func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
+	if c.facade.BestAPIVersion() < 1 {
+		if len(run.Relation) > 0 || len(run.RemoteUnit) > 0 {
+			return nil, errors.NotImplementedf("The server does not support the supplied option(s): --relation, --remote-unit.")
+		}
+	}
 	var results params.RunResults
 	err := c.facade.FacadeCall("Run", run, &results)
 	return results.Results, err

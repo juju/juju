@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/runcmd"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
@@ -207,15 +208,17 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
-	client, err := getRunAPIClient(c)
+	root, err := c.NewAPIRoot()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get API connection")
 	}
-	defer client.Close()
+
+	runClient := runcmd.NewClient(root, root.EnvironTag())
+	defer runClient.Close()
 
 	var runResults []params.RunResult
 	if c.all {
-		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
+		runResults, err = runClient.RunOnAllMachines(c.commands, c.timeout)
 	} else {
 		params := params.RunParams{
 			Commands:   c.commands,
@@ -226,10 +229,11 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 			Relation:   c.relation,
 			RemoteUnit: c.remoteUnit,
 		}
-		runResults, err = client.Run(params)
+		runResults, err = runClient.Run(params)
 	}
 
 	if err != nil {
+		// Check error type? If unsupported API call, then try old client.
 		return err
 	}
 
