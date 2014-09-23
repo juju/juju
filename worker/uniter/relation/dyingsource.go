@@ -11,9 +11,9 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-// NewDyingHookSource returns a HookSource that generates the hooks necessary
-// to leave the supplied relation, while maintaining juju's guarantees wrt
-// execution order.
+// NewDyingHookSource returns a new HookSource that generates all hooks
+// necessary to clean up the supplied initial relation hook state, while
+// preserving the guarantees Juju makes about hook execution order.
 func NewDyingHookSource(initial *State) HookSource {
 	var list []hook.Info
 

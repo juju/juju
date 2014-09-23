@@ -61,6 +61,12 @@ type unitInfo struct {
 	prev, next *unitInfo
 }
 
+// NewLiveHookSource returns a new HookSource that aggregates the values
+// obtained from the w watcher and generates the hooks that must be executed
+// in the unit. It guarantees that the stream of hooks will respect the
+// guarantees Juju makes about hook execution order. If any values have
+// previously been received from w's Changes channel, the HookSource's
+// behaviour is undefined.
 func NewLiveHookSource(initial *State, w RelationUnitsWatcher) HookSource {
 	info := map[string]*unitInfo{}
 	for unit, version := range initial.Members {
