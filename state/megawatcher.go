@@ -567,11 +567,12 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 	}
 	col := db.C(c.Name)
 	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
+	id := b.docID(c.Name, change.Id)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	// TODO(rog) avoid fetching documents that we have no interest
 	// in, such as settings changes to entities we don't care about.
-	err := col.FindId(change.Id).One(doc)
+	err := col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		doc.removed(b.st, all, change.Id)
 		return nil
@@ -580,4 +581,17 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 		return err
 	}
 	return doc.updated(b.st, all, change.Id)
+}
+
+// docID is a helper function which returns the environment ID for those
+// collections that have been migrated to include an environment UUID. For those collections that have not
+// been migrated, it returns the id that was passed in.
+func (b *allWatcherStateBacking) docID(collection string, id interface{}) interface{} {
+	switch collection {
+	case servicesC:
+		if id, ok := id.(string); ok {
+			return b.st.docID(id)
+		}
+	}
+	return id
 }

@@ -186,7 +186,7 @@ var ctests = []struct {
 		`apt_sources:
 - source: keyName
   key: someKey
-runcmd:
+bootcmd:
 - install -D -m 644 /dev/null '/some/path'
 - 'printf ''%s\n'' ''Explanation: test
 

@@ -5,8 +5,6 @@ package environs
 
 import (
 	"fmt"
-	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -15,21 +13,9 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/storage"
-)
-
-// File named `VerificationFilename` in the storage will contain
-// `verificationContent`.  This is also used to differentiate between
-// Python Juju and juju-core environments, so change the content with
-// care (and update CheckEnvironment below when you do that).
-const (
-	VerificationFilename = "bootstrap-verify"
-	verificationContent  = "juju-core storage writing verified: ok\n"
 )
 
 var (
-	VerifyStorageError error = fmt.Errorf(
-		"provider storage is not writable")
 	InvalidEnvironmentError = fmt.Errorf(
 		"environment is not a juju-core environment")
 )
@@ -320,45 +306,6 @@ func DestroyInfo(envName string, store configstore.Storage) error {
 	}
 	if err := info.Destroy(); err != nil {
 		return errors.Annotate(err, "cannot destroy environment configuration information")
-	}
-	return nil
-}
-
-// VerifyStorage writes the bootstrap init file to the storage to indicate
-// that the storage is writable.
-func VerifyStorage(stor storage.Storage) error {
-	reader := strings.NewReader(verificationContent)
-	err := stor.Put(VerificationFilename, reader,
-		int64(len(verificationContent)))
-	if err != nil {
-		logger.Warningf("failed to write bootstrap-verify file: %v", err)
-		return VerifyStorageError
-	}
-	return nil
-}
-
-// CheckEnvironment checks if an environment has a bootstrap-verify
-// that is written by juju-core commands (as compared to one being
-// written by Python juju).
-//
-// If there is no bootstrap-verify file in the storage, it is still
-// considered to be a Juju-core environment since early versions have
-// not written it out.
-//
-// Returns InvalidEnvironmentError on failure, nil otherwise.
-func CheckEnvironment(environ Environ) error {
-	stor := environ.Storage()
-	reader, err := storage.Get(stor, VerificationFilename)
-	if errors.IsNotFound(err) {
-		// When verification file does not exist, this is a juju-core
-		// environment.
-		return nil
-	} else if err != nil {
-		return err
-	} else if content, err := ioutil.ReadAll(reader); err != nil {
-		return err
-	} else if string(content) != verificationContent {
-		return InvalidEnvironmentError
 	}
 	return nil
 }

@@ -264,7 +264,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 	}
 	filter := toolsFilter(args)
 	simplestreamsList, err := envtoolsFindTools(
-		env, args.MajorVersion, args.MinorVersion, filter, envtools.DoNotAllowRetry,
+		env, args.MajorVersion, args.MinorVersion, filter,
 	)
 	if len(storageList) == 0 && err != nil {
 		return nil, err

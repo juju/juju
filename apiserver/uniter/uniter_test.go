@@ -70,7 +70,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "wordpress",
 		Charm:   s.wpCharm,
-		Creator: s.AdminUserTag(c).String(),
+		Creator: s.AdminUserTag(c),
 	})
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
@@ -78,7 +78,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c).String(),
+		Creator: s.AdminUserTag(c),
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Service: s.wordpress,

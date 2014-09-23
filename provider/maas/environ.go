@@ -24,9 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -69,7 +67,6 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
-var _ envtools.SupportsCustomSources = (*maasEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env := new(maasEnviron)
@@ -829,13 +826,6 @@ func (*maasEnviron) Ports() ([]network.PortRange, error) {
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // networkDetails holds information about a MAAS network.

@@ -34,21 +34,23 @@ func (r *upgradingRoot) FindMethod(rootName string, version int, methodName stri
 	if _, _, err := r.lookupMethod(rootName, version, methodName); err != nil {
 		return nil, err
 	}
-	if !isMethodAllowedDuringUpgrade(rootName, methodName) {
+	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
 		return nil, inUpgradeError
 	}
 	return r.srvRoot.FindMethod(rootName, version, methodName)
 }
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
-	"Client.FullStatus",     // for "juju status"
-	"Client.EnvironmentGet", // for "juju ssh"
-	"Client.PrivateAddress", // for "juju ssh"
-	"Client.PublicAddress",  // for "juju ssh"
-	"Client.WatchDebugLog",  // for "juju debug-log"
+	"FullStatus",     // for "juju status"
+	"EnvironmentGet", // for "juju ssh"
+	"PrivateAddress", // for "juju ssh"
+	"PublicAddress",  // for "juju ssh"
+	"WatchDebugLog",  // for "juju debug-log"
 )
 
-func isMethodAllowedDuringUpgrade(rootName, methodName string) bool {
-	fullName := rootName + "." + methodName
-	return allowedMethodsDuringUpgrades.Contains(fullName)
+func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
+	if rootName != "Client" {
+		return false
+	}
+	return allowedMethodsDuringUpgrades.Contains(methodName)
 }

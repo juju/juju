@@ -395,6 +395,9 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	// Upload tools to provider storage, so they can be migrated to environment storage.
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), s.oldVersion)
+
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
 }
@@ -512,7 +515,7 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), s.oldVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.oldVersion)
 
 	// Only the first machine is going to be ready for upgrade.
 	machineIdA, machineIdB, _ := s.createUpgradingStateServers(c)

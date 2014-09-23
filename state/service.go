@@ -31,7 +31,9 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver/params.
 type serviceDoc struct {
-	Name          string `bson:"_id"`
+	DocID         string `bson:"_id"`
+	Name          string `bson:"name"`
+	EnvUUID       string `bson:"env-uuid"`
 	Series        string
 	Subordinate   bool
 	CharmURL      *charm.URL
@@ -202,7 +204,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	}
 	return append(ops, txn.Op{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: notLastRefs,
 		Update: update,
 	}), nil
@@ -213,7 +215,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 func (s *Service) removeOps(asserts bson.D) []txn.Op {
 	ops := []txn.Op{{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: asserts,
 		Remove: true,
 	}, {
@@ -252,7 +254,7 @@ func (s *Service) ClearExposed() error {
 func (s *Service) setExposed(exposed bool) (err error) {
 	ops := []txn.Op{{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
@@ -422,7 +424,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		// Update the charm URL and force flag (if relevant).
 		{
 			C:      servicesC,
-			Id:     s.doc.Name,
+			Id:     s.doc.DocID,
 			Assert: append(isAliveDoc, differentCharm...),
 			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
@@ -446,7 +448,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Update the relation count as well.
 	ops = append(ops, txn.Op{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: append(isAliveDoc, sameRelCount...),
 		Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
 	})
@@ -486,7 +488,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			}
 		}
 		// Make sure the service doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.Name}, {"charmurl", ch.URL()}}
+		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
 		var ops []txn.Op
 		if count, err := services.Find(sel).Count(); err != nil {
 			return nil, err
@@ -495,7 +497,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
 			ops = []txn.Op{{
 				C:      servicesC,
-				Id:     s.doc.Name,
+				Id:     s.doc.DocID,
 				Assert: append(isAliveDoc, sameCharm...),
 				Update: bson.D{{"$set", bson.D{{"forcecharm", force}}}},
 			}}
@@ -528,7 +530,7 @@ func (s *Service) Refresh() error {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
-	err := services.FindId(s.doc.Name).One(&s.doc)
+	err := services.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("service %q", s)
 	}
@@ -545,7 +547,7 @@ func (s *Service) newUnitName() (string, error) {
 
 	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	if _, err := services.Find(bson.D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
+	if _, err := services.Find(bson.D{{"_id", s.doc.DocID}}).Apply(change, &result); err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
@@ -590,7 +592,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		createStatusOp(s.st, globalKey, sdoc),
 		{
 			C:      servicesC,
-			Id:     s.doc.Name,
+			Id:     s.doc.DocID,
 			Assert: append(isAliveDoc, asserts...),
 			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 		}}
@@ -637,7 +639,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 		return nil, err
 	}
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if alive, err := isAlive(s.st.db, servicesC, s.doc.Name); err != nil {
+		if alive, err := isAlive(s.st.db, servicesC, s.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -687,7 +689,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	svcOp := txn.Op{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 	}
 	if s.doc.Life == Alive {
@@ -833,7 +835,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	ops := []txn.Op{
 		{
 			C:      servicesC,
-			Id:     s.doc.Name,
+			Id:     s.doc.DocID,
 			Assert: isAliveDoc,
 		},
 		setConstraintsOp(s.st, s.globalKey(), cons),
