@@ -384,7 +384,7 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0", "1.21-alpha1"}
+var expectedVersions = []string{"1.18.0", "1.21-alpha1", "1.21-alpha2"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string

@@ -83,10 +83,7 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sources, err := tools.GetMetadataSources(environ)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 1)
-	url, err := sources[0].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
+	c.Assert(sources, gc.HasLen, 0)
 }
 
 func (*environSuite) TestSupportedArchitectures(c *gc.C) {

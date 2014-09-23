@@ -23,6 +23,7 @@ func (s *steps121a1Suite) TestUpgradeOperationsContent(c *gc.C) {
 		"add all users in state as environment users",
 		"migrate charm archives into environment storage",
 		"migrate custom image metadata into environment storage",
+		"migrate tools into environment storage",
 		"set environment owner and server uuid",
 	}
 

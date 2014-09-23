@@ -12,6 +12,7 @@ var (
 	CharmStoragePath          = &charmStoragePath
 	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
 	StateStorage              = &stateStorage
+	StateToolsStorage         = &stateToolsStorage
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
@@ -30,4 +31,5 @@ var (
 	StepsFor121a2              = stepsFor121a2
 	MigrateCharmStorage        = migrateCharmStorage
 	MigrateCustomImageMetadata = migrateCustomImageMetadata
+	MigrateToolsStorage        = migrateToolsStorage
 )

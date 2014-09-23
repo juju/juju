@@ -30,6 +30,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
@@ -60,6 +62,8 @@ type BootstrapSuite struct {
 	mongoOplogSize  string
 	fakeEnsureMongo fakeEnsure
 	bootstrapName   string
+
+	toolsStorage storage.Storage
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -98,6 +102,15 @@ func (f *fakeEnsure) fakeInitiateMongo(p peergrouper.InitiateMongoParams) error 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
+
+	storageDir := c.MkDir()
+	restorer := gitjujutesting.PatchValue(&envtools.DefaultBaseURL, storageDir)
+	s.AddSuiteCleanup(func(*gc.C) {
+		restorer()
+	})
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	s.toolsStorage = stor
 
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -559,11 +572,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
-	provider, err := environs.Provider(s.envcfg.Type())
-	c.Assert(err, gc.IsNil)
-	env, err := provider.Open(s.envcfg)
-	c.Assert(err, gc.IsNil)
-	envtesting.RemoveFakeToolsMetadata(c, env.Storage())
+	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
@@ -571,7 +580,7 @@ func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
 	c.Assert(err, gc.IsNil)
 
 	// We don't write metadata at bootstrap anymore.
-	simplestreamsMetadata, err := envtools.ReadMetadata(env.Storage(), "released")
+	simplestreamsMetadata, err := envtools.ReadMetadata(s.toolsStorage, "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(simplestreamsMetadata, gc.HasLen, 0)
 
@@ -675,7 +684,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	env, err := provider.Prepare(nullContext(), cfg)
 	c.Assert(err, gc.IsNil)
 
-	envtesting.MustUploadFakeTools(env.Storage())
+	envtesting.MustUploadFakeTools(s.toolsStorage)
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()

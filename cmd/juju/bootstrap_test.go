@@ -56,6 +56,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
+	// Set version.Current to a known value, for which we
+	// will make tools available. Individual tests may
+	// override this.
+	s.PatchValue(&version.Current, v100p64)
+
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
@@ -116,12 +121,6 @@ func (test bootstrapTest) run(c *gc.C) {
 			return test.hostArch
 		}
 		defer func() { arch.HostArch = origVersion }()
-	}
-
-	if test.upload == "" {
-		usefulVersion := version.Current
-		usefulVersion.Series = config.PreferredSeries(env.Config())
-		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
 	}
 
 	// Run command and check for uploads.
@@ -450,7 +449,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
 }
 
@@ -661,7 +660,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
