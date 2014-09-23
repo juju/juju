@@ -168,12 +168,14 @@ def juju_with_fallback(other, released, command, args, include_e=True):
     juju for commands that we expect to fail (due to unsupported agent version
     format).
     """
-    try:
-        other.juju(command, args, include_e=include_e)
-    except CalledProcessError:
-        if not other.version.startswith('1.18.'):
-            raise
-        released.juju(command, args, include_e=include_e)
+    for client in [other, released]:
+        try:
+            client.juju(command, args, include_e=include_e)
+        except CalledProcessError:
+            if not client.version.startswith('1.18.'):
+                raise
+        else:
+            break
 
 
 def has_agent(client, agent_id):
