@@ -14,6 +14,7 @@ import (
 var expectedSubCommmandNames = []string{
 	"create",
 	"help",
+	"info",
 }
 
 type backupsSuite struct {
