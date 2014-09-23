@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -116,8 +119,8 @@ func FormatSummary(value interface{}) ([]byte, error) {
 				openPorts[p] = nil
 			}
 		}
-		numUnits += 1
-		stateToUnit[status.AgentState] += 1
+		numUnits++
+		stateToUnit[status.AgentState]++
 	}
 	portsInColumnsOf := func(col int) string {
 		unqOpenPorts := sortStrings(stringKeysFromMap(openPorts))
@@ -143,7 +146,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 		if agentState := m.AgentState; agentState == "" {
 			agentState = params.StatusPending
 		} else {
-			stateToMachine[agentState] += 1
+			stateToMachine[agentState]++
 		}
 	}
 
@@ -162,7 +165,7 @@ func FormatSummary(value interface{}) ([]byte, error) {
 			svcExposure[name] = make(map[bool]int)
 		}
 
-		svcExposure[name][s.Exposed] += 1
+		svcExposure[name][s.Exposed]++
 	}
 
 	// Print everything out
