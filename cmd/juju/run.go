@@ -217,24 +217,40 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	defer runClient.Close()
 
 	var runResults []params.RunResult
+	params := params.RunParams{
+		Commands:   c.commands,
+		Timeout:    c.timeout,
+		Machines:   c.machines,
+		Services:   c.services,
+		Units:      c.units,
+		Relation:   c.relation,
+		RemoteUnit: c.remoteUnit,
+	}
+
 	if c.all {
-		runResults, err = runClient.RunOnAllMachines(c.commands, c.timeout)
+		runResults, err = runClient.RunOnAllMachines(params.Commands, params.Timeout)
 	} else {
-		params := params.RunParams{
-			Commands:   c.commands,
-			Timeout:    c.timeout,
-			Machines:   c.machines,
-			Services:   c.services,
-			Units:      c.units,
-			Relation:   c.relation,
-			RemoteUnit: c.remoteUnit,
-		}
 		runResults, err = runClient.Run(params)
 	}
 
 	if err != nil {
-		// Check error type? If unsupported API call, then try old client.
-		return err
+		oldClient, err := getRunAPIClient(c)
+		if err != nil {
+			return errors.Annotate(err, "unable to get a suitable client")
+		}
+
+		if c.all {
+			runResults, err = oldClient.RunOnAllMachines(params.Commands, params.Timeout)
+		} else {
+			if len(params.Relation) > 0 || len(params.RemoteUnit) > 0 {
+				return errors.Errorf("option(s) --relation, --remote-unit are not supported by this server")
+			}
+			runResults, err = oldClient.Run(params)
+		}
+
+		if err != nil {
+			return err
+		}
 	}
 
 	// If we are just dealing with one result, AND we are using the smart
