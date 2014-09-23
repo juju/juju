@@ -6,10 +6,13 @@ package backups
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/files"
@@ -91,4 +94,32 @@ var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
 
 	storage := state.NewBackupsStorage(st, envStor)
 	return storage, nil
+}
+
+// PublicAddress implements the server side of Client.PublicAddress.
+func (a *API) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
+	switch {
+	case names.IsValidMachine(p.Target):
+		machine, err := a.st.Machine(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr := network.SelectPublicAddress(machine.Addresses())
+		if addr == "" {
+			return results, errors.Errorf("machine %q has no public address", machine)
+		}
+		return params.PublicAddressResults{PublicAddress: addr}, nil
+
+	case names.IsValidUnit(p.Target):
+		unit, err := a.st.Unit(p.Target)
+		if err != nil {
+			return results, err
+		}
+		addr, ok := unit.PublicAddress()
+		if !ok {
+			return results, errors.Errorf("unit %q has no public address", unit)
+		}
+		return params.PublicAddressResults{PublicAddress: addr}, nil
+	}
+	return results, errors.Errorf("unknown unit or machine %q", p.Target)
 }

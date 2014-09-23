@@ -60,7 +60,7 @@ func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
 		"constraints", "set environment constraints")
 
 	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
-	f.StringVar(&c.filename, "file", "", "profide a file to be used as the backup.")
+	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
 	f.StringVar(&c.backupId, "name", "", "provide the name of the backup to be restored.")
 
 }
@@ -94,11 +94,11 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 	cons := c.constraints
 	store, err := configstore.Default()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cfg, err := c.Config(store)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
@@ -106,15 +106,15 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return nil, errors.Errorf("cannot enable provisioner-safe-mode: %v", err)
+		return nil, errors.Annotatef(err, "cannot enable provisionar-safe-mode")
 	}
 	env, err := environs.New(cfg)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	instanceIds, err := env.StateServerInstances()
 	if err != nil {
-		return nil, errors.Errorf("cannot determine state server instances: %v", err)
+		return nil, errors.Annotatef(err, "cannot determine state server instances")
 	}
 	if len(instanceIds) == 0 {
 		return nil, errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
@@ -127,11 +127,11 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 		return nil, errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 	}
 	if err != environs.ErrNoInstances {
-		return nil, errors.Errorf("cannot detect whether old instance is still running: %v", err)
+		return nil, errors.Annotatef(err, "cannot detect whether old instance is still running")
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
 	if err := env.Storage().Remove(common.StateFile); err != nil {
-		return nil, errors.Errorf("cannot remove %q from storage: %v", common.StateFile, err)
+		return nil, errors.Annotatef(err, "cannot remove %q from storage", common.StateFile)
 	}
 
 	// TODO If we fail beyond here, then we won't have a state file and
@@ -142,7 +142,7 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 
 	args := bootstrap.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
-		return nil, errors.Errorf("cannot bootstrap new instance: %v", err)
+		return nil, errors.Annotatef(err, "cannot bootstrap new instance")
 	}
 	return env, nil
 }
@@ -150,13 +150,13 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 func (c *RestoreCommand) doUpload(client APIClient) error {
 	addr, err := client.PublicAddress("0")
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	fileName := filepath.Base(c.filename)
 
 	if err := ssh.Copy([]string{c.filename, fmt.Sprintf("ubuntu@%s:%s", addr, fileName)}, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	//TODO(perrito666) add to envstorage, is it worthy? or will I need to remove afer?
 	// Also make sure to have ensurebackups
@@ -174,12 +174,14 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	// Empty string will get a client for current default
 	client, err := c.NewAPIClient()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
-	if c.filename == "" {
-		c.doUpload(client)
+	if c.filename != "" {
+		if err := c.doUpload(client); err != nil {
+			return errors.Annotatef(err, "cannot upload backup")
+		}
 	}
 
 	return c.runRestore(ctx, client)

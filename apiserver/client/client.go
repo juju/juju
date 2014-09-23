@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/restore"
 	"github.com/juju/juju/version"
 )
 
@@ -146,25 +145,6 @@ func (c *Client) ServiceCharmRelations(p params.ServiceCharmRelations) (params.S
 		results.CharmRelations[i] = endpoint.Relation.Name
 	}
 	return results, nil
-}
-
-// Restore implements the server side of Client.Restore
-func (c *Client) Restore(p params.Restore) error {
-	if p.BackupId != "" {
-		return fmt.Errorf("Backup from backups list not implemented")
-	}
-	filename := p.FileName
-	filename = "/home/ubuntu/" + filename
-	machine, err := c.api.state.Machine(p.Machine)
-	if err != nil {
-		return err
-	}
-	addr := network.SelectInternalAddress(machine.Addresses(), false)
-	if addr == "" {
-		return fmt.Errorf("machine %q has no internal address", machine)
-	}
-
-	return restore.Restore(filename, addr, c.api.state)
 }
 
 // Resolved implements the server side of Client.Resolved.
