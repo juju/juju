@@ -74,7 +74,7 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 }
 
 func getRelation(st *state.State, inRelation string) (*state.Relation, error) {
-	endpoints, err := st.InferEndpoints([]string{inRelation})
+	endpoints, err := st.InferEndpoints(inRelation)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

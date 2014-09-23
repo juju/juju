@@ -208,7 +208,7 @@ type commandRelation struct {
 func (api *RunCommandAPI) getRelation(state *state.State, context *RunContext) (commandRelation, error) {
 	var empty commandRelation
 
-	endpoints, err := api.state.InferEndpoints([]string{context.Relation})
+	endpoints, err := api.state.InferEndpoints(context.Relation)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
