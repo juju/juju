@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -53,7 +53,7 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.Equals, state.ErrDead)
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
 
 	rFlag, err := s.machine.GetRebootFlag()
 	c.Assert(err, gc.IsNil)

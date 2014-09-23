@@ -2088,12 +2088,9 @@ func (w *rebootWatcher) loop() error {
 	in := make(chan watcher.Change)
 	filter := func(key interface{}) bool {
 		if id, ok := key.(string); ok {
-			if w.machines.Contains(id) {
-				return true
-			}
-		} else {
-			w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
+			return w.machines.Contains(id)
 		}
+		w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
 		return false
 	}
 	w.st.watcher.WatchCollectionWithFilter(rebootC, in, filter)

@@ -92,10 +92,18 @@ func (s *RebootSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *RebootSuite) TearDownSuit(c *gc.C) {
-	statetesting.AssertStop(c, s.w)
-	statetesting.AssertStop(c, s.wC1)
-	statetesting.AssertStop(c, s.wC2)
-	statetesting.AssertStop(c, s.wC3)
+	if s.w != nil {
+		statetesting.AssertStop(c, s.w)
+	}
+	if s.wC1 != nil {
+		statetesting.AssertStop(c, s.wC1)
+	}
+	if s.wC2 != nil {
+		statetesting.AssertStop(c, s.wC2)
+	}
+	if s.wC3 != nil {
+		statetesting.AssertStop(c, s.wC3)
+	}
 }
 
 func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {

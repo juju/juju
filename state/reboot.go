@@ -59,7 +59,7 @@ func removeRebootDocOps(machineId string) txn.Op {
 
 func (m *Machine) setFlag() error {
 	if m.Life() == Dead {
-		return ErrDead
+		return mgo.ErrNotFound
 	}
 	t := addRebootDocOps(m.Id())
 	err := m.st.runTransaction(t)
@@ -85,7 +85,7 @@ func (m *Machine) clearFlag() error {
 
 	err = m.st.runTransaction(t)
 	if err != nil {
-		return errors.Errorf("failed to set reboot flag: %v", err)
+		return errors.Errorf("failed to clear reboot flag: %v", err)
 	}
 	return nil
 }
