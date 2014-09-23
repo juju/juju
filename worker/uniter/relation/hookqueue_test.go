@@ -277,6 +277,7 @@ func (d advance) check(c *gc.C, in chan params.RelationUnitsChange, out chan hoo
 
 func (d advance) checkDirect(c *gc.C, q relation.HookSource) {
 	for i := 0; i < d.count; i++ {
+		c.Assert(q.Empty(), jc.IsFalse)
 		q.Pop()
 	}
 }
