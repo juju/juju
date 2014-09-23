@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1294,11 +1295,16 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(services), gc.Equals, 2)
+	c.Assert(services, gc.HasLen, 2)
 
 	// Check the returned service, order is defined by sorted keys.
-	c.Assert(services[0].Name(), gc.Equals, "wordpress")
-	c.Assert(services[1].Name(), gc.Equals, "mysql")
+	names := make([]string, len(services))
+	for i, svc := range services {
+		names[i] = svc.Name()
+	}
+	sort.Strings(names)
+	c.Assert(names[0], gc.Equals, "mysql")
+	c.Assert(names[1], gc.Equals, "wordpress")
 }
 
 var inferEndpointsTests = []struct {
