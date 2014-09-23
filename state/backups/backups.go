@@ -40,6 +40,8 @@ type Backups interface {
 	Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*metadata.Metadata, io.ReadCloser, error)
+	// Remove deletes the backup from storage.
+	Remove(id string) error
 }
 
 type backups struct {
@@ -107,4 +109,9 @@ func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
 	}
 
 	return meta, archiveFile, nil
+}
+
+// Remove deletes the backup from storage.
+func (b *backups) Remove(id string) error {
+	return errors.Trace(b.storage.Remove(id))
 }
