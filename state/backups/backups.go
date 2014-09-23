@@ -40,6 +40,8 @@ type Backups interface {
 	Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*metadata.Metadata, io.ReadCloser, error)
+	// List returns the metadata for all stored backups.
+	List() ([]metadata.Metadata, error)
 	// Remove deletes the backup from storage.
 	Remove(id string) error
 }
@@ -109,6 +111,20 @@ func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
 	}
 
 	return meta, archiveFile, nil
+}
+
+// List returns the metadata for all stored backups.
+func (b *backups) List() ([]metadata.Metadata, error) {
+	metaList, err := b.storage.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]metadata.Metadata, len(metaList))
+	for i, meta := range metaList {
+		m := meta.(*metadata.Metadata)
+		result[i] = *m
+	}
+	return result, nil
 }
 
 // Remove deletes the backup from storage.
