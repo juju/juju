@@ -88,8 +88,9 @@ func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
 		},
 	)
 	if prefs != nil {
-		// Create the apt preferences file.
-		cfg.AddFile(prefs.Path, prefs.FileContents(), 0644)
+		// Create the apt preferences file. This needs to be done
+		// before apt-get upgrade, so it must be done as a bootcmd.
+		cfg.addBootFile(prefs.Path, prefs.FileContents(), 0644)
 	}
 }
 
@@ -321,6 +322,17 @@ func (cfg *Config) AddScripts(scripts ...string) {
 // AddFile will add multiple run_cmd entries to safely set the contents of a
 // specific file to the requested contents.
 func (cfg *Config) AddFile(filename, data string, mode uint) {
+	addFile(cfg.AddRunCmd, filename, data, mode)
+}
+
+// addBootFile will add multiple bootcmd entries to safely set the
+// contents of a specific file to the requested contents early in the
+// boot process.
+func (cfg *Config) addBootFile(filename, data string, mode uint) {
+	addFile(cfg.AddBootCmd, filename, data, mode)
+}
+
+func addFile(addCmd func(string), filename string, data string, mode uint) {
 	// Note: recent versions of cloud-init have the "write_files"
 	// module, which can write arbitrary files. We currently support
 	// 12.04 LTS, which uses an older version of cloud-init without
@@ -329,10 +341,8 @@ func (cfg *Config) AddFile(filename, data string, mode uint) {
 	// Don't use the shell's echo builtin here; the interpretation
 	// of escape sequences differs between shells, namely bash and
 	// dash. Instead, we use printf (or we could use /bin/echo).
-	cfg.AddScripts(
-		fmt.Sprintf("install -D -m %o /dev/null %s", mode, p),
-		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
-	)
+	addCmd(fmt.Sprintf("install -D -m %o /dev/null %s", mode, p))
+	addCmd(fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p))
 }
 
 func shquote(p string) string {
