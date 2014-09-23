@@ -31,5 +31,3 @@ func (a *API) Restore(p params.Restore) error {
 
 	return restore.Restore(filename, addr, a.st)
 }
-
-
