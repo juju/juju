@@ -395,6 +395,9 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	// Upload tools to provider storage, so they can be migrated to environment storage.
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), s.oldVersion)
+
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
 }
