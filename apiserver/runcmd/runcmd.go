@@ -23,7 +23,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.runcmd")
 
 func init() {
-	common.RegisterStandardFacade("RunCommand", 0, NewRunCommandAPI)
+	common.RegisterStandardFacade("RunCommand", 1, NewRunCommandAPI)
 }
 
 // RunCommand defines the methods on the runcmd API end point.
