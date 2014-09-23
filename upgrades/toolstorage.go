@@ -55,11 +55,18 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 		}
 	}
 
+	// Load environment config, so we can determine which stream to import.
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "cannot get environment config")
+	}
+
 	// Search provider storage for tools.
 	datasource := storage.NewStorageSimpleStreamsDataSource("provider storage", stor, storage.BaseToolsPath)
 	toolsList, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{datasource},
 		simplestreams.CloudSpec{},
+		config.ToolsStream(),
 		-1, -1, tools.Filter{})
 	if err == tools.ErrNoMatches {
 		// No tools in provider storage: nothing to do.
