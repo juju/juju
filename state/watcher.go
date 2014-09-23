@@ -264,9 +264,10 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
-		ids.Add(doc.Id)
+		id := w.st.localID(doc.Id)
+		ids.Add(id)
 		if doc.Life != Dead {
-			w.life[doc.Id] = doc.Life
+			w.life[id] = doc.Life
 		}
 	}
 	return ids, iter.Close()
@@ -279,16 +280,16 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 	// Separate ids into those thought to exist and those known to be removed.
 	var changed []string
 	latest := make(map[string]Life)
-	for id, exists := range updates {
-		switch id := id.(type) {
+	for docID, exists := range updates {
+		switch docID := docID.(type) {
 		case string:
 			if exists {
-				changed = append(changed, id)
+				changed = append(changed, docID)
 			} else {
-				latest[id] = Dead
+				latest[w.st.localID(docID)] = Dead
 			}
 		default:
-			return errors.Errorf("id is not of type string, got %T", id)
+			return errors.Errorf("id is not of type string, got %T", docID)
 		}
 	}
 
@@ -299,7 +300,7 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 	iter := coll.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
-		latest[doc.Id] = doc.Life
+		latest[w.st.localID(doc.Id)] = doc.Life
 	}
 	if err := iter.Close(); err != nil {
 		return err
@@ -1184,7 +1185,7 @@ func (m *Machine) Watch() NotifyWatcher {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() NotifyWatcher {
-	return newEntityWatcher(s.st, servicesC, s.doc.Name)
+	return newEntityWatcher(s.st, servicesC, s.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to a unit.

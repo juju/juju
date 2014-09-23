@@ -206,6 +206,63 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToServicesID(c *gc.C) {
+	serviceName := "wordpress"
+	s.addServiceNoEnvID(c, serviceName)
+
+	var service serviceDoc
+	services, closer := s.state.getCollection(servicesC)
+	defer closer()
+
+	err := AddEnvUUIDToServicesID(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = services.Find(bson.D{{"_id", serviceName}}).One(&service)
+	c.Assert(err, gc.ErrorMatches, "not found")
+
+	err = services.Find(bson.D{{"_id", s.state.docID(serviceName)}}).One(&service)
+	c.Assert(err, gc.IsNil)
+	c.Assert(service.Name, gc.Equals, serviceName)
+	c.Assert(service.EnvUUID, gc.Equals, s.state.EnvironTag().Id())
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToServicesIDIdempotent(c *gc.C) {
+	serviceName := "wordpress"
+	s.addServiceNoEnvID(c, serviceName)
+
+	var serviceResults []serviceDoc
+	services, closer := s.state.getCollection(servicesC)
+	defer closer()
+
+	err := AddEnvUUIDToServicesID(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = AddEnvUUIDToServicesID(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = services.Find(nil).All(&serviceResults)
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceResults, gc.HasLen, 1)
+
+	serviceResults[0].DocID = s.state.docID(serviceName)
+}
+
+func (s *upgradesSuite) addServiceNoEnvID(c *gc.C, name string) {
+	// Bare minimum service document as of 1.21-alpha1
+	oldService := struct {
+		Name string `bson:"_id"`
+	}{Name: name}
+
+	ops := []txn.Op{{
+		C:      servicesC,
+		Id:     name,
+		Assert: txn.DocMissing,
+		Insert: oldService,
+	}}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
 	ch := charmtesting.Charms.CharmDir("dummy")
 	curl := charm.MustParseURL(
