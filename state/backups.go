@@ -10,13 +10,14 @@ import (
 	"path"
 	"time"
 
+	"github.com/juju/blobstore"
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -408,14 +409,14 @@ const backupStorageRoot = "/"
 var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
 
 type envFileStorage struct {
-	envStor storage.Storage
+	envUUID string
+	envStor blobstore.ManagedStorage
 	root    string
 }
 
-func newBackupFileStorage(envStor storage.Storage, root string) filestorage.RawFileStorage {
-	// Due to circular imports we cannot simply get the storage from
-	// State using environs.GetStorage().
+func newBackupFileStorage(envUUID string, envStor blobstore.ManagedStorage, root string) filestorage.RawFileStorage {
 	stor := envFileStorage{
+		envUUID: envUUID,
 		envStor: envStor,
 		root:    root,
 	}
@@ -429,24 +430,55 @@ func (s *envFileStorage) path(id string) string {
 }
 
 func (s *envFileStorage) File(id string) (io.ReadCloser, error) {
-	return s.envStor.Get(s.path(id))
+	file, _, err := s.envStor.GetForEnvironment(s.envUUID, s.path(id))
+	return file, err
 }
 
 func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.envStor.Put(s.path(id), file, size)
+	return s.envStor.PutForEnvironment(s.envUUID, s.path(id), file, size)
 }
 
 func (s *envFileStorage) RemoveFile(id string) error {
-	return s.envStor.Remove(s.path(id))
+	return s.envStor.RemoveForEnvironment(s.envUUID, s.path(id))
 }
 
 //---------------------------
 // backup storage
 
+// ClosingFileStorage is a FileStorage that also implements Close().
+type ClosingFileStorage interface {
+	filestorage.FileStorage
+	io.Closer
+}
+
+type backupsStorage struct {
+	filestorage.FileStorage
+	session *mgo.Session
+}
+
+func (stor *backupsStorage) Close() error {
+	stor.session.Close()
+	return nil
+}
+
 // NewBackupsStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewBackupsStorage(st *State, envStor storage.Storage) filestorage.FileStorage {
-	files := newBackupFileStorage(envStor, backupStorageRoot)
+func NewBackupsStorage(st *State) ClosingFileStorage {
+	envUUID := st.EnvironTag().Id()
+	session := st.db.Session.Copy()
+
+	envStor := st.getManagedStorage(envUUID, session)
+
+	files := newBackupFileStorage(envUUID, envStor, backupStorageRoot)
 	docs := newBackupMetadataStorage(st)
-	return filestorage.NewFileStorage(docs, files)
+	stor := filestorage.NewFileStorage(docs, files)
+
+	return &backupsStorage{stor, session}
+}
+
+// NewBackups returns a new Backups that uses state's storage.
+func NewBackups(st *State) (backups.Backups, io.Closer) {
+	stor := NewBackupsStorage(st)
+	backups := backups.NewBackups(stor)
+	return backups, stor
 }

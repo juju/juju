@@ -5,15 +5,18 @@ package backups_test
 
 import (
 	"io"
+	"io/ioutil"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/apiserver/backups"
+	backupsAPI "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/metadata"
 )
@@ -42,7 +45,7 @@ type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
-	api        *backups.API
+	api        *backupsAPI.API
 	meta       *metadata.Metadata
 }
 
@@ -54,7 +57,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	tag := names.NewLocalUserTag("spam")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
-	s.api, err = backups.NewAPI(s.State, s.resources, s.authorizer)
+	s.api, err = backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.meta = s.newMeta("")
 }
@@ -71,7 +74,11 @@ func (s *backupsSuite) setBackups(c *gc.C, meta *metadata.Metadata, err string) 
 	if err != "" {
 		fake.err = errors.Errorf(err)
 	}
-	backups.SetBackups(s.api, &fake)
+	s.PatchValue(backupsAPI.NewBackups,
+		func(*state.State) (backups.Backups, io.Closer) {
+			return &fake, ioutil.NopCloser(nil)
+		},
+	)
 	return &fake
 }
 
@@ -81,17 +88,13 @@ func (s *backupsSuite) TestRegistered(c *gc.C) {
 }
 
 func (s *backupsSuite) TestNewAPIOkay(c *gc.C) {
-	api, err := backups.NewAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, gc.IsNil)
-	st, backupsImpl := backups.APIValues(api)
-
-	c.Check(st, gc.Equals, s.State)
-	c.Check(backupsImpl, gc.NotNil)
+	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
+	c.Check(err, gc.IsNil)
 }
 
 func (s *backupsSuite) TestNewAPINotAuthorized(c *gc.C) {
 	s.authorizer.Tag = names.NewServiceTag("eggs")
-	_, err := backups.NewAPI(s.State, s.resources, s.authorizer)
+	_, err := backupsAPI.NewAPI(s.State, s.resources, s.authorizer)
 
 	c.Check(errors.Cause(err), gc.Equals, common.ErrPerm)
 }
