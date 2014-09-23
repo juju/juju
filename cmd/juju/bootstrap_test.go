@@ -136,10 +136,6 @@ func (test bootstrapTest) run(c *gc.C) {
 		return
 	}
 
-	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
-	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
-
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
@@ -531,7 +527,6 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	// the current juju version.
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "devenv") // verify storage
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).MachineConfig
 	c.Assert(mcfg, gc.NotNil)

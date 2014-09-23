@@ -7,9 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
-
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -541,47 +538,6 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, t.Env, instId1)
-}
-
-func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
-	// Bootstrap automatically verifies that storage is writable.
-	t.BootstrapOnce(c)
-	environ := t.Env
-	stor := environ.Storage()
-	reader, err := storage.Get(stor, "bootstrap-verify")
-	c.Assert(err, gc.IsNil)
-	defer reader.Close()
-	contents, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(contents), gc.Equals,
-		"juju-core storage writing verified: ok\n")
-}
-
-func restoreBootstrapVerificationFile(c *gc.C, stor storage.Storage) {
-	content := "juju-core storage writing verified: ok\n"
-	contentReader := strings.NewReader(content)
-	err := stor.Put("bootstrap-verify", contentReader,
-		int64(len(content)))
-	c.Assert(err, gc.IsNil)
-}
-
-func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
-	// When new connection is established to a bootstraped environment,
-	// it is checked that we are running against a juju-core environment.
-	if !t.CanOpenState {
-		c.Skip("CanOpenState is false; cannot open state connection")
-	}
-	t.BootstrapOnce(c)
-
-	c.Logf("opening state")
-	st := t.Env.(testing.GetStater).GetStateInAPIServer()
-	env, err := st.Environment()
-	c.Assert(err, gc.IsNil)
-	owner := env.Owner()
-
-	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
-	apiState.Close()
 }
 
 type tooler interface {

@@ -6,7 +6,6 @@ package bootstrap
 var (
 	ValidateUploadAllowed = validateUploadAllowed
 	SetBootstrapTools     = setBootstrapTools
-	EnvironsVerifyStorage = &environsVerifyStorage
 	FindTools             = &findTools
 	FindBootstrapTools    = findBootstrapTools
 	FindAvailableTools    = findAvailableTools

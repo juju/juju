@@ -309,9 +309,6 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
-	if err := environs.CheckEnvironment(environ); err != nil {
-		return nil, err
-	}
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
