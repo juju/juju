@@ -80,7 +80,7 @@ func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
 func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Name()})
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()
