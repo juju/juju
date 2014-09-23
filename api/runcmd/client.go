@@ -9,18 +9,19 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+const runcmdFacade = "RunCommand"
+
 // Client provides access to the juju run command, used to execute
 // commands for a given machine, unit, and/or service.
 type Client struct {
 	base.ClientFacade
-	facade     base.FacadeCaller
-	environTag string
+	facade base.FacadeCaller
 }
 
 // NewClient returns a new RunCommand client.
-func NewClient(caller base.APICallCloser, environTag string) *Client {
-	frontend, backend := base.NewClientFacade(caller, "RunCommand")
-	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}
+func NewClient(caller base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(caller, runcmdFacade)
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // RunOnAllMachines runs the command on all the machines with the specified
@@ -37,7 +38,7 @@ func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]par
 func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
 	if c.facade.BestAPIVersion() < 1 {
 		if len(run.Relation) > 0 || len(run.RemoteUnit) > 0 {
-			return nil, errors.NotImplementedf("The server does not support the supplied option(s): --relation, --remote-unit.")
+			return nil, errors.NotImplementedf("The server does not support the supplied option(s): --relation, --remote-unit. (apiversion: %d)", c.facade.BestAPIVersion())
 		}
 	}
 	var results params.RunResults

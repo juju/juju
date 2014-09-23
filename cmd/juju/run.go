@@ -213,7 +213,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot get API connection")
 	}
 
-	runClient := runcmd.NewClient(root, root.EnvironTag())
+	runClient := runcmd.NewClient(root)
 	defer runClient.Close()
 
 	var runResults []params.RunResult
@@ -234,6 +234,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if err != nil {
+		return errors.Trace(err)
 		oldClient, err := getRunAPIClient(c)
 		if err != nil {
 			return errors.Annotate(err, "unable to get a suitable client")
