@@ -87,8 +87,8 @@ func (s *stateSuite) TestWatchOpenedPortsV1(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
 	expectChanges := []string{
-		"m#0#n#juju-public",
-		"m#2#n#juju-public",
+		"0:juju-public",
+		"2:juju-public",
 	}
 	wc.AssertChangeInSingleEvent(expectChanges...)
 	wc.AssertNoChange()
@@ -113,7 +113,7 @@ func (s *stateSuite) TestWatchOpenedPortsV1(c *gc.C) {
 	// Open another port, ensure it's detected.
 	err = s.units[1].OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("m#1#n#juju-public")
+	wc.AssertChange("1:juju-public")
 	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)

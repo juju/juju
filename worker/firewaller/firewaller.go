@@ -825,18 +825,16 @@ next:
 }
 
 // parsePortsKey parses a ports document global key coming from the
-// ports watcher (e.g. "m#42#n#juju-public") and returns the machine
-// and network tags from its components (in the last example
-// "machine-42" and "network-juju-public").
-//
-// TODO(dimitern) Change the state opened ports watcher to
-// return "<machine-id>:<network-name>" (i.e. "0:juju-public").
-func parsePortsKey(globalKey string) (machineTag names.MachineTag, networkTag names.NetworkTag, err error) {
-	defer errors.Maskf(&err, "invalid ports global key %q", globalKey)
+// ports watcher (e.g. "42:juju-public") and returns the machine and
+// network tags from its components (in the last example "machine-42"
+// and "network-juju-public").
+func parsePortsKey(change string) (machineTag names.MachineTag, networkTag names.NetworkTag, err error) {
+	defer errors.Maskf(&err, "invalid ports change %q", change)
 
-	parts := strings.SplitN(globalKey, "#", 4)
-	if len(parts) != 4 || parts[0] != "m" || parts[2] != "n" {
+	parts := strings.SplitN(change, ":", 2)
+	if len(parts) != 2 {
 		return names.MachineTag{}, names.NetworkTag{}, errors.Errorf("unexpected format")
 	}
-	return names.NewMachineTag(parts[1]), names.NewNetworkTag(parts[3]), nil
+	machineId, networkName := parts[0], parts[1]
+	return names.NewMachineTag(machineId), names.NewNetworkTag(networkName), nil
 }
