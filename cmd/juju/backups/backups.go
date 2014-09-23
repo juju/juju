@@ -40,6 +40,7 @@ func NewCommand() cmd.Command {
 	}
 	backupsCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&InfoCommand{}))
+	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 	return &backupsCmd
 }
 
@@ -51,6 +52,8 @@ type APIClient interface {
 	Create(notes string) (*params.BackupsMetadataResult, error)
 	// Info gets the backup's metadata.
 	Info(id string) (*params.BackupsMetadataResult, error)
+	// Remove removes the stored backup.
+	Remove(id string) error
 }
 
 // CommandBase is the base type for backups sub-commands.

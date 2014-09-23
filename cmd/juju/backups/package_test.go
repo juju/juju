@@ -118,8 +118,8 @@ type fakeAPIClient struct {
 	err        error
 
 	args  []string
-	notes string
 	idArg string
+	notes string
 }
 
 func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, error) {
@@ -138,6 +138,15 @@ func (c *fakeAPIClient) Info(id string) (*params.BackupsMetadataResult, error) {
 		return nil, c.err
 	}
 	return c.metaresult, nil
+}
+
+func (c *fakeAPIClient) Remove(id string) error {
+	c.args = append(c.args, "id")
+	c.idArg = id
+	if c.err != nil {
+		return c.err
+	}
+	return nil
 }
 
 func (c *fakeAPIClient) Close() error {
