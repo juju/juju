@@ -4,12 +4,37 @@
 package backups_test
 
 import (
-	stdtesting "testing"
+	"io"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/errors"
+
+	"github.com/juju/juju/state/backups/db"
+	"github.com/juju/juju/state/backups/metadata"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // TestPackage integrates the tests into gotest.
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func TestPackage(t *testing.T) {
+	coretesting.MgoTestPackage(t)
+}
+
+type fakeBackups struct {
+	meta    *metadata.Metadata
+	archive io.ReadCloser
+	err     error
+}
+
+func (i *fakeBackups) Create(db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
+	if i.err != nil {
+		return nil, errors.Trace(i.err)
+	}
+	return i.meta, nil
+}
+
+func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
+	if i.err != nil {
+		return nil, nil, errors.Trace(i.err)
+	}
+	return i.meta, i.archive, nil
 }

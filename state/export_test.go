@@ -23,11 +23,6 @@ import (
 )
 
 var (
-	NewBackupID           = newBackupID
-	GetBackupMetadata     = getBackupMetadata
-	AddBackupMetadata     = addBackupMetadata
-	AddBackupMetadataID   = addBackupMetadataID
-	SetBackupStored       = setBackupStored
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
