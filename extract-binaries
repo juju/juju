@@ -10,7 +10,6 @@ else
   target="$target_dir/stable"
 fi
 afact='lastSuccessfulBuild/artifact'
-tempfile=$(mktemp)
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
 JUJU_CORE_DEB="juju-core_$version-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
