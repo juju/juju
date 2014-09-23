@@ -3,6 +3,7 @@ set -eux
 branch=$1
 jenkins_url=$2
 target_dir=$3
+version=$4
 if [ $branch == "gitbranch:master:github.com/juju/juju" ]; then
   target="$target_dir/master"
 else
@@ -10,12 +11,9 @@ else
 fi
 afact='lastSuccessfulBuild/artifact'
 tempfile=$(mktemp)
-curl $jenkins_url/job/build-revision/$afact/buildvars.bash > $tempfile
-source $tempfile
-rm $tempfile
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
-JUJU_CORE_DEB="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
+JUJU_CORE_DEB="juju-core_$version-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
 ENCODED_CORE_DEB=$(echo "$JUJU_CORE_DEB" | sed 's,[+],%2B,')
 if [ -x $JUJU_CORE_DEB ]; then
   rm $JUJU_CORE_DEB
