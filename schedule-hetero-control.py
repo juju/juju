@@ -51,7 +51,8 @@ def build_jobs(root, jobs):
 
 def main():
     args = get_args()
-    build_jobs(args.root_dir, calculate_jobs(os.environ['HOME']))
+    root_dir = os.environ['HOME']
+    build_jobs(root_dir, calculate_jobs(root_dir))
 
 
 if __name__ == '__main__':
