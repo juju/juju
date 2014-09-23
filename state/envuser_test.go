@@ -49,13 +49,13 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 
 func (s *EnvUserSuite) TestAddEnvironmentNoUserFails(c *gc.C) {
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	_, err := s.State.AddEnvironmentUser(names.NewUserTag("validusername"), createdBy.UserTag())
+	_, err := s.State.AddEnvironmentUser(names.NewLocalUserTag("validusername"), createdBy.UserTag())
 	c.Assert(err, gc.ErrorMatches, `user "validusername" does not exist locally: user "validusername" not found`)
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentNoCreatedByUserFails(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername"})
-	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewUserTag("createdby"))
+	_, err := s.State.AddEnvironmentUser(user.UserTag(), names.NewLocalUserTag("createdby"))
 	c.Assert(err, gc.ErrorMatches, `createdBy user "createdby" does not exist locally: user "createdby" not found`)
 }
 
@@ -80,7 +80,7 @@ func (s *EnvUserSuite) TestRemoveEnvironmentUserFails(c *gc.C) {
 func (s *EnvUserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := state.NowToTheSecond()
 	createdBy := s.factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
-	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Name()})
+	user := s.factory.MakeUser(c, &factory.UserParams{Name: "validusername", Creator: createdBy.Tag()})
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()

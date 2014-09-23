@@ -76,7 +76,7 @@ func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string)
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
-	eps, err := s.State.InferEndpoints([]string{first, second})
+	eps, err := s.State.InferEndpoints(first, second)
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

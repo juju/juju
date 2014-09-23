@@ -31,9 +31,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
@@ -54,9 +52,6 @@ const bootstrapInstanceId instance.Id = "localhost"
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 
-// localEnviron implements SupportsCustomSources.
-var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
-
 type localEnviron struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -67,13 +62,6 @@ type localEnviron struct {
 	localStorage     storage.Storage
 	storageListener  net.Listener
 	containerManager container.Manager
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.

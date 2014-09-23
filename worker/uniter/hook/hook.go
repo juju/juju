@@ -41,7 +41,7 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		fallthrough
-	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
+	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken, hooks.CollectMetrics:
 		return nil
 	case hooks.ActionRequested:
 		if !names.IsValidAction(hi.ActionId) {

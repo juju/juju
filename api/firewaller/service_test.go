@@ -38,6 +38,10 @@ func (s *serviceSuite) TestName(c *gc.C) {
 	c.Assert(s.apiService.Name(), gc.Equals, s.service.Name())
 }
 
+func (s *serviceSuite) TestTag(c *gc.C) {
+	c.Assert(s.apiService.Tag(), gc.Equals, names.NewServiceTag(s.service.Name()))
+}
+
 func (s *serviceSuite) TestWatch(c *gc.C) {
 	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
 

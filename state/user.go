@@ -270,8 +270,12 @@ func (u *User) Refresh() error {
 
 // Deactivate deactivates the user.  Deactivated identities cannot log in.
 func (u *User) Deactivate() error {
-	if u.doc.Name == AdminUser {
-		return errors.Unauthorizedf("cannot deactivate admin user")
+	initialEnv, err := u.st.InitialEnvironment()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if u.doc.Name == initialEnv.Owner().Name() {
+		return errors.Unauthorizedf("cannot deactivate initial environment owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot deactivate user %q", u.Name())
 }

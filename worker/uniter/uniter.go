@@ -354,7 +354,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
 
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
@@ -372,11 +372,14 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 	u.proxyMutex.Lock()
 	defer u.proxyMutex.Unlock()
 
+	// Metrics can only be added in collect-metrics hooks.
+	canAddMetrics := hookKind == hooks.CollectMetrics
+
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		actionParams)
+		actionParams, canAddMetrics)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -426,7 +429,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "", map[string]interface{}(nil))
+	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", map[string]interface{}(nil))
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +528,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, actionParams)
+	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, actionParams)
 	if err != nil {
 		return err
 	}

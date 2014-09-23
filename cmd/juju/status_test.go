@@ -2056,7 +2056,7 @@ type relateServices struct {
 }
 
 func (rs relateServices) step(c *gc.C, ctx *context) {
-	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
+	eps, err := ctx.st.InferEndpoints(rs.ep1, rs.ep2)
 	c.Assert(err, gc.IsNil)
 	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2070,7 +2070,7 @@ type addSubordinate struct {
 func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
 	c.Assert(err, gc.IsNil)
-	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
+	eps, err := ctx.st.InferEndpoints(u.ServiceName(), as.subService)
 	c.Assert(err, gc.IsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2437,5 +2437,73 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 			"  - logging/1: dummyenv-2.dns (error)\n"+
 			"- wordpress/0: dummyenv-1.dns (started)\n"+
 			"  - logging/0: dummyenv-1.dns (started)\n",
+	)
+}
+func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"logging"},
+		addService{name: "wordpress", charm: "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
+		addService{name: "mysql", charm: "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", state.StatusStarted, "", nil},
+		addService{name: "logging", charm: "logging"},
+		setServiceExposed{"logging", true},
+		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "logging"},
+		relateServices{"mysql", "logging"},
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"mysql/0", "logging"},
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
+		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+	}
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+	code, stdout, stderr := runStatus(c, "--format", "tabular")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(
+		string(stdout),
+		gc.Equals,
+		"[Machines] \n"+
+			"ID         STATE   VERSION DNS            INS-ID     SERIES  HARDWARE                                         \n"+
+			"0          started         dummyenv-0.dns dummyenv-0 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
+			"1          started         dummyenv-1.dns dummyenv-1 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
+			"2          started         dummyenv-2.dns dummyenv-2 quantal arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M \n"+
+			"\n"+
+			"[Services] \n"+
+			"NAME       EXPOSED CHARM                  \n"+
+			"logging    true    cs:quantal/logging-1   \n"+
+			"mysql      true    cs:quantal/mysql-1     \n"+
+			"wordpress  true    cs:quantal/wordpress-3 \n"+
+			"\n"+
+			"[Units]     \n"+
+			"ID          STATE   VERSION MACHINE PORTS PUBLIC-ADDRESS \n"+
+			"mysql/0     started         2             dummyenv-2.dns \n"+
+			"  logging/1 error                         dummyenv-2.dns \n"+
+			"wordpress/0 started         1             dummyenv-1.dns \n"+
+			"  logging/0 started                       dummyenv-1.dns \n"+
+			"\n",
 	)
 }

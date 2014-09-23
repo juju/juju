@@ -766,7 +766,7 @@ type StateServersSpec struct {
 	// If this is empty, then the environment's default series is used.
 	Series string `json:series,omitempty`
 	// Placement defines specific machines to become new state server machines.
-	Placement []*instance.Placement `json:placement,omitempty`
+	Placement []string `json:placement,omitempty`
 }
 
 // StateServersSpecs contains all the arguments

@@ -413,7 +413,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = machine.SetAddresses(network.NewAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, gc.IsNil)
 	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
+	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

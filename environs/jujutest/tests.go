@@ -64,7 +64,10 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 }
 
 func (t *Tests) SetUpTest(c *gc.C) {
+	storageDir := c.MkDir()
+	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
+	t.UploadFakeToolsToDirectory(c, storageDir)
 	t.ConfigStore = configstore.NewMem()
 }
 
@@ -74,7 +77,6 @@ func (t *Tests) TearDownTest(c *gc.C) {
 
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
-	t.UploadFakeTools(c, e.Storage())
 	cfg, err := e.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
 	})
@@ -125,7 +127,6 @@ func (t *Tests) TestStartStop(c *gc.C) {
 
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
-	t.UploadFakeTools(c, e.Storage())
 	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), e, bootstrap.BootstrapParams{})
@@ -139,7 +140,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	t.UploadFakeTools(c, e2.Storage())
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
@@ -153,7 +153,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
-	t.UploadFakeTools(c, e3.Storage())
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)

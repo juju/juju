@@ -95,7 +95,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil)
 	c.Assert(err, gc.IsNil)
 
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

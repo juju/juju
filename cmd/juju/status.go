@@ -63,6 +63,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
 		"oneline": FormatOneline,
+		"tabular": FormatTabular,
 		"summary": FormatSummary,
 	})
 }

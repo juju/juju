@@ -1528,7 +1528,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	wps := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wpu, err := wps.AddUnit()
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "u"})
+	eps, err := s.State.InferEndpoints("wordpress", "u")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1629,11 +1629,9 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (s serveCharm) step(c *gc.C, ctx *context) {
-	storage, err := ctx.st.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := ctx.st.Storage()
 	for storagePath, data := range ctx.charms {
-		err = storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
+		err := storage.Put(storagePath, bytes.NewReader(data), int64(len(data)))
 		c.Assert(err, gc.IsNil)
 		delete(ctx.charms, storagePath)
 	}
@@ -2143,7 +2141,7 @@ func (s addRelation) step(c *gc.C, ctx *context) {
 	if ctx.relatedSvc == nil {
 		ctx.relatedSvc = ctx.s.AddTestingService(c, "mysql", ctx.s.AddTestingCharm(c, "mysql"))
 	}
-	eps, err := ctx.st.InferEndpoints([]string{"u", "mysql"})
+	eps, err := ctx.st.InferEndpoints("u", "mysql")
 	c.Assert(err, gc.IsNil)
 	ctx.relation, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2237,7 +2235,7 @@ func (s addSubordinateRelation) step(c *gc.C, ctx *context) {
 	if _, err := ctx.st.Service("logging"); errors.IsNotFound(err) {
 		ctx.s.AddTestingService(c, "logging", ctx.s.AddTestingCharm(c, "logging"))
 	}
-	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, gc.IsNil)
 	_, err = ctx.st.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -2248,7 +2246,7 @@ type removeSubordinateRelation struct {
 }
 
 func (s removeSubordinateRelation) step(c *gc.C, ctx *context) {
-	eps, err := ctx.st.InferEndpoints([]string{"logging", "u:" + s.ifce})
+	eps, err := ctx.st.InferEndpoints("logging", "u:"+s.ifce)
 	c.Assert(err, gc.IsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
 	c.Assert(err, gc.IsNil)

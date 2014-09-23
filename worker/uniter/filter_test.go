@@ -661,7 +661,7 @@ func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	c.Assert(err, gc.IsNil)
 	svcName := fmt.Sprintf("mysql%d", len(rels))
 	s.AddTestingService(c, svcName, s.mysqlcharm)
-	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
+	eps, err := s.State.InferEndpoints(svcName, "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

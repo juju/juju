@@ -77,9 +77,6 @@ const (
 	txnLogC = "txns.log"
 	txnsC   = "txns"
 
-	// AdminUser is the mongo admin username.
-	AdminUser = "admin"
-
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
 )
@@ -615,6 +612,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 		coll = machinesC
 	case names.ServiceTag:
 		coll = servicesC
+		id = st.docID(id)
 	case names.UnitTag:
 		coll = unitsC
 	case names.UserTag:
@@ -1019,9 +1017,17 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 func (st *State) updateCharmDoc(
 	ch charm.Charm, curl *charm.URL, storagePath, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
+	// Make sure we escape any "$" and "." in config option names
+	// first. See http://pad.lv/1308146.
+	cfg := ch.Config()
+	escapedConfig := charm.NewConfig()
+	for optionName, option := range cfg.Options {
+		escapedName := escapeReplacer.Replace(optionName)
+		escapedConfig.Options[escapedName] = option
+	}
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
-		{"config", ch.Config()},
+		{"config", escapedConfig},
 		{"actions", ch.Actions()},
 		{"storagepath", storagePath},
 		{"bundlesha256", bundleSha256},
@@ -1100,10 +1106,13 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 	if _, err := st.EnvironmentUser(ownerTag); err != nil {
 		return nil, errors.Trace(err)
 	}
+	serviceID := st.docID(name)
 	// Create the service addition operations.
 	peers := ch.Meta().Peers
 	svcDoc := &serviceDoc{
+		DocID:         serviceID,
 		Name:          name,
+		EnvUUID:       env.UUID(),
 		Series:        ch.URL().Series,
 		Subordinate:   ch.Meta().Subordinate,
 		CharmURL:      ch.URL(),
@@ -1129,7 +1138,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		},
 		{
 			C:      servicesC,
-			Id:     name,
+			Id:     serviceID,
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
 		}}
@@ -1252,8 +1261,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 		return nil, errors.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
-	sel := bson.D{{"_id", name}}
-	err = services.Find(sel).One(sdoc)
+	err = services.FindId(st.docID(name)).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q", name)
 	}
@@ -1279,12 +1287,29 @@ func (st *State) AllServices() (services []*Service, err error) {
 	return services, nil
 }
 
+// docID generates a globally unique id value
+// where the environment uuid is prefixed to the
+// localID.
+func (st *State) docID(localID string) string {
+	return st.EnvironTag().Id() + ":" + localID
+}
+
+// localID returns the local id value by stripping
+// of the environment uuid prefix if it is there.
+func (st *State) localID(ID string) string {
+	prefix := st.EnvironTag().Id() + ":"
+	if strings.HasPrefix(ID, prefix) {
+		return ID[len(prefix):]
+	}
+	return ID
+}
+
 // InferEndpoints returns the endpoints corresponding to the supplied names.
 // There must be 1 or 2 supplied names, of the form <service>[:<relation>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
-func (st *State) InferEndpoints(names []string) ([]Endpoint, error) {
+func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 	// Collect all possible sane endpoint lists.
 	var candidates [][]Endpoint
 	switch len(names) {
@@ -1450,7 +1475,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			}
 			ops = append(ops, txn.Op{
 				C:      servicesC,
-				Id:     ep.ServiceName,
+				Id:     st.docID(ep.ServiceName),
 				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
 				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 			})
@@ -1729,6 +1754,32 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get state servers document")
 	}
+
+	if doc.EnvUUID == "" {
+		logger.Warningf("state servers info has no environment UUID so retrieving it from environment")
+
+		// This only happens when migrating from 1.20 to 1.21 before
+		// upgrade steps have been run. Without this hack environTag
+		// on State ends up empty, breaking basic functionality needed
+		// to run upgrade steps (a chicken-and-egg scenario).
+		environments, closer := st.getCollection(environmentsC)
+		defer closer()
+
+		var envDoc environmentDoc
+		query := environments.Find(nil)
+		count, err := query.Count()
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot get environment document count")
+		}
+		if count != 1 {
+			return nil, errors.New("expected just one environment to get UUID from")
+		}
+		if err := query.One(&envDoc); err != nil {
+			return nil, errors.Annotate(err, "cannot load environment document")
+		}
+		doc.EnvUUID = envDoc.UUID
+	}
+
 	return &StateServerInfo{
 		EnvironmentTag:   names.NewEnvironTag(doc.EnvUUID),
 		MachineIds:       doc.MachineIds,

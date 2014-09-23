@@ -74,11 +74,18 @@ func (fc facadeCaller) RawAPICaller() APICaller {
 	return fc.caller
 }
 
-// NewFacadeCaller wraps an APICaller for a given Facade
+// NewFacadeCaller wraps an APICaller for a given facade name and the
+// best available version.
 func NewFacadeCaller(caller APICaller, facadeName string) FacadeCaller {
+	return NewFacadeCallerForVersion(caller, facadeName, caller.BestFacadeVersion(facadeName))
+}
+
+// NewFacadeCallerForVersion wraps an APICaller for a given facade
+// name and version.
+func NewFacadeCallerForVersion(caller APICaller, facadeName string, version int) FacadeCaller {
 	return facadeCaller{
 		facadeName:  facadeName,
-		bestVersion: caller.BestFacadeVersion(facadeName),
+		bestVersion: version,
 		caller:      caller,
 	}
 }

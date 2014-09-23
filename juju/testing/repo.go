@@ -70,10 +70,7 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-
+	storage := s.State.Storage()
 	r, _, err := storage.Get(ch.StoragePath())
 	c.Assert(err, gc.IsNil)
 	defer r.Close()
