@@ -14,7 +14,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -272,12 +271,6 @@ func RemoveTools(c *gc.C, stor storage.Storage) {
 		c.Check(err, gc.IsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
-}
-
-// RemoveAllTools deletes all tools from the supplied environment.
-func RemoveAllTools(c *gc.C, env environs.Environ) {
-	c.Logf("clearing private storage")
-	RemoveTools(c, env.Storage())
 }
 
 var (

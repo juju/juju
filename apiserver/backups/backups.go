@@ -45,7 +45,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 }
 
 var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	envStor, err := environs.GetStorage(st)
+	envStor, err := environs.LegacyStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
