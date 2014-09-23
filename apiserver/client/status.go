@@ -5,6 +5,7 @@ package client
 
 import (
 	"fmt"
+	"net"
 	"path"
 	"regexp"
 	"strings"
@@ -29,22 +30,31 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	}
 	var noStatus api.Status
 	var context statusContext
-	unitMatcher, err := NewUnitMatcher(args.Patterns)
-	if err != nil {
-		return noStatus, err
-	}
-	if context.services,
-		context.units, context.latestCharms, err = fetchAllServicesAndUnits(c.api.state, unitMatcher); err != nil {
+
+	if context.services, context.units, context.latestCharms, err =
+		fetchAllServicesAndUnits(c.api.state); err != nil {
 		return noStatus, err
 	}
 
-	// Filter machines by units in scope.
-	var machineIds *set.Strings
-	if !unitMatcher.matchesAny() {
-		machineIds, err = fetchUnitMachineIds(context.units)
-		if err != nil {
-			return noStatus, err
+	if len(args.Patterns) > 0 {
+		predicate := BuildPredicateFor(args.Patterns)
+		for _, unitMap := range context.units {
+			for name, unit := range unitMap {
+				if matches, ok, err := predicate(unit); err != nil {
+					return noStatus, err
+				} else if !ok {
+					return noStatus, errors.Errorf("the given filter did not match any known patterns.")
+				} else if !matches {
+					delete(unitMap, name)
+				}
+			}
 		}
+	}
+
+	// Filter machines by units in scope.
+	machineIds, err := fetchUnitMachineIds(context.units)
+	if err != nil {
+		return noStatus, err
 	}
 	if context.machines, err = fetchMachines(c.api.state, machineIds); err != nil {
 		return noStatus, err
@@ -89,6 +99,127 @@ type statusContext struct {
 	units        map[string]map[string]*state.Unit
 	networks     map[string]*state.Network
 	latestCharms map[charm.URL]string
+}
+
+// PredicateMatch is a struct which contains the results of matching
+// on a UnitPredicate.
+type PredicateMatch struct {
+	// Matches signifies whether or not the predicate found a match.
+	Matches bool
+	// FormatOk signifies whether the provided patterns matched at
+	// least one predicate format.
+	FormatOk bool
+	// Error signifies whether there an error occurred while processing.
+	Error error
+	// PredicateDescriptor is a user-facing message to let the user
+	// know which predicate found a match.
+	PredicateDescriptor string
+}
+
+// UnitPredicate is a function that when given a unit, will determine
+// whether the unit meets some criteria.
+type UnitPredicate func(*state.Unit) (matches bool, formatOk bool, _ error)
+
+func BuildPredicateFor(patterns []string) UnitPredicate {
+
+	type patternMatcher func(*state.Unit, ...string) (bool, bool, error)
+	collect := func(u *state.Unit, matchers ...patternMatcher) (bool, bool, error) {
+		oneValidFmt := false
+		for _, m := range matchers {
+			if matches, ok, err := m(u, patterns...); err != nil {
+				return false, ok, err
+			} else if ok {
+				oneValidFmt = true
+				if matches {
+					return true, true, nil
+				}
+			}
+		}
+		return false, oneValidFmt, nil
+	}
+
+	unitMatchShim := func(u *state.Unit, patterns ...string) (bool, bool, error) {
+		if um, err := NewUnitMatcher(patterns); err != nil {
+			// The only error
+			logger.Infof("ignoring matching error: %v", err)
+			return false, false, nil
+		} else {
+			return um.matchUnit(u), true, nil
+		}
+	}
+
+	return func(u *state.Unit) (bool, bool, error) {
+		return collect(u, matchAgentStatus, matchExposure, matchPort, matchSubnet, unitMatchShim)
+	}
+}
+
+func matchPort(u *state.Unit, patterns ...string) (bool, bool, error) {
+	for _, p := range u.OpenedPorts() {
+		for _, patt := range patterns {
+			if strings.HasPrefix(p.String(), patt) {
+				return true, true, nil
+			}
+		}
+	}
+	return false, true, nil
+}
+
+func matchSubnet(u *state.Unit, patterns ...string) (bool, bool, error) {
+
+	var occupiedAddr []net.IP
+	grabIp := func(ip func() (string, bool)) {
+		if addr, ok := ip(); ok {
+			if ip := net.ParseIP(addr); ip != nil {
+				occupiedAddr = append(occupiedAddr, ip)
+			}
+		}
+	}
+	grabIp(u.PrivateAddress)
+	grabIp(u.PublicAddress)
+
+	for _, p := range patterns {
+		for _, oip := range occupiedAddr {
+			if _, ipNet, err := net.ParseCIDR(p); err == nil {
+				if ipNet.Contains(oip) {
+					return true, true, nil
+				}
+			} else if ip := net.ParseIP(p); ip != nil {
+				if ip.Equal(oip) {
+					return true, true, nil
+				}
+			} else {
+				return false, false, nil
+			}
+		}
+	}
+	return false, true, nil
+}
+
+func matchExposure(u *state.Unit, patterns ...string) (bool, bool, error) {
+	if s, err := u.Service(); err != nil {
+		return false, true, err
+	} else if s.IsExposed() {
+		return len(patterns) >= 1 && patterns[0] == "exposed", true, nil
+	} else {
+		return len(patterns) >= 2 && patterns[0] == "not" && patterns[1] == "exposed", true, nil
+	}
+}
+
+func matchAgentStatus(u *state.Unit, patterns ...string) (bool, bool, error) {
+	if status, _, _, err := u.Status(); err != nil {
+		return false, false, err
+	} else {
+		for _, p := range patterns {
+			// Verify that we're using a valid status.
+			if ps := state.Status(p); !ps.Valid() {
+				return false, false, nil
+			} else if ps == status { // TOOD(katco-): append/*
+				return true, true, nil
+			}
+			logger.Warningf("%s doesn't match %s", string(status), p)
+		}
+		return false, false, nil
+	}
 }
 
 type unitMatcher struct {
@@ -215,8 +346,8 @@ func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*stat
 // fetchAllServicesAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllServicesAndUnits(
-	st *state.State, unitMatcher unitMatcher) (
-	map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
+	st *state.State,
+) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
 
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
@@ -232,12 +363,9 @@ func fetchAllServicesAndUnits(
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
-			if !unitMatcher.matchUnit(u) {
-				continue
-			}
 			svcUnitMap[u.Name()] = u
 		}
-		if unitMatcher.matchesAny() || len(svcUnitMap) > 0 {
+		if len(svcUnitMap) > 0 {
 			unitMap[s.Name()] = svcUnitMap
 			svcMap[s.Name()] = s
 			// Record the base URL for the service's charm so that

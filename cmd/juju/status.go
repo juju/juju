@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
@@ -79,11 +78,7 @@ var newApiClientForStatus = func(c *StatusCommand) (statusAPI, error) {
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
-	// Just verify the pattern validity client side, do not use the matcher
-	_, err := client.NewUnitMatcher(c.patterns)
-	if err != nil {
-		return err
-	}
+
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
@@ -99,6 +94,16 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
+
+	// collect := func(un string, u unitStatus, l int) {
+	// }
+
+	// for sName, svc := range status.Services {
+	// 	for uName, unt := range svc.Units {
+	// 		recurseUnits(unt, 1, nil))
+	// 	}
+	// }
+
 	result := newStatusFormatter(status).format()
 	return c.out.Write(ctx, result)
 }
