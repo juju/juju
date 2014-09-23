@@ -227,7 +227,10 @@ type infoConnectError struct {
 }
 
 func environInfoUserTag(info configstore.EnvironInfo) names.UserTag {
-	username := info.APICredentials().User
+	var username string
+	if info != nil {
+		username = info.APICredentials().User
+	}
 	if username == "" {
 		username = configstore.DefaultAdminUsername
 	}

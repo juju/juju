@@ -47,6 +47,8 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 
 var providerInstance environProvider
 
+var makeServiceURL = client.AuthenticatingClient.MakeServiceURL
+
 // Use shortAttempt to poll for short-term events.
 // TODO: This was kept to a long timeout because Nova needs more time than EC2.
 // For example, HP Cloud takes around 9.1 seconds (10 samples) to return a
@@ -98,11 +100,17 @@ openstack:
     #
     # image-metadata-url:  https://your-image-metadata-url
 
-    # image-stream chooses a simplestreams stream to select OS images
-    # from, for example daily or released images (or any other stream
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
     # available on simplestreams).
     #
     # image-stream: "released"
+
+    # tools-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # tools-stream: "released"
 
     # auth-url defaults to the value of the environment variable
     # OS_AUTH_URL, but can be specified here.
@@ -176,11 +184,17 @@ hpcloud:
     #
     # tenant-name: <your tenant name>
 
-    # image-stream chooses a simplestreams stream to select OS images
-    # from, for example daily or released images (or any other stream
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
     # available on simplestreams).
     #
     # image-stream: "released"
+
+    # tools-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # tools-stream: "released"
 
     # auth-url holds the keystone url for authentication. It defaults
     # to the value of the environment variable OS_AUTH_URL.
@@ -784,9 +798,9 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 		}
 	}
 
-	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
+	productStreamsURL, err := makeServiceURL(e.client, "product-streams", nil)
 	if err != nil {
-		return nil, err
+		return nil, jujuerrors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
 	verify := utils.VerifySSLHostnames
 	if !e.Config().SSLHostnameVerification() {

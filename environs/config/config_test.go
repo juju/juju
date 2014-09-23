@@ -532,6 +532,14 @@ var configTests = []configTest{
 			"image-stream": "daily",
 		},
 	}, {
+		about:       "explicit tools stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"tools-stream": "proposed",
+		},
+	}, {
 		about:       "Explicit state port",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1101,6 +1109,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.ImageStream(), gc.Equals, v)
 	} else {
 		c.Assert(cfg.ImageStream(), gc.Equals, "released")
+	}
+
+	if v, ok := test.attrs["tools-stream"]; ok {
+		c.Assert(cfg.ToolsStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ToolsStream(), gc.Equals, "released")
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()

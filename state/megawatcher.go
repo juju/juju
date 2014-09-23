@@ -583,8 +583,8 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 	return doc.updated(b.st, all, change.Id)
 }
 
-// idForEnv is a helper function which returns the environment ID for those
-// collections that have been migrated. For those collections that have not
+// docID is a helper function which returns the environment ID for those
+// collections that have been migrated to include an environment UUID. For those collections that have not
 // been migrated, it returns the id that was passed in.
 func (b *allWatcherStateBacking) docID(collection string, id interface{}) interface{} {
 	switch collection {

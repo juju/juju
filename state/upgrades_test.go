@@ -214,10 +214,7 @@ func (s *upgradesSuite) TestAddEnvUUIDToServicesID(c *gc.C) {
 	services, closer := s.state.getCollection(servicesC)
 	defer closer()
 
-	err := services.Find(nil).One(&service)
-	c.Assert(err, gc.IsNil)
-
-	err = AddEnvUUIDToServicesID(s.state)
+	err := AddEnvUUIDToServicesID(s.state)
 	c.Assert(err, gc.IsNil)
 
 	err = services.Find(bson.D{{"_id", serviceName}}).One(&service)

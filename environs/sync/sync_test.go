@@ -87,8 +87,8 @@ environments:
 	for i, vers := range vAll {
 		versionStrings[i] = vers.String()
 	}
-	toolstesting.MakeTools(c, baseDir, "releases", versionStrings)
-	toolstesting.MakeTools(c, s.localStorage, "releases", versionStrings)
+	toolstesting.MakeTools(c, baseDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, s.localStorage, "releases", "released", versionStrings)
 
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
@@ -149,14 +149,6 @@ var tests = []struct {
 		ctx: &sync.SyncContext{
 			AllVersions: true,
 		},
-		tools: v1noDev,
-	},
-	{
-		description: "copy all and dev from the dummy environment",
-		ctx: &sync.SyncContext{
-			AllVersions: true,
-			Dev:         true,
-		},
 		tools: v1all,
 	},
 }
@@ -208,8 +200,7 @@ var (
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190all = []version.Binary{v190q64, v190p32}
-	v1noDev = append(v100all, v180all...)
-	v1all   = append(v1noDev, v190all...)
+	v1all   = append(append(v100all, v180all...), v190all...)
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	v310p64 = version.MustParseBinary("3.1.0-precise-amd64")
 	v320p64 = version.MustParseBinary("3.2.0-precise-amd64")
@@ -357,7 +348,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata, err := envtools.ReadMetadata(s.env.Storage())
+	metadata, err := envtools.ReadMetadata(s.env.Storage(), "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 }

@@ -67,6 +67,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 				CloudSpec: testData.validCloudSpec,
 				Series:    []string{version.Current.Series},
 				Arches:    []string{"amd64"},
+				Stream:    "released",
 			}), testData.requireSigned)
 	}
 	registerSimpleStreamsTests()
@@ -86,6 +87,7 @@ func registerSimpleStreamsTests() {
 				},
 				Series: []string{"precise"},
 				Arches: []string{"amd64", "arm"},
+				Stream: "released",
 			}),
 		},
 	})
@@ -118,14 +120,14 @@ func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 }
 
 var fetchTests = []struct {
-	region   string
-	series   string
-	version  string
-	major    int
-	minor    int
-	released bool
-	arches   []string
-	tools    []*tools.ToolsMetadata
+	region  string
+	series  string
+	version string
+	stream  string
+	major   int
+	minor   int
+	arches  []string
+	tools   []*tools.ToolsMetadata
 }{{
 	series:  "precise",
 	arches:  []string{"amd64", "arm"},
@@ -212,20 +214,19 @@ var fetchTests = []struct {
 		},
 	},
 }, {
-	series:   "raring",
-	arches:   []string{"amd64", "arm"},
-	major:    1,
-	minor:    -1,
-	released: true,
+	series:  "trusty",
+	arches:  []string{"amd64"},
+	version: "1.16.0",
+	stream:  "testing",
 	tools: []*tools.ToolsMetadata{
 		{
-			Release:  "raring",
-			Version:  "1.14.0",
+			Release:  "trusty",
+			Version:  "1.16.0",
 			Arch:     "amd64",
-			Size:     2973173,
-			Path:     "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+			Size:     2973512,
+			Path:     "tools/releases/20130806/juju-1.16.0-trusty-amd64.tgz",
 			FileType: "tar.gz",
-			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
+			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dac",
 		},
 	},
 }}
@@ -233,12 +234,16 @@ var fetchTests = []struct {
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
+		if t.stream == "" {
+			t.stream = "released"
+		}
 		var toolsConstraint *tools.ToolsConstraint
 		if t.version == "" {
-			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, t.released, simplestreams.LookupParams{
+			toolsConstraint = tools.NewGeneralToolsConstraint(t.major, t.minor, simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 				Series:    []string{t.series},
 				Arches:    t.arches,
+				Stream:    t.stream,
 			})
 		} else {
 			toolsConstraint = tools.NewVersionedToolsConstraint(version.MustParse(t.version),
@@ -246,6 +251,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 					CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 					Series:    []string{t.series},
 					Arches:    t.arches,
+					Stream:    t.stream,
 				})
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
@@ -269,11 +275,24 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	}
 }
 
+func (s *simplestreamsSuite) TestFetchNoMatchingStream(c *gc.C) {
+	toolsConstraint := tools.NewGeneralToolsConstraint(2, -1, simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
+		Series:    []string{"precise"},
+		Arches:    []string{},
+		Stream:    "proposed",
+	})
+	_, _, err := tools.Fetch(
+		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
+	c.Assert(err, gc.ErrorMatches, `index file missing "content-download" data not found`)
+}
+
 func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
-	toolsConstraint := tools.NewGeneralToolsConstraint(1, 13, false, simplestreams.LookupParams{
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, 13, simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-west-2", "https://ec2.us-west-2.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
+		Stream:    "released",
 	})
 	toolsMetadata, resolveInfo, err := tools.Fetch(
 		[]simplestreams.DataSource{s.Source}, toolsConstraint, s.RequireSigned)
@@ -331,9 +350,9 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := toolstesting.ParseMetadataFromDir(c, dir, false)
+	metadata := toolstesting.ParseMetadataFromDir(c, "released", dir, false)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -343,7 +362,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 		"2.0.1-raring-amd64",
 	}
 	dir := c.MkDir()
-	toolstesting.MakeTools(c, dir, "releases", versionStrings)
+	toolstesting.MakeTools(c, dir, "releases", "released", versionStrings)
 
 	toolsList := coretools.List{
 		{
@@ -363,9 +382,9 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	if withMirrors {
 		writeMirrors = tools.WriteMirrors
 	}
-	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := toolstesting.ParseMetadataFromDir(c, dir, withMirrors)
+	metadata := toolstesting.ParseMetadataFromDir(c, "released", dir, withMirrors)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -392,7 +411,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, existingToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -402,10 +421,10 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := toolstesting.ParseMetadataFromDir(c, dir, false)
+	metadata := toolstesting.ParseMetadataFromDir(c, "released", dir, false)
 	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
@@ -413,12 +432,31 @@ type productSpecSuite struct{}
 
 var _ = gc.Suite(&productSpecSuite{})
 
-func (s *productSpecSuite) TestId(c *gc.C) {
+func (s *productSpecSuite) TestIndexIdNoStream(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
 	})
-	ids, err := toolsConstraint.Ids()
+	ids := toolsConstraint.IndexIds()
+	c.Assert(ids, gc.HasLen, 0)
+}
+
+func (s *productSpecSuite) TestIndexId(c *gc.C) {
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+		Series: []string{"precise"},
+		Arches: []string{"amd64"},
+		Stream: "proposed",
+	})
+	ids := toolsConstraint.IndexIds()
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:proposed:tools"})
+}
+
+func (s *productSpecSuite) TestProductId(c *gc.C) {
+	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
+		Series: []string{"precise"},
+		Arches: []string{"amd64"},
+	})
+	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:12.04:amd64"})
 }
@@ -428,7 +466,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 		Series: []string{"precise"},
 		Arches: []string{"amd64", "arm"},
 	})
-	ids, err := toolsConstraint.Ids()
+	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.juju:12.04:amd64",
@@ -439,8 +477,9 @@ func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.11.3"), simplestreams.LookupParams{
 		Series: []string{"precise", "raring"},
 		Arches: []string{"amd64"},
+		Stream: "released",
 	})
-	ids, err := toolsConstraint.Ids()
+	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.juju:12.04:amd64",
@@ -448,21 +487,23 @@ func (s *productSpecSuite) TestIdMultiSeries(c *gc.C) {
 }
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {
-	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, false, simplestreams.LookupParams{
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, -1, simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
+		Stream: "released",
 	})
-	ids, err := toolsConstraint.Ids()
+	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
 }
 
 func (s *productSpecSuite) TestIdWithMajorMinorVersion(c *gc.C) {
-	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, false, simplestreams.LookupParams{
+	toolsConstraint := tools.NewGeneralToolsConstraint(1, 2, simplestreams.LookupParams{
 		Series: []string{"precise"},
 		Arches: []string{"amd64"},
+		Stream: "released",
 	})
-	ids, err := toolsConstraint.Ids()
+	ids, err := toolsConstraint.ProductIds()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{`com.ubuntu.juju:12.04:amd64`})
 }
@@ -558,7 +599,7 @@ func (c *countingStorage) Get(name string) (io.ReadCloser, error) {
 func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 	var versionStrings = []string{"1.2.3-precise-amd64"}
 	dir := c.MkDir()
-	toolstesting.MakeTools(c, dir, "releases", versionStrings)
+	toolstesting.MakeTools(c, dir, "releases", "released", versionStrings)
 	toolsList := coretools.List{{
 		Version: version.MustParseBinary(versionStrings[0]),
 		Size:    123,
@@ -709,12 +750,12 @@ func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	out, err := tools.ReadMetadata(stor)
+	out, err := tools.ReadMetadata(stor, "released")
 	c.Assert(out, gc.HasLen, 0)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
-	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	err = tools.WriteMetadata(stor, "released", metadata, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	out, err = tools.ReadMetadata(stor)
+	out, err = tools.ReadMetadata(stor, "released")
 	for _, md := range out {
 		// FullPath is set by ReadMetadata.
 		c.Assert(md.FullPath, gc.Not(gc.Equals), "")
@@ -775,6 +816,7 @@ func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},
 		Arches:    []string{"amd64"},
+		Stream:    "released",
 	})
 	toolsMetadata, resolveInfo, err := tools.Fetch(
 		[]simplestreams.DataSource{signedSource}, toolsConstraint, true)

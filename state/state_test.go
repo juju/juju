@@ -78,10 +78,21 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
+func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
 	c.Assert(docID, gc.Equals, s.State.EnvironTag().Id()+":"+id)
+}
+
+func (s *StateSuite) TestLocalID(c *gc.C) {
+	id := s.State.EnvironTag().Id() + ":wordpress"
+	localID := state.LocalID(s.State, id)
+	c.Assert(localID, gc.Equals, "wordpress")
+}
+
+func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
+	id := "wordpress"
+	docID := state.DocID(s.State, id)
 	localID := state.LocalID(s.State, docID)
 	c.Assert(localID, gc.Equals, id)
 }

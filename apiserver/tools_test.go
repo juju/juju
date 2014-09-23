@@ -111,7 +111,7 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
-	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
+	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", "released", versionStrings)
 	toolsFile := envtools.StorageName(vers)
 	return expectedTools, vers, path.Join(localStorage, toolsFile)
 }
