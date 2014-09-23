@@ -158,6 +158,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if err != nil {
 			return errors.Annotate(err, "cannot upload bootstrap tools")
 		}
+		defer os.RemoveAll(builtTools.Dir)
 		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
 		selectedTools.URL = fmt.Sprintf("file://%s", filename)
 		selectedTools.Size = builtTools.Size

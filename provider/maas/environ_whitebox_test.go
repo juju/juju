@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -61,8 +60,9 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	envtesting.UploadFakeTools(c, stor)
+	storageDir := c.MkDir()
+	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
+	suite.UploadFakeToolsToDirectory(c, storageDir)
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -252,7 +252,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(string(decodedUserData), jc.Contains, string(data))
 
 	// Trash the tools and try to start another instance.
-	envtesting.RemoveTools(c, env.Storage())
+	suite.PatchValue(&envtools.DefaultBaseURL, "")
 	instance, _, _, err = testing.StartInstance(env, "2")
 	c.Check(instance, gc.IsNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
@@ -496,10 +496,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
-	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	// Can't RemoveAllTools, no public storage.
-	envtesting.RemoveTools(c, env.Storage())
 	// Disable auto-uploading by setting the agent version.
 	cfg, err := env.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
@@ -539,8 +536,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sources, err := envtools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 1)
-	assertSourceContents(c, sources[0], "filename", data)
+	c.Assert(sources, gc.HasLen, 0)
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
@@ -588,7 +584,6 @@ func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 }
 
 func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
-	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
