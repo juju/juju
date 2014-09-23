@@ -26,7 +26,7 @@ var _ = gc.Suite(&CleanupSuite{})
 
 func (s *CleanupSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.APIState, _ = s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+	s.APIState, _ = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 }
 
 // TestCleaner create 2 metrics, one old and one new.
