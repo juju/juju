@@ -156,6 +156,7 @@ func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) 
 		{"juju-backup", "", nil},
 		{"juju-backup/dump", "", nil},
 		{"juju-backup/root.tar", "", bundle},
+		{"juju-backup/metadata.json", "", nil},
 	}
 
 	tarFile, err := gzip.NewReader(file)

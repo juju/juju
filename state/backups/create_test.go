@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/metadata"
 )
 
 type createSuite struct {
@@ -26,11 +27,19 @@ func (d *TestDBDumper) Dump(dumpDir string) error {
 	return nil
 }
 
-func (s *createSuite) TestCreateLegacy(c *gc.C) {
+func (s *createSuite) metadata(notes string) *metadata.Metadata {
+	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
+	return metadata.NewMetadata(*origin, notes, nil)
+}
+
+func (s *createSuite) TestLegacy(c *gc.C) {
+	meta := s.metadata("")
+	metadataFile, err := meta.AsJSONBuffer()
+	c.Assert(err, gc.IsNil)
 	_, testFiles, expected := s.createTestFiles(c)
 
 	dumper := &TestDBDumper{}
-	args := backups.NewTestCreateArgs(testFiles, dumper)
+	args := backups.NewTestCreateArgs(testFiles, dumper, metadataFile)
 	result, err := backups.Create(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.NotNil)

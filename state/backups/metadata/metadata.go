@@ -4,6 +4,9 @@
 package metadata
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/juju/errors"
@@ -75,4 +78,13 @@ func (m *Metadata) Finish(size int64, checksum, format string, finished *time.Ti
 	m.finished = finished
 
 	return nil
+}
+
+// AsJSONBuffer returns a bytes.Buffer containing the JSON-ified metadata.
+func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bytes.NewBuffer(data), nil
 }
