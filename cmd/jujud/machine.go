@@ -410,7 +410,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			break
 		}
 	}
-	intrusiveMode = intrusiveMode && !disableNetworkManagement
+	intrusiveMode = intrusiveMode && !disableNetworkManagement && version.Current.OS != version.Windows
 	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
 	})
