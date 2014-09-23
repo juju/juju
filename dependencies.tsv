@@ -1,3 +1,4 @@
+bitbucket.org/kardianos/osext	hg	5d3ddcf53a508cc2f7404eaebf546ef2cb5cdb6e	12
 bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	
 code.google.com/p/go.crypto	hg	aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef	212
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
@@ -20,6 +21,7 @@ github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d
 github.com/juju/testing	git	87af103ad72f6ef2b391252bab51d217659e0af3	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	27f6e1b91f3ca1da6789e1641a115f284bf49833	
+gopkg.in/check.v1	git	5b76b26efe7f426789852e983fbde4de62c42282	
 gopkg.in/juju/charm.v3	git	a06606aa4ae97d21e63ba4954b7242198612f076	
 github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
