@@ -147,7 +147,11 @@ def restore_missing_state_server(env, backup_file):
         env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode != 0:
-        raise Exception("Restore failed: \n%s" % err)
+        print_now('Call of juju restore exited with an error\n')
+        message = 'Restore failed: \n%s' % err
+        print_now(message)
+        print_now('\n')
+        raise Exception(message)
     print_now(output)
     env.wait_for_started(600).status
     print_now("%s restored" % env.environment)
