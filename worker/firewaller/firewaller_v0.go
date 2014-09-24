@@ -90,7 +90,7 @@ func (fw *FirewallerV0) loop() error {
 			return tomb.ErrDying
 		case _, ok := <-fw.environWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(fw.environWatcher)
+				return watcher.EnsureErr(fw.environWatcher)
 			}
 			config, err := fw.st.EnvironConfig()
 			if err != nil {
@@ -101,7 +101,7 @@ func (fw *FirewallerV0) loop() error {
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(fw.machinesWatcher)
+				return watcher.EnsureErr(fw.machinesWatcher)
 			}
 			for _, machineId := range change {
 				fw.machineLifeChanged(names.NewMachineTag(machineId).String())
@@ -166,17 +166,14 @@ func (fw *FirewallerV0) startMachine(machineTag string) error {
 	}
 	select {
 	case <-fw.tomb.Dying():
-		stop("units watcher", unitw)
 		return tomb.ErrDying
 	case change, ok := <-unitw.Changes():
 		if !ok {
-			stop("units watcher", unitw)
-			return watcher.MustErr(unitw)
+			return watcher.EnsureErr(unitw)
 		}
 		fw.machineds[machineTag] = machined
 		err = fw.unitsChanged(&unitsChangeV0{machined, change})
 		if err != nil {
-			stop("units watcher", unitw)
 			delete(fw.machineds, machineTag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
@@ -637,7 +634,7 @@ func (md *machineDataV0) watchLoop(unitw apiwatcher.StringsWatcher) {
 			if !ok {
 				_, err := md.machine()
 				if !params.IsCodeNotFound(err) {
-					md.fw.tomb.Kill(watcher.MustErr(unitw))
+					md.fw.tomb.Kill(watcher.EnsureErr(unitw))
 				}
 				return
 			}
@@ -689,7 +686,7 @@ func (ud *unitDataV0) watchLoop(latestPorts []network.Port) {
 			return
 		case _, ok := <-w.Changes():
 			if !ok {
-				ud.fw.tomb.Kill(watcher.MustErr(w))
+				ud.fw.tomb.Kill(watcher.EnsureErr(w))
 				return
 			}
 			if err := ud.unit.Refresh(); err != nil {
@@ -768,7 +765,7 @@ func (sd *serviceDataV0) watchLoop(exposed bool) {
 			return
 		case _, ok := <-w.Changes():
 			if !ok {
-				sd.fw.tomb.Kill(watcher.MustErr(w))
+				sd.fw.tomb.Kill(watcher.EnsureErr(w))
 				return
 			}
 			if err := sd.service.Refresh(); err != nil {

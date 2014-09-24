@@ -289,14 +289,14 @@ func (s *stringsWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetMustErr(triggeredHandler)
+	worker.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	c.Check(foundErr, gc.Equals, tomb.ErrStillAlive)
 	// ErrStillAlive is trapped by the Stop logic and gets turned into a
 	// 'nil' when stopping. However TestDefaultClosedHandler can assert
-	// that it would have triggered a panic.
+	// that it would have triggered an error.
 	c.Check(err, gc.IsNil)
 	s.actor.CheckActions(c, "setup", "teardown")
 	// Worker is stopped, don't fail TearDownTest
@@ -309,7 +309,7 @@ func (s *stringsWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetMustErr(triggeredHandler)
+	worker.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)

@@ -789,7 +789,7 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 			return tomb.ErrDying
 		case _, ok := <-w.Changes():
 			if !ok {
-				return watcher.MustErr(w)
+				return watcher.EnsureErr(w)
 			}
 			err := r.Join()
 			if params.IsCodeCannotEnterScopeYet(err) {
