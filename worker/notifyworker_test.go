@@ -39,7 +39,7 @@ func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
-	worker.SetMustErr(nil)
+	worker.SetEnsureErr(nil)
 	s.stopWorker(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -316,7 +316,7 @@ func (c CannedErrer) Err() error {
 func (s *notifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
 	// Roundabout check for function equality.
 	// Is this test really worth it?
-	c.Assert(fmt.Sprintf("%p", worker.MustErr()), gc.Equals, fmt.Sprintf("%p", watcher.MustErr))
+	c.Assert(fmt.Sprintf("%p", worker.EnsureErr()), gc.Equals, fmt.Sprintf("%p", watcher.EnsureErr))
 }
 
 func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
@@ -325,7 +325,7 @@ func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetMustErr(triggeredHandler)
+	worker.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
@@ -345,7 +345,7 @@ func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	worker.SetMustErr(triggeredHandler)
+	worker.SetEnsureErr(triggeredHandler)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)

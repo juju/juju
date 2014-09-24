@@ -89,7 +89,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(arg params.Entities) (params.Notif
 		if _, ok := <-watch.Changes(); ok {
 			results[i].NotifyWatcherId = api.resources.Register(watch)
 		} else {
-			err = watcher.MustErr(watch)
+			err = watcher.EnsureErr(watch)
 		}
 		results[i].Error = common.ServerError(err)
 	}

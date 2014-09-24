@@ -143,7 +143,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
@@ -653,7 +653,7 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = p.resources.Register(watch)
 	} else {
-		return result, watcher.MustErr(watch)
+		return result, watcher.EnsureErr(watch)
 	}
 	return result, nil
 }

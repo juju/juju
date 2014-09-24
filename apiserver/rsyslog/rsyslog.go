@@ -101,7 +101,7 @@ func (api *RsyslogAPI) WatchForRsyslogChanges(args params.Entities) (params.Noti
 				result.Results[i].NotifyWatcherId = api.resources.Register(watch)
 				err = nil
 			} else {
-				err = watcher.MustErr(watch)
+				err = watcher.EnsureErr(watch)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

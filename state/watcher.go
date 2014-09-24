@@ -794,7 +794,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case c, ok := <-w.sw.Changes():
 			if !ok {
-				return watcher.MustErr(w.sw)
+				return watcher.EnsureErr(w.sw)
 			}
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
@@ -1082,7 +1082,7 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case settings, ok := <-sw.Changes():
 			if !ok {
-				return watcher.MustErr(sw)
+				return watcher.EnsureErr(sw)
 			}
 			cfg, err = config.New(config.NoDefaults, settings.Map())
 			if err == nil {

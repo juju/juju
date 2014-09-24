@@ -105,7 +105,7 @@ func (q *AliveHookQueue) loop(initial *State) {
 	// (apart from a single potential required post-joined changed event).
 	ch1, ok := <-q.w.Changes()
 	if !ok {
-		q.tomb.Kill(watcher.MustErr(q.w))
+		q.tomb.Kill(watcher.EnsureErr(q.w))
 		return
 	}
 	if len(ch1.Departed) != 0 {
@@ -140,7 +140,7 @@ func (q *AliveHookQueue) loop(initial *State) {
 			return
 		case ch, ok := <-q.w.Changes():
 			if !ok {
-				q.tomb.Kill(watcher.MustErr(q.w))
+				q.tomb.Kill(watcher.EnsureErr(q.w))
 				return
 			}
 			q.update(ch)

@@ -486,7 +486,7 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, error
 	if _, ok := <-watch.Changes(); ok {
 		return u.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 func (u *UniterAPI) watchOneUnitActions(tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
@@ -502,7 +502,7 @@ func (u *UniterAPI) watchOneUnitActions(tag names.UnitTag) (params.StringsWatchR
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes
@@ -607,7 +607,7 @@ func (u *UniterAPI) watchOneServiceRelations(tag names.ServiceTag) (params.Strin
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchServiceRelations returns a StringsWatcher, for each given
@@ -1172,7 +1172,7 @@ func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.Re
 			Changes:                changes,
 		}, nil
 	}
-	return params.RelationUnitsWatchResult{}, watcher.MustErr(watch)
+	return params.RelationUnitsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
@@ -1240,7 +1240,7 @@ func (u *UniterAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	if _, ok := <-watch.Changes(); ok {
 		return u.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 
 // WatchAddresses returns a NotifyWatcher for observing changes

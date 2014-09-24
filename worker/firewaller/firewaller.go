@@ -108,7 +108,7 @@ func (fw *Firewaller) loop() error {
 		case _, ok := <-fw.environWatcher.Changes():
 			logger.Debugf("got environ config changes")
 			if !ok {
-				return watcher.MustErr(fw.environWatcher)
+				return watcher.EnsureErr(fw.environWatcher)
 			}
 			config, err := fw.st.EnvironConfig()
 			if err != nil {
@@ -119,7 +119,7 @@ func (fw *Firewaller) loop() error {
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(fw.machinesWatcher)
+				return watcher.EnsureErr(fw.machinesWatcher)
 			}
 			for _, machineId := range change {
 				fw.machineLifeChanged(names.NewMachineTag(machineId))
@@ -138,7 +138,7 @@ func (fw *Firewaller) loop() error {
 			}
 		case change, ok := <-portsChange:
 			if !ok {
-				return watcher.MustErr(fw.portsWatcher)
+				return watcher.EnsureErr(fw.portsWatcher)
 			}
 			for _, portsGlobalKey := range change {
 				machineTag, networkTag, err := parsePortsKey(portsGlobalKey)
@@ -188,17 +188,14 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	}
 	select {
 	case <-fw.tomb.Dying():
-		stop("units watcher", unitw)
 		return tomb.ErrDying
 	case change, ok := <-unitw.Changes():
 		if !ok {
-			stop("units watcher", unitw)
-			return watcher.MustErr(unitw)
+			return watcher.EnsureErr(unitw)
 		}
 		fw.machineds[tag] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
-			stop("units watcher", unitw)
 			delete(fw.machineds, tag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
@@ -718,7 +715,7 @@ func (md *machineData) watchLoop(unitw apiwatcher.StringsWatcher) {
 			if !ok {
 				_, err := md.machine()
 				if !params.IsCodeNotFound(err) {
-					md.fw.tomb.Kill(watcher.MustErr(unitw))
+					md.fw.tomb.Kill(watcher.EnsureErr(unitw))
 				}
 				return
 			}
@@ -777,7 +774,7 @@ func (sd *serviceData) watchLoop(exposed bool) {
 			return
 		case _, ok := <-w.Changes():
 			if !ok {
-				sd.fw.tomb.Kill(watcher.MustErr(w))
+				sd.fw.tomb.Kill(watcher.EnsureErr(w))
 				return
 			}
 			if err := sd.service.Refresh(); err != nil {

@@ -112,7 +112,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 				result.Results[i].NotifyWatcherId = u.resources.Register(watch)
 				err = nil
 			} else {
-				err = watcher.MustErr(watch)
+				err = watcher.EnsureErr(watch)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
