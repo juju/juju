@@ -14,6 +14,9 @@ import (
 
 var (
 	senderLogger = loggo.GetLogger("juju.worker.metricworker.sender")
+)
+
+const (
 	senderPeriod = 15 * time.Minute
 )
 

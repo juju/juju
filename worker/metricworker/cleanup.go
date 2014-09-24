@@ -15,6 +15,9 @@ import (
 var (
 	cleanupLogger = loggo.GetLogger("juju.worker.metricworker.cleanup")
 	notify        chan struct{}
+)
+
+const (
 	cleanupPeriod = time.Hour
 )
 
