@@ -60,10 +60,11 @@ func create(args *createArgs) (_ *createResult, err error) {
 	}()
 
 	// Inject the metadata file.
-	if args.metadataFile != nil {
-		if err := builder.injectMetadataFile(args.metadataFile); err != nil {
-			return nil, errors.Trace(err)
-		}
+	if args.metadataFile == nil {
+		return nil, errors.New("missing metadataFile")
+	}
+	if err := builder.injectMetadataFile(args.metadataFile); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Build the backup.

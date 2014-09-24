@@ -55,3 +55,13 @@ func (s *createSuite) TestLegacy(c *gc.C) {
 	s.checkChecksum(c, file, checksum)
 	s.checkArchive(c, file, expected)
 }
+
+func (s *createSuite) TestMetadataFileMissing(c *gc.C) {
+	var testFiles []string
+	dumper := &TestDBDumper{}
+
+	args := backups.NewTestCreateArgs(testFiles, dumper, nil)
+	_, err := backups.Create(args)
+
+	c.Check(err, gc.ErrorMatches, "missing metadataFile")
+}
