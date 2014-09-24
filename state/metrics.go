@@ -4,6 +4,7 @@
 package state
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/loggo"
@@ -229,6 +230,27 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 	err = st.setMetricBatchesSent(metrics)
 	if err != nil {
 		metricsLogger.Warningf("failed to set sent on metrics %v", err)
+	}
+	return nil
+}
+
+// MarshalJSON defines how the MetricBatch type should be
+// converted to json.
+func (m *MetricBatch) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.doc)
+}
+
+// Refresh refreshes the contents of the MetricBatch from the underlying state.
+func (m *MetricBatch) Refresh() error {
+	metrics, closer := m.st.getCollection(metricsC)
+	defer closer()
+
+	err := metrics.FindId(m.doc.UUID).One(&m.doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("metric %q", m)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot refresh metric %q", m)
 	}
 	return nil
 }

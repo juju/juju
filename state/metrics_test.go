@@ -10,8 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/metricsender"
 	"github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
