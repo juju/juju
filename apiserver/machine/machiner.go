@@ -25,7 +25,6 @@ type MachinerAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 	*common.APIAddresser
-	*common.RebootFlagClearer
 
 	st           *state.State
 	auth         common.Authorizer
@@ -50,7 +49,6 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		RebootFlagClearer:  common.NewRebootFlagClearer(st, getCanModify),
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,
