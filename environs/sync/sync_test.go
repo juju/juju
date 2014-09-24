@@ -158,7 +158,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			uploader := fakeToolsUploader{
 				uploaded: make(map[version.Binary]bool),
 			}
-			test.ctx.TargetToolsFinder = mockToolsFinder{} //sync.StorageToolsFinder{stor}
+			test.ctx.TargetToolsFinder = mockToolsFinder{}
 			test.ctx.TargetToolsUploader = &uploader
 
 			err := sync.SyncTools(test.ctx)
