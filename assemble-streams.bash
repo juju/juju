@@ -294,6 +294,19 @@ archive_tools() {
 }
 
 
+copy_proposed_to_release() {
+    echo "Phase 6: Copying proposed tools to released."
+    local proposed_releases="$DESTINATION/juju-dist/proposed/tools/releases"
+    count=$(find $proposed_releases -name "juju-${RELEASE}*.tgz" | wc -l)
+    if [[ $((count)) == 0  ]]; then
+        echo "Proposed doesn't have any $RELEASE tools."
+        echo "Tools cannot be released without first being proposed."
+        exit 6
+    fi
+    cp $proposed_releases/juju-${RELEASE}*.tgz  $DEST_DIST/tools/releases
+}
+
+
 extract_new_juju() {
     # Extract a juju-core that was found in the archives to run metadata.
     # Match by release version and arch, prefer exact series, but fall back
@@ -450,7 +463,11 @@ retract_tools
 init_tools_maybe
 if [[ $RELEASE != "IGNORE" ]]; then
     retrieve_packages
-    archive_tools
+    if [[ $PURPOSE == "release" ]]; then
+        copy_proposed_to_release
+    else
+        archive_tools
+    fi
 fi
 generate_streams
 if [[ $SIGNING_KEY != "" ]]; then
