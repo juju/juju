@@ -53,7 +53,7 @@ func (r *aboutToRestoreRoot) FindMethod(rootName string, version int, methodName
 }
 
 var allowedMethodsAboutToRestore = set.NewStrings(
-	"Client.Restore", // for "juju restore"
+	"Backups.Restore", // for "juju restore"
 )
 
 func isMethodAllowedAboutToRestore(rootName, methodName string) bool {
