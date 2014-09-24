@@ -20,6 +20,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -643,6 +644,13 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
+
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
+
 	return inst, hc, networkInfo, nil
 }
 
@@ -700,7 +708,10 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// an enhancement to MAAS to ignore unknown node IDs.
 	nodes := environ.getMAASClient().GetSubObject("nodes")
 	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
-	return err
+	if err != nil {
+		return errors.Annotate(err, "cannot not release nodes")
+	}
+	return common.RemoveStateInstances(environ.Storage(), ids...)
 }
 
 // acquireInstances calls the MAAS API to list acquired nodes.
@@ -805,7 +816,10 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
-	return common.Destroy(environ)
+	if err := common.Destroy(environ); err != nil {
+		return errors.Trace(err)
+	}
+	return environ.Storage().RemoveAll()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
