@@ -558,7 +558,7 @@ func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	defer st.Close()
 	var result params.LoginResultV1
 	creds := &params.LoginRequest{
-		AuthTag:     "user-admin",
+		AuthTag:     s.AdminUserTag(c).String(),
 		Credentials: "dummy-secret",
 	}
 	err = st.APICall("Admin", 1, "", "Login", creds, &result)
@@ -575,15 +575,16 @@ func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	var result params.LoginResultV1
+	userTag := s.AdminUserTag(c)
 	creds := &params.LoginRequest{
-		AuthTag:     "user-admin",
+		AuthTag:     userTag.String(),
 		Credentials: "dummy-secret",
 	}
 	err = st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Assert(result.UserInfo.LastConnection, gc.NotNil)
-	c.Assert(result.UserInfo.Identity, gc.Equals, "user-admin")
+	c.Assert(result.UserInfo.Identity, gc.Equals, userTag.String())
 	c.Assert(time.Now().Unix()-result.UserInfo.LastConnection.Unix() < 300, gc.Equals, true)
 }
 
@@ -595,7 +596,7 @@ func (s *loginV1Suite) TestLoginRejectV0(c *gc.C) {
 	defer st.Close()
 	var result params.LoginResultV1
 	req := &params.LoginRequest{
-		AuthTag:     "user-admin",
+		AuthTag:     s.AdminUserTag(c).String(),
 		Credentials: "dummy-secret",
 	}
 	err = st.APICall("Admin", 0, "", "Login", req, &result)
@@ -734,7 +735,7 @@ func (s *loginV0Suite) TestLoginRejectV1(c *gc.C) {
 	defer st.Close()
 	var result params.LoginResultV1
 	creds := &params.LoginRequest{
-		AuthTag:     "user-admin",
+		AuthTag:     s.AdminUserTag(c).String(),
 		Credentials: "dummy-secret",
 	}
 	err = st.APICall("Admin", 1, "", "Login", creds, &result)
@@ -750,8 +751,9 @@ func (s *loginV1Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	var result params.LoginResultV1
+	adminUser := s.AdminUserTag(c)
 	creds := &params.LoginRequest{
-		AuthTag:     "user-admin",
+		AuthTag:     adminUser.String(),
 		Credentials: "dummy-secret",
 	}
 	err = st.APICall("Admin", 1, "", "Login", creds, &result)
@@ -773,7 +775,8 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	err = st.Login("user-admin", "dummy-secret", "")
+	adminUser := s.AdminUserTag(c)
+	err = st.Login(adminUser.String(), "dummy-secret", "")
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "^pre-facade degraded to v0$")
 }
