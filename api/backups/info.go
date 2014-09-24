@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// Info implements the API method.
 func (c *Client) Info(id string) (*params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
 	args := params.BackupsInfoArgs{ID: id}

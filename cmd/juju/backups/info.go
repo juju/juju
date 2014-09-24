@@ -12,7 +12,7 @@ const infoDoc = `
 "info" provides the metadata associated with a backup.
 `
 
-// CreateCommand is the sub-command for creating a new backup.
+// InfoCommand is the sub-command for creating a new backup.
 type InfoCommand struct {
 	CommandBase
 	// ID is the backup ID to get.
