@@ -456,83 +456,51 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 	return st.runTransaction(ops)
 }
 
-// AddEnvUUIDToServicesID prepends the environment UUID to the ID of all service docs.
+// AddEnvUUIDToServicesID prepends the environment UUID to the ID of
+// all service docs and adds new "name" and "env-uuid" fields.
 func AddEnvUUIDToServicesID(st *State) error {
-	env, err := st.Environment()
-	if err != nil {
-		return errors.Annotate(err, "failed to load environment")
-	}
-
-	services, closer := st.getCollection(servicesC)
-	defer closer()
-
-	upgradesLogger.Debugf("adding the env uuid %q to the services collection", env.UUID())
-	uuid := env.UUID()
-	iter := services.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
-	defer iter.Close()
-	ops := []txn.Op{}
-	var service serviceDoc
-	for iter.Next(&service) {
-		// In the old serialization, _id was mapped to the Name field.
-		// Now _id is mapped to DocID. As such, we have to get the old
-		// doc Name from the DocID field.
-		service.Name = service.DocID
-		service.EnvUUID = uuid
-		service.DocID = st.docID(service.Name)
-		ops = append(ops,
-			[]txn.Op{{
-				C:      servicesC,
-				Id:     service.Name,
-				Assert: txn.DocExists,
-				Remove: true,
-			}, {
-				C:      servicesC,
-				Id:     service.DocID,
-				Assert: txn.DocMissing,
-				Insert: service,
-			}}...)
-	}
-	if err = iter.Err(); err != nil {
-		return errors.Trace(err)
-	}
-	return st.runTransaction(ops)
+	return addEnvUUIDToEntityCollection(st, servicesC)
 }
 
 // AddEnvUUIDToUnits prepends the environment UUID to the ID of all
 // unit docs and adds new "name" and "env-uuid" fields.
 func AddEnvUUIDToUnits(st *State) error {
+	return addEnvUUIDToEntityCollection(st, unitsC)
+}
+
+func addEnvUUIDToEntityCollection(st *State, collName string) error {
 	env, err := st.Environment()
 	if err != nil {
 		return errors.Annotate(err, "failed to load environment")
 	}
 
-	units, closer := st.getCollection(unitsC)
+	coll, closer := st.getCollection(collName)
 	defer closer()
 
-	upgradesLogger.Debugf("adding the env uuid %q to the units collection", env.UUID())
+	upgradesLogger.Debugf("adding the env uuid %q to the %s collection", env.UUID(), collName)
 	uuid := env.UUID()
-	iter := units.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+	iter := coll.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	ops := []txn.Op{}
-	var unit unitDoc
-	for iter.Next(&unit) {
-		// In the old serialization, _id was mapped to the Name field.
-		// Now _id is mapped to DocID. As such, we have to get the old
-		// doc Name from the DocID field.
-		unit.Name = unit.DocID
-		unit.EnvUUID = uuid
-		unit.DocID = st.docID(unit.Name)
+	var doc bson.M
+	for iter.Next(&doc) {
+		// The "_id" field becomes the new "name" field.
+		name := doc["_id"].(string)
+		id := st.docID(name)
+		doc["name"] = name
+		doc["_id"] = id
+		doc["env-uuid"] = uuid
 		ops = append(ops,
 			[]txn.Op{{
-				C:      unitsC,
-				Id:     unit.Name,
+				C:      collName,
+				Id:     name,
 				Assert: txn.DocExists,
 				Remove: true,
 			}, {
-				C:      unitsC,
-				Id:     unit.DocID,
+				C:      collName,
+				Id:     id,
 				Assert: txn.DocMissing,
-				Insert: unit,
+				Insert: doc,
 			}}...)
 	}
 	if err = iter.Err(); err != nil {
