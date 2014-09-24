@@ -296,11 +296,19 @@ type Creds struct {
 	Nonce    string
 }
 
-// Creds holds credentials for identifying an entity.
+// LoginRequest holds credentials for identifying an entity to the Login v1
+// facade.
 type LoginRequest struct {
 	AuthTag     string `json:"auth-tag"`
 	Credentials string `json:"credentials"`
 	Nonce       string `json:"nonce"`
+}
+
+// LoginRequestCompat holds credentials for identifying an entity to the Login v1
+// or earlier (v0 or even pre-facade).
+type LoginRequestCompat struct {
+	LoginRequest
+	Creds
 }
 
 // GetAnnotationsResults holds annotations associated with an entity.

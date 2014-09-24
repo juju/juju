@@ -43,10 +43,17 @@ func (st *State) Login(tag, password, nonce string) error {
 
 func (st *State) loginV1(tag, password, nonce string) error {
 	var result params.LoginResultV1
-	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequest{
-		AuthTag:     tag,
-		Credentials: password,
-		Nonce:       nonce,
+	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
+		LoginRequest: params.LoginRequest{
+			AuthTag:     tag,
+			Credentials: password,
+			Nonce:       nonce,
+		},
+		Creds: params.Creds{
+			AuthTag:  tag,
+			Password: password,
+			Nonce:    nonce,
+		},
 	}, &result)
 	if err != nil {
 		return err
