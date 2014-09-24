@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -344,17 +345,17 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 		UnitName: s.unit1.Name(),
 		Protocol: "TCP",
 	}
-	globalKey := state.PortsGlobalKey(s.machine.Id(), network.DefaultPublic)
+	expectChange := fmt.Sprintf("%s:%s", s.machine.Id(), network.DefaultPublic)
 	// Open a port range, detect a change.
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(globalKey)
+	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the port range, detect a change.
 	err = s.ports.ClosePorts(portRange)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(globalKey)
+	wc.AssertChange(expectChange)
 	wc.AssertNoChange()
 
 	// Close the port range again, no changes.

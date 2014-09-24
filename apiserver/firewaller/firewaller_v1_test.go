@@ -96,8 +96,8 @@ func (s *firewallerV1Suite) TestWatchOpenedPorts(c *gc.C) {
 
 	s.openPorts(c)
 	expectChanges := []string{
-		"m#0#n#juju-public",
-		"m#2#n#juju-public",
+		"0:juju-public",
+		"2:juju-public",
 	}
 
 	fakeEnvTag := names.NewEnvironTag("deadbeef-deaf-face-feed-0123456789ab")
