@@ -249,7 +249,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	var environTag names.Tag
+	var environTag names.EnvironTag
 	if endpoint.EnvironUUID != "" {
 		// Note: we should be validating that EnvironUUID contains a
 		// valid UUID.
@@ -336,7 +336,7 @@ func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, er
 func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
 	var environUUID string
-	if apiInfo.EnvironTag != nil {
+	if apiInfo.EnvironTag.Id() != "" {
 		environUUID = apiInfo.EnvironTag.Id()
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{

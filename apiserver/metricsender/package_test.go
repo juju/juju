@@ -4,8 +4,9 @@
 package metricsender_test
 
 import (
-	"github.com/juju/juju/testing"
 	stdtesting "testing"
+
+	"github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

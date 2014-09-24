@@ -59,7 +59,8 @@ func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
 	s.st = s.OpenAPIAs(c, s.wordpressUnit.Tag(), password)
 
 	// Create the uniter API facade.
-	s.uniter = s.st.Uniter()
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 }
 

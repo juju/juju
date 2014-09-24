@@ -7,9 +7,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/juju/loggo"
-
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
@@ -63,7 +62,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
-			EnvUUID:  st.EnvironTag().String(),
+			EnvUUID:  st.EnvironTag().Id(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,

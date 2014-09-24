@@ -27,18 +27,6 @@ type clientSuite struct {
 
 var _ = gc.Suite(&clientSuite{})
 
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	client := highavailability.NewClient(s.APIState, "bad-env-uuid")
-	_, err = client.EnsureAvailability(3, emptyCons, defaultSeries, nil)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
-}
-
 type Killer interface {
 	Kill() error
 }
@@ -67,8 +55,8 @@ func assertEnsureAvailability(c *gc.C, s *jujutesting.JujuConnSuite) {
 	defer assertKill(c, pingerA)
 
 	emptyCons := constraints.Value{}
-	result, err := highavailability.NewClient(
-		s.APIState, s.State.EnvironTag().String()).EnsureAvailability(3, emptyCons, "", nil)
+	client := highavailability.NewClient(s.APIState)
+	result, err := client.EnsureAvailability(3, emptyCons, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
@@ -88,7 +76,7 @@ func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityVersion(c *gc.C) {
-	client := highavailability.NewClient(s.APIState, s.State.EnvironTag().String())
+	client := highavailability.NewClient(s.APIState)
 	c.Assert(client.BestAPIVersion(), gc.Equals, 1)
 }
 
@@ -108,7 +96,7 @@ func (s *clientLegacySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
 }
 
 func (s *clientLegacySuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
-	_, err := highavailability.NewClient(
-		s.APIState, s.State.EnvironTag().String()).EnsureAvailability(3, constraints.Value{}, "", []string{"machine"})
+	client := highavailability.NewClient(s.APIState)
+	_, err := client.EnsureAvailability(3, constraints.Value{}, "", []string{"machine"})
 	c.Assert(err, gc.ErrorMatches, "placement directives not supported with this version of Juju")
 }

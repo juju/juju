@@ -79,14 +79,11 @@ func (c *Charm) ArchiveSha256() (string, error) {
 
 // CharmsURL takes an API server address and an optional environment
 // tag and constructs a base URL used for fetching charm archives.
-// If the environment tag is omitted or invalid, it will be ignored.
-func CharmsURL(apiAddr string, envTag string) *url.URL {
+// If the environment tag empty or invalid, it will be ignored.
+func CharmsURL(apiAddr string, envTag names.EnvironTag) *url.URL {
 	urlPath := "/"
-	if envTag != "" {
-		tag, err := names.ParseEnvironTag(envTag)
-		if err == nil {
-			urlPath = path.Join(urlPath, "environment", tag.Id())
-		}
+	if envTag.Id() != "" {
+		urlPath = path.Join(urlPath, "environment", envTag.Id())
 	}
 	urlPath = path.Join(urlPath, "charms")
 	return &url.URL{Scheme: "https", Host: apiAddr, Path: urlPath}
