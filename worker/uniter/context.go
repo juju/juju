@@ -332,8 +332,8 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	return vars
 }
 
-func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
-	writeChanges := err == nil
+func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
+	writeChanges := ctxErr == nil
 
 	// In the case of Actions, handle any errors using finalizeAction.
 	if ctx.actionData != nil {
@@ -342,10 +342,10 @@ func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
 		// the finalize should be handed back to the uniter.  Close
 		// over the existing err, clear it, and only return errors
 		// which occur during the finalize, e.g. API call errors.
-		defer func(err error) {
-			e = ctx.finalizeAction(err, e)
-		}(err)
-		err = nil
+		defer func(ctxErr error) {
+			err = ctx.finalizeAction(ctxErr, err)
+		}(ctxErr)
+		ctxErr = nil
 	}
 
 	for id, rctx := range ctx.relations {
@@ -356,16 +356,16 @@ func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
 					process, id, e,
 				)
 				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
+				if ctxErr == nil {
+					ctxErr = e
 				}
 			}
 		}
 		rctx.ClearCache()
 	}
 
-	if err != nil {
-		return err
+	if ctxErr != nil {
+		return ctxErr
 	}
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
@@ -379,15 +379,15 @@ func (ctx *HookContext) finalizeContext(process string, err error) (e error) {
 			}
 			if e := ctx.unit.AddMetrics(metrics); e != nil {
 				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
+				if ctxErr == nil {
+					ctxErr = e
 				}
 			}
 		}
 		ctx.metrics = nil
 	}
 
-	return err
+	return ctxErr
 }
 
 // finalizeAction passes back the final status of an Action hook to state.
