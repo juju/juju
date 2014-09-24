@@ -27,13 +27,13 @@ and server using WebSockets and a JSON marshalling. Additionally the API server
 allows to register facades constructors for types and versions. Those are used to
 dispatch the requests to the responsible methods.
 
-This documents covers how those *factories*, *facades*, and *methods* have to be 
+This document covers how those *factories*, *facades*, and *methods* have to be 
 implemented and maintained. The goal here is a clean organization following common 
 paterns while keeping the compatability to older versions.
 
 ### Overview
 
-This document provides guide on
+This document provides guidance on
 
 - how the code has to be organized into packages and types,
 - how the versioning has to be implemented, and
@@ -107,11 +107,11 @@ Here the type `MonitoringAPIV0` is defined and its factory function registered l
 above. Also the initial functions are implemented here:
 
 ```
-func (api *MonitoringAPIV0) WriteCPU(args params.CPUMonitors) (params.Errors, error) {
+func (api *MonitoringAPIV0) WriteCPU(args params.CPUMeasurings) (params.ErrorResults, error) {
         ...
 }
 
-func (api *MonitoringAPIV0) WriteDisk(args params.DiskMonitors) (params.Errors, error) {
+func (api *MonitoringAPIV0) WriteDisk(args params.DiskMeasurings) (params.ErrorResults, error) {
         ...
 }
 ```
@@ -130,7 +130,7 @@ This way the new version already provides the functions of version 0 and can be 
 like its predecessor. Now the new function can be added:
 
 ```
-func (api *MonitoringAPIV1) WriteRAM(args params.RAMMonitors) (params.Errors, error) {
+func (api *MonitoringAPIV1) WriteRAM(args params.RAMMeasurings) (params.ErrorResults, error) {
         ...
 }
 ```
@@ -141,7 +141,7 @@ way Go embedds functions and the RPC mechanism resolves function calls we now ca
 the initial version by defining the function new on the version 1:
 
 ```
-func (api *MonitoringAPIV1) WriteCPU(args params.CPUMonitorsV1) (params.Errors, error) {
+func (api *MonitoringAPIV1) WriteCPU(args params.CPUMeasuringsV1) (params.ErrorResults, error) {
         ...
 }
 ```
@@ -163,7 +163,7 @@ functions of the newly created base. This base now has to be embedded and the ve
 code be called:
 
 ```
-func (api *monitoringAPIBase) writeCPUV0(args params.CPUMonitors) (params.Errors, error) {
+func (api *monitoringAPIBase) writeCPUV0(args params.CPUMeasurings) (params.ErrorResults, error) {
         ...
 }
 
@@ -171,7 +171,7 @@ type MonitoringAPIV0 struct {
         monitoringAPIBase
 }
 
-func (api *MonitoringAPIV0) WriteCPU(args params.CPUMonitors) (params.Errors, error) {
+func (api *MonitoringAPIV0) WriteCPU(args params.CPUMeasurings) (params.ErrorResults, error) {
         return api.writeCPUV0(args)
 }
 ```
@@ -187,7 +187,7 @@ version 2 type. Again all exported functions are added like in version 1, only t
 function will be left out:
 
 ```
-func (api *monitoringAPIBase) writeLoadV2(args params.LoadMonitors) (params.Errors, error) {
+func (api *monitoringAPIBase) writeLoadV2(args params.LoadMeasurings) (params.ErrorResults, error) {
         ...
 }
 
@@ -195,7 +195,7 @@ type MonitoringAPIV2 struct {
         monitoringAPIBase
 }
 
-func (api *MonitoringAPIV2) WriteLoad(args params.LoadMonitors) (params.Errors, error) {
+func (api *MonitoringAPIV2) WriteLoad(args params.LoadMeasurings) (params.ErrorResults, error) {
         return api.writeLoadV2(args)
 }
 ```
@@ -248,7 +248,7 @@ func (s *baseSuite) testNewMonitorFailsV0(c *gc.C, factory factoryV0) {
 }
 
 type writeCPUV0 interface {
-        WriteCPU(args params.CPUMonitors) (params.Errors, error)
+        WriteCPU(args params.CPUMeasurings) (params.ErrorResults, error)
 }
 
 func (s *baseSuite) testWriteCPUSucceedsV0(c *gc.C, api writeCPUV0) {
@@ -368,30 +368,81 @@ TBD.
 
 ### Bulk Requests
 
-Many of the API requests are intended to change a property of an entity inside state. But
-while this may be correct in the one or other case many operation especially in larger
-environments need to change many entities of one type during one operation. In case of an
-API method implementation accepting only the needed parameters for one change this would
-lead to an unacceptable I/O overhead as well as the loosing of the transactional context.
+When developing an API function always have in mind that it may not only be interesting
+to use it for a single operation. Sometimes it's useful to perform the same operation
+for a number of entities, e.g. instead of retrieving the information of one machine it
+could make sense to read them at once. Here you surely could perform the function for
+each instance individually, but this also creates a large overhead.
 
-To avoid these problems most API methods should be implemented to accept *bulk requests*.
-Instead of parameters for only one change the API method takes a list of parameter sets.
-Additionally if the request returns a response this has to be capable to transport all
-individual responses in a way that the caller is able to identify to which parameter set
-they belong.
+Another aspect of a too narrow design of an API function is when it could possibly used
+in other facades too. It only depends on a small number of parameters controlling its
+behavior, e.g. like the authorization in case of the `LifeGetter` in `apiserver/common`.
 
-As an example take the *Machiner* and here
+So even if there's only one use case regarding only a single operation for an API function 
+is known during implementation *always* design it to operate as *bulk request* for a larger
+number of operations. Additionally check if the same logic could be reused in different
+facades by exchanging only few parameters, like e.g. the authentication.
+
+As an example take the monitoring API of above. Surely all functions could be implemented
+for only one machine:
 
 ```
-func (api *MachinerAPIV0) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
+// Package "params".
+type CPUMeasuring struct {
+	Id     string `json:"id"`
+	Time   int    `json:"time"`
+        User   int    `json:"user"`
+        System int    `json:"system"`
+        Nice   int    `json:"nice"`
+        Idle   int    `json:"idle"`
+}
+
+// Package "monitoring".
+func (api *MonitoringAPIV0) WriteCPU(arg params.CPUMeasuring) (params.ErrorResult, error) {
         ...
 }
 ```
 
-Here `SetMachinesAdresses`is a struct containing a slice of `MachineAddresses`. The
-method iterates over this slice and sets the addresses for the individual machines.
-The result of this operation is of type `error`and may be nil. All errors are
-collected in the order of the passed machine addresses and returned as `ErrorResults`.
-So the client is able to check if and where errors occured. In case of only one machine
-address to change it's no problem to put one this one machine address into the parameter
-set.
+So in case of a temporary not available API server all enqueued measurings would have to
+be written value by value, call by call (*OK, maybe not the best example, but think of
+the enabling of the monitoring for 100 machines at once.*). To change that simply create
+a wrapper type containing a slice of the interesting types:
+
+```
+type CPUMeasurings struct {
+	Measurings []CPUMeasuring `json:"measurings"`
+}
+```
+
+Now use this as argument as well as the according bulk return type:
+
+```
+func (api *MonitoringAPIV0) WriteCPU(args params.CPUMeasurings) (params.ErrorResults, error) {
+        ...
+}
+```
+
+In case of writing only one value it is still no problem. But this way we win the possibility
+to also do bulk requests. 
+
+When defining the arguments and the result also *always* take care for an explicit serialication
+like shown above. The naming scheme for arguments and the according results is:
+
+```
+type Thing struct { ... }
+
+type Things struct {
+        Things []Thing `json:"things"`
+}
+
+type ThingResult struct { ... }
+
+type ThingResults struct {
+        Results []ThingResult `json:"results"`
+}
+```
+
+As we're talking about items of our cloud world the arguments as well as the result *must* have
+nouns as identifiers, no combination of verb and noun according to the function. So in case of
+the scenerio example above a type named `WriteDisk` would be a bad name for reusage. The name
+`DiskMeasuring` instead also makes sense for a reusage when retrieving those values from state.
