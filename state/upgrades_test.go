@@ -209,12 +209,12 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
 }
 
-func (s *upgradesSuite) TestAddEnvUUIDToServicesID(c *gc.C) {
-	s.checkAddEnvUUIDToCollection(c, servicesC, AddEnvUUIDToServicesID)
+func (s *upgradesSuite) TestAddEnvUUIDToServices(c *gc.C) {
+	s.checkAddEnvUUIDToCollection(c, servicesC, AddEnvUUIDToServices)
 }
 
-func (s *upgradesSuite) TestAddEnvUUIDToServicesIDIdempotent(c *gc.C) {
-	s.checkAddEnvUUIDToCollectionIdempotent(c, servicesC, AddEnvUUIDToServicesID)
+func (s *upgradesSuite) TestAddEnvUUIDToServicesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, servicesC, AddEnvUUIDToServices)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToUnits(c *gc.C) {

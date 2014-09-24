@@ -46,7 +46,7 @@ func stepsFor121a2() []Step {
 			description: "prepend the environment UUID to the ID of all service docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return state.AddEnvUUIDToServicesID(context.State())
+				return state.AddEnvUUIDToServices(context.State())
 			},
 		},
 		&upgradeStep{

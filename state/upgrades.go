@@ -456,9 +456,9 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 	return st.runTransaction(ops)
 }
 
-// AddEnvUUIDToServicesID prepends the environment UUID to the ID of
+// AddEnvUUIDToServices prepends the environment UUID to the ID of
 // all service docs and adds new "name" and "env-uuid" fields.
-func AddEnvUUIDToServicesID(st *State) error {
+func AddEnvUUIDToServices(st *State) error {
 	return addEnvUUIDToEntityCollection(st, servicesC)
 }
 
