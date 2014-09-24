@@ -415,7 +415,6 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
-
 	osVars := ctx.osDependentEnvVars(charmDir, toolsDir)
 	vars = append(vars, osVars...)
 

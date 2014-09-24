@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 
@@ -73,14 +72,6 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
-func getRelation(st *state.State, inRelation string) (*state.Relation, error) {
-	endpoints, err := st.InferEndpoints(inRelation)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return st.EndpointsRelation(endpoints...)
-}
-
 func (c *Client) getDataDir() string {
 	dataResource, ok := c.api.resources.Get("dataDir").(common.StringResource)
 	if !ok {
@@ -103,44 +94,22 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 	var params []*RemoteExec
 	var quotedCommands = utils.ShQuote(run.Commands)
 	for _, unit := range units {
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			return results, errors.Trace(err)
-		}
-
+		// We know that the unit is both a principal unit, and that it has an
+		// assigned machine.
+		machineId, _ := unit.AssignedMachineId()
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {
-			return results, errors.Trace(err)
+			return results, err
 		}
-
-		command := "juju-run"
-
-		if len(run.Relation) > 0 {
-			relation, err := getRelation(c.api.state, run.Relation)
-			if err != nil {
-				return results, errors.Trace(err)
-			}
-			command += fmt.Sprintf(" --relation %d", relation.Id())
-
-			if len(run.RemoteUnit) > 0 {
-				remoteUnit, err := c.api.state.Unit(run.RemoteUnit)
-				if err != nil {
-					return results, errors.Trace(err)
-				}
-				command += fmt.Sprintf(" --remote-unit %s", remoteUnit.Name())
-			}
-		}
-
-		command += fmt.Sprintf(" %s %s", unit.Name(), quotedCommands)
+		command := fmt.Sprintf("juju-run %s %s", unit.Name(), quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		execParam.UnitId = unit.Name()
 		params = append(params, execParam)
 	}
-
 	for _, machineId := range run.Machines {
 		machine, err := c.api.state.Machine(machineId)
 		if err != nil {
-			return results, errors.Trace(err)
+			return results, err
 		}
 		command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
