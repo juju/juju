@@ -15,7 +15,9 @@ import (
 )
 
 // LegacyStorage creates an Environ from the config in state and returns
-// its provider storage interface if it supports one.
+// its provider storage interface if it supports one. If The environment
+// does not support provider storage, then it will return an error
+// satisfying errors.IsNotSupported.
 func LegacyStorage(st *state.State) (storage.Storage, error) {
 	envConfig, err := st.EnvironConfig()
 	if err != nil {
