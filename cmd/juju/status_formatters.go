@@ -106,7 +106,144 @@ func FormatTabular(value interface{}) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-// FormatSummary returns a summary of the current environment
+// NewSummaryFormatter returns a new SummaryFormatter.
+func NewSummaryFormatter() *SummaryFormatter {
+	f := &SummaryFormatter{
+		ipAddrs:     make([]net.IPNet, 0),
+		netStrings:  make([]string, 0),
+		openPorts:   make(map[string]interface{}),
+		stateToUnit: make(map[params.Status]int),
+	}
+	f.tw = tabwriter.NewWriter(&f.out, 0, 1, 1, ' ', 0)
+	return f
+}
+
+type SummaryFormatter struct {
+	ipAddrs    []net.IPNet
+	netStrings []string
+	numUnits   int
+	// Utilize map-key as a makeshift set so we don't duplicate ports.
+	// Value is not used.
+	openPorts map[string]interface{}
+	// status -> count
+	stateToUnit map[params.Status]int
+	tw          *tabwriter.Writer
+	out         bytes.Buffer
+}
+
+func (f *SummaryFormatter) delimitValuesWithTabs(values ...interface{}) {
+	for _, v := range values {
+		fmt.Fprintf(f.tw, "%s\t", v)
+	}
+	fmt.Fprintln(f.tw)
+}
+
+func (f *SummaryFormatter) portsInColumnsOf(col int) string {
+	unqOpenPorts := sortStrings(stringKeysFromMap(f.openPorts))
+	var b bytes.Buffer
+	for i, p := range unqOpenPorts {
+		if i != 0 && i%col == 0 {
+			fmt.Fprintf(&b, "\n\t")
+		}
+		fmt.Fprintf(&b, "%s, ", p)
+	}
+	// Elide the last delimiter
+	if portList := b.String(); len(portList) >= 2 {
+		return portList[:b.Len()-2]
+	} else {
+		return portList
+	}
+}
+
+func (f *SummaryFormatter) trackUnit(name string, status unitStatus, indentLevel int) {
+	if err := f.resolveAndTrackIp(status.PublicAddress); err != nil {
+		f.logIPResolutionWarning(status.PublicAddress, err)
+	}
+	for _, p := range status.OpenedPorts {
+		if p != "" {
+			f.openPorts[p] = nil
+		}
+	}
+	f.numUnits++
+	f.stateToUnit[status.AgentState]++
+}
+
+func (f *SummaryFormatter) logIPResolutionWarning(address string, err error) {
+	logger.Warningf(
+		"unable to resolve %s to an IP address. Status may be incorrect: %v",
+		address,
+		err,
+	)
+}
+
+func (f *SummaryFormatter) printStateToCount(m map[params.Status]int) {
+	for _, status := range sortStrings(stringKeysFromMap(m)) {
+		numInStatus := m[params.Status(status)]
+		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %s ", strconv.Itoa(numInStatus)))
+	}
+}
+
+func (f *SummaryFormatter) trackIp(ip net.IP) {
+	for _, net := range f.ipAddrs {
+		if net.Contains(ip) {
+			return
+		}
+	}
+
+	ipNet := net.IPNet{ip, ip.DefaultMask()}
+	f.ipAddrs = append(f.ipAddrs, ipNet)
+	f.netStrings = append(f.netStrings, ipNet.String())
+}
+
+func (f *SummaryFormatter) resolveAndTrackIp(publicDns string) error {
+	if ip, err := net.ResolveIPAddr("ip4", publicDns); err != nil {
+		return errors.Annotate(err, "unable to determine IP of host.")
+	} else {
+		f.trackIp(ip.IP)
+	}
+	return nil
+}
+
+func (f *SummaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
+	stateToMachine := make(map[params.Status]int)
+	for _, name := range sortStrings(stringKeysFromMap(machines)) {
+		m := machines[name]
+		if err := f.resolveAndTrackIp(m.DNSName); err != nil {
+			f.logIPResolutionWarning(m.DNSName, err)
+		}
+
+		if agentState := m.AgentState; agentState == "" {
+			agentState = params.StatusPending
+		} else {
+			stateToMachine[agentState]++
+		}
+	}
+	return stateToMachine
+}
+
+func (f *SummaryFormatter) aggregateServiceAndUnitStates(
+	services map[string]serviceStatus,
+) map[string]map[bool]int {
+	svcExposure := make(map[string]map[bool]int)
+	for _, name := range sortStrings(stringKeysFromMap(services)) {
+		s := services[name]
+		// Grab unit states
+		for _, un := range sortStrings(stringKeysFromMap(s.Units)) {
+			u := s.Units[un]
+			f.trackUnit(un, u, 0)
+			recurseUnits(u, 1, f.trackUnit)
+		}
+
+		if _, ok := svcExposure[name]; !ok {
+			svcExposure[name] = make(map[bool]int)
+		}
+
+		svcExposure[name][s.Exposed]++
+	}
+	return svcExposure
+}
+
+// Format returns a summary of the current environment
 // including the following information:
 // - Headers:
 //   - All subnets the environment occupies.
@@ -116,148 +253,39 @@ func FormatTabular(value interface{}) ([]byte, error) {
 //   - Units: Displays total #, and then # in each state.
 //   - Services: Displays total #, their names, and how many of each
 //     are exposed.
-func FormatSummary(value interface{}) ([]byte, error) {
+func (f *SummaryFormatter) Format(value interface{}) ([]byte, error) {
 	fs, ok := value.(formattedStatus)
 	if !ok {
 		return nil, errors.Errorf("could not convert the incoming value to type formattedStatus.")
 	}
-	var out bytes.Buffer
 
-	// To format things into columns.
-	tw := tabwriter.NewWriter(&out, 0, 1, 1, ' ', 0)
-	p := func(values ...interface{}) {
-		for _, v := range values {
-			fmt.Fprintf(tw, "%s\t", v)
-		}
-		fmt.Fprintln(tw)
-	}
-
-	// Track all IP Addresses we're utilizing.
-	var ipAddrs []net.IPNet
-	var netStrings []string
-	trackIp := func(ip net.IP) {
-		for _, net := range ipAddrs {
-			if net.Contains(ip) {
-				return
-			}
-		}
-
-		ipNet := net.IPNet{ip, ip.DefaultMask()}
-		ipAddrs = append(ipAddrs, ipNet)
-		netStrings = append(netStrings, ipNet.String())
-	}
-	resolveAndTrackIp := func(publicDns string) error {
-		if ip, err := net.ResolveIPAddr("ip4", publicDns); err != nil {
-			return errors.Annotate(err, "unable to determine IP of host.")
-		} else {
-			trackIp(ip.IP)
-		}
-		return nil
-	}
-	printStateToCount := func(m map[params.Status]int) {
-		for _, status := range sortStrings(stringKeysFromMap(m)) {
-			numInStatus := m[params.Status(status)]
-			p(status+":", fmt.Sprintf(" %s ", strconv.Itoa(numInStatus)))
-		}
-	}
-	logIPResolutionWarning := func(address string, err error) {
-		logger.Warningf(
-			"unable to resolve %s to an IP address. Status may be incorrect: %v",
-			address,
-			err,
-		)
-	}
-
-	// Utilize map-key as a makeshift set so we don't duplicate ports.
-	// Value is not used.
-	openPorts := make(map[string]interface{})
-	stateToUnit := make(map[params.Status]int)
-	numUnits := 0
-	trackUnit := func(name string, status unitStatus, indentLevel int) {
-		if err := resolveAndTrackIp(status.PublicAddress); err != nil {
-			logIPResolutionWarning(status.PublicAddress, err)
-		}
-		for _, p := range status.OpenedPorts {
-			if p != "" {
-				openPorts[p] = nil
-			}
-		}
-		numUnits++
-		stateToUnit[status.AgentState]++
-	}
-	portsInColumnsOf := func(col int) string {
-		unqOpenPorts := sortStrings(stringKeysFromMap(openPorts))
-		var b bytes.Buffer
-		for i, p := range unqOpenPorts {
-			if i != 0 && i%col == 0 {
-				fmt.Fprintf(&b, "\n\t")
-			}
-			fmt.Fprintf(&b, "%s, ", p)
-		}
-		// Elide the last delimiter
-		if portList := b.String(); len(portList) >= 2 {
-			return portList[:b.Len()-2]
-		} else {
-			return portList
-		}
-	}
-
-	// Aggregate machine states.
-	stateToMachine := make(map[params.Status]int)
-	for _, name := range sortStrings(stringKeysFromMap(fs.Machines)) {
-		m := fs.Machines[name]
-		if err := resolveAndTrackIp(m.DNSName); err != nil {
-			logIPResolutionWarning(m.DNSName, err)
-		}
-
-		if agentState := m.AgentState; agentState == "" {
-			agentState = params.StatusPending
-		} else {
-			stateToMachine[agentState]++
-		}
-	}
-
-	// Aggregate service & unit states.
-	svcExposure := make(map[string]map[bool]int)
-	for _, name := range sortStrings(stringKeysFromMap(fs.Services)) {
-		s := fs.Services[name]
-		// Grab unit states
-		for _, un := range sortStrings(stringKeysFromMap(s.Units)) {
-			u := s.Units[un]
-			trackUnit(un, u, 0)
-			recurseUnits(u, 1, trackUnit)
-		}
-
-		if _, ok := svcExposure[name]; !ok {
-			svcExposure[name] = make(map[bool]int)
-		}
-
-		svcExposure[name][s.Exposed]++
-	}
+	stateToMachine := f.aggregateMachineStates(fs.Machines)
+	svcExposure := f.aggregateServiceAndUnitStates(fs.Services)
+	p := f.delimitValuesWithTabs
 
 	// Print everything out
-	p("Running on subnets:", strings.Join(netStrings, ", "))
-	p("Utilizing ports:", portsInColumnsOf(3))
-	tw.Flush()
+	p("Running on subnets:", strings.Join(f.netStrings, ", "))
+	p("Utilizing ports:", f.portsInColumnsOf(3))
+	f.tw.Flush()
 
 	// Right align summary information
-	tw.Init(&out, 0, 2, 1, ' ', tabwriter.AlignRight)
+	f.tw.Init(&f.out, 0, 2, 1, ' ', tabwriter.AlignRight)
 	p("# MACHINES:", fmt.Sprintf("(%d)", len(fs.Machines)))
-	printStateToCount(stateToMachine)
+	f.printStateToCount(stateToMachine)
 	p(" ")
-	p("# UNITS:", fmt.Sprintf("(%d)", numUnits))
-	printStateToCount(stateToUnit)
+
+	p("# UNITS:", fmt.Sprintf("(%d)", f.numUnits))
+	f.printStateToCount(f.stateToUnit)
 	p(" ")
 
 	p("# SERVICES:", fmt.Sprintf(" (%d)", len(fs.Services)))
-
 	for _, svcName := range sortStrings(stringKeysFromMap(svcExposure)) {
 		s := svcExposure[svcName]
 		p(svcName, fmt.Sprintf("%d/%d\texposed", s[true], s[true]+s[false]))
 	}
-	tw.Flush()
+	f.tw.Flush()
 
-	return out.Bytes(), nil
+	return f.out.Bytes(), nil
 }
 
 // sortStrings is syntactic sugar so we can do sorts in one line.

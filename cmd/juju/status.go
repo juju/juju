@@ -64,7 +64,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"oneline": FormatOneline,
 		"tabular": FormatTabular,
-		"summary": FormatSummary,
+		"summary": NewSummaryFormatter().Format,
 	})
 }
 
