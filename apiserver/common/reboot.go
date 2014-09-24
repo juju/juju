@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names"
 )
 
+// RebootRequester implements the RequestReboot API method
 type RebootRequester struct {
 	st   state.EntityFinder
 	auth GetAuthFunc
@@ -58,6 +59,7 @@ func (r *RebootRequester) RequestReboot(args params.Entities) (params.ErrorResul
 	return result, nil
 }
 
+// RebootActionGetter implements the GetRebootAction API method
 type RebootActionGetter struct {
 	st   state.EntityFinder
 	auth GetAuthFunc
@@ -118,6 +120,7 @@ func (r *RebootActionGetter) GetRebootAction(args params.Entities) (params.Reboo
 	return result, nil
 }
 
+// RebootFlagClearer implements the ClearReboot API call
 type RebootFlagClearer struct {
 	st   state.EntityFinder
 	auth GetAuthFunc
