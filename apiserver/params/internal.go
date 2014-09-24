@@ -6,6 +6,7 @@ package params
 import (
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/constraints"
@@ -612,6 +613,21 @@ type RunParams struct {
 	Machines   []string
 	Services   []string
 	Units      []string
+	Relation   string
+	RemoteUnit string
+}
+
+// RunCommands holds the information for a `juju run` command.
+type RunParamsV1 struct {
+	Commands string
+	Targets  []names.Tag
+	Context  *RunContext
+	Timeout  time.Duration
+}
+
+// RunContext holds the information for a `juju-run` command
+// that was provided the --relation option.
+type RunContext struct {
 	Relation   string
 	RemoteUnit string
 }

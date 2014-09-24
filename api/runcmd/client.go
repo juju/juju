@@ -1,8 +1,6 @@
 package runcmd
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
@@ -26,19 +24,21 @@ func NewClient(caller base.APICallCloser) *Client {
 
 // RunOnAllMachines runs the command on all the machines with the specified
 // timeout.
-func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
+func (c *Client) RunOnAllMachines(run params.RunParamsV1) ([]params.RunResult, error) {
 	var results params.RunResults
-	args := params.RunParams{Commands: commands, Timeout: timeout}
+	args := params.RunParams{Commands: run.Commands, Timeout: run.Timeout}
 	err := c.facade.FacadeCall("RunOnAllMachines", args, &results)
 	return results.Results, err
 }
 
 // Run the Commands specified on the machines identified through the ids
 // provided in the machines, services and units slices.
-func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
+func (c *Client) Run(run params.RunParamsV1) ([]params.RunResult, error) {
 	if c.facade.BestAPIVersion() < 1 {
-		if len(run.Relation) > 0 || len(run.RemoteUnit) > 0 {
-			return nil, errors.NotImplementedf("The server does not support the supplied option(s): --relation, --remote-unit. (apiversion: %d)", c.facade.BestAPIVersion())
+		if run.Context != nil {
+			if len(run.Context.Relation) > 0 || len(run.Context.RemoteUnit) > 0 {
+				return nil, errors.NotImplementedf("The server does not support the supplied option(s): --relation, --remote-unit. (apiversion: %d)", c.facade.BestAPIVersion())
+			}
 		}
 	}
 	var results params.RunResults

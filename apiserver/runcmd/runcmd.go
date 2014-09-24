@@ -32,23 +32,8 @@ func init() {
 
 // RunCommand defines the methods on the runcmd API end point.
 type RunCommand interface {
-	Run(args []RunCommands) (params.RunResults, error)
-	RunOnAllMachines(run params.RunParams) (params.RunResults, error)
-}
-
-// RunCommands holds the information for a `juju run` command.
-type RunCommands struct {
-	Commands string
-	Targets  []string
-	Context  *RunContext
-	Timeout  time.Duration
-}
-
-// RunContext holds the information for a `juju-run` command
-// that was provided the --relation option.
-type RunContext struct {
-	Relation   string
-	RemoteUnit string
+	Run(args params.RunParamsV1) (params.RunResults, error)
+	RunOnAllMachines(run params.RunParamsV1) (params.RunResults, error)
 }
 
 // RunCommandAPI implements the run command interface and is the concrete
@@ -87,58 +72,55 @@ func NewRunCommandAPI(
 	}, nil
 }
 
-func (api *RunCommandAPI) Run(runCommands []RunCommands) (results params.RunResults, err error) {
-	for _, runCmd := range runCommands {
-		var params []*RemoteExec
-		var quotedCommands = utils.ShQuote(runCmd.Commands)
+func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResults, err error) {
+	var params []*RemoteExec
+	var quotedCommands = utils.ShQuote(runCmd.Commands)
 
-		command := "juju-run"
+	command := "juju-run"
 
-		tags, err := api.expandTargets(runCmd.Targets)
-		if err != nil {
-			return results, errors.Trace(err)
-		}
-
-		for _, tag := range tags {
-			var execParam *RemoteExec
-
-			kind := tag.Kind()
-			switch kind {
-			case names.MachineTagKind:
-				machine, err := api.state.Machine(tag.Id())
-				if err != nil {
-					return results, errors.Trace(err)
-				}
-				command += fmt.Sprintf(" --no-context %s", quotedCommands)
-				execParam = remoteParamsForMachine(machine, command, runCmd.Timeout)
-			case names.UnitTagKind:
-				if runCmd.Context != nil {
-					relation, err := api.getRelation(api.state, runCmd.Context)
-					if err != nil {
-						return results, errors.Trace(err)
-					}
-					command += fmt.Sprintf(" --relation %d", relation.Id)
-					command += fmt.Sprintf(" --remote-unit %s", relation.RemoteUnit)
-				}
-
-				machine, err := api.machineFromUnitTag(tag)
-				if err != nil {
-					return results, errors.Trace(err)
-				}
-
-				command += fmt.Sprintf(" %s %s", tag.Id(), quotedCommands)
-				execParam = remoteParamsForMachine(machine, command, runCmd.Timeout)
-				execParam.UnitId = tag.Id()
-			}
-			params = append(params, execParam)
-		}
-		results = ParallelExecute(getDataDir(api), params)
+	tags, err := api.expandTargets(runCmd.Targets)
+	if err != nil {
+		return results, errors.Trace(err)
 	}
-	return results, nil
+
+	for _, tag := range tags {
+		var execParam *RemoteExec
+
+		kind := tag.Kind()
+		switch kind {
+		case names.MachineTagKind:
+			machine, err := api.state.Machine(tag.Id())
+			if err != nil {
+				return results, errors.Trace(err)
+			}
+			command += fmt.Sprintf(" --no-context %s", quotedCommands)
+			execParam = remoteParamsForMachine(machine, command, runCmd.Timeout)
+		case names.UnitTagKind:
+			if runCmd.Context != nil {
+				relation, err := api.getRelation(api.state, runCmd.Context)
+				if err != nil {
+					return results, errors.Trace(err)
+				}
+				command += fmt.Sprintf(" --relation %d", relation.Id)
+				command += fmt.Sprintf(" --remote-unit %s", relation.RemoteUnit)
+			}
+
+			machine, err := api.machineFromUnitTag(tag)
+			if err != nil {
+				return results, errors.Trace(err)
+			}
+
+			command += fmt.Sprintf(" %s %s", tag.Id(), quotedCommands)
+			execParam = remoteParamsForMachine(machine, command, runCmd.Timeout)
+			execParam.UnitId = tag.Id()
+		}
+		params = append(params, execParam)
+	}
+	return ParallelExecute(getDataDir(api), params), nil
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
-func (api *RunCommandAPI) RunOnAllMachines(run params.RunParams) (params.RunResults, error) {
+func (api *RunCommandAPI) RunOnAllMachines(run params.RunParamsV1) (params.RunResults, error) {
 	machines, err := api.state.AllMachines()
 	if err != nil {
 		return params.RunResults{}, err
@@ -214,14 +196,9 @@ func (api *RunCommandAPI) machineFromUnitTag(tag names.Tag) (*state.Machine, err
 // expandTargets filters the list of targets to a unique set.
 // This includes expanding and filtering the duplicate targets from
 // different services. The result is a list of names.Tag.
-func (api *RunCommandAPI) expandTargets(targets []string) ([]names.Tag, error) {
+func (api *RunCommandAPI) expandTargets(targets []names.Tag) ([]names.Tag, error) {
 	tagSet := set.Tags{}
-	for _, target := range targets {
-		tag, err := names.ParseTag(target)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
+	for _, tag := range targets {
 		kind := tag.Kind()
 		switch kind {
 		case names.MachineTagKind:
@@ -272,7 +249,7 @@ type commandRelation struct {
 // getRelation takes a RunContext and turns the string representations of a Relation
 // and RemoteUnit in to an actual state.Relation Id (relatioin)
 // and state.Unit Name (remoteUnit).
-func (api *RunCommandAPI) getRelation(state *state.State, context *RunContext) (commandRelation, error) {
+func (api *RunCommandAPI) getRelation(state *state.State, context *params.RunContext) (commandRelation, error) {
 	var empty commandRelation
 
 	endpoints, err := api.state.InferEndpoints(context.Relation)

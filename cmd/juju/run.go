@@ -29,6 +29,7 @@ type RunCommand struct {
 	machines   []string
 	services   []string
 	units      []string
+	tags       []names.Tag
 	relation   string
 	remoteUnit string
 	commands   string
@@ -134,16 +135,19 @@ func (c *RunCommand) Init(args []string) error {
 		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
+		c.tags = append(c.tags, names.NewMachineTag(machineId))
 	}
 	for _, service := range c.services {
 		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
+		c.tags = append(c.tags, names.NewServiceTag(service))
 	}
 	for _, unit := range c.units {
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
+		c.tags = append(c.tags, names.NewUnitTag(unit))
 	}
 
 	if len(c.remoteUnit) > 0 && !names.IsValidUnit(c.remoteUnit) {
@@ -216,37 +220,42 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	runClient := runcmd.NewClient(root)
 	defer runClient.Close()
 
-	var runResults []params.RunResult
-	params := params.RunParams{
-		Commands:   c.commands,
-		Timeout:    c.timeout,
-		Machines:   c.machines,
-		Services:   c.services,
-		Units:      c.units,
-		Relation:   c.relation,
-		RemoteUnit: c.remoteUnit,
+	runContext := &params.RunContext{Relation: c.relation, RemoteUnit: c.remoteUnit}
+	runParams := params.RunParamsV1{
+		Commands: c.commands,
+		Timeout:  c.timeout,
+		Targets:  c.tags,
+		Context:  runContext,
 	}
 
+	var runResults []params.RunResult
 	if c.all {
-		runResults, err = runClient.RunOnAllMachines(params.Commands, params.Timeout)
+		runResults, err = runClient.RunOnAllMachines(runParams)
 	} else {
-		runResults, err = runClient.Run(params)
+		runResults, err = runClient.Run(runParams)
 	}
 
 	if err != nil {
-		return errors.Trace(err)
+		oldParams := params.RunParams{
+			Commands: c.commands,
+			Timeout:  c.timeout,
+			Machines: c.machines,
+			Services: c.services,
+			Units:    c.units,
+		}
+
 		oldClient, err := getRunAPIClient(c)
 		if err != nil {
 			return errors.Annotate(err, "unable to get a suitable client")
 		}
 
 		if c.all {
-			runResults, err = oldClient.RunOnAllMachines(params.Commands, params.Timeout)
+			runResults, err = oldClient.RunOnAllMachines(oldParams.Commands, oldParams.Timeout)
 		} else {
-			if len(params.Relation) > 0 || len(params.RemoteUnit) > 0 {
+			if len(c.relation) > 0 || len(c.remoteUnit) > 0 {
 				return errors.Errorf("option(s) --relation, --remote-unit are not supported by this server")
 			}
-			runResults, err = oldClient.Run(params)
+			runResults, err = oldClient.Run(oldParams)
 		}
 
 		if err != nil {
