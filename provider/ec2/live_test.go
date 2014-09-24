@@ -74,6 +74,9 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
+	// Upload arches that ec2 supports; add to this
+	// as ec2 coverage expands.
+	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
 }
