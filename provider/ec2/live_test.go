@@ -74,6 +74,7 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
+	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
 }
