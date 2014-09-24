@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type createSuite struct {
-	baseBackupsSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&createSuite{})
@@ -26,7 +27,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 			c.Check(p.Notes, gc.Equals, "important")
 
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.meta)
+				result.UpdateFromMetadata(s.Meta)
 				result.Notes = p.Notes
 			} else {
 				c.Log("wrong output structure")
@@ -40,5 +41,6 @@ func (s *createSuite) TestCreate(c *gc.C) {
 	result, err := s.client.Create("important")
 	c.Assert(err, gc.IsNil)
 
-	s.checkMetadataResult(c, result, s.meta, "important")
+	meta := backupstesting.UpdateNotes(s.Meta, "important")
+	s.checkMetadataResult(c, result, meta)
 }

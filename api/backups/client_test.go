@@ -10,7 +10,7 @@ import (
 )
 
 type backupsSuite struct {
-	baseBackupsSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&backupsSuite{})
