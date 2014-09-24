@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -209,111 +210,77 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToServicesID(c *gc.C) {
-	serviceName := "wordpress"
-	s.addServiceNoEnvID(c, serviceName)
-
-	var service serviceDoc
-	services, closer := s.state.getCollection(servicesC)
-	defer closer()
-
-	err := AddEnvUUIDToServicesID(s.state)
-	c.Assert(err, gc.IsNil)
-
-	err = services.Find(bson.D{{"_id", serviceName}}).One(&service)
-	c.Assert(err, gc.ErrorMatches, "not found")
-
-	err = services.Find(bson.D{{"_id", s.state.docID(serviceName)}}).One(&service)
-	c.Assert(err, gc.IsNil)
-	c.Assert(service.Name, gc.Equals, serviceName)
-	c.Assert(service.EnvUUID, gc.Equals, s.state.EnvironTag().Id())
+	s.checkAddEnvUUIDToCollection(c, servicesC, AddEnvUUIDToServicesID)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToServicesIDIdempotent(c *gc.C) {
-	serviceName := "wordpress"
-	s.addServiceNoEnvID(c, serviceName)
-
-	var serviceResults []serviceDoc
-	services, closer := s.state.getCollection(servicesC)
-	defer closer()
-
-	err := AddEnvUUIDToServicesID(s.state)
-	c.Assert(err, gc.IsNil)
-
-	err = AddEnvUUIDToServicesID(s.state)
-	c.Assert(err, gc.IsNil)
-
-	err = services.Find(nil).All(&serviceResults)
-	c.Assert(err, gc.IsNil)
-	c.Assert(serviceResults, gc.HasLen, 1)
-	c.Assert(serviceResults[0].DocID, gc.Equals, s.state.docID(serviceName))
-}
-
-func (s *upgradesSuite) addServiceNoEnvID(c *gc.C, name string) {
-	// Bare minimum service document as of 1.21-alpha1
-	oldService := struct {
-		Name string `bson:"_id"`
-	}{Name: name}
-
-	ops := []txn.Op{{
-		C:      servicesC,
-		Id:     name,
-		Assert: txn.DocMissing,
-		Insert: oldService,
-	}}
-	err := s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
+	s.checkAddEnvUUIDToCollectionIdempotent(c, servicesC, AddEnvUUIDToServicesID)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToUnits(c *gc.C) {
-	unitName := "wordpress/0"
-	s.addUnitNoEnvUUID(c, unitName)
-
-	units, closer := s.state.getCollection(unitsC)
-	defer closer()
-
-	err := AddEnvUUIDToUnits(s.state)
-	c.Assert(err, gc.IsNil)
-
-	var unit unitDoc
-	err = units.Find(bson.D{{"_id", unitName}}).One(&unit)
-	c.Assert(err, gc.ErrorMatches, "not found")
-
-	err = units.Find(bson.D{{"_id", s.state.docID(unitName)}}).One(&unit)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Name, gc.Equals, unitName)
-	c.Assert(unit.EnvUUID, gc.Equals, s.state.EnvironTag().Id())
+	s.checkAddEnvUUIDToCollection(c, unitsC, AddEnvUUIDToUnits)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
-	unitName := "wordpress/0"
-	s.addUnitNoEnvUUID(c, unitName)
-
-	units, closer := s.state.getCollection(unitsC)
-	defer closer()
-
-	err := AddEnvUUIDToUnits(s.state)
-	c.Assert(err, gc.IsNil)
-
-	err = AddEnvUUIDToUnits(s.state)
-	c.Assert(err, gc.IsNil)
-
-	var docs []unitDoc
-	err = units.Find(nil).All(&docs)
-	c.Assert(err, gc.IsNil)
-	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0].DocID, gc.Equals, s.state.docID(unitName))
+	s.checkAddEnvUUIDToCollectionIdempotent(c, unitsC, AddEnvUUIDToUnits)
 }
 
-func (s *upgradesSuite) addUnitNoEnvUUID(c *gc.C, name string) {
-	// Bare minimum unit document as of 1.21-alpha1
-	oldUnit := struct {
+func (s *upgradesSuite) checkAddEnvUUIDToCollection(
+	c *gc.C,
+	collName string,
+	upgradeStep func(*State) error,
+) {
+	s.addLegacyDocWithNoEnvUUID(c, collName, "foo")
+
+	coll, closer := s.state.getCollection(collName)
+	defer closer()
+
+	err := upgradeStep(s.state)
+	c.Assert(err, gc.IsNil)
+
+	var doc map[string]string
+	err = coll.Find(bson.D{{"_id", "foo"}}).One(&doc)
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+
+	err = coll.Find(bson.D{{"_id", s.state.docID("foo")}}).One(&doc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(doc["name"], gc.Equals, "foo")
+	c.Assert(doc["env-uuid"], gc.Equals, s.state.EnvironTag().Id())
+}
+
+func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
+	c *gc.C,
+	collName string,
+	upgradeStep func(*State) error,
+) {
+	s.addLegacyDocWithNoEnvUUID(c, collName, "foo")
+
+	coll, closer := s.state.getCollection(collName)
+	defer closer()
+
+	err := upgradeStep(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = upgradeStep(s.state)
+	c.Assert(err, gc.IsNil)
+
+	var docs []map[string]string
+	err = coll.Find(nil).All(&docs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID("foo"))
+}
+
+func (s *upgradesSuite) addLegacyDocWithNoEnvUUID(c *gc.C, collName, entityName string) {
+	// Bare minimum entity document as of 1.21-alpha1
+	oldDoc := struct {
 		Name string `bson:"_id"`
-	}{Name: name}
+	}{Name: entityName}
 	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     name,
+		C:      collName,
+		Id:     entityName,
 		Assert: txn.DocMissing,
-		Insert: oldUnit,
+		Insert: oldDoc,
 	}}
 	err := s.state.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
