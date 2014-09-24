@@ -325,10 +325,9 @@ func (s *State) Addr() string {
 	return s.addr
 }
 
-// EnvironTag returns the Environment Tag describing the environment we are
-// connected to.
-func (s *State) EnvironTag() string {
-	return s.environTag
+// EnvironTag returns the tag of the environment we are connected to.
+func (s *State) EnvironTag() (names.EnvironTag, error) {
+	return names.ParseEnvironTag(s.environTag)
 }
 
 // APIHostPorts returns addresses that may be used to connect
