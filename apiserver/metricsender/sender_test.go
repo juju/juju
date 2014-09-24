@@ -63,9 +63,9 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	err := s.State.SendMetrics(sender, 10)
 	c.Assert(err, gc.IsNil)
 	for _, metric := range metrics {
-		err = metric.Refresh()
+		m, err := s.State.MetricBatch(metric.UUID())
 		c.Assert(err, gc.IsNil)
-		c.Assert(metric.Sent(), jc.IsTrue)
+		c.Assert(m.Sent(), jc.IsTrue)
 	}
 }
 
@@ -116,9 +116,9 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		err := s.State.SendMetrics(sender, 10)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, metric := range metrics {
-			err = metric.Refresh()
+			m, err := s.State.MetricBatch(metric.UUID())
 			c.Assert(err, gc.IsNil)
-			c.Assert(metric.Sent(), jc.IsFalse)
+			c.Assert(m.Sent(), jc.IsFalse)
 		}
 	}
 }
