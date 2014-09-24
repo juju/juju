@@ -709,7 +709,7 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	nodes := environ.getMAASClient().GetSubObject("nodes")
 	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot not release nodes")
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 }
@@ -817,7 +817,7 @@ func (env *maasEnviron) Storage() storage.Storage {
 
 func (environ *maasEnviron) Destroy() error {
 	if err := common.Destroy(environ); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return environ.Storage().RemoveAll()
 }

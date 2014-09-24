@@ -1231,19 +1231,19 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 func (e *environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
-		return err
+		return jujuerrors.Trace(err)
 	}
 	if err := e.Storage().RemoveAll(); err != nil {
-		return err
+		return jujuerrors.Trace(err)
 	}
 	novaClient := e.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
-		return err
+		return jujuerrors.Annotate(err, "cannot list security groups")
 	}
 	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
 	if err != nil {
-		return err
+		return jujuerrors.Trace(err)
 	}
 	globalGroupName := e.globalGroupName()
 	for _, group := range securityGroups {

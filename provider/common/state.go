@@ -94,7 +94,7 @@ func AddStateInstance(stor storage.Storage, id instance.Id) error {
 	if err == environs.ErrNotBootstrapped {
 		state = &BootstrapState{}
 	} else if err != nil {
-		return err
+		return errors.Annotate(err, "cannot record state instance-id")
 	}
 	state.StateInstances = append(state.StateInstances, id)
 	return SaveState(stor, state)
@@ -108,7 +108,7 @@ func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {
 	if err == environs.ErrNotBootstrapped {
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Annotate(err, "cannot remove recorded state instance-id")
 	}
 	var anyFound bool
 	for i := 0; i < len(state.StateInstances); i++ {

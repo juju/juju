@@ -693,7 +693,7 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
 	if err := e.terminateInstances(ids); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return common.RemoveStateInstances(e.Storage(), ids...)
 }
@@ -894,7 +894,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 
 func (e *environ) Destroy() error {
 	if err := common.Destroy(e); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return e.Storage().RemoveAll()
 }
