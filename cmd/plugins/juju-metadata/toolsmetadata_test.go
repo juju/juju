@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/osenv"
@@ -44,7 +43,6 @@ func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
 	env, err := environs.PrepareFromName("erewhemos", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
-	envtesting.RemoveAllTools(c, s.env)
 	loggo.GetLogger("").SetLogLevel(loggo.INFO)
 
 	// Switch the default tools location.

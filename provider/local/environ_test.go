@@ -69,12 +69,11 @@ func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	c.Assert(environ, gc.IsNil)
 }
 
-func (s *environSuite) TestNameAndStorage(c *gc.C) {
+func (s *environSuite) TestName(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Config().Name(), gc.Equals, "test")
-	c.Assert(environ.Storage(), gc.NotNil)
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -171,8 +170,6 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	ctx := coretesting.Context(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, environ.Storage())
-	defer environ.Storage().RemoveAll()
 	availableTools := coretools.List{&coretools.Tools{
 		Version: version.Current,
 		URL:     "http://testing.invalid/tools.tar.gz",

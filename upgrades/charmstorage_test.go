@@ -14,6 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
@@ -41,11 +42,12 @@ func (s *migrateCharmStorageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *migrateCharmStorageSuite) TestMigrateCharmStorage(c *gc.C) {
-	err := s.Environ.Storage().Put("somewhere", strings.NewReader("abc"), 3)
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	err := stor.Put("somewhere", strings.NewReader("abc"), 3)
 	c.Assert(err, gc.IsNil)
 
 	dummyCharm := s.AddTestingCharm(c, "dummy")
-	dummyCharmURL, err := s.Environ.Storage().URL("somewhere")
+	dummyCharmURL, err := stor.URL("somewhere")
 	c.Assert(err, gc.IsNil)
 	url, err := url.Parse(dummyCharmURL)
 	c.Assert(err, gc.IsNil)

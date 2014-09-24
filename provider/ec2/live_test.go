@@ -278,7 +278,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
 	t.PrepareOnce(c)
-	s := t.Env.Storage()
+	s := t.Env.(environs.EnvironStorage).Storage()
 	err := s.Put("foo", strings.NewReader("foo"), 3)
 	c.Assert(err, gc.IsNil)
 	err = s.Put("bar", strings.NewReader("bar"), 3)

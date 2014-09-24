@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -36,8 +37,9 @@ var migrateToolsVersions = []version.Binary{
 }
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorage(c *gc.C) {
-	envtesting.RemoveFakeTools(c, s.Environ.Storage())
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), migrateToolsVersions...)
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	envtesting.RemoveFakeTools(c, stor)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
 	s.testMigrateToolsStorage(c, &mockAgentConfig{})
 }
 
@@ -57,9 +59,10 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) 
 }
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), migrateToolsVersions...)
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
 	// Overwrite one of the tools archives with junk, so the hash does not match.
-	err := s.Environ.Storage().Put(
+	err := stor.Put(
 		envtools.StorageName(migrateToolsVersions[0]),
 		strings.NewReader("junk"),
 		4,
