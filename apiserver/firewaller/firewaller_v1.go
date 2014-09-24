@@ -147,7 +147,7 @@ func (f *FirewallerAPIV1) watchOneEnvironOpenedPorts(tag names.Tag) (string, []s
 	if changes, ok := <-watch.Changes(); ok {
 		return f.resources.Register(watch), changes, nil
 	}
-	return "", nil, watcher.MustErr(watch)
+	return "", nil, watcher.EnsureErr(watch)
 }
 
 // GetMachinePorts returns the port ranges opened on a machine for the

@@ -834,7 +834,7 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 	}
 
 	envTag := names.NewEnvironTag(fakeUUID)
-	err := juju.CacheChangedAPIInfo(info, hostPorts, envTag.String())
+	err := juju.CacheChangedAPIInfo(info, hostPorts, envTag)
 	c.Assert(err, gc.IsNil)
 
 	endpoint := info.APIEndpoint()

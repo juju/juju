@@ -701,6 +701,11 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
+	// Check that StateServerInstances returns the same.
+	ids, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, jc.SameContents, stateData.StateInstances)
+
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)

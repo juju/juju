@@ -5,7 +5,6 @@ package firewaller_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -67,7 +66,7 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 func (s *stateSuite) TestWatchOpenedPortsNotImplementedV0(c *gc.C) {
 	s.patchNewState(c, firewaller.NewStateV0)
 
-	w, err := s.firewaller.WatchOpenedPorts(s.APIInfo(c).EnvironTag.(names.EnvironTag))
+	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
 	c.Assert(err, gc.ErrorMatches, `WatchOpenedPorts\(\) \(need V1\+\) not implemented`)
 	c.Assert(w, gc.IsNil)
@@ -82,14 +81,14 @@ func (s *stateSuite) TestWatchOpenedPortsV1(c *gc.C) {
 	err = s.units[2].OpenPort("udp", 4321)
 	c.Assert(err, gc.IsNil)
 
-	w, err := s.firewaller.WatchOpenedPorts(s.APIInfo(c).EnvironTag.(names.EnvironTag))
+	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
 	expectChanges := []string{
-		"m#0#n#juju-public",
-		"m#2#n#juju-public",
+		"0:juju-public",
+		"2:juju-public",
 	}
 	wc.AssertChangeInSingleEvent(expectChanges...)
 	wc.AssertNoChange()
@@ -114,7 +113,7 @@ func (s *stateSuite) TestWatchOpenedPortsV1(c *gc.C) {
 	// Open another port, ensure it's detected.
 	err = s.units[1].OpenPort("tcp", 8080)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("m#1#n#juju-public")
+	wc.AssertChange("1:juju-public")
 	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)

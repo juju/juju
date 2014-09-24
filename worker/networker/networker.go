@@ -198,7 +198,7 @@ func (nw *Networker) loop() error {
 		case _, ok := <-w.Changes():
 			logger.Debugf("got change notification")
 			if !ok {
-				return watcher.MustErr(w)
+				return watcher.EnsureErr(w)
 			}
 			if err := nw.handle(); err != nil {
 				return err

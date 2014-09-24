@@ -155,7 +155,7 @@ func (task *provisionerTask) loop() error {
 			return tomb.ErrDying
 		case ids, ok := <-task.machineWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(task.machineWatcher)
+				return watcher.EnsureErr(task.machineWatcher)
 			}
 			if err := task.processMachines(ids); err != nil {
 				return errors.Annotate(err, "failed to process updated machines")

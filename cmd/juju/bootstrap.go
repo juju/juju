@@ -189,7 +189,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
 					"to clean up the environment.")
 			} else {
-				cleanup()
+				handleBootstrapError(ctx, resultErr, cleanup)
 			}
 		}
 	}()
@@ -241,13 +241,27 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,
-		KeepBroken:  c.KeepBrokenEnvironment,
 		MetadataDir: metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
 	return c.SetBootstrapEndpointAddress(environ)
+}
+
+// handleBootstrapError is called to clean up if bootstrap fails.
+func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
+	logger.Errorf("bootstrap failed: %v", err)
+	ch := make(chan os.Signal, 1)
+	ctx.InterruptNotify(ch)
+	defer ctx.StopInterruptNotify(ch)
+	defer close(ch)
+	go func() {
+		for _ = range ch {
+			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
+		}
+	}()
+	cleanup()
 }
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {

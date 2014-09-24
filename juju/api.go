@@ -33,7 +33,7 @@ var (
 type apiState interface {
 	Close() error
 	APIHostPorts() [][]network.HostPort
-	EnvironTag() string
+	EnvironTag() (names.EnvironTag, error)
 }
 
 type apiOpenFunc func(*api.Info, api.DialOpts) (apiState, error)
@@ -198,7 +198,11 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), st.EnvironTag()); localerr != nil {
+	envTag, err := st.EnvironTag()
+	if err != nil {
+		logger.Warningf("ignoring API connection environ tag: %v", err)
+	}
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), envTag); localerr != nil {
 		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -357,7 +361,7 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag string) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag names.EnvironTag) error {
 	var addrs []string
 	for _, serverHostPorts := range hostPorts {
 		for _, hostPort := range serverHostPorts {
@@ -371,15 +375,10 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 	}
 	endpoint := info.APIEndpoint()
 	changed := false
-	if newEnvironTag != "" {
-		tag, err := names.ParseEnvironTag(newEnvironTag)
-		if err == nil {
-			if environUUID := tag.Id(); endpoint.EnvironUUID != environUUID {
-				changed = true
-				endpoint.EnvironUUID = environUUID
-			}
-		} else {
-			logger.Debugf("cannot parse environ tag: %v", err)
+	if newEnvironTag.Id() != "" {
+		if environUUID := newEnvironTag.Id(); endpoint.EnvironUUID != environUUID {
+			changed = true
+			endpoint.EnvironUUID = environUUID
 		}
 	}
 	if len(addrs) != 0 && addrsChanged(endpoint.Addresses, addrs) {

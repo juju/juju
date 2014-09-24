@@ -188,7 +188,14 @@ func (st *State) Provisioner() *provisioner.State {
 func (st *State) Uniter() *uniter.State {
 	// TODO(dfc) yes, this can panic, we never checked before
 	unitTag := st.authTag.(names.UnitTag)
-	charmsURL := uniter.CharmsURL(st.Addr(), st.EnvironTag())
+	envTagString := ""
+	envTag, err := st.EnvironTag()
+	if err != nil {
+		logger.Errorf("environ tag is invalid: %v", err)
+	} else {
+		envTagString = envTag.String()
+	}
+	charmsURL := uniter.CharmsURL(st.Addr(), envTagString)
 	return uniter.NewState(st, unitTag, charmsURL)
 }
 

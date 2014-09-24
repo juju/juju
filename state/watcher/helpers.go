@@ -32,14 +32,14 @@ func Stop(w Stopper, t *tomb.Tomb) {
 	}
 }
 
-// MustErr returns the error with which w died.
-// Calling it will panic if w is still running or was stopped cleanly.
-func MustErr(w Errer) error {
-	err := errors.Trace(w.Err())
+// EnsureErr returns the error with which w died. Calling it will also
+// return an error if w is still running or was stopped cleanly.
+func EnsureErr(w Errer) error {
+	err := w.Err()
 	if err == nil {
-		panic("watcher was stopped cleanly")
-	} else if w.Err() == tomb.ErrStillAlive {
-		panic("watcher is still running")
+		return errors.Errorf("expected an error from %#v, got nil", w)
+	} else if err == tomb.ErrStillAlive {
+		return errors.Annotatef(err, "expected %#v to be stopped", w)
 	}
-	return err
+	return errors.Trace(err)
 }

@@ -168,7 +168,11 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot get API connection")
 	}
 	var ensureAvailabilityResult params.StateServersChanges
-	haClient := highavailability.NewClient(root, root.EnvironTag())
+	envTag, err := root.EnvironTag()
+	if err != nil {
+		return errors.Annotatef(err, "cannot get environ tag")
+	}
+	haClient := highavailability.NewClient(root, envTag.String())
 	defer haClient.Close()
 	ensureAvailabilityResult, err = haClient.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
 	if err != nil {
