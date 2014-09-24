@@ -45,7 +45,7 @@ func NewMetricsManagerAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*MetricsManagerAPI, error) {
-	if !authorizer.AuthClient() {
+	if !(authorizer.AuthMachineAgent() && authorizer.AuthEnvironManager()) {
 		return nil, common.ErrPerm
 	}
 
