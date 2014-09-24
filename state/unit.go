@@ -1547,7 +1547,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		Assert: notDeadDoc,
 	}, {
 		C:      actionsC,
-		Id:     doc.Id,
+		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}

@@ -497,7 +497,7 @@ func getAssertActionChange(s *FilterSuite, f *filter, c *gc.C) func(ids []string
 				c.Fatalf("timed out")
 			}
 		}
-		c.Assert(expected, jc.DeepEquals, seen)
+		c.Assert(seen, jc.DeepEquals, expected)
 
 		getAssertNoActionChange(s, f, c)()
 	}
