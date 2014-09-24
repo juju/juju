@@ -93,7 +93,10 @@ def restore_present_state_server(env, backup_file):
             "because the state-server was still up.")
         match = running_instance_pattern.search(err)
         if match is None:
-            raise Exception("The instance was not found in output above.")
+            print_now("WARNING: Could not find the instance_id in output:")
+            print_now(err)
+            print_now("")
+            return None
         instance_id = match.group(1)
     return instance_id
 
@@ -206,8 +209,8 @@ def main():
         '--backup', action='store_const', dest='strategy', const='backup',
         help="Test backup/restore.")
     strategy.add_argument(
-        '--ha-backup', action='store_const', dest='strategy', const='ha-backup',
-        help="Test backup/restore of HA.")
+        '--ha-backup', action='store_const', dest='strategy',
+        const='ha-backup', help="Test backup/restore of HA.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
     args = parser.parse_args()
