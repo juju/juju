@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -773,6 +773,16 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	return unit
 }
 
+func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
+	ctx := uniter.HookContext{}
+	_, err := ctx.ActionParams()
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.SetActionFailed("oops")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+}
+
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.AddTestingService(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)
@@ -800,9 +810,9 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
+	context, err := uniter.NewHookContext(s.apiUnit, nil, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies, map[string]interface{}(nil), addMetrics)
+		proxies, addMetrics, nil)
 	c.Assert(err, gc.IsNil)
 	return context
 }
