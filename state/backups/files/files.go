@@ -38,6 +38,7 @@ const (
 // Paths holds the paths that backups needs.
 type Paths struct {
 	DataDir string
+	LogsDir string
 }
 
 // GetFilesToBackUp returns the paths that should be included in the
@@ -68,16 +69,16 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
 		filepath.Join(rootDir, paths.DataDir, nonceFile),
-		filepath.Join(rootDir, logsDir, allMachinesLog),
-		filepath.Join(rootDir, logsDir, machine0Log),
+		filepath.Join(rootDir, paths.LogsDir, allMachinesLog),
+		filepath.Join(rootDir, paths.LogsDir, machine0Log),
 		filepath.Join(rootDir, sshDir, authKeysFile),
 
-		filepath.Join(rootDir, startupDir, dbStartupConf),
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
 	}
 	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
+
 	return backupFiles, nil
 }

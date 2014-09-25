@@ -34,13 +34,21 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
-	var paths files.Paths
 	dataDirRes := resources.Get("dataDir")
 	dataDir, ok := dataDirRes.(common.StringResource)
 	if !ok {
 		return nil, errors.Errorf("invalid dataDir resource: %v", dataDirRes)
 	}
+
+	logDirRes := resources.Get("logDir")
+	logDir, ok := logDirRes.(common.StringResource)
+	if !ok {
+		return nil, errors.Errorf("invalid logDir resource: %v", logDirRes)
+	}
+
+	var paths files.Paths
 	paths.DataDir = dataDir.String()
+	paths.LogsDir = logDir.String()
 
 	stor, err := newBackupsStorage(st)
 	if err != nil {
