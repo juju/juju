@@ -605,7 +605,7 @@ outer:
 func (f *filter) getNextAction() *hook.Info {
 	if len(f.actionsPending) > 0 {
 		nextAction := hook.Info{
-			Kind:     hooks.ActionRequested,
+			Kind:     hooks.Action,
 			ActionId: f.actionsPending[0],
 		}
 
