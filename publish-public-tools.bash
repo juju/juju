@@ -39,13 +39,13 @@ verify_stream() {
     if [[ $PURPOSE == "release" ]]; then
         local root="tools"
     else
-        local root="tools"
+        local root="$PURPOSE/tools"
     fi
     curl $location/$root/streams/v1/index.json > $WORK/index.json
-    diff $JUJU_DIST/$root/streams/v1/index.json $WORK/index.json
+    diff $JUJU_DIST/tools/streams/v1/index.json $WORK/index.json
     curl $location/$root/streams/v1/index.json > \
         $WORK/com.ubuntu.juju:released:tools.json.json
-    diff $JUJU_DIST/$root/streams/v1/index.json \
+    diff $JUJU_DIST/tools/streams/v1/index.json \
         $WORK/com.ubuntu.juju:released:tools.json.json
     rm $WORK/*
 }
