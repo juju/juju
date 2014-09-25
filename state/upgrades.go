@@ -502,6 +502,7 @@ func addEnvUUIDToEntityCollection(st *State, collName string) error {
 				Assert: txn.DocMissing,
 				Insert: doc,
 			}}...)
+		doc = nil // Force creation of new map for the next iteration
 	}
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)

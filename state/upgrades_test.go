@@ -210,53 +210,115 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToServices(c *gc.C) {
-	s.checkAddEnvUUIDToCollection(c, servicesC, AddEnvUUIDToServices)
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToServices, servicesC,
+		bson.M{
+			"_id":    "mysql",
+			"series": "quantal",
+			"life":   Dead,
+		},
+		bson.M{
+			"_id":    "mediawiki",
+			"series": "precise",
+			"life":   Alive,
+		},
+	)
+	defer closer()
+
+	var newDoc serviceDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "mysql")
+	c.Assert(newDoc.Series, gc.Equals, "quantal")
+	c.Assert(newDoc.Life, gc.Equals, Dead)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "mediawiki")
+	c.Assert(newDoc.Series, gc.Equals, "precise")
+	c.Assert(newDoc.Life, gc.Equals, Alive)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToServicesIdempotent(c *gc.C) {
-	s.checkAddEnvUUIDToCollectionIdempotent(c, servicesC, AddEnvUUIDToServices)
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToServices, servicesC)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToUnits(c *gc.C) {
-	s.checkAddEnvUUIDToCollection(c, unitsC, AddEnvUUIDToUnits)
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToUnits, unitsC,
+		bson.M{
+			"_id":    "mysql/0",
+			"series": "trusty",
+			"life":   Alive,
+		},
+		bson.M{
+			"_id":    "nounforge/0",
+			"series": "utopic",
+			"life":   Dead,
+		},
+	)
+	defer closer()
+
+	var newDoc unitDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "mysql/0")
+	c.Assert(newDoc.Series, gc.Equals, "trusty")
+	c.Assert(newDoc.Life, gc.Equals, Alive)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "nounforge/0")
+	c.Assert(newDoc.Series, gc.Equals, "utopic")
+	c.Assert(newDoc.Life, gc.Equals, Dead)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
-	s.checkAddEnvUUIDToCollectionIdempotent(c, unitsC, AddEnvUUIDToUnits)
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
 }
 
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
-	collName string,
 	upgradeStep func(*State) error,
-) {
-	s.addLegacyDocWithNoEnvUUID(c, collName, "foo")
-
-	coll, closer := s.state.getCollection(collName)
-	defer closer()
+	collName string,
+	oldDocs ...bson.M,
+) (*mgo.Collection, func(), []string) {
+	c.Assert(len(oldDocs) >= 2, jc.IsTrue)
+	for _, oldDoc := range oldDocs {
+		s.addLegacyDoc(c, collName, oldDoc)
+	}
 
 	err := upgradeStep(s.state)
 	c.Assert(err, gc.IsNil)
 
-	var doc map[string]string
-	err = coll.Find(bson.D{{"_id", "foo"}}).One(&doc)
-	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+	// For each old document check that _id has been migrated and that
+	// env-uuid has been added correctly.
+	coll, closer := s.state.getCollection(collName)
+	var d map[string]string
+	var ids []string
+	envTag := s.state.EnvironTag().Id()
+	for _, oldDoc := range oldDocs {
+		oldID := oldDoc["_id"].(string)
+		newID := s.state.docID(oldID)
 
-	err = coll.Find(bson.D{{"_id", s.state.docID("foo")}}).One(&doc)
+		err = coll.FindId(oldID).One(&d)
+		c.Assert(err, gc.Equals, mgo.ErrNotFound)
+
+		err = coll.FindId(newID).One(&d)
+		c.Assert(err, gc.IsNil)
+		c.Assert(d["env-uuid"], gc.Equals, envTag)
+
+		ids = append(ids, newID)
+	}
+
+	count, err := coll.Find(nil).Count()
 	c.Assert(err, gc.IsNil)
-	c.Assert(doc["name"], gc.Equals, "foo")
-	c.Assert(doc["env-uuid"], gc.Equals, s.state.EnvironTag().Id())
+	c.Assert(count, gc.Equals, len(oldDocs))
+
+	return coll, closer, ids
 }
 
 func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	c *gc.C,
-	collName string,
 	upgradeStep func(*State) error,
+	collName string,
 ) {
-	s.addLegacyDocWithNoEnvUUID(c, collName, "foo")
-
-	coll, closer := s.state.getCollection(collName)
-	defer closer()
+	const oldID = "foo"
+	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
 
 	err := upgradeStep(s.state)
 	c.Assert(err, gc.IsNil)
@@ -264,25 +326,28 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	err = upgradeStep(s.state)
 	c.Assert(err, gc.IsNil)
 
+	coll, closer := s.state.getCollection(collName)
+	defer closer()
 	var docs []map[string]string
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID("foo"))
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(oldID))
 }
 
-func (s *upgradesSuite) addLegacyDocWithNoEnvUUID(c *gc.C, collName, entityName string) {
-	// Bare minimum entity document as of 1.21-alpha1
-	oldDoc := struct {
-		Name string `bson:"_id"`
-	}{Name: entityName}
+func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
 	ops := []txn.Op{{
 		C:      collName,
-		Id:     entityName,
+		Id:     legacyDoc["_id"].(string),
 		Assert: txn.DocMissing,
-		Insert: oldDoc,
+		Insert: legacyDoc,
 	}}
 	err := s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id string, doc interface{}) {
+	err := coll.FindId(id).One(doc)
 	c.Assert(err, gc.IsNil)
 }
 
