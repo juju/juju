@@ -303,9 +303,6 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	if len(instanceIds) == 0 {
 		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
-	if len(instanceIds) > 1 {
-		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
-	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
 		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
