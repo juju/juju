@@ -122,12 +122,15 @@ publish_to_azure() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     if [[ $PURPOSE == "release" ]]; then
         local destination="release"
+        local local_dir="tools"
     else
         local destination="$PURPOSE"
+        local local_dir="$PURPOSE"
     fi
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
-    ${SCRIPT_DIR}/azure_publish_tools.py publish $destination ${JUJU_DIST}
+    ${SCRIPT_DIR}/azure_publish_tools.py publish \
+        $destination $JUJU_DIST/$local_dir
     verify_stream $AZURE_SITE
 }
 
