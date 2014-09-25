@@ -284,7 +284,9 @@ func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 // AddMachines1dot18 adds new machines with the supplied parameters.
 //
 // TODO(axw) 2014-04-11 #XXX
-// This exists for backwards compatibility; remove in 1.21 (client only).
+// This exists for backwards compatibility;
+// We cannot remove this code while clients > 1.20 need to talk to 1.18
+// servers (which is something we need for an undetermined amount of time).
 func (c *Client) AddMachines1dot18(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
 		MachineParams: machineParams,
