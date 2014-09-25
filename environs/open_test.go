@@ -120,8 +120,6 @@ func (*OpenSuite) TestPrepareFromName(c *gc.C) {
 	e, err := environs.PrepareFromName("erewhemos", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Config().Name(), gc.Equals, "erewhemos")
-	// Check we can access storage ok, which implies the environment has been prepared.
-	c.Assert(e.Storage(), gc.NotNil)
 }
 
 func (*OpenSuite) TestConfigForName(c *gc.C) {
@@ -197,8 +195,6 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	ctx := testing.Context(c)
 	env, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
-	// Check we can access storage ok, which implies the environment has been prepared.
-	c.Assert(env.Storage(), gc.NotNil)
 
 	// Check that the environment info file was correctly created.
 	info, err := store.ReadInfo("erewhemos")
@@ -231,7 +227,6 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
-	c.Assert(env.Storage(), gc.NotNil)
 	c.Assert(env.Config().AllAttrs(), gc.DeepEquals, info.BootstrapConfig())
 }
 

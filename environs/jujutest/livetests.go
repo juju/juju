@@ -4,9 +4,7 @@
 package jujutest
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"time"
 
 	"github.com/juju/errors"
@@ -723,56 +721,6 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 	c.Assert(gotId, gc.Equals, wantId)
 }
 
-// TODO check that binary data works ok?
-var contents = []byte("hello\n")
-var contents2 = []byte("goodbye\n\n")
-
-func (t *LiveTests) TestFile(c *gc.C) {
-	t.PrepareOnce(c)
-	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	stor := t.toolsStorage
-
-	checkFileDoesNotExist(c, stor, name, t.Attempt)
-	checkPutFile(c, stor, name, contents)
-	checkFileHasContents(c, stor, name, contents, t.Attempt)
-	checkPutFile(c, stor, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, stor, name, contents2, t.Attempt)
-
-	// check that the listed contents include the
-	// expected name.
-	found := false
-	var names []string
-attempt:
-	for a := t.Attempt.Start(); a.Next(); {
-		var err error
-		names, err = stor.List("")
-		c.Assert(err, gc.IsNil)
-		for _, lname := range names {
-			if lname == name {
-				found = true
-				break attempt
-			}
-		}
-	}
-	if !found {
-		c.Errorf("file name %q not found in file list %q", name, names)
-	}
-	err := stor.Remove(name)
-	c.Check(err, gc.IsNil)
-	checkFileDoesNotExist(c, stor, name, t.Attempt)
-	// removing a file that does not exist should not be an error.
-	err = stor.Remove(name)
-	c.Check(err, gc.IsNil)
-
-	// RemoveAll deletes all files from storage.
-	checkPutFile(c, stor, "file-1.txt", contents)
-	checkPutFile(c, stor, "file-2.txt", contents)
-	err = stor.RemoveAll()
-	c.Check(err, gc.IsNil)
-	checkFileDoesNotExist(c, stor, "file-1.txt", t.Attempt)
-	checkFileDoesNotExist(c, stor, "file-2.txt", t.Attempt)
-}
-
 // Check that we get a consistent error when asking for an instance without
 // a valid machine config.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
@@ -825,22 +773,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
-	currentName := envtools.StorageName(current)
-	otherName := envtools.StorageName(other)
-	envStorage := env.Storage()
-	dummyStorage := dummyenv.Storage()
-
-	defer envStorage.Remove(otherName)
-
-	_, err = sync.Upload(dummyStorage, &current.Number)
-	c.Assert(err, gc.IsNil)
-
-	// This will only work while cross-compiling across releases is safe,
-	// which depends on external elements. Tends to be safe for the last
-	// few releases, but we may have to refactor some day.
-	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
-	c.Assert(err, gc.IsNil)
-
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -853,18 +785,4 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	defer mw0.Stop()
 
 	waitAgentTools(c, mw0, other)
-}
-
-func storageCopy(source storage.Storage, sourcePath string, target storage.Storage, targetPath string) error {
-	rc, err := storage.Get(source, sourcePath)
-	if err != nil {
-		return err
-	}
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, rc)
-	rc.Close()
-	if err != nil {
-		return err
-	}
-	return target.Put(targetPath, &buf, int64(buf.Len()))
 }

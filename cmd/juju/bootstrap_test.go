@@ -647,7 +647,6 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.PrepareFromName(envName, cmdtesting.NullContext(c), store)
 	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, env)
 	return env
 }
 

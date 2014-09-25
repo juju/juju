@@ -13,10 +13,8 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -32,27 +30,15 @@ type datasourceSuite struct {
 	baseURL string
 }
 
-const existingEnv = `
-environments:
-    test:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
-`
-
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	testing.WriteEnvironments(c, existingEnv)
-	environ, err := environs.PrepareFromName("test", testing.Context(c), configstore.NewMem())
+
+	storageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	s.stor = environ.Storage()
+	s.stor = stor
 	s.baseURL, err = s.stor.URL("")
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *datasourceSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {
@@ -62,7 +48,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
-	c.Assert(url, gc.Equals, s.baseURL+"foo/bar/data.txt")
+	c.Assert(url, gc.Equals, s.baseURL+"/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
 }
@@ -74,7 +60,7 @@ func (s *datasourceSuite) TestFetchWithBasePath(c *gc.C) {
 	rc, url, err := ds.Fetch("foo/bar/data.txt")
 	c.Assert(err, gc.IsNil)
 	defer rc.Close()
-	c.Assert(url, gc.Equals, s.baseURL+"base/foo/bar/data.txt")
+	c.Assert(url, gc.Equals, s.baseURL+"/base/foo/bar/data.txt")
 	data, err := ioutil.ReadAll(rc)
 	c.Assert(data, gc.DeepEquals, []byte(sampleData))
 }

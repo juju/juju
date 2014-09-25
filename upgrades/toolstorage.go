@@ -49,8 +49,10 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 		}
 	} else {
 		var err error
-		stor, err = environs.GetStorage(st)
-		if err != nil {
+		stor, err = environs.LegacyStorage(st)
+		if errors.IsNotSupported(err) {
+			return nil
+		} else if err != nil {
 			return errors.Annotate(err, "cannot get provider storage")
 		}
 	}

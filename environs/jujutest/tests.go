@@ -169,7 +169,12 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 var noRetry = utils.AttemptStrategy{}
 
 func (t *Tests) TestPersistence(c *gc.C) {
-	stor := t.Prepare(c).Storage()
+	env, ok := t.Prepare(c).(environs.EnvironStorage)
+	if !ok {
+		c.Skip("environment does not implement provider storage")
+		return
+	}
+	stor := env.Storage()
 
 	names := []string{
 		"aa",
@@ -184,7 +189,7 @@ func (t *Tests) TestPersistence(c *gc.C) {
 	checkList(c, stor, "a", []string{"aa"})
 	checkList(c, stor, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	storage2 := t.Open(c).Storage()
+	storage2 := t.Open(c).(environs.EnvironStorage).Storage()
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name), noRetry)
 	}
