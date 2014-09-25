@@ -22,6 +22,7 @@ const (
 	machinesConfs = "jujud-machine-*.conf"
 	agentsDir     = "agents"
 	agentsConfs   = "machine-*"
+	jujuInitConfs = "juju-*.conf"
 	loggingConfs  = "*juju.conf"
 	toolsDir      = "tools"
 
@@ -53,6 +54,12 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 		return nil, errors.Annotate(err, "failed to fetch machine init files")
 	}
 
+	glob = filepath.Join(rootDir, startupDir, jujuInitConfs)
+	initConfs, err := filepath.Glob(glob)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to fetch startup conf files")
+	}
+
 	glob = filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
@@ -78,6 +85,7 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 	}
 	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
+	backupFiles = append(backupFiles, initConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
 
 	// Handle user SSH files (might not exist).
