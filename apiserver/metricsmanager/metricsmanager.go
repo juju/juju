@@ -58,7 +58,7 @@ func NewMetricsManagerAPI(
 			if tag == nil {
 				return false
 			}
-			return tag.String() == st.EnvironTag().String()
+			return tag == st.EnvironTag()
 		}, nil
 	}
 
