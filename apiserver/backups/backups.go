@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/files"
 )
 
 func init() {
@@ -23,6 +24,7 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 // API serves backup-specific API methods.
 type API struct {
 	st      *state.State
+	paths   files.Paths
 	backups backups.Backups
 }
 
@@ -32,6 +34,14 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
+	var paths files.Paths
+	dataDirRes := resources.Get("dataDir")
+	dataDir, ok := dataDirRes.(common.StringResource)
+	if !ok {
+		return nil, errors.Errorf("invalid dataDir resource: %v", dataDirRes)
+	}
+	paths.DataDir = dataDir.String()
+
 	stor, err := newBackupsStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -39,6 +49,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 
 	b := API{
 		st:      st,
+		paths:   paths,
 		backups: backups.NewBackups(stor),
 	}
 	return &b, nil

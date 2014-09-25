@@ -65,7 +65,8 @@ func (s *filesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
-	files, err := files.GetFilesToBackUp(s.root)
+	paths := files.Paths{DataDir: "/var/lib/juju"}
+	files, err := files.GetFilesToBackUp(s.root, paths)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(files, jc.SameContents, []string{
