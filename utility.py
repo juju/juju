@@ -133,3 +133,14 @@ def check_free_disk_space(path, required, purpose):
             'path': path, 'mount': df_result[5], 'required': required,
             'available': available, 'purpose': purpose
             })
+
+
+def s3_cmd(params, drop_output=False):
+    s3cfg_path = os.path.join(
+        os.environ['HOME'], 'cloud-city/juju-qa.s3cfg')
+    if drop_output:
+        return subprocess.check_call(
+            ['s3cmd', '-c', s3cfg_path] + params, stdout=open('/dev/null', 'w'))
+    else:
+        return subprocess.check_output(
+            ['s3cmd', '-c', s3cfg_path] + params)

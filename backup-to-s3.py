@@ -6,6 +6,8 @@ import os
 import re
 import subprocess
 
+from utility import s3_cmd
+
 
 MAX_BACKUPS = 10
 BACKUP_URL = 's3://juju-qa-data/juju-ci/backups/'
@@ -24,17 +26,6 @@ BACKUP_PARAMS = [
     '--rexclude=^juju-release-tools/',
     '--rexclude=^repository',
     ]
-
-
-def s3_cmd(params, drop_output=False):
-    s3cfg_path = os.path.join(
-        os.environ['HOME'], 'cloud-city/juju-qa.s3cfg')
-    if drop_output:
-        return subprocess.check_call(
-            ['s3cmd', '-c', s3cfg_path] + params, stdout=open('/dev/null', 'w'))
-    else:
-        return subprocess.check_output(
-            ['s3cmd', '-c', s3cfg_path] + params)
 
 
 def current_backups():
