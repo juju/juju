@@ -4,6 +4,7 @@
 package files
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -71,7 +72,6 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 		filepath.Join(rootDir, paths.DataDir, nonceFile),
 		filepath.Join(rootDir, paths.LogsDir, allMachinesLog),
 		filepath.Join(rootDir, paths.LogsDir, machine0Log),
-		filepath.Join(rootDir, sshDir, authKeysFile),
 
 		filepath.Join(rootDir, paths.DataDir, dbPEM),
 		filepath.Join(rootDir, paths.DataDir, dbSecret),
@@ -79,6 +79,16 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
+
+	// Handle user SSH files (might not exist).
+	SSHDir := filepath.Join(rootDir, sshDir)
+	if _, err := os.Stat(SSHDir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		backupFiles = append(backupFiles, filepath.Join(SSHDir, authKeysFile))
+	}
 
 	return backupFiles, nil
 }
