@@ -4,7 +4,9 @@
 package state_test
 
 import (
-	gc "launchpad.net/gocheck"
+	"time"
+
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 )
@@ -45,6 +47,78 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 		unit, err := svc.AddUnit()
 		c.Assert(err, gc.IsNil)
 		err = s.State.AssignUnit(unit, state.AssignClean)
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+func (*BenchmarkSuite) BenchmarkAddMetrics1_1(c *gc.C)     { benchmarkAddMetrics(1, 1, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics1_10(c *gc.C)    { benchmarkAddMetrics(1, 10, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics1_100(c *gc.C)   { benchmarkAddMetrics(1, 100, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics100_1(c *gc.C)   { benchmarkAddMetrics(100, 1, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics100_10(c *gc.C)  { benchmarkAddMetrics(100, 10, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics100_100(c *gc.C) { benchmarkAddMetrics(100, 100, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics10_1(c *gc.C)    { benchmarkAddMetrics(10, 1, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics10_10(c *gc.C)   { benchmarkAddMetrics(10, 10, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics10_100(c *gc.C)  { benchmarkAddMetrics(10, 100, c) }
+
+func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
+	var s ConnSuite
+	s.SetUpSuite(c)
+	defer s.TearDownSuite(c)
+	s.SetUpTest(c)
+	defer s.TearDownTest(c)
+	now := time.Now()
+	metrics := make([]state.Metric, metricsPerBatch)
+	for i, _ := range metrics {
+		metrics[i] = state.Metric{
+			Key:         "metricKey",
+			Value:       "keyValue",
+			Time:        now,
+			Credentials: []byte("creds"),
+		}
+	}
+	charm := s.AddTestingCharm(c, "wordpress")
+	svc := s.AddTestingService(c, "wordpress", charm)
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	serviceCharmURL, _ := svc.CharmURL()
+	err = unit.SetCharmURL(serviceCharmURL)
+	c.Assert(err, gc.IsNil)
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		for n := 0; n < batches; n++ {
+			_, err := unit.AddMetrics(now, metrics)
+			c.Assert(err, gc.IsNil)
+		}
+	}
+}
+
+// BenchmarkCleanupMetrics needs to add metrics each time over the cycle.
+// Because of this the benchmark includes addmetric time
+func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
+	numberOfMetrics := 50
+	var s ConnSuite
+	s.SetUpSuite(c)
+	defer s.TearDownSuite(c)
+	s.SetUpTest(c)
+	defer s.TearDownTest(c)
+	oldTime := time.Now().Add(-(state.CleanupAge))
+	charm := s.AddTestingCharm(c, "wordpress")
+	svc := s.AddTestingService(c, "wordpress", charm)
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	serviceCharmURL, _ := svc.CharmURL()
+	err = unit.SetCharmURL(serviceCharmURL)
+	c.Assert(err, gc.IsNil)
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		for i := 0; i < numberOfMetrics; i++ {
+			m, err := unit.AddMetrics(oldTime, []state.Metric{{}})
+			c.Assert(err, gc.IsNil)
+			err = m.SetSent()
+			c.Assert(err, gc.IsNil)
+		}
+		err := s.State.CleanupOldMetrics()
 		c.Assert(err, gc.IsNil)
 	}
 }

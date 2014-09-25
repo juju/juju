@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -647,7 +647,6 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.PrepareFromName(envName, cmdtesting.NullContext(c), store)
 	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, env)
 	return env
 }
 

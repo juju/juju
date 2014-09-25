@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"text/template"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 var expectedAccumulateSyslogConfTemplate = `
@@ -41,7 +41,7 @@ $FileCreateMode 0600
 # Maximum size for the log on this outchannel is 512MB
 # The command to execute when an outchannel as reached its size limit cannot accept any arguments
 # that is why we have created the helper script for executing logrotate.
-$outchannel logRotation,/var/log/juju{{.Namespace}}/all-machines.log,512000000,/var/log/juju{{.Namespace}}/logrotate.run
+$outchannel logRotation,/var/log/juju{{.Namespace}}/all-machines.log,536870912,/var/log/juju{{.Namespace}}/logrotate.run
 
 $RuleSet remote
 $FileCreateMode 0600

@@ -6,9 +6,10 @@ package upgrades_test
 import (
 	"bytes"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/filestorage"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -28,7 +29,7 @@ var customImageMetadata = map[string][]byte{
 }
 
 func (s *migrateCustomImageMetadataStorageSuite) TestMigrateCustomImageMetadata(c *gc.C) {
-	stor := s.Environ.Storage()
+	stor := s.Environ.(environs.EnvironStorage).Storage()
 	for path, content := range customImageMetadata {
 		err := stor.Put(path, bytes.NewReader(content), int64(len(content)))
 		c.Assert(err, gc.IsNil)

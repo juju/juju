@@ -4,8 +4,8 @@
 package tools_test
 
 import (
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"

@@ -4,8 +4,8 @@
 package ec2
 
 import (
+	gc "gopkg.in/check.v1"
 	amzec2 "launchpad.net/goamz/ec2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"

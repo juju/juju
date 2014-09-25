@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/bzr"
 	"github.com/juju/juju/cmd/envcmd"

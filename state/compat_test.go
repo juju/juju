@@ -6,10 +6,10 @@ package state
 import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"

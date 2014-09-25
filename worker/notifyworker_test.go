@@ -9,7 +9,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
 	apiWatcher "github.com/juju/juju/api/watcher"

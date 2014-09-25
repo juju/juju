@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/errors"
 	"reflect"
 	"sort"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/juju/errors"
 )
 
 // FormatOneline returns a brief list of units and their subordinates.

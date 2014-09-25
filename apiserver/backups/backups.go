@@ -45,7 +45,9 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 }
 
 var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	envStor, err := environs.GetStorage(st)
+	// TODO(axw,ericsnow) 2014-09-24 #1373236
+	// Migrate away from legacy provider storage.
+	envStor, err := environs.LegacyStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

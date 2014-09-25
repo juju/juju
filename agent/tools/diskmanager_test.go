@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	coretesting "github.com/juju/juju/testing"
