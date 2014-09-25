@@ -104,7 +104,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// Create two services, relate them, and add one unit to each - a
 	// principal and a subordinate.
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -117,7 +117,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	subordinate, err := logging.Unit("logging/0")
+	subordinate, err := s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Call the Deployer facade's WatchUnits for machine-0.

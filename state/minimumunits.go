@@ -153,7 +153,7 @@ func (s *Service) EnsureMinUnits() (err error) {
 		switch err := s.st.runTransaction(ops); err {
 		case nil:
 			// Assign the new unit.
-			unit, err := service.Unit(name)
+			unit, err := s.st.Unit(name)
 			if err != nil {
 				return err
 			}

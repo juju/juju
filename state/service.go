@@ -651,7 +651,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return s.Unit(name)
+	return s.st.Unit(name)
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
@@ -714,26 +714,6 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops = append(ops, svcOp)
 
 	return ops, nil
-}
-
-// Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (*Unit, error) {
-	if !names.IsValidUnit(name) {
-		return nil, fmt.Errorf("%q is not a valid unit name", name)
-	}
-
-	units, closer := s.st.getCollection(unitsC)
-	defer closer()
-
-	udoc := &unitDoc{}
-	sel := bson.D{
-		{"_id", s.st.docID(name)},
-		{"service", s.doc.Name},
-	}
-	if err := units.Find(sel).One(udoc); err != nil {
-		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
-	}
-	return newUnit(s.st, udoc), nil
 }
 
 // AllUnits returns all units of the service.
