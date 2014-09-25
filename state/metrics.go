@@ -239,21 +239,6 @@ func (m *MetricBatch) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.doc)
 }
 
-// Refresh refreshes the contents of the MetricBatch from the underlying state.
-func (m *MetricBatch) Refresh() error {
-	metrics, closer := m.st.getCollection(metricsC)
-	defer closer()
-
-	err := metrics.FindId(m.doc.UUID).One(&m.doc)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("metric %q", m)
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot refresh metric %q", m)
-	}
-	return nil
-}
-
 // UUID returns to uuid of the metric.
 func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
