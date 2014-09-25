@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"

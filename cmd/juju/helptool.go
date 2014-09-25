@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/worker/uniter/jujuc"

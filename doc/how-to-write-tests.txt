@@ -13,7 +13,7 @@ go test and gocheck
 -------------------
 
 The `go test` command is used to run the tests.  Juju uses the `gocheck` package
-("launchpad.net/gocheck") to provide a checkers and assert methods for the test
+("gopkg.in/check.v1") to provide a checkers and assert methods for the test
 writers.  The use of gocheck replaces the standard `testing` library.
 
 Across all of the tests in juju-core, the gocheck package is imported
@@ -23,7 +23,7 @@ with a shorter alias, because it is used a lot.
 import (
 	// system packages
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	// juju packages
 )
@@ -51,7 +51,7 @@ package magic_test
 import (
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {
@@ -109,7 +109,7 @@ package local
 
 import (
 	"github.com/juju/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 )

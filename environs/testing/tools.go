@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/filestorage"

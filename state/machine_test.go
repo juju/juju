@@ -11,8 +11,8 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"

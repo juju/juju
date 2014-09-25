@@ -15,10 +15,10 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

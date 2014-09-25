@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	apifirewaller "github.com/juju/juju/api/firewaller"

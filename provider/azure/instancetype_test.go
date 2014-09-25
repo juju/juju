@@ -6,7 +6,7 @@ package azure
 import (
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"

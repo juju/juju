@@ -12,7 +12,7 @@ import (
 	lm "github.com/joyent/gomanta/localservices/manta"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
