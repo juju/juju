@@ -78,7 +78,7 @@ def get_local_files(purpose, local_dir):
         print('%s not found.' % local_dir)
         return None
     if purpose == RELEASE:
-        replacements = (local_dir + '/', '')
+        replacements = (local_dir + '/', 'tools/')
     else:
         replacements = (local_dir, purpose)
     found = []

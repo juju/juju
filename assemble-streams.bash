@@ -339,9 +339,12 @@ generate_streams() {
     fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
+    set -x
+    find ${DEST_DIST}/tools/streams/v1/ -type f -delete
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     rm -r $JUJU_PATH
+    set +x
     echo "The tools are in ${DEST_DIST}."
 }
 
