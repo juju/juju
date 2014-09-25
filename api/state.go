@@ -35,7 +35,7 @@ import (
 func (st *State) Login(tag, password, nonce string) error {
 	err := st.loginV1(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
-		// TODO (cmars): remove fallback once we can drop v1 compatibility
+		// TODO (cmars): remove fallback once we can drop v0 compatibility
 		return st.loginV0(tag, password, nonce)
 	}
 	return err
@@ -43,7 +43,9 @@ func (st *State) Login(tag, password, nonce string) error {
 
 func (st *State) loginV1(tag, password, nonce string) error {
 	var result struct {
+		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		params.LoginResult
+
 		params.LoginResultV1
 	}
 	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
@@ -52,6 +54,7 @@ func (st *State) loginV1(tag, password, nonce string) error {
 			Credentials: password,
 			Nonce:       nonce,
 		},
+		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		Creds: params.Creds{
 			AuthTag:  tag,
 			Password: password,
@@ -61,6 +64,10 @@ func (st *State) loginV1(tag, password, nonce string) error {
 	if err != nil {
 		return err
 	}
+
+	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
+	// server.  The JSON field names between the structures are disjoint, so only
+	// one should have an environ tag set.
 
 	var environTag string
 	var servers [][]network.HostPort
@@ -75,7 +82,6 @@ func (st *State) loginV1(tag, password, nonce string) error {
 		facades = result.LoginResultV1.Facades
 	}
 
-	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API server.
 	err = st.setLoginResult(tag, environTag, servers, facades)
 	if err != nil {
 		return err
