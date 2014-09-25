@@ -254,7 +254,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
 		c.Check(apiInfo.Password, gc.Equals, "adminpass")
 		// EnvironTag wasn't in regular Config
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
+		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
@@ -357,7 +357,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
+		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		called++
 		return expectState, nil
 	}
@@ -404,7 +404,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
+		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		called++
 		return expectState, nil
 	}

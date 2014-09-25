@@ -62,7 +62,8 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter = s.st.Uniter()
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
@@ -427,7 +428,8 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = u.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	st := s.OpenAPIAs(c, u.Tag(), password)
-	uniterState := st.Uniter()
+	uniterState, err := st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(uniterState, gc.NotNil)
 
 	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))

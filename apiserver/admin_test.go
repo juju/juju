@@ -478,7 +478,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.Tag().String())
+	c.Assert(result.EnvironTag, gc.Equals, env.EnvironTag().String())
 }
 
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
@@ -565,7 +565,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	info := &api.Info{
 		Tag:        nil,
 		Password:   "",
-		EnvironTag: env.Tag(),
+		EnvironTag: env.EnvironTag(),
 		Addrs:      []string{srv.Addr()},
 		CACert:     coretesting.CACert,
 	}

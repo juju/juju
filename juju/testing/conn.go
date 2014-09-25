@@ -136,7 +136,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	apiInfo.EnvironTag = env.Tag()
+	apiInfo.EnvironTag = env.EnvironTag()
 
 	return apiInfo
 }
