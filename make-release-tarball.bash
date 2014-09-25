@@ -83,7 +83,7 @@ fi
 echo "Getting juju core's dependencies."
 GOPATH=$WORK go get -v -d ./... || \
     GOPATH=$WORK go get -v -d ./... || \
-    GOPATH=$WORK go get -v -d ./... 
+    GOPATH=$WORK go get -v -d ./...
 cd $HERE
 
 echo "Updating juju-core dependencies to the required versions."
@@ -114,8 +114,10 @@ if [[ -d $WORK/pkg ]]; then
 fi
 
 # Validate the go src tree against dependencies.tsv
-$SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
-    "$WORK/src/$PACKAGE/dependencies.tsv" "$WORK/src"
+if [[ $(lsb_release -sc) != "precise" ]]; then
+    $SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
+        "$WORK/src/$PACKAGE/dependencies.tsv" "$WORK/src"
+fi
 
 # Change the generic release to the proper juju-core version.
 VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
