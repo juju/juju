@@ -32,7 +32,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID     string    `bson:"_id"`
-	EnvUUID  string    `bson:"envuuid"`
+	EnvUUID  string    `bson:"env-uuid"`
 	Unit     string    `bson:"unit"`
 	CharmUrl string    `bson:"charmurl"`
 	Sent     bool      `bson:"sent"`
