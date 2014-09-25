@@ -125,7 +125,7 @@ publish_to_azure() {
         local local_dir="tools"
     else
         local destination="$PURPOSE"
-        local local_dir="$PURPOSE"
+        local local_dir=""
     fi
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
