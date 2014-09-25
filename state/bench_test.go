@@ -51,16 +51,24 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 	}
 }
 
-func (*BenchmarkSuite) BenchmarkAddMetrics(c *gc.C) {
-	metricsperBatch := 100
-	batches := 10
+func (*BenchmarkSuite) BenchmarkAddMetrics1_1(c *gc.C)     { benchmarkAddMetrics(1, 1, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics1_10(c *gc.C)    { benchmarkAddMetrics(1, 10, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics1_100(c *gc.C)   { benchmarkAddMetrics(1, 100, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics100_1(c *gc.C)   { benchmarkAddMetrics(100, 1, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics100_10(c *gc.C)  { benchmarkAddMetrics(100, 10, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics100_100(c *gc.C) { benchmarkAddMetrics(100, 100, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics10_1(c *gc.C)    { benchmarkAddMetrics(10, 1, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics10_10(c *gc.C)   { benchmarkAddMetrics(10, 10, c) }
+func (*BenchmarkSuite) BenchmarkAddMetrics10_100(c *gc.C)  { benchmarkAddMetrics(10, 100, c) }
+
+func benchmarkAddMetrics(metricsPerBatch, batches int, c *gc.C) {
 	var s ConnSuite
 	s.SetUpSuite(c)
 	defer s.TearDownSuite(c)
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
 	now := time.Now()
-	metrics := make([]state.Metric, metricsperBatch)
+	metrics := make([]state.Metric, metricsPerBatch)
 	for i, _ := range metrics {
 		metrics[i] = state.Metric{
 			Key:         "metricKey",
@@ -76,7 +84,6 @@ func (*BenchmarkSuite) BenchmarkAddMetrics(c *gc.C) {
 	serviceCharmURL, _ := svc.CharmURL()
 	err = unit.SetCharmURL(serviceCharmURL)
 	c.Assert(err, gc.IsNil)
-	c.Assert(err, gc.IsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		for n := 0; n < batches; n++ {
@@ -86,13 +93,16 @@ func (*BenchmarkSuite) BenchmarkAddMetrics(c *gc.C) {
 	}
 }
 
+// BenchmarkCleanupMetrics needs to add metrics each time over the cycle.
+// Because of this the benchmark includes addmetric time
 func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
+	numberOfMetrics := 50
 	var s ConnSuite
 	s.SetUpSuite(c)
 	defer s.TearDownSuite(c)
 	s.SetUpTest(c)
 	defer s.TearDownTest(c)
-	oldTime := time.Now().Add(-(time.Hour * 25))
+	oldTime := time.Now().Add(-(state.CleanupAge))
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc := s.AddTestingService(c, "wordpress", charm)
 	unit, err := svc.AddUnit()
@@ -102,7 +112,7 @@ func (*BenchmarkSuite) BenchmarkCleanupMetrics(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		for i := 0; i < 50; i++ {
+		for i := 0; i < numberOfMetrics; i++ {
 			m, err := unit.AddMetrics(oldTime, []state.Metric{{}})
 			c.Assert(err, gc.IsNil)
 			err = m.SetSent()

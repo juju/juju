@@ -19,6 +19,10 @@ import (
 
 var metricsLogger = loggo.GetLogger("juju.state.metrics")
 
+const (
+	CleanupAge = time.Hour * 24
+)
+
 // MetricBatch represents a batch of metrics reported from a unit.
 // These will be received from the unit in batches.
 // The main contents of the metric (key, value) is defined
@@ -133,7 +137,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(time.Hour * 24))
+	age := time.Now().Add(-(CleanupAge))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
