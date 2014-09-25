@@ -76,7 +76,6 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 		filepath.Join(rootDir, paths.DataDir, toolsDir),
 
 		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
-		filepath.Join(rootDir, paths.DataDir, nonceFile),
 		filepath.Join(rootDir, paths.LogsDir, allMachinesLog),
 		filepath.Join(rootDir, paths.LogsDir, machine0Log),
 
@@ -87,6 +86,16 @@ func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, initConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
+
+	// Handle nonce.txt (might not exist).
+	nonce := filepath.Join(rootDir, paths.DataDir, nonceFile)
+	if _, err := os.Stat(nonce); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		backupFiles = append(backupFiles, nonce)
+	}
 
 	// Handle user SSH files (might not exist).
 	SSHDir := filepath.Join(rootDir, sshDir)
