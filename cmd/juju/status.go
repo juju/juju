@@ -36,6 +36,13 @@ There are a number of ways to format the status output:
            - MACHINES: total #, and # in each state.
            - UNITS: total #, and # in each state.
            - SERVICES: total #, and # exposed of each service.
+- tabular: Displays information in a tabular format in these sections:
+           - Machines: ID, STATE, VERSION, DNS, INS-ID, SERIES, HARDWARE
+           - Services: NAME, EXPOSED, CHARM
+           - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
+             - Also displays subordinate units.
+- yaml (DEFAULT): Displays information on machines, services, and units
+                  in the yaml format.
 
 Service or unit names may be specified to filter the status to only those
 services and units that match, along with the related machines, services
@@ -64,7 +71,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"oneline": FormatOneline,
 		"tabular": FormatTabular,
-		"summary": NewSummaryFormatter().Format,
+		"summary": FormatSummary,
 	})
 }
 
