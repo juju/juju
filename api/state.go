@@ -136,7 +136,7 @@ func (st *State) Provisioner() *provisioner.State {
 func (st *State) Uniter() (*uniter.State, error) {
 	unitTag, ok := st.authTag.(names.UnitTag)
 	if !ok {
-		return nil, errors.Errorf("invalid authenticated unit tag %q", st.authTag)
+		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
 	}
 	envTag, err := st.EnvironTag()
 	if err != nil {

@@ -87,7 +87,7 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	// Now that we've logged in, EnvironTag should be updated correctly.
 	envTag, err = apistate.EnvironTag()
 	c.Check(err, gc.IsNil)
-	c.Check(envTag.String(), gc.Equals, env.EnvironTag().String())
+	c.Check(envTag, gc.Equals, env.EnvironTag())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
