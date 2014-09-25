@@ -703,6 +703,8 @@ func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
 		return state.JobHostUnits, nil
 	case params.JobManageEnviron:
 		return state.JobManageEnviron, nil
+	case params.JobManageNetworking:
+		return state.JobManageNetworking, nil
 	case params.JobManageStateDeprecated:
 		// Deprecated in 1.18.
 		return state.JobManageStateDeprecated, nil

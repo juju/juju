@@ -183,6 +183,9 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
+	// Also manually provisioned machines don't have the JobManageNetworking.
+	// This ensures that the networker is running in non-invasive mode
+	// and never touches the network configuration files.
 
 	instanceId := instance.Id(manualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
