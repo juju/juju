@@ -4,12 +4,12 @@
 package state
 
 import (
-	"github.com/juju/names"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v3"
+	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -168,5 +168,47 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 			{"owner", owner.Username()},
 		}}},
 	}}
+	return st.runTransaction(ops)
+}
+
+// AddEnvUUIDToServicesID prepends the environment UUID to the ID of all service docs.
+func AddEnvUUIDToServicesID(st *State) error {
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Annotate(err, "failed to load environment")
+	}
+
+	services, closer := st.getCollection(servicesC)
+	defer closer()
+
+	upgradesLogger.Debugf("adding the env uuid %q to the services collection", env.UUID())
+	uuid := env.UUID()
+	iter := services.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+	defer iter.Close()
+	ops := []txn.Op{}
+	var service serviceDoc
+	for iter.Next(&service) {
+		// In the old serialization, _id was mapped to the Name field.
+		// Now _id is mapped to DocID. As such, we have to get the old
+		// doc Name from the DocID field.
+		service.Name = service.DocID
+		service.EnvUUID = uuid
+		service.DocID = st.docID(service.Name)
+		ops = append(ops,
+			[]txn.Op{{
+				C:      servicesC,
+				Id:     service.Name,
+				Assert: txn.DocExists,
+				Remove: true,
+			}, {
+				C:      servicesC,
+				Id:     service.DocID,
+				Assert: txn.DocMissing,
+				Insert: service,
+			}}...)
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
 	return st.runTransaction(ops)
 }

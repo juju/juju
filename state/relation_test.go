@@ -6,8 +6,8 @@ package state_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/state"
 )
@@ -202,7 +202,7 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/deployer"
@@ -53,7 +53,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the needed services and relate them.
 	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

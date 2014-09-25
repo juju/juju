@@ -6,8 +6,8 @@ package hook_test
 import (
 	"testing"
 
-	"gopkg.in/juju/charm.v3/hooks"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -40,6 +40,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
+	{hook.Info{Kind: hooks.CollectMetrics}, ""},
 	{
 		hook.Info{Kind: hooks.ActionRequested},
 		`action id "" cannot be parsed as an action tag`,

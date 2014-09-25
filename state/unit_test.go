@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -160,7 +160,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 	subCharm := s.AddTestingCharm(c, "logging")
 	s.AddTestingService(c, "logging", subCharm)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	eps, err := s.State.InferEndpoints("wordpress", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -784,7 +784,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	// A unit with subordinates is just set to Dying.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1087,7 +1087,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
 		s.AddTestingService(c, name, subCharm)
-		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		eps, err := s.State.InferEndpoints(name, "wordpress")
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)
 		c.Assert(err, gc.IsNil)
@@ -1126,7 +1126,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1163,7 +1163,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	s.AddTestingService(c, "logging", subCharm)
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1194,7 +1194,7 @@ func (s *UnitSuite) TestRelations(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1264,7 +1264,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	wordpress := s.service
 	wordpress0 := s.unit
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1311,7 +1311,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	wordpress := s.service
 	wordpress0 := s.unit
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1372,7 +1372,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
 		subSvc := s.AddTestingService(c, name, subCharm)
-		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		eps, err := s.State.InferEndpoints(name, "wordpress")
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)
 		c.Assert(err, gc.IsNil)

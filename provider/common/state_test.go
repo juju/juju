@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
@@ -140,4 +140,78 @@ func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Check(*storedState, gc.DeepEquals, state)
+}
+
+func (suite *StateSuite) TestAddStateInstance(c *gc.C) {
+	storage := suite.newStorage(c)
+	for _, str := range []string{"a", "b", "c"} {
+		id := instance.Id(str)
+		err := common.AddStateInstance(storage, instance.Id(id))
+		c.Assert(err, gc.IsNil)
+	}
+
+	storedState, err := common.LoadState(storage)
+	c.Assert(err, gc.IsNil)
+	c.Check(storedState, gc.DeepEquals, &common.BootstrapState{
+		StateInstances: []instance.Id{
+			instance.Id("a"),
+			instance.Id("b"),
+			instance.Id("c"),
+		},
+	})
+}
+
+func (suite *StateSuite) TestRemoveStateInstancesPartial(c *gc.C) {
+	storage := suite.newStorage(c)
+	state := common.BootstrapState{
+		StateInstances: []instance.Id{
+			instance.Id("a"),
+			instance.Id("b"),
+			instance.Id("c"),
+		},
+	}
+	err := common.SaveState(storage, &state)
+	c.Assert(err, gc.IsNil)
+
+	err = common.RemoveStateInstances(
+		storage,
+		state.StateInstances[0],
+		instance.Id("not-there"),
+		state.StateInstances[2],
+	)
+	c.Assert(err, gc.IsNil)
+
+	storedState, err := common.LoadState(storage)
+	c.Assert(storedState, gc.DeepEquals, &common.BootstrapState{
+		StateInstances: []instance.Id{
+			state.StateInstances[1],
+		},
+	})
+}
+
+func (suite *StateSuite) TestRemoveStateInstancesNone(c *gc.C) {
+	storage := suite.newStorage(c)
+	state := common.BootstrapState{
+		StateInstances: []instance.Id{instance.Id("an-instance-id")},
+	}
+	err := common.SaveState(storage, &state)
+	c.Assert(err, gc.IsNil)
+
+	err = common.RemoveStateInstances(
+		storage,
+		instance.Id("not-there"),
+	)
+	c.Assert(err, gc.IsNil)
+
+	storedState, err := common.LoadState(storage)
+	c.Assert(storedState, gc.DeepEquals, &state)
+}
+
+func (suite *StateSuite) TestRemoveStateInstancesNoProviderState(c *gc.C) {
+	storage := suite.newStorage(c)
+	err := common.RemoveStateInstances(storage, instance.Id("id"))
+	// No error if the id is missing, so no error if the entire
+	// provider-state file is missing. This is the case if
+	// bootstrap failed.
+	c.Assert(err, gc.IsNil)
 }

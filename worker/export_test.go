@@ -15,14 +15,14 @@ func init() {
 	}
 }
 
-func SetMustErr(f func(watcher.Errer) error) {
+func SetEnsureErr(f func(watcher.Errer) error) {
 	if f == nil {
-		mustErr = watcher.MustErr
+		ensureErr = watcher.EnsureErr
 	} else {
-		mustErr = f
+		ensureErr = f
 	}
 }
 
-func MustErr() func(watcher.Errer) error {
-	return mustErr
+func EnsureErr() func(watcher.Errer) error {
+	return ensureErr
 }

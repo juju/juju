@@ -6,8 +6,8 @@ package localstorage_test
 import (
 	stdtesting "testing"
 
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/worker/localstorage"
 )

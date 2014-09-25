@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -169,6 +169,7 @@ var commandNames = []string{
 	"api-endpoints",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
+	"backups",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",

@@ -9,13 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/metricsmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -31,11 +32,40 @@ var _ = gc.Suite(&metricsManagerSuite{})
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
 	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.metricsmanager = manager
+}
+
+func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C) {
+	tests := []struct {
+		tag            names.Tag
+		environManager bool
+		expectedError  string
+	}{
+		{names.NewUnitTag("mysql/0"), true, "permission denied"},
+		{names.NewLocalUserTag("admin"), true, "permission denied"},
+		{names.NewMachineTag("0"), false, "permission denied"},
+		{names.NewMachineTag("0"), true, ""},
+	}
+	for i, test := range tests {
+		c.Logf("test %d", i)
+
+		anAuthoriser := s.authorizer
+		anAuthoriser.EnvironManager = test.environManager
+		anAuthoriser.Tag = test.tag
+		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
+		if test.expectedError == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(endPoint, gc.NotNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.expectedError)
+			c.Assert(endPoint, gc.IsNil)
+		}
+	}
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
@@ -45,7 +75,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
 	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
 	args := params.Entities{Entities: []params.Entity{
-		params.Entity{s.State.EnvironTag().String()},
+		{s.State.EnvironTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(err, gc.IsNil)
@@ -59,7 +89,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 
 func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		params.Entity{"invalid"},
+		{"invalid"},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 1)
@@ -68,23 +98,56 @@ func (s *metricsManagerSuite) TestCleanupOldMetricsInvalidArg(c *gc.C) {
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }
 
-func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-	endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *metricsManagerSuite) TestCleanupArgsIndependant(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	oldTime := time.Now().Add(-(time.Hour * 25))
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
+func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		params.Entity{"invalid"},
-		params.Entity{s.State.EnvironTag().String()},
+		{"invalid"},
+		{s.State.EnvironTag().String()},
 	}}
 	result, err := s.metricsmanager.CleanupOldMetrics(args)
+	c.Assert(result.Results, gc.HasLen, 2)
+	c.Assert(err, gc.IsNil)
+	expectedError := common.ServerError(common.ErrPerm)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
+func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
+	sender := &statetesting.MockSender{}
+	metricsmanager.PatchSender(sender)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	unsent := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.EnvironTag().String()},
+	}}
+	result, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(sender.Data, gc.HasLen, 1)
+	m, err := s.State.MetricBatch(unsent.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Sent(), jc.IsTrue)
+}
+
+func (s *metricsManagerSuite) TestSendOldMetricsInvalidArg(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{"invalid"},
+	}}
+	result, err := s.metricsmanager.SendMetrics(args)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(err, gc.IsNil)
+	expectedError := common.ServerError(common.ErrPerm)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+}
+
+func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{"invalid"},
+		{s.State.EnvironTag().String()},
+	}}
+	result, err := s.metricsmanager.SendMetrics(args)
 	c.Assert(result.Results, gc.HasLen, 2)
 	c.Assert(err, gc.IsNil)
 	expectedError := common.ServerError(common.ErrPerm)

@@ -1,35 +1,29 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package firewaller_test
 
 import (
-	stdtesting "testing"
+	"reflect"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
-func Test(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
-
-type firewallerSuite struct {
+// firewallerBaseSuite implements common testing suite for all API
+// versions. It's not intended to be used directly or registered as a
+// suite, but embedded.
+type firewallerBaseSuite struct {
 	testing.JujuConnSuite
-	*commontesting.EnvironWatcherTest
 
 	machines []*state.Machine
 	service  *state.Service
@@ -38,12 +32,9 @@ type firewallerSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
-	firewaller *firewaller.FirewallerAPI
 }
 
-var _ = gc.Suite(&firewallerSuite{})
-
-func (s *firewallerSuite) SetUpTest(c *gc.C) {
+func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Reset previous machines and units (if any) and create 3
@@ -78,28 +69,25 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
-
-	// Create a firewaller API for the machine.
-	firewallerAPI, err := firewaller.NewFirewallerAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
-	c.Assert(err, gc.IsNil)
-	s.firewaller = firewallerAPI
-	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
 }
 
-func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
+func (s *firewallerBaseSuite) testFirewallerFailsWithNonEnvironManagerUser(
+	c *gc.C,
+	factory func(_ *state.State, _ *common.Resources, _ common.Authorizer) error,
+) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.EnvironManager = false
-	aFirewaller, err := firewaller.NewFirewallerAPI(s.State, s.resources, anAuthorizer)
+	err := factory(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(aFirewaller, gc.IsNil)
 }
 
-func (s *firewallerSuite) TestLife(c *gc.C) {
+func (s *firewallerBaseSuite) testLife(
+	c *gc.C,
+	facade interface {
+		Life(args params.Entities) (params.LifeResults, error)
+	},
+) {
 	// Unassign unit 1 from its machine, so we can change its life cycle.
 	err := s.units[1].UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
@@ -115,7 +103,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 		{Tag: s.machines[1].Tag().String()},
 		{Tag: s.machines[2].Tag().String()},
 	}})
-	result, err := s.firewaller.Life(args)
+	result, err := facade.Life(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -142,7 +130,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 			{Tag: s.machines[1].Tag().String()},
 		},
 	}
-	result, err = s.firewaller.Life(args)
+	result, err = facade.Life(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
@@ -151,7 +139,12 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestInstanceId(c *gc.C) {
+func (s *firewallerBaseSuite) testInstanceId(
+	c *gc.C,
+	facade interface {
+		InstanceId(args params.Entities) (params.StringResults, error)
+	},
+) {
 	// Provision 2 machines first.
 	err := s.machines[0].SetProvisioned("i-am", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -166,7 +159,7 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[2].Tag().String()},
 	}})
-	result, err := s.firewaller.InstanceId(args)
+	result, err := facade.InstanceId(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -185,10 +178,15 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestWatchEnvironMachines(c *gc.C) {
+func (s *firewallerBaseSuite) testWatchEnvironMachines(
+	c *gc.C,
+	facade interface {
+		WatchEnvironMachines() (params.StringsWatchResult, error)
+	},
+) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	got, err := s.firewaller.WatchEnvironMachines()
+	got, err := facade.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -208,7 +206,18 @@ func (s *firewallerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *firewallerSuite) TestWatch(c *gc.C) {
+const (
+	canWatchUnits    = true
+	cannotWatchUnits = false
+)
+
+func (s *firewallerBaseSuite) testWatch(
+	c *gc.C,
+	facade interface {
+		Watch(args params.Entities) (params.NotifyWatchResults, error)
+	},
+	allowUnits bool,
+) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
@@ -216,40 +225,70 @@ func (s *firewallerSuite) TestWatch(c *gc.C) {
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := s.firewaller.Watch(args)
+	result, err := facade.Watch(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{NotifyWatcherId: "1"},
-			{NotifyWatcherId: "2"},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-			{Error: apiservertesting.NotFoundError(`service "bar"`)},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
+	if allowUnits {
+		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{
+				{Error: apiservertesting.ErrUnauthorized},
+				{NotifyWatcherId: "1"},
+				{NotifyWatcherId: "2"},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
+				{Error: apiservertesting.NotFoundError(`service "bar"`)},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.ErrUnauthorized},
+			},
+		})
+	} else {
+		c.Assert(result, jc.DeepEquals, params.NotifyWatchResults{
+			Results: []params.NotifyWatchResult{
+				{Error: apiservertesting.ErrUnauthorized},
+				{NotifyWatcherId: "1"},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.NotFoundError(`service "bar"`)},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.ErrUnauthorized},
+				{Error: apiservertesting.ErrUnauthorized},
+			},
+		})
+	}
 
 	// Verify the resources were registered and stop when done.
-	c.Assert(s.resources.Count(), gc.Equals, 2)
+	if allowUnits {
+		c.Assert(s.resources.Count(), gc.Equals, 2)
+	} else {
+		c.Assert(s.resources.Count(), gc.Equals, 1)
+	}
 	c.Assert(result.Results[1].NotifyWatcherId, gc.Equals, "1")
 	watcher1 := s.resources.Get("1")
 	defer statetesting.AssertStop(c, watcher1)
-	c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
-	watcher2 := s.resources.Get("2")
-	defer statetesting.AssertStop(c, watcher2)
+	var watcher2 common.Resource
+	if allowUnits {
+		c.Assert(result.Results[2].NotifyWatcherId, gc.Equals, "2")
+		watcher2 = s.resources.Get("2")
+		defer statetesting.AssertStop(c, watcher2)
+	}
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
 	wc1 := statetesting.NewNotifyWatcherC(c, s.State, watcher1.(state.NotifyWatcher))
 	wc1.AssertNoChange()
-	wc2 := statetesting.NewNotifyWatcherC(c, s.State, watcher2.(state.NotifyWatcher))
-	wc2.AssertNoChange()
+	if allowUnits {
+		wc2 := statetesting.NewNotifyWatcherC(c, s.State, watcher2.(state.NotifyWatcher))
+		wc2.AssertNoChange()
+	}
 }
 
-func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
+func (s *firewallerBaseSuite) testWatchUnits(
+	c *gc.C,
+	facade interface {
+		WatchUnits(args params.Entities) (params.StringsWatchResults, error)
+	},
+) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
@@ -257,7 +296,7 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 		{Tag: s.service.Tag().String()},
 		{Tag: s.units[0].Tag().String()},
 	}})
-	result, err := s.firewaller.WatchUnits(args)
+	result, err := facade.WatchUnits(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
@@ -285,7 +324,12 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *firewallerSuite) TestGetExposed(c *gc.C) {
+func (s *firewallerBaseSuite) testGetExposed(
+	c *gc.C,
+	facade interface {
+		GetExposed(args params.Entities) (params.BoolResults, error)
+	},
+) {
 	// Set the service to exposed first.
 	err := s.service.SetExposed()
 	c.Assert(err, gc.IsNil)
@@ -293,7 +337,7 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
 		{Tag: s.service.Tag().String()},
 	}})
-	result, err := s.firewaller.GetExposed(args)
+	result, err := facade.GetExposed(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -314,7 +358,7 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.service.Tag().String()},
 	}}
-	result, err = s.firewaller.GetExposed(args)
+	result, err = facade.GetExposed(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
@@ -323,53 +367,12 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
-	// Open some ports on two of the units.
-	err := s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, gc.IsNil)
-	err = s.units[0].OpenPort("tcp", 4321)
-	c.Assert(err, gc.IsNil)
-	err = s.units[2].OpenPort("tcp", 1111)
-	c.Assert(err, gc.IsNil)
-
-	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.units[0].Tag().String()},
-		{Tag: s.units[1].Tag().String()},
-		{Tag: s.units[2].Tag().String()},
-	}})
-	result, err := s.firewaller.OpenedPorts(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, params.PortsResults{
-		Results: []params.PortsResult{
-			{Ports: []network.Port{{"tcp", 1234}, {"tcp", 4321}}},
-			{Ports: []network.Port{}},
-			{Ports: []network.Port{{"tcp", 1111}}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Now close unit 2's port and check again.
-	err = s.units[2].ClosePort("tcp", 1111)
-	c.Assert(err, gc.IsNil)
-
-	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.units[2].Tag().String()},
-	}}
-	result, err = s.firewaller.OpenedPorts(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, jc.DeepEquals, params.PortsResults{
-		Results: []params.PortsResult{
-			{Ports: []network.Port{}},
-		},
-	})
-}
-
-func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
+func (s *firewallerBaseSuite) testGetAssignedMachine(
+	c *gc.C,
+	facade interface {
+		GetAssignedMachine(args params.Entities) (params.StringResults, error)
+	},
+) {
 	// Unassign a unit first.
 	err := s.units[2].UnassignFromMachine()
 	c.Assert(err, gc.IsNil)
@@ -379,7 +382,7 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 		{Tag: s.units[1].Tag().String()},
 		{Tag: s.units[2].Tag().String()},
 	}})
-	result, err := s.firewaller.GetAssignedMachine(args)
+	result, err := facade.GetAssignedMachine(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -402,7 +405,7 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	args = params.Entities{Entities: []params.Entity{
 		{Tag: s.units[2].Tag().String()},
 	}}
-	result, err = s.firewaller.GetAssignedMachine(args)
+	result, err = facade.GetAssignedMachine(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
@@ -411,10 +414,19 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	})
 }
 
-func (s *firewallerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
+func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
 	err := s.machines[index].Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
+}
+
+func (s *firewallerBaseSuite) assertNotImplemented(c *gc.C, apiFacade interface{}, methodName string) {
+	val := reflect.ValueOf(apiFacade)
+	c.Assert(val.IsValid(), jc.IsTrue)
+	indir := reflect.Indirect(val)
+	c.Assert(indir.IsValid(), jc.IsTrue)
+	method := indir.MethodByName(methodName)
+	c.Assert(method.IsValid(), jc.IsFalse)
 }
 
 var commonFakeEntities = []params.Entity{

@@ -4,19 +4,16 @@
 package jujutest
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -24,10 +21,12 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	envtoolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
@@ -45,6 +44,8 @@ import (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
+	gitjujutesting.CleanupSuite
+
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
@@ -73,10 +74,24 @@ type LiveTests struct {
 
 	prepared     bool
 	bootstrapped bool
+	toolsStorage storage.Storage
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
+	t.CleanupSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
+}
+
+func (t *LiveTests) SetUpTest(c *gc.C) {
+	t.CleanupSuite.SetUpTest(c)
+	storageDir := c.MkDir()
+	t.DefaultBaseURL = "file://" + storageDir + "/tools"
+	t.ToolsFixture.SetUpTest(c)
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	t.UploadFakeTools(c, stor)
+	t.toolsStorage = stor
+	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
@@ -94,6 +109,12 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
 	t.Destroy(c)
+	t.CleanupSuite.TearDownSuite(c)
+}
+
+func (t *LiveTests) TearDownTest(c *gc.C) {
+	t.ToolsFixture.TearDownTest(c)
+	t.CleanupSuite.TearDownTest(c)
 }
 
 // PrepareOnce ensures that the environment is
@@ -120,10 +141,9 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.Env.Storage(), nil, coretesting.FakeDefaultSeries)
+		_, err := sync.Upload(t.toolsStorage, nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
-	t.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
@@ -158,7 +178,6 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.BootstrapOnce(c)
-	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
@@ -212,7 +231,6 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.BootstrapOnce(c)
-	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
@@ -303,7 +321,6 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	t.BootstrapOnce(c)
-	t.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
 	oldConfig := t.Env.Config()
@@ -395,8 +412,12 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("opening state")
 	st := t.Env.(testing.GetStater).GetStateInAPIServer()
 
+	env, err := st.Environment()
+	c.Assert(err, gc.IsNil)
+	owner := env.Owner()
+
 	c.Logf("opening API connection")
-	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
+	apiState, err := juju.NewAPIState(owner, t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer apiState.Close()
 
@@ -441,7 +462,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	url := charmtesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := testing.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := st.AddService("dummy", "user-admin", sch, nil)
+	svc, err := st.AddService("dummy", owner.String(), sch, nil)
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(st, svc, 1, "")
 	c.Assert(err, gc.IsNil)
@@ -515,41 +536,6 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, t.Env, instId1)
-}
-
-func (t *LiveTests) TestBootstrapVerifyStorage(c *gc.C) {
-	// Bootstrap automatically verifies that storage is writable.
-	t.BootstrapOnce(c)
-	environ := t.Env
-	stor := environ.Storage()
-	reader, err := storage.Get(stor, "bootstrap-verify")
-	c.Assert(err, gc.IsNil)
-	defer reader.Close()
-	contents, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(contents), gc.Equals,
-		"juju-core storage writing verified: ok\n")
-}
-
-func restoreBootstrapVerificationFile(c *gc.C, stor storage.Storage) {
-	content := "juju-core storage writing verified: ok\n"
-	contentReader := strings.NewReader(content)
-	err := stor.Put("bootstrap-verify", contentReader,
-		int64(len(content)))
-	c.Assert(err, gc.IsNil)
-}
-
-func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
-	// When new connection is established to a bootstraped environment,
-	// it is checked that we are running against a juju-core environment.
-	if !t.CanOpenState {
-		c.Skip("CanOpenState is false; cannot open state connection")
-	}
-	t.BootstrapOnce(c)
-
-	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
-	apiState.Close()
 }
 
 type tooler interface {
@@ -652,7 +638,7 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := sync.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
+	upgradeTools, err := sync.Upload(t.toolsStorage, &newVersion.Number, newVersion.Series)
 	c.Assert(err, gc.IsNil)
 	// sync.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
@@ -735,56 +721,6 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 	c.Assert(gotId, gc.Equals, wantId)
 }
 
-// TODO check that binary data works ok?
-var contents = []byte("hello\n")
-var contents2 = []byte("goodbye\n\n")
-
-func (t *LiveTests) TestFile(c *gc.C) {
-	t.PrepareOnce(c)
-	name := fmt.Sprint("testfile", time.Now().UnixNano())
-	stor := t.Env.Storage()
-
-	checkFileDoesNotExist(c, stor, name, t.Attempt)
-	checkPutFile(c, stor, name, contents)
-	checkFileHasContents(c, stor, name, contents, t.Attempt)
-	checkPutFile(c, stor, name, contents2) // check that we can overwrite the file
-	checkFileHasContents(c, stor, name, contents2, t.Attempt)
-
-	// check that the listed contents include the
-	// expected name.
-	found := false
-	var names []string
-attempt:
-	for a := t.Attempt.Start(); a.Next(); {
-		var err error
-		names, err = stor.List("")
-		c.Assert(err, gc.IsNil)
-		for _, lname := range names {
-			if lname == name {
-				found = true
-				break attempt
-			}
-		}
-	}
-	if !found {
-		c.Errorf("file name %q not found in file list %q", name, names)
-	}
-	err := stor.Remove(name)
-	c.Check(err, gc.IsNil)
-	checkFileDoesNotExist(c, stor, name, t.Attempt)
-	// removing a file that does not exist should not be an error.
-	err = stor.Remove(name)
-	c.Check(err, gc.IsNil)
-
-	// RemoveAll deletes all files from storage.
-	checkPutFile(c, stor, "file-1.txt", contents)
-	checkPutFile(c, stor, "file-2.txt", contents)
-	err = stor.RemoveAll()
-	c.Check(err, gc.IsNil)
-	checkFileDoesNotExist(c, stor, "file-1.txt", t.Attempt)
-	checkFileDoesNotExist(c, stor, "file-2.txt", t.Attempt)
-}
-
 // Check that we get a consistent error when asking for an instance without
 // a valid machine config.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
@@ -795,7 +731,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-trusty-amd64"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, version.MustParseBinary("5.4.5-trusty-amd64"))
 	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
@@ -837,22 +773,6 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
-	currentName := envtools.StorageName(current)
-	otherName := envtools.StorageName(other)
-	envStorage := env.Storage()
-	dummyStorage := dummyenv.Storage()
-
-	defer envStorage.Remove(otherName)
-
-	_, err = sync.Upload(dummyStorage, &current.Number)
-	c.Assert(err, gc.IsNil)
-
-	// This will only work while cross-compiling across releases is safe,
-	// which depends on external elements. Tends to be safe for the last
-	// few releases, but we may have to refactor some day.
-	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
-	c.Assert(err, gc.IsNil)
-
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -865,18 +785,4 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	defer mw0.Stop()
 
 	waitAgentTools(c, mw0, other)
-}
-
-func storageCopy(source storage.Storage, sourcePath string, target storage.Storage, targetPath string) error {
-	rc, err := storage.Get(source, sourcePath)
-	if err != nil {
-		return err
-	}
-	var buf bytes.Buffer
-	_, err = io.Copy(&buf, rc)
-	rc.Close()
-	if err != nil {
-		return err
-	}
-	return target.Put(targetPath, &buf, int64(buf.Len()))
 }

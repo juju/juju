@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -287,6 +288,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 	for i, test := range upgradeJujuTests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
+		tools.DefaultBaseURL = ""
 
 		// Set up apparent CLI version and initialize the command.
 		version.Current = version.MustParseBinary(test.currentVersion)
@@ -304,7 +306,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
 			"agent-version":      test.agentVersion,
-			"tools-metadata-url": "file://" + toolsDir,
+			"tools-metadata-url": "file://" + toolsDir + "/tools",
 		}
 		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 		c.Assert(err, gc.IsNil)
@@ -313,7 +315,6 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			envtesting.MustUploadFakeToolsVersions(s.Environ.Storage(), versions...)
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, versions...)
@@ -391,7 +392,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 // in the environment state.
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
-	envtesting.RemoveTools(c, s.Environ.Storage())
+	envtesting.RemoveTools(c, s.DefaultToolsStorage)
 	updateAttrs := map[string]interface{}{
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
@@ -473,6 +474,7 @@ upgrade to this version by running
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
 		s.Reset(c)
+		tools.DefaultBaseURL = ""
 
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &UpgradeJujuCommand{}
@@ -481,7 +483,7 @@ upgrade to this version by running
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
 			"agent-version":      test.agentVersion,
-			"tools-metadata-url": "file://" + toolsDir,
+			"tools-metadata-url": "file://" + toolsDir + "/tools",
 		}
 
 		err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
@@ -491,7 +493,6 @@ upgrade to this version by running
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			envtesting.MustUploadFakeToolsVersions(s.Environ.Storage(), versions...)
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, versions...)
@@ -526,7 +527,7 @@ func (s *UpgradeJujuSuite) TestUpgradeInProgress(c *gc.C) {
 	err = cmd.Run(coretesting.Context(c))
 	c.Assert(err, gc.ErrorMatches, "a message from the server about the problem\n"+
 		"\n"+
-		"please wait for the upgrade to complete or if there was a problem with\n"+
+		"Please wait for the upgrade to complete or if there was a problem with\n"+
 		"the last upgrade that has been resolved, consider running the\n"+
 		"upgrade-juju command with the --reset-previous-upgrade flag.",
 	)
@@ -632,7 +633,7 @@ func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
 func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
 	result params.FindToolsResult, err error,
 ) {
-	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", []string{a.nextVersion.String()})
+	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", "released", []string{a.nextVersion.String()})
 	return params.FindToolsResult{
 		List:  tools,
 		Error: nil,

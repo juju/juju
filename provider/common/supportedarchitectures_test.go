@@ -5,9 +5,10 @@ package common_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/provider/common"
@@ -22,10 +23,8 @@ var _ = gc.Suite(&archSuite{})
 
 func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, simplestreams.CloudSpec) {
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
-	stor := newStorage(s, c)
 	env := &mockEnviron{
-		storage: stor,
-		config:  configGetter(c),
+		config: configGetter(c),
 	}
 
 	var images []*imagemetadata.ImageMetadata
@@ -48,8 +47,21 @@ func (s *archSuite) setupMetadata(c *gc.C, arches []string) (environs.Environ, s
 		Region:   "Region",
 		Endpoint: "https://endpoint/",
 	}
-	err := imagemetadata.MergeAndWriteMetadata("precise", images, &cloudSpec, env.Storage())
+
+	metadataDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, gc.IsNil)
+	err = imagemetadata.MergeAndWriteMetadata("precise", images, &cloudSpec, stor)
+	c.Assert(err, gc.IsNil)
+
+	id := "SupportedArchitectures"
+	environs.RegisterImageDataSourceFunc(id, func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource(id, "file://"+metadataDir+"/images", false), nil
+	})
+	s.AddCleanup(func(*gc.C) {
+		environs.UnregisterImageDataSourceFunc(id)
+	})
+
 	return env, cloudSpec
 }
 

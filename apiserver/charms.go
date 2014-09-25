@@ -23,7 +23,7 @@ import (
 
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
@@ -406,12 +406,7 @@ func (h *charmsHandler) processGet(r *http.Request) (string, string, error) {
 // downloadCharm downloads the given charm name from the provider storage and
 // saves the corresponding zip archive to the given charmArchivePath.
 func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) error {
-	storage, err := h.state.Storage()
-	if err != nil {
-		return errors.Annotate(err, "cannot access provider storage")
-	}
-	defer storage.Close()
-
+	storage := h.state.Storage()
 	ch, err := h.state.Charm(curl)
 	if err != nil {
 		return errors.Annotate(err, "cannot get charm from state")

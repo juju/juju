@@ -13,8 +13,8 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -50,12 +50,10 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	s.owner = names.NewLocalUserTag("test-admin")
+	st, err := Initialize(s.owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.State = st
-	env, err := st.Environment()
-	c.Assert(err, gc.IsNil)
-	s.owner = env.Owner()
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
@@ -138,7 +136,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Subordinate: true,
 	})
 
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -589,7 +587,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 				AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"), s.owner)
 
 				AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"), s.owner)
-				eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
+				eps, err := st.InferEndpoints("logging", "wordpress")
 				c.Assert(err, gc.IsNil)
 				_, err = st.AddRelation(eps...)
 				c.Assert(err, gc.IsNil)

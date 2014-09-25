@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names"
 	patchtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -70,7 +70,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "wordpress",
 		Charm:   s.wpCharm,
-		Creator: s.AdminUserTag(c).String(),
+		Creator: s.AdminUserTag(c),
 	})
 	mysqlCharm := factory.MakeCharm(c, &jujuFactory.CharmParams{
 		Name: "mysql",
@@ -78,7 +78,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.mysql = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "mysql",
 		Charm:   mysqlCharm,
-		Creator: s.AdminUserTag(c).String(),
+		Creator: s.AdminUserTag(c),
 	})
 	s.wordpressUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Service: s.wordpress,
@@ -1195,7 +1195,7 @@ func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
-	eps, err := s.State.InferEndpoints([]string{first, second})
+	eps, err := s.State.InferEndpoints(first, second)
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

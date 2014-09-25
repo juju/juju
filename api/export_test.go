@@ -23,7 +23,7 @@ func SetServerRoot(c *Client, root string) {
 	c.st.serverRoot = root
 }
 
-// SetEnvironTag patches the value of the environment tag.
+// PatchEnvironTag patches the value of the environment tag.
 // It returns a function that reverts the change.
 func PatchEnvironTag(st *State, envTag string) func() {
 	originalTag := st.environTag
@@ -75,6 +75,10 @@ type resultCaller struct {
 
 func (f *resultCaller) FacadeCall(request string, params, response interface{}) error {
 	return f.mockCall(request, params, response)
+}
+
+func (f *resultCaller) Name() string {
+	return ""
 }
 
 func (f *resultCaller) BestAPIVersion() int {

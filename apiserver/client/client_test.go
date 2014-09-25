@@ -15,9 +15,9 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -31,6 +31,7 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -58,7 +59,7 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	auth := testing.FakeAuthorizer{
-		Tag:            names.NewUserTag(state.AdminUser),
+		Tag:            s.AdminUserTag(c),
 		EnvironManager: true,
 	}
 	s.client, err = client.NewClient(s.State, common.NewResources(), auth)
@@ -111,7 +112,7 @@ func (s *serverSuite) TestEnsureAvailabilityDeprecated(c *gc.C) {
 func (s *serverSuite) TestShareEnvironmentAddMissingLocalFails(c *gc.C) {
 	args := params.ModifyEnvironUsers{
 		Changes: []params.ModifyEnvironUser{{
-			UserTag: names.NewUserTag("foobar").String(),
+			UserTag: names.NewLocalUserTag("foobar").String(),
 			Action:  params.AddEnvUser,
 		}}}
 
@@ -161,7 +162,7 @@ func (s *serverSuite) TestShareEnvironmentAddLocalUser(c *gc.C) {
 	envUser, err := s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.UserTag().Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
@@ -182,7 +183,7 @@ func (s *serverSuite) TestShareEnvironmentAddRemoteUser(c *gc.C) {
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
-	c.Assert(envUser.CreatedBy(), gc.Equals, "admin@local")
+	c.Assert(envUser.CreatedBy(), gc.Equals, dummy.AdminUserTag().Username())
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
@@ -923,7 +924,7 @@ func (s *clientSuite) TestDestroySubordinateUnits(c *gc.C) {
 	wordpress0, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1552,7 +1553,7 @@ func (s *clientSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	s.setUpScenario(c)
 	// Add a relation between wordpress and mysql.
 	endpoints := []string{"wordpress", "mysql"}
-	eps, err := s.State.InferEndpoints(endpoints)
+	eps, err := s.State.InferEndpoints(endpoints...)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1564,7 +1565,7 @@ func (s *clientSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 func (s *clientSuite) assertDestroyRelation(c *gc.C, endpoints []string) {
 	s.setUpScenario(c)
 	// Add a relation between the endpoints.
-	eps, err := s.State.InferEndpoints(endpoints)
+	eps, err := s.State.InferEndpoints(endpoints...)
 	c.Assert(err, gc.IsNil)
 	relation, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1623,7 +1624,7 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 	s.setUpScenario(c)
 
 	// Add a relation between wordpress and mysql.
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1919,7 +1920,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.12.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -2304,12 +2305,9 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	defer restore()
 
 	blobs := make(map[string]bool)
-	s.PatchValue(client.StateStorage, func(st *state.State) (state.Storage, error) {
-		storage, err := st.Storage()
-		if err != nil {
-			return nil, err
-		}
-		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}, nil
+	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
+		storage := st.Storage()
+		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}
 	})
 
 	client := s.APIState.Client()
@@ -2340,9 +2338,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Verify it's in state and it got uploaded.
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	sch, err = s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
@@ -2430,12 +2426,9 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	var blobsMu sync.Mutex
 	blobs := make(map[string]bool)
-	s.PatchValue(client.StateStorage, func(st *state.State) (state.Storage, error) {
-		storage, err := st.Storage()
-		if err != nil {
-			return nil, err
-		}
-		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs}, nil
+	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
+		storage := st.Storage()
+		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs}
 	})
 
 	client := s.APIState.Client()
@@ -2474,9 +2467,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 		}
 	}
 
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	s.assertUploaded(c, storage, sch.StoragePath(), sch.BundleSha256())
 }
 

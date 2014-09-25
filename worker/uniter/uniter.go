@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	proxyutils "github.com/juju/utils/proxy"
-	corecharm "gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	corecharm "gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent/tools"
@@ -354,7 +354,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
 
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
@@ -372,11 +372,14 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 	u.proxyMutex.Lock()
 	defer u.proxyMutex.Unlock()
 
+	// Metrics can only be added in collect-metrics hooks.
+	canAddMetrics := hookKind == hooks.CollectMetrics
+
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		actionParams)
+		actionParams, canAddMetrics)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -426,7 +429,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "", map[string]interface{}(nil))
+	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", map[string]interface{}(nil))
 	if err != nil {
 		return nil, err
 	}
@@ -525,7 +528,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, actionParams)
+	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, actionParams)
 	if err != nil {
 		return err
 	}
@@ -786,7 +789,7 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 			return tomb.ErrDying
 		case _, ok := <-w.Changes():
 			if !ok {
-				return watcher.MustErr(w)
+				return watcher.EnsureErr(w)
 			}
 			err := r.Join()
 			if params.IsCodeCannotEnterScopeYet(err) {

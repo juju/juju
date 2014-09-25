@@ -4,7 +4,7 @@
 package imagemetadata_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -27,8 +27,7 @@ func assertFetch(c *gc.C, stor storage.Storage, series, arch, region, endpoint, 
 		Arches:    []string{arch},
 	})
 	dataSource := storage.NewStorageSimpleStreamsDataSource("test datasource", stor, "images")
-	metadata, _, err := imagemetadata.Fetch(
-		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, cons, false)
+	metadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{dataSource}, cons, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 1)
 	c.Assert(metadata[0].Id, gc.Equals, id)

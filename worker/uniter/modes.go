@@ -7,8 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -176,7 +176,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case _, ok := <-w.Changes():
 			if !ok {
-				return nil, watcher.MustErr(w)
+				return nil, watcher.EnsureErr(w)
 			}
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err

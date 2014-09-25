@@ -16,9 +16,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -224,9 +224,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 
 	c.Assert(sch.BundleSha256(), gc.Equals, expectedSHA256)
 
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
@@ -303,9 +301,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Get it from the storage and try to read it as a bundle - it
 	// should succeed, because it was repackaged during upload to
 	// strip nested dirs.
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
+	storage := s.State.Storage()
 	reader, _, err := storage.Get(sch.StoragePath())
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()

@@ -6,7 +6,7 @@ package environs_test
 import (
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"

@@ -11,6 +11,8 @@ var (
 	CharmBundleURL            = &charmBundleURL
 	CharmStoragePath          = &charmStoragePath
 	StateAddCharmStoragePaths = &stateAddCharmStoragePaths
+	StateStorage              = &stateStorage
+	StateToolsStorage         = &stateToolsStorage
 
 	ChownPath      = &chownPath
 	IsLocalEnviron = &isLocalEnviron
@@ -25,6 +27,9 @@ var (
 	MigrateLocalProviderAgentConfig        = migrateLocalProviderAgentConfig
 
 	// 121 upgrade functions
-	StepsFor121         = stepsFor121
-	MigrateCharmStorage = migrateCharmStorage
+	StepsFor121a1              = stepsFor121a1
+	StepsFor121a2              = stepsFor121a2
+	MigrateCharmStorage        = migrateCharmStorage
+	MigrateCustomImageMetadata = migrateCustomImageMetadata
+	MigrateToolsStorage        = migrateToolsStorage
 )

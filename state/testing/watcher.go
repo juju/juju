@@ -8,7 +8,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -21,6 +21,16 @@ type Stopper interface {
 
 func AssertStop(c *gc.C, stopper Stopper) {
 	c.Assert(stopper.Stop(), gc.IsNil)
+}
+
+type KillWaiter interface {
+	Kill()
+	Wait() error
+}
+
+func AssertKillAndWait(c *gc.C, killWaiter KillWaiter) {
+	killWaiter.Kill()
+	c.Assert(killWaiter.Wait(), gc.IsNil)
 }
 
 // AssertCanStopWhenSending ensures even when there are changes

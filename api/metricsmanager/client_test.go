@@ -4,15 +4,13 @@
 package metricsmanager_test
 
 import (
-	"time"
-
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/metricsmanager"
+	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type metricsManagerSuite struct {
@@ -30,15 +28,44 @@ func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	oldTime := time.Now().Add(-(time.Hour * 25))
-	newTime := time.Now()
-	oldMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &oldTime})
-	newMetric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &newTime})
+	var called bool
+	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "CleanupOldMetrics")
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
 	err := s.manager.CleanupOldMetrics()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.MetricBatch(oldMetric.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.State.MetricBatch(newMetric.UUID())
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
+	var called bool
+	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "SendMetrics")
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		return nil
+	})
+	err := s.manager.SendMetrics()
 	c.Assert(err, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *metricsManagerSuite) TestSendMetricsFails(c *gc.C) {
+	var called bool
+	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "SendMetrics")
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		return result.OneError()
+	})
+	err := s.manager.SendMetrics()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(called, jc.IsTrue)
 }

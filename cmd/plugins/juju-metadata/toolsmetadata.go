@@ -26,6 +26,7 @@ type ToolsMetadataCommand struct {
 	envcmd.EnvCommandBase
 	fetch       bool
 	metadataDir string
+	stream      string
 	public      bool
 }
 
@@ -38,6 +39,7 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 
 func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
+	f.StringVar(&c.stream, "stream", envtools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 }
 
@@ -65,7 +67,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 		sourceDataSource := simplestreams.NewURLDataSource("local source", source, utils.VerifySSLHostnames)
 		toolsList, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
+			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{}, c.stream,
 			version.Current.Major, minorVersion, coretools.Filter{})
 	}
 	if err != nil {
@@ -80,14 +82,14 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if c.public {
 		writeMirrors = envtools.WriteMirrors
 	}
-	return mergeAndWriteMetadata(targetStorage, toolsList, writeMirrors)
+	return mergeAndWriteMetadata(targetStorage, c.stream, toolsList, writeMirrors)
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
 // resolves metadata for existing tools by fetching them and computing
 // size/sha256 locally.
-func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors) error {
-	existing, err := envtools.ReadMetadata(stor)
+func mergeAndWriteMetadata(stor storage.Storage, stream string, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors) error {
+	existing, err := envtools.ReadMetadata(stor, stream)
 	if err != nil {
 		return err
 	}
@@ -98,5 +100,5 @@ func mergeAndWriteMetadata(stor storage.Storage, toolsList coretools.List, write
 	if err = envtools.ResolveMetadata(stor, metadata); err != nil {
 		return err
 	}
-	return envtools.WriteMetadata(stor, metadata, writeMirrors)
+	return envtools.WriteMetadata(stor, stream, metadata, writeMirrors)
 }

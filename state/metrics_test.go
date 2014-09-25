@@ -8,9 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type MetricSuite struct {
@@ -33,10 +36,12 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
+	envUUID := s.State.EnvironTag().Id()
 	m := state.Metric{"item", "5", now, []byte("creds")}
 	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "wordpress/0")
+	c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
 	c.Assert(metricBatch.Sent(), gc.Equals, false)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
@@ -134,6 +139,11 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
+	err := s.State.CleanupOldMetrics()
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte("creds")}
@@ -146,4 +156,98 @@ func (s *MetricSuite) TestMetricBatches(c *gc.C) {
 	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
 	c.Assert(metricBatches[0].Sent(), gc.Equals, false)
 	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+}
+
+// TestSendMetrics creates 2 unsent metrics and a sent metric
+// and checks that the 2 unsent metrics get sent and have their
+// sent field set to true.
+func (s *MetricSuite) TestSendMetrics(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	unsent1 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+	unsent2 := s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	sender := &testing.MockSender{}
+	err := s.State.SendMetrics(sender, 10)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(sender.Data, gc.HasLen, 1)
+
+	c.Assert(sender.Data[0], gc.HasLen, 2)
+
+	sent1, err := s.State.MetricBatch(unsent1.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent1.Sent(), jc.IsTrue)
+
+	sent2, err := s.State.MetricBatch(unsent2.UUID())
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent2.Sent(), jc.IsTrue)
+}
+
+// TestSendBulkMetrics tests the logic of splitting sends
+// into batches is done correctly. The batch size is changed
+// to send batches of 10 metrics. If we create 100 metrics 10 calls
+// will be made to the sender
+func (s *MetricSuite) TestSendBulkMetrics(c *gc.C) {
+	sender := &testing.MockSender{}
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	for i := 0; i < 100; i++ {
+		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+	}
+	err := s.State.SendMetrics(sender, 10)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(sender.Data, gc.HasLen, 10)
+	for i := 0; i < 10; i++ {
+		c.Assert(sender.Data, gc.HasLen, 10)
+	}
+}
+
+// TestCountMetrics asserts the correct values are returned
+// by countofUnsentMetrics and countofSentMetrics.
+func (s *MetricSuite) TestCountMetrics(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	sent, err := state.CountofSentMetrics(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 1)
+	unsent, err := state.CountofUnsentMetrics(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsent, gc.Equals, 2)
+	c.Assert(unsent+sent, gc.Equals, 3)
+}
+
+// TestDontSendWithNopSender check that if the default sender
+// is nil we don't send anything, but still mark the items as sent
+func (s *MetricSuite) TestDontSendWithNilSender(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	}
+	err := s.State.SendMetrics(&metricsender.NopSender{}, 10)
+	c.Assert(err, gc.IsNil)
+	sent, err := state.CountofSentMetrics(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 3)
+
+}
+
+func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	metrics := make([]*state.MetricBatch, 3)
+	for i, _ := range metrics {
+		metrics[i] = s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	}
+	err := state.SetMetricBatchesSent(s.State, metrics)
+	c.Assert(err, gc.IsNil)
+	sent, err := state.CountofSentMetrics(s.State)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 3)
+
 }

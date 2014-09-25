@@ -31,8 +31,14 @@ func init() {
 }
 
 const (
+	// ImageIds is the simplestreams tools content type.
 	ContentDownload = "content-download"
+
+	// StreamsVersionV1 is used to construct the path for accessing streams data.
+	StreamsVersionV1 = "v1"
 )
+
+var currentStreamsVersion = StreamsVersionV1
 
 // simplestreamsToolsPublicKey is the public key required to
 // authenticate the simple streams data on http://streams.canonical.com.
@@ -94,13 +100,20 @@ qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
 // This needs to be a var so we can override it for testing.
 var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
+const (
+	// Used to specify the released tools metadata.
+	ReleasedStream = "released"
+
+	// Used to specify metadata for testing tools.
+	TestingStream = "testing"
+)
+
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
 	simplestreams.LookupParams
 	Version      version.Number
 	MajorVersion int
 	MinorVersion int
-	Released     bool
 }
 
 // NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
@@ -109,13 +122,21 @@ func NewVersionedToolsConstraint(vers version.Number, params simplestreams.Looku
 }
 
 // NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
-func NewGeneralToolsConstraint(majorVersion, minorVersion int, released bool, params simplestreams.LookupParams) *ToolsConstraint {
+func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
 	return &ToolsConstraint{LookupParams: params, Version: version.Zero,
-		MajorVersion: majorVersion, MinorVersion: minorVersion, Released: released}
+		MajorVersion: majorVersion, MinorVersion: minorVersion}
 }
 
-// Ids generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
-func (tc *ToolsConstraint) Ids() ([]string, error) {
+// IndexIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (tc *ToolsConstraint) IndexIds() []string {
+	if tc.Stream == "" {
+		return nil
+	}
+	return []string{ToolsContentId(tc.Stream)}
+}
+
+// ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (tc *ToolsConstraint) ProductIds() ([]string, error) {
 	var allIds []string
 	for _, series := range tc.Series {
 		version, err := version.SeriesVersion(series)
@@ -171,17 +192,22 @@ func (t *ToolsMetadata) productId() (string, error) {
 // Signed data is preferred, but if there is no signed data available and onlySigned is false,
 // then unsigned data is used.
 func Fetch(
-	sources []simplestreams.DataSource, indexPath string, cons *ToolsConstraint,
+	sources []simplestreams.DataSource, cons *ToolsConstraint,
 	onlySigned bool) ([]*ToolsMetadata, *simplestreams.ResolveInfo, error) {
 
-	params := simplestreams.ValueParams{
-		DataType:        ContentDownload,
-		FilterFunc:      appendMatchingTools,
-		MirrorContentId: ToolsContentId,
-		ValueTemplate:   ToolsMetadata{},
-		PublicKey:       simplestreamsToolsPublicKey,
+	params := simplestreams.GetMetadataParams{
+		StreamsVersion:   currentStreamsVersion,
+		OnlySigned:       onlySigned,
+		LookupConstraint: cons,
+		ValueParams: simplestreams.ValueParams{
+			DataType:        ContentDownload,
+			FilterFunc:      appendMatchingTools,
+			MirrorContentId: ToolsContentId(cons.Stream),
+			ValueTemplate:   ToolsMetadata{},
+			PublicKey:       simplestreamsToolsPublicKey,
+		},
 	}
-	items, resolveInfo, err := simplestreams.GetMetadata(sources, indexPath, cons, onlySigned, params)
+	items, resolveInfo, err := simplestreams.GetMetadata(sources, params)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -225,9 +251,6 @@ func appendMatchingTools(source simplestreams.DataSource, matchingTools []interf
 		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
 			tmNumber := version.MustParse(tm.Version)
 			if toolsConstraint.Version == version.Zero {
-				if toolsConstraint.Released && tmNumber.IsDev() {
-					continue
-				}
 				if toolsConstraint.MajorVersion >= 0 && toolsConstraint.MajorVersion != tmNumber.Major {
 					continue
 				}
@@ -331,23 +354,23 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 }
 
 // ReadMetadata returns the tools metadata from the given storage.
-func ReadMetadata(store storage.StorageReader) ([]*ToolsMetadata, error) {
+func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
 	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
-	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, -1, -1, coretools.Filter{})
+	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
 	if err != nil {
 		return nil, err
 	}
 	metadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, simplestreams.DefaultIndexPath, toolsConstraint, false)
+		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	return metadata, nil
 }
 
-var PublicMirrorsInfo = `{
+var publicMirrorsInfo = `{
  "mirrors": {
-  "com.ubuntu.juju:released:tools": [
+  "com.ubuntu.juju:{{stream}}:tools": [
      {
       "datatype": "content-download",
       "path": "streams/v1/cpc-mirrors.json",
@@ -360,24 +383,27 @@ var PublicMirrorsInfo = `{
 `
 
 // WriteMetadata writes the given tools metadata to the given storage.
-func WriteMetadata(stor storage.Storage, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
+func WriteMetadata(stor storage.Storage, stream string, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
 	updated := time.Now()
-	index, products, err := MarshalToolsMetadataJSON(metadata, updated)
+	index, products, err := MarshalToolsMetadataJSON(metadata, stream, updated)
 	if err != nil {
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex, index},
-		{ProductMetadataPath, products},
+		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
+		{ProductMetadataPath(stream), products},
 	}
 	if writeMirrors {
 		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
-		mirrorsInfo := strings.Replace(PublicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
-		metadataInfo = append(metadataInfo, MetadataFile{simplestreams.UnsignedMirror, []byte(mirrorsInfo)})
+		mirrorsInfo := strings.Replace(publicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
+		mirrorsInfo = strings.Replace(mirrorsInfo, "{{stream}}", stream, -1)
+		metadataInfo = append(
+			metadataInfo, MetadataFile{simplestreams.UnsignedMirror(currentStreamsVersion), []byte(mirrorsInfo)})
 	}
 	for _, md := range metadataInfo {
-		logger.Infof("Writing %s", "tools/"+md.Path)
-		err = stor.Put(path.Join(storage.BaseToolsPath, md.Path), bytes.NewReader(md.Data), int64(len(md.Data)))
+		filePath := path.Join(storage.BaseToolsPath, md.Path)
+		logger.Infof("Writing %s", filePath)
+		err = stor.Put(filePath, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}
@@ -395,8 +421,8 @@ const (
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
-	existing, err := ReadMetadata(stor)
+func MergeAndWriteMetadata(stor storage.Storage, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
+	existing, err := ReadMetadata(stor, stream)
 	if err != nil {
 		return err
 	}
@@ -404,7 +430,7 @@ func MergeAndWriteMetadata(stor storage.Storage, tools coretools.List, writeMirr
 	if metadata, err = MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
-	return WriteMetadata(stor, metadata, writeMirrors)
+	return WriteMetadata(stor, stream, metadata, writeMirrors)
 }
 
 // fetchToolsHash fetches the tools from storage and calculates

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -42,7 +42,6 @@ func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 func (dummyHookContext) ActionParams() map[string]interface{} {
 	return nil
 }
-
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false
 }

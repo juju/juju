@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -228,6 +228,10 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 		f.currentOp++
 	}
 	return results, nil
+}
+
+func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	return f.AddMachines(args)
 }
 
 func (f *fakeAddMachineAPI) DestroyMachines(machines ...string) error {

@@ -10,7 +10,7 @@ import (
 	"sort"
 
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -35,9 +35,10 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 		ValueTemplate: imagemetadata.ImageMetadata{},
 	}
 	const requireSigned = false
-	indexPath := simplestreams.UnsignedIndex
+	indexPath := simplestreams.UnsignedIndex("v1")
+	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
-		source, indexPath, "index:1.0", requireSigned, simplestreams.CloudSpec{}, params)
+		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 

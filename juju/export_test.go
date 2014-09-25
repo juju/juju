@@ -9,6 +9,7 @@ var (
 	ProviderConnectDelay = &providerConnectDelay
 	GetConfig            = getConfig
 	CacheChangedAPIInfo  = cacheChangedAPIInfo
+	EnvironInfoUserTag   = environInfoUserTag
 )
 
 type APIState apiState

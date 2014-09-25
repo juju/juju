@@ -6,7 +6,7 @@ package state
 import (
 	"net/url"
 
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.
@@ -34,6 +34,17 @@ type Charm struct {
 }
 
 func newCharm(st *State, cdoc *charmDoc) *Charm {
+	// Because we probably just read the doc from state, make sure we
+	// unescape any config option names for "$" and ".". See
+	// http://pad.lv/1308146
+	if cdoc != nil && cdoc.Config != nil {
+		unescapedConfig := charm.NewConfig()
+		for optionName, option := range cdoc.Config.Options {
+			unescapedName := unescapeReplacer.Replace(optionName)
+			unescapedConfig.Options[unescapedName] = option
+		}
+		cdoc.Config = unescapedConfig
+	}
 	return &Charm{st: st, doc: *cdoc}
 }
 

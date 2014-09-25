@@ -4,8 +4,11 @@
 package firewaller_test
 
 import (
-	gc "launchpad.net/gocheck"
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/firewaller"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -54,6 +57,63 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 	}
 	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *stateSuite) TestWatchOpenedPortsNotImplementedV0(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV0)
+
+	w, err := s.firewaller.WatchOpenedPorts()
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, gc.ErrorMatches, `WatchOpenedPorts\(\) \(need V1\+\) not implemented`)
+	c.Assert(w, gc.IsNil)
+}
+
+func (s *stateSuite) TestWatchOpenedPortsV1(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV1)
+
+	// Open some ports.
+	err := s.units[0].OpenPort("tcp", 1234)
+	c.Assert(err, gc.IsNil)
+	err = s.units[2].OpenPort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+
+	w, err := s.firewaller.WatchOpenedPorts()
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+
+	expectChanges := []string{
+		"0:juju-public",
+		"2:juju-public",
+	}
+	wc.AssertChangeInSingleEvent(expectChanges...)
+	wc.AssertNoChange()
+
+	// Close a port, make sure it's detected.
+	err = s.units[2].ClosePort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertChange(expectChanges[1])
+	wc.AssertNoChange()
+
+	// Close it again, no changes.
+	err = s.units[2].ClosePort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Open existing port, no changes.
+	err = s.units[0].ClosePort("udp", 1234)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Open another port, ensure it's detected.
+	err = s.units[1].OpenPort("tcp", 8080)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange("1:juju-public")
 	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)

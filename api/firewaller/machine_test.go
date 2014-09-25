@@ -4,13 +4,16 @@
 package firewaller_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -27,7 +30,6 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	// TODO(dfc) fix this
 	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 }
@@ -45,6 +47,10 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 	apiMachine0, err := s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine0, gc.NotNil)
+}
+
+func (s *machineSuite) TestTag(c *gc.C) {
+	c.Assert(s.apiMachine.Tag(), gc.Equals, names.NewMachineTag(s.machines[0].Id()))
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
@@ -91,4 +97,80 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *machineSuite) TestActiveNetworksNotImplementedV0(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV0)
+
+	nets, err := s.apiMachine.ActiveNetworks()
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, gc.ErrorMatches, `ActiveNetworks\(\) \(need V1\+\) not implemented`)
+	c.Assert(nets, gc.HasLen, 0)
+}
+
+func (s *machineSuite) TestActiveNetworksV1(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV1)
+
+	// No ports opened at first, no networks.
+	nets, err := s.apiMachine.ActiveNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, gc.HasLen, 0)
+
+	// Open a port and check again.
+	err = s.units[0].OpenPort("tcp", 1234)
+	c.Assert(err, gc.IsNil)
+	nets, err = s.apiMachine.ActiveNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, jc.DeepEquals, []names.NetworkTag{
+		names.NewNetworkTag(network.DefaultPublic),
+	})
+
+	// Remove all ports, no networks.
+	ports, err := s.machines[0].OpenedPorts(network.DefaultPublic)
+	c.Assert(err, gc.IsNil)
+	err = ports.Remove()
+	c.Assert(err, gc.IsNil)
+	nets, err = s.apiMachine.ActiveNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, gc.HasLen, 0)
+}
+
+func (s *machineSuite) TestOpenedPortsNotImplementedV0(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV0)
+
+	nets, err := s.apiMachine.OpenedPorts(names.NewNetworkTag(network.DefaultPublic))
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err, gc.ErrorMatches, `machine.OpenedPorts\(\) \(need V1\+\) not implemented`)
+	c.Assert(nets, gc.HasLen, 0)
+}
+
+func (s *machineSuite) TestOpenedPortsV1(c *gc.C) {
+	s.patchNewState(c, firewaller.NewStateV1)
+
+	networkTag := names.NewNetworkTag(network.DefaultPublic)
+	unitTag := s.units[0].Tag().(names.UnitTag)
+
+	// No ports opened at first.
+	ports, err := s.apiMachine.OpenedPorts(networkTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+
+	// Open a port and check again.
+	err = s.units[0].OpenPort("tcp", 1234)
+	c.Assert(err, gc.IsNil)
+	ports, err = s.apiMachine.OpenedPorts(networkTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
+		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
+	})
+}
+
+func (s *machineSuite) patchNewState(
+	c *gc.C,
+	patchFunc func(_ base.APICaller) *firewaller.State,
+) {
+	s.firewallerSuite.patchNewState(c, patchFunc)
+	var err error
+	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
+	c.Assert(err, gc.IsNil)
 }

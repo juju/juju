@@ -8,7 +8,7 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 type certFileSuite struct{}

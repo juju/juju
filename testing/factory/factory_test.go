@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -56,7 +57,8 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 		Timeout: testing.LongWait,
 	}
 	cfg := testing.EnvironConfig(c)
-	st, err := state.Initialize(info, cfg, opts, &policy)
+	owner := names.NewLocalUserTag("factory-admin")
+	st, err := state.Initialize(owner, info, cfg, opts, &policy)
 	c.Assert(err, gc.IsNil)
 	s.State = st
 	s.Factory = factory.NewFactory(s.State)
@@ -93,13 +95,13 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        username,
 		DisplayName: displayName,
-		Creator:     creator.Name(),
+		Creator:     creator.Tag(),
 		Password:    password,
 	})
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 	c.Assert(user.Name(), gc.Equals, username)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
-	c.Assert(user.CreatedBy(), gc.Equals, creator.Name())
+	c.Assert(user.CreatedBy(), gc.Equals, creator.UserTag().Name())
 	c.Assert(user.PasswordValid(password), jc.IsTrue)
 
 	saved, err := s.State.User(user.UserTag())
@@ -116,10 +118,26 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *factorySuite) TestMakeUserInvalidCreator(c *gc.C) {
+	invalidFunc := func() {
+		s.Factory.MakeUser(c, &factory.UserParams{
+			Name:        "bob",
+			DisplayName: "Bob",
+			Creator:     names.NewMachineTag("0"),
+			Password:    "bob",
+		})
+	}
+
+	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
+	saved, err := s.State.User(names.NewUserTag("bob"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(saved, gc.IsNil)
+}
+
 func (s *factorySuite) TestMakeUserNoEnvUser(c *gc.C) {
 	username := "bob"
 	displayName := "Bob the Builder"
-	creator := "eric"
+	creator := names.NewLocalUserTag("eric")
 	password := "sekrit"
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        username,
@@ -159,36 +177,50 @@ func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "createdby"})
 	s.Factory.MakeUser(c, &factory.UserParams{
 		Name:      "foobar",
-		Creator:   "created-by",
+		Creator:   names.NewUserTag("createdby"),
 		NoEnvUser: true,
 	})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User:      "foobar",
-		CreatedBy: "created-by",
+		CreatedBy: names.NewUserTag("createdby"),
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
-	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
+	c.Assert(saved.CreatedBy(), gc.Equals, "createdby@local")
+}
+
+func (s *factorySuite) TestMakeEnvUserInvalidCreatedBy(c *gc.C) {
+	invalidFunc := func() {
+		s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+			User:      "bob",
+			CreatedBy: names.NewMachineTag("0"),
+		})
+	}
+
+	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
+	saved, err := s.State.EnvironmentUser(names.NewLocalUserTag("bob"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(saved, gc.IsNil)
 }
 
 func (s *factorySuite) TestMakeEnvUserNonLocalUser(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
+	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
 	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
 		User:      "foobar@ubuntuone",
-		CreatedBy: "created-by",
+		CreatedBy: creator.UserTag(),
 	})
 
 	saved, err := s.State.EnvironmentUser(envUser.UserTag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvironmentTag().Id(), gc.Equals, envUser.EnvironmentTag().Id())
 	c.Assert(saved.UserName(), gc.Equals, "foobar@ubuntuone")
-	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
+	c.Assert(saved.CreatedBy(), gc.Equals, creator.UserTag().Username())
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
@@ -301,7 +333,7 @@ func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
 
 func (s *factorySuite) TestMakeService(c *gc.C) {
 	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
-	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "bill"}).Tag().String()
+	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "bill"}).Tag()
 	service := s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm:   charm,
 		Creator: creator,
@@ -309,7 +341,7 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 	c.Assert(service, gc.NotNil)
 
 	c.Assert(service.Name(), gc.Equals, "wordpress")
-	c.Assert(service.GetOwnerTag(), gc.Equals, creator)
+	c.Assert(service.GetOwnerTag(), gc.Equals, creator.String())
 	curl, _ := service.CharmURL()
 	c.Assert(curl, gc.DeepEquals, charm.URL())
 
@@ -319,6 +351,20 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 	c.Assert(saved.Name(), gc.Equals, service.Name())
 	c.Assert(saved.Tag(), gc.Equals, service.Tag())
 	c.Assert(saved.Life(), gc.Equals, service.Life())
+}
+
+func (s *factorySuite) TestMakeServiceInvalidCreator(c *gc.C) {
+	serviceName := "mysql"
+	invalidFunc := func() {
+		s.Factory.MakeService(c, &factory.ServiceParams{
+			Name:    serviceName,
+			Creator: names.NewMachineTag("0"),
+		})
+	}
+	c.Assert(invalidFunc, gc.PanicMatches, `interface conversion: .*`)
+	saved, err := s.State.Service(serviceName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(saved, gc.IsNil)
 }
 
 func (s *factorySuite) TestMakeUnitNil(c *gc.C) {

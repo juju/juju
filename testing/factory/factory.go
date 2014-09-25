@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -35,16 +35,15 @@ type UserParams struct {
 	Name        string
 	DisplayName string
 	Password    string
-	// TODO (domas) 2014 09 12: make this a tag, not a string
-	Creator   string
-	NoEnvUser bool
+	Creator     names.Tag
+	NoEnvUser   bool
 }
 
 // EnvUserParams defines the parameters for creating an environment user.
 type EnvUserParams struct {
 	User        string
 	DisplayName string
-	CreatedBy   string
+	CreatedBy   names.Tag
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -69,7 +68,7 @@ type MachineParams struct {
 type ServiceParams struct {
 	Name    string
 	Charm   *state.Charm
-	Creator string
+	Creator names.Tag
 }
 
 // UnitParams are used to create units.
@@ -130,13 +129,14 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 	if params.Password == "" {
 		params.Password = "password"
 	}
-	if params.Creator == "" {
+	if params.Creator == nil {
 		env, err := factory.st.Environment()
 		c.Assert(err, gc.IsNil)
-		params.Creator = env.Owner().Name()
+		params.Creator = env.Owner()
 	}
+	creatorUserTag := params.Creator.(names.UserTag)
 	user, err := factory.st.AddUser(
-		params.Name, params.DisplayName, params.Password, params.Creator)
+		params.Name, params.DisplayName, params.Password, creatorUserTag.Name())
 	c.Assert(err, gc.IsNil)
 	if !params.NoEnvUser {
 		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
@@ -157,12 +157,12 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 		user := factory.MakeUser(c, &UserParams{NoEnvUser: true})
 		params.User = user.UserTag().Username()
 	}
-	if params.CreatedBy == "" {
+	if params.CreatedBy == nil {
 		user := factory.MakeUser(c, nil)
-		params.CreatedBy = user.UserTag().Username()
+		params.CreatedBy = user.UserTag()
 	}
-
-	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), names.NewUserTag(params.CreatedBy))
+	createdByUserTag := params.CreatedBy.(names.UserTag)
+	envUser, err := factory.st.AddEnvironmentUser(names.NewUserTag(params.User), createdByUserTag)
 	c.Assert(err, gc.IsNil)
 	return envUser
 }
@@ -251,11 +251,12 @@ func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Servi
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
 	}
-	if params.Creator == "" {
+	if params.Creator == nil {
 		creator := factory.MakeUser(c, nil)
-		params.Creator = creator.Tag().String()
+		params.Creator = creator.Tag()
 	}
-	service, err := factory.st.AddService(params.Name, params.Creator, params.Charm, nil)
+	_ = params.Creator.(names.UserTag)
+	service, err := factory.st.AddService(params.Name, params.Creator.String(), params.Charm, nil)
 	c.Assert(err, gc.IsNil)
 	return service
 }

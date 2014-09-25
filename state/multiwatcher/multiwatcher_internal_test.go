@@ -11,8 +11,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"

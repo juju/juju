@@ -6,7 +6,7 @@ package keymanager_test
 import (
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/keymanager"
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/common"
@@ -51,7 +51,7 @@ var _ = gc.Suite(&backupsSuite{})
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
-	tag := names.NewUserTag("spam")
+	tag := names.NewLocalUserTag("spam")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error
 	s.api, err = backups.NewAPI(s.State, s.resources, s.authorizer)

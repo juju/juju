@@ -10,18 +10,19 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"testing"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
@@ -29,7 +30,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -42,7 +42,6 @@ func TestPackage(t *testing.T) {
 type syncSuite struct {
 	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
-	targetEnv    environs.Environ
 	origVersion  version.Binary
 	storage      storage.Storage
 	localStorage string
@@ -59,20 +58,6 @@ func (s *syncSuite) setUpTest(c *gc.C) {
 	// It's important that this be v1.8.x to match the test data.
 	version.Current.Number = version.MustParse("1.8.3")
 
-	// Create a target environments.yaml.
-	envConfig := `
-environments:
-    test-target:
-        type: dummy
-        state-server: false
-        authorized-keys: "not-really-one"
-`
-	coretesting.WriteEnvironments(c, envConfig)
-	var err error
-	s.targetEnv, err = environs.PrepareFromName("test-target", coretesting.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, s.targetEnv)
-
 	// Create a source storage.
 	baseDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(baseDir)
@@ -87,8 +72,8 @@ environments:
 	for i, vers := range vAll {
 		versionStrings[i] = vers.String()
 	}
-	toolstesting.MakeTools(c, baseDir, "releases", versionStrings)
-	toolstesting.MakeTools(c, s.localStorage, "releases", versionStrings)
+	toolstesting.MakeTools(c, baseDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, s.localStorage, "releases", "released", versionStrings)
 
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
@@ -97,21 +82,19 @@ environments:
 }
 
 func (s *syncSuite) tearDownTest(c *gc.C) {
-	dummy.Reset()
 	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 var tests = []struct {
-	description   string
-	ctx           *sync.SyncContext
-	source        bool
-	tools         []version.Binary
-	version       version.Number
-	major         int
-	minor         int
-	expectMirrors bool
+	description string
+	ctx         *sync.SyncContext
+	source      bool
+	tools       []version.Binary
+	version     version.Number
+	major       int
+	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
@@ -149,14 +132,6 @@ var tests = []struct {
 		ctx: &sync.SyncContext{
 			AllVersions: true,
 		},
-		tools: v1noDev,
-	},
-	{
-		description: "copy all and dev from the dummy environment",
-		ctx: &sync.SyncContext{
-			AllVersions: true,
-			Dev:         true,
-		},
 		tools: v1all,
 	},
 }
@@ -180,21 +155,31 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				test.ctx.MajorVersion = test.major
 				test.ctx.MinorVersion = test.minor
 			}
-			stor := s.targetEnv.Storage()
-			test.ctx.TargetToolsFinder = sync.StorageToolsFinder{stor}
-			test.ctx.TargetToolsUploader = sync.StorageToolsUploader{stor, true, false}
+			uploader := fakeToolsUploader{
+				uploaded: make(map[version.Binary]bool),
+			}
+			test.ctx.TargetToolsFinder = mockToolsFinder{}
+			test.ctx.TargetToolsUploader = &uploader
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(
-				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
-			c.Assert(err, gc.IsNil)
-			assertToolsList(c, targetTools, test.tools)
-			assertNoUnexpectedTools(c, s.targetEnv.Storage())
-			assertMirrors(c, s.targetEnv.Storage(), test.expectMirrors)
+			var uploaded []version.Binary
+			for v := range uploader.uploaded {
+				uploaded = append(uploaded, v)
+			}
+			c.Assert(uploaded, jc.SameContents, test.tools)
 		}()
 	}
+}
+
+type fakeToolsUploader struct {
+	uploaded map[version.Binary]bool
+}
+
+func (u *fakeToolsUploader) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
+	u.uploaded[tools.Version] = true
+	return nil
 }
 
 var (
@@ -208,69 +193,37 @@ var (
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190all = []version.Binary{v190q64, v190p32}
-	v1noDev = append(v100all, v180all...)
-	v1all   = append(v1noDev, v190all...)
+	v1all   = append(append(v100all, v180all...), v190all...)
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	v310p64 = version.MustParseBinary("3.1.0-precise-amd64")
 	v320p64 = version.MustParseBinary("3.2.0-precise-amd64")
 	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
 )
 
-func assertNoUnexpectedTools(c *gc.C, stor storage.StorageReader) {
-	// We only expect v1.x tools, no v2.x tools.
-	list, err := envtools.ReadList(stor, 2, 0)
-	if len(list) > 0 {
-		c.Logf("got unexpected tools: %s", list)
-	}
-	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
-}
-
-func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
-	urls := list.URLs()
-	c.Check(urls, gc.HasLen, len(expected))
-	for _, vers := range expected {
-		c.Assert(urls[vers], gc.Not(gc.Equals), "")
-	}
-}
-
-func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
-	r, err := storage.Get(stor, "tools/"+simplestreams.UnsignedMirror)
-	if err == nil {
-		defer r.Close()
-	}
-	if expectMirrors {
-		data, err := ioutil.ReadAll(r)
-		c.Assert(err, gc.IsNil)
-		c.Assert(string(data), jc.Contains, `"mirrors":`)
-	} else {
-		c.Assert(err, gc.NotNil)
-	}
-}
-
 type uploadSuite struct {
 	env environs.Environ
 	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
+	targetStorage storage.Storage
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	// We only want to use simplestreams to find any synced tools.
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+
+	// Create a target storage.
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
+	s.targetStorage = stor
 }
 
 func (s *uploadSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
 	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {
-	t, err := sync.Upload(s.env.Storage(), nil)
+	t, err := sync.Upload(s.targetStorage, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -287,7 +240,7 @@ func (s *uploadSuite) TestUploadFakeSeries(c *gc.C) {
 	if seriesToUpload == version.Current.Series {
 		seriesToUpload = "raring"
 	}
-	t, err := sync.Upload(s.env.Storage(), nil, "quantal", seriesToUpload)
+	t, err := sync.Upload(s.targetStorage, nil, "quantal", seriesToUpload)
 	c.Assert(err, gc.IsNil)
 	s.assertUploadedTools(c, t, seriesToUpload)
 }
@@ -299,7 +252,7 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	t, err := sync.Upload(s.env.Storage(), &vers.Number)
+	t, err := sync.Upload(s.targetStorage, &vers.Number)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, vers)
 }
@@ -308,7 +261,7 @@ func (s *uploadSuite) TestSyncTools(c *gc.C) {
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	builtTools, err := sync.BuildToolsTarball(nil)
 	c.Assert(err, gc.IsNil)
-	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
+	t, err := sync.SyncBuiltTools(s.targetStorage, builtTools)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -322,7 +275,7 @@ func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
 	builtTools, err := sync.BuildToolsTarball(nil)
 	c.Assert(err, gc.IsNil)
 
-	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools, "quantal", seriesToUpload)
+	t, err := sync.SyncBuiltTools(s.targetStorage, builtTools, "quantal", seriesToUpload)
 	c.Assert(err, gc.IsNil)
 	s.assertUploadedTools(c, t, seriesToUpload)
 }
@@ -336,7 +289,7 @@ func (s *uploadSuite) TestSyncAndForceVersion(c *gc.C) {
 	vers.Patch++
 	builtTools, err := sync.BuildToolsTarball(&vers.Number)
 	c.Assert(err, gc.IsNil)
-	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
+	t, err := sync.SyncBuiltTools(s.targetStorage, builtTools)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, vers)
 }
@@ -345,7 +298,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
 
-	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major, version.Current.Minor)
+	list, err := envtools.ReadList(s.targetStorage, version.Current.Major, version.Current.Minor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, gc.HasLen, 3)
 	expectSeries := []string{"quantal", uploadedSeries, version.Current.Series}
@@ -357,7 +310,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata, err := envtools.ReadMetadata(s.env.Storage())
+	metadata, err := envtools.ReadMetadata(s.targetStorage, "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 }
@@ -423,17 +376,12 @@ func (s *badBuildSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	// We only want to use simplestreams to find any synced tools.
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
 
 	// Mock go cmd
 	testPath := c.MkDir()
 	s.PatchEnvPathPrepend(testPath)
 	path := filepath.Join(testPath, "go")
-	err = ioutil.WriteFile(path, []byte(badGo), 0755)
+	err := ioutil.WriteFile(path, []byte(badGo), 0755)
 	c.Assert(err, gc.IsNil)
 
 	// Check mocked go cmd errors
@@ -443,7 +391,6 @@ func (s *badBuildSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *badBuildSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
@@ -467,14 +414,17 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 }
 
 func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, gc.IsNil)
+
 	// Test that original Upload Func fails as expected
-	t, err := sync.Upload(s.env.Storage(), nil)
+	t, err := sync.Upload(stor, nil)
 	c.Assert(t, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 
 	// Test that Upload func passes after BundleTools func is mocked out
 	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
-	t, err = sync.Upload(s.env.Storage(), nil)
+	t, err = sync.Upload(stor, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -545,4 +495,51 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
 	}
 	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+}
+
+func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {
+	s.testStorageToolsUploaderWriteMirrors(c, envtools.WriteMirrors)
+}
+
+func (s *uploadSuite) TestStorageToolsUploaderDontWriteMirrors(c *gc.C) {
+	s.testStorageToolsUploaderWriteMirrors(c, envtools.DoNotWriteMirrors)
+}
+
+func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors envtools.ShouldWriteMirrors) {
+	storageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+
+	uploader := &sync.StorageToolsUploader{
+		Storage:       stor,
+		WriteMetadata: true,
+		WriteMirrors:  writeMirrors,
+	}
+
+	err = uploader.UploadTools(
+		"released",
+		&coretools.Tools{
+			Version: version.Current,
+			Size:    7,
+			SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+		}, []byte("content"))
+	c.Assert(err, gc.IsNil)
+
+	mirrorsPath := simplestreams.MirrorsPath(envtools.StreamsVersionV1) + simplestreams.UnsignedSuffix
+	r, err := stor.Get(path.Join(storage.BaseToolsPath, mirrorsPath))
+	if writeMirrors == envtools.WriteMirrors {
+		c.Assert(err, gc.IsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+	} else {
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+}
+
+type mockToolsFinder struct{}
+
+func (mockToolsFinder) FindTools(major int) (coretools.List, error) {
+	return nil, coretools.ErrNoMatches
 }

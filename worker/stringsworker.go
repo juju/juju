@@ -78,7 +78,7 @@ func (sw *stringsWorker) loop() error {
 			return tomb.ErrDying
 		case changes, ok := <-w.Changes():
 			if !ok {
-				return mustErr(w)
+				return ensureErr(w)
 			}
 			if err := sw.handler.Handle(changes); err != nil {
 				return err

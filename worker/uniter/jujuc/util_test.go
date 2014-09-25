@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -81,15 +81,19 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	actionParams map[string]interface{}
-	ports        set.Strings
-	relid        int
-	remote       string
-	rels         map[int]*ContextRelation
-	metrics      []jujuc.Metric
+	actionParams  map[string]interface{}
+	ports         set.Strings
+	relid         int
+	remote        string
+	rels          map[int]*ContextRelation
+	metrics       []jujuc.Metric
+	canAddMetrics bool
 }
 
 func (c *Context) AddMetrics(key, value string, created time.Time) error {
+	if !c.canAddMetrics {
+		return fmt.Errorf("metrics disabled")
+	}
 	c.metrics = append(c.metrics, jujuc.Metric{key, value, created})
 	return nil
 }

@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"

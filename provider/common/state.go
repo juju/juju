@@ -87,6 +87,48 @@ func loadState(r io.ReadCloser) (*BootstrapState, error) {
 	return &state, nil
 }
 
+// AddStateInstance adds a state-server instance ID to the provider-state
+// file in storage.
+func AddStateInstance(stor storage.Storage, id instance.Id) error {
+	state, err := LoadState(stor)
+	if err == environs.ErrNotBootstrapped {
+		state = &BootstrapState{}
+	} else if err != nil {
+		return errors.Annotate(err, "cannot record state instance-id")
+	}
+	state.StateInstances = append(state.StateInstances, id)
+	return SaveState(stor, state)
+}
+
+// RemoveStateInstances removes state-server instance IDs from the
+// provider-state file in storage. Instance IDs that are not found
+// in the file are ignored.
+func RemoveStateInstances(stor storage.Storage, ids ...instance.Id) error {
+	state, err := LoadState(stor)
+	if err == environs.ErrNotBootstrapped {
+		return nil
+	} else if err != nil {
+		return errors.Annotate(err, "cannot remove recorded state instance-id")
+	}
+	var anyFound bool
+	for i := 0; i < len(state.StateInstances); i++ {
+		for _, id := range ids {
+			if state.StateInstances[i] == id {
+				head := state.StateInstances[:i]
+				tail := state.StateInstances[i+1:]
+				state.StateInstances = append(head, tail...)
+				anyFound = true
+				i--
+				break
+			}
+		}
+	}
+	if !anyFound {
+		return nil
+	}
+	return SaveState(stor, state)
+}
+
 // ProviderStateInstances extracts the instance IDs from provider-state.
 func ProviderStateInstances(
 	env environs.Environ,

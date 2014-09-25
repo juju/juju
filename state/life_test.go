@@ -4,8 +4,8 @@
 package state_test
 
 import (
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"

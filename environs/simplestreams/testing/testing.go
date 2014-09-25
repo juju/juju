@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net/http"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
@@ -140,6 +140,15 @@ var imageData = map[string]string{
 		     "com.ubuntu.juju:13.04:arm"
 		   ],
 		   "path": "streams/v1/tools_metadata.json"
+		  },
+		  "com.ubuntu.juju:testing:tools": {
+		   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
+		   "datatype": "content-download",
+		   "format": "products:1.0",
+		   "products": [
+		     "com.ubuntu.juju:14.04:amd64"
+		   ],
+		   "path": "streams/v1/testing_tools_metadata.json"
 		  }
 		 },
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
@@ -287,6 +296,33 @@ var imageData = map[string]string{
        "path": "tools/releases/20130806/juju-2.0.1-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+`,
+	"/streams/v1/testing_tools_metadata.json": `
+{
+ "content_id": "com.ubuntu.juju:tools",
+ "datatype": "content-download",
+ "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
+ "format": "products:1.0",
+ "products": {
+  "com.ubuntu.juju:14.04:amd64": {
+   "arch": "amd64",
+   "release": "trusty",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130preciseamd64": {
+       "version": "1.16.0",
+       "size": 2973512,
+       "path": "tools/releases/20130806/juju-1.16.0-trusty-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dac"
       }
      }
     }
@@ -529,6 +565,7 @@ type LocalLiveSimplestreamsSuite struct {
 	testing.BaseSuite
 	Source          simplestreams.DataSource
 	RequireSigned   bool
+	StreamsVersion  string
 	DataType        string
 	ValidConstraint simplestreams.LookupConstraint
 }
@@ -555,7 +592,11 @@ func NewTestConstraint(params simplestreams.LookupParams) *testConstraint {
 	return &testConstraint{LookupParams: params}
 }
 
-func (tc *testConstraint) Ids() ([]string, error) {
+func (tc *testConstraint) IndexIds() []string {
+	return nil
+}
+
+func (tc *testConstraint) ProductIds() ([]string, error) {
 	version, err := version.SeriesVersion(tc.Series[0])
 	if err != nil {
 		return nil, err
@@ -584,9 +625,9 @@ type TestItem struct {
 
 func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
-		return simplestreams.DefaultIndexPath + ".sjson"
+		return simplestreams.SignedIndex(s.StreamsVersion) + ".sjson"
 	}
-	return simplestreams.UnsignedIndex
+	return simplestreams.UnsignedIndex(s.StreamsVersion)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
@@ -603,7 +644,8 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		ValueTemplate: TestItem{},
 	}
 	return simplestreams.GetIndexWithFormat(
-		s.Source, s.IndexPath(), format, s.RequireSigned, s.ValidConstraint.Params().CloudSpec, params)
+		s.Source, s.IndexPath(), format, simplestreams.MirrorsPath(s.StreamsVersion), s.RequireSigned,
+		s.ValidConstraint.Params().CloudSpec, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
