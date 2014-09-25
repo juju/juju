@@ -16,7 +16,7 @@ import (
 	cryptossh "code.google.com/p/go.crypto/ssh"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
 )

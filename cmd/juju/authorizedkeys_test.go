@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	keymanagerserver "github.com/juju/juju/apiserver/keymanager"
 	keymanagertesting "github.com/juju/juju/apiserver/keymanager/testing"

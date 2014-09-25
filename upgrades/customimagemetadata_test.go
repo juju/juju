@@ -6,7 +6,7 @@ package upgrades_test
 import (
 	"bytes"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"

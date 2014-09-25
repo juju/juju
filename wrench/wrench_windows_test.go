@@ -4,7 +4,7 @@
 package wrench_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 const fileNotFound = "GetFileAttributesEx.*: The system cannot find the (file|path) specified."

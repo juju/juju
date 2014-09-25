@@ -25,10 +25,10 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
-	corecharm "gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	corecharm "gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"

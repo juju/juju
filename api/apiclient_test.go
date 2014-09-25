@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"

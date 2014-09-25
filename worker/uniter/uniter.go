@@ -20,8 +20,8 @@ import (
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	proxyutils "github.com/juju/utils/proxy"
-	corecharm "gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	corecharm "gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent/tools"
