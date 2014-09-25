@@ -777,6 +777,8 @@ func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
 	defer st.Close()
 	adminUser := s.AdminUserTag(c)
 	err = st.Login(adminUser.String(), "dummy-secret", "")
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "^pre-facade degraded to v0$")
+	c.Assert(err, gc.IsNil)
+	envTag, err := st.EnvironTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(envTag.String(), gc.Equals, apiserver.PreFacadeEnvironTag.String())
 }

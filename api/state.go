@@ -42,7 +42,10 @@ func (st *State) Login(tag, password, nonce string) error {
 }
 
 func (st *State) loginV1(tag, password, nonce string) error {
-	var result params.LoginResultV1
+	var result struct {
+		params.LoginResult
+		params.LoginResultV1
+	}
 	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
 		LoginRequest: params.LoginRequest{
 			AuthTag:     tag,
@@ -58,13 +61,22 @@ func (st *State) loginV1(tag, password, nonce string) error {
 	if err != nil {
 		return err
 	}
-	if len(result.Facades) == 0 {
-		return &params.Error{
-			Message: "server does not support API versioning",
-			Code:    params.CodeNotImplemented,
-		}
+
+	var environTag string
+	var servers [][]network.HostPort
+	var facades []params.FacadeVersions
+	if result.LoginResult.EnvironTag != "" {
+		environTag = result.LoginResult.EnvironTag
+		servers = result.LoginResult.Servers
+		facades = result.LoginResult.Facades
+	} else if result.LoginResultV1.EnvironTag != "" {
+		environTag = result.LoginResultV1.EnvironTag
+		servers = result.LoginResultV1.Servers
+		facades = result.LoginResultV1.Facades
 	}
-	err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades)
+
+	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API server.
+	err = st.setLoginResult(tag, environTag, servers, facades)
 	if err != nil {
 		return err
 	}

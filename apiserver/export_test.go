@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
+	"github.com/juju/names"
 )
 
 var (
@@ -70,8 +71,12 @@ func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
 	return r, nil
 }
 
+var PreFacadeEnvironTag = names.NewEnvironTag("383c49f3-526d-4f9e-b50a-1e6fa4e9b3d9")
+
 func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
-	return params.LoginResult{}, nil
+	return params.LoginResult{
+		EnvironTag: PreFacadeEnvironTag.String(),
+	}, nil
 }
 
 type failAdminApi struct{}
@@ -85,13 +90,13 @@ func (r *failAdminApi) Admin(id string) (*failAdminApi, error) {
 }
 
 func (r *failAdminApi) Login(c params.Creds) (params.LoginResult, error) {
-	return params.LoginResult{}, fmt.Errorf("pre-facade degraded to v0")
+	return params.LoginResult{}, fmt.Errorf("fail")
 }
 
 // SetPreFacadeAdminApi is used to create a test scenario where the API server
-// does not know about API facade versioning. Login v0 errors with a special
-// defined error message which will be matched to ensure a v1 client will
-// degrade to v0 in this case.
+// does not know about API facade versioning. In this case, the client should
+// login to the v1 facade, which sends backwards-compatible login fields.
+// The v0 facade will fail on a pre-defined error.
 func SetPreFacadeAdminApi(srv *Server) {
 	srv.adminApiFactories = map[int]adminApiFactory{
 		0: newFailAdminApi,
