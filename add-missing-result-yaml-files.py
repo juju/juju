@@ -58,17 +58,19 @@ def get_s3_revision_info():
             revision['artifact_time'] = max(
                 revision['artifact_time'], file_time)
     # The most recent version may currently be building, hence a check
-    # if the result file is useless.
+    # if the result file exists is useless.
     del all_revisions[max(all_revisions)]
+    result_file_time = revision['artifact_time']
     for revision_number, revision_data in sorted(all_revisions.items()):
         if not revision_data['result']:
             result_file_name = None
         else:
+            result_file_time = min(revision_data['result'])
             # If both a result.yaml and a result.json file exist, use
-            # the older one.
-            older = min(revision_data['result'])
-            result_file_name = revision_data['result'][older]
-        yield revision_number, result_file_name, revision_data['artifact_time']
+            # the newer one.
+            newer = max(revision_data['result'])
+            result_file_name = revision_data['result'][newer]
+        yield revision_number, result_file_name, result_file_time
 
 def main(args):
     ci_director_state = get_ci_director_state()
@@ -120,7 +122,7 @@ def main(args):
             new_result_file.flush()
             dest_url = '{}version-{}/result.json'.format(
                 ARCHIVE_URL, revision_number)
-            params = ['--no-progress', 'put', new_result_file.name, dest_url]
+            params = ['put', new_result_file.name, dest_url]
             if args.dry_run:
                 print(*(['s3cmd'] + params))
             else:
