@@ -10,27 +10,16 @@ import (
 )
 
 const (
-	// ID is the backups ID used by the metadata helper functions.
-	ID = "49db53ac-a42f-4ab2-86e1-0c6fa0fec762.20140924-010319"
-	// EnvID is the env ID used by metadata helper functions.
-	EnvID = "49db53ac-a42f-4ab2-86e1-0c6fa0fec762"
-	// Machine is the machine ID used by metadata helper functions.
-	Machine = "0"
-	// Hostname is the hostname used by metadata helper functions.
-	Hostname = "main-host"
-	// Notes is the notes value used by metadata helper functions.
-	Notes = ""
-	// Size is the size used by metadata helper functions.
-	Size = 10
-	// Checksum is the checksum used by metadata helper functions.
-	Checksum = "787b8915389d921fa23fb40e16ae81ea979758bf"
-	// CsFormat is the checksum format used by metadata helper functions.
-	CsFormat = metadata.ChecksumFormat
+	envID = "49db53ac-a42f-4ab2-86e1-0c6fa0fec762"
 )
 
 // NewMetadata returns a Metadata to use for testing.
 func NewMetadata() *metadata.Metadata {
-	meta := NewMetadataStarted(ID, Notes)
+	timestamp := "20140924-010319"
+	id := envID + "." + timestamp
+	notes := ""
+	meta := NewMetadataStarted(id, notes)
+
 	FinishMetadata(meta)
 	meta.SetStored()
 	return meta
@@ -38,7 +27,9 @@ func NewMetadata() *metadata.Metadata {
 
 // NewMetadataStarted returns a Metadata to use for testing.
 func NewMetadataStarted(id, notes string) *metadata.Metadata {
-	origin := metadata.NewOrigin(EnvID, Machine, Hostname)
+	machine := "0"
+	hostname := "main-host"
+	origin := metadata.NewOrigin(envID, machine, hostname)
 	started := time.Now().UTC()
 
 	meta := metadata.NewMetadata(*origin, notes, &started)
@@ -48,8 +39,10 @@ func NewMetadataStarted(id, notes string) *metadata.Metadata {
 
 // FinishMetadata finishes a metadata with test values.
 func FinishMetadata(meta *metadata.Metadata) {
+	var size int64 = 10
+	checksum := "787b8915389d921fa23fb40e16ae81ea979758bf"
 	finished := meta.Started().Add(time.Minute)
-	meta.Finish(Size, Checksum, CsFormat, &finished)
+	meta.Finish(size, checksum, metadata.ChecksumFormat, &finished)
 }
 
 // UpdateNotes derives a new Metadata with new notes.
