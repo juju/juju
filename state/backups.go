@@ -402,7 +402,7 @@ func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
 //---------------------------
 // raw file storage
 
-const backupStorageRoot = ""
+const backupStorageRoot = "backups"
 
 // Ensure we satisfy the interface.
 var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
