@@ -3,68 +3,57 @@ set -eux
 
 
 usage() {
-    echo "usage: $0 INSTANCE_ID"
-    echo "  INSTANCE_ID: The EC2 intance_id of the windown test machine."
+    echo "usage: $0 ADDRESS"
+    echo "  ADDRESS: The IP or DNS address the windows test machine."
+    echo "  --juju-home: The location of cloud-city and staging-juju-rsa."
     exit 1
 }
 
 
+while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
+    case $1 in
+        --juju-home)
+            shift
+            JUJU_HOME=$(cd $1; pwd)
+            ;;
+        --help)
+            usage
+            ;;
+    esac
+    shift
+done
+
+
 test $# -eq 1 || usage
 
-INSTANCE_ID=$1
-
-echo Starting instance $INSTANCE_ID
-euca-start-instances $INSTANCE_ID
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-set +x
-instance_ip=''
-echo -n Waiting for IP address
-while [ -z "$instance_ip" ]; do
-    sleep 1
-        instance_ip=$(euca-describe-instances $INSTANCE_ID |
-            sed '/^INSTANCE/!d' |
-            cut -f 17)
-    echo -n .
-done
-echo
-echo Instance has ip $instance_ip
-sleep 30
-
-echo -n Waiting for SSH
-while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
-    sleep 1
-    echo -n .
-done
-echo
+HOST="$1"
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
+export PATH="$SCRIPTS:$PATH"
 
 set -x
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     $SCRIPTS/deploy_stack.py $SCRIPTS/jujupy.py $SCRIPTS/jujuconfig.py \
     $SCRIPTS/utility.py \
-    Administrator@$instance_ip:/cygdrive/c/Users/Administrator/ci/
+    Administrator@$HOST:/cygdrive/c/Users/Administrator/ci/
 if [ $? -ne 0 ]; then
     exit 1
 fi
 set +e
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$instance_ip \
+    Administrator@$HOST \
     'juju destroy-environment --force -y test-win-client'
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$instance_ip \
+    Administrator@$HOST \
     '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\deploy_stack.py' \
      test-win-client
 EXIT_STATUS=$?
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$instance_ip \
+    Administrator@$HOST \
     'juju destroy-environment --force -y test-win-client'
 set -e
 set +x
-euca-stop-instances $INSTANCE_ID
 exit $EXIT_STATUS

@@ -3,26 +3,54 @@ set -eux
 
 
 usage() {
-    echo "usage: $0 INSTANCE_ID"
-    echo "  INSTANCE_ID: The EC2 intance_id of the windown test machine."
+    echo "usage: $0 [--jenkins-url URL] ADDRESS"
+    echo "  ADDRESS: The IP or DNS address the windows test machine."
+    echo "  --jenkins-url: The location of juju-ci's Jenkins."
+    echo "  --work-space: The location to build and collect in."
+    echo "  --juju-home: The location of cloud-city and staging-juju-rsa."
+    echo "  --juju-release-tools: The location of juju-release-tools."
     exit 1
 }
 
 
-: ${LOCAL_JENKINS_URL=$JENKINS_URL}
+while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
+    case $1 in
+        --jenkins-url)
+            shift
+            JENKINS_URL="$1"
+            ;;
+        --work-space)
+            shift
+            WORKSPACE=$(cd $1; pwd)
+            ;;
+        --juju-home)
+            shift
+            JUJU_HOME=$(cd $1; pwd)
+            ;;
+        --juju-release-tools)
+            shift
+            RELEASE_TOOLS=$(cd $1; pwd)
+            ;;
+        --help)
+            usage
+            ;;
+    esac
+    shift
+done
+
 test $# -eq 1 || usage
 
 # Remove previous tarballs and installers from the workspace
-rm $WORKSPACE/*
+rm -r $WORKSPACE/* || echo "Nothing to clean"
 
-INSTANCE_ID=$1
+HOST="$1"
 TARFILE=$(python <<EOT
 import json
 import sys
 import urllib2
 
 build_data = urllib2.urlopen(
-    '$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
+    '$JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
 build_json = json.load(build_data)
 for artifact in build_json['artifacts']:
     filename = artifact['fileName']
@@ -33,51 +61,22 @@ else:
 print filename
 EOT
 )
-ARTIFACT=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
+ARTIFACT=$JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
 wget -q $ARTIFACT/$TARFILE
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
-echo Starting instance $INSTANCE_ID
-euca-start-instances $INSTANCE_ID
-if [ $? -ne 0 ]; then
-    exit 1
-fi
-
-set +x
-
-instance_ip=''
-echo -n Waiting for IP address
-while [ -z "$instance_ip" ]; do
-    sleep 1
-        instance_ip=$(euca-describe-instances $INSTANCE_ID |
-            sed '/^INSTANCE/!d' |
-            cut -f 17)
-    echo -n .
-done
-echo
-echo Instance has ip $instance_ip
-sleep 30
-
-echo -n Waiting for SSH
-while ! netcat $instance_ip 22 -w 1 -q 0 </dev/null >/dev/null; do
-    sleep 1
-    echo -n .
-done
-echo
-
-set -x
 set +e
 CI_DIR="/cygdrive/c/Users/Administrator/ci"
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     $WORKSPACE/$TARFILE $RELEASE_TOOLS/winbuildtest.py \
-    Administrator@$instance_ip:$CI_DIR/
+    Administrator@$HOST:$CI_DIR/
 if [ $? -ne 0 ]; then
     exit 1
 fi
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$instance_ip \
+    Administrator@$HOST \
     '/cygdrive/c/python27/python \\Users\\Administrator\\ci\\winbuildtest.py' \
     $TARFILE
 if [ $? -ne 0 ]; then
@@ -85,8 +84,7 @@ if [ $? -ne 0 ]; then
 fi
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$instance_ip:$CI_DIR/juju-setup-$VERSION.exe $WORKSPACE/
+    Administrator@$HOST:$CI_DIR/juju-setup-$VERSION.exe $WORKSPACE/
 EXIT_STATUS=$?
 set -e
-euca-stop-instances $INSTANCE_ID
 exit $EXIT_STATUS
