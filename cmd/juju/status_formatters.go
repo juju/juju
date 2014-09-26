@@ -175,7 +175,7 @@ type summaryFormatter struct {
 	out         bytes.Buffer
 }
 
-func (f *summaryFormatter) delimitValuesWithTabs(values ...interface{}) {
+func (f *summaryFormatter) delimitValuesWithTabs(values ...string) {
 	for _, v := range values {
 		fmt.Fprintf(f.tw, "%s\t", v)
 	}
@@ -192,11 +192,11 @@ func (f *summaryFormatter) portsInColumnsOf(col int) string {
 		fmt.Fprintf(&b, "%s, ", p)
 	}
 	// Elide the last delimiter
-	if portList := b.String(); len(portList) >= 2 {
+	portList := b.String()
+	if len(portList) >= 2 {
 		return portList[:b.Len()-2]
-	} else {
-		return portList
 	}
+	return portList
 }
 
 func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel int) {
@@ -232,15 +232,15 @@ func (f *summaryFormatter) trackIp(ip net.IP) {
 
 func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 	// TODO(katco-): We may be able to utilize upcoming work which will expose these addresses outright.
-	if ip, err := net.ResolveIPAddr("ip4", publicDns); err != nil {
+	ip, err := net.ResolveIPAddr("ip4", publicDns)
+	if err != nil {
 		logger.Warningf(
 			"unable to resolve %s to an IP address. Status may be incorrect: %v",
 			publicDns,
 			err,
 		)
-	} else {
-		f.trackIp(ip.IP)
 	}
+	f.trackIp(ip.IP)
 }
 
 func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
