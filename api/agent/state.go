@@ -61,21 +61,6 @@ func (st *State) IsMaster() (bool, error) {
 	return results.Master, err
 }
 
-// ClearReboot clears the reboot flag of the machine.
-func (m *State) ClearReboot() error {
-	var result params.ErrorResults
-	args := params.SetStatus{
-		Entities: []params.EntityStatus{
-			{Tag: m.tag.String()},
-		},
-	}
-	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
-}
-
 type Entity struct {
 	st  *State
 	tag names.Tag
@@ -132,4 +117,19 @@ func (m *Entity) SetPassword(password string) error {
 		return err
 	}
 	return results.OneError()
+}
+
+// ClearReboot clears the reboot flag of the machine.
+func (m *Entity) ClearReboot() error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: m.tag.String()},
+		},
+	}
+	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }
