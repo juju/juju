@@ -1210,7 +1210,6 @@ class TestLibvirt(TestCase):
         URI = 'qemu+ssh://someHost/system'
         dom_name = 'fido'
         expected_cmd = ['virsh', '-c', URI, 'domstate', dom_name]
-        #with patch('subprocess.check_output', return_value='running') as m_sub:
         with patch('subprocess.check_output') as m_sub:
             get_libvirt_domstate(URI, dom_name)
         m_sub.assert_called_with(expected_cmd)
