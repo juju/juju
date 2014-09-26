@@ -5,14 +5,11 @@ package client
 
 import (
 	"fmt"
-	"net"
-	"path"
-	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -26,44 +23,78 @@ import (
 func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return api.Status{}, err
+		return api.Status{}, errors.Annotate(err, "could not get environ config")
 	}
 	var noStatus api.Status
 	var context statusContext
-
 	if context.services, context.units, context.latestCharms, err =
 		fetchAllServicesAndUnits(c.api.state); err != nil {
-		return noStatus, err
+		return noStatus, errors.Annotate(err, "could not fetch services and units")
+	} else if context.machines, err = fetchMachines(c.api.state, nil); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch machines")
+	} else if context.relations, err = fetchRelations(c.api.state); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch relations")
+	} else if context.networks, err = fetchNetworks(c.api.state); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
 
 	if len(args.Patterns) > 0 {
+		logger.Errorf("Patterns: %v\n", args.Patterns)
 		predicate := BuildPredicateFor(args.Patterns)
-		for _, unitMap := range context.units {
-			for name, unit := range unitMap {
-				if matches, ok, err := predicate(unit); err != nil {
-					return noStatus, err
-				} else if !ok {
-					return noStatus, errors.Errorf("the given filter did not match any known patterns.")
+
+		// Filter machines
+		for status, machList := range context.machines {
+			for idx, mach := range machList {
+				if matches, err := predicate(mach); err != nil {
+					return noStatus, errors.Annotate(err, "could not filter machines")
 				} else if !matches {
-					delete(unitMap, name)
+					// TODO(katco-): Check for index errors.
+					context.machines[status] = append(machList[:idx], machList[idx+1:]...)
+				} else {
+					logger.Errorf("%v matches.", mach.Addresses())
 				}
 			}
 		}
-	}
 
-	// Filter machines by units in scope.
-	machineIds, err := fetchUnitMachineIds(context.units)
-	if err != nil {
-		return noStatus, err
-	}
-	if context.machines, err = fetchMachines(c.api.state, machineIds); err != nil {
-		return noStatus, err
-	}
-	if context.relations, err = fetchRelations(c.api.state); err != nil {
-		return noStatus, err
-	}
-	if context.networks, err = fetchNetworks(c.api.state); err != nil {
-		return noStatus, err
+		// Filter units
+		toRemove := make(map[string][]*state.Unit)
+		for svcName, unitMap := range context.units {
+			for name, unit := range unitMap {
+				if matches, err := predicate(unit); err != nil {
+					return noStatus, errors.Annotate(err, "could not filter units")
+				} else if !matches {
+					logger.Debugf("%v didn't match.", name)
+					logger.Debugf("Subordinates: %v", unit.SubordinateNames())
+					if !unit.IsPrincipal() {
+						delete(unitMap, name)
+					}
+					toRemove[svcName] = append(toRemove[svcName], unit)
+				} else {
+					// TODO(katco): AWFUL, AWFUL code. Not meant to be
+					// pushed to production. Just hackin'.
+					logger.Debugf("%v matches.", name)
+					ru := toRemove[svcName]
+					for i, u := range ru {
+						for _, sn := range u.SubordinateNames() {
+							if sn == name {
+								logger.Debugf("%v matched %v, removing", sn, name)
+								ru = append(ru[:i], ru[i+1:]...)
+								toRemove[svcName] = ru
+								break
+							}
+							logger.Debugf("%v did not match %v", sn, name)
+						}
+					}
+				}
+			}
+		}
+
+		for svcName, v := range toRemove {
+			for _, u := range v {
+				logger.Debugf("Deleting %v -- %v", svcName, u.Name())
+				delete(context.units[svcName], u.Name())
+			}
+		}
 	}
 
 	return api.Status{
@@ -99,216 +130,6 @@ type statusContext struct {
 	units        map[string]map[string]*state.Unit
 	networks     map[string]*state.Network
 	latestCharms map[charm.URL]string
-}
-
-// PredicateMatch is a struct which contains the results of matching
-// on a UnitPredicate.
-type PredicateMatch struct {
-	// Matches signifies whether or not the predicate found a match.
-	Matches bool
-	// FormatOk signifies whether the provided patterns matched at
-	// least one predicate format.
-	FormatOk bool
-	// Error signifies whether there an error occurred while processing.
-	Error error
-	// PredicateDescriptor is a user-facing message to let the user
-	// know which predicate found a match.
-	PredicateDescriptor string
-}
-
-// UnitPredicate is a function that when given a unit, will determine
-// whether the unit meets some criteria.
-type UnitPredicate func(*state.Unit) (matches bool, formatOk bool, _ error)
-
-func BuildPredicateFor(patterns []string) UnitPredicate {
-
-	type patternMatcher func(*state.Unit, ...string) (bool, bool, error)
-	collect := func(u *state.Unit, matchers ...patternMatcher) (bool, bool, error) {
-		oneValidFmt := false
-		for _, m := range matchers {
-			if matches, ok, err := m(u, patterns...); err != nil {
-				return false, ok, err
-			} else if ok {
-				oneValidFmt = true
-				if matches {
-					return true, true, nil
-				}
-			}
-		}
-		return false, oneValidFmt, nil
-	}
-
-	unitMatchShim := func(u *state.Unit, patterns ...string) (bool, bool, error) {
-		if um, err := NewUnitMatcher(patterns); err != nil {
-			// The only error
-			logger.Infof("ignoring matching error: %v", err)
-			return false, false, nil
-		} else {
-			return um.matchUnit(u), true, nil
-		}
-	}
-
-	return func(u *state.Unit) (bool, bool, error) {
-		return collect(u, matchAgentStatus, matchExposure, matchPort, matchSubnet, unitMatchShim)
-	}
-}
-
-func matchPort(u *state.Unit, patterns ...string) (bool, bool, error) {
-	for _, p := range u.OpenedPorts() {
-		for _, patt := range patterns {
-			if strings.HasPrefix(p.String(), patt) {
-				return true, true, nil
-			}
-		}
-	}
-	return false, true, nil
-}
-
-func matchSubnet(u *state.Unit, patterns ...string) (bool, bool, error) {
-
-	var occupiedAddr []net.IP
-	grabIp := func(ip func() (string, bool)) {
-		if addr, ok := ip(); ok {
-			if ip := net.ParseIP(addr); ip != nil {
-				occupiedAddr = append(occupiedAddr, ip)
-			}
-		}
-	}
-	grabIp(u.PrivateAddress)
-	grabIp(u.PublicAddress)
-
-	for _, p := range patterns {
-		for _, oip := range occupiedAddr {
-			if _, ipNet, err := net.ParseCIDR(p); err == nil {
-				if ipNet.Contains(oip) {
-					return true, true, nil
-				}
-			} else if ip := net.ParseIP(p); ip != nil {
-				if ip.Equal(oip) {
-					return true, true, nil
-				}
-			} else {
-				return false, false, nil
-			}
-		}
-	}
-	return false, true, nil
-}
-
-func matchExposure(u *state.Unit, patterns ...string) (bool, bool, error) {
-	if s, err := u.Service(); err != nil {
-		return false, true, err
-	} else if s.IsExposed() {
-		return len(patterns) >= 1 && patterns[0] == "exposed", true, nil
-	} else {
-		return len(patterns) >= 2 && patterns[0] == "not" && patterns[1] == "exposed", true, nil
-	}
-}
-
-func matchAgentStatus(u *state.Unit, patterns ...string) (bool, bool, error) {
-	if status, _, _, err := u.Status(); err != nil {
-		return false, false, err
-	} else {
-		for _, p := range patterns {
-			// Verify that we're using a valid status.
-			if ps := state.Status(p); !ps.Valid() {
-				return false, false, nil
-			} else if ps == status { // TOOD(katco-): append/*
-				return true, true, nil
-			}
-			logger.Warningf("%s doesn't match %s", string(status), p)
-		}
-		return false, false, nil
-	}
-}
-
-type unitMatcher struct {
-	patterns []string
-}
-
-// matchesAny returns true if the unitMatcher will
-// match any unit, regardless of its attributes.
-func (m unitMatcher) matchesAny() bool {
-	return len(m.patterns) == 0
-}
-
-// matchUnit attempts to match a state.Unit to one of
-// a set of patterns, taking into account subordinate
-// relationships.
-func (m unitMatcher) matchUnit(u *state.Unit) bool {
-	if m.matchesAny() {
-		return true
-	}
-
-	// Keep the unit if:
-	//  (a) its name matches a pattern, or
-	//  (b) it's a principal and one of its subordinates matches, or
-	//  (c) it's a subordinate and its principal matches.
-	//
-	// Note: do *not* include a second subordinate if the principal is
-	// only matched on account of a first subordinate matching.
-	if m.matchString(u.Name()) {
-		return true
-	}
-	if u.IsPrincipal() {
-		for _, s := range u.SubordinateNames() {
-			if m.matchString(s) {
-				return true
-			}
-		}
-		return false
-	}
-	principal, valid := u.PrincipalName()
-	if !valid {
-		panic("PrincipalName failed for subordinate unit")
-	}
-	return m.matchString(principal)
-}
-
-// matchString matches a string to one of the patterns in
-// the unit matcher, returning an error if a pattern with
-// invalid syntax is encountered.
-func (m unitMatcher) matchString(s string) bool {
-	for _, pattern := range m.patterns {
-		ok, err := path.Match(pattern, s)
-		if err != nil {
-			// We validate patterns, so should never get here.
-			panic(fmt.Errorf("pattern syntax error in %q", pattern))
-		} else if ok {
-			return true
-		}
-	}
-	return false
-}
-
-// validPattern must match the parts of a unit or service name
-// pattern either side of the '/' for it to be valid.
-var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
-
-// NewUnitMatcher returns a unitMatcher that matches units
-// with one of the specified patterns, or all units if no
-// patterns are specified.
-//
-// An error will be returned if any of the specified patterns
-// is invalid. Patterns are valid if they contain only
-// alpha-numeric characters, hyphens, or asterisks (and one
-// optional '/' to separate service/unit).
-func NewUnitMatcher(patterns []string) (unitMatcher, error) {
-	for i, pattern := range patterns {
-		fields := strings.Split(pattern, "/")
-		if len(fields) > 2 {
-			return unitMatcher{}, fmt.Errorf("pattern %q contains too many '/' characters", pattern)
-		}
-		for _, f := range fields {
-			if !validPattern.MatchString(f) {
-				return unitMatcher{}, fmt.Errorf("pattern %q contains invalid characters", pattern)
-			}
-		}
-		if len(fields) == 1 {
-			patterns[i] += "/*"
-		}
-	}
-	return unitMatcher{patterns}, nil
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -447,9 +268,11 @@ func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
 func (context *statusContext) processMachines() map[string]api.MachineStatus {
 	machinesMap := make(map[string]api.MachineStatus)
 	for id, machines := range context.machines {
-		hostStatus := context.makeMachineStatus(machines[0])
-		context.processMachine(machines, &hostStatus, 0)
-		machinesMap[id] = hostStatus
+		for mn, m := range machines {
+			hostStatus := context.makeMachineStatus(m)
+			context.processMachine(machines, &hostStatus, mn)
+			machinesMap[id] = hostStatus
+		}
 	}
 	return machinesMap
 }
@@ -665,7 +488,8 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) (status api.UnitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
-	for _, port := range unit.OpenedPorts() {
+	unitPorts, _ := unit.OpenedPorts()
+	for _, port := range unitPorts {
 		status.OpenedPorts = append(status.OpenedPorts, port.String())
 	}
 	if unit.IsPrincipal() {

@@ -4,7 +4,6 @@
 package azure
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
@@ -19,7 +18,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/api"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -39,7 +39,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 type baseEnvironSuite struct {
@@ -1466,14 +1465,9 @@ func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename str
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-
-	data := []byte{1, 2, 3, 4}
-	env.Storage().Put("tools/filename", bytes.NewReader(data), int64(len(data)))
-
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 1)
-	assertSourceContents(c, sources[0], "filename", data)
+	c.Assert(sources, gc.HasLen, 0)
 }
 
 func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
@@ -1643,6 +1637,12 @@ func (s *environSuite) TestConstraintsMerge(c *gc.C) {
 }
 
 func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
+	storageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+	s.UploadFakeTools(c, stor)
+	s.PatchValue(&tools.DefaultBaseURL, storageDir)
+
 	env := s.setupEnvWithDummyMetadata(c)
 	var responses []gwacl.DispatcherResponse
 
@@ -1667,8 +1667,6 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	s.PatchValue(&createInstance, func(*azureEnviron, *gwacl.ManagementAPI, *gwacl.Role, string, bool) (instance.Instance, error) {
 		return nil, fmt.Errorf("no instance for you")
 	})
-	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
-	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120t...)
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

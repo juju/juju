@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"net/url"
 
-	gc "launchpad.net/gocheck"
+	"github.com/juju/names"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/testing"
@@ -82,7 +83,12 @@ func (s *charmsURLSuite) TestCharmsURL(c *gc.C) {
 }
 
 func testCharmsURL(c *gc.C, addr, envTag, expected string) {
-	url := uniter.CharmsURL(addr, envTag)
+	tag, err := names.ParseEnvironTag(envTag)
+	if err != nil {
+		// If it's invalid, pretend it's not set at all.
+		tag = names.NewEnvironTag("")
+	}
+	url := uniter.CharmsURL(addr, tag)
 	if !c.Check(url, gc.NotNil) {
 		return
 	}

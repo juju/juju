@@ -13,7 +13,7 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -55,6 +55,11 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+
+	// Set version.Current to a known value, for which we
+	// will make tools available. Individual tests may
+	// override this.
+	s.PatchValue(&version.Current, v100p64)
 
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
@@ -118,12 +123,6 @@ func (test bootstrapTest) run(c *gc.C) {
 		defer func() { arch.HostArch = origVersion }()
 	}
 
-	if test.upload == "" {
-		usefulVersion := version.Current
-		usefulVersion.Series = config.PreferredSeries(env.Config())
-		envtesting.AssertUploadFakeToolsVersions(c, env.Storage(), usefulVersion)
-	}
-
 	// Run command and check for uploads.
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
 	// Check for remaining operations/errors.
@@ -137,15 +136,10 @@ func (test bootstrapTest) run(c *gc.C) {
 		return
 	}
 
-	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
-	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
-
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
 	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
-	c.Check(opBootstrap.Args.KeepBroken, gc.Equals, test.keepBroken)
 
 	opFinalizeBootstrap := (<-opc).(dummy.OpFinalizeBootstrap)
 	c.Check(opFinalizeBootstrap.Env, gc.Equals, "peckham")
@@ -450,7 +444,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Now check that there are no tools available.
 	_, err = envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
 }
 
@@ -532,7 +526,6 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	// the current juju version.
 	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "devenv")
 	c.Assert(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "devenv") // verify storage
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, "devenv")
 	mcfg := (<-opc).(dummy.OpFinalizeBootstrap).MachineConfig
 	c.Assert(mcfg, gc.NotNil)
@@ -654,14 +647,13 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.PrepareFromName(envName, cmdtesting.NullContext(c), store)
 	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, env)
 	return env
 }
 
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
 	list, err := envtools.FindTools(
-		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -207,7 +208,12 @@ func (f *FirewallerAPIV0) OpenedPorts(args params.Entities) (params.PortsResults
 		}
 		unit, err := f.getUnit(canAccess, tag)
 		if err == nil {
-			result.Results[i].Ports = unit.OpenedPorts()
+			var unitPorts []network.PortRange
+			unitPorts, err = unit.OpenedPorts()
+			if err == nil {
+				ports := network.PortRangesToPorts(unitPorts)
+				result.Results[i].Ports = ports
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"

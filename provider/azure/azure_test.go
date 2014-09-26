@@ -7,12 +7,13 @@ import (
 	stdtesting "testing"
 	"time"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -39,6 +40,7 @@ func init() {
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
+	s.UploadArches = []string{arch.AMD64}
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {

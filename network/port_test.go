@@ -5,7 +5,7 @@ package network_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
@@ -202,7 +202,7 @@ func (p *PortSuite) TestPortRangeConflicts(c *gc.C) {
 func (p *PortSuite) TestPortRangeString(c *gc.C) {
 	c.Assert(network.PortRange{80, 80, "TCP"}.String(),
 		gc.Equals,
-		"80-80/tcp")
+		"80/tcp")
 	c.Assert(network.PortRange{80, 100, "TCP"}.String(),
 		gc.Equals,
 		"80-100/tcp")

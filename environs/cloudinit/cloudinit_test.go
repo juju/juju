@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -196,6 +196,8 @@ var cloudinitTests = []cloudinitTest{
 		},
 		setEnvConfig: true,
 		expectScripts: `
+install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
+printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 set -xe
 install -D -m 644 /dev/null '/var/lib/juju/nonce.txt'
 printf '%s\\n' 'FAKE_NONCE' > '/var/lib/juju/nonce.txt'
@@ -216,8 +218,6 @@ printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/relea
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
-install -D -m 644 /dev/null '/etc/apt/preferences\.d/50-cloud-tools'
-printf '%s\\n' '.*' > '/etc/apt/preferences\.d/50-cloud-tools'
 echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'

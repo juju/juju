@@ -4,16 +4,15 @@
 package tools_test
 
 import (
-	"strings"
-
-	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	"github.com/juju/errors"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -49,53 +48,53 @@ func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	env := s.env(c, "")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	// Put a file in tools since the dummy storage provider requires a
-	// file to exist before the URL can be found. This is to ensure it behaves
-	// the same way as MAAS.
-	err = env.Storage().Put("tools/dummy", strings.NewReader("dummy"), 5)
-	c.Assert(err, gc.IsNil)
-	privateStorageURL, err := env.Storage().URL("tools")
-	c.Assert(err, gc.IsNil)
-	sstesting.AssertExpectedSources(c, sources, []string{
-		privateStorageURL, "https://streams.canonical.com/juju/tools/"})
+	sstesting.AssertExpectedSources(c, sources, []string{"https://streams.canonical.com/juju/tools/"})
 }
 
 func (s *URLsSuite) TestToolsSources(c *gc.C) {
 	env := s.env(c, "config-tools-metadata-url")
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	// Put a file in tools since the dummy storage provider requires a
-	// file to exist before the URL can be found. This is to ensure it behaves
-	// the same way as MAAS.
-	err = env.Storage().Put("tools/dummy", strings.NewReader("dummy"), 5)
-	c.Assert(err, gc.IsNil)
-	privateStorageURL, err := env.Storage().URL("tools")
-	c.Assert(err, gc.IsNil)
 	sstesting.AssertExpectedSources(c, sources, []string{
-		"config-tools-metadata-url/", privateStorageURL, "https://streams.canonical.com/juju/tools/"})
-	haveExpectedSources := false
-	for _, source := range sources {
-		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
-			haveExpectedSources = true
-			c.Assert(allowRetry, jc.IsFalse)
-		}
-	}
-	c.Assert(haveExpectedSources, jc.IsTrue)
+		"config-tools-metadata-url/", "https://streams.canonical.com/juju/tools/"})
 }
 
-func (s *URLsSuite) TestToolsSourcesWithRetry(c *gc.C) {
-	env := s.env(c, "")
-	sources, err := tools.GetMetadataSourcesWithRetries(env, true)
+func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncs(c *gc.C) {
+	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames), nil
+	})
+	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames), nil
+	})
+	// overwrite the one previously registered against id1
+	tools.RegisterToolsDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
+		// NotSupported errors do not cause GetMetadataSources to fail,
+		// they just cause the datasource function to be ignored.
+		return nil, errors.NewNotSupported(nil, "oyvey")
+	})
+	defer tools.UnregisterToolsDataSourceFunc("id0")
+	defer tools.UnregisterToolsDataSourceFunc("id1")
+
+	env := s.env(c, "config-tools-metadata-url")
+	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	haveExpectedSources := false
-	for _, source := range sources {
-		if allowRetry, ok := storage.TestingGetAllowRetry(source); ok {
-			haveExpectedSources = true
-			c.Assert(allowRetry, jc.IsTrue)
-		}
-	}
-	c.Assert(haveExpectedSources, jc.IsTrue)
-	c.Assert(haveExpectedSources, jc.IsTrue)
+	sstesting.AssertExpectedSources(c, sources, []string{
+		"config-tools-metadata-url/",
+		"betwixt/releases/",
+		"https://streams.canonical.com/juju/tools/",
+	})
+}
+
+func (s *URLsSuite) TestToolsMetadataURLsRegisteredFuncsError(c *gc.C) {
+	tools.RegisterToolsDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
+		// Non-NotSupported errors cause GetMetadataSources to fail.
+		return nil, errors.New("oyvey!")
+	})
+	defer tools.UnregisterToolsDataSourceFunc("id0")
+
+	env := s.env(c, "config-tools-metadata-url")
+	_, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.ErrorMatches, "oyvey!")
 }
 
 func (s *URLsSuite) TestToolsURL(c *gc.C) {

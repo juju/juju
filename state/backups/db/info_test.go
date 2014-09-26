@@ -5,7 +5,7 @@ package db_test
 
 import (
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups/db"

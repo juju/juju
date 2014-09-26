@@ -20,13 +20,12 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -69,7 +68,6 @@ type maasEnviron struct {
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
-var _ envtools.SupportsCustomSources = (*maasEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env := new(maasEnviron)
@@ -646,6 +644,13 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
+
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
+
 	return inst, hc, networkInfo, nil
 }
 
@@ -703,7 +708,10 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// an enhancement to MAAS to ignore unknown node IDs.
 	nodes := environ.getMAASClient().GetSubObject("nodes")
 	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
-	return err
+	if err != nil {
+		return errors.Annotate(err, "cannot not release nodes")
+	}
+	return common.RemoveStateInstances(environ.Storage(), ids...)
 }
 
 // acquireInstances calls the MAAS API to list acquired nodes.
@@ -808,7 +816,10 @@ func (env *maasEnviron) Storage() storage.Storage {
 }
 
 func (environ *maasEnviron) Destroy() error {
-	return common.Destroy(environ)
+	if err := common.Destroy(environ); err != nil {
+		return errors.Trace(err)
+	}
+	return environ.Storage().RemoveAll()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
@@ -829,13 +840,6 @@ func (*maasEnviron) Ports() ([]network.PortRange, error) {
 
 func (*maasEnviron) Provider() environs.EnvironProvider {
 	return &providerInstance
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *maasEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
 // networkDetails holds information about a MAAS network.

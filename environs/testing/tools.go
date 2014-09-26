@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -47,6 +47,14 @@ func (s *ToolsFixture) SetUpTest(c *gc.C) {
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
+}
+
+// UploadFakeToolsToDirectory uploads fake tools of the architectures in
+// s.UploadArches for each LTS release to the specified directory.
+func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir string) {
+	stor, err := filestorage.NewFileStorageWriter(dir)
+	c.Assert(err, gc.IsNil)
+	s.UploadFakeTools(c, stor)
 }
 
 // UploadFakeTools uploads fake tools of the architectures in
@@ -263,12 +271,6 @@ func RemoveTools(c *gc.C, stor storage.Storage) {
 		c.Check(err, gc.IsNil)
 	}
 	RemoveFakeToolsMetadata(c, stor)
-}
-
-// RemoveAllTools deletes all tools from the supplied environment.
-func RemoveAllTools(c *gc.C, env environs.Environ) {
-	c.Logf("clearing private storage")
-	RemoveTools(c, env.Storage())
 }
 
 var (

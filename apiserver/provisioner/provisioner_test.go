@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"

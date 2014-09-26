@@ -15,10 +15,10 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -26,7 +26,10 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
@@ -60,6 +63,10 @@ type JujuConnSuite struct {
 	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
+
+	DefaultToolsStorageDir string
+	DefaultToolsStorage    storage.Storage
+
 	State        *state.State
 	Environ      environs.Environ
 	APIState     *api.State
@@ -129,7 +136,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	apiInfo.EnvironTag = env.Tag()
+	apiInfo.EnvironTag = env.EnvironTag()
 
 	return apiInfo
 }
@@ -236,7 +243,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	versions = append(versions, version.Current)
 
 	// Upload tools for both preferred and fake default series
-	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
+	s.DefaultToolsStorageDir = c.MkDir()
+	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
+	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, versions...)
+	s.DefaultToolsStorage = stor
+
 	err = bootstrap.Bootstrap(ctx, environ, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -295,9 +308,6 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	password := environ.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
-	if err := environs.CheckEnvironment(environ); err != nil {
-		return nil, err
 	}
 
 	mongoInfo.Password = password

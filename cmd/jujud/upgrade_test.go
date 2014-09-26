@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -395,6 +395,13 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
+	// Upload tools to provider storage, so they can be migrated to environment storage.
+	stor, err := environs.LegacyStorage(s.State)
+	if !errors.IsNotSupported(err) {
+		c.Assert(err, gc.IsNil)
+		envtesting.AssertUploadFakeToolsVersions(c, stor, s.oldVersion)
+	}
+
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
 }
@@ -512,7 +519,7 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), s.oldVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.oldVersion)
 
 	// Only the first machine is going to be ready for upgrade.
 	machineIdA, machineIdB, _ := s.createUpgradingStateServers(c)

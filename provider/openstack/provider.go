@@ -24,6 +24,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -31,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -62,6 +64,7 @@ var shortAttempt = utils.AttemptStrategy{
 func init() {
 	environs.RegisterProvider("openstack", environProvider{})
 	environs.RegisterImageDataSourceFunc("keystone catalog", getKeystoneImageSource)
+	envtools.RegisterToolsDataSourceFunc("keystone catalog", getKeystoneToolsSource)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -329,20 +332,18 @@ type environ struct {
 	supportedArchitectures []string
 
 	ecfgMutex       sync.Mutex
-	toolsBaseMutex  sync.Mutex
 	ecfgUnlocked    *environConfig
 	client          client.AuthenticatingClient
 	novaUnlocked    *nova.Client
 	storageUnlocked storage.Storage
 
-	// An ordered list of sources in which to find the simplestreams index files used to
-	// look up image ids.
+	// keystoneImageDataSource caches the result of getKeystoneImageSource.
 	keystoneImageDataSourceMutex sync.Mutex
 	keystoneImageDataSource      simplestreams.DataSource
 
-	// An ordered list of paths in which to find the simplestreams index files used to
-	// look up tools ids.
-	toolsSources []simplestreams.DataSource
+	// keystoneToolsDataSource caches the result of getKeystoneToolsSource.
+	keystoneToolsDataSourceMutex sync.Mutex
+	keystoneToolsDataSource      simplestreams.DataSource
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
@@ -779,18 +780,31 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// getKeystoneImageSource is an imagemetadata.EnvironDataSourceFunc that
-// retyrns a DataSource using the "product-streams" keystone URL.
+// getKeystoneImageSource is an imagemetadata.ImageDataSourceFunc that
+// returns a DataSource using the "product-streams" keystone URL.
 func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	e, ok := env.(*environ)
 	if !ok {
 		return nil, jujuerrors.NotSupportedf("non-openstack environment")
 	}
+	return e.getKeystoneDataSource(&e.keystoneImageDataSourceMutex, &e.keystoneImageDataSource, "product-streams")
+}
 
-	e.keystoneImageDataSourceMutex.Lock()
-	defer e.keystoneImageDataSourceMutex.Unlock()
-	if e.keystoneImageDataSource != nil {
-		return e.keystoneImageDataSource, nil
+// getKeystoneToolsSource is a tools.ToolsDataSourceFunc that
+// returns a DataSource using the "juju-tools" keystone URL.
+func getKeystoneToolsSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*environ)
+	if !ok {
+		return nil, jujuerrors.NotSupportedf("non-openstack environment")
+	}
+	return e.getKeystoneDataSource(&e.keystoneToolsDataSourceMutex, &e.keystoneToolsDataSource, "juju-tools")
+}
+
+func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestreams.DataSource, keystoneName string) (simplestreams.DataSource, error) {
+	mu.Lock()
+	defer mu.Unlock()
+	if *datasource != nil {
+		return *datasource, nil
 	}
 	if !e.client.IsAuthenticated() {
 		if err := e.client.Authenticate(); err != nil {
@@ -798,7 +812,7 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 		}
 	}
 
-	productStreamsURL, err := makeServiceURL(e.client, "product-streams", nil)
+	url, err := makeServiceURL(e.client, keystoneName, nil)
 	if err != nil {
 		return nil, jujuerrors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
@@ -806,38 +820,8 @@ func getKeystoneImageSource(env environs.Environ) (simplestreams.DataSource, err
 	if !e.Config().SSLHostnameVerification() {
 		verify = utils.NoVerifySSLHostnames
 	}
-	e.keystoneImageDataSource = simplestreams.NewURLDataSource("keystone catalog", productStreamsURL, verify)
-	return e.keystoneImageDataSource, nil
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	e.toolsBaseMutex.Lock()
-	defer e.toolsBaseMutex.Unlock()
-
-	if e.toolsSources != nil {
-		return e.toolsSources, nil
-	}
-	if !e.client.IsAuthenticated() {
-		err := e.client.Authenticate()
-		if err != nil {
-			return nil, err
-		}
-	}
-	verify := utils.VerifySSLHostnames
-	if !e.Config().SSLHostnameVerification() {
-		verify = utils.NoVerifySSLHostnames
-	}
-	// Add the simplestreams source off the control bucket.
-	e.toolsSources = append(e.toolsSources, storage.NewStorageSimpleStreamsDataSource(
-		"cloud storage", e.Storage(), storage.BaseToolsPath))
-	// Add the simplestreams base URL from keystone if it is defined.
-	toolsURL, err := e.client.MakeServiceURL("juju-tools", nil)
-	if err == nil {
-		source := simplestreams.NewURLDataSource("keystone catalog", toolsURL, verify)
-		e.toolsSources = append(e.toolsSources, source)
-	}
-	return e.toolsSources, nil
+	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify)
+	return *datasource, nil
 }
 
 // TODO(gz): Move this somewhere more reusable
@@ -1068,6 +1052,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
@@ -1100,7 +1089,7 @@ func (e *environ) StopInstances(ids ...instance.Id) error {
 	if securityGroupNames != nil {
 		return e.deleteSecurityGroups(securityGroupNames)
 	}
-	return nil
+	return common.RemoveStateInstances(e.Storage(), ids...)
 }
 
 // collectInstances tries to get information on each instance id in ids.
@@ -1242,16 +1231,19 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 func (e *environ) Destroy() error {
 	err := common.Destroy(e)
 	if err != nil {
-		return err
+		return jujuerrors.Trace(err)
+	}
+	if err := e.Storage().RemoveAll(); err != nil {
+		return jujuerrors.Trace(err)
 	}
 	novaClient := e.nova()
 	securityGroups, err := novaClient.ListSecurityGroups()
 	if err != nil {
-		return err
+		return jujuerrors.Annotate(err, "cannot list security groups")
 	}
 	re, err := regexp.Compile(fmt.Sprintf("^%s(-\\d+)?$", e.jujuGroupName()))
 	if err != nil {
-		return err
+		return jujuerrors.Trace(err)
 	}
 	globalGroupName := e.globalGroupName()
 	for _, group := range securityGroups {

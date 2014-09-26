@@ -124,7 +124,7 @@ func (u *Upgrader) loop() error {
 		select {
 		case _, ok := <-changes:
 			if !ok {
-				return watcher.MustErr(versionWatcher)
+				return watcher.EnsureErr(versionWatcher)
 			}
 			wantVersion, err = u.st.DesiredVersion(u.tag.String())
 			if err != nil {

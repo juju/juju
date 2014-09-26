@@ -54,7 +54,7 @@ func (api *APIAddresser) WatchAPIHostPorts() (params.NotifyWatchResult, error) {
 			NotifyWatcherId: api.resources.Register(watch),
 		}, nil
 	}
-	return params.NotifyWatchResult{}, watcher.MustErr(watch)
+	return params.NotifyWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.

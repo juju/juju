@@ -11,7 +11,7 @@ import (
 	"github.com/juju/testing"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs"

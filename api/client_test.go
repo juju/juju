@@ -20,9 +20,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -306,7 +306,7 @@ func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
 
 	// If the server is old, we log at "/log"
 	info := s.APIInfo(c)
-	info.EnvironTag = nil
+	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -322,7 +322,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.EnvironTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -336,7 +336,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 	// Backwards compatibility, passing EnvironTag = "" should just work
-	info.EnvironTag = nil
+	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()
@@ -344,7 +344,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in the correct environment UUID should also work
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.EnvironTag()
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()

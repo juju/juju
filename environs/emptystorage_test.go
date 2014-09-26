@@ -4,15 +4,10 @@
 package environs_test
 
 import (
-	"io/ioutil"
-
-	"github.com/juju/errors"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,55 +33,4 @@ func (s *EmptyStorageSuite) TestList(c *gc.C) {
 	names, err := storage.List(environs.EmptyStorage, "anything")
 	c.Assert(names, gc.IsNil)
 	c.Assert(err, gc.IsNil)
-}
-
-type verifyStorageSuite struct {
-	testing.FakeJujuHomeSuite
-}
-
-var _ = gc.Suite(&verifyStorageSuite{})
-
-const existingEnv = `
-environments:
-    test:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
-`
-
-func (s *verifyStorageSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	testing.WriteEnvironments(c, existingEnv)
-}
-
-func (s *verifyStorageSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	s.FakeJujuHomeSuite.TearDownTest(c)
-}
-
-func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
-	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-	stor := environ.Storage()
-	err = environs.VerifyStorage(stor)
-	c.Assert(err, gc.IsNil)
-	reader, err := storage.Get(stor, environs.VerificationFilename)
-	c.Assert(err, gc.IsNil)
-	defer reader.Close()
-	contents, err := ioutil.ReadAll(reader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(contents), gc.Equals,
-		"juju-core storage writing verified: ok\n")
-}
-
-func (s *verifyStorageSuite) TestVerifyStorageFails(c *gc.C) {
-	ctx := testing.Context(c)
-	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-	stor := environ.Storage()
-	someError := errors.Unauthorizedf("you shall not pass")
-	dummy.Poison(stor, environs.VerificationFilename, someError)
-	err = environs.VerifyStorage(stor)
-	c.Assert(err, gc.Equals, environs.VerifyStorageError)
 }

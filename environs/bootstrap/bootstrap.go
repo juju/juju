@@ -31,8 +31,6 @@ You may want to use the 'tools-metadata-url' configuration setting to specify th
 
 var (
 	logger = loggo.GetLogger("juju.environs.bootstrap")
-
-	environsVerifyStorage = environs.VerifyStorage
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
@@ -48,10 +46,6 @@ type BootstrapParams struct {
 	// UploadTools reports whether we should upload the local tools and
 	// override the environment's specified agent-version.
 	UploadTools bool
-
-	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
-	// if there is an error during bootstrap.
-	KeepBroken bool
 
 	// MetadataDir is an optional path to a local directory containing
 	// tools and/or image metadata.
@@ -80,11 +74,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return errors.Errorf("environment configuration has no ca-private-key")
-	}
-
-	// Write out the bootstrap-init file, and confirm storage is writeable.
-	if err := environsVerifyStorage(environ.Storage()); err != nil {
-		return err
 	}
 
 	// Set default tools metadata source, add image metadata source,
@@ -131,7 +120,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	arch, series, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{
 		Constraints:    args.Constraints,
 		Placement:      args.Placement,
-		KeepBroken:     args.KeepBroken,
 		AvailableTools: availableTools,
 	})
 	if err != nil {
@@ -158,6 +146,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 		if err != nil {
 			return errors.Annotate(err, "cannot upload bootstrap tools")
 		}
+		defer os.RemoveAll(builtTools.Dir)
 		filename := filepath.Join(builtTools.Dir, builtTools.StorageName)
 		selectedTools.URL = fmt.Sprintf("file://%s", filename)
 		selectedTools.Size = builtTools.Size

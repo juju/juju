@@ -7,8 +7,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// stepsFor121 returns upgrade steps to upgrade to a Juju 1.21 deployment.
-func stepsFor121() []Step {
+// stepsFor121a1 returns upgrade steps to upgrade to a Juju 1.21alpha1 deployment.
+func stepsFor121a1() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "rename the user LastConnection field to LastLogin",
@@ -30,6 +30,26 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "set environment owner and server uuid",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.SetOwnerAndServerUUIDForEnvironment(context.State())
+			},
+		},
+	}
+}
+
+// stepsFor121a2 returns upgrade steps to upgrade to a Juju 1.21alpha2 deployment.
+func stepsFor121a2() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all service docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToServicesID(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "migrate charm archives into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -44,10 +64,17 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "set environment owner and server uuid",
+			description: "migrate tools into environment storage",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return state.SetOwnerAndServerUUIDForEnvironment(context.State())
+				return migrateToolsStorage(context.State(), context.AgentConfig())
+			},
+		},
+		&upgradeStep{
+			description: "migrate individual unit ports to openedPorts collection",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateUnitPortsToOpenedPorts(context.State())
 			},
 		},
 	}

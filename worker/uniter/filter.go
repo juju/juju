@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -351,7 +351,7 @@ func (f *filter) loop(unitTag string) (err error) {
 		case _, ok = <-unitw.Changes():
 			filterLogger.Debugf("got unit change")
 			if !ok {
-				return watcher.MustErr(unitw)
+				return watcher.EnsureErr(unitw)
 			}
 			if err = f.unitChanged(); err != nil {
 				return err
@@ -359,7 +359,7 @@ func (f *filter) loop(unitTag string) (err error) {
 		case _, ok = <-servicew.Changes():
 			filterLogger.Debugf("got service change")
 			if !ok {
-				return watcher.MustErr(servicew)
+				return watcher.EnsureErr(servicew)
 			}
 			if err = f.serviceChanged(); err != nil {
 				return err
@@ -367,7 +367,7 @@ func (f *filter) loop(unitTag string) (err error) {
 		case _, ok = <-configChanges:
 			filterLogger.Debugf("got config change")
 			if !ok {
-				return watcher.MustErr(configw)
+				return watcher.EnsureErr(configw)
 			}
 			if addressChanges == nil {
 				// We start reacting to address changes after the
@@ -375,7 +375,7 @@ func (f *filter) loop(unitTag string) (err error) {
 				// initial address changed event.
 				addressChanges = addressesw.Changes()
 				if _, ok := <-addressChanges; !ok {
-					return watcher.MustErr(addressesw)
+					return watcher.EnsureErr(addressesw)
 				}
 			}
 			filterLogger.Debugf("preparing new config event")
@@ -384,7 +384,7 @@ func (f *filter) loop(unitTag string) (err error) {
 		case _, ok = <-addressChanges:
 			filterLogger.Debugf("got address change")
 			if !ok {
-				return watcher.MustErr(addressesw)
+				return watcher.EnsureErr(addressesw)
 			}
 			// address change causes config-changed event
 			filterLogger.Debugf("preparing new config event")
@@ -392,14 +392,14 @@ func (f *filter) loop(unitTag string) (err error) {
 		case ids, ok := <-actionsw.Changes():
 			filterLogger.Debugf("got %d actions", len(ids))
 			if !ok {
-				return watcher.MustErr(actionsw)
+				return watcher.EnsureErr(actionsw)
 			}
 			f.actionsPending = append(f.actionsPending, ids...)
 			f.nextAction = f.getNextAction()
 		case keys, ok := <-relationsw.Changes():
 			filterLogger.Debugf("got relations change")
 			if !ok {
-				return watcher.MustErr(relationsw)
+				return watcher.EnsureErr(relationsw)
 			}
 			var ids []int
 			for _, key := range keys {
@@ -605,7 +605,7 @@ outer:
 func (f *filter) getNextAction() *hook.Info {
 	if len(f.actionsPending) > 0 {
 		nextAction := hook.Info{
-			Kind:     hooks.ActionRequested,
+			Kind:     hooks.Action,
 			ActionId: f.actionsPending[0],
 		}
 

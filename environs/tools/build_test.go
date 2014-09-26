@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/testing"

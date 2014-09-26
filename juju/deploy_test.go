@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"

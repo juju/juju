@@ -10,7 +10,7 @@ import (
 	"sort"
 
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"

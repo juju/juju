@@ -5,18 +5,15 @@ package backups_test
 
 import (
 	"bytes"
-	"flag"
 	"strings"
 	"testing"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
-	jujucmd "github.com/juju/juju/cmd/juju"
 	"github.com/juju/juju/cmd/juju/backups"
-	cmdtesting "github.com/juju/juju/cmd/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -39,14 +36,6 @@ juju version:    0.0.0
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
-}
-
-// Reentrancy point for testing (something as close as possible to) the juju
-// tool itself.
-func TestRunMain(t *testing.T) {
-	if *cmdtesting.FlagRunMain {
-		jujucmd.Main(flag.Args())
-	}
 }
 
 type BaseBackupsSuite struct {

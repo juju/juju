@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -35,16 +35,18 @@ purpose: send metrics
 
 func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 	testCases := []struct {
-		about  string
-		cmd    []string
-		result int
-		stdout string
-		stderr string
-		expect []jujuc.Metric
+		about         string
+		cmd           []string
+		canAddMetrics bool
+		result        int
+		stdout        string
+		stderr        string
+		expect        []jujuc.Metric
 	}{
 		{
 			"add single metric",
 			[]string{"add-metric", "key=50"},
+			true,
 			0,
 			"",
 			"",
@@ -52,6 +54,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		}, {
 			"no parameters error",
 			[]string{"add-metric"},
+			true,
 			2,
 			"",
 			"error: no metrics specified\n",
@@ -59,6 +62,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		}, {
 			"invalid metric value",
 			[]string{"add-metric", "key=invalidvalue"},
+			true,
 			2,
 			"",
 			"error: invalid value type: expected float, got \"invalidvalue\"\n",
@@ -66,6 +70,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		}, {
 			"invalid argument format",
 			[]string{"add-metric", "key"},
+			true,
 			2,
 			"",
 			"error: expected \"key=value\", got \"key\"\n",
@@ -73,6 +78,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		}, {
 			"invalid argument format",
 			[]string{"add-metric", "=key"},
+			true,
 			2,
 			"",
 			"error: expected \"key=value\", got \"=key\"\n",
@@ -80,6 +86,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		}, {
 			"multiple metrics",
 			[]string{"add-metric", "key=60", "key2=50.4"},
+			true,
 			0,
 			"",
 			"",
@@ -87,15 +94,24 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		}, {
 			"multiple metrics, matching keys",
 			[]string{"add-metric", "key=60", "key=50.4"},
+			true,
 			0,
 			"",
 			"",
 			[]jujuc.Metric{{"key", "60", time.Now()}, {"key", "50.4", time.Now()}},
-		},
-	}
+		}, {
+			"can't add metrics",
+			[]string{"add-metric", "key=60", "key2=50.4"},
+			false,
+			1,
+			"",
+			"error: cannot record metric: metrics disabled\n",
+			nil,
+		}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		hctx := s.GetHookContext(c, -1, "")
+		hctx.canAddMetrics = t.canAddMetrics
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)

@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -2311,6 +2311,69 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	ctx.run(c, []stepper{expected})
 }
 
+func (s *StatusSuite) TestStatusWithFormatSummary(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"mysql"},
+		addCharm{"logging"},
+		addService{name: "wordpress", charm: "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
+		addService{name: "mysql", charm: "mysql"},
+		setServiceExposed{"mysql", true},
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+		addAliveUnit{"mysql", "2"},
+		setUnitStatus{"mysql/0", state.StatusStarted, "", nil},
+		addService{name: "logging", charm: "logging"},
+		setServiceExposed{"logging", true},
+		relateServices{"wordpress", "mysql"},
+		relateServices{"wordpress", "logging"},
+		relateServices{"mysql", "logging"},
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"mysql/0", "logging"},
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
+		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
+	}
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+	code, stdout, stderr := runStatus(c, "--format", "summary")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(
+		string(stdout),
+		gc.Equals,
+		"Running on subnets: 127.0.0.1/8, 10.0.0.1/8 \n"+
+			"Utilizing ports:                            \n"+
+			" # MACHINES: (3)\n"+
+			"    started:  3 \n"+
+			"            \n"+
+			"    # UNITS: (4)\n"+
+			"      error:  1 \n"+
+			"    started:  3 \n"+
+			"            \n"+
+			" # SERVICES:  (3)\n"+
+			"     logging  1/1 exposed\n"+
+			"       mysql  1/1 exposed\n"+
+			"   wordpress  1/1 exposed\n"+
+			"\n",
+	)
+}
 func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 	ctx := s.newContext(c)
 	defer s.resetContext(c, ctx)
@@ -2442,4 +2505,234 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 			"  logging/0 started                       dummyenv-1.dns \n"+
 			"\n",
 	)
+}
+
+//
+// Filtering Feature
+//
+
+type filteringFeature struct {
+	logSvc *state.Service
+	StatusSuite
+	ctx chan *context
+}
+
+var _ = gc.Suite(&filteringFeature{ctx: make(chan *context, 1)})
+
+func (f *filteringFeature) SetUpSuite(c *gc.C) {
+	f.StatusSuite.SetUpSuite(c)
+}
+
+func (f *filteringFeature) SetUpTest(c *gc.C) {
+	f.JujuConnSuite.SetUpTest(c)
+
+	steps := []stepper{
+		// Given a machine is started
+		// And the machine's ID is "0"
+		// And the machine's job is to manage the environment
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+		// And the machine's address is "dummyenv-0.dns"
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		// And the "wordpress" charm is available
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		// And the "mysql" charm is available
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+		// And the "logging" charm is available
+		addCharm{"logging"},
+		// And a machine is started
+		// And the machine's ID is "1"
+		// And the machine's job is to host units
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", state.StatusStarted, ""},
+		// And the machine's address is "dummyenv-1.dns"
+		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		// And a unit of "wordpress" is deployed to machine "1"
+		addAliveUnit{"wordpress", "1"},
+		// And the unit is started
+		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
+		// And a machine is started
+
+		// And the machine's ID is "2"
+		// And the machine's job is to host units
+		addMachine{machineId: "2", job: state.JobHostUnits},
+		startAliveMachine{"2"},
+		setMachineStatus{"2", state.StatusStarted, ""},
+		// And the machine's address is "dummyenv-2.dns"
+		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
+		// And a unit of "mysql" is deployed to machine "2"
+		addAliveUnit{"mysql", "2"},
+		// And the unit is started
+		setUnitStatus{"mysql/0", state.StatusStarted, "", nil},
+		// And the "logging" service is added
+		addService{name: "logging", charm: "logging"},
+		// And the service is exposed
+		setServiceExposed{"logging", true},
+		// And the "wordpress" service is related to the "mysql" service
+		relateServices{"wordpress", "mysql"},
+		// And the "wordpress" service is related to the "logging" service
+		relateServices{"wordpress", "logging"},
+		// And the "mysql" service is related to the "logging" service
+		relateServices{"mysql", "logging"},
+		// And the "logging" service is a subordinate to unit 0 of the "wordpress" service
+		addSubordinate{"wordpress/0", "logging"},
+		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
+		// And the "logging" service is a subordinate to unit 0 of the "mysql" service
+		addSubordinate{"mysql/0", "logging"},
+		setUnitStatus{"logging/1", state.StatusStarted, "", nil},
+		setUnitsAlive{"logging"},
+	}
+
+	ctx := f.newContext(c)
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+
+	f.ctx <- ctx
+}
+
+func (f *filteringFeature) TearDownTest(c *gc.C) {
+	f.resetContext(c, <-f.ctx)
+	f.StatusSuite.TearDownTest(c)
+}
+
+func (f *filteringFeature) TearDownSuite(c *gc.C) {
+	f.StatusSuite.TearDownSuite(c)
+}
+
+// Scenario: One unit is in an errored state and user filters to started
+func (f *filteringFeature) TestFilterToStarted(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given unit 1 of the "logging" service has an error
+	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	// When I run juju status --format oneline started
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "started")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: One unit is in an errored state and user filters to errored
+func (f *filteringFeature) TestFilterToErrored(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given unit 1 of the "logging" service has an error
+	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	// When I run juju status --format oneline error
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "error")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- logging/1: dummyenv-2.dns (error)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters to mysql service
+func (f *filteringFeature) TestFilterToService(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// When I run juju status --format oneline error
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "mysql")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters to exposed services
+func (f *filteringFeature) TestFilterToExposedService(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given unit 1 of the "mysql" service is exposed
+	setServiceExposed{"mysql", true}.step(c, ctx)
+	// When I run juju status --format oneline exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "exposed")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters to non-exposed services
+func (f *filteringFeature) TestFilterToNotExposedService(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given unit 1 of the "mysql" service is exposed
+	setServiceExposed{"mysql", true}.step(c, ctx)
+	// When I run juju status --format oneline exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: Filtering on Subnets
+func (f *filteringFeature) TestFilterOnSubnet(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given the address for machine "1" is "localhost"
+	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
+	// And the address for machine "2" is "10.0.0.1"
+	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
+	// When I run juju status --format oneline exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: localhost (started)
+  - logging/0: localhost (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: Filtering on Ports
+func (f *filteringFeature) TestFilterOnPorts(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given the address for machine "1" is "localhost"
+	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
+	// And the address for machine "2" is "10.0.0.1"
+	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
+	openUnitPort{"wordpress/0", "tcp", 80}.step(c, ctx)
+	// When I run juju status --format oneline 80/tcp
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "80/tcp")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- wordpress/0: localhost (started)
+  - logging/0: localhost (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
 }

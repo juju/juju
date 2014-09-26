@@ -72,7 +72,7 @@ $FileCreateMode 0600
 # Maximum size for the log on this outchannel is 512MB
 # The command to execute when an outchannel as reached its size limit cannot accept any arguments
 # that is why we have created the helper script for executing logrotate.
-$outchannel logRotation,{{logDir}}/all-machines.log,512000000,{{logrotateHelperPath}}
+$outchannel logRotation,{{logDir}}/all-machines.log,536870912,{{logrotateHelperPath}}
 
 $RuleSet remote
 $FileCreateMode 0600
@@ -139,18 +139,26 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 // The logrotate conf for state serve nodes.
 // default size is 512MB, ensuring that the log + one rotation
 // will never take up more than 1GB of space.
+//
+// The size of the logrotate configuration is low for
+// a very specific reason, see config comment.
 const logrotateConf = `
 {{.LogDir}}/all-machines.log {
-    size 512M
-    # don't move, but copy-and-truncate so the application won't have to be
-    # told that the file has moved.
-    copytruncate
+    # rsyslogd informs logrotate when to rotate.
+    # The size specified here must be less than or equal to the log size
+    # when rsyslogd informs logrotate, or logrotate will take no action.
+    # The size value is otherwise unimportant.
+    size 1K
     # maximum of one old file
     rotate 1
     # counting old files starts at 1 rather than 0
     start 1
-    # use compression
-    compress
+	# ensure new file is created with the correct permissions
+    create 600
+	# reload rsyslog after rotation so it will use the new file
+    postrotate
+      service rsyslog reload
+    endscript
 }
 `
 

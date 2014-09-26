@@ -15,13 +15,14 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
@@ -308,10 +309,10 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 // configuration and the current tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 	logger.Debugf("priming agent %s", tag.String())
-	stor := s.Environ.Storage()
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
-	err := envtools.MergeAndWriteMetadata(stor, "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
+	err = envtools.MergeAndWriteMetadata(stor, "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
@@ -395,7 +396,9 @@ func writeStateAgentConfig(c *gc.C, stateInfo *mongo.MongoInfo, dataDir string, 
 func (s *agentSuite) primeStateAgent(
 	c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 
-	agentTools := envtesting.PrimeTools(c, s.Environ.Storage(), s.DataDir(), vers)
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, gc.IsNil)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)

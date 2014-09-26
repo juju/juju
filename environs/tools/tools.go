@@ -68,11 +68,11 @@ const DoNotAllowRetry = false
 // If minorVersion = -1, then only majorVersion is considered.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
-	filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+func FindTools(env environs.Environ, majorVersion, minorVersion int,
+	filter coretools.Filter) (list coretools.List, err error) {
 
 	var cloudSpec simplestreams.CloudSpec
-	if inst, ok := cloudInst.(simplestreams.HasRegion); ok {
+	if inst, ok := env.(simplestreams.HasRegion); ok {
 		if cloudSpec, err = inst.Region(); err != nil {
 			return nil, err
 		}
@@ -99,13 +99,13 @@ func FindTools(cloudInst environs.ConfigGetter, majorVersion, minorVersion int,
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-	sources, err := GetMetadataSourcesWithRetries(cloudInst, allowRetry)
+	sources, err := GetMetadataSources(env)
 	if err != nil {
 		return nil, err
 	}
-	stream := cloudInst.Config().ToolsStream()
+	stream := env.Config().ToolsStream()
 	// For backwards compatibility with the config "development" attribute.
-	if stream == "" || cloudInst.Config().Development() {
+	if stream == "" || env.Config().Development() {
 		stream = TestingStream
 	}
 	return FindToolsForCloud(sources, cloudSpec, stream, majorVersion, minorVersion, filter)
@@ -158,9 +158,7 @@ func stringOrEmpty(pstr *string) string {
 }
 
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(cloudInst environs.ConfigGetter,
-	vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
-
+func FindExactTools(env environs.Environ, vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
 	logger.Infof("finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
@@ -169,7 +167,7 @@ func FindExactTools(cloudInst environs.ConfigGetter,
 		Series: series,
 		Arch:   arch,
 	}
-	availableTools, err := FindTools(cloudInst, vers.Major, vers.Minor, filter, DoNotAllowRetry)
+	availableTools, err := FindTools(env, vers.Major, vers.Minor, filter)
 	if err != nil {
 		return nil, err
 	}

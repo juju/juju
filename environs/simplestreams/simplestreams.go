@@ -370,6 +370,7 @@ func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interf
 	baseIndexPath := fmt.Sprintf(defaultIndexPath, params.StreamsVersion)
 	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	for _, source := range sources {
+		logger.Debugf("searching for metadata in datasource %q", source.Description())
 		items, resolveInfo, err = getMaybeSignedMetadata(
 			source, baseIndexPath, mirrorsPath, params.LookupConstraint, true, params.ValueParams)
 		// If no items are found using signed metadata, check unsigned.

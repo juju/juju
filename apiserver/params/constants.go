@@ -30,6 +30,17 @@ func (job MachineJob) NeedsState() bool {
 	return job == JobManageEnviron
 }
 
+// AnyJobNeedsState returns true if any of the provided jobs
+// require a state connection.
+func AnyJobNeedsState(jobs ...MachineJob) bool {
+	for _, j := range jobs {
+		if j.NeedsState() {
+			return true
+		}
+	}
+	return false
+}
+
 // ResolvedMode describes the way state transition errors
 // are resolved.
 type ResolvedMode string

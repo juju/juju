@@ -16,6 +16,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -72,7 +72,6 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
 
@@ -660,6 +659,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
+
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
 		Mem:      &spec.InstanceType.Mem,
@@ -687,7 +692,10 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
-	return e.terminateInstances(ids)
+	if err := e.terminateInstances(ids); err != nil {
+		return errors.Trace(err)
+	}
+	return common.RemoveStateInstances(e.Storage(), ids...)
 }
 
 // minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
@@ -885,7 +893,10 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy() error {
-	return common.Destroy(e)
+	if err := common.Destroy(e); err != nil {
+		return errors.Trace(err)
+	}
+	return e.Storage().RemoveAll()
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
@@ -1290,12 +1301,4 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}
-	return sources, nil
 }

@@ -7,7 +7,7 @@ package jujuc_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"

@@ -16,8 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/symlink"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"

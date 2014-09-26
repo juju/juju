@@ -15,9 +15,9 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -1920,7 +1920,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.Environ.Storage(), "released", version.MustParseBinary("2.12.0-precise-amd64"))
+	toolstesting.UploadToStorage(c, s.DefaultToolsStorage, "released", version.MustParseBinary("2.12.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)

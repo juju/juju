@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -163,7 +163,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, newVers)
 
 	// The machine agent downloads the tools; fake this by
 	// creating downloaded-tools.txt in data-dir/tools/<version>.

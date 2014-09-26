@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -74,12 +74,12 @@ type unitDoc struct {
 	MachineId    string
 	Resolved     ResolvedMode
 	Tools        *tools.Tools `bson:",omitempty"`
-	Ports        []network.Port
 	Life         Life
 	TxnRevno     int64 `bson:"txn-revno"`
 	PasswordHash string
 
 	// No longer used - to be removed.
+	Ports          []network.Port
 	PublicAddress  string
 	PrivateAddress string
 }
@@ -728,195 +728,92 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	return nil
 }
 
-// OpenPort sets the policy of the port with protocol and number to be opened.
-func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	ports, err := NewPortRange(u.Name(), number, number, protocol)
+// OpenPorts opens the given port range and protocol for the unit, if
+// it does not conflict with another already opened range on the
+// unit's assigned machine.
+func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
+	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.Maskf(&err, "cannot open ports %v for unit %q", ports, u)
+	defer errors.Contextf(&err, "cannot open ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
 	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
 	}
 
-	// Check if this unit is still storing ports in its own document,
-	// if so - attempt a migration. Migration is only performed if the
-	// openedPorts document contains no ports for the unit.
-	//
-	// TODO(dimitern) Once the migration is performed as an upgrade
-	// step, this won't be necessary.
-	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
-		err = machinePorts.migratePorts(u)
-		if err != nil {
-			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
-			return errors.Trace(err)
-		}
-		err = machinePorts.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	err = machinePorts.OpenPorts(ports)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is
-	// updated to watch openedPorts collection
-	return u.openUnitPort(protocol, number)
+	return machinePorts.OpenPorts(ports)
 }
 
-// openUnitPort is the old implementation of OpenPort that amends the
-// list of ports on the unit document.
-//
-// TODO(domas) 2014-07-04 bug #1337813 This is kept in place until the
-// firewaller is updated to watch the OpenedPorts collection.
-func (u *Unit) openUnitPort(protocol string, number int) (err error) {
-	port := network.Port{Protocol: protocol, Number: number}
-	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = u.st.runTransaction(ops)
+// ClosePorts closes the given port range and protocol for the unit.
+func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
+	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
-		return onAbort(err, ErrDead)
+		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	found := false
-	for _, p := range u.doc.Ports {
-		if p == port {
-			found = true
-			break
-		}
-	}
-	if !found {
-		u.doc.Ports = append(u.doc.Ports, port)
-	}
-	return nil
-}
-
-// closeUnitPort is the old implementation of ClosePort that alters
-// the list of ports on the unit document.
-//
-// TODO(domas) 2014-07-04 bug #1337813 This is kept in place until the
-// firewaller is updated to watch the OpenedPorts collection.
-func (u *Unit) closeUnitPort(protocol string, number int) (err error) {
-	port := network.Port{Protocol: protocol, Number: number}
-	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$pull", bson.D{{"ports", port}}}},
-	}}
-	err = u.st.runTransaction(ops)
-	if err != nil {
-		return onAbort(err, ErrDead)
-	}
-	newPorts := make([]network.Port, 0, len(u.doc.Ports))
-	for _, p := range u.doc.Ports {
-		if p != port {
-			newPorts = append(newPorts, p)
-		}
-	}
-	u.doc.Ports = newPorts
-	return nil
-}
-
-// ClosePort sets the policy of the port with protocol and number to be closed.
-func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	ports, err := NewPortRange(u.Name(), number, number, protocol)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer errors.Maskf(&err, "cannot close ports %v for unit %q", ports, u)
+	defer errors.Contextf(&err, "cannot close ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
 	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
 	}
 
-	// Check if this unit is still storing ports in its own document,
-	// if so - attempt a migration.
-	//
-	// TODO(dimitern) Once the ports migration is done as an upgrade
-	// step, remove this.
-	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
-		err = machinePorts.migratePorts(u)
-		if err != nil {
-			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
-			return errors.Trace(err)
-		}
-		err = machinePorts.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	err = machinePorts.ClosePorts(ports)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is
-	// updated to watch openedPorts collection
-	return u.closeUnitPort(protocol, number)
+	return machinePorts.ClosePorts(ports)
 }
 
-// OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []network.Port {
+// OpenPort opens the given port and protocol for the unit.
+func (u *Unit) OpenPort(protocol string, number int) error {
+	return u.OpenPorts(protocol, number, number)
+}
+
+// ClosePort closes the given port and protocol for the unit.
+func (u *Unit) ClosePort(protocol string, number int) error {
+	return u.ClosePorts(protocol, number, number)
+}
+
+// OpenedPorts returns a slice containing the open port ranges of the
+// unit.
+func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
-		unitLogger.Errorf("cannot retrieve opened ports list for unit %v: %v", u, err)
-		return nil
+		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
 	machinePorts, err := getPorts(u.st, machineId, network.DefaultPublic)
-	result := []network.Port{}
+	result := []network.PortRange{}
 	if err == nil {
 		ports := machinePorts.PortsForUnit(u.Name())
 		for _, port := range ports {
-			result = append(result, network.Port{
+			result = append(result, network.PortRange{
 				Protocol: port.Protocol,
-				Number:   port.FromPort})
+				FromPort: port.FromPort,
+				ToPort:   port.ToPort,
+			})
 		}
 	} else {
 		if !errors.IsNotFound(err) {
-			unitLogger.Errorf("getting ports for unit %v failed: %v", u, err)
+			return nil, errors.Annotatef(err, "failed getting ports for unit %q", u)
 		}
-		// Read the port list in the unit document if the ports
-		// document does not exist.
-		result = append([]network.Port{}, u.doc.Ports...)
 	}
-	network.SortPorts(result)
-	return result
+	network.SortPortRanges(result)
+	return result, nil
 }
 
 // CharmURL returns the charm URL this unit is currently using.

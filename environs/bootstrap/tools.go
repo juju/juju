@@ -138,7 +138,7 @@ func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string
 	if vers != nil {
 		// If we already have an explicit agent version set, we're done.
 		filter.Number = *vers
-		return findTools(env, cliVersion.Major, cliVersion.Minor, filter, false)
+		return findTools(env, cliVersion.Major, cliVersion.Minor, filter)
 	}
-	return findTools(env, cliVersion.Major, cliVersion.Minor, filter, false)
+	return findTools(env, cliVersion.Major, cliVersion.Minor, filter)
 }

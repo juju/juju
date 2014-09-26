@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	gitjujutesting "github.com/juju/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"

@@ -59,6 +59,10 @@ func (b *backups) Create(dbInfo db.ConnInfo, origin metadata.Origin, notes strin
 
 	// Prep the metadata.
 	meta := metadata.NewMetadata(origin, notes, nil)
+	metadataFile, err := meta.AsJSONBuffer() // ...unfinished.
+	if err != nil {
+		return nil, errors.Annotate(err, "while preparing the metadata")
+	}
 
 	// Create the archive.
 	filesToBackUp, err := getFilesToBackUp("")
@@ -66,18 +70,20 @@ func (b *backups) Create(dbInfo db.ConnInfo, origin metadata.Origin, notes strin
 		return nil, errors.Annotate(err, "while listing files to back up")
 	}
 	dumper := getDBDumper(dbInfo)
-	args := createArgs{filesToBackUp, dumper}
+	args := createArgs{filesToBackUp, dumper, metadataFile}
 	result, err := runCreate(&args)
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating backup archive")
 	}
 	defer result.archiveFile.Close()
 
-	// Store the archive.
+	// Finalize the metadata.
 	err = finishMeta(meta, result)
 	if err != nil {
 		return nil, errors.Annotate(err, "while updating metadata")
 	}
+
+	// Store the archive.
 	err = storeArchive(b.storage, meta, result.archiveFile)
 	if err != nil {
 		return nil, errors.Annotate(err, "while storing backup archive")
