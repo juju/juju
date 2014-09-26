@@ -6,7 +6,6 @@ package params
 import (
 	"time"
 
-	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/constraints"
@@ -618,7 +617,7 @@ type RunParams struct {
 // RunCommands holds the information for a `juju run` command.
 type RunParamsV1 struct {
 	Commands string
-	Targets  []names.Tag
+	Targets  []string
 	Context  *RunContext
 	Timeout  time.Duration
 }

@@ -29,7 +29,7 @@ type RunCommand struct {
 	machines   []string
 	services   []string
 	units      []string
-	tags       []names.Tag
+	targets    []string
 	relation   string
 	remoteUnit string
 	commands   string
@@ -135,19 +135,19 @@ func (c *RunCommand) Init(args []string) error {
 		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
-		c.tags = append(c.tags, names.NewMachineTag(machineId))
+		c.targets = append(c.targets, names.NewMachineTag(machineId).String())
 	}
 	for _, service := range c.services {
 		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
-		c.tags = append(c.tags, names.NewServiceTag(service))
+		c.targets = append(c.targets, names.NewServiceTag(service).String())
 	}
 	for _, unit := range c.units {
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
-		c.tags = append(c.tags, names.NewUnitTag(unit))
+		c.targets = append(c.targets, names.NewUnitTag(unit).String())
 	}
 
 	if len(c.remoteUnit) > 0 && !names.IsValidUnit(c.remoteUnit) {
@@ -221,10 +221,11 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	defer runClient.Close()
 
 	runContext := &params.RunContext{Relation: c.relation, RemoteUnit: c.remoteUnit}
+
 	runParams := params.RunParamsV1{
 		Commands: c.commands,
 		Timeout:  c.timeout,
-		Targets:  c.tags,
+		Targets:  c.targets,
 		Context:  runContext,
 	}
 
@@ -235,7 +236,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		runResults, err = runClient.Run(runParams)
 	}
 
-	if err != nil {
+	if params.IsCodeNotImplemented(err) {
 		oldParams := params.RunParams{
 			Commands: c.commands,
 			Timeout:  c.timeout,
@@ -261,6 +262,10 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	if err != nil {
+		return err
 	}
 
 	// If we are just dealing with one result, AND we are using the smart

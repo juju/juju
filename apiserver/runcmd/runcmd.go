@@ -73,7 +73,7 @@ func NewRunCommandAPI(
 }
 
 func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResults, err error) {
-	var params []*RemoteExec
+	var remoteParams []*RemoteExec
 	var quotedCommands = utils.ShQuote(runCmd.Commands)
 
 	command := "juju-run"
@@ -87,6 +87,7 @@ func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResu
 		var execParam *RemoteExec
 
 		kind := tag.Kind()
+
 		switch kind {
 		case names.MachineTagKind:
 			machine, err := api.state.Machine(tag.Id())
@@ -99,10 +100,16 @@ func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResu
 			if runCmd.Context != nil {
 				relation, err := api.getRelation(api.state, runCmd.Context)
 				if err != nil {
-					return results, errors.Trace(err)
+					return results, errors.Annotate(err, "--relation")
 				}
-				command += fmt.Sprintf(" --relation %d", relation.Id)
-				command += fmt.Sprintf(" --remote-unit %s", relation.RemoteUnit)
+
+				if relation.isValidRelation() {
+					command += fmt.Sprintf(" --relation %d", relation.Id)
+				}
+
+				if relation.isValidRemoteUnit() {
+					command += fmt.Sprintf(" --remote-unit %s", relation.RemoteUnit)
+				}
 			}
 
 			machine, err := api.machineFromUnitTag(tag)
@@ -114,9 +121,9 @@ func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResu
 			execParam = remoteParamsForMachine(machine, command, runCmd.Timeout)
 			execParam.UnitId = tag.Id()
 		}
-		params = append(params, execParam)
+		remoteParams = append(remoteParams, execParam)
 	}
-	return ParallelExecute(getDataDir(api), params), nil
+	return ParallelExecute(getDataDir(api), remoteParams), nil
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
@@ -125,13 +132,13 @@ func (api *RunCommandAPI) RunOnAllMachines(run params.RunParamsV1) (params.RunRe
 	if err != nil {
 		return params.RunResults{}, err
 	}
-	var params []*RemoteExec
+	var remoteParams []*RemoteExec
 	quotedCommands := utils.ShQuote(run.Commands)
 	command := fmt.Sprintf("juju-run --no-context %s", quotedCommands)
 	for _, machine := range machines {
-		params = append(params, remoteParamsForMachine(machine, command, run.Timeout))
+		remoteParams = append(remoteParams, remoteParamsForMachine(machine, command, run.Timeout))
 	}
-	return ParallelExecute(getDataDir(api), params), nil
+	return ParallelExecute(getDataDir(api), remoteParams), nil
 }
 
 // ParallelExecute executes all of the requests defined in the params,
@@ -196,13 +203,16 @@ func (api *RunCommandAPI) machineFromUnitTag(tag names.Tag) (*state.Machine, err
 // expandTargets filters the list of targets to a unique set.
 // This includes expanding and filtering the duplicate targets from
 // different services. The result is a list of names.Tag.
-func (api *RunCommandAPI) expandTargets(targets []names.Tag) ([]names.Tag, error) {
-	tagSet := set.Tags{}
-	for _, tag := range targets {
+func (api *RunCommandAPI) expandTargets(targets []string) ([]names.Tag, error) {
+	tagSet := set.NewTags()
+	for _, target := range targets {
+		tag, err := names.ParseTag(target)
+		if err != nil {
+			return nil, err
+		}
 		kind := tag.Kind()
 		switch kind {
-		case names.MachineTagKind:
-		case names.UnitTagKind:
+		case names.MachineTagKind, names.UnitTagKind:
 			tagSet.Add(tag)
 		case names.ServiceTagKind:
 			service, err := api.state.Service(tag.String())
@@ -246,31 +256,41 @@ type commandRelation struct {
 	RemoteUnit string
 }
 
+func (c commandRelation) isValidRelation() bool {
+	return c.Id > -1
+}
+
+func (c commandRelation) isValidRemoteUnit() bool {
+	return len(c.RemoteUnit) > 0
+}
+
 // getRelation takes a RunContext and turns the string representations of a Relation
 // and RemoteUnit in to an actual state.Relation Id (relatioin)
 // and state.Unit Name (remoteUnit).
 func (api *RunCommandAPI) getRelation(state *state.State, context *params.RunContext) (commandRelation, error) {
-	var empty commandRelation
+	result := commandRelation{Id: -1, RemoteUnit: ""}
 
-	endpoints, err := api.state.InferEndpoints(context.Relation)
-	if err != nil {
-		return empty, errors.Trace(err)
+	if len(context.Relation) > 0 {
+		endpoints, err := api.state.InferEndpoints(context.Relation)
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		relation, err := api.state.EndpointsRelation(endpoints...)
+		if err != nil {
+			return result, errors.Errorf("no relation %s", context.Relation)
+		}
+		result.Id = relation.Id()
 	}
 
-	relation, err := api.state.EndpointsRelation(endpoints...)
-	if err != nil {
-		return empty, errors.Trace(err)
+	if len(context.RemoteUnit) > 0 {
+		remoteUnit, err := api.state.Unit(context.RemoteUnit)
+		if err != nil {
+			return result, errors.Errorf("%s is not a valid remote-unit", context.RemoteUnit)
+		}
+		result.RemoteUnit = remoteUnit.Name()
 	}
-
-	remoteUnit, err := api.state.Unit(context.RemoteUnit)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-
-	return commandRelation{
-		Id:         relation.Id(),
-		RemoteUnit: remoteUnit.Name(),
-	}, nil
+	return result, nil
 }
 
 // MachineOrder is used to provide the api to sort the results by the machine
