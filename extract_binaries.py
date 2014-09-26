@@ -25,7 +25,7 @@ def get_args():
 
 def extract_binary(version, branch, jenkins_url, target_dir):
     if jenkins_url.endswith('/'):
-        jenkins_url = jenkins_url[0:-2]
+        jenkins_url = jenkins_url[0:-1]
     real_target_dir = os.path.realpath(target_dir)
     if branch == 'gitbranch:master:github.com/juju/juju':
         full_target = os.path.join(real_target_dir, 'master')
