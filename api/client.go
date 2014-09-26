@@ -21,7 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -284,7 +284,9 @@ func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 // AddMachines1dot18 adds new machines with the supplied parameters.
 //
 // TODO(axw) 2014-04-11 #XXX
-// This exists for backwards compatibility; remove in 1.21 (client only).
+// This exists for backwards compatibility;
+// We cannot remove this code while clients > 1.20 need to talk to 1.18
+// servers (which is something we need for an undetermined amount of time).
 func (c *Client) AddMachines1dot18(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
 		MachineParams: machineParams,
@@ -492,16 +494,12 @@ func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 
 // EnvironmentUUID returns the environment UUID from the client connection.
 func (c *Client) EnvironmentUUID() string {
-	value := c.st.EnvironTag()
-	if value != "" {
-		tag, err := names.ParseEnvironTag(value)
-		if err != nil {
-			logger.Warningf("environ tag not an environ: %v", err)
-			return ""
-		}
-		return tag.Id()
+	tag, err := c.st.EnvironTag()
+	if err != nil {
+		logger.Warningf("environ tag not an environ: %v", err)
+		return ""
 	}
-	return ""
+	return tag.Id()
 }
 
 // ShareEnvironment allows the given users access to the environment.
@@ -817,14 +815,18 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 // This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
+	envTag, err := c.st.EnvironTag()
+	if err != nil {
+		return params.StateServersChanges{}, errors.Trace(err)
+	}
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
-			EnvironTag:      c.st.EnvironTag(),
+			EnvironTag:      envTag.String(),
 			NumStateServers: numStateServers,
 			Constraints:     cons,
 			Series:          series,
 		}}}
-	err := c.facade.FacadeCall("EnsureAvailability", arg, &results)
+	err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
 	if err != nil {
 		return params.StateServersChanges{}, err
 	}

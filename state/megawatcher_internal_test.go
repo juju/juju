@@ -13,8 +13,8 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -395,7 +395,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Service:    "wordpress",
 					Series:     "quantal",
 					MachineId:  "0",
-					Ports:      []network.Port{{"tcp", 12345}},
+					Ports:      []network.Port{},
 					Status:     params.StatusError,
 					StatusInfo: "failure",
 				},
@@ -428,7 +428,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					Service:    "wordpress",
 					Series:     "quantal",
 					MachineId:  "0",
-					Ports:      []network.Port{{"udp", 17070}},
+					Ports:      []network.Port{},
 					Status:     params.StatusError,
 					StatusInfo: "another failure",
 				},
@@ -464,7 +464,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 					PublicAddress:  "public",
 					PrivateAddress: "private",
 					MachineId:      "0",
-					Ports:          []network.Port{{"tcp", 12345}},
+					Ports:          []network.Port{},
 					Status:         params.StatusError,
 					StatusInfo:     "failure",
 				},

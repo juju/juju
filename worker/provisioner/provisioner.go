@@ -198,7 +198,7 @@ func (p *environProvisioner) loop() error {
 			return err
 		case _, ok := <-environConfigChanges:
 			if !ok {
-				return watcher.MustErr(environWatcher)
+				return watcher.EnsureErr(environWatcher)
 			}
 			environConfig, err := p.st.EnvironConfig()
 			if err != nil {

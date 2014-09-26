@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4/hooks"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -43,7 +43,7 @@ func (hi Info) Validate() error {
 		fallthrough
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken, hooks.CollectMetrics:
 		return nil
-	case hooks.ActionRequested:
+	case hooks.Action:
 		if !names.IsValidAction(hi.ActionId) {
 			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
 		}

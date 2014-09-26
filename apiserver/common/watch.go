@@ -47,7 +47,7 @@ func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
 	if _, ok := <-watch.Changes(); ok {
 		return a.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 
 // Watch starts an NotifyWatcher for each given entity.

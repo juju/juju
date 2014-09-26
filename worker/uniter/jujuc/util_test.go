@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -130,8 +130,8 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 	}, nil
 }
 
-func (c *Context) ActionParams() map[string]interface{} {
-	return c.actionParams
+func (c *Context) ActionParams() (map[string]interface{}, error) {
+	return c.actionParams, nil
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {

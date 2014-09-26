@@ -8,10 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -116,116 +114,6 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
-}
-
-func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
-	innerStorage := newStorage(s, c)
-	stor := &mockStorage{Storage: innerStorage}
-
-	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
-	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
-	) {
-		stor.putErr = fmt.Errorf("suddenly a wild blah")
-		return &mockInstance{id: "i-blah"}, nil, nil, nil
-	}
-
-	var stopped []instance.Id
-	stopInstances := func(ids []instance.Id) error {
-		stopped = append(stopped, ids...)
-		return nil
-	}
-
-	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		stopInstances: stopInstances,
-		config:        configGetter(c),
-	}
-
-	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
-	})
-	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
-	c.Assert(stopped, gc.HasLen, 1)
-	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
-}
-
-func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
-	innerStorage := newStorage(s, c)
-	stor := &mockStorage{Storage: innerStorage}
-
-	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
-	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
-	) {
-		stor.putErr = fmt.Errorf("suddenly a wild blah")
-		return &mockInstance{id: "i-blah"}, nil, nil, nil
-	}
-
-	var stopped []instance.Id
-	stopInstances := func(instances []instance.Id) error {
-		stopped = append(stopped, instances...)
-		return fmt.Errorf("bork bork borken")
-	}
-
-	var tw loggo.TestWriter
-	c.Assert(loggo.RegisterWriter("bootstrap-tester", &tw, loggo.DEBUG), gc.IsNil)
-	defer loggo.RemoveWriter("bootstrap-tester")
-
-	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		stopInstances: stopInstances,
-		config:        configGetter(c),
-	}
-
-	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
-	})
-	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
-	c.Assert(stopped, gc.HasLen, 1)
-	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
-	c.Assert(tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
-		loggo.ERROR, `cannot stop failed bootstrap instance "i-blah": bork bork borken`,
-	}})
-}
-
-func (s *BootstrapSuite) TestKeepBrokenDoesNoStop(c *gc.C) {
-	innerStorage := newStorage(s, c)
-	stor := &mockStorage{Storage: innerStorage}
-
-	checkHardware := instance.MustParseHardware("arch=ppc64el mem=2T")
-	startInstance := func(
-		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
-	) (
-		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
-	) {
-		stor.putErr = fmt.Errorf("suddenly a wild blah")
-		return &mockInstance{id: "i-blah"}, &checkHardware, nil, nil
-	}
-	stopInstances := func(instances []instance.Id) error {
-		c.Errorf("unexpected call to StopInstances")
-		return nil
-	}
-
-	env := &mockEnviron{
-		storage:       stor,
-		startInstance: startInstance,
-		stopInstances: stopInstances,
-		config:        configGetter(c),
-	}
-
-	ctx := coretesting.Context(c)
-	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
-		KeepBroken:     true,
-		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
-	})
-	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 }
 
 func (s *BootstrapSuite) TestSuccess(c *gc.C) {

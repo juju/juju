@@ -17,8 +17,12 @@ var (
 	notify        chan struct{}
 )
 
+const (
+	cleanupPeriod = time.Hour
+)
+
 // NewCleanup creates a new periodic worker that calls the CleanupOldMetrics api.
-func NewCleanup(client *metricsmanager.Client) worker.Worker {
+func NewCleanup(client metricsmanager.MetricsManagerClient) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.CleanupOldMetrics()
 		if err != nil {
@@ -31,5 +35,5 @@ func NewCleanup(client *metricsmanager.Client) worker.Worker {
 		}
 		return nil
 	}
-	return worker.NewPeriodicWorker(f, time.Second)
+	return worker.NewPeriodicWorker(f, cleanupPeriod)
 }

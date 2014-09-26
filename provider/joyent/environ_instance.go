@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
@@ -83,7 +85,7 @@ func (env *joyentEnviron) ConstraintsValidator() (constraints.Validator, error) 
 func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, nil, nil, errors.New("starting instances with networks is not supported yet")
 	}
 
 	series := args.Tools.OneSeries()
@@ -99,7 +101,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
@@ -109,13 +111,13 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, errors.Annotate(err, "cannot make user data")
 	}
 
 	// Unzipping as Joyent API expects it as string
 	userData, err = utils.Gunzip(userData)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("joyent user data: %d bytes", len(userData))
 
@@ -128,7 +130,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		Tags:     map[string]string{"tag.group": "juju", "tag.env": env.Config().Name()},
 	})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot create instances: %v", err)
+		return nil, nil, nil, errors.Annotate(err, "cannot create instances")
 	}
 	machineId := machine.Id
 
@@ -136,7 +138,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 
 	machine, err = env.compute.cloudapi.GetMachine(machineId)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot start instances: %v", err)
+		return nil, nil, nil, errors.Annotate(err, "cannot start instances")
 	}
 
 	// wait for machine to start
@@ -145,7 +147,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 
 		machine, err = env.compute.cloudapi.GetMachine(machineId)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot start instances: %v", err)
+			return nil, nil, nil, errors.Annotate(err, "cannot start instances")
 		}
 	}
 
@@ -154,6 +156,12 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 	inst := &joyentInstance{
 		machine: machine,
 		env:     env,
+	}
+
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
 	}
 
 	disk64 := uint64(machine.Disk)
@@ -177,7 +185,7 @@ func (env *joyentEnviron) AllInstances() ([]instance.Instance, error) {
 
 	machines, err := env.compute.cloudapi.ListMachines(filter)
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve instances: %v", err)
+		return nil, errors.Annotate(err, "cannot retrieve instances")
 	}
 
 	for _, m := range machines {
@@ -258,11 +266,10 @@ func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
 	wg.Wait()
 	select {
 	case err := <-errc:
-		return fmt.Errorf("cannot stop all instances: %v", err)
+		return errors.Annotate(err, "cannot stop all instances")
 	default:
 	}
-
-	return nil
+	return common.RemoveStateInstances(env.Storage(), ids...)
 }
 
 func (env *joyentEnviron) stopInstance(id string) error {
@@ -274,7 +281,7 @@ func (env *joyentEnviron) stopInstance(id string) error {
 
 	err := env.compute.cloudapi.StopMachine(id)
 	if err != nil {
-		return fmt.Errorf("cannot stop instance %s: %v", id, err)
+		return errors.Annotatef(err, "cannot stop instance %v", id)
 	}
 
 	// wait for machine to be stopped
@@ -284,7 +291,7 @@ func (env *joyentEnviron) stopInstance(id string) error {
 
 	err = env.compute.cloudapi.DeleteMachine(id)
 	if err != nil {
-		return fmt.Errorf("cannot delete instance %s: %v", id, err)
+		return errors.Annotatef(err, "cannot delete instance %v", id)
 	}
 
 	return nil

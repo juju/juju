@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -155,7 +157,10 @@ func (env *joyentEnviron) StateServerInstances() ([]instance.Id, error) {
 }
 
 func (env *joyentEnviron) Destroy() error {
-	return common.Destroy(env)
+	if err := common.Destroy(env); err != nil {
+		return errors.Trace(err)
+	}
+	return env.Storage().RemoveAll()
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {

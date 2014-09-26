@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -40,7 +40,7 @@ type Context interface {
 	ConfigSettings() (charm.Settings, error)
 
 	// ActionParams returns the map of params passed with an Action.
-	ActionParams() map[string]interface{}
+	ActionParams() (map[string]interface{}, error)
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.

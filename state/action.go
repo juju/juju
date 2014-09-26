@@ -146,11 +146,6 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 	})
 }
 
-// globalKey returns the global database key for the action.
-func (a *Action) globalKey() string {
-	return actionGlobalKey(a.doc.Id)
-}
-
 // newAction builds an Action for the given State and actionDoc
 func newAction(st *State, adoc actionDoc) *Action {
 	return &Action{

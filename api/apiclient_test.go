@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -142,13 +142,13 @@ func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 	// Now set it to the right tag, and we should succeed.
-	info.EnvironTag = env.Tag()
+	info.EnvironTag = env.EnvironTag()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	st.Close()
 	// Backwards compatibility, we should succeed if we do not set an
 	// environ tag
-	info.EnvironTag = nil
+	info.EnvironTag = names.NewEnvironTag("")
 	st, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	st.Close()

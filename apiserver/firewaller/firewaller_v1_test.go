@@ -6,7 +6,7 @@ package firewaller_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -96,8 +96,8 @@ func (s *firewallerV1Suite) TestWatchOpenedPorts(c *gc.C) {
 
 	s.openPorts(c)
 	expectChanges := []string{
-		"m#0#n#juju-public",
-		"m#2#n#juju-public",
+		"0:juju-public",
+		"2:juju-public",
 	}
 
 	fakeEnvTag := names.NewEnvironTag("deadbeef-deaf-face-feed-0123456789ab")

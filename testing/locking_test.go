@@ -7,7 +7,7 @@ import (
 	"errors"
 	"sync"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 type LockingSuite struct{}

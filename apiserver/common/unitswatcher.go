@@ -51,7 +51,7 @@ func (u *UnitsWatcher) watchOneEntityUnits(canWatch AuthFunc, tag names.Tag) (pa
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchUnits starts a StringsWatcher to watch all units belonging to

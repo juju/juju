@@ -7,7 +7,7 @@ import (
 	"flag"
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 var amazon = flag.Bool("amazon", false, "Also run some tests on live Amazon servers")
