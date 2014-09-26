@@ -142,7 +142,8 @@ func (c *Context) ActionParams() (map[string]interface{}, error) {
 	return c.actionParams, nil
 }
 
-func (c *Context) UpdateActionResults(keys []string, value string) {
+func (c *Context) UpdateActionResults(keys []string, value string) error {
+	return fmt.Errorf("not running an action")
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -39,7 +39,7 @@ type nonActionSettingContext struct {
 }
 
 func (a *nonActionSettingContext) UpdateActionResults(keys []string, value string) error {
-	return fmt.Errorf("cannot update results on a context that doesn't contain actionData")
+	return fmt.Errorf("not running an action")
 }
 
 func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
@@ -50,7 +50,7 @@ func (s *ActionSetSuite) TestActionSetOnNonActionContextFails(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"oops=nope"})
 	c.Check(code, gc.Equals, 1)
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
-	expect := fmt.Sprintf(`(.|\n)*error: %s\n`, "cannot update results on a context that doesn't contain actionData")
+	expect := fmt.Sprintf(`(\n)*error: %s\n`, "not running an action")
 	c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 }
 
@@ -66,6 +66,17 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 		command: []string{"result"},
 		errMsg:  "error: argument \"result\" must be of the form key...=value\n",
 		code:    2,
+	}, {
+		summary: "invalid keys are an error",
+		command: []string{"result-Value=5"},
+		errMsg:  "error: key \"result-Value\" must start and end with lowercase alphanumeric, and contain only lowercase alphanumeric and hyphens\n",
+		code:    2,
+	}, {
+		summary: "empty values are not an error",
+		command: []string{"result="},
+		expected: [][]string{
+			[]string{"result", ""},
+		},
 	}, {
 		summary: "a response of one key to one value",
 		command: []string{"outfile=foo.bz2"},

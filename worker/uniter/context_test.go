@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,7 +26,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	contexttesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -776,16 +773,6 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	return unit
 }
 
-func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
-	ctx := uniter.HookContext{}
-	_, err := ctx.ActionParams()
-	c.Check(err, gc.ErrorMatches, "not running an action")
-	err = ctx.SetActionFailed("oops")
-	c.Check(err, gc.ErrorMatches, "not running an action")
-	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
-	c.Check(err, gc.ErrorMatches, "not running an action")
-}
-
 func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.AddTestingService(c, name, s.relch)
 	eps, err := s.State.InferEndpoints("u", name)
@@ -826,49 +813,59 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	ctx := uniter.HookContext{}
 	_, err := ctx.ActionParams()
-	c.Check(err, gc.ErrorMatches, "actionparams cannot be retrieved, hook context had no action")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed("oops")
-	c.Check(err, gc.ErrorMatches, "action cannot be failed, hook context had no action")
-	err = ctx.UpdateActionResults([]string{"oops"}, "nope!")
-	c.Check(err, gc.ErrorMatches, "action results cannot be updated, hook context had no action")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
+	c.Check(err, gc.ErrorMatches, "not running an action")
 }
 
 // TestUpdateActionResults demonstrates that UpdateActionResults functions
-// as expected; the further tests of action-set are in jujuc/action-set_test.
+// as expected.
 func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
 	tests := []struct {
+		initial  map[string]interface{}
+		keys     []string
+		value    string
 		expected map[string]interface{}
-		errMsg   string
-		code     int
-		command  []string
 	}{{
-		command: []string{"foo.bar=baz", "foo.baz=bar",
-			"bar.foo=foo2", "bar=5"},
+		initial: map[string]interface{}{},
+		keys:    []string{"foo"},
+		value:   "bar",
+		expected: map[string]interface{}{
+			"foo": "bar",
+		},
+	}, {
+		initial: map[string]interface{}{
+			"foo": "bar",
+		},
+		keys:  []string{"foo", "bar"},
+		value: "baz",
 		expected: map[string]interface{}{
 			"foo": map[string]interface{}{
 				"bar": "baz",
-				"baz": "bar",
 			},
-			"bar": "5",
 		},
 	}, {
-		command:  []string{"foo-=5"},
-		expected: map[string]interface{}{},
-		errMsg: "error: key \"foo-\" must start and end with " +
-			"lowercase alphanumeric, and contain only " +
-			"lowercase alphanumeric and hyphens\n",
-		code: 2,
+		initial: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
+			},
+		},
+		keys:  []string{"foo"},
+		value: "bar",
+		expected: map[string]interface{}{
+			"foo": "bar",
+		},
 	}}
 
 	for i, t := range tests {
-		c.Logf("action-set test %d: %#v", i, t.command)
-		hctx := uniter.GetStubActionContext()
-		com, err := jujuc.NewCommand(hctx, "action-set")
+		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
+		hctx := uniter.GetStubActionContext(t.initial)
+		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, gc.IsNil)
-		ctx := contexttesting.Context(c)
-		code := cmd.Main(com, ctx, t.command)
-		c.Check(code, gc.Equals, t.code)
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, t.errMsg)
 		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
 	}
 }

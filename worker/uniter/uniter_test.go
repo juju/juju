@@ -1315,8 +1315,9 @@ var actionEventTests = []uniterTest{
 		addAction{"action-log", nil},
 		waitHooks{"action-log"},
 		verifyActionResults{[]actionResult{{
-			name:   "action-log",
-			status: "complete",
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(

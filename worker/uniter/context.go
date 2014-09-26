@@ -155,10 +155,6 @@ func NewHookContext(
 		return nil, err
 	}
 
-	ctx.actionResults = actionResults{
-		Results: map[string]interface{}{},
-		Status:  actionStatusInit,
-	}
 	return ctx, nil
 }
 
@@ -226,7 +222,7 @@ func (ctx *HookContext) SetActionFailed(message string) error {
 // Action-containing HookContext.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("action results cannot be updated, hook context had no action")
+		return fmt.Errorf("not running an action")
 	}
 	addValueToMap(keys, value, ctx.actionData.ResultsMap)
 	return nil
@@ -409,8 +405,8 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 // finalizeAction passes back the final status of an Action hook to state.
 // It wraps any errors which occurred in normal behavior of the Action run;
 // only errors passed in unhandledErr will be returned.
-// TODO (binary132): synchronize with gsamfira's reboot logic
 func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
+	// TODO (binary132): synchronize with gsamfira's reboot logic
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.ActionTag
@@ -757,20 +753,13 @@ func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionD
 	}
 }
 
-// actionResults contains the results of an action, and any response message.
-type actionResults struct {
-	Message string
-	Status  string
-	Results map[string]interface{}
-}
-
 // actionStatus messages define the possible states of a completed Action.
 const (
 	actionStatusInit   = "init"
 	actionStatusFailed = "fail"
 )
 
-// AddValueToMap adds the given value to the map on which the method is run.
+// addValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
 // into {foo: {bar: baz, baz: faz}}.
 func addValueToMap(keys []string, value string, target map[string]interface{}) {

@@ -18,21 +18,30 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 }
 
 func (c *HookContext) ActionResultsMap() map[string]interface{} {
+	if c.actionData == nil {
+		panic("context not running an action")
+	}
 	return c.actionData.ResultsMap
 }
 
 func (c *HookContext) ActionFailed() bool {
+	if c.actionData == nil {
+		panic("context not running an action")
+	}
 	return c.actionData.ActionFailed
 }
 
 func (c *HookContext) ActionMessage() string {
+	if c.actionData == nil {
+		panic("context not running an action")
+	}
 	return c.actionData.ResultsMessage
 }
 
-func GetStubActionContext() *HookContext {
+func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
 		actionData: &actionData{
-			ResultsMap: map[string]interface{}{},
+			ResultsMap: in,
 		},
 	}
 }

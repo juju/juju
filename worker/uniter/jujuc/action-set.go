@@ -57,8 +57,8 @@ Example usage:
 }
 
 // SetFlags handles known option flags.
-// TODO(binary132): add cmd.Input type as in cmd.Output for YAML piping.
 func (c *ActionSetCommand) SetFlags(f *gnuflag.FlagSet) {
+	// TODO(binary132): add cmd.Input type as in cmd.Output for YAML piping.
 }
 
 // Init accepts maps in the form of key=value, key.key2.keyN....=value
