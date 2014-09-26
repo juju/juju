@@ -4,15 +4,10 @@
 package firewaller
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/api/common"
-	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
 )
 
 // Unit represents a juju unit as seen by a firewaller worker.
@@ -47,16 +42,6 @@ func (u *Unit) Refresh() error {
 	return nil
 }
 
-// Watch returns a watcher for observing changes to the unit.
-func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	if u.st.BestAPIVersion() > 0 {
-		// Watch() for units is not allowed in FirewallerAPIV1 and
-		// later.
-		return nil, errors.NotImplementedf("unit.Watch() (in V1+)")
-	}
-	return common.Watch(u.st.facade, u.tag)
-}
-
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
 	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
@@ -71,34 +56,6 @@ func (u *Unit) Service() (*Service, error) {
 		return nil, err
 	}
 	return service, nil
-}
-
-// OpenedPorts returns the list of opened ports for this unit.
-//
-// NOTE: This differs from state.Unit.OpenedPorts() by returning
-// an error as well, because it needs to make an API call.
-func (u *Unit) OpenedPorts() ([]network.Port, error) {
-	if u.st.BestAPIVersion() > 0 {
-		// OpenedPorts() is no longer implemented in FirewallerAPIV1
-		// and later.
-		return nil, errors.NotImplementedf("unit.OpenedPorts() (in V1+)")
-	}
-	var results params.PortsResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag.String()}},
-	}
-	err := u.st.facade.FacadeCall("OpenedPorts", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return result.Ports, nil
 }
 
 // AssignedMachine returns the tag of this unit's assigned machine (if
