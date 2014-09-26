@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+
 from argparse import ArgumentParser
 import errno
 import os.path
@@ -6,7 +10,8 @@ import shutil
 from subprocess import (
     check_call,
     check_output,
-    )
+)
+
 
 def get_args():
     parser = ArgumentParser()
@@ -35,15 +40,17 @@ def extract_binary(version, branch, jenkins_url, target_dir):
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
-    check_call(['wget', '-q', deb_url])
+    check_call(['wget', '-q', '-o', 'juju_core_deb', deb_url])
     shutil.rmtree(full_target)
     check_call(['dpkg', '-x', juju_core_deb, full_target])
+    print("Extracted juju to {}".format(full_target))
 
 
 def main():
     args = get_args()
     extract_binary(args.version, args.branch, args.jenkins_url,
                    args.target_dir)
+
 
 if __name__ == '__main__':
     main()
