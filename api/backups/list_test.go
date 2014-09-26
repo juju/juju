@@ -26,11 +26,10 @@ func (s *listSuite) TestList(c *gc.C) {
 			if result, ok := resp.(*params.BackupsListResult); ok {
 				result.List = make([]params.BackupsMetadataResult, 1)
 				var resultItem params.BackupsMetadataResult
-				resultItem.UpdateFromMetadata(s.meta)
+				resultItem.UpdateFromMetadata(s.Meta)
 				result.List[0] = resultItem
 			} else {
-				c.Log("wrong output structure")
-				c.Fail()
+				c.Fatalf("wrong output structure")
 			}
 			return nil
 		},
@@ -42,5 +41,5 @@ func (s *listSuite) TestList(c *gc.C) {
 
 	c.Assert(result.List, gc.HasLen, 1)
 	resultItem := result.List[0]
-	s.checkMetadataResult(c, &resultItem, s.meta, "")
+	s.checkMetadataResult(c, &resultItem, s.Meta)
 }
