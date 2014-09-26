@@ -13,14 +13,11 @@ import (
 // The base suite for backups testing.
 type BaseSuite struct {
 	testing.IsolationSuite
+	// Meta is a Metadata with standard test values.
 	Meta *metadata.Metadata
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.Meta = s.metadata()
-}
-
-func (s *BaseSuite) metadata() *metadata.Metadata {
-	return NewMetadata()
+	s.Meta = NewMetadata()
 }
