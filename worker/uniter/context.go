@@ -170,12 +170,12 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 	return ctx.privateAddress, ctx.privateAddress != ""
 }
 
-func (ctx *HookContext) OpenPort(protocol string, port int) error {
-	return ctx.unit.OpenPort(protocol, port)
+func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
+	return ctx.unit.OpenPorts(protocol, fromPort, toPort)
 }
 
-func (ctx *HookContext) ClosePort(protocol string, port int) error {
-	return ctx.unit.ClosePort(protocol, port)
+func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
+	return ctx.unit.ClosePorts(protocol, fromPort, toPort)
 }
 
 func (ctx *HookContext) OwnerTag() string {

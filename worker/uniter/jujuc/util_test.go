@@ -110,13 +110,21 @@ func (c *Context) PrivateAddress() (string, bool) {
 	return "192.168.0.99", true
 }
 
-func (c *Context) OpenPort(protocol string, port int) error {
-	c.ports.Add(fmt.Sprintf("%d/%s", port, protocol))
+func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
+	if fromPort == toPort {
+		c.ports.Add(fmt.Sprintf("%d/%s", fromPort, protocol))
+	} else {
+		c.ports.Add(fmt.Sprintf("%d-%d/%s", fromPort, toPort, protocol))
+	}
 	return nil
 }
 
-func (c *Context) ClosePort(protocol string, port int) error {
-	c.ports.Remove(fmt.Sprintf("%d/%s", port, protocol))
+func (c *Context) ClosePorts(protocol string, fromPort, toPort int) error {
+	if fromPort == toPort {
+		c.ports.Remove(fmt.Sprintf("%d/%s", fromPort, protocol))
+	} else {
+		c.ports.Remove(fmt.Sprintf("%d-%d/%s", fromPort, toPort, protocol))
+	}
 	return nil
 }
 
