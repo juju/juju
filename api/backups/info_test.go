@@ -28,8 +28,7 @@ func (s *infoSuite) TestInfo(c *gc.C) {
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
 				result.UpdateFromMetadata(s.meta)
 			} else {
-				c.Log("wrong output structure")
-				c.Fail()
+				c.Fatalf("wrong output structure")
 			}
 			return nil
 		},
