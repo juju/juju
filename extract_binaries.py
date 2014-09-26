@@ -24,10 +24,13 @@ def get_args():
 
 
 def extract_binary(version, branch, jenkins_url, target_dir):
+    if jenkins_url.endswith('/'):
+        jenkins_url = jenkins_url[0:-2]
+    real_target_dir = os.path.realpath(target_dir)
     if branch == 'gitbranch:master:github.com/juju/juju':
-        full_target = os.path.join(target_dir, 'master')
+        full_target = os.path.join(real_target_dir, 'master')
     else:
-        full_target = os.path.join(target_dir, 'stable')
+        full_target = os.path.join(real_target_dir, 'stable')
     release = check_output(['lsb_release', '-sr']).strip()
     arch = check_output(['dpkg', '--print-architecture']).strip()
     juju_core_deb = 'juju-core_{}-0ubuntu1~{}.1~juju1_{}.deb'.format(
@@ -40,7 +43,7 @@ def extract_binary(version, branch, jenkins_url, target_dir):
     except OSError as e:
         if e.errno != errno.ENOENT:
             raise
-    check_call(['wget', '-q', '-o', 'juju_core_deb', deb_url])
+    check_call(['wget', '-q', '-O', juju_core_deb, deb_url])
     shutil.rmtree(full_target)
     check_call(['dpkg', '-x', juju_core_deb, full_target])
     print("Extracted juju to {}".format(full_target))
