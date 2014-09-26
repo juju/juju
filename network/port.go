@@ -152,6 +152,9 @@ func (a PortRange) ConflictsWith(b PortRange) bool {
 }
 
 func (p PortRange) String() string {
+	if p.FromPort == p.ToPort {
+		return fmt.Sprintf("%d/%s", p.FromPort, strings.ToLower(p.Protocol))
+	}
 	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, strings.ToLower(p.Protocol))
 }
 

@@ -671,7 +671,8 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 }
 
 func (s *uniterSuite) TestOpenPort(c *gc.C) {
-	openedPorts := s.wordpressUnit.OpenedPorts()
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(openedPorts, gc.HasLen, 0)
 
 	args := params.EntitiesPorts{Entities: []params.EntityPort{
@@ -692,9 +693,10 @@ func (s *uniterSuite) TestOpenPort(c *gc.C) {
 	// Verify the wordpressUnit's port is opened.
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	openedPorts = s.wordpressUnit.OpenedPorts()
-	c.Assert(openedPorts, gc.DeepEquals, []network.Port{
-		{Protocol: "udp", Number: 4321},
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
 	})
 }
 
@@ -704,9 +706,10 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	openedPorts := s.wordpressUnit.OpenedPorts()
-	c.Assert(openedPorts, gc.DeepEquals, []network.Port{
-		{Protocol: "udp", Number: 4321},
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
 	})
 
 	args := params.EntitiesPorts{Entities: []params.EntityPort{
@@ -727,7 +730,8 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	// Verify the wordpressUnit's port is closed.
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	openedPorts = s.wordpressUnit.OpenedPorts()
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(openedPorts, gc.HasLen, 0)
 }
 

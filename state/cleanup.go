@@ -248,7 +248,14 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	return machine.EnsureDead()
+	if err := machine.EnsureDead(); err != nil {
+		return err
+	}
+	removePortsOps, err := machine.removePortsOps()
+	if err != nil {
+		return err
+	}
+	return st.runTransaction(removePortsOps)
 
 	// Note that we do *not* remove the machine entirely: we leave it for the
 	// provisioner to clean up, so that we don't end up with an unreferenced

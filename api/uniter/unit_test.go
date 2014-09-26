@@ -227,21 +227,23 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 }
 
 func (s *unitSuite) TestOpenClosePort(c *gc.C) {
-	ports := s.wordpressUnit.OpenedPorts()
+	ports, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err := s.apiUnit.OpenPort("tcp", 1234)
+	err = s.apiUnit.OpenPort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
 	err = s.apiUnit.OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.Port{
-		{Protocol: "tcp", Number: 1234},
-		{Protocol: "tcp", Number: 4321},
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
+		{Protocol: "tcp", FromPort: 4321, ToPort: 4321},
 	})
 
 	err = s.apiUnit.ClosePort("tcp", 4321)
@@ -249,10 +251,11 @@ func (s *unitSuite) TestOpenClosePort(c *gc.C) {
 
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.Port{
-		{Protocol: "tcp", Number: 1234},
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
 	})
 
 	err = s.apiUnit.ClosePort("tcp", 1234)
@@ -260,7 +263,8 @@ func (s *unitSuite) TestOpenClosePort(c *gc.C) {
 
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 }
 
