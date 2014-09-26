@@ -4,18 +4,32 @@ set -eux
 
 usage() {
     echo "usage: $0 [--jenkins-url URL] ADDRESS"
-    echo "  -jenkins-url: The location of juju-ci's Jenkins."
     echo "  ADDRESS: The IP or DNS address the windows test machine."
+    echo "  --jenkins-url: The location of juju-ci's Jenkins."
+    echo "  --work-space: The location to build and collect in."
+    echo "  --juju-home: The location of cloud-city and staging-juju-rsa."
+    echo "  --juju-release-tools: The location of juju-release-tools."
     exit 1
 }
 
 
-: ${LOCAL_JENKINS_URL=$JENKINS_URL}
 while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
     case $1 in
         --jenkins-url)
             shift
-            LOCAL_JENKINS_URL="$1"
+            JENKINS_URL="$1"
+            ;;
+        --work-space)
+            shift
+            WORKSPACE=$(cd $1; pwd)
+            ;;
+        --juju-home)
+            shift
+            JUJU_HOME=$(cd $1; pwd)
+            ;;
+        --juju-release-tools)
+            shift
+            RELEASE_TOOLS=$(cd $1; pwd)
             ;;
         --help)
             usage
@@ -27,7 +41,7 @@ done
 test $# -eq 1 || usage
 
 # Remove previous tarballs and installers from the workspace
-rm $WORKSPACE/*
+rm -r $WORKSPACE/* || echo "Nothing to clean"
 
 HOST="$1"
 TARFILE=$(python <<EOT
@@ -36,7 +50,7 @@ import sys
 import urllib2
 
 build_data = urllib2.urlopen(
-    '$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
+    '$JENKINS_URL/job/build-revision/lastSuccessfulBuild/api/json')
 build_json = json.load(build_data)
 for artifact in build_json['artifacts']:
     filename = artifact['fileName']
@@ -47,7 +61,7 @@ else:
 print filename
 EOT
 )
-ARTIFACT=$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
+ARTIFACT=$JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact
 wget -q $ARTIFACT/$TARFILE
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
