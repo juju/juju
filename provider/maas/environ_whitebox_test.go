@@ -6,6 +6,7 @@ package maas
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -304,7 +305,7 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0", "architecture": "arm/generic"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
 	_, err := env.acquireNode("", "", constraints, nil, nil)
@@ -863,4 +864,228 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	env := suite.makeEnviron()
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
+}
+
+func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	placement := "zone=zone1"
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *environSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
+	env := s.makeEnviron()
+	placement := "zone=zone2"
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "zone2"`)
+}
+
+func (s *environSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
+	env := s.makeEnviron()
+	placement := "zone=test-unknown"
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, placement)
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+}
+
+func (s *environSuite) TestPrecheckInvalidPlacement(c *gc.C) {
+	env := s.makeEnviron()
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, "notzone=anything")
+	c.Assert(err, gc.ErrorMatches, "unknown placement directive: notzone=anything")
+}
+
+func (s *environSuite) TestPrecheckNodePlacement(c *gc.C) {
+	env := s.makeEnviron()
+	err := env.PrecheckInstance(coretesting.FakeDefaultSeries, constraints.Value{}, "assumed_node_name")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *environSuite) TestStartInstanceAvailZone(c *gc.C) {
+	// Add a node for the started instance.
+	s.newNode(c, "thenode1", "host1", map[string]interface{}{"zone": "test-available"})
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	inst, err := s.testStartInstanceAvailZone(c, "test-available")
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
+}
+
+func (s *environSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	_, err := s.testStartInstanceAvailZone(c, "test-unknown")
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+}
+
+func (s *environSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+	env := s.bootstrap(c)
+	params := environs.StartInstanceParams{Placement: "zone=" + zone}
+	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	return inst, err
+}
+
+func (s *environSuite) TestGetAvailabilityZones(c *gc.C) {
+	env := s.makeEnviron()
+
+	zones, err := env.AvailabilityZones()
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(zones, gc.IsNil)
+
+	s.testMAASObject.TestServer.AddZone("whatever", "andever")
+	zones, err = env.AvailabilityZones()
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
+	c.Assert(zones[0].Available(), jc.IsTrue)
+
+	// A successful result is cached, currently for the lifetime
+	// of the Environ. This will change if/when we have long-lived
+	// Environs to cut down repeated IaaS requests.
+	s.testMAASObject.TestServer.AddZone("somewhere", "outthere")
+	zones, err = env.AvailabilityZones()
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
+}
+
+type mockAvailabilityZoneAllocations struct {
+	group  []instance.Id // input param
+	result []common.AvailabilityZoneInstances
+	err    error
+}
+
+func (m *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
+	e common.ZonedEnviron, group []instance.Id,
+) ([]common.AvailabilityZoneInstances, error) {
+	m.group = group
+	return m.result, m.err
+}
+
+func (s *environSuite) newNode(c *gc.C, nodename, hostname string, attrs map[string]interface{}) {
+	allAttrs := map[string]interface{}{
+		"system_id":    nodename,
+		"hostname":     hostname,
+		"architecture": fmt.Sprintf("%s/generic", version.Current.Arch),
+		"memory":       1024,
+		"cpu_count":    1,
+	}
+	for k, v := range attrs {
+		allAttrs[k] = v
+	}
+	data, err := json.Marshal(allAttrs)
+	c.Assert(err, gc.IsNil)
+	s.testMAASObject.TestServer.NewNode(string(data))
+	lshwXML, err := s.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
+	c.Assert(err, gc.IsNil)
+	s.testMAASObject.TestServer.AddNodeDetails(nodename, lshwXML)
+}
+
+func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
+	s.newNode(c, "node0", "bootstrap-host", nil)
+	s.setupFakeTools(c)
+	env := s.makeEnviron()
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+		Placement: "bootstrap-host",
+	})
+	c.Assert(err, gc.IsNil)
+	return env
+}
+
+func (s *environSuite) TestStartInstanceDistributionParams(c *gc.C) {
+	env := s.bootstrap(c)
+	var mock mockAvailabilityZoneAllocations
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+
+	// no distribution group specified
+	s.newNode(c, "node1", "host1", nil)
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(mock.group, gc.HasLen, 0)
+
+	// distribution group specified: ensure it's passed through to AvailabilityZone.
+	s.newNode(c, "node2", "host2", nil)
+	expectedInstances := []instance.Id{"i-0", "i-1"}
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return expectedInstances, nil
+		},
+	}
+	_, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
+}
+
+func (s *environSuite) TestStartInstanceDistributionErrors(c *gc.C) {
+	env := s.bootstrap(c)
+	mock := mockAvailabilityZoneAllocations{
+		err: errors.New("AvailabilityZoneAllocations failed"),
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	_, _, _, err := testing.StartInstance(env, "1")
+	c.Assert(err, gc.ErrorMatches, "cannot get availability zone allocations: AvailabilityZoneAllocations failed")
+
+	mock.err = nil
+	dgErr := errors.New("DistributionGroup failed")
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return nil, dgErr
+		},
+	}
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot get distribution group: DistributionGroup failed")
+}
+
+func (s *environSuite) TestStartInstanceDistribution(c *gc.C) {
+	env := s.bootstrap(c)
+	s.testMAASObject.TestServer.AddZone("test-available", "description")
+	s.newNode(c, "node1", "host1", map[string]interface{}{"zone": "test-available"})
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "test-available")
+}
+
+func (s *environSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
+	env := s.bootstrap(c)
+
+	mock := mockAvailabilityZoneAllocations{err: errors.NotImplementedf("availability zones")}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+
+	// Instance will be created without an availability zone specified.
+	s.newNode(c, "node1", "host1", nil)
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "")
+}
+
+func (s *environSuite) TestStartInstanceDistributionFailover(c *gc.C) {
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{
+			ZoneName: "zone1",
+		}, {
+			ZoneName: "zonelord",
+		}, {
+			ZoneName: "zone2",
+		}},
+	}
+	s.PatchValue(&availabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+	s.testMAASObject.TestServer.AddZone("zone1", "description")
+	s.testMAASObject.TestServer.AddZone("zone2", "description")
+	s.newNode(c, "node2", "host2", map[string]interface{}{"zone": "zone2"})
+
+	env := s.bootstrap(c)
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(inst.(*maasInstance).zone(), gc.Equals, "zone2")
+	c.Assert(s.testMAASObject.TestServer.NodesOperations(), gc.DeepEquals, []string{
+		// one acquire for the bootstrap, three for StartInstance (with zone failover)
+		"acquire", "acquire", "acquire", "acquire",
+	})
+	c.Assert(s.testMAASObject.TestServer.NodesOperationRequestValues(), gc.DeepEquals, []url.Values{{
+		"name":       []string{"bootstrap-host"},
+		"agent_name": []string{exampleAgentName},
+	}, {
+		"zone":       []string{"zone1"},
+		"agent_name": []string{exampleAgentName},
+	}, {
+		"zone":       []string{"zonelord"},
+		"agent_name": []string{exampleAgentName},
+	}, {
+		"zone":       []string{"zone2"},
+		"agent_name": []string{exampleAgentName},
+	}})
 }
