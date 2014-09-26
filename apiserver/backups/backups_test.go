@@ -39,6 +39,13 @@ func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
 	return i.meta, i.archive, nil
 }
 
+func (i *fakeBackups) Remove(string) error {
+	if i.err != nil {
+		return errors.Trace(i.err)
+	}
+	return nil
+}
+
 type backupsSuite struct {
 	testing.JujuConnSuite
 	resources  *common.Resources
