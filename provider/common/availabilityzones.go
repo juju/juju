@@ -76,6 +76,9 @@ func AvailabilityZoneAllocations(env ZonedEnviron, group []instance.Id) ([]Avail
 		if err != nil {
 			return nil, err
 		}
+		if len(instances) == 0 {
+			return nil, nil
+		}
 		group = make([]instance.Id, len(instances))
 		for i, inst := range instances {
 			group[i] = inst.Id()
