@@ -11,7 +11,7 @@ import (
 )
 
 type infoSuite struct {
-	baseBackupsSuite
+	baseSuite
 }
 
 var _ = gc.Suite(&infoSuite{})
@@ -26,7 +26,7 @@ func (s *infoSuite) TestInfo(c *gc.C) {
 			c.Check(p.ID, gc.Equals, "spam")
 
 			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.meta)
+				result.UpdateFromMetadata(s.Meta)
 			} else {
 				c.Fatalf("wrong output structure")
 			}
@@ -38,5 +38,5 @@ func (s *infoSuite) TestInfo(c *gc.C) {
 	result, err := s.client.Info("spam")
 	c.Assert(err, gc.IsNil)
 
-	s.checkMetadataResult(c, result, s.meta, "")
+	s.checkMetadataResult(c, result, s.Meta)
 }
