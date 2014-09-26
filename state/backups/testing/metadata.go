@@ -22,7 +22,7 @@ var (
 	ID       = EnvID + ".20140924-010319"
 	CsFormat = metadata.ChecksumFormat
 	Started  = time.Now().UTC()
-	Finished = Started.Add((time.Duration)(time.Minute))
+	Finished = Started.Add(time.Minute)
 )
 
 // NewMetadata returns a Metadata to use for testing.
