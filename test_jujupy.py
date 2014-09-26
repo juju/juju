@@ -9,6 +9,7 @@ from textwrap import dedent
 from unittest import TestCase
 
 from mock import (
+    ANY,
     call,
     MagicMock,
     patch,
@@ -25,11 +26,16 @@ from jujupy import (
     EnvJujuClient,
     ErroredUnit,
     format_listing,
+    get_libvirt_domstate,
     get_local_root,
     JujuClientDevel,
     SimpleEnvironment,
+    start_libvirt_domain,
     Status,
+    stop_libvirt_domain,
     temp_bootstrap_env,
+    verify_libvirt_domain_running,
+    verify_libvirt_domain_shut_off,
 )
 from utility import (
     scoped_environ,
@@ -1178,3 +1184,61 @@ class TestFormatListing(TestCase):
         result = format_listing(
             {'1': ['a', 'b'], '2': ['c'], 'expected': ['d']}, 'expected')
         self.assertEqual('1: a, b | 2: c', result)
+
+
+class TestLibvirt(TestCase):
+
+    def test_start_libvirt_domain(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('subprocess.check_output',
+                   return_value='running') as mock_sp:
+            start_libvirt_domain(URI, dom_name)
+        mock_sp.assert_any_call(['virsh', '-c', URI, 'start', dom_name],
+                                stderr=ANY)
+
+    def test_stop_libvirt_domain(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('subprocess.check_output',
+                   return_value='shut off') as mock_sp:
+            stop_libvirt_domain(URI, dom_name)
+        mock_sp.assert_any_call(['virsh', '-c', URI, 'shutdown', dom_name],
+                                stderr=ANY)
+
+    def test_get_libvirt_domstate(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        expected_cmd = ['virsh', '-c', URI, 'domstate', dom_name]
+        #with patch('subprocess.check_output', return_value='running') as m_sub:
+        with patch('subprocess.check_output') as m_sub:
+            get_libvirt_domstate(URI, dom_name)
+        m_sub.assert_called_with(expected_cmd)
+
+    def test_verify_libvirt_domain_shut_off_true(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('jujupy.get_libvirt_domstate', return_value='shut off'):
+            rval = verify_libvirt_domain_shut_off(URI, dom_name)
+        self.assertTrue(rval)
+
+    def test_verify_libvirt_domain_shut_off_false(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('jujupy.get_libvirt_domstate', return_value='running'):
+            rval = verify_libvirt_domain_shut_off(URI, dom_name)
+        self.assertFalse(rval)
+
+    def test_verify_libvirt_domain_running_true(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('jujupy.get_libvirt_domstate', return_value='running'):
+            rval = verify_libvirt_domain_running(URI, dom_name)
+        self.assertTrue(rval)
+
+    def test_verify_libvirt_domain_running_false(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('jujupy.get_libvirt_domstate', return_value='shut off'):
+            rval = verify_libvirt_domain_running(URI, dom_name)
+        self.assertFalse(rval)
