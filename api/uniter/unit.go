@@ -303,11 +303,49 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return result.Result, nil
 }
 
+// OpenPorts sets the policy of the port range with protocol to be
+// opened.
+func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
+	var result params.ErrorResults
+	args := params.EntitiesPortRanges{
+		Entities: []params.EntityPortRange{{
+			Tag:      u.tag.String(),
+			Protocol: protocol,
+			FromPort: fromPort,
+			ToPort:   toPort,
+		}},
+	}
+	err := u.st.facade.FacadeCall("OpenPorts", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// ClosePorts sets the policy of the port range with protocol to be
+// closed.
+func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
+	var result params.ErrorResults
+	args := params.EntitiesPortRanges{
+		Entities: []params.EntityPortRange{{
+			Tag:      u.tag.String(),
+			Protocol: protocol,
+			FromPort: fromPort,
+			ToPort:   toPort,
+		}},
+	}
+	err := u.st.facade.FacadeCall("ClosePorts", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // OpenPort sets the policy of the port with protocol and number to be
 // opened.
 //
-// TODO: We should really be opening and closing ports on machines,
-// rather than units.
+// TODO(dimitern): This is deprecated and is kept for
+// backwards-compatibility. Use OpenPorts instead.
 func (u *Unit) OpenPort(protocol string, number int) error {
 	var result params.ErrorResults
 	args := params.EntitiesPorts{
@@ -325,8 +363,8 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 // ClosePort sets the policy of the port with protocol and number to
 // be closed.
 //
-// TODO: We should really be opening and closing ports on machines,
-// rather than units.
+// TODO(dimitern): This is deprecated and is kept for
+// backwards-compatibility. Use ClosePorts instead.
 func (u *Unit) ClosePort(protocol string, number int) error {
 	var result params.ErrorResults
 	args := params.EntitiesPorts{
