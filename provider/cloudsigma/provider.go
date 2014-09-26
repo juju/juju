@@ -10,7 +10,10 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.cloudsigma")
@@ -23,6 +26,15 @@ func (lw loggerWriter) Write(p []byte) (n int, err error) {
 	logger.Logf(lw.level, string(p))
 	return len(p), nil
 }
+
+func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
+	e, ok := env.(*environ)
+	if !ok {
+		return nil, errors.NotSupportedf("non-cloudsigma environment")
+	}
+	return simplestreams.NewURLDataSource("cloud images", fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.ecfg.region()), utils.VerifySSLHostnames), nil
+}
+
 
 type environProvider struct{}
 
@@ -37,6 +49,7 @@ func init() {
 	// package; please do *not* import individual providers anywhere else,
 	// except in direct tests for that provider.
 	environs.RegisterProvider("cloudsigma", providerInstance)
+	environs.RegisterImageDataSourceFunc("Image source", getImageSource)
 }
 
 // Boilerplate returns a default configuration for the environment in yaml format.

@@ -10,13 +10,14 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 type environInstanceSuite struct {
@@ -33,6 +34,7 @@ func (s *environInstanceSuite) SetUpSuite(c *gc.C) {
 
 	attrs := testing.Attrs{
 		"name":     "testname",
+		"uuid":		"f54aac3a-9dcd-4a0c-86b5-24091478478c",
 		"region":   mock.Endpoint(""),
 		"username": mock.TestUser,
 		"password": mock.TestPassword,
@@ -65,41 +67,48 @@ func (s *environInstanceSuite) createEnviron(c *gc.C, cfg *config.Config) enviro
 	s.PatchValue(&newStorage, func(*environConfig, *environClient) (*environStorage, error) {
 		return &emptyStorage, nil
 	})
+	s.PatchValue(&findInstanceImage, func (env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
+			img :=  &imagemetadata.ImageMetadata{
+					Id: validImageId,
+				}
+			return img, nil
+		})
 	if cfg == nil {
 		cfg = s.baseConfig
 	}
 	environ, err := environs.New(cfg)
-	c.Assert(environ, gc.NotNil)
+
 	c.Assert(err, gc.IsNil)
+	c.Assert(environ, gc.NotNil)
 	return environ
 }
 
 func (s *environInstanceSuite) TestInstances(c *gc.C) {
-	environ := s.createEnviron(c, nil)
+	env := s.createEnviron(c, nil)
 
-	instances, err := environ.AllInstances()
+	instances, err := env.AllInstances()
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 0)
 
-	uuid0 := addTestClientServer(c, jujuMetaInstanceServer, "testname", "1.1.1.1")
-	uuid1 := addTestClientServer(c, jujuMetaInstanceStateServer, "testname", "2.2.2.2")
+	uuid0 := addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "1.1.1.1")
+	uuid1 := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "2.2.2.2")
 	addTestClientServer(c, jujuMetaInstanceServer, "other-env", "0.1.1.1")
 	addTestClientServer(c, jujuMetaInstanceStateServer, "other-env", "0.2.2.2")
 
-	instances, err = environ.AllInstances()
+	instances, err = env.AllInstances()
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
 
 	ids := []instance.Id{instance.Id(uuid0), instance.Id(uuid1)}
-	instances, err = environ.Instances(ids)
+	instances, err = env.Instances(ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	c.Check(instances, gc.HasLen, 2)
 
 	ids = append(ids, instance.Id("fake-instance"))
-	instances, err = environ.Instances(ids)
+	instances, err = env.Instances(ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Check(instances, gc.HasLen, 3)
@@ -107,10 +116,10 @@ func (s *environInstanceSuite) TestInstances(c *gc.C) {
 	c.Check(instances[1], gc.NotNil)
 	c.Check(instances[2], gc.IsNil)
 
-	err = environ.StopInstances(ids...)
+	err = env.StopInstances(ids...)
 	c.Assert(err, gc.ErrorMatches, "404 Not Found.*")
 
-	instances, err = environ.Instances(ids)
+	instances, err = env.Instances(ids)
 	c.Assert(instances, gc.NotNil)
 	c.Assert(err, gc.Equals, environs.ErrNoInstances)
 	c.Check(instances, gc.HasLen, 3)
@@ -165,9 +174,15 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	c.Check(ni, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "machine configuration is nil")
 
+	toolsVal :=  &tools.Tools{
+		Version: version.Binary{
+			Series: "trusty",
+		},
+	}
 	inst, hw, ni, err = environ.StartInstance(environs.StartInstanceParams{
 		MachineConfig: &cloudinit.MachineConfig{
 			Networks: []string{"value"},
+			Tools:toolsVal,
 		},
 	})
 	c.Check(inst, gc.IsNil)
@@ -184,20 +199,8 @@ func (s *environInstanceSuite) TestStartInstanceError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "tools not found")
 
 	inst, hw, ni, err = environ.StartInstance(environs.StartInstanceParams{
-		Tools: tools.List{&tools.Tools{}},
-		MachineConfig: &cloudinit.MachineConfig{
-			Bootstrap: true,
-			APIInfo:   &api.Info{},
-		},
-	})
-	c.Check(inst, gc.IsNil)
-	c.Check(hw, gc.IsNil)
-	c.Check(ni, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "cannot complete machine configuration:.*")
-
-	inst, hw, ni, err = environ.StartInstance(environs.StartInstanceParams{
-		Tools:         tools.List{&tools.Tools{}},
-		MachineConfig: &cloudinit.MachineConfig{},
+		Tools: tools.List{toolsVal},
+		MachineConfig: &cloudinit.MachineConfig{Tools:toolsVal},
 	})
 	c.Check(inst, gc.IsNil)
 	c.Check(hw, gc.IsNil)

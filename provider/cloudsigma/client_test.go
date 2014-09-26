@@ -14,12 +14,13 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 type clientSuite struct {
@@ -55,7 +56,7 @@ func (s *clientSuite) TearDownTest(c *gc.C) {
 
 func testNewClient(c *gc.C, endpoint, username, password string) (*environClient, error) {
 	ecfg := &environConfig{
-		Config: newConfig(c, testing.Attrs{"name": "client-test"}),
+		Config: newConfig(c, testing.Attrs{"name": "client-test", "uuid": "f54aac3a-9dcd-4a0c-86b5-24091478478c"}),
 		attrs: map[string]interface{}{
 			"region":   endpoint,
 			"username": username,
@@ -77,43 +78,6 @@ func (s *clientSuite) TestClientNew(c *gc.C) {
 	cli, err = testNewClient(c, "https://testing.invalid", "", "password")
 	c.Check(err, gc.ErrorMatches, "username is not allowed to be empty")
 	c.Check(cli, gc.IsNil)
-}
-
-func (s *clientSuite) TestClientConfigChanged(c *gc.C) {
-	ecfg := &environConfig{
-		Config: newConfig(c, testing.Attrs{"name": "client-test"}),
-		attrs: map[string]interface{}{
-			"region":   "https://testing.invalid",
-			"username": "user",
-			"password": "password",
-		},
-	}
-
-	cli, err := newClient(ecfg)
-	c.Check(err, gc.IsNil)
-	c.Check(cli, gc.NotNil)
-
-	rc := cli.configChanged(ecfg)
-	c.Check(rc, gc.Equals, false)
-
-	ecfg.attrs["region"] = ""
-	rc = cli.configChanged(ecfg)
-	c.Check(rc, gc.Equals, true)
-
-	ecfg.attrs["region"] = "https://testing.invalid"
-	ecfg.attrs["username"] = "user1"
-	rc = cli.configChanged(ecfg)
-	c.Check(rc, gc.Equals, true)
-
-	ecfg.attrs["username"] = "user"
-	ecfg.attrs["password"] = "password1"
-	rc = cli.configChanged(ecfg)
-	c.Check(rc, gc.Equals, true)
-
-	ecfg.attrs["password"] = "password"
-	ecfg.Config = newConfig(c, testing.Attrs{"name": "changed"})
-	rc = cli.configChanged(ecfg)
-	c.Check(rc, gc.Equals, true)
 }
 
 func addTestClientServer(c *gc.C, instance, env, ip string) string {
@@ -142,9 +106,9 @@ func (s *clientSuite) TestClientInstances(c *gc.C) {
 	addTestClientServer(c, "", "", "")
 	addTestClientServer(c, jujuMetaInstanceServer, "alien", "")
 	addTestClientServer(c, jujuMetaInstanceStateServer, "alien", "")
-	addTestClientServer(c, jujuMetaInstanceServer, "client-test", "1.1.1.1")
-	addTestClientServer(c, jujuMetaInstanceServer, "client-test", "2.2.2.2")
-	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "client-test", "3.3.3.3")
+	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "1.1.1.1")
+	addTestClientServer(c, jujuMetaInstanceServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "2.2.2.2")
+	suuid := addTestClientServer(c, jujuMetaInstanceStateServer, "f54aac3a-9dcd-4a0c-86b5-24091478478c", "3.3.3.3")
 
 	cli, err := testNewClient(c, mock.Endpoint(""), mock.TestUser, mock.TestPassword)
 	c.Assert(err, gc.IsNil)
@@ -185,8 +149,6 @@ func (s *clientSuite) TestClientStopStateInstance(c *gc.C) {
 	c.Check(uuid, gc.Equals, "")
 	c.Check(ip, gc.Equals, "")
 	c.Check(rc, gc.Equals, false)
-
-	c.Check(cli.storage.tmp, gc.Equals, false)
 }
 
 func (s *clientSuite) TestClientInvalidStopInstance(c *gc.C) {
@@ -226,30 +188,13 @@ func (s *clientSuite) TestClientNewInstanceInvalidParams(c *gc.C) {
 	params := environs.StartInstanceParams{
 		Constraints: constraints.Value{},
 	}
-	server, drive, err := cli.newInstance(params)
+	img := &imagemetadata.ImageMetadata{
+		Id: validImageId,
+	}
+	server, drive, err := cli.newInstance(params, img)
 	c.Check(server, gc.IsNil)
 	c.Check(drive, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "invalid configuration for new instance")
-
-	params.MachineConfig = &cloudinit.MachineConfig{
-		Bootstrap: true,
-		Tools: &tools.Tools{
-			Version: version.Binary{
-				Series: "series",
-			},
-		},
-	}
-	server, drive, err = cli.newInstance(params)
-	c.Check(server, gc.IsNil)
-	c.Check(drive, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "series 'series' not supported")
-
-	var arch = "arch"
-	params.Constraints.Arch = &arch
-	server, drive, err = cli.newInstance(params)
-	c.Check(server, gc.IsNil)
-	c.Check(drive, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "arch 'arch' not supported")
 }
 
 func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
@@ -267,7 +212,10 @@ func (s *clientSuite) TestClientNewInstanceInvalidTemplate(c *gc.C) {
 			},
 		},
 	}
-	server, drive, err := cli.newInstance(params)
+	img := &imagemetadata.ImageMetadata{
+		Id: "invalid-id",
+	}
+	server, drive, err := cli.newInstance(params, img)
 	c.Check(server, gc.IsNil)
 	c.Check(drive, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "query drive template: 404 Not Found.*")
@@ -290,8 +238,11 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 			},
 		},
 	}
+	img := &imagemetadata.ImageMetadata{
+		Id: validImageId,
+	}
 	cs, err := newConstraints(params.MachineConfig.Bootstrap,
-		params.Constraints, params.MachineConfig.Tools.Version.Series)
+		params.Constraints, img)
 	c.Assert(cs, gc.NotNil)
 	c.Check(err, gc.IsNil)
 
@@ -309,7 +260,7 @@ func (s *clientSuite) TestClientNewInstance(c *gc.C) {
 	mock.ResetDrives()
 	mock.LibDrives.Add(templateDrive)
 
-	server, drive, err := cli.newInstance(params)
+	server, drive, err := cli.newInstance(params, img)
 	c.Check(server, gc.NotNil)
 	c.Check(drive, gc.NotNil)
 	c.Check(err, gc.IsNil)

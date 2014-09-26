@@ -7,10 +7,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 type environSuite struct {
@@ -53,17 +52,10 @@ func (s *environSuite) TestBase(c *gc.C) {
 	c.Assert(cfg, gc.NotNil)
 	c.Check(cfg.Name(), gc.Equals, "testname")
 
-	c.Check(environ.Storage(), gc.Equals, &emptyStorage)
+	environstrage, ok := environ.(environs.EnvironStorage)
+	c.Check(environstrage.Storage(), gc.Equals, &emptyStorage)
 
 	c.Check(environ.PrecheckInstance("", constraints.Value{}, ""), gc.IsNil)
-
-	customSource, ok := environ.(tools.SupportsCustomSources)
-	c.Check(ok, gc.Equals, true)
-	c.Assert(customSource, gc.NotNil)
-
-	src, err := customSource.GetToolsSources()
-	c.Check(src, gc.NotNil)
-	c.Check(err, gc.IsNil)
 
 	hasRegion, ok := environ.(simplestreams.HasRegion)
 	c.Check(ok, gc.Equals, true)

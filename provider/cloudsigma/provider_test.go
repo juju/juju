@@ -10,7 +10,7 @@ import (
 
 	tt "github.com/juju/juju/testing"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 var live = flag.Bool("live", false, "run tests on live CloudSigma account")

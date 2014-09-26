@@ -6,7 +6,7 @@ package cloudsigma
 import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 func newStorageConfig(c *gc.C, attrs testing.Attrs) *storageConfig {

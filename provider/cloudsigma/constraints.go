@@ -8,6 +8,7 @@ import (
 
 	"github.com/Altoros/gosigma"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
 )
 
 // This file contains implementation of CloudSigma instance constraints
@@ -20,32 +21,11 @@ type sigmaConstraints struct {
 }
 
 const defaultCPUPower = 2000
-const driveUbuntuTrusty64 = "473adb38-3b64-43b2-93bd-f1a3443c19ea"
-
 // newConstraints creates new CloudSigma constraints from juju common constraints
-func newConstraints(bootstrap bool, jc constraints.Value, series string) (*sigmaConstraints, error) {
+func newConstraints(bootstrap bool, jc constraints.Value, img *imagemetadata.ImageMetadata) (*sigmaConstraints, error) {
 	var sc sigmaConstraints
 
-	if a := jc.Arch; a != nil {
-		switch *a {
-		case "amd64":
-			switch series {
-			case "trusty":
-				sc.driveTemplate = driveUbuntuTrusty64
-			default:
-				return nil, fmt.Errorf("series '%s' not supported", series)
-			}
-		default:
-			return nil, fmt.Errorf("arch '%s' not supported", *a)
-		}
-	} else {
-		switch series {
-		case "trusty":
-			sc.driveTemplate = driveUbuntuTrusty64
-		default:
-			return nil, fmt.Errorf("series '%s' not supported", series)
-		}
-	}
+	sc.driveTemplate = img.Id
 
 	if size := jc.RootDisk; bootstrap && size == nil {
 		sc.driveSize = 5 * gosigma.Gigabyte

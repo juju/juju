@@ -11,12 +11,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 	"github.com/juju/schema"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {
 	attrs = testing.FakeConfig().Merge(attrs)
-	cfg, err := config.New(config.UseDefaults, attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	return cfg
 }
@@ -29,6 +29,7 @@ func validAttrs() testing.Attrs {
 		"region":           "zrh",
 		"storage-port":     8040,
 		"storage-auth-key": "ABCDEFGH",
+		"uuid":				"f54aac3a-9dcd-4a0c-86b5-24091478478c",
 	})
 }
 
@@ -231,7 +232,7 @@ func (s *configSuite) TestConfigName(c *gc.C) {
 	baseConfig := newConfig(c, validAttrs().Merge(testing.Attrs{"name": "testname"}))
 	environ, err := environs.New(baseConfig)
 	c.Assert(err, gc.IsNil)
-	c.Check(environ.Name(), gc.Equals, "testname")
+	c.Check(environ.Config().Name(), gc.Equals, "testname")
 }
 
 func (s *configSuite) TestBadUUIDGenerator(c *gc.C) {
@@ -326,4 +327,41 @@ func (s *configSuite) TestSecretAttrsAreStrings(c *gc.C) {
 		c.Check(sa, gc.IsNil)
 		c.Check(err, gc.ErrorMatches, "secret .* field must have a string value; got .*")
 	}
+}
+
+func (s *configSuite) TestClientConfigChanged(c *gc.C) {
+	ecfg := &environConfig{
+		Config: newConfig(c, testing.Attrs{"name": "client-test"}),
+		attrs: map[string]interface{}{
+			"region":   "https://testing.invalid",
+			"username": "user",
+			"password": "password",
+		},
+	}
+
+	oldConfig := &environConfig{
+		Config: newConfig(c, testing.Attrs{"name": "client-test"}),
+		attrs: map[string]interface{}{
+			"region":   "https://testing.invalid",
+			"username": "user",
+			"password": "password",
+		},
+	}
+
+	rc := oldConfig.clientConfigChanged(ecfg)
+	c.Check(rc, gc.Equals, false)
+
+	ecfg.attrs["region"] = ""
+	rc = oldConfig.clientConfigChanged(ecfg)
+	c.Check(rc, gc.Equals, true)
+
+	ecfg.attrs["region"] = "https://testing.invalid"
+	ecfg.attrs["username"] = "user1"
+	rc = oldConfig.clientConfigChanged(ecfg)
+	c.Check(rc, gc.Equals, true)
+
+	ecfg.attrs["username"] = "user"
+	ecfg.attrs["password"] = "password1"
+	rc = oldConfig.clientConfigChanged(ecfg)
+	c.Check(rc, gc.Equals, true)
 }

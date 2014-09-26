@@ -12,16 +12,14 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/juju/environs/imagemetadata"
 )
 
 // This file contains implementation of CloudSigma client.
 type environClient struct {
 	conn     *gosigma.Client
-	region   string
-	username string
-	password string
-	name     string
-	storage  *environStorage
+	uuid 	 string
+	storage   *environStorage
 }
 
 type tracer struct{}
@@ -30,25 +28,20 @@ func (tracer) Logf(format string, args ...interface{}) {
 	logger.Tracef(format, args...)
 }
 
-// newClient creates new CloudSigma client connection.
-var newClient = func(cfg *environConfig) (*environClient, error) {
-
-	// fetch and validate configuration
-	region, err := gosigma.ResolveEndpoint(cfg.region())
-	if err != nil {
-		region = cfg.region()
+// newClient returns an instance of the CloudSigma client.
+var newClient = func(cfg *environConfig) (client *environClient,err error) {
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, fmt.Errorf("Environ uuid must not be empty")
 	}
-	username := cfg.username()
-	password := cfg.password()
-	name := cfg.Name()
 
 	logger.Debugf("creating CloudSigma client: region=%s, user=%s, password=%s, name=%q",
-		region, username, strings.Repeat("*", len(password)), name)
+		cfg.region(), cfg.username(), strings.Repeat("*", len(cfg.password())), uuid)
 
 	// create connection to CloudSigma
-	conn, err := gosigma.NewClient(region, username, password, nil)
+	conn, err := gosigma.NewClient(cfg.region(), cfg.username(), cfg.password(), nil)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// configure trace logger
@@ -56,35 +49,12 @@ var newClient = func(cfg *environConfig) (*environClient, error) {
 		conn.Logger(&tracer{})
 	}
 
-	c := &environClient{
+	client = &environClient {
 		conn:     conn,
-		region:   region,
-		name:     name,
-		username: username,
-		password: password,
+		uuid:	  uuid,
 	}
 
-	return c, nil
-}
-
-// configChanged checks if CloudSigma client environment configuration is changed
-func (c environClient) configChanged(cfg *environConfig) bool {
-	// fetch configuration
-	region, err := gosigma.ResolveEndpoint(cfg.region())
-	if err != nil {
-		return true
-	}
-	username := cfg.username()
-	password := cfg.password()
-	name := cfg.Name()
-
-	// compare
-	if region != c.region || username != c.username ||
-		password != c.password || name != c.name {
-		return true
-	}
-
-	return false
+	return
 }
 
 const (
@@ -95,20 +65,21 @@ const (
 	jujuMetaEnvironment = "juju-environment"
 )
 
-func (c environClient) isMyEnvironment(s gosigma.Server) bool {
-	if v, _ := s.Get(jujuMetaEnvironment); c.name == v {
+func (c *environClient) isMyEnvironment(s gosigma.Server) bool {
+	if v, ok := s.Get(jujuMetaEnvironment); ok && c.uuid == v {
 		return true
 	}
 	return false
 }
 
-func (c environClient) isMyServer(s gosigma.Server) bool {
+func (c *environClient) isMyServer(s gosigma.Server) bool {
 	if _, ok := s.Get(jujuMetaInstance); ok {
 		return c.isMyEnvironment(s)
 	}
 	return false
 }
 
+// this function is used to filter servers in the CloudSigma account
 func (c environClient) isMyStateServer(s gosigma.Server) bool {
 	if v, ok := s.Get(jujuMetaInstance); ok && v == jujuMetaInstanceStateServer {
 		return c.isMyEnvironment(s)
@@ -116,13 +87,13 @@ func (c environClient) isMyStateServer(s gosigma.Server) bool {
 	return false
 }
 
-// instances of servers at CloudSigma account
-func (c environClient) instances() ([]gosigma.Server, error) {
+// instances returns a list of CloudSigma servers
+func (c *environClient) instances() ([]gosigma.Server, error) {
 	return c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyServer)
 }
 
 // instanceMap of server ids to servers at CloudSigma account
-func (c environClient) instanceMap() (map[string]gosigma.Server, error) {
+func (c *environClient) instanceMap() (map[string]gosigma.Server, error) {
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyServer)
 	if err != nil {
 		return nil, err
@@ -136,7 +107,9 @@ func (c environClient) instanceMap() (map[string]gosigma.Server, error) {
 	return m, nil
 }
 
-func (c environClient) stateServerAddress() (string, string, bool) {
+// returns address of the state server.
+// this function is used when we move storage from local temporary storage to remote storage, that is located on the state server
+func (c *environClient) stateServerAddress() (string, string, bool) {
 	logger.Debugf("query state...")
 
 	servers, err := c.conn.ServersFiltered(gosigma.RequestDetail, c.isMyStateServer)
@@ -164,7 +137,7 @@ func (c environClient) stateServerAddress() (string, string, bool) {
 }
 
 // stop instance
-func (c environClient) stopInstance(id instance.Id) error {
+func (c *environClient) stopInstance(id instance.Id) error {
 	uuid := string(id)
 	if uuid == "" {
 		return fmt.Errorf("invalid instance id")
@@ -191,7 +164,7 @@ func (c environClient) stopInstance(id instance.Id) error {
 }
 
 // start new instance
-func (c environClient) newInstance(args environs.StartInstanceParams) (srv gosigma.Server, drv gosigma.Drive, err error) {
+func (c *environClient) newInstance(args environs.StartInstanceParams, img *imagemetadata.ImageMetadata) (srv gosigma.Server, drv gosigma.Drive, err error) {
 
 	cleanup := func() {
 		if err == nil {
@@ -216,20 +189,20 @@ func (c environClient) newInstance(args environs.StartInstanceParams) (srv gosig
 	logger.Tracef("Juju Constraints:" + args.Constraints.String())
 	logger.Tracef("MachineConfig: %#v", args.MachineConfig)
 
-	cs, err := newConstraints(args.MachineConfig.Bootstrap,
-		args.Constraints, args.MachineConfig.Tools.Version.Series)
+	constraints, err := newConstraints(args.MachineConfig.Bootstrap,
+		args.Constraints,img)
 	if err != nil {
 		return
 	}
-	logger.Debugf("CloudSigma Constraints: %v", cs)
+	logger.Debugf("CloudSigma Constraints: %v", constraints)
 
-	originalDrive, err := c.conn.Drive(cs.driveTemplate, gosigma.LibraryMedia)
+	originalDrive, err := c.conn.Drive(constraints.driveTemplate, gosigma.LibraryMedia)
 	if err != nil {
 		err = fmt.Errorf("query drive template: %v", err)
 		return
 	}
 
-	baseName := "juju-" + c.name + "-" + args.MachineConfig.MachineId
+	baseName := "juju-" + c.uuid + "-" + args.MachineConfig.MachineId
 
 	cloneParams := gosigma.CloneParams{Name: baseName}
 	if drv, err = originalDrive.CloneWait(cloneParams, nil); err != nil {
@@ -237,8 +210,8 @@ func (c environClient) newInstance(args environs.StartInstanceParams) (srv gosig
 		return
 	}
 
-	if drv.Size() < cs.driveSize {
-		if err = drv.ResizeWait(cs.driveSize); err != nil {
+	if drv.Size() < constraints.driveSize {
+		if err = drv.ResizeWait(constraints.driveSize); err != nil {
 			err = fmt.Errorf("error resizing drive: %v", err)
 			return
 		}
@@ -247,18 +220,9 @@ func (c environClient) newInstance(args environs.StartInstanceParams) (srv gosig
 	var cc gosigma.Components
 	cc.SetName(baseName)
 	cc.SetDescription(baseName)
-
-	if cs.cores != 0 {
-		cc.SetSMP(cs.cores)
-	}
-
-	if cs.power != 0 {
-		cc.SetCPU(cs.power)
-	}
-
-	if cs.mem != 0 {
-		cc.SetMem(cs.mem)
-	}
+	cc.SetSMP(constraints.cores)
+	cc.SetCPU(constraints.power)
+	cc.SetMem(constraints.mem)
 
 	vncpass, err := utils.RandomPassword()
 	if err != nil {
@@ -277,31 +241,16 @@ func (c environClient) newInstance(args environs.StartInstanceParams) (srv gosig
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceServer)
 	}
 
-	if c.name != "" {
-		cc.SetMeta(jujuMetaEnvironment, c.name)
-	}
+	cc.SetMeta(jujuMetaEnvironment, c.uuid)
 
 	if srv, err = c.conn.CreateServer(cc); err != nil {
 		err = fmt.Errorf("error creating new instance: %v", err)
 		return
 	}
 
-	if err = srv.StartWait(); err != nil {
+	if err = srv.Start(); err != nil {
 		err = fmt.Errorf("error booting new instance: %v", err)
-		return
 	}
-
-	var ipaddr string
-	instanceNetworkAvailable := func(s gosigma.Server) bool {
-		ipaddr = sigmaInstance{s}.findIPv4()
-		return ipaddr != ""
-	}
-	if err = srv.Wait(instanceNetworkAvailable); err != nil {
-		err = fmt.Errorf("error waiting for instance IP address: %v", err)
-		return
-	}
-
-	logger.Tracef("instance ip %q", ipaddr)
 
 	return
 }

@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-
+	ar "github.com/juju/juju/juju/arch"
 	"github.com/Altoros/gosigma"
 )
+
+var _ instance.Instance = (*sigmaInstance)(nil)
 
 type sigmaInstance struct {
 	server gosigma.Server
@@ -93,26 +95,16 @@ func (i sigmaInstance) DNSName() (string, error) {
 	return ip, nil
 }
 
-/* TODO REMOVE
-// WaitDNSName returns the DNS name for the instance,
-// waiting until it is allocated if necessary.
-// TODO: We may not need this in the interface any more.  All
-// implementations now delegate to environs.WaitDNSName.
-func (i sigmaInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(i)
-}
-*/
-
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) OpenPorts(machineID string, ports []network.Port) error {
+func (i sigmaInstance) OpenPorts(machineID string, ports []network.PortRange) error {
 	logger.Tracef("sigmaInstance.OpenPorts: not implemented")
 	return nil
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (i sigmaInstance) ClosePorts(machineID string, ports []network.Port) error {
+func (i sigmaInstance) ClosePorts(machineID string, ports []network.PortRange) error {
 	logger.Tracef("sigmaInstance.ClosePorts: not implemented")
 	return nil
 }
@@ -120,9 +112,9 @@ func (i sigmaInstance) ClosePorts(machineID string, ports []network.Port) error 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The ports are returned as sorted by SortPorts.
-func (i sigmaInstance) Ports(machineID string) ([]network.Port, error) {
+func (i sigmaInstance) Ports(machineID string) ([]network.PortRange, error) {
 	logger.Tracef("sigmaInstance.Ports: not implemented")
-	return []network.Port{}, nil
+	return []network.PortRange{}, nil
 }
 
 func (i sigmaInstance) findIPv4() string {
@@ -136,7 +128,7 @@ func (i sigmaInstance) findIPv4() string {
 	return addrs[0]
 }
 
-func (i sigmaInstance) hardware() *instance.HardwareCharacteristics {
+func (i *sigmaInstance) hardware(arch string, driveSize uint64) *instance.HardwareCharacteristics {
 	if i.server == nil {
 		return nil
 	}
@@ -148,5 +140,23 @@ func (i sigmaInstance) hardware() *instance.HardwareCharacteristics {
 		CpuCores: &cores,
 		CpuPower: &cpu,
 	}
+
+	// populate root drive hardware characteristics
+	switch arch {
+	case "64":
+		a := ar.AMD64
+		hw.Arch = &a
+	case "32":
+		a := ar.I386
+		hw.Arch = &a
+	default:
+		logger.Debugf("uncnown arch: %v", arch)
+	}
+
+	diskSpace :=driveSize / gosigma.Megabyte
+	if diskSpace > 0 {
+		hw.RootDisk = &diskSpace
+	}
+
 	return &hw
 }

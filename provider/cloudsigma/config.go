@@ -35,7 +35,9 @@ cloudsigma:
 
 `
 
-const defaultStoragePort = 8040
+const (
+	defaultStoragePort = 8040
+)
 
 var configFields = schema.Fields{
 	"username": schema.String(),
@@ -66,7 +68,15 @@ var configImmutableFields = []string{
 
 func prepareConfig(cfg *config.Config) (*config.Config, error) {
 	// Turn an incomplete config into a valid one, if possible.
-	attrs := cfg.UnknownAttrs()
+	attrs := cfg.AllAttrs()
+
+	if _, ok := attrs["uuid"]; !ok {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return nil, err
+		}
+		attrs["uuid"] = uuid.String()
+	}
 
 	if _, ok := attrs["storage-auth-key"]; !ok {
 		uuid, err := utils.NewUUID()
@@ -134,6 +144,18 @@ func validateConfig(cfg *config.Config, old *environConfig) (*environConfig, err
 	}
 
 	return ecfg, nil
+}
+
+
+// configChanged checks if CloudSigma client environment configuration is changed
+func (c environConfig) clientConfigChanged(newConfig *environConfig) bool {
+	// compare
+	if newConfig.region() != c.region() || newConfig.username() != c.username() ||
+		newConfig.password() != c.password() {
+		return true
+	}
+
+	return false
 }
 
 type environConfig struct {

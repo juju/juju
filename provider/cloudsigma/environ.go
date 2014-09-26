@@ -4,6 +4,7 @@
 package cloudsigma
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/Altoros/gosigma"
@@ -12,10 +13,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
+)
+
+const (
+	CloudsigmaCloudImagesURLTemplate = "https://%v.cloudsigma.com/"
 )
 
 // This file contains the core of the Environ implementation.
@@ -30,7 +34,6 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
-var _ tools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 
 // Name returns the Environ's name.
@@ -56,7 +59,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 		return err
 	}
 
-	if env.client == nil || env.client.configChanged(ecfg) {
+	if env.client == nil || env.ecfg == nil || env.ecfg.clientConfigChanged(ecfg) {
 		client, err := newClient(ecfg)
 		if err != nil {
 			return err
@@ -79,7 +82,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 // Config returns the configuration data with which the Environ was created.
 // Note that this is not necessarily current; the canonical location
 // for the configuration data is stored in the state.
-func (env environ) Config() *config.Config {
+func (env *environ) Config() *config.Config {
 	return env.ecfg.Config
 }
 
@@ -102,15 +105,38 @@ func (env environ) Storage() storage.Storage {
 // Bootstrap is responsible for selecting the appropriate tools,
 // and setting the agent-version configuration attribute prior to
 // bootstrapping the environment.
-func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) error {
-	// You can probably ignore this method; the common implementation should work.
-	return common.Bootstrap(ctx, env, params)
+func (env *environ) Bootstrap(ctx environs.BootstrapContext, params environs.BootstrapParams) (arch, series string, finalizer environs.BootstrapFinalizer, err error) {
+	arch, series, finalizer, err = common.Bootstrap(ctx, env, params)
+
+	if err != nil {
+		return
+	}
+
+	newFinalizer := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) (err error) {
+		err = finalizer(ctx, mcfg)
+		if err != nil {
+			return err
+		}
+
+		// provide additional agent config for localstorage, if any
+		if env.storage.tmp {
+			_, addr, ok := env.client.stateServerAddress()
+			if !ok {
+				return fmt.Errorf("Can't obtain state server address")
+			}
+			if err := env.prepareStorage(addr, mcfg); err != nil {
+				return fmt.Errorf("failed prepare storage: %v", err)
+			}
+		}
+
+		return err
+	}
+
+	return arch, series, newFinalizer, err
 }
 
-// StateInfo returns information on the state initialized by Bootstrap.
-func (env *environ) StateInfo() (*state.Info, *api.Info, error) {
-	// You can probably ignore this method; the common implementation should work.
-	return common.StateInfo(env)
+func (e *environ) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(e, e.Storage())
 }
 
 // Destroy shuts down all known machines and destroys the
@@ -133,26 +159,17 @@ func (env *environ) Destroy() error {
 // all invalid parameters. If PrecheckInstance returns nil, it is not
 // guaranteed that the constraints are valid; if a non-nil error is
 // returned, then the constraints are definitely invalid.
-func (env environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+func (env *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	logger.Infof("cloudsigma:environ:PrecheckInstance")
 	return nil
 }
 
-// GetToolsSources returns a list of sources which are
-// used to search for simplestreams tools metadata.
-func (env environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off private storage.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath),
-	}, nil
-}
-
 // Region is specified in the HasRegion interface.
-func (env environ) Region() (simplestreams.CloudSpec, error) {
+func (env *environ) Region() (simplestreams.CloudSpec, error) {
 	return env.cloudSpec(env.ecfg.region())
 }
 
-func (env environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
+func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	endpoint, err := gosigma.ResolveEndpoint(region)
 	if err != nil {
 		return simplestreams.CloudSpec{}, err
@@ -162,3 +179,4 @@ func (env environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 		Endpoint: endpoint,
 	}, nil
 }
+

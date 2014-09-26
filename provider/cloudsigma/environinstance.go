@@ -5,38 +5,51 @@ package cloudsigma
 
 import (
 	"fmt"
-	"os"
-	"path"
 	"strings"
-	"time"
 
-	"github.com/Altoros/gosigma"
 	"github.com/juju/errors"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 
-	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 //
 // Imlementation of InstanceBroker: methods for starting and stopping instances.
 //
 
+var findInstanceImage = func(
+	env *environ, ic *imagemetadata.ImageConstraint) (*imagemetadata.ImageMetadata, error) {
+
+	sources, err := environs.ImageMetadataSources(env)
+	if err != nil {
+		return nil, err
+	}
+
+
+	matchingImages, _, err := imagemetadata.Fetch(sources, ic, false)
+	if err != nil {
+		return nil, err
+	}
+	if len(matchingImages) == 0 {
+		return nil, fmt.Errorf("no matching image meta data");
+	}
+
+	return matchingImages[0], nil;
+}
+
+
 // StartInstance asks for a new instance to be created, associated with
 // the provided config in machineConfig. The given config describes the juju
 // state for the new instance to connect to. The config MachineNonce, which must be
 // unique within an environment, is used by juju to protect against the
 // consequences of multiple instances being started with the same machine id.
-func (env environ) StartInstance(args environs.StartInstanceParams) (
+func (env *environ) StartInstance(args environs.StartInstanceParams) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	logger.Infof("sigmaEnviron.StartInstance...")
 
@@ -52,49 +65,27 @@ func (env environ) StartInstance(args environs.StartInstanceParams) (
 		return nil, nil, nil, fmt.Errorf("tools not found")
 	}
 
-	args.MachineConfig.Tools = args.Tools[0]
-	if err := environs.FinishMachineConfig(args.MachineConfig, env.Config(), args.Constraints); err != nil {
+	region, _ := env.Region()
+	img, err := findInstanceImage(env, imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+			CloudSpec: region,
+			Series:    args.Tools.AllSeries(),
+			Arches:    args.Tools.Arches(),
+			Stream:    env.Config().ImageStream(),
+		}))
+	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	client := env.client
-	server, rootdrive, err := client.newInstance(args)
+	server, rootdrive, err := client.newInstance(args, img)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed start instance: %v", err)
 	}
 
-	inst := sigmaInstance{server: server}
-	addr := inst.findIPv4()
-	if addr == "" {
-		return nil, nil, nil, fmt.Errorf("failed obtain instance IP address")
-	}
-
-	// prepare new instance: wait up and running, populate nonce file, etc
-	if err := env.prepareInstance(addr, args.MachineConfig); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed prepare instanse: %v", err)
-	}
-
-	// provide additional agent config for localstorage, if any
-	if env.storage.tmp && args.MachineConfig.Bootstrap {
-		if err := env.prepareStorage(addr, args.MachineConfig); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed prepare storage: %v", err)
-		}
-	}
+	inst := &sigmaInstance{server: server}
 
 	// prepare hardware characteristics
-	hwch := inst.hardware()
-
-	// populate root drive hardware characteristics
-	switch rootdrive.Arch() {
-	case "64":
-		var a = arch.AMD64
-		hwch.Arch = &a
-	}
-
-	diskSpace := rootdrive.Size() / gosigma.Megabyte
-	if diskSpace > 0 {
-		hwch.RootDisk = &diskSpace
-	}
+	hwch := inst.hardware(rootdrive.Arch(), rootdrive.Size())
 
 	logger.Tracef("hardware: %v", hwch)
 
@@ -102,7 +93,7 @@ func (env environ) StartInstance(args environs.StartInstanceParams) (
 }
 
 // AllInstances returns all instances currently known to the broker.
-func (env environ) AllInstances() ([]instance.Instance, error) {
+func (env *environ) AllInstances() ([]instance.Instance, error) {
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
 	// are not tracked in state, assume they're stale/rogue, and shut them down.
@@ -137,7 +128,7 @@ func (env environ) AllInstances() ([]instance.Instance, error) {
 // some but not all the instances were found, the returned slice
 // will have some nil slots, and an ErrPartialInstances error
 // will be returned.
-func (env environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
+func (env *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	logger.Tracef("environ.Instances %#v", ids)
 	// Please note that this must *not* return instances that have not been
 	// allocated as part of this environment -- if it does, juju will see they
@@ -171,7 +162,7 @@ func (env environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 }
 
 // StopInstances shuts down the given instances.
-func (env environ) StopInstances(instances ...instance.Id) error {
+func (env *environ) StopInstances(instances ...instance.Id) error {
 	logger.Infof("stop instances %+v", instances)
 
 	var err error
@@ -185,75 +176,7 @@ func (env environ) StopInstances(instances ...instance.Id) error {
 	return err
 }
 
-func (env environ) prepareInstance(addr string, mcfg *cloudinit.MachineConfig) error {
-	host := "ubuntu@" + addr
-	logger.Debugf("Running prepare script on %s", host)
-
-	cmds := []string{"#!/bin/bash", "set -e"}
-	cmds = append(cmds, fmt.Sprintf("mkdir -p '%s'", mcfg.DataDir))
-
-	nonceFile := path.Join(mcfg.DataDir, cloudinit.NonceFile)
-	nonceContent := mcfg.MachineNonce
-	cmds = append(cmds, fmt.Sprintf("echo '%s' > %s", nonceContent, nonceFile))
-
-	script := strings.Join(cmds, "\n")
-
-	if !mcfg.Bootstrap {
-		cloudcfg := coreCloudinit.New()
-		if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-			return err
-		}
-		configScript, err := sshinit.ConfigureScript(cloudcfg)
-		if err != nil {
-			return err
-		}
-
-		script += "\n\n"
-		script += configScript
-	}
-
-	logger.Tracef("Script:\n%s", script)
-
-	keyfile := path.Join(mcfg.DataDir, agent.SystemIdentity)
-	if _, err := os.Stat(keyfile); err != nil {
-		keyfile = ""
-	}
-	logger.Tracef("System identity file: %q", keyfile)
-
-	var retryAttempts = utils.AttemptStrategy{
-		Total: 120 * time.Second,
-		Delay: 300 * time.Millisecond,
-	}
-
-	var err error
-	for attempt := retryAttempts.Start(); attempt.Next(); {
-		var options ssh.Options
-		if keyfile != "" {
-			options.SetIdentities(keyfile)
-		}
-
-		cmd := ssh.Command(host, []string{"sudo", "/bin/bash"}, &options)
-		cmd.Stdin = strings.NewReader(script)
-
-		var logw = loggerWriter{logger.LogLevel()}
-		cmd.Stderr = &logw
-		cmd.Stdout = &logw
-
-		if err = cmd.Run(); err == nil {
-			break
-		}
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed running prepare script: %v", err)
-	}
-
-	logger.Tracef("Bootstrap script done for machine '%s', '%s'", mcfg.MachineId, addr)
-
-	return nil
-}
-
-func (env environ) prepareStorage(addr string, mcfg *cloudinit.MachineConfig) error {
+func (env *environ) prepareStorage(addr string, mcfg *cloudinit.MachineConfig) error {
 	storagePort := env.ecfg.storagePort()
 	storageDir := mcfg.DataDir + "/" + storageSubdir
 
@@ -289,13 +212,13 @@ func (env environ) prepareStorage(addr string, mcfg *cloudinit.MachineConfig) er
 
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network.
-func (env environ) AllocateAddress(instID instance.Id, netID network.Id) (network.Address, error) {
+func (env *environ) AllocateAddress(instID instance.Id, netID network.Id) (network.Address, error) {
 	return network.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
-func (env environ) ListNetworks() ([]network.BasicInfo, error) {
+func (env *environ) ListNetworks() ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
