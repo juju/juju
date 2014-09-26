@@ -29,6 +29,6 @@ func (s *removeSuite) TestRemove(c *gc.C) {
 	)
 	defer cleanup()
 
-	err := s.client.Remove(s.meta.ID())
+	err := s.client.Remove(s.Meta.ID())
 	c.Assert(err, gc.IsNil)
 }
