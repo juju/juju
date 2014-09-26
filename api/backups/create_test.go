@@ -30,8 +30,7 @@ func (s *createSuite) TestCreate(c *gc.C) {
 				result.UpdateFromMetadata(s.Meta)
 				result.Notes = p.Notes
 			} else {
-				c.Log("wrong output structure")
-				c.Fail()
+				c.Fatalf("wrong output structure")
 			}
 			return nil
 		},
