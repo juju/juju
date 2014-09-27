@@ -27,14 +27,14 @@ type Context interface {
 	// PrivateAddress returns the executing unit's private address.
 	PrivateAddress() (string, bool)
 
-	// OpenPort marks the supplied port for opening when the executing unit's
-	// service is exposed.
-	OpenPort(protocol string, port int) error
+	// OpenPorst marks the supplied port range for opening when the
+	// executing unit's service is exposed.
+	OpenPorts(protocol string, fromPort, toPort int) error
 
-	// ClosePort ensures the supplied port is closed even when the executing
-	// unit's service is exposed (unless it is opened separately by a co-
-	// located unit).
-	ClosePort(protocol string, port int) error
+	// ClosePorts ensures the supplied port range is closed even when
+	// the executing unit's service is exposed (unless it is opened
+	// separately by a co- located unit).
+	ClosePorts(protocol string, fromPort, toPort int) error
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
