@@ -670,6 +670,65 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(needsUpgrade, jc.IsTrue)
 }
 
+func (s *uniterSuite) TestOpenPorts(c *gc.C) {
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.HasLen, 0)
+
+	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
+		{Tag: "unit-mysql-0", Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
+		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
+	}}
+	result, err := s.uniter.OpenPorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the wordpressUnit's port is opened.
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	})
+}
+
+func (s *uniterSuite) TestClosePorts(c *gc.C) {
+	// Open port udp:4321 in advance on wordpressUnit.
+	err := s.wordpressUnit.OpenPorts("udp", 4321, 5000)
+	c.Assert(err, gc.IsNil)
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	})
+
+	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
+		{Tag: "unit-mysql-0", Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
+		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
+	}}
+	result, err := s.uniter.ClosePorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the wordpressUnit's port is closed.
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.HasLen, 0)
+}
+
 func (s *uniterSuite) TestOpenPort(c *gc.C) {
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
@@ -691,8 +750,6 @@ func (s *uniterSuite) TestOpenPort(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is opened.
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, gc.IsNil)
 	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
@@ -703,8 +760,6 @@ func (s *uniterSuite) TestOpenPort(c *gc.C) {
 func (s *uniterSuite) TestClosePort(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
 	err := s.wordpressUnit.OpenPort("udp", 4321)
-	c.Assert(err, gc.IsNil)
-	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
@@ -728,8 +783,6 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is closed.
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, gc.IsNil)
 	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(openedPorts, gc.HasLen, 0)

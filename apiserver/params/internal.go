@@ -310,6 +310,20 @@ type EntitiesPorts struct {
 	Entities []EntityPort
 }
 
+// EntityPortRange holds an entity's tag, a protocol and a port range.
+type EntityPortRange struct {
+	Tag      string
+	Protocol string
+	FromPort int
+	ToPort   int
+}
+
+// EntitiesPortRanges holds the parameters for making an OpenPorts or
+// ClosePorts on some entities.
+type EntitiesPortRanges struct {
+	Entities []EntityPortRange
+}
+
 // EntityCharmURL holds an entity's tag and a charm URL.
 type EntityCharmURL struct {
 	Tag      string
