@@ -15,7 +15,7 @@ const (
 	jujuRun
 )
 
-var linuxVals = map[osVarType]string{
+var nixVals = map[osVarType]string{
 	tmpDir:  "/tmp",
 	logDir:  "/var/log",
 	dataDir: "/var/lib/juju",
@@ -41,7 +41,7 @@ func osVal(series string, valname osVarType) (string, error) {
 	case version.Windows:
 		return winVals[valname], nil
 	default:
-		return linuxVals[valname], nil
+		return nixVals[valname], nil
 	}
 	return "", fmt.Errorf("Unknown OS: %q", os)
 }
