@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 // Context is the interface that all hook helper commands
@@ -35,6 +36,14 @@ type Context interface {
 	// the executing unit's service is exposed (unless it is opened
 	// separately by a co- located unit).
 	ClosePorts(protocol string, fromPort, toPort int) error
+
+	// OpeningPorts returns all port ranges for the unit pending to be
+	// opened when the current hook it committed.
+	OpeningPorts() []network.PortRange
+
+	// ClosingPorts returns all port ranges for the unit pending to be
+	// closed when the current hook it committed.
+	ClosingPorts() []network.PortRange
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)

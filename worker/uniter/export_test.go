@@ -5,6 +5,9 @@ package uniter
 
 import (
 	"github.com/juju/utils/proxy"
+
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
@@ -24,3 +27,7 @@ var SearchHook = searchHook
 var HookCommand = hookCommand
 
 var LookPath = lookPath
+
+func ContextPortRanges(ctx jujuc.Context) map[network.PortRange]bool {
+	return ctx.(*HookContext).portRanges
+}

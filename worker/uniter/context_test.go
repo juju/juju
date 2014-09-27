@@ -425,6 +425,68 @@ func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 0)
 }
 
+func (s *RunHookSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "some-hook",
+		perm: 0700,
+	})
+
+	// Initially, no port ranges are open.
+	unitRanges, err := s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unitRanges, gc.HasLen, 0)
+
+	// Change some ports.
+	err = ctx.OpenPorts("tcp", 100, 200)
+	c.Assert(err, gc.IsNil)
+	err = ctx.ClosePorts("udp", 8080, 8088)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the ports are not actually changed on the unit yet.
+	unitRanges, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unitRanges, gc.HasLen, 0)
+
+	// ...but the context contains pending ports.
+	c.Assert(uniter.ContextPortRanges(ctx), jc.DeepEquals, map[network.PortRange]bool{
+		network.PortRange{100, 200, "tcp"}:   true,
+		network.PortRange{8080, 8088, "udp"}: false,
+	})
+	c.Assert(ctx.OpeningPorts(), jc.DeepEquals, []network.PortRange{
+		{100, 200, "tcp"},
+	})
+	c.Assert(ctx.ClosingPorts(), jc.DeepEquals, []network.PortRange{
+		{8080, 8088, "udp"},
+	})
+
+	// Simulate a hook ran and was committed successfully.
+	err = ctx.RunHook("some-hook", charmDir, c.MkDir(), "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	// Verify the unit ranges are now open.
+	unitRanges, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unitRanges, jc.DeepEquals, []network.PortRange{
+		{FromPort: 100, ToPort: 200, Protocol: "tcp"},
+	})
+
+	// ...and the context no longer has pending ports
+	c.Assert(ctx.OpeningPorts(), gc.HasLen, 0)
+	c.Assert(ctx.ClosingPorts(), gc.HasLen, 0)
+	// ...except for the internal map.
+	c.Assert(uniter.ContextPortRanges(ctx), jc.DeepEquals, map[network.PortRange]bool{
+		network.PortRange{100, 200, "tcp"}:   true,
+		network.PortRange{8080, 8088, "udp"}: false,
+	})
+
+	// Test idempotency by running the hook again.
+	err = ctx.RunHook("some-hook", charmDir, c.MkDir(), "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+}
+
 type ContextRelationSuite struct {
 	testing.JujuConnSuite
 	svc *state.Service
@@ -698,6 +760,42 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	pa, ok = ctx.PublicAddress()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(pr, gc.Equals, pa)
+}
+
+func (s *InterfaceSuite) TestPortRangesCaching(c *gc.C) {
+	ctx := s.GetContext(c, -1, "")
+	// Initially, no port ranges are open.
+	portRanges := uniter.ContextPortRanges(ctx)
+	c.Assert(portRanges, gc.HasLen, 0)
+	c.Assert(ctx.OpeningPorts(), gc.HasLen, 0)
+	c.Assert(ctx.ClosingPorts(), gc.HasLen, 0)
+	unitRanges, err := s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unitRanges, gc.HasLen, 0)
+
+	// Change some ports.
+	err = ctx.OpenPorts("tcp", 100, 200)
+	c.Assert(err, gc.IsNil)
+	err = ctx.ClosePorts("udp", 8080, 8088)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the ports are not actually changed on the unit yet.
+	unitRanges, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unitRanges, gc.HasLen, 0)
+
+	// Verify the context holds pending changes.
+	portRanges = uniter.ContextPortRanges(ctx)
+	c.Assert(portRanges, jc.DeepEquals, map[network.PortRange]bool{
+		network.PortRange{100, 200, "tcp"}:   true,
+		network.PortRange{8080, 8088, "udp"}: false,
+	})
+	c.Assert(ctx.OpeningPorts(), jc.DeepEquals, []network.PortRange{
+		{100, 200, "tcp"},
+	})
+	c.Assert(ctx.ClosingPorts(), jc.DeepEquals, []network.PortRange{
+		{8080, 8088, "udp"},
+	})
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
