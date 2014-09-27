@@ -4,11 +4,13 @@
 package lxc
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -29,10 +31,11 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate  = "ubuntu-cloud"
-	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
-	LxcRestartDir    = "/etc/lxc/auto"
-	LxcObjectFactory = golxc.Factory()
+	defaultTemplate       = "ubuntu-cloud"
+	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
+	LxcRestartDir         = "/etc/lxc/auto"
+	LxcObjectFactory      = golxc.Factory()
+	InitProcessCgroupFile = "/proc/1/cgroup"
 )
 
 const (
@@ -65,6 +68,40 @@ func containerDirFilesystem() (string, error) {
 		return "", fmt.Errorf("could not determine filesystem type")
 	}
 	return lines[1], nil
+}
+
+// IsLXCSupported returns a boolean value indicating whether or not
+// we can run LXC containers
+func IsLXCSupported() (bool, error) {
+	if runtime.GOOS != "linux" {
+		return false, nil
+	}
+
+	file, err := os.Open(InitProcessCgroupFile)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Split(line, ":")
+		if len(fields) != 3 {
+			return false, errors.Errorf("Malformed cgroup file")
+		}
+		if fields[2] != "/" {
+			// When running in a container the anchor point will be something
+			// other then "/". Return false here as we do not support nested LXC
+			// containers
+			return false, nil
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return false, errors.Errorf("Failed to read cgroup file")
+	}
+	return true, nil
 }
 
 type containerManager struct {

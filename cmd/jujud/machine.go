@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -484,10 +485,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// We don't yet support nested lxc containers but anything else can run an LXC container.
-	if entity.ContainerType() != instance.LXC {
+	// LXC containers are only supported on bare metal and fully virtualized linux systems
+	// Nested LXC containers and Windows machines cannot run LXC containers
+	supportsLXC, err := lxc.IsLXCSupported()
+	if err != nil {
+		logger.Warningf("no lxc containers possible: %v", err)
+	}
+	if err == nil && supportsLXC {
 		supportedContainers = append(supportedContainers, instance.LXC)
 	}
+
 	supportsKvm, err := kvm.IsKVMSupported()
 	if err != nil {
 		logger.Warningf("determining kvm support: %v\nno kvm containers possible", err)
