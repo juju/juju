@@ -35,7 +35,8 @@ var (
 	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir         = "/etc/lxc/auto"
 	LxcObjectFactory      = golxc.Factory()
-	InitProcessCgroupFile = "/proc/1/cgroup"
+	initProcessCgroupFile = "/proc/1/cgroup"
+	runtimeGOOS           = runtime.GOOS
 )
 
 const (
@@ -73,11 +74,11 @@ func containerDirFilesystem() (string, error) {
 // IsLXCSupported returns a boolean value indicating whether or not
 // we can run LXC containers
 func IsLXCSupported() (bool, error) {
-	if runtime.GOOS != "linux" {
+	if runtimeGOOS != "linux" {
 		return false, nil
 	}
 
-	file, err := os.Open(InitProcessCgroupFile)
+	file, err := os.Open(initProcessCgroupFile)
 	if err != nil {
 		return false, err
 	}
