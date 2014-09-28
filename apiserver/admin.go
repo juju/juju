@@ -92,7 +92,17 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 	entity, err := doCheckCreds(a.root.srv.state, c)
 	if err != nil {
-		return params.LoginResult{}, err
+		var emptyResult params.LoginResult
+		if a.maintenanceInProgress() {
+			// An upgrade, restore or similar operation is in
+			// progress. It is possible for logins to fail until this
+			// is complete due to incomplete or updating data. Mask
+			// transitory and potentially confusing errors from failed
+			// logins with a more helpful one.
+			return emptyResult, errors.New("login failed - maintenance in progress")
+		} else {
+			return emptyResult, err
+		}
 	}
 	if a.reqNotifier != nil {
 		a.reqNotifier.login(entity.Tag().String())
@@ -147,6 +157,25 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		LastConnection: lastConnection,
 		Facades:        newRoot.DescribeFacades(),
 	}, nil
+}
+
+func (a *srvAdmin) maintenanceInProgress() bool {
+	if a.validator == nil {
+		return false
+	}
+	// jujud's login validator will return an error for any user tag
+	// if jujud is upgrading or restoring. The tag of the entity
+	// trying to log in can't be used because jujud's login validator
+	// will always return nil for the local machine agent and here we
+	// need to know if maintenance is in progress irrespective of the
+	// the authenticating entity.
+	//
+	// TODO(mjs): 2014-09-29 bug 1375110
+	// This needs improving but I don't have the cycles right now.
+	creds := params.Creds{
+		AuthTag: names.NewUserTag("arbitrary").String(),
+	}
+	return a.validator(creds) != nil
 }
 
 var doCheckCreds = checkCreds
