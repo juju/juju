@@ -165,7 +165,6 @@ class TestEnvJujuClient(TestCase):
             mock.assert_called_with(
                 'bootstrap', ('--constraints', 'mem=2G arch=amd64'), False)
 
-
     def test_bootstrap_non_sudo(self):
         env = Environment('foo', '')
         with patch.object(EnvJujuClient, 'juju') as mock:

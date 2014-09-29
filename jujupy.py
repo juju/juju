@@ -518,7 +518,6 @@ def verify_libvirt_domain_running(URI, domain):
     @Parm domain: The name of the domain.
     """
 
-    get_libvirt_domstate(URI, domain)
     dom_status = get_libvirt_domstate(URI, domain)
     return True if 'running' in dom_status else False
 
