@@ -91,6 +91,9 @@ type Backups interface {
 	// the provided metadata.
 	Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error
 
+	// Add stores the backup archive and returns its new ID.
+	Add(archive io.Reader, meta *Metadata) (string, error)
+
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*Metadata, io.ReadCloser, error)
 
@@ -157,6 +160,17 @@ func (b *backups) Create(meta *Metadata, paths *Paths, dbInfo *DBInfo) error {
 	}
 
 	return nil
+}
+
+// Add stores the backup archive and returns its new ID.
+func (b *backups) Add(archive io.Reader, meta *Metadata) (string, error) {
+	// Store the archive.
+	err := storeArchive(b.storage, meta, archive)
+	if err != nil {
+		return "", errors.Annotate(err, "while storing backup archive")
+	}
+
+	return meta.ID(), nil
 }
 
 // Get pulls the associated metadata and archive file from environment storage.
