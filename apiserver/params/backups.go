@@ -4,6 +4,7 @@
 package params
 
 import (
+	"io"
 	"time"
 
 	"github.com/juju/juju/state/backups/metadata"
@@ -22,6 +23,11 @@ type BackupsInfoArgs struct {
 
 // BackupsListArgs holds the args for the API List method.
 type BackupsListArgs struct {
+}
+
+// BackupsDownloadArgs holds the args for the API Download method.
+type BackupsDownloadArgs struct {
+	ID string
 }
 
 // BackupsRemoveArgs holds the args for the API Remove method.
@@ -71,4 +77,10 @@ func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.Machine = origin.Machine()
 	r.Hostname = origin.Hostname()
 	r.Version = origin.Version()
+}
+
+// BackupsDownloadResult holds the requested backup archive file.
+type BackupsDownloadResult struct {
+	ID      string
+	Archive io.ReadCloser
 }
