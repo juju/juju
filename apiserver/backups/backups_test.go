@@ -39,6 +39,13 @@ func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
 	return i.meta, i.archive, nil
 }
 
+func (i *fakeBackups) List() ([]metadata.Metadata, error) {
+	if i.err != nil {
+		return nil, errors.Trace(i.err)
+	}
+	return []metadata.Metadata{*i.meta}, nil
+}
+
 func (i *fakeBackups) Remove(string) error {
 	if i.err != nil {
 		return errors.Trace(i.err)
