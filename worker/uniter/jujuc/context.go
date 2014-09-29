@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc
@@ -41,6 +41,11 @@ type Context interface {
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
+
+	// UpdateActionResults inserts new values for use with action-set.
+	// The results struct will be delivered to the state server upon
+	// completion of the Action.
+	UpdateActionResults(keys []string, value string) error
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
