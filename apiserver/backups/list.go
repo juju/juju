@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// List provides the implementation of the API method.
 func (b *API) List(args params.BackupsListArgs) (params.BackupsListResult, error) {
 	var result params.BackupsListResult
 
