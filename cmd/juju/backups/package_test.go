@@ -114,8 +114,9 @@ func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) 
 }
 
 type fakeAPIClient struct {
-	metaresult *params.BackupsMetadataResult
-	err        error
+	metaresult     *params.BackupsMetadataResult
+	downloadResult *params.BackupsDownloadResult
+	err            error
 
 	args  []string
 	idArg string
@@ -147,6 +148,15 @@ func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
 	var result params.BackupsListResult
 	result.List = []params.BackupsMetadataResult{*c.metaresult}
 	return &result, nil
+}
+
+func (c *fakeAPIClient) Download(id string) (*params.BackupsDownloadResult, error) {
+	c.args = append(c.args, "id")
+	c.idArg = id
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.downloadResult, nil
 }
 
 func (c *fakeAPIClient) Remove(id string) error {
