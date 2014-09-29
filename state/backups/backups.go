@@ -123,7 +123,8 @@ func (b *backups) List() ([]metadata.Metadata, error) {
 	for i, meta := range metaList {
 		m, ok := meta.(*metadata.Metadata)
 		if !ok {
-			return nil, errors.New("did not get a backup.Metadata value from storage")
+			msg := "expected backup.Metadata value from storage for %q, got %T"
+			return nil, errors.Errorf(msg, meta.ID(), meta)
 		}
 		result[i] = *m
 	}
