@@ -831,14 +831,14 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 			continue
 		}
 		results.Results[i].Action.Name = action.Name()
-		results.Results[i].Action.Params = action.Parameters()
+		results.Results[i].Action.Parameters = action.Parameters()
 	}
 
 	return results, nil
 }
 
 // FinishActions saves the result of a completed Action
-func (u *UniterAPI) FinishActions(args params.ActionResults) (params.ErrorResults, error) {
+func (u *UniterAPI) FinishActions(args params.ActionExecutionResults) (params.ErrorResults, error) {
 	nothing := params.ErrorResults{}
 
 	actionFn, err := u.authAndActionFromTagFn()
