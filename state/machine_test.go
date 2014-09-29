@@ -1038,6 +1038,9 @@ func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
+	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// identically named units and ensure there's no leakage.
+
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
@@ -1078,7 +1081,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; no change.
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1087,7 +1090,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = mysqlru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	logging0, err := logging.Unit("logging/0")
+	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -1182,7 +1185,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; change detected.
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -1191,7 +1194,7 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = mysqlru1.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	logging0, err := logging.Unit("logging/0")
+	logging0, err := s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("logging/0")
 	wc.AssertNoChange()

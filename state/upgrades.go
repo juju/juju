@@ -167,7 +167,7 @@ func beginUnitMigrationOps(st *State, unit *Unit, machineId string) (
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
-		Id:     unit.Name(),
+		Id:     unit.doc.DocID,
 		Assert: notDeadDoc,
 	}}
 
@@ -295,7 +295,7 @@ func finishUnitMigrationOps(
 	// Delete any remainging ports on the unit.
 	ops = append(ops, txn.Op{
 		C:      unitsC,
-		Id:     unit.Name(),
+		Id:     unit.doc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$unset", bson.D{{"ports", nil}}}},
 	})
@@ -316,7 +316,9 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	defer closer()
 
 	// Get all units ordered by their service and name.
-	err = units.Find(nil).Sort("service", "_id").All(&unitSlice)
+	// (Ignoring env-uuid becauuse this is steps happens during the
+	// upgrade where we know there's just one environment UUID)
+	err = units.Find(nil).Sort("service", "name").All(&unitSlice)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -454,41 +456,53 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 	return st.runTransaction(ops)
 }
 
-// AddEnvUUIDToServicesID prepends the environment UUID to the ID of all service docs.
-func AddEnvUUIDToServicesID(st *State) error {
+// AddEnvUUIDToServices prepends the environment UUID to the ID of
+// all service docs and adds new "name" and "env-uuid" fields.
+func AddEnvUUIDToServices(st *State) error {
+	return addEnvUUIDToEntityCollection(st, servicesC)
+}
+
+// AddEnvUUIDToUnits prepends the environment UUID to the ID of all
+// unit docs and adds new "name" and "env-uuid" fields.
+func AddEnvUUIDToUnits(st *State) error {
+	return addEnvUUIDToEntityCollection(st, unitsC)
+}
+
+func addEnvUUIDToEntityCollection(st *State, collName string) error {
 	env, err := st.Environment()
 	if err != nil {
 		return errors.Annotate(err, "failed to load environment")
 	}
 
-	services, closer := st.getCollection(servicesC)
+	coll, closer := st.getCollection(collName)
 	defer closer()
 
-	upgradesLogger.Debugf("adding the env uuid %q to the services collection", env.UUID())
+	upgradesLogger.Debugf("adding the env uuid %q to the %s collection", env.UUID(), collName)
 	uuid := env.UUID()
-	iter := services.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+	iter := coll.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
 	defer iter.Close()
 	ops := []txn.Op{}
-	var service serviceDoc
-	for iter.Next(&service) {
-		// In the old serialization, _id was mapped to the Name field.
-		// Now _id is mapped to DocID. As such, we have to get the old
-		// doc Name from the DocID field.
-		service.Name = service.DocID
-		service.EnvUUID = uuid
-		service.DocID = st.docID(service.Name)
+	var doc bson.M
+	for iter.Next(&doc) {
+		// The "_id" field becomes the new "name" field.
+		name := doc["_id"].(string)
+		id := st.docID(name)
+		doc["name"] = name
+		doc["_id"] = id
+		doc["env-uuid"] = uuid
 		ops = append(ops,
 			[]txn.Op{{
-				C:      servicesC,
-				Id:     service.Name,
+				C:      collName,
+				Id:     name,
 				Assert: txn.DocExists,
 				Remove: true,
 			}, {
-				C:      servicesC,
-				Id:     service.DocID,
+				C:      collName,
+				Id:     id,
 				Assert: txn.DocMissing,
-				Insert: service,
+				Insert: doc,
 			}}...)
+		doc = nil // Force creation of new map for the next iteration
 	}
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)

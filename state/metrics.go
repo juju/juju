@@ -75,14 +75,14 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			notDead, err := isNotDead(st.db, unitsC, unitTag.Id())
+			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
 			if err != nil || !notDead {
 				return nil, errors.NotFoundf(unitTag.Id())
 			}
 		}
 		ops := []txn.Op{{
 			C:      unitsC,
-			Id:     unitTag.Id(),
+			Id:     st.docID(unitTag.Id()),
 			Assert: notDeadDoc,
 		}, {
 			C:      metricsC,

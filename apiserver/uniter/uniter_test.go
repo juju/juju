@@ -502,7 +502,7 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	c.Assert(err, gc.IsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
+	relatedUnit, err := s.State.Unit(relatedSvc + "/0")
 	c.Assert(err, gc.IsNil)
 	return rel, relatedService, relatedUnit
 }

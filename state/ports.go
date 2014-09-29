@@ -473,7 +473,7 @@ func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interfa
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
-		Id:     portRange.UnitName,
+		Id:     st.docID(portRange.UnitName),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
