@@ -1096,15 +1096,15 @@ func (s entityInfoSlice) Len() int      { return len(s) }
 func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s entityInfoSlice) Less(i, j int) bool {
 	id0, id1 := s[i].EntityId(), s[j].EntityId()
-	if id0.Kind != id1.Kind {
-		return id0.Kind < id1.Kind
+	if id0.Kind() != id1.Kind() {
+		return id0.Kind() < id1.Kind()
 	}
-	switch id := id0.Id.(type) {
+	switch id := id0.Id().(type) {
 	case string:
-		return id < id1.Id.(string)
+		return id < id1.Id().(string)
 	default:
+		panic("unexpected entity id type")
 	}
-	panic("unexpected entity id type")
 }
 
 var errTimeout = errors.New("no change received in sufficient time")

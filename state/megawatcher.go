@@ -72,10 +72,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 }
 
 func (svc *backingMachine) removed(st *State, store *multiwatcher.Store, id interface{}) {
-	store.Remove(params.EntityId{
-		Kind: "machine",
-		Id:   id,
-	})
+	store.Remove(params.NewEntityId("machine", id))
 }
 
 func (m *backingMachine) mongoId() interface{} {
@@ -136,10 +133,7 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 }
 
 func (svc *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) {
-	store.Remove(params.EntityId{
-		Kind: "unit",
-		Id:   id,
-	})
+	store.Remove(params.NewEntityId("unit", id))
 }
 
 func (m *backingUnit) mongoId() interface{} {
@@ -202,10 +196,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 }
 
 func (svc *backingService) removed(st *State, store *multiwatcher.Store, id interface{}) {
-	store.Remove(params.EntityId{
-		Kind: "service",
-		Id:   id,
-	})
+	store.Remove(params.NewEntityId("service", id))
 }
 
 // SCHEMACHANGE
@@ -241,10 +232,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 }
 
 func (svc *backingRelation) removed(st *State, store *multiwatcher.Store, id interface{}) {
-	store.Remove(params.EntityId{
-		Kind: "relation",
-		Id:   id,
-	})
+	store.Remove(params.NewEntityId("relation", id))
 }
 
 func (m *backingRelation) mongoId() interface{} {
@@ -267,10 +255,7 @@ func (svc *backingAnnotation) removed(st *State, store *multiwatcher.Store, id i
 	if !ok {
 		panic(fmt.Errorf("unknown global key %q in state", id))
 	}
-	store.Remove(params.EntityId{
-		Kind: "annotation",
-		Id:   tag,
-	})
+	store.Remove(params.NewEntityId("annotation", tag))
 }
 
 func (a *backingAnnotation) mongoId() interface{} {
@@ -398,7 +383,7 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 	key = key[2:]
 	i := strings.Index(key, "#")
 	if i == -1 {
-		return params.EntityId{}, "", false
+		return nil, "", false
 	}
 	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId()
 	extra = key[i+1:]
@@ -410,7 +395,7 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 // It returns false if the key is not recognized.
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
-		return params.EntityId{}, false
+		return nil, false
 	}
 	id := key[2:]
 	switch key[0] {
@@ -420,8 +405,9 @@ func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 		return (&params.UnitInfo{Name: id}).EntityId(), true
 	case 's':
 		return (&params.ServiceInfo{Name: id}).EntityId(), true
+	default:
+		return nil, false
 	}
-	return params.EntityId{}, false
 }
 
 // backingEntityDoc is implemented by the documents in

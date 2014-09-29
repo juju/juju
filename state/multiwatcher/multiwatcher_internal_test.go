@@ -99,8 +99,8 @@ var StoreChangeMethodTests = []struct {
 	change: func(all *Store) {
 		all.Update(&MachineInfo{Id: "0"})
 		all.Update(&MachineInfo{Id: "1"})
-		StoreIncRef(all, params.EntityId{"machine", "0"})
-		all.Remove(params.EntityId{"machine", "0"})
+		StoreIncRef(all, params.NewEntityId("machine", "0"))
+		all.Remove(params.NewEntityId("machine", "0"))
 	},
 	expectRevno: 3,
 	expectContents: []entityEntry{{
@@ -117,20 +117,20 @@ var StoreChangeMethodTests = []struct {
 }, {
 	about: "mark removed on nonexistent entry",
 	change: func(all *Store) {
-		all.Remove(params.EntityId{"machine", "0"})
+		all.Remove(params.NewEntityId("machine", "0"))
 	},
 }, {
 	about: "mark removed on already marked entry",
 	change: func(all *Store) {
 		all.Update(&MachineInfo{Id: "0"})
 		all.Update(&MachineInfo{Id: "1"})
-		StoreIncRef(all, params.EntityId{"machine", "0"})
-		all.Remove(params.EntityId{"machine", "0"})
+		StoreIncRef(all, params.NewEntityId("machine", "0"))
+		all.Remove(params.NewEntityId("machine", "0"))
 		all.Update(&MachineInfo{
 			Id:         "1",
 			InstanceId: "i-1",
 		})
-		all.Remove(params.EntityId{"machine", "0"})
+		all.Remove(params.NewEntityId("machine", "0"))
 	},
 	expectRevno: 4,
 	expectContents: []entityEntry{{
@@ -151,14 +151,14 @@ var StoreChangeMethodTests = []struct {
 	about: "mark removed on entry with zero ref count",
 	change: func(all *Store) {
 		all.Update(&MachineInfo{Id: "0"})
-		all.Remove(params.EntityId{"machine", "0"})
+		all.Remove(params.NewEntityId("machine", "0"))
 	},
 	expectRevno: 2,
 }, {
 	about: "delete entry",
 	change: func(all *Store) {
 		all.Update(&MachineInfo{Id: "0"})
-		all.delete(params.EntityId{"machine", "0"})
+		all.delete(params.NewEntityId("machine", "0"))
 	},
 	expectRevno: 1,
 }, {
@@ -232,7 +232,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
-	StoreIncRef(a, params.EntityId{"machine", "0"})
+	StoreIncRef(a, params.NewEntityId("machine", "0"))
 
 	// Remove another machine and check we see it's removed.
 	m0 := &MachineInfo{Id: "0"}
@@ -266,7 +266,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 	a.Update(m)
 
 	c.Assert(a.Get(m.EntityId()), gc.Equals, m)
-	c.Assert(a.Get(params.EntityId{"machine", "1"}), gc.IsNil)
+	c.Assert(a.Get(params.NewEntityId("machine", "1")), gc.IsNil)
 }
 
 type storeManagerSuite struct {
@@ -334,7 +334,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *gc.C)
 	// decrement its ref count when it is stopped.
 	sm := NewStoreManager(newTestBacking(nil))
 	sm.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	StoreIncRef(sm.all, params.NewEntityId("machine", "0"))
 	w := &Watcher{all: sm}
 
 	// Stop the watcher.
@@ -354,8 +354,8 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *gc.C) 
 	// we shouldn't decrement its ref count when it is stopped.
 	sm := NewStoreManager(newTestBacking(nil))
 	sm.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
-	sm.all.Remove(params.EntityId{"machine", "0"})
+	StoreIncRef(sm.all, params.NewEntityId("machine", "0"))
+	sm.all.Remove(params.NewEntityId("machine", "0"))
 	w := &Watcher{all: sm}
 	// Stop the watcher.
 	sm.handle(&request{w: w})
@@ -375,7 +375,7 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc
 	// we should decrement its ref count when it is stopped.
 	sm := NewStoreManager(newTestBacking(nil))
 	sm.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	StoreIncRef(sm.all, params.NewEntityId("machine", "0"))
 	w := &Watcher{all: sm}
 	w.revno = sm.all.latestRevno
 	// Stop the watcher.
@@ -394,7 +394,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *gc.C) {
 	// leave the ref count untouched.
 	sm := NewStoreManager(newTestBacking(nil))
 	sm.all.Update(&MachineInfo{Id: "0"})
-	StoreIncRef(sm.all, params.EntityId{"machine", "0"})
+	StoreIncRef(sm.all, params.NewEntityId("machine", "0"))
 	w := &Watcher{all: sm}
 	// Stop the watcher.
 	sm.handle(&request{w: w})
@@ -419,7 +419,7 @@ var respondTestChanges = [...]func(all *Store){
 		all.Update(&MachineInfo{Id: "2"})
 	},
 	func(all *Store) {
-		all.Remove(params.EntityId{"machine", "0"})
+		all.Remove(params.NewEntityId("machine", "0"))
 	},
 	func(all *Store) {
 		all.Update(&MachineInfo{
@@ -428,7 +428,7 @@ var respondTestChanges = [...]func(all *Store){
 		})
 	},
 	func(all *Store) {
-		all.Remove(params.EntityId{"machine", "1"})
+		all.Remove(params.NewEntityId("machine", "1"))
 	},
 }
 
@@ -637,7 +637,7 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 	checkNext(c, w, []params.Delta{
 		{Entity: &MachineInfo{Id: "0", InstanceId: "i-0"}},
 	}, "")
-	b.deleteEntity(params.EntityId{"machine", "0"})
+	b.deleteEntity(params.NewEntityId("machine", "0"))
 	checkNext(c, w, []params.Delta{
 		{Removed: true, Entity: &MachineInfo{Id: "0"}},
 	}, "")
@@ -830,10 +830,7 @@ func newTestBacking(initial []EntityInfo) *storeManagerTestBacking {
 }
 
 func (b *storeManagerTestBacking) Changed(all *Store, change watcher.Change) error {
-	id := params.EntityId{
-		Kind: change.C,
-		Id:   change.Id.(string),
-	}
+	id := params.NewEntityId(change.C, change.Id.(string))
 	info, err := b.fetch(id)
 	if err == mgo.ErrNotFound {
 		all.Remove(id)
@@ -893,8 +890,8 @@ func (b *storeManagerTestBacking) updateEntity(info EntityInfo) {
 	b.txnRevno++
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
-			C:     id.Kind,
-			Id:    id.Id,
+			C:     id.Kind(),
+			Id:    id.Id(),
 			Revno: b.txnRevno, // This is actually ignored, but fill it in anyway.
 		}
 	}
@@ -906,16 +903,15 @@ func (b *storeManagerTestBacking) setFetchError(err error) {
 	b.fetchErr = err
 }
 
-func (b *storeManagerTestBacking) deleteEntity(id0 interface{}) {
-	id := id0.(params.EntityId)
+func (b *storeManagerTestBacking) deleteEntity(id params.EntityId) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	delete(b.entities, id)
 	b.txnRevno++
 	if b.watchc != nil {
 		b.watchc <- watcher.Change{
-			C:     id.Kind,
-			Id:    id.Id,
+			C:     id.Kind(),
+			Id:    id.Id(),
 			Revno: -1,
 		}
 	}
@@ -927,10 +923,7 @@ type MachineInfo struct {
 }
 
 func (i *MachineInfo) EntityId() params.EntityId {
-	return params.EntityId{
-		Kind: "machine",
-		Id:   i.Id,
-	}
+	return params.NewEntityId("machine", i.Id)
 }
 
 type ServiceInfo struct {
@@ -939,8 +932,5 @@ type ServiceInfo struct {
 }
 
 func (i *ServiceInfo) EntityId() params.EntityId {
-	return params.EntityId{
-		Kind: "service",
-		Id:   i.Name,
-	}
+	return params.NewEntityId("service", i.Name)
 }
