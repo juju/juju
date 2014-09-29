@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -112,6 +113,17 @@ type HookContext struct {
 
 	// canAddMetrics specifies whether the hook allows recording metrics
 	canAddMetrics bool
+
+	// portRanges contain the opened and closed port ranges for the unit.
+	portRanges map[network.PortRange]bool
+
+	// openingPorts contains port ranges pending to be opened when the
+	// current hook is commited.
+	openingPorts []network.PortRange
+
+	// closingPorts contains port ranges pending to be closed when the
+	// current hook is commited.
+	closingPorts []network.PortRange
 }
 
 func NewHookContext(
@@ -143,6 +155,7 @@ func NewHookContext(
 		proxySettings:  proxySettings,
 		canAddMetrics:  canAddMetrics,
 		actionData:     actionData,
+		portRanges:     make(map[network.PortRange]bool),
 	}
 	// Get and cache the addresses.
 	var err error
@@ -171,11 +184,39 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
-	return ctx.unit.OpenPorts(protocol, fromPort, toPort)
+	portRange := network.PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}
+	if err := portRange.Validate(); err != nil {
+		return err
+	}
+	ctx.portRanges[portRange] = true
+	ctx.openingPorts = append(ctx.openingPorts, portRange)
+	return nil
 }
 
 func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
-	return ctx.unit.ClosePorts(protocol, fromPort, toPort)
+	portRange := network.PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}
+	if err := portRange.Validate(); err != nil {
+		return err
+	}
+	ctx.portRanges[portRange] = false
+	ctx.closingPorts = append(ctx.closingPorts, portRange)
+	return nil
+}
+
+func (ctx *HookContext) OpeningPorts() []network.PortRange {
+	return ctx.openingPorts
+}
+
+func (ctx *HookContext) ClosingPorts() []network.PortRange {
+	return ctx.closingPorts
 }
 
 func (ctx *HookContext) OwnerTag() string {
@@ -363,9 +404,38 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 		}
 		rctx.ClearCache()
 	}
+	for _, portRange := range ctx.openingPorts {
+		e := ctx.unit.OpenPorts(
+			portRange.Protocol,
+			portRange.FromPort,
+			portRange.ToPort,
+		)
+		if e != nil {
+			logger.Errorf("%v", e)
+			if ctxErr == nil {
+				ctxErr = e
+			}
+		}
+	}
+	for _, portRange := range ctx.closingPorts {
+		e := ctx.unit.ClosePorts(
+			portRange.Protocol,
+			portRange.FromPort,
+			portRange.ToPort,
+		)
+		if e != nil {
+			logger.Errorf("%v", e)
+			if ctxErr == nil {
+				ctxErr = e
+			}
+		}
+	}
 
 	if ctxErr != nil {
 		return ctxErr
+	} else {
+		ctx.openingPorts = []network.PortRange{}
+		ctx.closingPorts = []network.PortRange{}
 	}
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
