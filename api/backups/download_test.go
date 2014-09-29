@@ -29,9 +29,8 @@ func (s *downloadSuite) TestInfo(c *gc.C) {
 			p := paramsIn.(params.BackupsDownloadArgs)
 			c.Check(p.ID, gc.Equals, "spam")
 
-			if result, ok := resp.(*params.BackupsDownloadResult); ok {
-				result.ID = p.ID
-				result.Archive = ioutil.NopCloser(archive)
+			if result, ok := resp.(*params.BackupsDownloadDirectResult); ok {
+				result.Data = *archive
 			} else {
 				c.Fatalf("wrong output structure")
 			}
@@ -40,12 +39,10 @@ func (s *downloadSuite) TestInfo(c *gc.C) {
 	)
 	defer cleanup()
 
-	result, err := s.client.Download("spam")
+	resultArchive, err := s.client.Download("spam")
 	c.Assert(err, gc.IsNil)
 
-	c.Check(result.ID, gc.Equals, "spam")
-
-	data, err := ioutil.ReadAll(result.Archive)
+	data, err := ioutil.ReadAll(resultArchive)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(data), gc.Equals, "<compressed archive data>")
 }

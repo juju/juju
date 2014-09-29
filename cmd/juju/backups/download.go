@@ -68,19 +68,11 @@ func (c *DownloadCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	// Download the archive.
-	result, err := client.Download(c.ID)
+	resultArchive, err := client.Download(c.ID)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if result.Archive == nil {
-		return errors.New("did not receive an archive from storage")
-	}
-	defer result.Archive.Close()
-
-	// Check the result.
-	if result.ID != c.ID {
-		return errors.Errorf("ID mismatch: %q != %q", result.ID, c.ID)
-	}
+	defer resultArchive.Close()
 
 	// Prepare the local archive.
 	filename := c.ResolveFilename()
@@ -91,7 +83,7 @@ func (c *DownloadCommand) Run(ctx *cmd.Context) error {
 	defer archive.Close()
 
 	// Write out the archive.
-	_, err = io.Copy(archive, result.Archive)
+	_, err = io.Copy(archive, resultArchive)
 	if err != nil {
 		return errors.Annotate(err, "while creating local archive file")
 	}
