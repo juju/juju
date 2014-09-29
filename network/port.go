@@ -135,10 +135,21 @@ type PortRange struct {
 func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
 	if proto != "tcp" && proto != "udp" {
-		return errors.Errorf("invalid protocol %q", proto)
+		return errors.Errorf(`invalid protocol %q, expected "tcp" or "udp"`, proto)
 	}
-	if p.FromPort > p.ToPort {
-		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
+	err := errors.Errorf(
+		"invalid port range %d-%d/%s",
+		p.FromPort,
+		p.ToPort,
+		p.Protocol,
+	)
+	switch {
+	case p.FromPort > p.ToPort:
+		return err
+	case p.FromPort < 1 || p.FromPort > 65535:
+		return err
+	case p.ToPort < 1 || p.ToPort > 65535:
+		return err
 	}
 	return nil
 }

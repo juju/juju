@@ -3,9 +3,7 @@
 
 package uniter
 
-import (
-	"github.com/juju/utils/proxy"
-)
+import "github.com/juju/utils/proxy"
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 	u.observer = observer
@@ -58,10 +56,12 @@ func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	}
 }
 
-var MergeEnvironment = mergeEnvironment
-
-var SearchHook = searchHook
-
-var HookCommand = hookCommand
-
-var LookPath = lookPath
+var (
+	MergeEnvironment  = mergeEnvironment
+	SearchHook        = searchHook
+	HookCommand       = hookCommand
+	LookPath          = lookPath
+	ValidatePortRange = validatePortRange
+	TryOpenPorts      = tryOpenPorts
+	TryClosePorts     = tryClosePorts
+)
