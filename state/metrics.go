@@ -4,20 +4,24 @@
 package state
 
 import (
+	"encoding/json"
 	"time"
 
-	"github.com/juju/loggo"
-
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
 var metricsLogger = loggo.GetLogger("juju.state.metrics")
+
+const (
+	CleanupAge = time.Hour * 24
+)
 
 // MetricBatch represents a batch of metrics reported from a unit.
 // These will be received from the unit in batches.
@@ -31,7 +35,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID     string    `bson:"_id"`
-	EnvUUID  string    `bson:"envuuid"`
+	EnvUUID  string    `bson:"env-uuid"`
 	Unit     string    `bson:"unit"`
 	CharmUrl string    `bson:"charmurl"`
 	Sent     bool      `bson:"sent"`
@@ -62,7 +66,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
-			EnvUUID:  st.EnvironTag().String(),
+			EnvUUID:  st.EnvironTag().Id(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
@@ -133,7 +137,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(time.Hour * 24))
+	age := time.Now().Add(-(CleanupAge))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
@@ -228,9 +232,15 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 	}
 	err = st.setMetricBatchesSent(metrics)
 	if err != nil {
-		metricsLogger.Warningf("failed to setsent on metrics", err)
+		metricsLogger.Warningf("failed to set sent on metrics %v", err)
 	}
 	return nil
+}
+
+// MarshalJSON defines how the MetricBatch type should be
+// converted to json.
+func (m *MetricBatch) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.doc)
 }
 
 // UUID returns to uuid of the metric.

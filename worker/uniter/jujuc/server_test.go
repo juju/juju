@@ -17,8 +17,8 @@ import (
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"

@@ -202,7 +202,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
 			if params.IsCodeUpgradeInProgress(err) {
 				return errors.Errorf("%s\n\n"+
-					"please wait for the upgrade to complete or if there was a problem with\n"+
+					"Please wait for the upgrade to complete or if there was a problem with\n"+
 					"the last upgrade that has been resolved, consider running the\n"+
 					"upgrade-juju command with the --reset-previous-upgrade flag.", err,
 				)
@@ -375,7 +375,7 @@ func (context *upgradeContext) validate() (err error) {
 		}
 	} else {
 		// If not completely specified already, pick a single tools version.
-		filter := coretools.Filter{Number: context.chosen, Released: !context.chosen.IsDev()}
+		filter := coretools.Filter{Number: context.chosen}
 		if context.tools, err = context.tools.Match(filter); err != nil {
 			return err
 		}

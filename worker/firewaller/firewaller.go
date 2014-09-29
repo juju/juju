@@ -4,8 +4,9 @@
 package firewaller
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
@@ -20,28 +21,31 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.firewaller")
+type machineRanges map[network.PortRange]bool
 
-// Firewaller watches the state for ports opened or closed
-// and reflects those changes onto the backing environment.
+// Firewaller watches the state for port ranges opened or closed on
+// machines and reflects those changes onto the backing environment.
+// Uses Firewaller API V1.
 type Firewaller struct {
 	tomb            tomb.Tomb
 	st              *apifirewaller.State
 	environ         environs.Environ
 	environWatcher  apiwatcher.NotifyWatcher
 	machinesWatcher apiwatcher.StringsWatcher
-	machineds       map[string]*machineData
+	portsWatcher    apiwatcher.StringsWatcher
+	machineds       map[names.MachineTag]*machineData
 	unitsChange     chan *unitsChange
-	unitds          map[string]*unitData
-	portsChange     chan *portsChange
-	serviceds       map[string]*serviceData
+	unitds          map[names.UnitTag]*unitData
+	serviceds       map[names.ServiceTag]*serviceData
 	exposedChange   chan *exposedChange
 	globalMode      bool
-	globalPortRef   map[network.Port]int
+	globalPortRef   map[network.PortRange]int
+	machinePorts    map[names.MachineTag]machineRanges
 }
 
-// NewFirewaller returns a new Firewaller.
-func NewFirewaller(st *apifirewaller.State) (*Firewaller, error) {
+// NewFirewaller returns a new Firewaller or a new FirewallerV0,
+// depending on what the API supports.
+func NewFirewaller(st *apifirewaller.State) (worker.Worker, error) {
 	environWatcher, err := st.WatchForEnvironConfigChanges()
 	if err != nil {
 		return nil, err
@@ -50,16 +54,22 @@ func NewFirewaller(st *apifirewaller.State) (*Firewaller, error) {
 	if err != nil {
 		return nil, err
 	}
+	portsWatcher, err := st.WatchOpenedPorts()
+	if err != nil {
+		return nil, errors.Annotatef(err, "failed to start ports watcher")
+	}
+	logger.Debugf("started watching opened port ranges for the environment")
 	fw := &Firewaller{
 		st:              st,
 		environWatcher:  environWatcher,
 		machinesWatcher: machinesWatcher,
-		machineds:       make(map[string]*machineData),
+		portsWatcher:    portsWatcher,
+		machineds:       make(map[names.MachineTag]*machineData),
 		unitsChange:     make(chan *unitsChange),
-		unitds:          make(map[string]*unitData),
-		portsChange:     make(chan *portsChange),
-		serviceds:       make(map[string]*serviceData),
+		unitds:          make(map[names.UnitTag]*unitData),
+		serviceds:       make(map[names.ServiceTag]*serviceData),
 		exposedChange:   make(chan *exposedChange),
+		machinePorts:    make(map[names.MachineTag]machineRanges),
 	}
 	go func() {
 		defer fw.tomb.Done()
@@ -67,6 +77,8 @@ func NewFirewaller(st *apifirewaller.State) (*Firewaller, error) {
 	}()
 	return fw, nil
 }
+
+var _ worker.Worker = (*Firewaller)(nil)
 
 func (fw *Firewaller) loop() error {
 	defer fw.stopWatchers()
@@ -78,17 +90,20 @@ func (fw *Firewaller) loop() error {
 	if err != nil {
 		return err
 	}
+
+	portsChange := fw.portsWatcher.Changes()
 	if fw.environ.Config().FirewallMode() == config.FwGlobal {
 		fw.globalMode = true
-		fw.globalPortRef = make(map[network.Port]int)
+		fw.globalPortRef = make(map[network.PortRange]int)
 	}
 	for {
 		select {
 		case <-fw.tomb.Dying():
 			return tomb.ErrDying
 		case _, ok := <-fw.environWatcher.Changes():
+			logger.Debugf("got environ config changes")
 			if !ok {
-				return watcher.MustErr(fw.environWatcher)
+				return watcher.EnsureErr(fw.environWatcher)
 			}
 			config, err := fw.st.EnvironConfig()
 			if err != nil {
@@ -99,10 +114,10 @@ func (fw *Firewaller) loop() error {
 			}
 		case change, ok := <-fw.machinesWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(fw.machinesWatcher)
+				return watcher.EnsureErr(fw.machinesWatcher)
 			}
 			for _, machineId := range change {
-				fw.machineLifeChanged(names.NewMachineTag(machineId).String())
+				fw.machineLifeChanged(names.NewMachineTag(machineId))
 			}
 			if !reconciled {
 				reconciled = true
@@ -116,14 +131,22 @@ func (fw *Firewaller) loop() error {
 					return err
 				}
 			}
+		case change, ok := <-portsChange:
+			if !ok {
+				return watcher.EnsureErr(fw.portsWatcher)
+			}
+			for _, portsGlobalKey := range change {
+				machineTag, networkTag, err := parsePortsKey(portsGlobalKey)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				if err := fw.openedPortsChanged(machineTag, networkTag); err != nil {
+					return errors.Trace(err)
+				}
+			}
 		case change := <-fw.unitsChange:
 			if err := fw.unitsChanged(change); err != nil {
 				return err
-			}
-		case change := <-fw.portsChange:
-			change.unitd.ports = change.ports
-			if err := fw.flushUnits([]*unitData{change.unitd}); err != nil {
-				return errors.Annotate(err, "cannot change firewall ports")
 			}
 		case change := <-fw.exposedChange:
 			change.serviced.exposed = change.exposed
@@ -138,26 +161,15 @@ func (fw *Firewaller) loop() error {
 	}
 }
 
-// stop a watcher with logging of a possible error.
-func stop(what string, stopper watcher.Stopper) {
-	if err := stopper.Stop(); err != nil {
-		logger.Errorf("error stopping %s: %v", what, err)
-	}
-}
-
 // startMachine creates a new data value for tracking details of the
 // machine and starts watching the machine for units added or removed.
-// TODO(dfc) should take a names.Tag
-func (fw *Firewaller) startMachine(machineTag string) error {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return err
-	}
+func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	machined := &machineData{
-		fw:     fw,
-		tag:    tag,
-		unitds: make(map[string]*unitData),
-		ports:  make([]network.Port, 0),
+		fw:           fw,
+		tag:          tag,
+		unitds:       make(map[names.UnitTag]*unitData),
+		openedPorts:  make([]network.PortRange, 0),
+		definedPorts: make(map[network.PortRange]names.UnitTag),
 	}
 	m, err := machined.machine()
 	if params.IsCodeNotFound(err) {
@@ -171,18 +183,15 @@ func (fw *Firewaller) startMachine(machineTag string) error {
 	}
 	select {
 	case <-fw.tomb.Dying():
-		stop("units watcher", unitw)
 		return tomb.ErrDying
 	case change, ok := <-unitw.Changes():
 		if !ok {
-			stop("units watcher", unitw)
-			return watcher.MustErr(unitw)
+			return watcher.EnsureErr(unitw)
 		}
-		fw.machineds[machineTag] = machined
+		fw.machineds[tag] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
-			stop("units watcher", unitw)
-			delete(fw.machineds, machineTag)
+			delete(fw.machineds, tag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
 	}
@@ -194,40 +203,52 @@ func (fw *Firewaller) startMachine(machineTag string) error {
 // and starts watching the unit for port changes. The provided
 // machineTag must be the tag for the machine the unit was last
 // observed to be assigned to.
-func (fw *Firewaller) startUnit(unit *apifirewaller.Unit, machineTag string) error {
+func (fw *Firewaller) startUnit(unit *apifirewaller.Unit, machineTag names.MachineTag) error {
 	service, err := unit.Service()
 	if err != nil {
 		return err
 	}
-	serviceName := service.Name()
-	unitName := unit.Name()
-	openedPorts, err := unit.OpenedPorts()
+	serviceTag := service.Tag()
+	unitTag := unit.Tag()
 	if err != nil {
 		return err
 	}
 	unitd := &unitData{
-		fw:    fw,
-		unit:  unit,
-		ports: openedPorts,
+		fw:   fw,
+		unit: unit,
+		tag:  unitTag,
 	}
-	fw.unitds[unitName] = unitd
+	fw.unitds[unitTag] = unitd
 
 	unitd.machined = fw.machineds[machineTag]
-	unitd.machined.unitds[unitName] = unitd
-	if fw.serviceds[serviceName] == nil {
+	unitd.machined.unitds[unitTag] = unitd
+	if fw.serviceds[serviceTag] == nil {
 		err := fw.startService(service)
 		if err != nil {
-			delete(fw.unitds, unitName)
+			delete(fw.unitds, unitTag)
 			return err
 		}
 	}
-	unitd.serviced = fw.serviceds[serviceName]
-	unitd.serviced.unitds[unitName] = unitd
+	unitd.serviced = fw.serviceds[serviceTag]
+	unitd.serviced.unitds[unitTag] = unitd
 
-	ports := make([]network.Port, len(unitd.ports))
-	copy(ports, unitd.ports)
+	m, err := unitd.machined.machine()
+	if err != nil {
+		return err
+	}
 
-	go unitd.watchLoop(ports)
+	// check if the machine has ports open on any networks
+	networkTags, err := m.ActiveNetworks()
+	if err != nil {
+		return errors.Annotatef(err, "failed getting %q active networks", machineTag)
+	}
+	for _, networkTag := range networkTags {
+		err := fw.openedPortsChanged(machineTag, networkTag)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -242,9 +263,9 @@ func (fw *Firewaller) startService(service *apifirewaller.Service) error {
 		fw:      fw,
 		service: service,
 		exposed: exposed,
-		unitds:  make(map[string]*unitData),
+		unitds:  make(map[names.UnitTag]*unitData),
 	}
-	fw.serviceds[service.Name()] = serviced
+	fw.serviceds[service.Tag()] = serviced
 	go serviced.watchLoop(serviced.exposed)
 	return nil
 }
@@ -257,35 +278,39 @@ func (fw *Firewaller) reconcileGlobal() error {
 	if err != nil {
 		return err
 	}
-	initialPorts := network.PortRangesToPorts(initialPortRanges)
-	collector := make(map[network.Port]bool)
-	for _, unitd := range fw.unitds {
-		if unitd.serviced.exposed {
-			for _, port := range unitd.ports {
-				collector[port] = true
+	collector := make(map[network.PortRange]bool)
+	for _, machined := range fw.machineds {
+		for portRange, unitTag := range machined.definedPorts {
+			unitd, known := machined.unitds[unitTag]
+			if !known {
+				delete(machined.unitds, unitTag)
+				continue
+			}
+			if unitd.serviced.exposed {
+				collector[portRange] = true
 			}
 		}
 	}
-	wantedPorts := []network.Port{}
+	wantedPorts := []network.PortRange{}
 	for port := range collector {
 		wantedPorts = append(wantedPorts, port)
 	}
 	// Check which ports to open or to close.
-	toOpen := Diff(wantedPorts, initialPorts)
-	toClose := Diff(initialPorts, wantedPorts)
+	toOpen := diffRanges(wantedPorts, initialPortRanges)
+	toClose := diffRanges(initialPortRanges, wantedPorts)
 	if len(toOpen) > 0 {
 		logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environ.OpenPorts(network.PortsToPortRanges(toOpen)); err != nil {
+		if err := fw.environ.OpenPorts(toOpen); err != nil {
 			return err
 		}
-		network.SortPorts(toOpen)
+		network.SortPortRanges(toOpen)
 	}
 	if len(toClose) > 0 {
 		logger.Infof("closing global ports %v", toClose)
-		if err := fw.environ.ClosePorts(network.PortsToPortRanges(toClose)); err != nil {
+		if err := fw.environ.ClosePorts(toClose); err != nil {
 			return err
 		}
-		network.SortPorts(toClose)
+		network.SortPortRanges(toClose)
 	}
 	return nil
 }
@@ -319,27 +344,27 @@ func (fw *Firewaller) reconcileInstances() error {
 		if err != nil {
 			return err
 		}
-		initialPorts := network.PortRangesToPorts(initialPortRanges)
+
 		// Check which ports to open or to close.
-		toOpen := Diff(machined.ports, initialPorts)
-		toClose := Diff(initialPorts, machined.ports)
+		toOpen := diffRanges(machined.openedPorts, initialPortRanges)
+		toClose := diffRanges(initialPortRanges, machined.openedPorts)
 		if len(toOpen) > 0 {
-			logger.Infof("opening instance ports %v for %q",
+			logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
-			if err := instances[0].OpenPorts(machineId, network.PortsToPortRanges(toOpen)); err != nil {
+			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
-			network.SortPorts(toOpen)
+			network.SortPortRanges(toOpen)
 		}
 		if len(toClose) > 0 {
-			logger.Infof("closing instance ports %v for %q",
+			logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
-			if err := instances[0].ClosePorts(machineId, network.PortsToPortRanges(toClose)); err != nil {
+			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
-			network.SortPorts(toClose)
+			network.SortPortRanges(toClose)
 		}
 	}
 	return nil
@@ -349,11 +374,12 @@ func (fw *Firewaller) reconcileInstances() error {
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
-		unit, err := fw.st.Unit(names.NewUnitTag(name))
+		unitTag := names.NewUnitTag(name)
+		unit, err := fw.st.Unit(unitTag)
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}
-		var machineTag names.Tag
+		var machineTag names.MachineTag
 		if unit != nil {
 			machineTag, err = unit.AssignedMachine()
 			if params.IsCodeNotFound(err) {
@@ -362,21 +388,21 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				return err
 			}
 		}
-		if unitd, known := fw.unitds[name]; known {
-			knownMachineTag := fw.unitds[name].machined.tag
+		if unitd, known := fw.unitds[unitTag]; known {
+			knownMachineTag := fw.unitds[unitTag].machined.tag
 			if unit == nil || unit.Life() == params.Dead || machineTag != knownMachineTag {
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
 				logger.Debugf("stopped watching unit %s", name)
 			}
 			// TODO(dfc) fw.machineds should be map[names.Tag]
-		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag.String()] != nil {
-			err = fw.startUnit(unit, machineTag.String())
+		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
+			err = fw.startUnit(unit, machineTag)
 			if err != nil {
 				return err
 			}
-			changed = append(changed, fw.unitds[name])
-			logger.Debugf("started watching unit %s", name)
+			changed = append(changed, fw.unitds[unitTag])
+			logger.Debugf("started watching %q", unitTag)
 		}
 	}
 	if err := fw.flushUnits(changed); err != nil {
@@ -385,11 +411,69 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	return nil
 }
 
+// openedPortsChanged handles port change notifications
+func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, networkTag names.NetworkTag) error {
+
+	machined, ok := fw.machineds[machineTag]
+	if !ok {
+		// It is common to receive a port change notification before
+		// registering the machine, so if a machine is not found in
+		// firewaller's list, just skip the change.
+		logger.Errorf("failed to lookup %q, skipping port change", machineTag)
+		return nil
+	}
+
+	m, err := machined.machine()
+	if err != nil {
+		return err
+	}
+
+	ports, err := m.OpenedPorts(networkTag)
+	if err != nil {
+		return err
+	}
+
+	newPortRanges := make(map[network.PortRange]names.UnitTag)
+	for portRange, unitTag := range ports {
+		unitd, ok := machined.unitds[unitTag]
+		if !ok {
+			// It is common to receive port change notification before
+			// registering a unit. Skip handling the port change - it will
+			// be handled when the unit is registered.
+			logger.Errorf("failed to lookup %q, skipping port change", unitTag)
+			return nil
+		}
+		newPortRanges[portRange] = unitd.tag
+	}
+
+	if !portMapsEqual(machined.definedPorts, newPortRanges) {
+		machined.definedPorts = newPortRanges
+		return fw.flushMachine(machined)
+	}
+	return nil
+}
+
+func portMapsEqual(a, b map[network.PortRange]names.UnitTag) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for key, valueA := range a {
+		valueB, exists := b[key]
+		if !exists {
+			return false
+		}
+		if valueA != valueB {
+			return false
+		}
+	}
+	return true
+}
+
 // flushUnits opens and closes ports for the passed unit data.
 func (fw *Firewaller) flushUnits(unitds []*unitData) error {
-	machineds := map[string]*machineData{}
+	machineds := map[names.MachineTag]*machineData{}
 	for _, unitd := range unitds {
-		machineds[unitd.machined.tag.String()] = unitd.machined
+		machineds[unitd.machined.tag] = unitd.machined
 	}
 	for _, machined := range machineds {
 		if err := fw.flushMachine(machined); err != nil {
@@ -402,21 +486,20 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 // flushMachine opens and closes ports for the passed machine.
 func (fw *Firewaller) flushMachine(machined *machineData) error {
 	// Gather ports to open and close.
-	ports := map[network.Port]bool{}
-	for _, unitd := range machined.unitds {
+	want := []network.PortRange{}
+	for portRange, unitTag := range machined.definedPorts {
+		unitd, known := machined.unitds[unitTag]
+		if !known {
+			delete(machined.unitds, unitTag)
+			continue
+		}
 		if unitd.serviced.exposed {
-			for _, port := range unitd.ports {
-				ports[port] = true
-			}
+			want = append(want, portRange)
 		}
 	}
-	want := []network.Port{}
-	for port := range ports {
-		want = append(want, port)
-	}
-	toOpen := Diff(want, machined.ports)
-	toClose := Diff(machined.ports, want)
-	machined.ports = want
+	toOpen := diffRanges(want, machined.openedPorts)
+	toClose := diffRanges(machined.openedPorts, want)
+	machined.openedPorts = want
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
 	}
@@ -426,44 +509,44 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 // flushGlobalPorts opens and closes global ports in the environment.
 // It keeps a reference count for ports so that only 0-to-1 and 1-to-0 events
 // modify the environment.
-func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.Port) error {
+func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.PortRange) error {
 	// Filter which ports are really to open or close.
-	var toOpen, toClose []network.Port
-	for _, port := range rawOpen {
-		if fw.globalPortRef[port] == 0 {
-			toOpen = append(toOpen, port)
+	var toOpen, toClose []network.PortRange
+	for _, portRange := range rawOpen {
+		if fw.globalPortRef[portRange] == 0 {
+			toOpen = append(toOpen, portRange)
 		}
-		fw.globalPortRef[port]++
+		fw.globalPortRef[portRange]++
 	}
-	for _, port := range rawClose {
-		fw.globalPortRef[port]--
-		if fw.globalPortRef[port] == 0 {
-			toClose = append(toClose, port)
-			delete(fw.globalPortRef, port)
+	for _, portRange := range rawClose {
+		fw.globalPortRef[portRange]--
+		if fw.globalPortRef[portRange] == 0 {
+			toClose = append(toClose, portRange)
+			delete(fw.globalPortRef, portRange)
 		}
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fw.environ.OpenPorts(network.PortsToPortRanges(toOpen)); err != nil {
+		if err := fw.environ.OpenPorts(toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortPorts(toOpen)
-		logger.Infof("opened ports %v in environment", toOpen)
+		network.SortPortRanges(toOpen)
+		logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
-		if err := fw.environ.ClosePorts(network.PortsToPortRanges(toClose)); err != nil {
+		if err := fw.environ.ClosePorts(toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortPorts(toClose)
-		logger.Infof("closed ports %v in environment", toClose)
+		network.SortPortRanges(toClose)
+		logger.Infof("closed port ranges %v in environment", toClose)
 	}
 	return nil
 }
 
 // flushInstancePorts opens and closes ports global on the machine.
-func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.Port) error {
+func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []network.PortRange) error {
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
@@ -489,20 +572,20 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := instances[0].OpenPorts(machineId, network.PortsToPortRanges(toOpen)); err != nil {
+		if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortPorts(toOpen)
-		logger.Infof("opened ports %v on %q", toOpen, machined.tag)
+		network.SortPortRanges(toOpen)
+		logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := instances[0].ClosePorts(machineId, network.PortsToPortRanges(toClose)); err != nil {
+		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
-		network.SortPorts(toClose)
-		logger.Infof("closed ports %v on %q", toClose, machined.tag)
+		network.SortPortRanges(toClose)
+		logger.Infof("closed port ranges %v on %q", toClose, machined.tag)
 	}
 	return nil
 }
@@ -510,23 +593,19 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 // machineLifeChanged starts watching new machines when the firewaller
 // is starting, or when new machines come to life, and stops watching
 // machines that are dying.
-func (fw *Firewaller) machineLifeChanged(machineTag string) error {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return err
-	}
+func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 	m, err := fw.st.Machine(tag)
 	found := !params.IsCodeNotFound(err)
 	if found && err != nil {
 		return err
 	}
 	dead := !found || m.Life() == params.Dead
-	machined, known := fw.machineds[machineTag]
+	machined, known := fw.machineds[tag]
 	if known && dead {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		err = fw.startMachine(machineTag)
+		err = fw.startMachine(tag)
 		if err != nil {
 			return err
 		}
@@ -543,7 +622,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	if err := fw.flushMachine(machined); err != nil {
 		return err
 	}
-	delete(fw.machineds, machined.tag.String())
+	delete(fw.machineds, machined.tag)
 	if err := machined.Stop(); err != nil {
 		return err
 	}
@@ -553,22 +632,19 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 
 // forgetUnit cleans the unit data after the unit is removed.
 func (fw *Firewaller) forgetUnit(unitd *unitData) {
-	name := unitd.unit.Name()
 	serviced := unitd.serviced
 	machined := unitd.machined
-	if err := unitd.Stop(); err != nil {
-		logger.Errorf("unit watcher %q returned error when stopping: %v", name, err)
-	}
+
 	// Clean up after stopping.
-	delete(fw.unitds, name)
-	delete(machined.unitds, name)
-	delete(serviced.unitds, name)
+	delete(fw.unitds, unitd.tag)
+	delete(machined.unitds, unitd.tag)
+	delete(serviced.unitds, unitd.tag)
 	if len(serviced.unitds) == 0 {
 		// Stop service data after all units are removed.
 		if err := serviced.Stop(); err != nil {
 			logger.Errorf("service watcher %q returned error when stopping: %v", serviced.service.Name(), err)
 		}
-		delete(fw.serviceds, serviced.service.Name())
+		delete(fw.serviceds, serviced.service.Tag())
 	}
 }
 
@@ -576,9 +652,7 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 func (fw *Firewaller) stopWatchers() {
 	watcher.Stop(fw.environWatcher, &fw.tomb)
 	watcher.Stop(fw.machinesWatcher, &fw.tomb)
-	for _, unitd := range fw.unitds {
-		watcher.Stop(unitd, &fw.tomb)
-	}
+	watcher.Stop(fw.portsWatcher, &fw.tomb)
 	for _, serviced := range fw.serviceds {
 		watcher.Stop(serviced, &fw.tomb)
 	}
@@ -603,12 +677,6 @@ func (fw *Firewaller) Wait() error {
 	return fw.tomb.Wait()
 }
 
-// Stop stops the Firewaller and returns any error encountered while stopping.
-func (fw *Firewaller) Stop() error {
-	fw.tomb.Kill(nil)
-	return fw.tomb.Wait()
-}
-
 // unitsChange contains the changed units for one specific machine.
 type unitsChange struct {
 	machined *machineData
@@ -617,11 +685,13 @@ type unitsChange struct {
 
 // machineData holds machine details and watches units added or removed.
 type machineData struct {
-	tomb   tomb.Tomb
-	fw     *Firewaller
-	tag    names.MachineTag
-	unitds map[string]*unitData
-	ports  []network.Port
+	tomb        tomb.Tomb
+	fw          *Firewaller
+	tag         names.MachineTag
+	unitds      map[names.UnitTag]*unitData
+	openedPorts []network.PortRange
+	// ports defined by units on this machine
+	definedPorts map[network.PortRange]names.UnitTag
 }
 
 func (md *machineData) machine() (*apifirewaller.Machine, error) {
@@ -640,7 +710,7 @@ func (md *machineData) watchLoop(unitw apiwatcher.StringsWatcher) {
 			if !ok {
 				_, err := md.machine()
 				if !params.IsCodeNotFound(err) {
-					md.fw.tomb.Kill(watcher.MustErr(unitw))
+					md.fw.tomb.Kill(watcher.EnsureErr(unitw))
 				}
 				return
 			}
@@ -659,82 +729,14 @@ func (md *machineData) Stop() error {
 	return md.tomb.Wait()
 }
 
-// portsChange contains the changed ports for one specific unit.
-type portsChange struct {
-	unitd *unitData
-	ports []network.Port
-}
-
 // unitData holds unit details and watches port changes.
 type unitData struct {
 	tomb     tomb.Tomb
 	fw       *Firewaller
+	tag      names.UnitTag
 	unit     *apifirewaller.Unit
 	serviced *serviceData
 	machined *machineData
-	ports    []network.Port
-}
-
-// watchLoop watches the unit for port changes.
-func (ud *unitData) watchLoop(latestPorts []network.Port) {
-	defer ud.tomb.Done()
-	w, err := ud.unit.Watch()
-	if err != nil {
-		ud.fw.tomb.Kill(err)
-		return
-	}
-	defer watcher.Stop(w, &ud.tomb)
-	for {
-		select {
-		case <-ud.tomb.Dying():
-			return
-		case _, ok := <-w.Changes():
-			if !ok {
-				ud.fw.tomb.Kill(watcher.MustErr(w))
-				return
-			}
-			if err := ud.unit.Refresh(); err != nil {
-				if !params.IsCodeNotFound(err) {
-					ud.fw.tomb.Kill(err)
-				}
-				return
-			}
-			change, err := ud.unit.OpenedPorts()
-			if err != nil {
-				ud.fw.tomb.Kill(err)
-				return
-			}
-			if samePorts(change, latestPorts) {
-				continue
-			}
-			latestPorts = append(latestPorts[:0], change...)
-			select {
-			case ud.fw.portsChange <- &portsChange{ud, change}:
-			case <-ud.tomb.Dying():
-				return
-			}
-		}
-	}
-}
-
-// samePorts returns whether old and new contain the same set of ports.
-// Both old and new must be sorted.
-func samePorts(old, new []network.Port) bool {
-	if len(old) != len(new) {
-		return false
-	}
-	for i, p := range old {
-		if new[i] != p {
-			return false
-		}
-	}
-	return true
-}
-
-// Stop stops the unit watching.
-func (ud *unitData) Stop() error {
-	ud.tomb.Kill(nil)
-	return ud.tomb.Wait()
 }
 
 // exposedChange contains the changed exposed flag for one specific service.
@@ -749,7 +751,7 @@ type serviceData struct {
 	fw      *Firewaller
 	service *apifirewaller.Service
 	exposed bool
-	unitds  map[string]*unitData
+	unitds  map[names.UnitTag]*unitData
 }
 
 // watchLoop watches the service's exposed flag for changes.
@@ -767,7 +769,7 @@ func (sd *serviceData) watchLoop(exposed bool) {
 			return
 		case _, ok := <-w.Changes():
 			if !ok {
-				sd.fw.tomb.Kill(watcher.MustErr(w))
+				sd.fw.tomb.Kill(watcher.EnsureErr(w))
 				return
 			}
 			if err := sd.service.Refresh(); err != nil {
@@ -800,8 +802,8 @@ func (sd *serviceData) Stop() error {
 	return sd.tomb.Wait()
 }
 
-// Diff returns all the ports that exist in A but not B.
-func Diff(A, B []network.Port) (missing []network.Port) {
+// diffRanges returns all the port rangess that exist in A but not B.
+func diffRanges(A, B []network.PortRange) (missing []network.PortRange) {
 next:
 	for _, a := range A {
 		for _, b := range B {
@@ -812,4 +814,19 @@ next:
 		missing = append(missing, a)
 	}
 	return
+}
+
+// parsePortsKey parses a ports document global key coming from the
+// ports watcher (e.g. "42:juju-public") and returns the machine and
+// network tags from its components (in the last example "machine-42"
+// and "network-juju-public").
+func parsePortsKey(change string) (machineTag names.MachineTag, networkTag names.NetworkTag, err error) {
+	defer errors.Maskf(&err, "invalid ports change %q", change)
+
+	parts := strings.SplitN(change, ":", 2)
+	if len(parts) != 2 {
+		return names.MachineTag{}, names.NetworkTag{}, errors.Errorf("unexpected format")
+	}
+	machineId, networkName := parts[0], parts[1]
+	return names.NewMachineTag(machineId), names.NewNetworkTag(networkName), nil
 }

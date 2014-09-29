@@ -6,7 +6,7 @@ package usermanager_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
@@ -74,7 +74,7 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 	err := s.usermanager.RemoveUser(s.AdminUserTag(c).Name())
-	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate admin user")
+	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate initial environment owner")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {

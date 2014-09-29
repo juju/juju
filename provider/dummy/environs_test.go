@@ -4,25 +4,22 @@
 package dummy_test
 
 import (
-	"net/url"
 	stdtesting "testing"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -112,7 +109,6 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ 
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(e, gc.NotNil)
 
-	envtesting.UploadFakeTools(c, e.Storage())
 	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(testing.Context(c), e, bootstrap.BootstrapParams{})
@@ -180,11 +176,6 @@ func (s *suite) TestPreferIPv6On(c *gc.C) {
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1", "fc00::1"))
-	storageURL, err := e.Storage().URL("tools/releases/juju-" + version.Current.String() + ".tgz")
-	c.Assert(err, gc.IsNil)
-	toolsURL, err := url.Parse(storageURL)
-	c.Assert(err, gc.IsNil)
-	c.Assert(toolsURL.Host, gc.Matches, `\[::1\]:\d+`)
 }
 
 func (s *suite) TestPreferIPv6Off(c *gc.C) {
@@ -199,11 +190,6 @@ func (s *suite) TestPreferIPv6Off(c *gc.C) {
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1"))
-	storageURL, err := e.Storage().URL("tools/releases/juju-" + version.Current.String() + ".tgz")
-	c.Assert(err, gc.IsNil)
-	toolsURL, err := url.Parse(storageURL)
-	c.Assert(err, gc.IsNil)
-	c.Assert(toolsURL.Host, gc.Matches, `127\.0\.0\.1:\d+`)
 }
 
 func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {

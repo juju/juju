@@ -21,12 +21,13 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
@@ -196,11 +197,26 @@ func (s *MachineSuite) TestParseSuccess(c *gc.C) {
 
 type MachineSuite struct {
 	commonMachineSuite
+	metricAPI *mockMetricAPI
 }
 
 var _ = gc.Suite(&MachineSuite{})
 
 const initialMachinePassword = "machine-password-1234567890"
+
+func (s *MachineSuite) NewMockMetricAPI() *mockMetricAPI {
+	cleanup := make(chan struct{})
+	sender := make(chan struct{})
+	return &mockMetricAPI{cleanup, sender}
+}
+
+func (s *MachineSuite) SetUpTest(c *gc.C) {
+	s.metricAPI = s.NewMockMetricAPI()
+	s.PatchValue(&getMetricAPI, func(_ *api.State) apimetricsmanager.MetricsManagerClient {
+		return s.metricAPI
+	})
+	s.commonMachineSuite.SetUpTest(c)
+}
 
 func (s *MachineSuite) TestParseNonsense(c *gc.C) {
 	for _, args := range [][]string{
@@ -378,7 +394,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
@@ -411,6 +427,18 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), gc.NotNil)
 
+	// Check that the metrics workers have started by adding metrics
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for metric cleanup API to be called")
+	case <-s.metricAPI.CleanupCalled():
+	}
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for metric sender API to be called")
+	case <-s.metricAPI.SendCalled():
+	}
+
 	err = a.Stop()
 	c.Assert(err, gc.IsNil)
 
@@ -435,7 +463,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	s.agentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
@@ -498,7 +526,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal"
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	calledChan := make(chan struct{}, 1)
 	s.agentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
@@ -564,7 +592,7 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)[0]
+	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, newVers)[0]
 	err := s.State.SetEnvironAgentVersion(newVers.Number)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
@@ -1278,4 +1306,30 @@ func newDummyWorker() worker.Worker {
 		<-stop
 		return nil
 	})
+}
+
+type mockMetricAPI struct {
+	cleanUpCalled chan struct{}
+	sendCalled    chan struct{}
+}
+
+func (m *mockMetricAPI) CleanupOldMetrics() error {
+	go func() {
+		m.cleanUpCalled <- struct{}{}
+	}()
+	return nil
+}
+func (m *mockMetricAPI) SendMetrics() error {
+	go func() {
+		m.sendCalled <- struct{}{}
+	}()
+	return nil
+}
+
+func (m *mockMetricAPI) SendCalled() <-chan struct{} {
+	return m.sendCalled
+}
+
+func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
+	return m.cleanUpCalled
 }

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"

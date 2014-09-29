@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -199,7 +199,7 @@ func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *gc.C) {
 	err = requirerSvc.SetCharm(requirerCharm, false)
 	c.Assert(err, gc.IsNil)
 
-	eps, err := s.State.InferEndpoints([]string{"myprovider:kludge", "myrequirer:kludge"})
+	eps, err := s.State.InferEndpoints("myprovider:kludge", "myrequirer:kludge")
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -795,7 +795,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 
 	// Indirectly create a subordinate unit by adding a relation and entering
 	// scope as a principal.
-	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
+	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -991,7 +991,7 @@ func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *gc.C) {
 
 func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1016,13 +1016,13 @@ func (s *ServiceSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) {
 
 func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *gc.C, refresh bool) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel0, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err = s.State.InferEndpoints([]string{"logging", "mysql"})
+	eps, err = s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel1, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

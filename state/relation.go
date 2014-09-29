@@ -13,7 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -199,7 +199,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 
 			svc := &Service{st: r.st}
 			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-			removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
+			removable := append(bson.D{{"_id", r.st.docID(ep.ServiceName)}}, hasLastRef...)
 			if err := services.Find(removable).One(&svc.doc); err == nil {
 				ops = append(ops, svc.removeOps(hasLastRef)...)
 				continue
@@ -216,7 +216,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 		}
 		ops = append(ops, txn.Op{
 			C:      servicesC,
-			Id:     ep.ServiceName,
+			Id:     r.st.docID(ep.ServiceName),
 			Assert: asserts,
 			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 		})

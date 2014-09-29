@@ -6,7 +6,7 @@ package maas
 import (
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/cloudinit"

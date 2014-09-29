@@ -9,7 +9,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -197,5 +197,5 @@ func (s *UserSuite) TestCantDeactivateAdmin(c *gc.C) {
 	user, err := s.State.User(s.owner)
 	c.Assert(err, gc.IsNil)
 	err = user.Deactivate()
-	c.Assert(err, gc.ErrorMatches, "cannot deactivate admin user")
+	c.Assert(err, gc.ErrorMatches, "cannot deactivate initial environment owner")
 }

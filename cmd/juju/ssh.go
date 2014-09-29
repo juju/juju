@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/utils/ssh"
@@ -33,7 +32,7 @@ type SSHCommon struct {
 	pty       bool
 	Target    string
 	Args      []string
-	apiClient *api.Client
+	apiClient sshAPIClient
 	apiAddr   string
 }
 
@@ -176,7 +175,7 @@ func (c *SSHCommon) proxySSH() (bool, error) {
 	return cfg.ProxySSH(), nil
 }
 
-func (c *SSHCommon) ensureAPIClient() (*api.Client, error) {
+func (c *SSHCommon) ensureAPIClient() (sshAPIClient, error) {
 	if c.apiClient != nil {
 		return c.apiClient, nil
 	}
@@ -185,7 +184,7 @@ func (c *SSHCommon) ensureAPIClient() (*api.Client, error) {
 
 // initAPIClient initialises the API connection.
 // It is the caller's responsibility to close the connection.
-func (c *SSHCommon) initAPIClient() (*api.Client, error) {
+func (c *SSHCommon) initAPIClient() (sshAPIClient, error) {
 	st, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
@@ -193,6 +192,14 @@ func (c *SSHCommon) initAPIClient() (*api.Client, error) {
 	c.apiClient = st.Client()
 	c.apiAddr = st.Addr()
 	return c.apiClient, nil
+}
+
+type sshAPIClient interface {
+	EnvironmentGet() (map[string]interface{}, error)
+	PublicAddress(target string) (string, error)
+	PrivateAddress(target string) (string, error)
+	ServiceCharmRelations(service string) ([]string, error)
+	Close() error
 }
 
 // attemptStarter is an interface corresponding to utils.AttemptStrategy

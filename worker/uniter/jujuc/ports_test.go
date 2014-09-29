@@ -7,7 +7,7 @@ package jujuc_test
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -25,7 +25,12 @@ var portsTests = []struct {
 }{
 	{[]string{"open-port", "80"}, set.NewStrings("80/tcp")},
 	{[]string{"open-port", "99/tcp"}, set.NewStrings("80/tcp", "99/tcp")},
-	{[]string{"close-port", "80/TCP"}, set.NewStrings("99/tcp")},
+	{[]string{"open-port", "100-200"}, set.NewStrings("80/tcp", "99/tcp", "100-200/tcp")},
+	{[]string{"open-port", "443/udp"}, set.NewStrings("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "80/TCP"}, set.NewStrings("99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "100-200/tcP"}, set.NewStrings("99/tcp", "443/udp")},
+	{[]string{"close-port", "443"}, set.NewStrings("99/tcp", "443/udp")},
+	{[]string{"close-port", "443/udp"}, set.NewStrings("99/tcp")},
 	{[]string{"open-port", "123/udp"}, set.NewStrings("99/tcp", "123/udp")},
 	{[]string{"close-port", "9999/UDP"}, set.NewStrings("99/tcp", "123/udp")},
 }
@@ -48,13 +53,19 @@ var badPortsTests = []struct {
 	args []string
 	err  string
 }{
-	{nil, "no port specified"},
+	{nil, "no port or range specified"},
 	{[]string{"0"}, `port must be in the range \[1, 65535\]; got "0"`},
 	{[]string{"65536"}, `port must be in the range \[1, 65535\]; got "65536"`},
-	{[]string{"two"}, `port must be in the range \[1, 65535\]; got "two"`},
+	{[]string{"two"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\]; got "two"`},
 	{[]string{"80/http"}, `protocol must be "tcp" or "udp"; got "http"`},
-	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\]; got "blah/blah/blah"`},
+	{[]string{"blah/blah/blah"}, `expected <port>\[/<protocol>\] or <from>-<to>\[/<protocol>\]; got "blah/blah/blah"`},
 	{[]string{"123", "haha"}, `unrecognized args: \["haha"\]`},
+	{[]string{"1-0"}, `invalid port range 1-0/tcp; expected fromPort <= toPort`},
+	{[]string{"-42"}, `flag provided but not defined: -4`},
+	{[]string{"99999/UDP"}, `port must be in the range \[1, 65535\]; got "99999"`},
+	{[]string{"9999/foo"}, `protocol must be "tcp" or "udp"; got "foo"`},
+	{[]string{"80-90/http"}, `protocol must be "tcp" or "udp"; got "http"`},
+	{[]string{"20-10/tcp"}, `invalid port range 20-10/tcp; expected fromPort <= toPort`},
 }
 
 func (s *PortsSuite) TestBadArgs(c *gc.C) {
@@ -75,17 +86,17 @@ func (s *PortsSuite) TestHelp(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	flags := testing.NewFlagSet()
 	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
-usage: open-port <port>[/<protocol>]
-purpose: register a port to open
+usage: open-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
+purpose: register a port or range to open
 
-The port will only be open while the service is exposed.
+The port range will only be open while the service is exposed.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, cmdString("close-port"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
-usage: close-port <port>[/<protocol>]
-purpose: ensure a port is always closed
+usage: close-port <port>[/<protocol>] or <from>-<to>[/<protocol>]
+purpose: ensure a port or range is always closed
 `[1:])
 }
 

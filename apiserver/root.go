@@ -63,6 +63,7 @@ func newSrvRoot(root *initialRoot, entity state.Entity) *srvRoot {
 		objectCache: make(map[objectKey]reflect.Value),
 	}
 	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
+	r.resources.RegisterNamed("logDir", common.StringResource(root.srv.logDir))
 	return r
 }
 

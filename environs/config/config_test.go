@@ -14,7 +14,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -530,6 +530,14 @@ var configTests = []configTest{
 			"type":         "my-type",
 			"name":         "my-name",
 			"image-stream": "daily",
+		},
+	}, {
+		about:       "explicit tools stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"tools-stream": "proposed",
 		},
 	}, {
 		about:       "Explicit state port",
@@ -1101,6 +1109,12 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.ImageStream(), gc.Equals, v)
 	} else {
 		c.Assert(cfg.ImageStream(), gc.Equals, "released")
+	}
+
+	if v, ok := test.attrs["tools-stream"]; ok {
+		c.Assert(cfg.ToolsStream(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ToolsStream(), gc.Equals, "released")
 	}
 
 	url, urlPresent := cfg.ImageMetadataURL()

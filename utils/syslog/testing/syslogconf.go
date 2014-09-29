@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"text/template"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 var expectedAccumulateSyslogConfTemplate = `

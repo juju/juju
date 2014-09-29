@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	"github.com/juju/loggo"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/usermanager"
@@ -20,6 +21,7 @@ import (
 // This suite provides basic tests for the "user info" command
 type UserInfoCommandSuite struct {
 	jujutesting.JujuConnSuite
+	logger loggo.Logger
 }
 
 var (
@@ -33,8 +35,9 @@ var (
 func (s *UserInfoCommandSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&getUserInfoAPI, func(*UserInfoCommand) (UserInfoAPI, error) {
-		return &fakeUserInfoAPI{}, nil
+		return &fakeUserInfoAPI{s}, nil
 	})
+	s.logger = loggo.GetLogger("juju.user-info-test")
 }
 
 func newUserInfoCommand() cmd.Command {
@@ -42,7 +45,7 @@ func newUserInfoCommand() cmd.Command {
 }
 
 type fakeUserInfoAPI struct {
-	UserInfoCommandSuite
+	*UserInfoCommandSuite
 }
 
 func (*fakeUserInfoAPI) Close() error {
@@ -50,13 +53,14 @@ func (*fakeUserInfoAPI) Close() error {
 }
 
 func (f *fakeUserInfoAPI) UserInfo(username string) (result usermanager.UserInfoResult, err error) {
+	f.logger.Infof("fakeUserInfoAPI.UserInfo(%q)", username)
 	info := usermanager.UserInfo{
 		DateCreated:    dateCreated,
 		LastConnection: &lastConnection,
 	}
 	switch username {
-	case "admin":
-		info.Username = "admin"
+	case "dummy-admin":
+		info.Username = "dummy-admin"
 	case "foobar":
 		info.Username = "foobar"
 		info.DisplayName = "Foo Bar"
@@ -70,7 +74,7 @@ func (f *fakeUserInfoAPI) UserInfo(username string) (result usermanager.UserInfo
 func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserInfoCommand())
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: admin
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: dummy-admin
 display-name: ""
 date-created: `+dateCreated.String()+`
 last-connection: `+lastConnection.String()+"\n")
@@ -94,7 +98,7 @@ func (*UserInfoCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserInfoCommand(), "--format", "json")
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, `
-{"user-name":"admin","display-name":"","date-created":"1981-02-27 16:10:05 +0000 UTC","last-connection":"2014-01-01 00:00:00 +0000 UTC"}
+{"user-name":"dummy-admin","display-name":"","date-created":"1981-02-27 16:10:05 +0000 UTC","last-connection":"2014-01-01 00:00:00 +0000 UTC"}
 `[1:])
 }
 
@@ -109,7 +113,7 @@ func (*UserInfoCommandSuite) TestUserInfoFormatJsonWithUsername(c *gc.C) {
 func (*UserInfoCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserInfoCommand(), "--format", "yaml")
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stdout(context), gc.Equals, `user-name: admin
+	c.Assert(testing.Stdout(context), gc.Equals, `user-name: dummy-admin
 display-name: ""
 date-created: `+dateCreated.String()+`
 last-connection: `+lastConnection.String()+"\n")

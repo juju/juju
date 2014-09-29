@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -58,8 +58,8 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
 	cfg := testing.EnvironConfig(c)
-	cs.owner = names.NewLocalUserTag("admin")
-	cs.State = TestingInitialize(c, cfg, &cs.policy)
+	cs.owner = names.NewLocalUserTag("test-admin")
+	cs.State = TestingInitialize(c, cs.owner, cfg, &cs.policy)
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	cs.envTag = names.NewEnvironTag(uuid)

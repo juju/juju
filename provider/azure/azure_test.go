@@ -5,11 +5,17 @@ package azure
 
 import (
 	stdtesting "testing"
+	"time"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -24,9 +30,17 @@ type providerSuite struct {
 
 var _ = gc.Suite(&providerSuite{})
 
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
+
+func init() {
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
+}
+
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
+	s.UploadArches = []string{arch.AMD64}
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
@@ -37,9 +51,36 @@ func (s *providerSuite) TearDownSuite(c *gc.C) {
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "test:")
+	s.PatchValue(&signedImageDataOnly, false)
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
+}
+
+func (s *providerSuite) makeTestMetadata(c *gc.C, series, location string, im []*imagemetadata.ImageMetadata) {
+	cloudSpec := simplestreams.CloudSpec{
+		Region:   location,
+		Endpoint: "https://management.core.windows.net/",
+	}
+
+	seriesVersion, err := version.SeriesVersion(series)
+	c.Assert(err, gc.IsNil)
+	for _, im := range im {
+		im.Version = seriesVersion
+		im.RegionName = cloudSpec.Region
+		im.Endpoint = cloudSpec.Endpoint
+	}
+
+	index, products, err := imagemetadata.MarshalImageMetadataJSON(
+		im, []simplestreams.CloudSpec{cloudSpec}, time.Now(),
+	)
+	c.Assert(err, gc.IsNil)
+	files := map[string]string{
+		"/streams/v1/index.json":                string(index),
+		"/" + imagemetadata.ProductMetadataPath: string(products),
+	}
+	s.PatchValue(&testRoundTripper.Sub, jujutest.NewCannedRoundTripper(files, nil))
 }

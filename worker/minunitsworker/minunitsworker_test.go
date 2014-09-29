@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"

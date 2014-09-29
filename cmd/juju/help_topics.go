@@ -227,10 +227,17 @@ A generic Windows Azure environment looks like this:
     # Most useful for developers.
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
 
-    # Pick a simplestreams stream to select OS images from: daily or released
-    # images, or any other stream available on simplestreams.  Leave blank for
-    # released images.
-    # image-stream: ""
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
+    # image-stream: "released"
+
+    # tools-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # tools-stream: "released"
 
 This is the environments.yaml configuration file needed to run on Windows Azure.
 You will need to set the management-subscription-id, management-certificate-
@@ -332,6 +339,12 @@ networks
    specifies to select machines with "storage" and "db" networks but not "logging"
    network. Positive network constraints do not imply the networks will be enabled,
    use the --networks argument for that, just that they could be enabled.
+
+instance-type
+   Instance-type is the provider-specific name of a type of machine to deploy,
+   for example m1.small on EC2 or A4 on Azure.  Specifying this constraint may
+   conflict with other constraints depending on the provider (since the instance
+   type my determine things like memory size etc.)
 
 Example:
 

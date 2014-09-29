@@ -4,7 +4,7 @@
 package firewaller_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/instance"
@@ -54,6 +54,52 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 	}
 	_, err = s.State.AddMachineInsideMachine(template, s.machines[0].Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
+	// Open some ports.
+	err := s.units[0].OpenPorts("tcp", 1234, 1400)
+	c.Assert(err, gc.IsNil)
+	err = s.units[2].OpenPort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+
+	w, err := s.firewaller.WatchOpenedPorts()
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+
+	expectChanges := []string{
+		"0:juju-public",
+		"2:juju-public",
+	}
+	wc.AssertChangeInSingleEvent(expectChanges...)
+	wc.AssertNoChange()
+
+	// Close a port, make sure it's detected.
+	err = s.units[2].ClosePort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+
+	wc.AssertChange(expectChanges[1])
+	wc.AssertNoChange()
+
+	// Close it again, no changes.
+	err = s.units[2].ClosePort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Close non-existing port, no changes.
+	err = s.units[0].ClosePort("udp", 1234)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Open another port range, ensure it's detected.
+	err = s.units[1].OpenPorts("tcp", 8080, 8088)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange("1:juju-public")
 	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)

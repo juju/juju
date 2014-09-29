@@ -8,8 +8,8 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
-	gc "launchpad.net/gocheck"
 )
 
 // NewFlagSet creates a new flag set using the standard options, particularly

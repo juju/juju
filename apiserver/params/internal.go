@@ -70,6 +70,39 @@ type PortsResult struct {
 	Ports []network.Port
 }
 
+// MachinePorts holds a machine and network tags. It's used when
+// referring to opened ports on the machine for a network.
+type MachinePorts struct {
+	MachineTag string
+	NetworkTag string
+}
+
+// MachinePortRange holds a single port range open on a machine for
+// the given unit tag.
+type MachinePortRange struct {
+	UnitTag   string
+	PortRange network.PortRange
+}
+
+// MachinePortsParams holds the arguments for making a
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsParams struct {
+	Params []MachinePorts
+}
+
+// MachinePortsResult holds a single result of the
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsResult struct {
+	Error *Error
+	Ports []MachinePortRange
+}
+
+// MachinePortsResults holds all the results of the
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsResults struct {
+	Results []MachinePortsResult
+}
+
 // StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {
@@ -275,6 +308,20 @@ type EntityPort struct {
 // ClosePort on some entities.
 type EntitiesPorts struct {
 	Entities []EntityPort
+}
+
+// EntityPortRange holds an entity's tag, a protocol and a port range.
+type EntityPortRange struct {
+	Tag      string
+	Protocol string
+	FromPort int
+	ToPort   int
+}
+
+// EntitiesPortRanges holds the parameters for making an OpenPorts or
+// ClosePorts on some entities.
+type EntitiesPortRanges struct {
+	Entities []EntityPortRange
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.

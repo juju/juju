@@ -6,7 +6,7 @@ package firewaller_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
@@ -36,6 +36,10 @@ func (s *serviceSuite) TearDownTest(c *gc.C) {
 
 func (s *serviceSuite) TestName(c *gc.C) {
 	c.Assert(s.apiService.Name(), gc.Equals, s.service.Name())
+}
+
+func (s *serviceSuite) TestTag(c *gc.C) {
+	c.Assert(s.apiService.Tag(), gc.Equals, names.NewServiceTag(s.service.Name()))
 }
 
 func (s *serviceSuite) TestWatch(c *gc.C) {

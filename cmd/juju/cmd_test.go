@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
@@ -41,6 +41,14 @@ environments:
         broken: Bootstrap Destroy
         state-server: false
         authorized-keys: i-am-a-key
+        tools-stream: proposed
+    devenv:
+        type: dummy
+        state-server: false
+        admin-secret: arble
+        authorized-keys: i-am-a-key
+        default-series: raring
+        tools-stream: proposed
 `
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {

@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/highavailability"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -36,8 +35,8 @@ type EnsureAvailabilityCommand struct {
 	// new state servers. If there are more state servers required than
 	// machines specified, new machines will be created.
 	// Placement is passed verbatim to the API, to be evaluated and used server-side.
-	Placement []*instance.Placement
-	// PlacementSpec holds the unparsed placement directives.
+	Placement []string
+	// PlacementSpec holds the unparsed placement directives argument (--to).
 	PlacementSpec string
 }
 
@@ -140,14 +139,14 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 	}
 	if c.PlacementSpec != "" {
 		placementSpecs := strings.Split(c.PlacementSpec, ",")
-		c.Placement = make([]*instance.Placement, len(placementSpecs))
+		c.Placement = make([]string, len(placementSpecs))
 		for i, spec := range placementSpecs {
-			placement, err := instance.ParsePlacement(strings.TrimSpace(spec))
+			_, err := instance.ParsePlacement(strings.TrimSpace(spec))
 			if err != instance.ErrPlacementScopeMissing {
 				// We only support unscoped placement directives.
 				return fmt.Errorf("unsupported ensure-availability placement directive %q", spec)
 			}
-			c.Placement[i] = placement
+			c.Placement[i] = spec
 		}
 	}
 	return cmd.CheckEmpty(args)
@@ -161,13 +160,6 @@ type availabilityInfo struct {
 	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
 }
 
-// highAvailabilityVersion returns the version of the HighAvailability facade
-// available on the server.
-// Override for testing.
-var highAvailabilityVersion = func(root *api.State) int {
-	return root.BestFacadeVersion("HighAvailability")
-}
-
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
 func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
@@ -176,19 +168,14 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "cannot get API connection")
 	}
 	var ensureAvailabilityResult params.StateServersChanges
-	// Use the new HighAvailability facade if it exists.
-	if highAvailabilityVersion(root) < 1 {
-		if len(c.Placement) > 0 {
-			return fmt.Errorf("placement directives not supported with this version of Juju")
-		}
-		client := root.Client()
-		defer client.Close()
-		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
-	} else {
-		client := highavailability.NewClient(root, root.EnvironTag())
-		defer client.Close()
-		ensureAvailabilityResult, err = client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series, c.Placement)
-	}
+	haClient := highavailability.NewClient(root)
+	defer haClient.Close()
+	ensureAvailabilityResult, err = haClient.EnsureAvailability(
+		c.NumStateServers,
+		c.Constraints,
+		c.Series,
+		c.Placement,
+	)
 	if err != nil {
 		return err
 	}

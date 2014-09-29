@@ -4,9 +4,9 @@
 package watcher_test
 
 import (
-	"errors"
+	stderrors "errors"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/watcher"
@@ -29,17 +29,17 @@ func (s *FastPeriodSuite) TestStop(c *gc.C) {
 	watcher.Stop(&dummyWatcher{nil}, t)
 	c.Assert(t.Err(), gc.Equals, tomb.ErrStillAlive)
 
-	watcher.Stop(&dummyWatcher{errors.New("BLAM")}, t)
+	watcher.Stop(&dummyWatcher{stderrors.New("BLAM")}, t)
 	c.Assert(t.Err(), gc.ErrorMatches, "BLAM")
 }
 
-func (s *FastPeriodSuite) TestMustErr(c *gc.C) {
-	err := watcher.MustErr(&dummyWatcher{errors.New("POW")})
+func (s *FastPeriodSuite) TestEnsureErr(c *gc.C) {
+	err := watcher.EnsureErr(&dummyWatcher{stderrors.New("POW")})
 	c.Assert(err, gc.ErrorMatches, "POW")
 
-	stillAlive := func() { watcher.MustErr(&dummyWatcher{tomb.ErrStillAlive}) }
-	c.Assert(stillAlive, gc.PanicMatches, "watcher is still running")
+	err = watcher.EnsureErr(&dummyWatcher{tomb.ErrStillAlive})
+	c.Assert(err, gc.ErrorMatches, "expected .* to be stopped: tomb: still alive")
 
-	noErr := func() { watcher.MustErr(&dummyWatcher{nil}) }
-	c.Assert(noErr, gc.PanicMatches, "watcher was stopped cleanly")
+	err = watcher.EnsureErr(&dummyWatcher{nil})
+	c.Assert(err, gc.ErrorMatches, "expected an error from .*, got nil")
 }

@@ -8,7 +8,7 @@ import (
 	"path"
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloudinit"
 	coretesting "github.com/juju/juju/testing"
@@ -186,7 +186,7 @@ var ctests = []struct {
 		`apt_sources:
 - source: keyName
   key: someKey
-runcmd:
+bootcmd:
 - install -D -m 644 /dev/null '/some/path'
 - 'printf ''%s\n'' ''Explanation: test
 

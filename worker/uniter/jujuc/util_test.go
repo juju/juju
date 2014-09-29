@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -81,15 +81,19 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	actionParams map[string]interface{}
-	ports        set.Strings
-	relid        int
-	remote       string
-	rels         map[int]*ContextRelation
-	metrics      []jujuc.Metric
+	actionParams  map[string]interface{}
+	ports         set.Strings
+	relid         int
+	remote        string
+	rels          map[int]*ContextRelation
+	metrics       []jujuc.Metric
+	canAddMetrics bool
 }
 
 func (c *Context) AddMetrics(key, value string, created time.Time) error {
+	if !c.canAddMetrics {
+		return fmt.Errorf("metrics disabled")
+	}
 	c.metrics = append(c.metrics, jujuc.Metric{key, value, created})
 	return nil
 }
@@ -106,13 +110,21 @@ func (c *Context) PrivateAddress() (string, bool) {
 	return "192.168.0.99", true
 }
 
-func (c *Context) OpenPort(protocol string, port int) error {
-	c.ports.Add(fmt.Sprintf("%d/%s", port, protocol))
+func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
+	if fromPort == toPort {
+		c.ports.Add(fmt.Sprintf("%d/%s", fromPort, protocol))
+	} else {
+		c.ports.Add(fmt.Sprintf("%d-%d/%s", fromPort, toPort, protocol))
+	}
 	return nil
 }
 
-func (c *Context) ClosePort(protocol string, port int) error {
-	c.ports.Remove(fmt.Sprintf("%d/%s", port, protocol))
+func (c *Context) ClosePorts(protocol string, fromPort, toPort int) error {
+	if fromPort == toPort {
+		c.ports.Remove(fmt.Sprintf("%d/%s", fromPort, protocol))
+	} else {
+		c.ports.Remove(fmt.Sprintf("%d-%d/%s", fromPort, toPort, protocol))
+	}
 	return nil
 }
 
@@ -126,8 +138,8 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 	}, nil
 }
 
-func (c *Context) ActionParams() map[string]interface{} {
-	return c.actionParams
+func (c *Context) ActionParams() (map[string]interface{}, error) {
+	return c.actionParams, nil
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {

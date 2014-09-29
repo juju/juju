@@ -9,15 +9,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -190,7 +188,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
 					"to clean up the environment.")
 			} else {
-				cleanup()
+				handleBootstrapError(ctx, resultErr, cleanup)
 			}
 		}
 	}()
@@ -198,16 +196,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Handle any errors from environFromName(...).
 	if err != nil {
 		return errors.Annotatef(err, "there was an issue examining the environment")
-	}
-
-	// We want to validate constraints early. However, if a custom image metadata
-	// source is specified, we can't validate the arch because that depends on what
-	// images metadata is to be uploaded. So we validate here if no custom metadata
-	// source is specified, and defer till later if not.
-	if c.MetadataSource == "" {
-		if err := validateConstraints(c.Constraints, environ); err != nil {
-			return err
-		}
 	}
 
 	// Check to see if this environment is already bootstrapped. If it
@@ -236,15 +224,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 	// If --metadata-source is specified, override the default tools metadata source so
 	// SyncTools can use it, and also upload any image metadata.
+	var metadataDir string
 	if c.MetadataSource != "" {
-		metadataDir := ctx.AbsPath(c.MetadataSource)
-		if err := uploadCustomMetadata(metadataDir, environ); err != nil {
-			return err
-		}
-		if err := validateConstraints(c.Constraints, environ); err != nil {
-			return err
-		}
+		metadataDir = ctx.AbsPath(c.MetadataSource)
 	}
+
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
 	// unnecessary upload.
@@ -256,12 +240,27 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,
-		KeepBroken:  c.KeepBrokenEnvironment,
+		MetadataDir: metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
 	return c.SetBootstrapEndpointAddress(environ)
+}
+
+// handleBootstrapError is called to clean up if bootstrap fails.
+func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
+	logger.Errorf("bootstrap failed: %v", err)
+	ch := make(chan os.Signal, 1)
+	ctx.InterruptNotify(ch)
+	defer ctx.StopInterruptNotify(ch)
+	defer close(ch)
+	go func() {
+		for _ = range ch {
+			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
+		}
+	}()
+	cleanup()
 }
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
@@ -309,34 +308,6 @@ func (c *BootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ)
 	err = writer.Write()
 	if err != nil {
 		return errors.Annotate(err, "failed to write API endpoint to connection info")
-	}
-	return nil
-}
-
-var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {
-	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
-	tools.DefaultBaseURL = metadataDir
-	if err := imagemetadata.UploadImageMetadata(env.Storage(), metadataDir); err != nil {
-		// Do not error if image metadata directory doesn't exist.
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("uploading image metadata: %v", err)
-		}
-	} else {
-		logger.Infof("custom image metadata uploaded")
-	}
-	return nil
-}
-
-var validateConstraints = func(cons constraints.Value, env environs.Environ) error {
-	validator, err := env.ConstraintsValidator()
-	if err != nil {
-		return err
-	}
-	unsupported, err := validator.Validate(cons)
-	if len(unsupported) > 0 {
-		logger.Warningf("unsupported constraints: %v", err)
-	} else if err != nil {
-		return err
 	}
 	return nil
 }

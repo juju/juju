@@ -7,7 +7,7 @@ import (
 	"flag"
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	cmdtesting "github.com/juju/juju/cmd/testing"
 	_ "github.com/juju/juju/provider/dummy" // XXX Why?

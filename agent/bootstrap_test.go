@@ -8,7 +8,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -87,7 +87,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	adminUser := names.NewLocalUserTag("agent-admin")
+	st, m, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -179,7 +180,8 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
 
-	_, _, err = agent.InitializeState(cfg, nil, agent.BootstrapMachineConfig{}, mongo.DialOpts{}, environs.NewStatePolicy())
+	adminUser := names.NewLocalUserTag("agent-admin")
+	_, _, err = agent.InitializeState(adminUser, cfg, nil, agent.BootstrapMachineConfig{}, mongo.DialOpts{}, environs.NewStatePolicy())
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -221,10 +223,12 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	adminUser := names.NewLocalUserTag("agent-admin")
+	st, _, err := agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
+	st.Close()
 
-	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, _, err = agent.InitializeState(adminUser, cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

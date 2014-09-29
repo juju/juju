@@ -6,13 +6,10 @@ package firewaller_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 type unitSuite struct {
@@ -45,6 +42,7 @@ func (s *unitSuite) TestUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiUnit0, gc.NotNil)
 	c.Assert(apiUnit0.Name(), gc.Equals, s.units[0].Name())
+	c.Assert(apiUnit0.Tag(), gc.Equals, names.NewUnitTag(s.units[0].Name()))
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
@@ -59,36 +57,10 @@ func (s *unitSuite) TestRefresh(c *gc.C) {
 	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
 }
 
-func (s *unitSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
-
-	w, err := s.apiUnit.Watch()
-	c.Assert(err, gc.IsNil)
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
-
-	// Initial event.
-	wc.AssertOneChange()
-
-	// Change something other than the life cycle and make sure it's
-	// not detected.
-	err = s.units[0].SetStatus(state.StatusStarted, "not really", nil)
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
-
-	// Make the unit dead and check it's detected.
-	err = s.units[0].EnsureDead()
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	machineTag, err := s.apiUnit.AssignedMachine()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineTag, gc.Equals, s.machines[0].Tag())
+	c.Assert(machineTag, gc.Equals, names.NewMachineTag(s.machines[0].Id()))
 
 	// Unassign now and check CodeNotAssigned is reported.
 	err = s.units[0].UnassignFromMachine()
@@ -96,21 +68,6 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	_, err = s.apiUnit.AssignedMachine()
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
-}
-
-func (s *unitSuite) TestOpenedPorts(c *gc.C) {
-	ports, err := s.apiUnit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ports, jc.DeepEquals, []network.Port{})
-
-	// Open some ports and check again.
-	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, gc.IsNil)
-	err = s.units[0].OpenPort("tcp", 4321)
-	c.Assert(err, gc.IsNil)
-	ports, err = s.apiUnit.OpenedPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ports, jc.DeepEquals, []network.Port{{"tcp", 1234}, {"tcp", 4321}})
 }
 
 func (s *unitSuite) TestService(c *gc.C) {

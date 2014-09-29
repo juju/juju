@@ -33,7 +33,7 @@ var (
 type apiState interface {
 	Close() error
 	APIHostPorts() [][]network.HostPort
-	EnvironTag() string
+	EnvironTag() (names.EnvironTag, error)
 }
 
 type apiOpenFunc func(*api.Info, api.DialOpts) (apiState, error)
@@ -48,8 +48,10 @@ type apiStateCachedInfo struct {
 var errAborted = fmt.Errorf("aborted")
 
 // NewAPIState creates an api.State object from an Environ
-func NewAPIState(environ environs.Environ, dialOpts api.DialOpts) (*api.State, error) {
-	info, err := environAPIInfo(environ)
+// This is almost certainly the wrong thing to do as it assumes
+// the old admin password (stored as admin-secret in the config).
+func NewAPIState(user names.UserTag, environ environs.Environ, dialOpts api.DialOpts) (*api.State, error) {
+	info, err := environAPIInfo(environ, user)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +165,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		if err != nil {
 			return nil, err
 		}
-		return apiConfigConnect(cfg, apiOpen, stop, delay)
+		return apiConfigConnect(cfg, apiOpen, stop, delay, environInfoUserTag(info))
 	})
 	try.Close()
 	val0, err := try.Result()
@@ -196,7 +198,11 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), st.EnvironTag()); localerr != nil {
+	envTag, err := st.EnvironTag()
+	if err != nil {
+		logger.Warningf("ignoring API connection environ tag: %v", err)
+	}
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), envTag); localerr != nil {
 		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -224,6 +230,17 @@ type infoConnectError struct {
 	error
 }
 
+func environInfoUserTag(info configstore.EnvironInfo) names.UserTag {
+	var username string
+	if info != nil {
+		username = info.APICredentials().User
+	}
+	if username == "" {
+		username = configstore.DefaultAdminUsername
+	}
+	return names.NewUserTag(username)
+}
+
 // apiInfoConnect looks for endpoint on the given environment and
 // tries to connect to it, sending the result on the returned channel.
 func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, apiOpen apiOpenFunc, stop <-chan struct{}) (apiState, error) {
@@ -232,20 +249,18 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	var environTag names.Tag
-	if endpoint.EnvironUUID != "" {
-		// Note: we should be validating that EnvironUUID contains a
-		// valid UUID.
+	var environTag names.EnvironTag
+	if names.IsValidEnvironment(endpoint.EnvironUUID) {
 		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
-	}
-	username := info.APICredentials().User
-	if username == "" {
-		username = "admin"
+	} else {
+		// For backwards-compatibility, we have to allow connections
+		// with an empty UUID. Login will work for the same reasons.
+		logger.Warningf("ignoring invalid API endpoint environment UUID %v", endpoint.EnvironUUID)
 	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.NewUserTag(username),
+		Tag:        environInfoUserTag(info),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
@@ -261,7 +276,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 // its endpoint. It only starts the attempt after the given delay,
 // to allow the faster apiInfoConnect to hopefully succeed first.
 // It returns nil if there was no configuration information found.
-func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struct{}, delay time.Duration) (apiState, error) {
+func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struct{}, delay time.Duration, user names.UserTag) (apiState, error) {
 	select {
 	case <-time.After(delay):
 	case <-stop:
@@ -271,7 +286,7 @@ func apiConfigConnect(cfg *config.Config, apiOpen apiOpenFunc, stop <-chan struc
 	if err != nil {
 		return nil, err
 	}
-	apiInfo, err := environAPIInfo(environ)
+	apiInfo, err := environAPIInfo(environ, user)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +317,7 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 	return nil, errors.NotFoundf("environment %q", envName)
 }
 
-func environAPIInfo(environ environs.Environ) (*api.Info, error) {
+func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, error) {
 	config := environ.Config()
 	password := config.AdminSecret()
 	if password == "" {
@@ -312,7 +327,7 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	info.Tag = names.NewUserTag("admin")
+	info.Tag = user
 	info.Password = password
 	return info, nil
 }
@@ -323,8 +338,12 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
 	var environUUID string
-	if apiInfo.EnvironTag != nil {
+	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {
 		environUUID = apiInfo.EnvironTag.Id()
+	} else {
+		// For backwards-compatibility, we have to allow connections
+		// with an empty UUID. Login will work for the same reasons.
+		logger.Warningf("ignoring invalid cached API endpoint environment UUID %v", apiInfo.EnvironTag.Id())
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   apiInfo.Addrs,
@@ -348,7 +367,7 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag string) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag names.EnvironTag) error {
 	var addrs []string
 	for _, serverHostPorts := range hostPorts {
 		for _, hostPort := range serverHostPorts {
@@ -362,15 +381,10 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 	}
 	endpoint := info.APIEndpoint()
 	changed := false
-	if newEnvironTag != "" {
-		tag, err := names.ParseEnvironTag(newEnvironTag)
-		if err == nil {
-			if environUUID := tag.Id(); endpoint.EnvironUUID != environUUID {
-				changed = true
-				endpoint.EnvironUUID = environUUID
-			}
-		} else {
-			logger.Debugf("cannot parse environ tag: %v", err)
+	if names.IsValidEnvironment(newEnvironTag.Id()) {
+		if environUUID := newEnvironTag.Id(); endpoint.EnvironUUID != environUUID {
+			changed = true
+			endpoint.EnvironUUID = environUUID
 		}
 	}
 	if len(addrs) != 0 && addrsChanged(endpoint.Addresses, addrs) {

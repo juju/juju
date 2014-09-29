@@ -6,9 +6,10 @@ package highavailability_test
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/highavailability"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -26,18 +27,6 @@ type clientSuite struct {
 
 var _ = gc.Suite(&clientSuite{})
 
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	client := highavailability.NewClient(s.APIState, "bad-env-uuid")
-	_, err = client.EnsureAvailability(3, emptyCons, defaultSeries, nil)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
-}
-
 type Killer interface {
 	Kill() error
 }
@@ -46,7 +35,7 @@ func assertKill(c *gc.C, killer Killer) {
 	c.Assert(killer.Kill(), gc.IsNil)
 }
 
-func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Pinger {
+func setAgentPresence(c *gc.C, s *jujutesting.JujuConnSuite, machineId string) *presence.Pinger {
 	m, err := s.BackingState.Machine(machineId)
 	c.Assert(err, gc.IsNil)
 	pinger, err := m.SetAgentPresence()
@@ -57,17 +46,17 @@ func (s *clientSuite) setAgentPresence(c *gc.C, machineId string) *presence.Ping
 	return pinger
 }
 
-func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
+func assertEnsureAvailability(c *gc.C, s *jujutesting.JujuConnSuite) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
-	pingerA := s.setAgentPresence(c, "0")
+	pingerA := setAgentPresence(c, s, "0")
 	defer assertKill(c, pingerA)
 
 	emptyCons := constraints.Value{}
-	result, err := highavailability.NewClient(
-		s.APIState, s.State.EnvironTag().String()).EnsureAvailability(3, emptyCons, "", nil)
+	client := highavailability.NewClient(s.APIState)
+	result, err := client.EnsureAvailability(3, emptyCons, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(result.Maintained, gc.DeepEquals, []string{"machine-0"})
@@ -80,4 +69,34 @@ func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
+}
+
+func (s *clientSuite) TestClientEnsureAvailability(c *gc.C) {
+	assertEnsureAvailability(c, &s.JujuConnSuite)
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityVersion(c *gc.C) {
+	client := highavailability.NewClient(s.APIState)
+	c.Assert(client.BestAPIVersion(), gc.Equals, 1)
+}
+
+type clientLegacySuite struct {
+	jujutesting.JujuConnSuite
+}
+
+var _ = gc.Suite(&clientLegacySuite{})
+
+func (s *clientLegacySuite) SetUpTest(c *gc.C) {
+	common.Facades.Discard("HighAvailability", 1)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *clientLegacySuite) TestEnsureAvailabilityLegacy(c *gc.C) {
+	assertEnsureAvailability(c, &s.JujuConnSuite)
+}
+
+func (s *clientLegacySuite) TestEnsureAvailabilityLegacyRejectsPlacement(c *gc.C) {
+	client := highavailability.NewClient(s.APIState)
+	_, err := client.EnsureAvailability(3, constraints.Value{}, "", []string{"machine"})
+	c.Assert(err, gc.ErrorMatches, "placement directives not supported with this version of Juju")
 }

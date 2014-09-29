@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -412,9 +412,9 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 	return result, nil
 }
 
-// OpenPort sets the policy of the port with protocol an number to be
+// OpenPorts sets the policy of the port range with protocol to be
 // opened, for all given units.
-func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, error) {
+func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -433,7 +433,7 @@ func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, er
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = unit.OpenPort(entity.Protocol, entity.Port)
+				err = unit.OpenPorts(entity.Protocol, entity.FromPort, entity.ToPort)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -441,9 +441,9 @@ func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, er
 	return result, nil
 }
 
-// ClosePort sets the policy of the port with protocol and number to
-// be closed, for all given units.
-func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, error) {
+// ClosePorts sets the policy of the port range with protocol to be
+// closed, for all given units.
+func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -462,12 +462,52 @@ func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, e
 			var unit *state.Unit
 			unit, err = u.getUnit(tag)
 			if err == nil {
-				err = unit.ClosePort(entity.Protocol, entity.Port)
+				err = unit.ClosePorts(entity.Protocol, entity.FromPort, entity.ToPort)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// OpenPort sets the policy of the port with protocol an number to be
+// opened, for all given units.
+//
+// TODO(dimitern): This is deprecated and is kept for
+// backwards-compatibility. Use OpenPorts instead.
+func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, error) {
+	rangesArgs := params.EntitiesPortRanges{
+		Entities: make([]params.EntityPortRange, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		rangesArgs.Entities[i] = params.EntityPortRange{
+			Tag:      entity.Tag,
+			Protocol: entity.Protocol,
+			FromPort: entity.Port,
+			ToPort:   entity.Port,
+		}
+	}
+	return u.OpenPorts(rangesArgs)
+}
+
+// ClosePort sets the policy of the port with protocol and number to
+// be closed, for all given units.
+//
+// TODO(dimitern): This is deprecated and is kept for
+// backwards-compatibility. Use ClosePorts instead.
+func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, error) {
+	rangesArgs := params.EntitiesPortRanges{
+		Entities: make([]params.EntityPortRange, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		rangesArgs.Entities[i] = params.EntityPortRange{
+			Tag:      entity.Tag,
+			Protocol: entity.Protocol,
+			FromPort: entity.Port,
+			ToPort:   entity.Port,
+		}
+	}
+	return u.ClosePorts(rangesArgs)
 }
 
 func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, error) {
@@ -486,7 +526,7 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag names.UnitTag) (string, error
 	if _, ok := <-watch.Changes(); ok {
 		return u.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 func (u *UniterAPI) watchOneUnitActions(tag names.UnitTag) (params.StringsWatchResult, error) {
 	nothing := params.StringsWatchResult{}
@@ -502,7 +542,7 @@ func (u *UniterAPI) watchOneUnitActions(tag names.UnitTag) (params.StringsWatchR
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes
@@ -607,7 +647,7 @@ func (u *UniterAPI) watchOneServiceRelations(tag names.ServiceTag) (params.Strin
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchServiceRelations returns a StringsWatcher, for each given
@@ -1172,7 +1212,7 @@ func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.Re
 			Changes:                changes,
 		}, nil
 	}
-	return params.RelationUnitsWatchResult{}, watcher.MustErr(watch)
+	return params.RelationUnitsWatchResult{}, watcher.EnsureErr(watch)
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
@@ -1240,7 +1280,7 @@ func (u *UniterAPI) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 	if _, ok := <-watch.Changes(); ok {
 		return u.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 
 // WatchAddresses returns a NotifyWatcher for observing changes

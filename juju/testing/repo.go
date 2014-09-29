@@ -7,8 +7,8 @@ import (
 
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -70,10 +70,7 @@ func (s *RepoSuite) AssertCharmUploaded(c *gc.C, curl *charm.URL) {
 	ch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 
-	storage, err := s.State.Storage()
-	c.Assert(err, gc.IsNil)
-	defer storage.Close()
-
+	storage := s.State.Storage()
 	r, _, err := storage.Get(ch.StoragePath())
 	c.Assert(err, gc.IsNil)
 	defer r.Close()

@@ -94,16 +94,6 @@ func (a *ActionResult) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
 }
 
-// globalKey returns the global database key for the action.
-func (a *ActionResult) globalKey() string {
-	return actionResultGlobalKey(a.doc.Id)
-}
-
-// actionResultGlobalKey returns the global database key for the named action.
-func actionResultGlobalKey(name string) string {
-	return "ar#" + name
-}
-
 // newActionResult builds an ActionResult from the supplied state and
 // actionResultDoc.
 func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
