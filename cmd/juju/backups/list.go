@@ -15,7 +15,7 @@ const listDoc = `
 "list" provides the metadata associated with all backups.
 `
 
-// CreateCommand is the sub-command for creating a new backup.
+// ListCommand is the sub-command for listing all available backups.
 type ListCommand struct {
 	CommandBase
 	// Brief means only IDs will be printed.
