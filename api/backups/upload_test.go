@@ -5,12 +5,14 @@ package backups_test
 
 import (
 	"bytes"
-	"io"
+	"io/ioutil"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
+	"github.com/juju/juju/apiserver/params"
 )
 
 type uploadSuite struct {
@@ -19,20 +21,36 @@ type uploadSuite struct {
 
 var _ = gc.Suite(&uploadSuite{})
 
-func (s *uploadSuite) TestUploadFake(c *gc.C) {
-	var sshHost, sshFilename string
-	s.PatchValue(backups.TestSSHUpload, func(host, filename string, archive io.Reader) error {
-		sshHost = host
-		sshFilename = filename
-		return nil
-	})
+func (s *uploadSuite) TestUpload(c *gc.C) {
+	data := "<compressed archive data>"
+	archive := ioutil.NopCloser(bytes.NewBufferString(data))
 
-	original := []byte("<compressed>")
-	archive := bytes.NewBuffer(original)
-	id, err := s.client.Upload(archive)
+	var meta params.BackupsMetadataResult
+	meta.UpdateFromMetadata(s.Meta)
+	meta.ID = ""
+	meta.Stored = time.Time{}
+
+	cleanup := backups.PatchClientFacadeCall(s.client,
+		func(req string, paramsIn interface{}, resp interface{}) error {
+			c.Check(req, gc.Equals, "UploadDirect")
+
+			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsUploadArgs{})
+			p := paramsIn.(params.BackupsUploadArgs)
+			c.Check(string(p.Data), gc.Equals, data)
+			c.Check(p.Metadata, gc.Equals, meta)
+
+			if result, ok := resp.(*params.BackupsMetadataResult); ok {
+				result.UpdateFromMetadata(s.Meta)
+			} else {
+				c.Fatalf("wrong output structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	result, err := s.client.Upload(archive, meta)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(sshHost, gc.Equals, "ubuntu@localhost")
-	c.Check(sshFilename, gc.Matches, `juju-backup-.*\.tar.gz$`)
-	c.Check(id, gc.Matches, `file://juju-backup-.*\.tar.gz$`)
+	s.checkMetadataResult(c, result, s.Meta)
 }
