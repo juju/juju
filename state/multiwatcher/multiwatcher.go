@@ -90,9 +90,6 @@ type StoreManager struct {
 	waiting map[*Watcher]*request
 }
 
-// InfoId holds an identifier for an Info item held in a Store.
-type InfoId interface{}
-
 // Backing is the interface required by the StoreManager to access the
 // underlying state.
 type Backing interface {
@@ -334,7 +331,7 @@ type entityEntry struct {
 // to a Watcher.
 type Store struct {
 	latestRevno int64
-	entities    map[InfoId]*list.Element
+	entities    map[interface{}]*list.Element
 	list        *list.List
 }
 
@@ -343,7 +340,7 @@ type Store struct {
 // It is only exposed here for testing purposes.
 func NewStore() *Store {
 	all := &Store{
-		entities: make(map[InfoId]*list.Element),
+		entities: make(map[interface{}]*list.Element),
 		list:     list.New(),
 	}
 	return all
@@ -365,7 +362,7 @@ func (a *Store) All() []params.EntityInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *Store) add(id InfoId, info params.EntityInfo) {
+func (a *Store) add(id interface{}, info params.EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}

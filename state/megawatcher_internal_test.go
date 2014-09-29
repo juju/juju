@@ -1140,8 +1140,8 @@ func checkDeltasEqual(c *gc.C, b multiwatcher.Backing, d0, d1 []params.Delta) {
 	c.Check(deltaMap(d0, b), jc.DeepEquals, deltaMap(d1, b))
 }
 
-func deltaMap(deltas []params.Delta, b multiwatcher.Backing) map[multiwatcher.InfoId]params.EntityInfo {
-	m := make(map[multiwatcher.InfoId]params.EntityInfo)
+func deltaMap(deltas []params.Delta, b multiwatcher.Backing) map[interface{}]params.EntityInfo {
+	m := make(map[interface{}]params.EntityInfo)
 	for _, d := range deltas {
 		id := d.Entity.EntityId()
 		if d.Removed {
