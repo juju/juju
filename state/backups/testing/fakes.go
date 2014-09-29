@@ -62,7 +62,11 @@ func (b *FakeBackups) Add(archive io.Reader, meta *backups.Metadata) (string, er
 	b.Calls = append(b.Calls, "Add")
 	b.ArchiveArg = archive
 	b.MetaArg = meta
-	return b.Meta.ID(), b.Error
+	id := ""
+	if b.Meta != nil {
+		id = b.Meta.ID()
+	}
+	return id, b.Error
 }
 
 // Get returns the metadata and archive file associated with the ID.
