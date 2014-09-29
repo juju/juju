@@ -4,7 +4,6 @@
 package backups_test
 
 import (
-	"bytes"
 	"io/ioutil"
 
 	gc "gopkg.in/check.v1"
@@ -20,7 +19,7 @@ type downloadSuite struct {
 var _ = gc.Suite(&downloadSuite{})
 
 func (s *downloadSuite) TestInfo(c *gc.C) {
-	archive := bytes.NewBufferString("<compressed archive data>")
+	data := []byte("<compressed archive data>")
 	cleanup := backups.PatchClientFacadeCall(s.client,
 		func(req string, paramsIn interface{}, resp interface{}) error {
 			c.Check(req, gc.Equals, "DownloadDirect")
@@ -30,7 +29,7 @@ func (s *downloadSuite) TestInfo(c *gc.C) {
 			c.Check(p.ID, gc.Equals, "spam")
 
 			if result, ok := resp.(*params.BackupsDownloadDirectResult); ok {
-				result.Data = *archive
+				result.Data = data
 			} else {
 				c.Fatalf("wrong output structure")
 			}
@@ -42,7 +41,7 @@ func (s *downloadSuite) TestInfo(c *gc.C) {
 	resultArchive, err := s.client.Download("spam")
 	c.Assert(err, gc.IsNil)
 
-	data, err := ioutil.ReadAll(resultArchive)
+	resultData, err := ioutil.ReadAll(resultArchive)
 	c.Assert(err, gc.IsNil)
-	c.Check(string(data), gc.Equals, "<compressed archive data>")
+	c.Check(string(resultData), gc.Equals, "<compressed archive data>")
 }
