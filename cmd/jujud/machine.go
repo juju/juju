@@ -724,7 +724,7 @@ func init() {
 	}
 }
 
-// limitLogin is called by the API server for each login attempt.
+// limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrads or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	err := a.limitLoginsDuringRestore(req)

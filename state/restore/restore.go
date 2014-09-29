@@ -352,7 +352,7 @@ func updateAllMachines(privateAddress string, agentConf agentConfig) error {
 	for a := attempt.Start(); a.Next(); {
 		st, err = state.Open(&mongo.MongoInfo{
 			Info: mongo.Info{
-				Addrs:  []string{fmt.Sprintf("localhost:%s", agentConf.statePort),},
+				Addrs:  []string{fmt.Sprintf("localhost:%s", agentConf.statePort)},
 				CACert: caCert,
 			},
 			Tag:      tag,
@@ -466,7 +466,6 @@ func runViaSSH(addr string, script string) error {
 	return nil
 }
 
-
 // Restore extract the content of the given backup file and:
 // * runs mongorestore with the backed up mongo dump
 // * updates and writes configuration files
@@ -542,6 +541,6 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 	if err != nil {
 		return fmt.Errorf("cannot update agents: %v", err)
 	}
-*/
+	*/
 	return nil
 }
