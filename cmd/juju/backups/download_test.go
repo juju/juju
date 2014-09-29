@@ -13,16 +13,14 @@ import (
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/testing"
 )
 
 type downloadSuite struct {
 	BaseBackupsSuite
-	subcommand     *backups.DownloadCommand
-	data           string
-	downloadResult params.BackupsDownloadResult
+	subcommand *backups.DownloadCommand
+	data       string
 }
 
 var _ = gc.Suite(&downloadSuite{})
@@ -32,8 +30,6 @@ func (s *downloadSuite) SetUpTest(c *gc.C) {
 	s.subcommand = &backups.DownloadCommand{}
 
 	s.data = "<compressed archive data>"
-	s.downloadResult.ID = s.metaresult.ID
-	s.downloadResult.Archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
 }
 
 func (s *downloadSuite) TearDownTest(c *gc.C) {
@@ -49,7 +45,7 @@ func (s *downloadSuite) TearDownTest(c *gc.C) {
 func (s *downloadSuite) setSuccess() *fakeAPIClient {
 	s.subcommand.ID = s.metaresult.ID
 	client := s.BaseBackupsSuite.setSuccess()
-	client.downloadResult = &s.downloadResult
+	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
 	return client
 }
 

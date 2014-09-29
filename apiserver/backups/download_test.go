@@ -12,14 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (s *backupsSuite) checkDownloadResult(c *gc.C, result params.BackupsDownloadResult, id string, expectedData []byte) {
-	c.Check(result.ID, gc.Equals, id)
-
-	data, err := ioutil.ReadAll(result.Archive)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(data), gc.Equals, string(expectedData))
-}
-
 func (s *backupsSuite) TestDownloadDirectOkay(c *gc.C) {
 	impl := s.setBackups(c, s.meta, "")
 	buf := bytes.NewBufferString("spamspamspam")
@@ -30,9 +22,8 @@ func (s *backupsSuite) TestDownloadDirectOkay(c *gc.C) {
 	}
 	result, err := s.api.DownloadDirect(args)
 	c.Assert(err, gc.IsNil)
-	defer result.Archive.Close()
 
-	s.checkDownloadResult(c, result, "some-id", expected)
+	c.Check(result.Data.String(), gc.Equals, string(expected))
 }
 
 func (s *backupsSuite) TestDownloadDirectMissingFile(c *gc.C) {

@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
@@ -114,9 +115,9 @@ func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) 
 }
 
 type fakeAPIClient struct {
-	metaresult     *params.BackupsMetadataResult
-	downloadResult *params.BackupsDownloadResult
-	err            error
+	metaresult *params.BackupsMetadataResult
+	archive    io.ReadCloser
+	err        error
 
 	args  []string
 	idArg string
@@ -150,13 +151,13 @@ func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
 	return &result, nil
 }
 
-func (c *fakeAPIClient) Download(id string) (*params.BackupsDownloadResult, error) {
+func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	c.args = append(c.args, "id")
 	c.idArg = id
 	if c.err != nil {
 		return nil, c.err
 	}
-	return c.downloadResult, nil
+	return c.archive, nil
 }
 
 func (c *fakeAPIClient) Remove(id string) error {

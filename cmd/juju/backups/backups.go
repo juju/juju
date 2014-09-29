@@ -57,7 +57,7 @@ type APIClient interface {
 	// List gets all stored metadata.
 	List() (*params.BackupsListResult, error)
 	// Download pulls the backup archive file.
-	Download(id string) (*params.BackupsDownloadResult, error)
+	Download(id string) (io.ReadCloser, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
 }

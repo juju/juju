@@ -4,17 +4,21 @@
 package backups
 
 import (
+	"io"
+	"io/ioutil"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
 )
 
 // Download implements the API method.
-func (c *Client) Download(id string) (*params.BackupsDownloadResult, error) {
-	var result params.BackupsDownloadResult
+func (c *Client) Download(id string) (io.ReadCloser, error) {
+	var result params.BackupsDownloadDirectResult
 	args := params.BackupsDownloadArgs{ID: id}
 	if err := c.facade.FacadeCall("DownloadDirect", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &result, nil
+	archive := ioutil.NopCloser(&result.Data)
+	return archive, nil
 }
