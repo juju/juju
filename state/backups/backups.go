@@ -107,7 +107,7 @@ func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
 
 	meta, ok := rawmeta.(*metadata.Metadata)
 	if !ok {
-		panic("did not get a backup.Metadata value from storage")
+		return nil, errors.New("did not get a backup.Metadata value from storage")
 	}
 
 	return meta, archiveFile, nil
@@ -121,7 +121,10 @@ func (b *backups) List() ([]metadata.Metadata, error) {
 	}
 	result := make([]metadata.Metadata, len(metaList))
 	for i, meta := range metaList {
-		m := meta.(*metadata.Metadata)
+		m, ok := meta.(*metadata.Metadata)
+		if !ok {
+			return nil, errors.New("did not get a backup.Metadata value from storage")
+		}
 		result[i] = *m
 	}
 	return result, nil
