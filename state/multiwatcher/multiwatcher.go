@@ -324,7 +324,14 @@ type entityEntry struct {
 	refCount int
 
 	// info holds the actual information on the entity.
-	info params.EntityInfo
+	info EntityInfo
+}
+
+// EntityInfo is implemented by all entity Info types.
+type EntityInfo interface {
+	// EntityId returns an identifier that will uniquely
+	// identify the entity within its kind
+	EntityId() params.EntityId
 }
 
 // Store holds a list of all entities known
@@ -348,8 +355,8 @@ func NewStore() *Store {
 
 // All returns all the entities stored in the Store,
 // oldest first. It is only exposed for testing purposes.
-func (a *Store) All() []params.EntityInfo {
-	entities := make([]params.EntityInfo, 0, a.list.Len())
+func (a *Store) All() []EntityInfo {
+	entities := make([]EntityInfo, 0, a.list.Len())
 	for e := a.list.Front(); e != nil; e = e.Next() {
 		entry := e.Value.(*entityEntry)
 		if entry.removed {
@@ -362,7 +369,7 @@ func (a *Store) All() []params.EntityInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *Store) add(id interface{}, info params.EntityInfo) {
+func (a *Store) add(id interface{}, info EntityInfo) {
 	if a.entities[id] != nil {
 		panic("adding new entry with duplicate id")
 	}
@@ -427,7 +434,7 @@ func (a *Store) Remove(id params.EntityId) {
 }
 
 // Update updates the information for the given entity.
-func (a *Store) Update(info params.EntityInfo) {
+func (a *Store) Update(info EntityInfo) {
 	id := info.EntityId()
 	elem := a.entities[id]
 	if elem == nil {
@@ -450,7 +457,7 @@ func (a *Store) Update(info params.EntityInfo) {
 // Get returns the stored entity with the given
 // id, or nil if none was found. The contents of the returned entity
 // should not be changed.
-func (a *Store) Get(id params.EntityId) params.EntityInfo {
+func (a *Store) Get(id params.EntityId) EntityInfo {
 	if e := a.entities[id]; e != nil {
 		return e.Value.(*entityEntry).info
 	}
