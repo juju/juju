@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"bytes"
 	"io"
 	"io/ioutil"
 
@@ -19,6 +20,6 @@ func (c *Client) Download(id string) (io.ReadCloser, error) {
 	if err := c.facade.FacadeCall("DownloadDirect", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
-	archive := ioutil.NopCloser(&result.Data)
+	archive := ioutil.NopCloser(bytes.NewBuffer(result.Data))
 	return archive, nil
 }

@@ -23,7 +23,7 @@ func (s *backupsSuite) TestDownloadDirectOkay(c *gc.C) {
 	result, err := s.api.DownloadDirect(args)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(result.Data.String(), gc.Equals, string(expected))
+	c.Check(string(result.Data), gc.Equals, string(expected))
 }
 
 func (s *backupsSuite) TestDownloadDirectMissingFile(c *gc.C) {

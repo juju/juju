@@ -4,6 +4,8 @@
 package backups
 
 import (
+	"bytes"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/params"
@@ -22,10 +24,12 @@ func (b *API) DownloadDirect(args params.BackupsDownloadArgs) (params.BackupsDow
 		return result, errors.Errorf("backup for %q missing archive", args.ID)
 	}
 
-	_, err = result.Data.ReadFrom(archive)
+	var data bytes.Buffer
+	_, err = data.ReadFrom(archive)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
+	result.Data = data.Bytes()
 
 	return result, nil
 }

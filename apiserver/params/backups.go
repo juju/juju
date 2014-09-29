@@ -4,7 +4,6 @@
 package params
 
 import (
-	"bytes"
 	"time"
 
 	"github.com/juju/juju/state/backups/metadata"
@@ -85,5 +84,5 @@ func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 
 // BackupsDownloadResult holds the requested backup archive file.
 type BackupsDownloadDirectResult struct {
-	Data bytes.Buffer
+	Data []byte
 }
