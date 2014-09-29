@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -37,11 +37,11 @@ type nonActionFailContext struct {
 	jujuc.Context
 }
 
-func (ctx *actionFailContext) SetActionMessage(message string) error {
+func (ctx *nonActionFailContext) SetActionMessage(message string) error {
 	return fmt.Errorf("not running an action")
 }
 
-func (ctx *actionFailContext) SetActionFailed() error {
+func (ctx *nonActionFailContext) SetActionFailed() error {
 	return fmt.Errorf("not running an action")
 }
 
@@ -59,12 +59,12 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 		summary: "no parameters sets a default message",
 		command: []string{},
 		message: "action failed without reason given, check action for errors",
-		status:  true,
+		failed:  true,
 	}, {
 		summary: "a message sent is set as the failure reason",
 		command: []string{"a failure message"},
 		message: "a failure message",
-		status:  true,
+		failed:  true,
 	}, {
 		summary: "extra arguments are an error, leaving the action not failed",
 		command: []string{"a failure message", "something else"},
@@ -82,7 +82,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 		c.Check(code, gc.Equals, t.code)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
 		c.Check(hctx.actionMessage, gc.Equals, t.message)
-		c.Check(hctx.actionStatus, gc.Equals, t.status)
+		c.Check(hctx.actionFailed, gc.Equals, t.failed)
 	}
 }
 
@@ -91,9 +91,9 @@ func (s *ActionFailSuite) TestNonActionSetActionFailedFails(c *gc.C) {
 	com, err := jujuc.NewCommand(hctx, "action-fail")
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
-	code := cmd.Main(com, ctx, "oops")
+	code := cmd.Main(com, ctx, []string{"oops"})
 	c.Check(code, gc.Equals, 1)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "sum ting wong")
+	c.Check(bufferString(ctx.Stderr), gc.Equals, "error: not running an action\n")
 	c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 }
 

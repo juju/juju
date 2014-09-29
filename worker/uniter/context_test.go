@@ -26,9 +26,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/params"
-	apiuniter "github.com/juju/juju/state/api/uniter"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -819,7 +816,7 @@ func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed()
 	c.Check(err, gc.ErrorMatches, "not running an action")
-	err = ctx.SetActionMessage()
+	err = ctx.SetActionMessage("foo")
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
 	c.Check(err, gc.ErrorMatches, "not running an action")

@@ -235,20 +235,6 @@ func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	return nil
 }
 
-// SetActionFailed sets the state of the action to "fail" and sets the results
-// message to the string argument.  This only causes any change the first time.
-func (ctx *HookContext) SetActionFailed(message string) {
-	ctx.actionResults.Message = message
-	ctx.actionResults.Status = actionStatusFailed
-}
-
-// UpdateActionResults inserts new values for use with action-set and
-// action-fail.  The results struct will be delivered to the state server
-// upon completion of the Action.
-func (ctx *HookContext) UpdateActionResults(keys []string, value string) {
-	addValueToMap(keys, value, ctx.actionResults.Results)
-}
-
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return ctx.Relation(ctx.relationId)
 }
@@ -343,6 +329,8 @@ func (ctx *HookContext) osDependentEnvVars(charmDir, toolsDir string) []string {
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
 func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
+	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
+	// JUJU_ACTION_UUID, ...
 	vars := []string{
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,

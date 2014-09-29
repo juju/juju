@@ -1307,59 +1307,11 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 }
 
 var actionEventTests = []uniterTest{
-	// =======
-	// var actionResults = map[string]struct {
-	// 	results map[string]interface{}
-	// 	message string
-	// 	status  string
-	// 	name    string
-	// }{
-	// 	"snapshot": {
-	// 		results: map[string]interface{}{},
-	// 		status:  "complete",
-	// 		name:    "snapshot",
-	// 	},
-	// 	"action-log": {
-	// 		results: map[string]interface{}{},
-	// 		status:  "complete",
-	// 		name:    "action-log",
-	// 	},
-	// 	"action-log-fail": {
-	// 		results: map[string]interface{}{},
-	// 		message: "I'm afraid I can't let you do that, Dave.",
-	// 		status:  "fail",
-	// 		name:    "action-log-fail",
-	// 	},
-	// 	"action-log-fail-error": {
-	// 		results: map[string]interface{}{},
-	// 		status:  "complete",
-	// 		name:    "action-log-fail-error",
-	// 	},
-	// 	"snapshot-badparams": {
-	// 		results: map[string]interface{}{},
-	// 		status:  "fail",
-	// 		message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
-	// 		name:    "snapshot",
-	// 	},
-	// 	"snapshot-undefined": {
-	// 		results: map[string]interface{}{},
-	// 		status:  "fail",
-	// 		message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
-	// 		name:    "snapshot",
-	// 	},
-	// 	"action-log-missing": {
-	// 		results: map[string]interface{}{},
-	// 		status:  "fail",
-	// 		message: `action failed (not implemented on unit "u/0")`,
-	// 		name:    "action-log",
-	// 	},
-	// }
-	//
 	ut(
 		"simple action event: defined in actions.yaml, no args",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "action-log")
+				ctx.writeAction(c, path, "action-log")
 				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
@@ -1379,12 +1331,11 @@ var actionEventTests = []uniterTest{
 			status:  "complete",
 		}}},
 		waitUnit{status: params.StatusStarted},
-		verifyActionResult{"action-log"},
 	), ut(
 		"action-fail causes the action to fail with a message",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "action-log-fail")
+				ctx.writeAction(c, path, "action-log-fail")
 				ctx.writeActionsYaml(c, path, "action-log-fail")
 			},
 		},
@@ -1398,12 +1349,20 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log-fail", nil},
 		waitHooks{"action-log-fail"},
-		verifyActionResult{"action-log-fail"},
+		verifyActionResults{[]actionResult{{
+			name: "action-log-fail",
+			results: map[string]interface{}{
+				"foo": "still works",
+			},
+			message: "I'm afraid I can't let you do that, Dave.",
+			status:  "fail",
+		}}},
+		waitUnit{status: params.StatusStarted},
 	), ut(
-		"action-fail with the wrong arguments is an error",
+		"action-fail with the wrong arguments fails but is not an error",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "action-log-fail-error")
+				ctx.writeAction(c, path, "action-log-fail-error")
 				ctx.writeActionsYaml(c, path, "action-log-fail-error")
 			},
 		},
@@ -1417,50 +1376,20 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log-fail-error", nil},
 		waitHooks{"action-log-fail-error"},
-		verifyActionResult{"action-log-fail-error"},
-	), ut(
-		"action-fail causes the action to fail with a message",
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "action-log-fail")
-				ctx.writeActionsYaml(c, path, "action-log-fail")
+		verifyActionResults{[]actionResult{{
+			name: "action-log-fail-error",
+			results: map[string]interface{}{
+				"foo": "still works",
 			},
-		},
-		serveCharm{},
-		ensureStateWorker{},
-		createServiceAndUnit{},
-		startUniter{},
-		waitAddresses{},
+			message: "A real message",
+			status:  "fail",
+		}}},
 		waitUnit{status: params.StatusStarted},
-		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
-		addAction{"action-log-fail", nil},
-		waitHooks{"action-log-fail"},
-		verifyActionResults{"action-log-fail"},
-	), ut(
-		"action-fail with the wrong arguments is an error",
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "action-log-fail-error")
-				ctx.writeActionsYaml(c, path, "action-log-fail-error")
-			},
-		},
-		serveCharm{},
-		ensureStateWorker{},
-		createServiceAndUnit{},
-		startUniter{},
-		waitAddresses{},
-		waitUnit{status: params.StatusStarted},
-		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
-		addAction{"action-log-fail-error", nil},
-		waitHooks{"action-log-fail-error"},
-		verifyActionResults{"action-log-fail-error"},
 	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "snapshot")
+				ctx.writeAction(c, path, "snapshot")
 				ctx.writeActionsYaml(c, path, "snapshot")
 			},
 		},
@@ -1496,7 +1425,7 @@ var actionEventTests = []uniterTest{
 		"actions with incorrect params passed are not an error but fail",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "snapshot")
+				ctx.writeAction(c, path, "snapshot")
 				ctx.writeActionsYaml(c, path, "snapshot")
 			},
 		},
@@ -1524,7 +1453,7 @@ var actionEventTests = []uniterTest{
 		"actions not defined in actions.yaml fail without causing a uniter error",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActions(c, path, "snapshot")
+				ctx.writeAction(c, path, "snapshot")
 			},
 		},
 		serveCharm{},
@@ -1599,13 +1528,12 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitNoHooks{"action-log", "fail-action-log"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  "fail",
-				message: `action not implemented on unit "u/0"`,
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "fail",
+			message: `action not implemented on unit "u/0"`,
+		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
@@ -1613,9 +1541,7 @@ var actionEventTests = []uniterTest{
 			badHook: "install",
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeActionsYaml(c, path, []string{
-					"action-log",
-				})
+				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		addAction{"action-log", nil},
@@ -1631,12 +1557,11 @@ var actionEventTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{status: params.StatusStarted},
 		waitHooks{"config-changed", "start", "action-log"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  "complete",
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}}},
 		waitUnit{status: params.StatusStarted},
 	),
 }
@@ -2218,12 +2143,8 @@ type verifyActionResults struct {
 	expectedResults []actionResult
 }
 
-func (s verifyActionResult) step(c *gc.C, ctx *context) {
+func (s verifyActionResults) step(c *gc.C, ctx *context) {
 	timeout := time.After(worstCase)
-	action := s.action
-	expected, ok := actionResults[action]
-	c.Assert(ok, gc.Equals, true)
-	c.Logf("Verifying action %q matches %#v", action, expected)
 	resultsWatcher := ctx.st.WatchActionResults()
 	for {
 		ctx.s.BackingState.StartSync()
@@ -2271,7 +2192,7 @@ findMatch:
 			}
 		}
 		// if we finish the whole thing without finding a match, we failed.
-		c.FailNow()
+		c.Assert(actualIn, jc.DeepEquals, expectIn)
 	}
 
 	c.Assert(matches, gc.Equals, desiredMatches)
