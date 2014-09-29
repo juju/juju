@@ -5,9 +5,12 @@ package backups
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"os"
+	"syscall"
 	"time"
 
 	"github.com/juju/errors"
@@ -184,5 +187,50 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 		Version:     flat.Version,
 	}
 
+	return meta, nil
+}
+
+// BuildMetadata generates the metadata for a file.
+func BuildMetadata(arFile *os.File) (*Metadata, error) {
+
+	// Extract the file size.
+	fi, err := arFile.Stat()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	size := fi.Size()
+
+	// Extract the timestamp.
+	var timestamp *time.Time
+	rawstat := fi.Sys()
+	if rawstat != nil {
+		stat, ok := rawstat.(*syscall.Stat_t)
+		if ok {
+			ts := time.Unix(int64(stat.Ctim.Sec), 0)
+			timestamp = &ts
+		}
+	}
+	if timestamp == nil {
+		// Fall back to modification time.
+		ts := fi.ModTime()
+		timestamp = &ts
+	}
+
+	// Get the checksum.
+	hasher := sha1.New()
+	_, err = io.Copy(hasher, arFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	rawsum := hasher.Sum(nil)
+	checksum := base64.StdEncoding.EncodeToString(rawsum)
+
+	// Build the metadata.
+	meta := NewMetadata()
+	err = meta.MarkComplete(size, checksum)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	meta.Finished = timestamp
 	return meta, nil
 }
