@@ -68,7 +68,7 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
+	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -434,7 +434,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 
 	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRel, err := uniterState.Relation(rel.Tag().String())
+	apiRel, err := uniterState.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)

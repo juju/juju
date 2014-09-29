@@ -95,7 +95,7 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fslock.Lock) *Uniter {
+func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
 		st:       st,
 		dataDir:  dataDir,
@@ -108,7 +108,7 @@ func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fsloc
 	return u
 }
 
-func (u *Uniter) loop(unitTag string) (err error) {
+func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -178,12 +178,8 @@ func (u *Uniter) sockPath(name, prefix string) string {
 	}
 }
 
-func (u *Uniter) init(unitTag string) (err error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return err
-	}
-	u.unit, err = u.st.Unit(tag)
+func (u *Uniter) init(unitTag names.UnitTag) (err error) {
+	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
 	}
@@ -197,20 +193,16 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag)
+	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag.String())
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
-	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag)
+	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag.String())
 	u.relationsDir = filepath.Join(u.baseDir, "state", "relations")
 	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
-	serviceTag, err := names.ParseServiceTag(u.unit.ServiceTag())
-	if err != nil {
-		return err
-	}
-	u.service, err = u.st.Service(serviceTag)
+	u.service, err = u.st.Service(u.unit.ServiceTag())
 	if err != nil {
 		return err
 	}
@@ -360,7 +352,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	if err != nil {
 		return nil, err
 	}
-	ownerTag, err := u.service.GetOwnerTag()
+	ownerTag, err := u.service.OwnerTag()
 	if err != nil {
 		return nil, err
 	}
@@ -673,7 +665,7 @@ func (u *Uniter) currentHookName() string {
 // working around the fact that pre-1.19 (1.18.1?) unit agents don't write a
 // state dir for a relation until a remote unit joins.
 func (u *Uniter) getJoinedRelations() (map[int]*uniter.Relation, error) {
-	var joinedRelationTags []string
+	var joinedRelationTags []names.RelationTag
 	for {
 		var err error
 		joinedRelationTags, err = u.unit.JoinedRelations()

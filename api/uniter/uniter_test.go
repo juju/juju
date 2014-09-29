@@ -4,16 +4,17 @@
 package uniter_test
 
 import (
-	stdtesting "testing"
+	"net/url"
 
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -33,10 +34,6 @@ type uniterSuite struct {
 }
 
 var _ = gc.Suite(&uniterSuite{})
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.setUpTest(c, true)
@@ -100,4 +97,15 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 	ok, err := relUnit.InScope()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ok, gc.Equals, inScope)
+}
+
+func (s *uniterSuite) patchNewState(
+	c *gc.C,
+	patchFunc func(_ base.APICaller, _ names.UnitTag, _ *url.URL) *uniter.State,
+) {
+	s.PatchValue(&uniter.NewState, patchFunc)
+	var err error
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.uniter, gc.NotNil)
 }

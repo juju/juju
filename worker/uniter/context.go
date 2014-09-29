@@ -107,8 +107,8 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// serviceOwner contains the owner of the service.
-	serviceOwner string
+	// serviceOwner contains the user tag of the service owner.
+	serviceOwner names.UserTag
 
 	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
@@ -133,7 +133,7 @@ func NewHookContext(
 	remoteUnitName string,
 	relations map[int]*ContextRelation,
 	apiAddrs []string,
-	serviceOwner string,
+	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
 	actionData *actionData,
@@ -199,7 +199,7 @@ func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error 
 }
 
 func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner
+	return ctx.serviceOwner.String()
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {

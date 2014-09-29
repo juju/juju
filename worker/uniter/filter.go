@@ -102,7 +102,7 @@ type filter struct {
 
 // newFilter returns a filter that handles state changes pertaining to the
 // supplied unit.
-func newFilter(st *uniter.State, unitTag string) (*filter, error) {
+func newFilter(st *uniter.State, unitTag names.UnitTag) (*filter, error) {
 	f := &filter{
 		st:                st,
 		outUnitDying:      make(chan struct{}),
@@ -270,18 +270,14 @@ func (f *filter) maybeStopWatcher(w watcher.Stopper) {
 	}
 }
 
-func (f *filter) loop(unitTag string) (err error) {
+func (f *filter) loop(unitTag names.UnitTag) (err error) {
 	// TODO(dfc) named return value is a time bomb
 	defer func() {
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			err = worker.ErrTerminateAgent
 		}
 	}()
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return err
-	}
-	if f.unit, err = f.st.Unit(tag); err != nil {
+	if f.unit, err = f.st.Unit(unitTag); err != nil {
 		return err
 	}
 	if err = f.unitChanged(); err != nil {
@@ -421,7 +417,7 @@ func (f *filter) loop(unitTag string) (err error) {
 			}
 			var ids []int
 			for _, key := range keys {
-				relationTag := names.NewRelationTag(key).String()
+				relationTag := names.NewRelationTag(key)
 				rel, err := f.st.Relation(relationTag)
 				if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 					// If it's actually gone, this unit cannot have entered

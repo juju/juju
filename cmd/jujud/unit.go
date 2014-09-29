@@ -124,7 +124,11 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return uniter.NewUniter(uniterFacade, entity.Tag(), dataDir, hookLock), nil
+		unitTag, err := names.ParseUnitTag(entity.Tag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		uniterFacade, err := st.Uniter()

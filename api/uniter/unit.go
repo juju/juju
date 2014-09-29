@@ -18,13 +18,13 @@ import (
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
 	st   *State
-	tag  names.Tag
+	tag  names.UnitTag
 	life params.Life
 }
 
 // Tag returns the unit's tag.
-func (u *Unit) Tag() string {
-	return u.tag.String()
+func (u *Unit) Tag() names.UnitTag {
+	return u.tag
 }
 
 // Name returns the name of the unit.
@@ -104,10 +104,9 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	serviceTag := names.NewServiceTag(u.ServiceName())
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag,
+		tag: u.ServiceTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -147,8 +146,8 @@ func (u *Unit) ServiceName() string {
 }
 
 // ServiceTag returns the service tag.
-func (u *Unit) ServiceTag() string {
-	return names.NewServiceTag(u.ServiceName()).String()
+func (u *Unit) ServiceTag() names.ServiceTag {
+	return names.NewServiceTag(u.ServiceName())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -202,6 +201,32 @@ func (u *Unit) Resolved() (params.ResolvedMode, error) {
 		return "", result.Error
 	}
 	return result.Mode, nil
+}
+
+// AssignedMachine returns the unit's assigned machine tag or an error
+// satisfying params.IsCodeNotAssigned when the unit has no assigned
+// machine..
+func (u *Unit) AssignedMachine() (names.MachineTag, error) {
+	if u.st.BestAPIVersion() < 1 {
+		return names.MachineTag{}, errors.NotImplementedf("unit.AssignedMachine() (need V1+)")
+	}
+	var invalidTag names.MachineTag
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("AssignedMachine", args, &results)
+	if err != nil {
+		return invalidTag, err
+	}
+	if len(results.Results) != 1 {
+		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return invalidTag, result.Error
+	}
+	return names.ParseMachineTag(result.Result)
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
@@ -515,7 +540,7 @@ func (u *Unit) WatchActions() (watcher.StringsWatcher, error) {
 }
 
 // JoinedRelations returns the tags of the relations the unit has joined.
-func (u *Unit) JoinedRelations() ([]string, error) {
+func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -531,7 +556,15 @@ func (u *Unit) JoinedRelations() ([]string, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return result.Result, nil
+	var relTags []names.RelationTag
+	for _, rel := range result.Result {
+		tag, err := names.ParseRelationTag(rel)
+		if err != nil {
+			return nil, err
+		}
+		relTags = append(relTags, tag)
+	}
+	return relTags, nil
 }
 
 // MeterStatus returns the meter status of the unit.
