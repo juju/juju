@@ -183,7 +183,7 @@ var StoreChangeMethodTests = []struct {
 	change: func(all *Store) {
 		m := &MachineInfo{Id: "0"}
 		all.Update(m)
-		id := m.EntityId()
+		id := m.EntityId().(EntityId)
 		entry := all.entities[id].Value.(*entityEntry)
 		entry.refCount++
 		all.Remove(id)
@@ -236,7 +236,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 
 	// Remove another machine and check we see it's removed.
 	m0 := &MachineInfo{Id: "0"}
-	a.Remove(m0.EntityId())
+	a.Remove(m0.EntityId().(EntityId))
 
 	// Check that something that never saw m0 does not get
 	// informed of its removal (even those the removed entity
@@ -265,7 +265,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 	m := &MachineInfo{Id: "0"}
 	a.Update(m)
 
-	c.Assert(a.Get(m.EntityId()), gc.Equals, m)
+	c.Assert(a.Get(m.EntityId().(EntityId)), gc.Equals, m)
 	c.Assert(a.Get(params.NewEntityId("machine", "1")), gc.IsNil)
 }
 
@@ -885,7 +885,7 @@ func (b *storeManagerTestBacking) GetAll(all *Store) error {
 func (b *storeManagerTestBacking) updateEntity(info EntityInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	id := info.EntityId()
+	id := info.EntityId().(EntityId)
 	b.entities[id] = info
 	b.txnRevno++
 	if b.watchc != nil {
@@ -922,7 +922,7 @@ type MachineInfo struct {
 	InstanceId string
 }
 
-func (i *MachineInfo) EntityId() params.EntityId {
+func (i *MachineInfo) EntityId() interface{} {
 	return params.NewEntityId("machine", i.Id)
 }
 
@@ -931,6 +931,6 @@ type ServiceInfo struct {
 	Exposed bool
 }
 
-func (i *ServiceInfo) EntityId() params.EntityId {
+func (i *ServiceInfo) EntityId() interface{} {
 	return params.NewEntityId("service", i.Name)
 }

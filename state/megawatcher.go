@@ -37,7 +37,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		SupportedContainersKnown: m.SupportedContainersKnown,
 	}
 
-	oldInfo := store.Get(info.EntityId())
+	oldInfo := store.Get(info.EntityId().(multiwatcher.EntityId))
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated machine status.
@@ -93,7 +93,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
 	}
-	oldInfo := store.Get(info.EntityId())
+	oldInfo := store.Get(info.EntityId().(multiwatcher.EntityId))
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status.
@@ -159,7 +159,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		MinUnits:    svc.MinUnits,
 		Subordinate: svc.Subordinate,
 	}
-	oldInfo := store.Get(info.EntityId())
+	oldInfo := store.Get(info.EntityId().(multiwatcher.EntityId))
 	needConfig := false
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
@@ -385,7 +385,7 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 	if i == -1 {
 		return nil, "", false
 	}
-	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId()
+	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId().(params.EntityId)
 	extra = key[i+1:]
 	ok = true
 	return
@@ -400,11 +400,11 @@ func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 	id := key[2:]
 	switch key[0] {
 	case 'm':
-		return (&params.MachineInfo{Id: id}).EntityId(), true
+		return (&params.MachineInfo{Id: id}).EntityId().(params.EntityId), true
 	case 'u':
-		return (&params.UnitInfo{Name: id}).EntityId(), true
+		return (&params.UnitInfo{Name: id}).EntityId().(params.EntityId), true
 	case 's':
-		return (&params.ServiceInfo{Name: id}).EntityId(), true
+		return (&params.ServiceInfo{Name: id}).EntityId().(params.EntityId), true
 	default:
 		return nil, false
 	}

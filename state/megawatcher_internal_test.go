@@ -1095,7 +1095,7 @@ type entityInfoSlice []multiwatcher.EntityInfo
 func (s entityInfoSlice) Len() int      { return len(s) }
 func (s entityInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
 func (s entityInfoSlice) Less(i, j int) bool {
-	id0, id1 := s[i].EntityId(), s[j].EntityId()
+	id0, id1 := s[i].EntityId().(multiwatcher.EntityId), s[j].EntityId().(multiwatcher.EntityId)
 	if id0.Kind() != id1.Kind() {
 		return id0.Kind() < id1.Kind()
 	}

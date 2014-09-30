@@ -392,7 +392,7 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	if d.Removed {
 		c = "remove"
 	}
-	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().Kind(), c)
+	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().(EntityId).Kind(), c)
 	buf.Write(b)
 	buf.WriteByte(']')
 	return buf.Bytes(), nil
@@ -445,7 +445,7 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
 	// identify the entity within its kind
-	EntityId() EntityId
+	EntityId() interface{}
 }
 
 // IMPORTANT NOTE: the types below are direct subsets of the entity docs
@@ -534,7 +534,7 @@ type MachineInfo struct {
 	Addresses                []network.Address
 }
 
-func (i *MachineInfo) EntityId() EntityId {
+func (i *MachineInfo) EntityId() interface{} {
 	return NewEntityId("machine", i.Id)
 }
 
@@ -550,7 +550,7 @@ type ServiceInfo struct {
 	Subordinate bool
 }
 
-func (i *ServiceInfo) EntityId() EntityId {
+func (i *ServiceInfo) EntityId() interface{} {
 	return NewEntityId("service", i.Name)
 }
 
@@ -569,7 +569,7 @@ type UnitInfo struct {
 	Subordinate    bool
 }
 
-func (i *UnitInfo) EntityId() EntityId {
+func (i *UnitInfo) EntityId() interface{} {
 	return NewEntityId("unit", i.Name)
 }
 
@@ -584,7 +584,7 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityId() EntityId {
+func (i *RelationInfo) EntityId() interface{} {
 	return NewEntityId("relation", i.Key)
 }
 
@@ -593,7 +593,7 @@ type AnnotationInfo struct {
 	Annotations map[string]string
 }
 
-func (i *AnnotationInfo) EntityId() EntityId {
+func (i *AnnotationInfo) EntityId() interface{} {
 	return NewEntityId("annotation", i.Tag)
 }
 
