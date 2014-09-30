@@ -14,11 +14,6 @@ import (
 	"github.com/juju/juju/state/backups/metadata"
 )
 
-type archivable interface {
-	// Add the file to the tar archive.
-	AddToArchive(archive *tar.Writer) error
-}
-
 // File represents a file during testing.
 type File struct {
 	Name    string
@@ -40,7 +35,7 @@ func (f *File) AddToArchive(archive *tar.Writer) error {
 	return nil
 }
 
-func writeToTar(archive io.Writer, files ...archivable) error {
+func writeToTar(archive io.Writer, files []File) error {
 	tarw := tar.NewWriter(archive)
 	defer tarw.Close()
 
@@ -55,7 +50,7 @@ func writeToTar(archive io.Writer, files ...archivable) error {
 // NewArchive returns a new archive file containing the files.
 func NewArchive(meta *metadata.Metadata, files, dump []File) (*bytes.Buffer, error) {
 	var rootFile bytes.Buffer
-	if err := writeToTar(&rootFile, files...); err != nil {
+	if err := writeToTar(&rootFile, files); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -78,7 +73,7 @@ func NewArchive(meta *metadata.Metadata, files, dump []File) (*bytes.Buffer, err
 	var arFile bytes.Buffer
 	compressed := gzip.NewWriter(&arFile)
 	defer compressed.Close()
-	if err := writeToTar(compressed, topfiles...); err != nil {
+	if err := writeToTar(compressed, topfiles); err != nil {
 		return nil, errors.Trace(err)
 	}
 
