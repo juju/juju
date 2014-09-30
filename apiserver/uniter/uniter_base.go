@@ -715,7 +715,13 @@ func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResult
 	}
 
 	for i, arg := range args.Entities {
-		action, err := actionFn(arg.Tag)
+		actionTag, err := names.ParseActionTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		action, err := actionFn(actionTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -1373,7 +1379,7 @@ func (u *uniterBaseAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitT
 // authAndActionFromTagFn first authenticates the request, and then returns
 // a function with which to authenticate and retrieve each action in the
 // request.
-func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, error), error) {
+func (u *uniterBaseAPI) authAndActionFromTagFn() (func(names.ActionTag) (*state.Action, error), error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return nil, err
@@ -1383,13 +1389,8 @@ func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, e
 		return nil, fmt.Errorf("calling entity is not a unit")
 	}
 
-	return func(tag string) (*state.Action, error) {
-		actionTag, err := names.ParseActionTag(tag)
-		if err != nil {
-			return nil, err
-		}
-
-		unitTag := actionTag.PrefixTag()
+	return func(tag names.ActionTag) (*state.Action, error) {
+		unitTag := tag.PrefixTag()
 		if unitTag != unit {
 			return nil, common.ErrPerm
 		}
@@ -1398,7 +1399,7 @@ func (u *uniterBaseAPI) authAndActionFromTagFn() (func(string) (*state.Action, e
 			return nil, common.ErrPerm
 		}
 
-		return u.st.ActionByTag(actionTag)
+		return u.st.ActionByTag(tag)
 	}, nil
 }
 

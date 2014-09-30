@@ -30,9 +30,9 @@ func (c *Client) Enqueue(arg params.Actions) (params.ErrorResults, error) {
 
 // ListAll takes a list of Entities and returns all of the Actions that have been queued
 // or run by that Entity.
-func (c *Client) ListAll(arg params.Entities) (params.Actions, error) {
+func (c *Client) ListAll(arg params.Tags) (params.ActionsByTag, error) {
 	// TODO(jcw4) implement this fully
-	results := params.Actions{}
+	results := params.ActionsByTag{}
 	err := c.facade.FacadeCall("ListAll", arg, &results)
 	return results, err
 }

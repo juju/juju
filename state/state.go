@@ -1642,6 +1642,11 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	return newActionResult(st, doc), nil
 }
 
+// ActionResultByTag returns an ActionResult given an ActionTag
+func (st *State) ActionResultByTag(tag names.ActionTag) (*ActionResult, error) {
+	return st.ActionResult(actionResultIdFromTag(tag))
+}
+
 // matchingActionResults finds action results from a given ActionReceiver.
 func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, error) {
 	var doc actionResultDoc
