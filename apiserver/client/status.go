@@ -537,7 +537,8 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) (status api.UnitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
-	for _, port := range unit.OpenedPorts() {
+	unitPorts, _ := unit.OpenedPorts()
+	for _, port := range unitPorts {
 		status.OpenedPorts = append(status.OpenedPorts, port.String())
 	}
 	if unit.IsPrincipal() {

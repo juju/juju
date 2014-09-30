@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc
@@ -27,20 +27,25 @@ type Context interface {
 	// PrivateAddress returns the executing unit's private address.
 	PrivateAddress() (string, bool)
 
-	// OpenPort marks the supplied port for opening when the executing unit's
-	// service is exposed.
-	OpenPort(protocol string, port int) error
+	// OpenPorst marks the supplied port range for opening when the
+	// executing unit's service is exposed.
+	OpenPorts(protocol string, fromPort, toPort int) error
 
-	// ClosePort ensures the supplied port is closed even when the executing
-	// unit's service is exposed (unless it is opened separately by a co-
-	// located unit).
-	ClosePort(protocol string, port int) error
+	// ClosePorts ensures the supplied port range is closed even when
+	// the executing unit's service is exposed (unless it is opened
+	// separately by a co- located unit).
+	ClosePorts(protocol string, fromPort, toPort int) error
 
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
 	// ActionParams returns the map of params passed with an Action.
-	ActionParams() map[string]interface{}
+	ActionParams() (map[string]interface{}, error)
+
+	// UpdateActionResults inserts new values for use with action-set.
+	// The results struct will be delivered to the state server upon
+	// completion of the Action.
+	UpdateActionResults(keys []string, value string) error
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.

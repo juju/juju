@@ -250,7 +250,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 // handleBootstrapError is called to clean up if bootstrap fails.
 func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
-	logger.Errorf("bootstrap failed: %v", err)
 	ch := make(chan os.Signal, 1)
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)

@@ -29,10 +29,11 @@ func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 	return result.archiveFile, result.size, result.checksum
 }
 
-func NewTestCreateArgs(filesToBackUp []string, db db.Dumper) *createArgs {
+func NewTestCreateArgs(filesToBackUp []string, db db.Dumper, mfile io.Reader) *createArgs {
 	args := createArgs{
 		filesToBackUp: filesToBackUp,
 		db:            db,
+		metadataFile:  mfile,
 	}
 	return &args
 }

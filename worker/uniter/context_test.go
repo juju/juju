@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -800,11 +800,74 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
+	context, err := uniter.NewHookContext(s.apiUnit, nil, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies, map[string]interface{}(nil), addMetrics)
+		proxies, addMetrics, nil)
 	c.Assert(err, gc.IsNil)
 	return context
+}
+
+// TestNonActionCallsToActionMethodsFail does exactly what its name says:
+// it simply makes sure that Action-related calls to HookContexts with a nil
+// actionData member error out correctly.
+func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
+	ctx := uniter.HookContext{}
+	_, err := ctx.ActionParams()
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.SetActionFailed("oops")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+}
+
+// TestUpdateActionResults demonstrates that UpdateActionResults functions
+// as expected.
+func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
+	tests := []struct {
+		initial  map[string]interface{}
+		keys     []string
+		value    string
+		expected map[string]interface{}
+	}{{
+		initial: map[string]interface{}{},
+		keys:    []string{"foo"},
+		value:   "bar",
+		expected: map[string]interface{}{
+			"foo": "bar",
+		},
+	}, {
+		initial: map[string]interface{}{
+			"foo": "bar",
+		},
+		keys:  []string{"foo", "bar"},
+		value: "baz",
+		expected: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
+			},
+		},
+	}, {
+		initial: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
+			},
+		},
+		keys:  []string{"foo"},
+		value: "bar",
+		expected: map[string]interface{}{
+			"foo": "bar",
+		},
+	}}
+
+	for i, t := range tests {
+		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
+		hctx := uniter.GetStubActionContext(t.initial)
+		err := hctx.UpdateActionResults(t.keys, t.value)
+		c.Assert(err, gc.IsNil)
+		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
+	}
 }
 
 func convertSettings(settings params.RelationSettings) map[string]interface{} {

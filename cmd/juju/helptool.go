@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -16,7 +16,7 @@ import (
 
 // dummyHookContext implements jujuc.Context,
 // as expected by jujuc.NewCommand.
-type dummyHookContext struct{}
+type dummyHookContext struct{ jujuc.Context }
 
 func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 	return nil
@@ -38,9 +38,6 @@ func (dummyHookContext) ClosePort(protocol string, port int) error {
 }
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
-}
-func (dummyHookContext) ActionParams() map[string]interface{} {
-	return nil
 }
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false

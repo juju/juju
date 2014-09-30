@@ -11,7 +11,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -108,105 +107,4 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	networks, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(networks, gc.HasLen, 0)
-}
-
-// Check if ports stored on the unit are displayed.
-func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	owner := s.env.Owner()
-	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
-	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
-
-	// Add old-style ports to unit.
-	port := network.Port{Protocol: "tcp", Number: 80}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-
-	ports := unit.OpenedPorts()
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 80}})
-}
-
-// Check if opening ports on a unit with ports stored in the unit doc works.
-func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	owner := s.env.Owner()
-	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
-	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
-
-	// Add old-style ports to unit.
-	port := network.Port{Protocol: "tcp", Number: 80}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-
-	// Port conflicts should be ignored, OpenPort should not return an error here.
-	err = unit.OpenPort("tcp", 80)
-	c.Assert(err, gc.IsNil)
-
-	err = unit.OpenPort("tcp", 8080)
-	c.Assert(err, gc.IsNil)
-
-	ports := unit.OpenedPorts()
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 80}, {"tcp", 8080}})
-}
-
-// Check if closing ports on a unit with ports stored in the unit doc works.
-func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	owner := s.env.Owner()
-	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
-	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
-
-	// Add old-style ports to unit.
-	port := network.Port{Protocol: "tcp", Number: 80}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-
-	// Check if closing an unopened port works
-	err = unit.ClosePort("tcp", 8080)
-	c.Assert(err, gc.IsNil)
-
-	err = unit.ClosePort("tcp", 80)
-	c.Assert(err, gc.IsNil)
-
-	ports := unit.OpenedPorts()
-	c.Assert(ports, gc.DeepEquals, []network.Port{})
 }

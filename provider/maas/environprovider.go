@@ -5,9 +5,11 @@ package maas
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -53,7 +55,26 @@ func (p maasEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.
 	if err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	env, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyCredentials(env.(*maasEnviron)); err != nil {
+		return nil, err
+	}
+	return env, nil
+}
+
+func verifyCredentials(env *maasEnviron) error {
+	// Verify we can connect to the server and authenticate.
+	_, err := env.getMAASClient().GetSubObject("maas").CallGet("get_config", nil)
+	if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusUnauthorized {
+		logger.Debugf("authentication failed: %v", err)
+		return errors.New(`authentication failed.
+
+Please ensure the credentials are correct.`)
+	}
+	return nil
 }
 
 // Boilerplate config YAML.  Don't mess with the indentation or add newlines!

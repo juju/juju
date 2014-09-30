@@ -66,6 +66,7 @@ func (r *adminApiV0) Admin(id string) (*adminV0, error) {
 var UpgradeInProgressError = errors.New("upgrade in progress")
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
+var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
 // Login logs in with the provided credentials.  All subsequent requests on the
@@ -119,7 +120,7 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
-			return fail, errors.Trace(err)
+			return fail, errors.Wrap(err, MaintenanceNoLoginError)
 		}
 	}
 

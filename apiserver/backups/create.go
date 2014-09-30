@@ -20,7 +20,7 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	machine := "0" // We *could* pull this from state.
 	origin := state.NewBackupsOrigin(a.st, machine)
 
-	meta, err := a.backups.Create(*dbInfo, *origin, args.Notes)
+	meta, err := a.backups.Create(a.paths, *dbInfo, *origin, args.Notes)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

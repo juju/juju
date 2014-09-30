@@ -37,7 +37,13 @@ type Backups interface {
 
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
-	Create(dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
+	Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
+	// Get returns the metadata and archive file associated with the ID.
+	Get(id string) (*metadata.Metadata, io.ReadCloser, error)
+	// List returns the metadata for all stored backups.
+	List() ([]metadata.Metadata, error)
+	// Remove deletes the backup from storage.
+	Remove(id string) error
 }
 
 type backups struct {
@@ -55,33 +61,77 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *backups) Create(dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
+func (b *backups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
 
 	// Prep the metadata.
 	meta := metadata.NewMetadata(origin, notes, nil)
+	metadataFile, err := meta.AsJSONBuffer() // ...unfinished.
+	if err != nil {
+		return nil, errors.Annotate(err, "while preparing the metadata")
+	}
 
 	// Create the archive.
-	filesToBackUp, err := getFilesToBackUp("")
+	filesToBackUp, err := getFilesToBackUp("", paths)
 	if err != nil {
 		return nil, errors.Annotate(err, "while listing files to back up")
 	}
 	dumper := getDBDumper(dbInfo)
-	args := createArgs{filesToBackUp, dumper}
+	args := createArgs{filesToBackUp, dumper, metadataFile}
 	result, err := runCreate(&args)
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating backup archive")
 	}
 	defer result.archiveFile.Close()
 
-	// Store the archive.
+	// Finalize the metadata.
 	err = finishMeta(meta, result)
 	if err != nil {
 		return nil, errors.Annotate(err, "while updating metadata")
 	}
+
+	// Store the archive.
 	err = storeArchive(b.storage, meta, result.archiveFile)
 	if err != nil {
 		return nil, errors.Annotate(err, "while storing backup archive")
 	}
 
 	return meta, nil
+}
+
+// Get returns the metadata and archive file associated with the ID.
+func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
+	rawmeta, archiveFile, err := b.storage.Get(id)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	meta, ok := rawmeta.(*metadata.Metadata)
+	if !ok {
+		return nil, nil, errors.New("did not get a backups.Metadata value from storage")
+	}
+
+	return meta, archiveFile, nil
+}
+
+// List returns the metadata for all stored backups.
+func (b *backups) List() ([]metadata.Metadata, error) {
+	metaList, err := b.storage.List()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]metadata.Metadata, len(metaList))
+	for i, meta := range metaList {
+		m, ok := meta.(*metadata.Metadata)
+		if !ok {
+			msg := "expected backups.Metadata value from storage for %q, got %T"
+			return nil, errors.Errorf(msg, meta.ID(), meta)
+		}
+		result[i] = *m
+	}
+	return result, nil
+}
+
+// Remove deletes the backup from storage.
+func (b *backups) Remove(id string) error {
+	return errors.Trace(b.storage.Remove(id))
 }

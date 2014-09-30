@@ -103,13 +103,13 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit1.Name(),
 			Protocol: "TCP",
 		},
-		expected: "mismatched port ranges: port ranges 100-200/tcp \\(wordpress/0\\) and 100-150/tcp \\(wordpress/0\\) conflict",
+		expected: `cannot close ports 100-150/tcp \("wordpress/0"\): port ranges 100-200/tcp \("wordpress/0"\) and 100-150/tcp \("wordpress/0"\) conflict`,
 	}, {
 		about: "close an unopened port range with existing clash from other unit",
 		existing: []state.PortRange{{
 			FromPort: 100,
 			ToPort:   150,
-			UnitName: s.unit1.Name(),
+			UnitName: s.unit2.Name(),
 			Protocol: "TCP",
 		}},
 		open: nil,
@@ -119,6 +119,22 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit1.Name(),
 			Protocol: "TCP",
 		},
+		expected: "",
+	}, {
+		about: "open twice the same port range",
+		existing: []state.PortRange{{
+			FromPort: 100,
+			ToPort:   150,
+			UnitName: s.unit1.Name(),
+			Protocol: "TCP",
+		}},
+		open: &state.PortRange{
+			FromPort: 100,
+			ToPort:   150,
+			UnitName: s.unit1.Name(),
+			Protocol: "TCP",
+		},
+		close:    nil,
 		expected: "",
 	}, {
 		about:    "close an unopened port range",
@@ -146,7 +162,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit1.Name(),
 			Protocol: "TCP",
 		},
-		expected: "mismatched port ranges: port ranges 100-200/tcp \\(wordpress/0\\) and 100-300/tcp \\(wordpress/0\\) conflict",
+		expected: `cannot close ports 100-300/tcp \("wordpress/0"\): port ranges 100-200/tcp \("wordpress/0"\) and 100-300/tcp \("wordpress/0"\) conflict`,
 	}, {
 		about: "try to open an overlapping port range with different unit",
 		existing: []state.PortRange{{
@@ -161,7 +177,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit2.Name(),
 			Protocol: "TCP",
 		},
-		expected: "cannot open ports 100-300/tcp on machine 0: port ranges 100-200/tcp \\(wordpress/0\\) and 100-300/tcp \\(wordpress/1\\) conflict",
+		expected: `cannot open ports 100-300/tcp \("wordpress/1"\): port ranges 100-200/tcp \("wordpress/0"\) and 100-300/tcp \("wordpress/1"\) conflict`,
 	}, {
 		about: "try to open an identical port range with different unit",
 		existing: []state.PortRange{{
@@ -176,7 +192,7 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 			UnitName: s.unit2.Name(),
 			Protocol: "TCP",
 		},
-		expected: "cannot open ports 100-200/tcp on machine 0: port ranges 100-200/tcp \\(wordpress/0\\) and 100-200/tcp \\(wordpress/1\\) conflict",
+		expected: `cannot open ports 100-200/tcp \("wordpress/1"\): port ranges 100-200/tcp \("wordpress/0"\) and 100-200/tcp \("wordpress/1"\) conflict`,
 	}, {
 		about: "try to open a port range with different protocol with different unit",
 		existing: []state.PortRange{{
@@ -274,7 +290,7 @@ func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
 		Protocol: "TCP",
 	}
 	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.ErrorMatches, "invalid port range .*")
+	c.Assert(err, gc.ErrorMatches, `cannot open ports 400-200/tcp \("wordpress/0"\): invalid port range 400-200`)
 }
 
 func (s *PortsDocSuite) TestCloseInvalidRange(c *gc.C) {
@@ -295,7 +311,7 @@ func (s *PortsDocSuite) TestCloseInvalidRange(c *gc.C) {
 		UnitName: s.unit1.Name(),
 		Protocol: "TCP",
 	})
-	c.Assert(err, gc.ErrorMatches, "mismatched port ranges: port ranges 100-200/tcp \\(wordpress/0\\) and 150-200/tcp \\(wordpress/0\\) conflict")
+	c.Assert(err, gc.ErrorMatches, `cannot close ports 150-200/tcp \("wordpress/0"\): port ranges 100-200/tcp \("wordpress/0"\) and 150-200/tcp \("wordpress/0"\) conflict`)
 }
 
 func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
@@ -323,7 +339,7 @@ func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 	ports, err = state.GetPorts(s.State, s.machine.Id(), network.DefaultPublic)
 	c.Assert(ports, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `ports for machine 0, network "juju-public" not found`)
+	c.Assert(err, gc.ErrorMatches, `ports for machine "0", network "juju-public" not found`)
 }
 
 func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
@@ -360,6 +376,52 @@ func (s *PortsDocSuite) TestWatchPorts(c *gc.C) {
 
 	// Close the port range again, no changes.
 	err = s.ports.ClosePorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Open another range, detect a change.
+	portRange = state.PortRange{
+		FromPort: 999,
+		ToPort:   1999,
+		UnitName: s.unit2.Name(),
+		Protocol: "udp",
+	}
+	err = s.ports.OpenPorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(expectChange)
+	wc.AssertNoChange()
+
+	// Open the same range again, no changes.
+	err = s.ports.OpenPorts(portRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Open another range, detect a change.
+	otherRange := state.PortRange{
+		FromPort: 1,
+		ToPort:   100,
+		UnitName: s.unit1.Name(),
+		Protocol: "tcp",
+	}
+	err = s.ports.OpenPorts(otherRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(expectChange)
+	wc.AssertNoChange()
+
+	// Close the other range, detect a change.
+	err = s.ports.ClosePorts(otherRange)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(expectChange)
+	wc.AssertNoChange()
+
+	// Remove the ports document, detect a change.
+	err = s.ports.Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(expectChange)
+	wc.AssertNoChange()
+
+	// And again - no change.
+	err = s.ports.Remove()
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 }
@@ -501,51 +563,160 @@ func swapProtocol(protocol string) string {
 }
 
 func (p *PortRangeSuite) TestPortRangeString(c *gc.C) {
-	c.Assert(state.PortRange{"wordpress/0", 80, 80, "TCP"}.String(),
+	c.Assert(state.PortRange{"wordpress/42", 80, 80, "TCP"}.String(),
 		gc.Equals,
-		"80-80/tcp")
+		`80-80/tcp ("wordpress/42")`,
+	)
 	c.Assert(state.PortRange{"wordpress/0", 80, 100, "TCP"}.String(),
 		gc.Equals,
-		"80-100/tcp")
+		`80-100/tcp ("wordpress/0")`,
+	)
 }
 
-func (p *PortRangeSuite) TestPortRangeValidity(c *gc.C) {
+func (p *PortRangeSuite) TestPortRangeValidityAndLength(c *gc.C) {
 	testCases := []struct {
-		about    string
-		ports    state.PortRange
-		expected string
+		about        string
+		ports        state.PortRange
+		expectLength int
+		expectedErr  string
 	}{{
 		"single valid port",
 		state.PortRange{"wordpress/0", 80, 80, "tcp"},
+		1,
 		"",
 	}, {
-		"valid port range",
+		"valid tcp port range",
 		state.PortRange{"wordpress/0", 80, 90, "tcp"},
+		11,
 		"",
 	}, {
 		"valid udp port range",
 		state.PortRange{"wordpress/0", 80, 90, "UDP"},
+		11,
 		"",
 	}, {
 		"invalid port range boundaries",
 		state.PortRange{"wordpress/0", 90, 80, "tcp"},
+		0,
 		"invalid port range.*",
 	}, {
 		"invalid protocol",
 		state.PortRange{"wordpress/0", 80, 80, "some protocol"},
+		0,
 		"invalid protocol.*",
 	}, {
 		"invalid unit",
 		state.PortRange{"invalid unit", 80, 80, "tcp"},
+		0,
 		"invalid unit.*",
+	}, {
+		"negative lower bound",
+		state.PortRange{"wordpress/0", -10, 10, "tcp"},
+		0,
+		"port range bounds must be between 1 and 65535.*",
+	}, {
+		"zero lower bound",
+		state.PortRange{"wordpress/0", 0, 10, "tcp"},
+		0,
+		"port range bounds must be between 1 and 65535.*",
+	}, {
+		"negative upper bound",
+		state.PortRange{"wordpress/0", 10, -10, "tcp"},
+		0,
+		"invalid port range.*",
+	}, {
+		"zero upper bound",
+		state.PortRange{"wordpress/0", 10, 0, "tcp"},
+		0,
+		"invalid port range.*",
+	}, {
+		"too large lower bound",
+		state.PortRange{"wordpress/0", 65540, 99999, "tcp"},
+		0,
+		"port range bounds must be between 1 and 65535.*",
+	}, {
+		"too large upper bound",
+		state.PortRange{"wordpress/0", 10, 99999, "tcp"},
+		0,
+		"port range bounds must be between 1 and 65535.*",
+	}, {
+		"longest valid range",
+		state.PortRange{"wordpress/0", 1, 65535, "tcp"},
+		65535,
+		"",
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		if t.expected == "" {
+		c.Check(t.ports.Length(), gc.Equals, t.expectLength)
+		if t.expectedErr == "" {
 			c.Check(t.ports.Validate(), gc.IsNil)
 		} else {
-			c.Check(t.ports.Validate(), gc.ErrorMatches, t.expected)
+			c.Check(t.ports.Validate(), gc.ErrorMatches, t.expectedErr)
 		}
+	}
+}
+
+func (p *PortRangeSuite) TestSanitizeBounds(c *gc.C) {
+	tests := []struct {
+		about  string
+		input  state.PortRange
+		output state.PortRange
+	}{{
+		"valid range",
+		state.PortRange{"", 100, 200, ""},
+		state.PortRange{"", 100, 200, ""},
+	}, {
+		"negative lower bound",
+		state.PortRange{"", -10, 10, ""},
+		state.PortRange{"", 1, 10, ""},
+	}, {
+		"zero lower bound",
+		state.PortRange{"", 0, 10, ""},
+		state.PortRange{"", 1, 10, ""},
+	}, {
+		"negative upper bound",
+		state.PortRange{"", 42, -20, ""},
+		state.PortRange{"", 1, 42, ""},
+	}, {
+		"zero upper bound",
+		state.PortRange{"", 42, 0, ""},
+		state.PortRange{"", 1, 42, ""},
+	}, {
+		"both bounds negative",
+		state.PortRange{"", -10, -20, ""},
+		state.PortRange{"", 1, 1, ""},
+	}, {
+		"both bounds zero",
+		state.PortRange{"", 0, 0, ""},
+		state.PortRange{"", 1, 1, ""},
+	}, {
+		"swapped bounds",
+		state.PortRange{"", 20, 10, ""},
+		state.PortRange{"", 10, 20, ""},
+	}, {
+		"too large upper bound",
+		state.PortRange{"", 20, 99999, ""},
+		state.PortRange{"", 20, 65535, ""},
+	}, {
+		"too large lower bound",
+		state.PortRange{"", 99999, 10, ""},
+		state.PortRange{"", 10, 65535, ""},
+	}, {
+		"both bounds too large",
+		state.PortRange{"", 88888, 99999, ""},
+		state.PortRange{"", 65535, 65535, ""},
+	}, {
+		"lower negative, upper too large",
+		state.PortRange{"", -10, 99999, ""},
+		state.PortRange{"", 1, 65535, ""},
+	}, {
+		"lower zero, upper too large",
+		state.PortRange{"", 0, 99999, ""},
+		state.PortRange{"", 1, 65535, ""},
+	}}
+	for i, t := range tests {
+		c.Logf("test %d: %s", i, t.about)
+		c.Check(t.input.SanitizeBounds(), jc.DeepEquals, t.output)
 	}
 }

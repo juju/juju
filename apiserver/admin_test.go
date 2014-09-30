@@ -623,7 +623,8 @@ func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
 		return errors.New("Login not allowed")
 	}
 	checker := func(c *gc.C, loginErr error, _ *api.State) {
-		c.Assert(loginErr, gc.ErrorMatches, "Login not allowed")
+		// error is wrapped in API server
+		c.Assert(loginErr, gc.ErrorMatches, ".*login failed - maintenance in progress.*")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }
@@ -640,9 +641,26 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 
 		err = st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
-		c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
+		c.Assert(err, gc.ErrorMatches, ".*upgrade in progress - Juju functionality is limited.*")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
+}
+
+func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
+	validator := func(params.LoginRequest) error {
+		return errors.New("something")
+	}
+	info, cleanup := s.setupServerWithValidator(c, validator)
+	defer cleanup()
+
+	checkLogin := func(tag names.Tag) {
+		st := s.openAPIWithoutLogin(c, info)
+		defer st.Close()
+		err := st.Login(tag.String(), "dummy-secret", "nonce")
+		c.Assert(err, gc.ErrorMatches, ".*login failed - maintenance in progress.*")
+	}
+	checkLogin(names.NewUserTag("definitelywontexist"))
+	checkLogin(names.NewMachineTag("99999"))
 }
 
 type validationChecker func(c *gc.C, err error, st *api.State)
@@ -651,15 +669,11 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 	info, cleanup := s.setupServerWithValidator(c, validator)
 	defer cleanup()
 
-	info.Tag = nil
-	info.Password = ""
-
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
 	// Ensure not already logged in.
-	_, err = st.Machiner().Machine(names.NewMachineTag("0"))
+	_, err := st.Machiner().Machine(names.NewMachineTag("0"))
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	adminUser := s.AdminUserTag(c)
@@ -700,6 +714,14 @@ func (s *baseLoginSuite) setupServerWithValidator(c *gc.C, validator apiserver.L
 		err := srv.Stop()
 		c.Assert(err, gc.IsNil)
 	}
+}
+
+func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) *api.State {
+	info.Tag = nil
+	info.Password = ""
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	return st
 }
 
 func (s *loginV0Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
