@@ -7,10 +7,9 @@ import (
 	"errors"
 	"net/http"
 
-	"launchpad.net/gomaasapi"
-
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
