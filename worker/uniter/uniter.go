@@ -534,8 +534,20 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	defer srv.Close()
 
 	if actionParamsErr != nil {
-		hctx.SetActionFailed(actionParamsErr.Error())
+		// If errors come back here, we have a problem; this should
+		// never happen, since errors will only occur if the context
+		// had a nil actionData, and actionData != nil runs this
+		// method.
+		err = hctx.SetActionMessage(actionParamsErr.Error())
+		if err != nil {
+			return err
+		}
+		err = hctx.SetActionFailed()
+		if err != nil {
+			return err
+		}
 	}
+
 	// err will be any unhandled error from finalizeContext.
 	err = hctx.RunAction(actionName, u.charmPath, u.toolsDir, socketPath)
 

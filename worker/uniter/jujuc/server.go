@@ -33,6 +33,7 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"relation-get" + cmdSuffix:  NewRelationGetCommand,
 	"action-get" + cmdSuffix:    NewActionGetCommand,
 	"action-set" + cmdSuffix:    NewActionSetCommand,
+	"action-fail" + cmdSuffix:   NewActionFailCommand,
 	"relation-ids" + cmdSuffix:  NewRelationIdsCommand,
 	"relation-list" + cmdSuffix: NewRelationListCommand,
 	"relation-set" + cmdSuffix:  NewRelationSetCommand,
