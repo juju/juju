@@ -23,6 +23,9 @@ from jujupy import (
     bootstrap_from_env,
     Environment,
     get_local_root,
+    start_libvirt_domain,
+    stop_libvirt_domain,
+    verify_libvirt_domain_running,
 )
 from utility import (
     PortTimeoutError,
@@ -311,8 +314,9 @@ def deploy_job():
                         action='store_true', default=False)
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.')
-    parser.add_argument('--machine', help='A machine to add.',
-                        action='append', default=[])
+    parser.add_argument('--machine', help='A machine to add or when used with '
+                        'KVM based MaaS, a KVM image to start.', action='append',
+                        default=[])
     args = parser.parse_args()
     if not args.run_startup:
         juju_path = args.new_juju_bin
@@ -359,6 +363,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         datefmt='%Y-%m-%d %H:%M:%S')
     bootstrap_id = None
     created_machines = False
+    running_domains = dict()
     if not upgrade:
         os.environ['PATH'] = new_path
     try:
@@ -373,6 +378,22 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             bootstrap_host = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
+        if env.config['type'] == 'maas':
+            for machine in machines:
+                name, URI = machine.split('@')
+                # Record already running domains, so they can be left running,
+                # when finished with the test.
+                if verify_libvirt_domain_running(URI, name):
+                    running_domains = {machine: True}
+                    logging.info("%s is already running" % name)
+                else:
+                    running_domains = {machine: False}
+                    logging.info("Attempting to start %s at %s" % (name, URI))
+                    status_msg = start_libvirt_domain(URI, name)
+                    logging.info("%s" % status_msg)
+            # No further handling of machines down the line is required.
+            machines = []
+
         update_env(env, job_name, series=series, bootstrap_host=bootstrap_host)
         try:
             host = bootstrap_host
@@ -420,6 +441,15 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         finally:
             if created_machines:
                 destroy_job_instances(job_name)
+        if env.config['type'] == 'maas':
+            logging.info("Waiting for destroy-environment to complete")
+            sleep(90)
+            for machine, running in running_domains.items():
+                if not running:
+                    name, URI = machine.split('@')
+                    logging.info("Attempting to stop %s at %s" % (name, URI))
+                    status_msg = stop_libvirt_domain(URI, name)
+                    logging.info("%s" % status_msg)
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))
@@ -446,9 +476,9 @@ def main():
     parser.add_argument('--already-bootstrapped',
                         help='The environment is already bootstrapped.',
                         action='store_true')
-    parser.add_argument('--machine',
-                        help='A machine to add to the environment.',
-                        action='append', default=[])
+    parser.add_argument('--machine', help='A machine to add or when used with '
+                        'KVM based MaaS, a KVM image to start.', action='append',
+                        default=[])
     parser.add_argument('--dummy', help='Use dummy charms.',
                         action='store_true')
     parser.add_argument('env', help='The environment to deploy on.')
