@@ -303,6 +303,11 @@ func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
 func DocID(st *State, id string) string {
 	return st.docID(id)
 }
+
 func LocalID(st *State, id string) string {
 	return st.localID(id)
+}
+
+func GetUnitEnvUUID(unit *Unit) string {
+	return unit.doc.EnvUUID
 }

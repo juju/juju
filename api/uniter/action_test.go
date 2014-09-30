@@ -23,18 +23,18 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	var actionTests = []struct {
 		description string
-		action      params.Action
+		action      params.ActionItem
 	}{{
 		description: "A simple Action.",
-		action: params.Action{
-			Name:   "snapshot",
-			Params: basicParams,
+		action: params.ActionItem{
+			Name:       "snapshot",
+			Parameters: basicParams,
 		},
 	}, {
 		description: "An Action with nested parameters.",
-		action: params.Action{
+		action: params.ActionItem{
 			Name: "backup",
-			Params: map[string]interface{}{
+			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
 					"kind":    "bzip",
@@ -48,7 +48,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 		c.Logf("test %d: %s", i, actionTest.description)
 		a, err := s.uniterSuite.wordpressUnit.AddAction(
 			actionTest.action.Name,
-			actionTest.action.Params)
+			actionTest.action.Parameters)
 		c.Assert(err, gc.IsNil)
 
 		actionTag := names.JoinActionTag(s.uniterSuite.wordpressUnit.Name(), i)
@@ -58,7 +58,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 
 		c.Assert(retrievedAction.Name(), gc.DeepEquals, actionTest.action.Name)
-		c.Assert(retrievedAction.Params(), gc.DeepEquals, actionTest.action.Params)
+		c.Assert(retrievedAction.Params(), gc.DeepEquals, actionTest.action.Parameters)
 	}
 }
 

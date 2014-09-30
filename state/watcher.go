@@ -171,8 +171,8 @@ func (st *State) WatchServices() StringsWatcher {
 func (s *Service) WatchUnits() StringsWatcher {
 	members := bson.D{{"service", s.doc.Name}}
 	prefix := s.doc.Name + "/"
-	filter := func(id interface{}) bool {
-		return strings.HasPrefix(id.(string), prefix)
+	filter := func(unitDocID interface{}) bool {
+		return strings.HasPrefix(s.st.localID(unitDocID.(string)), prefix)
 	}
 	return newLifecycleWatcher(s.st, unitsC, members, filter)
 }
@@ -845,7 +845,7 @@ func (u *Unit) WatchSubordinateUnits() StringsWatcher {
 		}
 		return u.doc.Subordinates, nil
 	}
-	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.Name)
+	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.DocID)
 }
 
 // WatchPrincipalUnits returns a StringsWatcher tracking the machine's principal
@@ -902,22 +902,25 @@ var lifeWatchFields = bson.D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
 
 // initial returns every member of the tracked set.
 func (w *unitsWatcher) initial() ([]string, error) {
-	initial, err := w.getUnits()
+	initialNames, err := w.getUnits()
 	if err != nil {
 		return nil, err
 	}
-	docs := []lifeWatchDoc{}
-	query := bson.D{{"_id", bson.D{{"$in", initial}}}}
 	newUnits, closer := w.st.getCollection(unitsC)
 	defer closer()
+	query := bson.D{
+		{"name", bson.D{{"$in", initialNames}}},
+		{"env-uuid", w.st.EnvironTag().Id()},
+	}
+	docs := []lifeWatchDoc{}
 	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
 		return nil, err
 	}
 	changes := []string{}
 	for _, doc := range docs {
-		changes = append(changes, doc.Id)
+		changes = append(changes, w.st.localID(doc.Id))
 		if doc.Life != Dead {
-			w.life[doc.Id] = doc.Life
+			w.life[w.st.localID(doc.Id)] = doc.Life
 			w.st.watcher.Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
 		}
 	}
@@ -947,7 +950,7 @@ func (w *unitsWatcher) update(changes []string) ([]string, error) {
 			changes = append(changes, name)
 		}
 		delete(w.life, name)
-		w.st.watcher.Unwatch(unitsC, name, w.in)
+		w.st.watcher.Unwatch(unitsC, w.st.docID(name), w.in)
 	}
 	return changes, nil
 }
@@ -958,8 +961,9 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	units, closer := w.st.getCollection(unitsC)
 	defer closer()
 
+	unitDocID := w.st.docID(name)
 	doc := lifeWatchDoc{}
-	err := units.FindId(name).Select(lifeWatchFields).One(&doc)
+	err := units.FindId(unitDocID).Select(lifeWatchFields).One(&doc)
 	gone := false
 	if err == mgo.ErrNotFound {
 		gone = true
@@ -972,9 +976,9 @@ func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	switch {
 	case known && gone:
 		delete(w.life, name)
-		w.st.watcher.Unwatch(unitsC, name, w.in)
+		w.st.watcher.Unwatch(unitsC, unitDocID, w.in)
 	case !known && !gone:
-		w.st.watcher.Watch(unitsC, name, doc.TxnRevno, w.in)
+		w.st.watcher.Watch(unitsC, unitDocID, doc.TxnRevno, w.in)
 		w.life[name] = doc.Life
 	case known && life != doc.Life:
 		w.life[name] = doc.Life
@@ -999,7 +1003,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	defer func() {
 		w.st.watcher.Unwatch(coll, id, w.in)
 		for name := range w.life {
-			w.st.watcher.Unwatch(unitsC, name, w.in)
+			w.st.watcher.Unwatch(unitsC, w.st.docID(name), w.in)
 		}
 	}()
 	changes, err := w.initial()
@@ -1014,8 +1018,8 @@ func (w *unitsWatcher) loop(coll, id string) error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-w.in:
-			name := c.Id.(string)
-			if name == id {
+			name := w.st.localID(c.Id.(string))
+			if name == w.st.localID(id) {
 				changes, err = w.update(changes)
 			} else {
 				changes, err = w.merge(changes, name)
@@ -1190,7 +1194,7 @@ func (s *Service) Watch() NotifyWatcher {
 
 // Watch returns a watcher for observing changes to a unit.
 func (u *Unit) Watch() NotifyWatcher {
-	return newEntityWatcher(u.st, unitsC, u.doc.Name)
+	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to an environment.
@@ -1345,9 +1349,9 @@ func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err
 	if err != nil {
 		return nil, err
 	}
-	for _, unit := range w.machine.doc.Principals {
-		if _, ok := w.known[unit]; !ok {
-			pending, err = w.merge(pending, unit)
+	for _, unitName := range w.machine.doc.Principals {
+		if _, ok := w.known[unitName]; !ok {
+			pending, err = w.merge(pending, unitName)
 			if err != nil {
 				return nil, err
 			}
@@ -1356,29 +1360,29 @@ func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err
 	return pending, nil
 }
 
-func (w *machineUnitsWatcher) merge(pending []string, unit string) (new []string, err error) {
+func (w *machineUnitsWatcher) merge(pending []string, unitName string) (new []string, err error) {
 	doc := unitDoc{}
 	newUnits, closer := w.st.getCollection(unitsC)
 	defer closer()
-	err = newUnits.FindId(unit).One(&doc)
+	err = newUnits.FindId(w.st.docID(unitName)).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
 		return nil, err
 	}
-	life, known := w.known[unit]
+	life, known := w.known[unitName]
 	if err == mgo.ErrNotFound || doc.Principal == "" && (doc.MachineId == "" || doc.MachineId != w.machine.doc.Id) {
 		// Unit was removed or unassigned from w.machine.
 		if known {
-			delete(w.known, unit)
-			w.st.watcher.Unwatch(unitsC, unit, w.in)
-			if life != Dead && !hasString(pending, unit) {
-				pending = append(pending, unit)
+			delete(w.known, unitName)
+			w.st.watcher.Unwatch(unitsC, w.st.docID(unitName), w.in)
+			if life != Dead && !hasString(pending, unitName) {
+				pending = append(pending, unitName)
 			}
-			for _, subunit := range doc.Subordinates {
-				if sublife, subknown := w.known[subunit]; subknown {
-					delete(w.known, subunit)
-					w.st.watcher.Unwatch(unitsC, subunit, w.in)
-					if sublife != Dead && !hasString(pending, subunit) {
-						pending = append(pending, subunit)
+			for _, subunitName := range doc.Subordinates {
+				if sublife, subknown := w.known[subunitName]; subknown {
+					delete(w.known, subunitName)
+					w.st.watcher.Unwatch(unitsC, w.st.docID(subunitName), w.in)
+					if sublife != Dead && !hasString(pending, subunitName) {
+						pending = append(pending, subunitName)
 					}
 				}
 			}
@@ -1386,15 +1390,15 @@ func (w *machineUnitsWatcher) merge(pending []string, unit string) (new []string
 		return pending, nil
 	}
 	if !known {
-		w.st.watcher.Watch(unitsC, unit, doc.TxnRevno, w.in)
-		pending = append(pending, unit)
-	} else if life != doc.Life && !hasString(pending, unit) {
-		pending = append(pending, unit)
+		w.st.watcher.Watch(unitsC, doc.DocID, doc.TxnRevno, w.in)
+		pending = append(pending, unitName)
+	} else if life != doc.Life && !hasString(pending, unitName) {
+		pending = append(pending, unitName)
 	}
-	w.known[unit] = doc.Life
-	for _, subunit := range doc.Subordinates {
-		if _, ok := w.known[subunit]; !ok {
-			pending, err = w.merge(pending, subunit)
+	w.known[unitName] = doc.Life
+	for _, subunitName := range doc.Subordinates {
+		if _, ok := w.known[subunitName]; !ok {
+			pending, err = w.merge(pending, subunitName)
 			if err != nil {
 				return nil, err
 			}
@@ -1406,7 +1410,7 @@ func (w *machineUnitsWatcher) merge(pending []string, unit string) (new []string
 func (w *machineUnitsWatcher) loop() error {
 	defer func() {
 		for unit := range w.known {
-			w.st.watcher.Unwatch(unitsC, unit, w.in)
+			w.st.watcher.Unwatch(unitsC, w.st.docID(unit), w.in)
 		}
 	}()
 
@@ -1439,7 +1443,7 @@ func (w *machineUnitsWatcher) loop() error {
 				out = w.out
 			}
 		case c := <-w.in:
-			changes, err = w.merge(changes, c.Id.(string))
+			changes, err = w.merge(changes, w.st.localID(c.Id.(string)))
 			if err != nil {
 				return err
 			}

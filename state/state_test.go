@@ -2447,7 +2447,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, u.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
-	c.Assert(id, gc.Equals, u.Name())
+	c.Assert(id, gc.Equals, state.DocID(s.State, u.Name()))
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {

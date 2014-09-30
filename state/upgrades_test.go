@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
@@ -208,60 +209,145 @@ func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
 	c.Assert(dummyCharm.StoragePath(), gc.Equals, "/some/where")
 }
 
-func (s *upgradesSuite) TestAddEnvUUIDToServicesID(c *gc.C) {
-	serviceName := "wordpress"
-	s.addServiceNoEnvID(c, serviceName)
-
-	var service serviceDoc
-	services, closer := s.state.getCollection(servicesC)
+func (s *upgradesSuite) TestAddEnvUUIDToServices(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToServices, servicesC,
+		bson.M{
+			"_id":    "mysql",
+			"series": "quantal",
+			"life":   Dead,
+		},
+		bson.M{
+			"_id":    "mediawiki",
+			"series": "precise",
+			"life":   Alive,
+		},
+	)
 	defer closer()
 
-	err := AddEnvUUIDToServicesID(s.state)
-	c.Assert(err, gc.IsNil)
+	var newDoc serviceDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "mysql")
+	c.Assert(newDoc.Series, gc.Equals, "quantal")
+	c.Assert(newDoc.Life, gc.Equals, Dead)
 
-	err = services.Find(bson.D{{"_id", serviceName}}).One(&service)
-	c.Assert(err, gc.ErrorMatches, "not found")
-
-	err = services.Find(bson.D{{"_id", s.state.docID(serviceName)}}).One(&service)
-	c.Assert(err, gc.IsNil)
-	c.Assert(service.Name, gc.Equals, serviceName)
-	c.Assert(service.EnvUUID, gc.Equals, s.state.EnvironTag().Id())
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "mediawiki")
+	c.Assert(newDoc.Series, gc.Equals, "precise")
+	c.Assert(newDoc.Life, gc.Equals, Alive)
 }
 
-func (s *upgradesSuite) TestAddEnvUUIDToServicesIDIdempotent(c *gc.C) {
-	serviceName := "wordpress"
-	s.addServiceNoEnvID(c, serviceName)
+func (s *upgradesSuite) TestAddEnvUUIDToServicesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToServices, servicesC)
+}
 
-	var serviceResults []serviceDoc
-	services, closer := s.state.getCollection(servicesC)
+func (s *upgradesSuite) TestAddEnvUUIDToUnits(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToUnits, unitsC,
+		bson.M{
+			"_id":    "mysql/0",
+			"series": "trusty",
+			"life":   Alive,
+		},
+		bson.M{
+			"_id":    "nounforge/0",
+			"series": "utopic",
+			"life":   Dead,
+		},
+	)
 	defer closer()
 
-	err := AddEnvUUIDToServicesID(s.state)
-	c.Assert(err, gc.IsNil)
+	var newDoc unitDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "mysql/0")
+	c.Assert(newDoc.Series, gc.Equals, "trusty")
+	c.Assert(newDoc.Life, gc.Equals, Alive)
 
-	err = AddEnvUUIDToServicesID(s.state)
-	c.Assert(err, gc.IsNil)
-
-	err = services.Find(nil).All(&serviceResults)
-	c.Assert(err, gc.IsNil)
-	c.Assert(serviceResults, gc.HasLen, 1)
-
-	serviceResults[0].DocID = s.state.docID(serviceName)
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "nounforge/0")
+	c.Assert(newDoc.Series, gc.Equals, "utopic")
+	c.Assert(newDoc.Life, gc.Equals, Dead)
 }
 
-func (s *upgradesSuite) addServiceNoEnvID(c *gc.C, name string) {
-	// Bare minimum service document as of 1.21-alpha1
-	oldService := struct {
-		Name string `bson:"_id"`
-	}{Name: name}
+func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
+}
 
+func (s *upgradesSuite) checkAddEnvUUIDToCollection(
+	c *gc.C,
+	upgradeStep func(*State) error,
+	collName string,
+	oldDocs ...bson.M,
+) (*mgo.Collection, func(), []string) {
+	c.Assert(len(oldDocs) >= 2, jc.IsTrue)
+	for _, oldDoc := range oldDocs {
+		s.addLegacyDoc(c, collName, oldDoc)
+	}
+
+	err := upgradeStep(s.state)
+	c.Assert(err, gc.IsNil)
+
+	// For each old document check that _id has been migrated and that
+	// env-uuid has been added correctly.
+	coll, closer := s.state.getCollection(collName)
+	var d map[string]string
+	var ids []string
+	envTag := s.state.EnvironTag().Id()
+	for _, oldDoc := range oldDocs {
+		oldID := oldDoc["_id"].(string)
+		newID := s.state.docID(oldID)
+
+		err = coll.FindId(oldID).One(&d)
+		c.Assert(err, gc.Equals, mgo.ErrNotFound)
+
+		err = coll.FindId(newID).One(&d)
+		c.Assert(err, gc.IsNil)
+		c.Assert(d["env-uuid"], gc.Equals, envTag)
+
+		ids = append(ids, newID)
+	}
+
+	count, err := coll.Find(nil).Count()
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, len(oldDocs))
+
+	return coll, closer, ids
+}
+
+func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
+	c *gc.C,
+	upgradeStep func(*State) error,
+	collName string,
+) {
+	const oldID = "foo"
+	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
+
+	err := upgradeStep(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = upgradeStep(s.state)
+	c.Assert(err, gc.IsNil)
+
+	coll, closer := s.state.getCollection(collName)
+	defer closer()
+	var docs []map[string]string
+	err = coll.Find(nil).All(&docs)
+	c.Assert(err, gc.IsNil)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(oldID))
+}
+
+func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
 	ops := []txn.Op{{
-		C:      servicesC,
-		Id:     name,
+		C:      collName,
+		Id:     legacyDoc["_id"].(string),
 		Assert: txn.DocMissing,
-		Insert: oldService,
+		Insert: legacyDoc,
 	}}
 	err := s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id string, doc interface{}) {
+	err := coll.FindId(id).One(doc)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -344,7 +430,7 @@ func openLegacyPort(c *gc.C, unit *Unit, number int, proto string) {
 	port := network.Port{Protocol: proto, Number: number}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     unit.Name(),
+		Id:     unit.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
