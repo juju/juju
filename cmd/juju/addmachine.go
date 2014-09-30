@@ -130,14 +130,13 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	defer client.Close()
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
-
+		// Manual provisioning.
 		var config *config.Config
 		if defaultStore, err := configstore.Default(); err != nil {
 			return err
 		} else if config, err = c.Config(defaultStore); err != nil {
 			return err
 		}
-
 		args := manual.ProvisionMachineArgs{
 			Host:   c.Placement.Directive,
 			Client: client,
@@ -169,7 +168,10 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		Placement:   c.Placement,
 		Series:      c.Series,
 		Constraints: c.Constraints,
-		Jobs:        []params.MachineJob{params.JobHostUnits},
+		Jobs: []params.MachineJob{
+			params.JobHostUnits,
+			params.JobManageNetworking,
+		},
 	}
 	machines := make([]params.AddMachineParams, c.NumMachines)
 	for i := 0; i < c.NumMachines; i++ {

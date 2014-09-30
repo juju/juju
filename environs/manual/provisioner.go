@@ -186,6 +186,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	// Also manually provisioned machines don't have the JobManageNetworking.
 	// This ensures that the networker is running in non-invasive mode
 	// and never touches the network configuration files.
+	// No JobManageNetworking here due to manual provisioning.
 
 	instanceId := instance.Id(manualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())

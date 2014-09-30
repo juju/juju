@@ -1011,39 +1011,70 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	c.Fatalf("timeout while waiting for agent config to change")
 }
 
-func (s *MachineSuite) TestMachineAgentRunsSafeNetworkerWhenNetworkManagementIsDisabled(c *gc.C) {
-	attrs := coretesting.Attrs{"disable-network-management": true}
-	err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
-	c.Assert(err, gc.IsNil)
+func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
+	tests := []struct {
+		descr         string
+		disable       bool
+		jobs          []state.MachineJob
+		intrusiveMode bool
+	}{{
+		descr:         "test #%d: network management enabled, network management job set",
+		disable:       false,
+		jobs:          []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
+		intrusiveMode: true,
+	}, {
+		descr:         "test #%d: network management disabled, network management job set",
+		disable:       true,
+		jobs:          []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
+		intrusiveMode: false,
+	}, {
+		descr:         "test #%d: network management enabled, network management job not set",
+		disable:       false,
+		jobs:          []state.MachineJob{state.JobHostUnits},
+		intrusiveMode: false,
+	}, {
+		descr:         "test #%d: network management disabled, network management job not set",
+		disable:       true,
+		jobs:          []state.MachineJob{state.JobHostUnits},
+		intrusiveMode: false,
+	}}
+	// Perform tests.
+	// TODO(mue) Still sometimes race conditions.
+	for i, test := range tests {
+		c.Logf(test.descr, i)
 
-	started := make(chan struct{}, 1)
-	nonSafeStarted := make(chan struct{}, 1)
-	s.agentSuite.PatchValue(&newSafeNetworker, func(st *apinetworker.State, conf agent.Config, confDir string) (*networker.Networker, error) {
+		modeCh := make(chan bool)
+		s.agentSuite.PatchValue(&newNetworker, func(
+			st *apinetworker.State,
+			conf agent.Config,
+			intrusiveMode bool,
+		) (*networker.Networker, error) {
+			select {
+			case modeCh <- intrusiveMode:
+			default:
+			}
+			return networker.NewNetworker(st, conf, intrusiveMode)
+		})
+
+		attrs := coretesting.Attrs{"disable-network-management": test.disable}
+		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
+		c.Assert(err, gc.IsNil)
+
+		m, _, _ := s.primeAgent(c, version.Current, test.jobs...)
+		a := s.newAgent(c, m)
+		defer a.Stop()
+		go func() {
+			c.Check(a.Run(nil), gc.IsNil)
+		}()
+
 		select {
-		case started <- struct{}{}:
-		default:
+		case intrusiveMode := <-modeCh:
+			if intrusiveMode != test.intrusiveMode {
+				c.Fatalf("expected networker intrusive mode = %v, got mode = %v", test.intrusiveMode, intrusiveMode)
+			}
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out waiting for the networker to be started")
 		}
-		return networker.NewSafeNetworker(st, conf, confDir)
-	})
-	s.agentSuite.PatchValue(&newNetworker, func(st *apinetworker.State, conf agent.Config, confDir string) (*networker.Networker, error) {
-		select {
-		case nonSafeStarted <- struct{}{}:
-		default:
-		}
-		return networker.NewNetworker(st, conf, confDir)
-	})
-	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-	a := s.newAgent(c, m)
-	defer a.Stop()
-	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
-	}()
-	select {
-	case <-started:
-	case <-nonSafeStarted:
-		c.Fatalf("expected to start safe networker, but started a normal one")
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for the safe networker worker to be started")
 	}
 }
 
