@@ -205,13 +205,20 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	return ctx.actionData.ActionParams, nil
 }
 
-// SetActionFailed sets the state of the action to "fail" and sets the results
-// message to the string argument.
-func (ctx *HookContext) SetActionFailed(message string) error {
+// SetActionMessage sets a message for the Action, usually an error message.
+func (ctx *HookContext) SetActionMessage(message string) error {
 	if ctx.actionData == nil {
 		return fmt.Errorf("not running an action")
 	}
 	ctx.actionData.ResultsMessage = message
+	return nil
+}
+
+// SetActionFailed sets the fail state of the action.
+func (ctx *HookContext) SetActionFailed() error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
 	ctx.actionData.ActionFailed = true
 	return nil
 }
@@ -322,6 +329,8 @@ func (ctx *HookContext) osDependentEnvVars(charmDir, toolsDir string) []string {
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
 func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
+	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
+	// JUJU_ACTION_UUID, ...
 	vars := []string{
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,

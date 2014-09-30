@@ -230,8 +230,16 @@ juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail": `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
-exit 1
+action-fail "I'm afraid I can't let you do that, Dave."
+action-set foo="still works"
+juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+`[1:],
+		"action-log-fail-error": `
+#!/bin/bash --norc
+action-fail too many arguments
+action-set foo="still works"
+action-fail "A real message"
+juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 	}
 
@@ -242,7 +250,7 @@ exit 1
 	c.Assert(err, gc.IsNil)
 }
 
-func (ctx *context) writeActionsYaml(c *gc.C, path string, names []string) {
+func (ctx *context) writeActionsYaml(c *gc.C, path string, names ...string) {
 	var actionsYaml = map[string]string{
 		"base": `
 actions:
@@ -267,8 +275,11 @@ actions:
    action-log-fail:
       params:
 `[1:],
+		"action-log-fail-error": `
+   action-log-fail-error:
+      params:
+`[1:],
 	}
-
 	actionsYamlPath := filepath.Join(path, "actions.yaml")
 	var actionsYamlFull string
 	// Build an appropriate actions.yaml
@@ -1301,7 +1312,7 @@ var actionEventTests = []uniterTest{
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeActionsYaml(c, path, []string{"action-log"})
+				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		serveCharm{},
@@ -1321,11 +1332,65 @@ var actionEventTests = []uniterTest{
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
+		"action-fail causes the action to fail with a message",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-log-fail")
+				ctx.writeActionsYaml(c, path, "action-log-fail")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log-fail", nil},
+		waitHooks{"action-log-fail"},
+		verifyActionResults{[]actionResult{{
+			name: "action-log-fail",
+			results: map[string]interface{}{
+				"foo": "still works",
+			},
+			message: "I'm afraid I can't let you do that, Dave.",
+			status:  "fail",
+		}}},
+		waitUnit{status: params.StatusStarted},
+	), ut(
+		"action-fail with the wrong arguments fails but is not an error",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-log-fail-error")
+				ctx.writeActionsYaml(c, path, "action-log-fail-error")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log-fail-error", nil},
+		waitHooks{"action-log-fail-error"},
+		verifyActionResults{[]actionResult{{
+			name: "action-log-fail-error",
+			results: map[string]interface{}{
+				"foo": "still works",
+			},
+			message: "A real message",
+			status:  "fail",
+		}}},
+		waitUnit{status: params.StatusStarted},
+	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "snapshot")
-				ctx.writeActionsYaml(c, path, []string{"snapshot"})
+				ctx.writeActionsYaml(c, path, "snapshot")
 			},
 		},
 		serveCharm{},
@@ -1361,7 +1426,7 @@ var actionEventTests = []uniterTest{
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "snapshot")
-				ctx.writeActionsYaml(c, path, []string{"snapshot"})
+				ctx.writeActionsYaml(c, path, "snapshot")
 			},
 		},
 		serveCharm{},
@@ -1413,9 +1478,7 @@ var actionEventTests = []uniterTest{
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeActionsYaml(c, path, []string{
-					"action-log",
-				})
+				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		serveCharm{},
@@ -1452,9 +1515,7 @@ var actionEventTests = []uniterTest{
 		"actions not implemented fail but are not errors",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeActionsYaml(c, path, []string{
-					"action-log",
-				})
+				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		serveCharm{},
@@ -1467,13 +1528,12 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitNoHooks{"action-log", "fail-action-log"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  "fail",
-				message: `action not implemented on unit "u/0"`,
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "fail",
+			message: `action not implemented on unit "u/0"`,
+		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
@@ -1481,9 +1541,7 @@ var actionEventTests = []uniterTest{
 			badHook: "install",
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeActionsYaml(c, path, []string{
-					"action-log",
-				})
+				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		addAction{"action-log", nil},
@@ -1499,12 +1557,11 @@ var actionEventTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{status: params.StatusStarted},
 		waitHooks{"config-changed", "start", "action-log"},
-		verifyActionResults{
-			[]actionResult{{
-				name:    "action-log",
-				results: map[string]interface{}{},
-				status:  "complete",
-			}}},
+		verifyActionResults{[]actionResult{{
+			name:    "action-log",
+			results: map[string]interface{}{},
+			status:  "complete",
+		}}},
 		waitUnit{status: params.StatusStarted},
 	),
 }
@@ -2135,7 +2192,7 @@ findMatch:
 			}
 		}
 		// if we finish the whole thing without finding a match, we failed.
-		c.FailNow()
+		c.Assert(actualIn, jc.DeepEquals, expectIn)
 	}
 
 	c.Assert(matches, gc.Equals, desiredMatches)
