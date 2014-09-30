@@ -411,7 +411,7 @@ func (a *Store) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id params.EntityId) {
+func (a *Store) delete(id EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -423,7 +423,7 @@ func (a *Store) delete(id params.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) Remove(id params.EntityId) {
+func (a *Store) Remove(id EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
