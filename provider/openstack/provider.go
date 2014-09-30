@@ -252,6 +252,10 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	e.name = cfg.Name()
+	// Verify credentials.
+	if err := authenticateClient(e); err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
@@ -709,8 +713,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	err := e.client.Authenticate()
-	if err != nil {
+	if err := authenticateClient(e); err != nil {
 		return "", "", nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
@@ -751,6 +754,22 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 	return newClient(cred, authMode, nil)
 }
 
+var authenticateClient = func(e *environ) error {
+	err := e.client.Authenticate()
+	if err != nil {
+		// Log the error in case there are any useful hints,
+		// but provide a readable and helpful error message
+		// to the user.
+		logger.Debugf("authentication failed: %v", err)
+		return jujuerrors.New(`authentication failed.
+
+Please ensure the credentials are correct. A common mistake is
+to specify the wrong tenant. Use the OpenStack "project" name
+for tenant-name in your environment configuration.`)
+	}
+	return nil
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -765,6 +784,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ecfgUnlocked = ecfg
 
 	e.client = e.authClient(ecfg, authModeCfg)
+
 	e.novaUnlocked = nova.New(e.client)
 
 	// create new control storage instance, existing instances continue
@@ -807,7 +827,7 @@ func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		return *datasource, nil
 	}
 	if !e.client.IsAuthenticated() {
-		if err := e.client.Authenticate(); err != nil {
+		if err := authenticateClient(e); err != nil {
 			return nil, err
 		}
 	}

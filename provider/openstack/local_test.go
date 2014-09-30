@@ -1078,19 +1078,12 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 		newattrs[k] = v
 	}
 	newattrs["ssl-hostname-verification"] = true
-	env, err := environs.NewFromAttrs(newattrs)
-	c.Assert(err, gc.IsNil)
-	err = env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	// However, it works just fine if you use the one with the credentials set
-	err = s.env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
-	c.Assert(err, gc.IsNil)
-	_, err = env.(environs.EnvironStorage).Storage().Get("test-name")
-	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	reader, err := s.env.(environs.EnvironStorage).Storage().Get("test-name")
-	c.Assert(err, gc.IsNil)
-	contents, err := ioutil.ReadAll(reader)
-	c.Assert(string(contents), gc.Equals, "content")
+	_, err := environs.NewFromAttrs(newattrs)
+	c.Assert(err, gc.ErrorMatches, `authentication failed.
+
+Please ensure the credentials are correct. A common mistake is
+to specify the wrong tenant. Use the OpenStack \"project\" name
+for tenant-name in your environment configuration.`)
 }
 
 func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
