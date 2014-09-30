@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api/uniter"
@@ -605,7 +605,7 @@ outer:
 func (f *filter) getNextAction() *hook.Info {
 	if len(f.actionsPending) > 0 {
 		nextAction := hook.Info{
-			Kind:     hooks.ActionRequested,
+			Kind:     hooks.Action,
 			ActionId: f.actionsPending[0],
 		}
 

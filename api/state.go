@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/agent"
@@ -132,18 +133,17 @@ func (st *State) Provisioner() *provisioner.State {
 
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
-func (st *State) Uniter() *uniter.State {
-	// TODO(dfc) yes, this can panic, we never checked before
-	unitTag := st.authTag.(names.UnitTag)
-	envTagString := ""
+func (st *State) Uniter() (*uniter.State, error) {
+	unitTag, ok := st.authTag.(names.UnitTag)
+	if !ok {
+		return nil, errors.Errorf("expected UnitTag, got %T %v", st.authTag, st.authTag)
+	}
 	envTag, err := st.EnvironTag()
 	if err != nil {
-		logger.Errorf("environ tag is invalid: %v", err)
-	} else {
-		envTagString = envTag.String()
+		logger.Warningf("ignoring invalid environ tag: %v", err)
 	}
-	charmsURL := uniter.CharmsURL(st.Addr(), envTagString)
-	return uniter.NewState(st, unitTag, charmsURL)
+	charmsURL := uniter.CharmsURL(st.Addr(), envTag)
+	return uniter.NewState(st, unitTag, charmsURL), nil
 }
 
 // Firewaller returns a version of the state that provides functionality

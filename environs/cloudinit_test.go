@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"

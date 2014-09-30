@@ -7,18 +7,21 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/juju/loggo"
-
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
 
 var metricsLogger = loggo.GetLogger("juju.state.metrics")
+
+const (
+	CleanupAge = time.Hour * 24
+)
 
 // MetricBatch represents a batch of metrics reported from a unit.
 // These will be received from the unit in batches.
@@ -32,7 +35,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID     string    `bson:"_id"`
-	EnvUUID  string    `bson:"envuuid"`
+	EnvUUID  string    `bson:"env-uuid"`
 	Unit     string    `bson:"unit"`
 	CharmUrl string    `bson:"charmurl"`
 	Sent     bool      `bson:"sent"`
@@ -63,7 +66,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
-			EnvUUID:  st.EnvironTag().String(),
+			EnvUUID:  st.EnvironTag().Id(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
@@ -72,14 +75,14 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			notDead, err := isNotDead(st.db, unitsC, unitTag.Id())
+			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
 			if err != nil || !notDead {
 				return nil, errors.NotFoundf(unitTag.Id())
 			}
 		}
 		ops := []txn.Op{{
 			C:      unitsC,
-			Id:     unitTag.Id(),
+			Id:     st.docID(unitTag.Id()),
 			Assert: notDeadDoc,
 		}, {
 			C:      metricsC,
@@ -134,7 +137,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(time.Hour * 24))
+	age := time.Now().Add(-(CleanupAge))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
 	// Nothing else in the system will interact with sent metrics, and nothing needs
@@ -238,21 +241,6 @@ func (st *State) sendBatch(sender MetricSender, metrics []*MetricBatch) error {
 // converted to json.
 func (m *MetricBatch) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.doc)
-}
-
-// Refresh refreshes the contents of the MetricBatch from the underlying state.
-func (m *MetricBatch) Refresh() error {
-	metrics, closer := m.st.getCollection(metricsC)
-	defer closer()
-
-	err := metrics.FindId(m.doc.UUID).One(&m.doc)
-	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("metric %q", m)
-	}
-	if err != nil {
-		return errors.Annotatef(err, "cannot refresh metric %q", m)
-	}
-	return nil
 }
 
 // UUID returns to uuid of the metric.

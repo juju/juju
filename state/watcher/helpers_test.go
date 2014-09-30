@@ -6,7 +6,7 @@ package watcher_test
 import (
 	stderrors "errors"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/watcher"

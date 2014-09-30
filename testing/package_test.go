@@ -6,7 +6,7 @@ package testing_test
 import (
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

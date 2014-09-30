@@ -9,8 +9,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/charmrevisionupdater/testing"

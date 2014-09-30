@@ -14,7 +14,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -478,7 +478,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.Tag().String())
+	c.Assert(result.EnvironTag, gc.Equals, env.EnvironTag().String())
 }
 
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
@@ -523,21 +523,34 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 	s.checkLoginWithValidator(c, validator, checker)
 }
 
+func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
+	validator := func(params.Creds) error {
+		return errors.New("something")
+	}
+	info, cleanup := s.setupServerWithValidator(c, validator)
+	defer cleanup()
+
+	checkLogin := func(tag names.Tag) {
+		st := s.openAPIWithoutLogin(c, info)
+		defer st.Close()
+		err := st.Login(tag.String(), "dummy-secret", "nonce")
+		c.Assert(err, gc.ErrorMatches, "login failed - maintenance in progress")
+	}
+	checkLogin(names.NewUserTag("definitelywontexist"))
+	checkLogin(names.NewMachineTag("99999"))
+}
+
 type validationChecker func(c *gc.C, err error, st *api.State)
 
 func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
 	info, cleanup := s.setupServerWithValidator(c, validator)
 	defer cleanup()
 
-	info.Tag = nil
-	info.Password = ""
-
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
+	st := s.openAPIWithoutLogin(c, info)
 	defer st.Close()
 
 	// Ensure not already logged in.
-	_, err = st.Machiner().Machine(names.NewMachineTag("0"))
+	_, err := st.Machiner().Machine(names.NewMachineTag("0"))
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	adminUser := s.AdminUserTag(c)
@@ -565,7 +578,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	info := &api.Info{
 		Tag:        nil,
 		Password:   "",
-		EnvironTag: env.Tag(),
+		EnvironTag: env.EnvironTag(),
 		Addrs:      []string{srv.Addr()},
 		CACert:     coretesting.CACert,
 	}
@@ -573,6 +586,14 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 		err := srv.Stop()
 		c.Assert(err, gc.IsNil)
 	}
+}
+
+func (s *loginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) *api.State {
+	info.Tag = nil
+	info.Password = ""
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	return st
 }
 
 func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {

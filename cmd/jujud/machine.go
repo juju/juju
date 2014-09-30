@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
@@ -56,6 +57,7 @@ import (
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
@@ -97,6 +99,8 @@ var (
 	// reportOpenedAPI is exposed for tests to know when
 	// the API has been successfully opened.
 	reportOpenedAPI = func(eitherState) {}
+
+	getMetricAPI = metricAPI
 )
 
 // PrepareRestore will flag the agent to allow only one command:
@@ -187,6 +191,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
+
 	return nil
 }
 
@@ -447,6 +452,14 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
+			})
+
+			logger.Infof("starting metric workers")
+			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
+				return metricworker.NewCleanup(getMetricAPI(st)), nil
+			})
+			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
+				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
 		case params.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -1031,4 +1044,8 @@ func (c singularStateConn) IsMaster() (bool, error) {
 
 func (c singularStateConn) Ping() error {
 	return c.session.Ping()
+}
+
+func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
+	return metricsmanager.NewClient(st)
 }

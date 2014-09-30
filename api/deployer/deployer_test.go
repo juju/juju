@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/deployer"
@@ -67,7 +67,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.subordinate, err = s.service1.Unit("logging/0")
+	s.subordinate, err = s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Create the deployer facade.

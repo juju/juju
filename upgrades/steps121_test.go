@@ -4,7 +4,7 @@
 package upgrades_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
@@ -38,9 +38,11 @@ var _ = gc.Suite(&steps121a2Suite{})
 func (s *steps121a2Suite) TestUpgradeOperationsContent(c *gc.C) {
 	var expectedSteps = []string{
 		"prepend the environment UUID to the ID of all service docs",
+		"prepend the environment UUID to the ID of all unit docs",
 		"migrate charm archives into environment storage",
 		"migrate custom image metadata into environment storage",
 		"migrate tools into environment storage",
+		"migrate individual unit ports to openedPorts collection",
 	}
 
 	upgradeSteps := upgrades.StepsFor121a2()

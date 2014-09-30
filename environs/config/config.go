@@ -18,7 +18,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"

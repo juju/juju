@@ -20,7 +20,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -294,7 +294,8 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 			case machinesC:
 				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
 			case unitsC:
-				agentTags = append(agentTags, names.NewUnitTag(doc.Id).String())
+				unitName := st.localID(doc.Id)
+				agentTags = append(agentTags, names.NewUnitTag(unitName).String())
 			}
 		}
 		if err := iter.Close(); err != nil {
@@ -615,6 +616,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 		id = st.docID(id)
 	case names.UnitTag:
 		coll = unitsC
+		id = st.docID(id)
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
@@ -1659,7 +1661,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	defer closer()
 
 	doc := unitDoc{}
-	err := units.FindId(name).One(&doc)
+	err := units.FindId(st.docID(name)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("unit %q", name)
 	}

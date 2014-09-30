@@ -10,9 +10,9 @@ import (
 	"runtime"
 	"strings"
 
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"

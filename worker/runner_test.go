@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/testing"

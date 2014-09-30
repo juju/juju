@@ -4,13 +4,18 @@
 package metadata
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 )
 
-const checksumFormat = "SHA-1, base64 encoded"
+// ChecksumFormat identifies how to interpret the checksum for a backup
+// generated with this version of juju.
+const ChecksumFormat = "SHA-1, base64 encoded"
 
 // Metadata contains the metadata for a single state backup archive.
 type Metadata struct {
@@ -62,17 +67,26 @@ func (m *Metadata) Finish(size int64, checksum, format string, finished *time.Ti
 		return errors.New("missing checksum")
 	}
 	if format == "" {
-		format = checksumFormat
+		format = ChecksumFormat
 	}
 	if finished == nil {
 		now := time.Now().UTC()
 		finished = &now
 	}
 
-	if err := m.SetFile(size, checksum, checksumFormat); err != nil {
+	if err := m.SetFile(size, checksum, format); err != nil {
 		return errors.Annotate(err, "unexpected failure")
 	}
 	m.finished = finished
 
 	return nil
+}
+
+// AsJSONBuffer returns a bytes.Buffer containing the JSON-ified metadata.
+func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return bytes.NewBuffer(data), nil
 }

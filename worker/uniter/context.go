@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -15,10 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -38,8 +40,6 @@ type missingHookError struct {
 	hookName string
 }
 
-type actionParams map[string]interface{}
-
 func (e *missingHookError) Error() string {
 	return e.hookName + " does not exist"
 }
@@ -52,6 +52,13 @@ func IsMissingHookError(err error) bool {
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
+
+	// state is the handle to the uniter State so that HookContext can make
+	// API calls on the stateservice.
+	// NOTE: We would like to be rid of the fake-remote-Unit and switch
+	// over fully to API calls on State.  This adds that ability, but we're
+	// not fully there yet.
+	state *uniter.State
 
 	// privateAddress is the cached value of the unit's private
 	// address.
@@ -67,8 +74,9 @@ type HookContext struct {
 	// id identifies the context.
 	id string
 
-	// actionParams holds the set of arguments passed with the action.
-	actionParams map[string]interface{}
+	// actionData contains the values relevant to the run of an Action:
+	// its tag, its parameters, and its results.
+	actionData *actionData
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -108,6 +116,7 @@ type HookContext struct {
 
 func NewHookContext(
 	unit *uniter.Unit,
+	state *uniter.State,
 	id,
 	uuid,
 	envName string,
@@ -117,11 +126,12 @@ func NewHookContext(
 	apiAddrs []string,
 	serviceOwner string,
 	proxySettings proxy.Settings,
-	actionParams map[string]interface{},
 	canAddMetrics bool,
+	actionData *actionData,
 ) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
+		state:          state,
 		id:             id,
 		uuid:           uuid,
 		envName:        envName,
@@ -131,8 +141,8 @@ func NewHookContext(
 		apiAddrs:       apiAddrs,
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
-		actionParams:   actionParams,
 		canAddMetrics:  canAddMetrics,
+		actionData:     actionData,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -144,6 +154,7 @@ func NewHookContext(
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
+
 	return ctx, nil
 }
 
@@ -159,12 +170,12 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 	return ctx.privateAddress, ctx.privateAddress != ""
 }
 
-func (ctx *HookContext) OpenPort(protocol string, port int) error {
-	return ctx.unit.OpenPort(protocol, port)
+func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
+	return ctx.unit.OpenPorts(protocol, fromPort, toPort)
 }
 
-func (ctx *HookContext) ClosePort(protocol string, port int) error {
-	return ctx.unit.ClosePort(protocol, port)
+func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
+	return ctx.unit.ClosePorts(protocol, fromPort, toPort)
 }
 
 func (ctx *HookContext) OwnerTag() string {
@@ -186,8 +197,42 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-func (ctx *HookContext) ActionParams() map[string]interface{} {
-	return ctx.actionParams
+// ActionParams simply returns the arguments to the Action.
+func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
+	if ctx.actionData == nil {
+		return nil, fmt.Errorf("not running an action")
+	}
+	return ctx.actionData.ActionParams, nil
+}
+
+// SetActionMessage sets a message for the Action, usually an error message.
+func (ctx *HookContext) SetActionMessage(message string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
+	ctx.actionData.ResultsMessage = message
+	return nil
+}
+
+// SetActionFailed sets the fail state of the action.
+func (ctx *HookContext) SetActionFailed() error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
+	ctx.actionData.ActionFailed = true
+	return nil
+}
+
+// UpdateActionResults inserts new values for use with action-set and
+// action-fail.  The results struct will be delivered to the state server
+// upon completion of the Action.  It returns an error if not called on an
+// Action-containing HookContext.
+func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
+	addValueToMap(keys, value, ctx.actionData.ResultsMap)
+	return nil
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -284,6 +329,8 @@ func (ctx *HookContext) osDependentEnvVars(charmDir, toolsDir string) []string {
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
 func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
+	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
+	// JUJU_ACTION_UUID, ...
 	vars := []string{
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,
@@ -306,8 +353,22 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	return vars
 }
 
-func (ctx *HookContext) finalizeContext(process string, err error) error {
-	writeChanges := err == nil
+func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
+	writeChanges := ctxErr == nil
+
+	// In the case of Actions, handle any errors using finalizeAction.
+	if ctx.actionData != nil {
+		// If we had an error in err at this point, it's part of the
+		// normal behavior of an Action.  Errors which happen during
+		// the finalize should be handed back to the uniter.  Close
+		// over the existing err, clear it, and only return errors
+		// which occur during the finalize, e.g. API call errors.
+		defer func(ctxErr error) {
+			err = ctx.finalizeAction(ctxErr, err)
+		}(ctxErr)
+		ctxErr = nil
+	}
+
 	for id, rctx := range ctx.relations {
 		if writeChanges {
 			if e := rctx.WriteSettings(); e != nil {
@@ -316,15 +377,16 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 					process, id, e,
 				)
 				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
+				if ctxErr == nil {
+					ctxErr = e
 				}
 			}
 		}
 		rctx.ClearCache()
 	}
-	if err != nil {
-		return err
+
+	if ctxErr != nil {
+		return ctxErr
 	}
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
@@ -338,14 +400,45 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 			}
 			if e := ctx.unit.AddMetrics(metrics); e != nil {
 				logger.Errorf("%v", e)
-				if err == nil {
-					err = e
+				if ctxErr == nil {
+					ctxErr = e
 				}
 			}
 		}
 		ctx.metrics = nil
 	}
-	return err
+
+	return ctxErr
+}
+
+// finalizeAction passes back the final status of an Action hook to state.
+// It wraps any errors which occurred in normal behavior of the Action run;
+// only errors passed in unhandledErr will be returned.
+func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
+	// TODO (binary132): synchronize with gsamfira's reboot logic
+	message := ctx.actionData.ResultsMessage
+	results := ctx.actionData.ResultsMap
+	tag := ctx.actionData.ActionTag
+	status := params.ActionCompleted
+	if ctx.actionData.ActionFailed {
+		status = params.ActionFailed
+	}
+
+	// If we had an action error, we'll simply encapsulate it in the response
+	// and discard the error state.  Actions should not error the uniter.
+	if err != nil {
+		message = err.Error()
+		if IsMissingHookError(err) {
+			message = fmt.Sprintf("action not implemented on unit %q", ctx.UnitName())
+		}
+		status = params.ActionFailed
+	}
+
+	callErr := ctx.state.ActionFinish(tag, status, results, message)
+	if callErr != nil {
+		unhandledErr = errors.Wrap(unhandledErr, callErr)
+	}
+	return unhandledErr
 }
 
 // RunCommands executes the commands in an environment which allows it to to
@@ -367,6 +460,14 @@ func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
 // RunAction executes a hook from the charm's actions in an environment which
 // allows it to to call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunAction(hookName, charmDir, toolsDir, socketPath string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
+	// If the action had already failed (i.e. from invalid params), we
+	// just want to finalize without running it.
+	if ctx.actionData.ActionFailed {
+		return ctx.finalizeContext(hookName, nil)
+	}
 	return ctx.runCharmHookWithLocation(hookName, "actions", charmDir, toolsDir, socketPath)
 }
 
@@ -640,4 +741,67 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationS
 		ctx.cache[unit] = settings
 	}
 	return settings, nil
+}
+
+// actionData contains the tag, parameters, and results of an Action.
+type actionData struct {
+	ActionTag      names.ActionTag
+	ActionParams   map[string]interface{}
+	ActionFailed   bool
+	ResultsMessage string
+	ResultsMap     map[string]interface{}
+}
+
+// newActionData builds a suitable actionData struct with no nil members.
+// this should only be called in the event that an Action hook is being requested.
+func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionData {
+	return &actionData{
+		ActionTag:    *tag,
+		ActionParams: params,
+		ResultsMap:   map[string]interface{}{},
+	}
+}
+
+// actionStatus messages define the possible states of a completed Action.
+const (
+	actionStatusInit   = "init"
+	actionStatusFailed = "fail"
+)
+
+// addValueToMap adds the given value to the map on which the method is run.
+// This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
+// into {foo: {bar: baz, baz: faz}}.
+func addValueToMap(keys []string, value string, target map[string]interface{}) {
+	next := target
+
+	for i := range keys {
+		// if we are on last key set the value.
+		// shouldn't be a problem.  overwrites existing vals.
+		if i == len(keys)-1 {
+			next[keys[i]] = value
+			break
+		}
+
+		if iface, ok := next[keys[i]]; ok {
+			switch typed := iface.(type) {
+			case map[string]interface{}:
+				// If we already had a map inside, keep
+				// stepping through.
+				next = typed
+			default:
+				// If we didn't, then overwrite value
+				// with a map and iterate with that.
+				m := map[string]interface{}{}
+				next[keys[i]] = m
+				next = m
+			}
+			continue
+		}
+
+		// Otherwise, it wasn't present, so make it and step
+		// into.
+		m := map[string]interface{}{}
+		next[keys[i]] = m
+		next = m
+	}
 }

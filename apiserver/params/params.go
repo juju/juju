@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"

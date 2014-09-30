@@ -4,41 +4,21 @@
 package tools_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
 type StorageSuite struct {
-	env environs.Environ
 	coretesting.BaseSuite
-	dataDir string
 }
 
 var _ = gc.Suite(&StorageSuite{})
-
-func (s *StorageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
-	c.Assert(err, gc.IsNil)
-	s.env, err = environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-	s.dataDir = c.MkDir()
-}
-
-func (s *StorageSuite) TearDownTest(c *gc.C) {
-	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
-}
 
 func (s *StorageSuite) TestStorageName(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
@@ -47,18 +27,20 @@ func (s *StorageSuite) TestStorageName(c *gc.C) {
 }
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
-	store := s.env.Storage()
-	_, err := envtools.ReadList(store, 2, 0)
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, gc.IsNil)
+	_, err = envtools.ReadList(stor, 2, 0)
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
 func (s *StorageSuite) TestReadList(c *gc.C) {
-	store := s.env.Storage()
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, gc.IsNil)
 	v001 := version.MustParseBinary("0.0.1-precise-amd64")
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, store, v001, v100, v101, v111)
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, v001, v100, v101, v111)
 	t001 := agentTools[0]
 	t100 := agentTools[1]
 	t101 := agentTools[2]
@@ -82,7 +64,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		2, 0, nil,
 	}} {
 		c.Logf("test %d", i)
-		list, err := envtools.ReadList(store, t.majorVersion, t.minorVersion)
+		list, err := envtools.ReadList(stor, t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
 			// ReadList doesn't set the Size of SHA256, so blank out those attributes.

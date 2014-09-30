@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/files"
 )
 
 func init() {
@@ -23,6 +24,7 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 // API serves backup-specific API methods.
 type API struct {
 	st      *state.State
+	paths   files.Paths
 	backups backups.Backups
 }
 
@@ -32,6 +34,30 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 		return nil, errors.Trace(common.ErrPerm)
 	}
 
+	dataDirRes := resources.Get("dataDir")
+	dataDir, ok := dataDirRes.(common.StringResource)
+	if !ok {
+		if dataDirRes == nil {
+			dataDir = ""
+		} else {
+			return nil, errors.Errorf("invalid dataDir resource: %v", dataDirRes)
+		}
+	}
+
+	logDirRes := resources.Get("logDir")
+	logDir, ok := logDirRes.(common.StringResource)
+	if !ok {
+		if logDirRes == nil {
+			logDir = ""
+		} else {
+			return nil, errors.Errorf("invalid logDir resource: %v", logDirRes)
+		}
+	}
+
+	var paths files.Paths
+	paths.DataDir = dataDir.String()
+	paths.LogsDir = logDir.String()
+
 	stor, err := newBackupsStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -39,13 +65,16 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 
 	b := API{
 		st:      st,
+		paths:   paths,
 		backups: backups.NewBackups(stor),
 	}
 	return &b, nil
 }
 
 var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	envStor, err := environs.GetStorage(st)
+	// TODO(axw,ericsnow) 2014-09-24 #1373236
+	// Migrate away from legacy provider storage.
+	envStor, err := environs.LegacyStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

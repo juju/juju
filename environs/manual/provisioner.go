@@ -32,7 +32,7 @@ var logger = loggo.GetLogger("juju.environs.manual")
 // consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	DestroyMachines(machines ...string) error
+	ForceDestroyMachines(machines ...string) error
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -74,7 +74,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			if cleanupErr := args.Client.DestroyMachines(machineId); cleanupErr != nil {
+			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
 				logger.Warningf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""

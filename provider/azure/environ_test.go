@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/api"

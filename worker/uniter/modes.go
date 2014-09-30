@@ -7,8 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -313,6 +313,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 // * user resolution of hook errors
 // * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
+	// TODO(binary132): In case of a crashed Action, simply set it to
+	// failed and return to ModeContinue.
 	defer modeContext("ModeHookError", &err)()
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)

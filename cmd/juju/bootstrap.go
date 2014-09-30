@@ -9,14 +9,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -251,7 +250,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 // handleBootstrapError is called to clean up if bootstrap fails.
 func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
-	logger.Errorf("bootstrap failed: %v", err)
 	ch := make(chan os.Signal, 1)
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)
