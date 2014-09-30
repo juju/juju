@@ -379,7 +379,16 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (context *HookContext, err error) {
+type hookContextArgs struct {
+	hctxId         string
+	hookKind       hooks.Kind
+	relationId     int
+	remoteUnitName string
+	actionParams   map[string]interface{}
+	actionTag      *names.ActionTag
+}
+
+func (u *Uniter) getHookContext(h hookContextArgs) (context *HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -398,14 +407,14 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	defer u.proxyMutex.Unlock()
 
 	// Metrics can only be added in collect-metrics hooks.
-	canAddMetrics := hookKind == hooks.CollectMetrics
+	canAddMetrics := h.hookKind == hooks.CollectMetrics
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 
 	var actionData *actionData
-	if actionTag != nil {
-		actionData = newActionData(actionTag, actionParams)
+	if h.actionTag != nil {
+		actionData = newActionData(h.actionTag, h.actionParams)
 	}
 
 	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
@@ -471,7 +480,16 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	}
 
 	logger.Debugf("remoteUnit: %+v", remoteUnit)
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), relationId, remoteUnit, map[string]interface{}(nil))
+	hcArgs := hookContextArgs{
+		hctxId:         hctxId,
+		actionTag:      nil,
+		actionParams:   nil,
+		hookKind:       hooks.Kind(""),
+		relationId:     relationId,
+		remoteUnitName: remoteUnit,
+	}
+	logger.Debugf("getHookContext args: %+v", hcArgs)
+	hctx, err := u.getHookContext(hcArgs)
 
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -559,7 +577,15 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, -1, "", actionParams, &tag)
+	hcArgs := hookContextArgs{
+		hctxId:         hctxId,
+		actionTag:      &tag,
+		actionParams:   actionParams,
+		hookKind:       hi.Kind,
+		relationId:     -1,
+		remoteUnitName: "",
+	}
+	hctx, err := u.getHookContext(hcArgs)
 	if err != nil {
 		return err
 	}
@@ -622,14 +648,6 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
 			return errors.Trace(err)
 		}
-	} else if hi.Kind == hooks.ActionRequested {
-		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
-		if err != nil {
-			return errors.Trace(err)
-		}
-		actionParams = action.Params()
-		hookName = action.Name()
-		_, actionParamsErr = u.validateAction(hookName, actionParams)
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -639,7 +657,15 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
+	hcArgs := hookContextArgs{
+		hctxId:         hctxId,
+		actionTag:      nil,
+		actionParams:   nil,
+		hookKind:       hi.Kind,
+		relationId:     relationId,
+		remoteUnitName: hi.RemoteUnit,
+	}
+	hctx, err := u.getHookContext(hcArgs) // hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
