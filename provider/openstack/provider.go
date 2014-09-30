@@ -252,10 +252,6 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	e.name = cfg.Name()
-	// Verify credentials.
-	if err := authenticateClient(e); err != nil {
-		return nil, err
-	}
 	return e, nil
 }
 
@@ -272,7 +268,15 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	// Verify credentials.
+	if err := authenticateClient(e.(*environ)); err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
