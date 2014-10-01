@@ -6,7 +6,7 @@ BUILD_PACKAGES=${BUILD_PACKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
-OFFICIAL_VERSIONS="$STREAMS/juju-dist/proposed/tools/releases" 
+OFFICIAL_VERSIONS="$STREAMS/juju-dist/proposed/tools/releases"
 if [[ -f $OFFICIAL_VERSIONS/juju-$VERSION-trusty-amd64.tgz ]]; then
     echo "$VERSION was published. This version is invalid to test."
     echo "Maybe juju's version needs updating?"
@@ -77,7 +77,7 @@ done
 fi
 
 $RELEASE_TOOLS/assemble-streams.bash -t $WORKSPACE/ testing $VERSION $STREAMS
-PUBLISH_ARGS="testing $STREAMS/juju-dist/testing cpc"
+PUBLISH_ARGS="testing $STREAMS/juju-dist cpc"
 $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
     $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS || \
         $RELEASE_TOOLS/publish-public-tools.bash $PUBLISH_ARGS
