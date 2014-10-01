@@ -112,15 +112,15 @@ func (badType) Exposed() error {
 }
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
-	caller, err := srvRoot.FindMethod("unknown-testing-facade", 0, "Method")
+	root := apiserver.TestingApiRoot(nil)
+	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Check(err, gc.ErrorMatches, `unknown object type "unknown-testing-facade"`)
 }
 
 func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
+	srvRoot := apiserver.TestingApiRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	myGoodFacade := func(
 		*state.State, *common.Resources, common.Authorizer,
@@ -137,7 +137,7 @@ func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
+	srvRoot := apiserver.TestingApiRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	defer common.Facades.Discard("my-testing-facade", 1)
 	defer common.Facades.Discard("my-testing-facade", 2)
@@ -212,7 +212,7 @@ func assertCallResult(c *gc.C, caller rpcreflect.MethodCaller, id string, expect
 }
 
 func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
+	srvRoot := apiserver.TestingApiRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	defer common.Facades.Discard("my-counting-facade", 1)
 	var count int64
@@ -248,7 +248,7 @@ func (r *rootSuite) TestFindMethodCachesFacades(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
+	srvRoot := apiserver.TestingApiRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	// like newCounter, but also tracks the "id" that was requested for
@@ -282,7 +282,7 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 }
 
 func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
+	srvRoot := apiserver.TestingApiRoot(nil)
 	defer common.Facades.Discard("my-counting-facade", 0)
 	var count int64
 	newIdCounter := func(
@@ -335,7 +335,7 @@ func (*secondImpl) OneMethod() stringVar {
 }
 
 func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
+	srvRoot := apiserver.TestingApiRoot(nil)
 	defer common.Facades.Discard("my-interface-facade", 0)
 	defer common.Facades.Discard("my-interface-facade", 1)
 	common.RegisterStandardFacade("my-interface-facade", 0, func(
@@ -372,8 +372,7 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 }
 
 func (r *rootSuite) TestDescribeFacades(c *gc.C) {
-	srvRoot := apiserver.TestingSrvRoot(nil)
-	facades := srvRoot.DescribeFacades()
+	facades := apiserver.DescribeFacades()
 	c.Check(facades, gc.Not(gc.HasLen), 0)
 	// As a sanity check, we should see that we have a Client v0 available
 	asMap := make(map[string][]int, len(facades))
