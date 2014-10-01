@@ -47,6 +47,11 @@ type BackupsListResult struct {
 	List []BackupsMetadataResult
 }
 
+// BackupsListResult holds the list of all stored backups.
+type BackupsUploadResult struct {
+	ID string
+}
+
 // BackupsMetadataResult holds the metadata for a backup as returned by
 // an API backups method (such as Create).
 type BackupsMetadataResult struct {

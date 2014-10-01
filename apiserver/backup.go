@@ -8,7 +8,10 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
+	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/juju/errors"
 
@@ -66,18 +69,98 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return
 		}
+	case "PUT":
+		// Since we want to stream the archive in we cannot simply use
+		// mime/multipart.
+		defer req.Body.Close()
+
+		archive, metaResult, err := h.extractUploadArgs(req)
+		if err != nil {
+			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		meta, err := metaResult.AsMetadata()
+		if err != nil {
+			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		id, err := backups.Add(archive, *meta)
+		if err != nil {
+			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		h.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
 	default:
 		h.sendError(resp, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", req.Method))
 	}
 }
 
-func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, error) {
-	defer req.Body.Close()
+type getter interface {
+	Get(string) string
+}
 
-	ctype := req.Header.Get("Content-Type")
-	if ctype != expectedType {
-		return nil, errors.Errorf("expected Content-Type %q, got %q", expectedType, ctype)
+func (h *backupHandler) checkContentType(header getter, expected string) error {
+	ctype := header.Get("Content-Type")
+	if ctype != expected {
+		return errors.Errorf("expected Content-Type %q, got %q", expected, ctype)
 	}
+	return nil
+}
+
+func (h *backupHandler) extractUploadArgs(req *http.Request) (io.ReadCloser, *params.BackupsMetadataResult, error) {
+	ctype := req.Header.Get("Content-Type")
+	mediaType, cParams, err := mime.ParseMediaType(ctype)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while parsing content type header")
+	}
+
+	if !strings.HasPrefix(mediaType, "multipart/") {
+		return nil, nil, errors.Errorf("expected multipart Content-Type, got %q", mediaType)
+	}
+	reader := multipart.NewReader(req.Body, cParams["boundary"])
+
+	// Extract the metadata.
+	part, err := reader.NextPart()
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil, errors.New("missing metadata")
+		}
+		return nil, nil, err
+	}
+	if err := h.checkContentType(part.Header, "application/json"); err != nil {
+		return nil, nil, err
+	}
+	var metaResult params.BackupsMetadataResult
+	if err := json.NewDecoder(part).Decode(&metaResult); err != nil {
+		return nil, nil, err
+	}
+
+	// Extract the archive.
+	part, err = reader.NextPart()
+	if err != nil {
+		if err == io.EOF {
+			return nil, nil, errors.New("missing archive")
+		}
+		return nil, nil, err
+	}
+	if err := h.checkContentType(part.Header, "application/octet-stream"); err != nil {
+		return nil, nil, err
+	}
+	// We're not going to worry about verifying that the file matches the
+	// metadata (e.g. size, checksum).
+	archive := part
+
+	// We are going to trust that there aren't any more attachments after
+	// the file.  If there are, we ignore them.
+
+	return archive, &metaResult, nil
+}
+
+func (h *backupHandler) read(req *http.Request) ([]byte, error) {
+	defer req.Body.Close()
 
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
@@ -88,7 +171,10 @@ func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, er
 }
 
 func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, "application/json")
+	if err := h.checkContentType(req.Header, "application/json"); err != nil {
+		return nil, errors.Trace(err)
+	}
+	body, err := h.read(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -112,14 +198,9 @@ func (h *backupHandler) sendFile(file io.Reader, checksum, algorithm string, res
 	return nil
 }
 
-// sendError sends a JSON-encoded error response.
-func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
-	failure := params.Error{
-		Message: message,
-		// Leave Code empty.
-	}
-
-	body, err := json.Marshal(&failure)
+// sendJSON sends a JSON-encoded result.
+func (h *backupHandler) sendJSON(w http.ResponseWriter, statusCode int, result interface{}) {
+	body, err := json.Marshal(result)
 	if err != nil {
 		return
 	}
@@ -127,4 +208,14 @@ func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	w.Write(body)
+}
+
+// sendError sends a JSON-encoded error response.
+func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
+	failure := params.Error{
+		Message: message,
+		// Leave Code empty.
+	}
+
+	h.sendJSON(w, statusCode, &failure)
 }
