@@ -89,9 +89,6 @@ def get_local_files(purpose, local_dir):
             if 'mirror' in name or os.path.islink(local_path):
                 # The mirror files only belong on streams.canonical.com.
                 continue
-            ignore, extension = os.path.splitext(name)
-            if purpose == TESTING and extension in SIGNED_EXTS:
-                continue
             size = os.path.getsize(local_path)
             md5content = get_md5content(local_path)
             mimetype, encoding = mimetypes.guess_type(name)
