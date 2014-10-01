@@ -14,17 +14,18 @@ type Client struct {
 	http   base.HTTPCaller
 }
 
+type httpAPICallCloser interface {
+	base.APICallCloser
+	base.HTTPCaller
+}
+
 // NewClient returns a new backups API client.
-func NewClient(st base.APICallCloser) *Client {
-	http, ok := st.(base.HTTPCaller)
-	if !ok {
-		http = nil
-	}
+func NewClient(st httpAPICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Backups")
 	client := Client{
 		ClientFacade: frontend,
 		facade:       backend,
-		http:         http,
+		http:         st,
 	}
 	return &client
 }
