@@ -33,14 +33,15 @@ const loginRateLimit = 10
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb      tomb.Tomb
-	wg        sync.WaitGroup
-	state     *state.State
-	addr      string
-	dataDir   string
-	logDir    string
-	limiter   utils.Limiter
-	validator LoginValidator
+	tomb              tomb.Tomb
+	wg                sync.WaitGroup
+	state             *state.State
+	addr              string
+	dataDir           string
+	logDir            string
+	limiter           utils.Limiter
+	validator         LoginValidator
+	adminApiFactories map[int]adminApiFactory
 
 	mu          sync.Mutex // protects the fields that follow
 	environUUID string
@@ -49,7 +50,7 @@ type Server struct {
 // LoginValidator functions are used to decide whether login requests
 // are to be allowed. The validator is called before credentials are
 // checked.
-type LoginValidator func(params.Creds) error
+type LoginValidator func(params.LoginRequest) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
@@ -80,6 +81,10 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		logDir:    cfg.LogDir,
 		limiter:   utils.NewLimiter(loginRateLimit),
 		validator: cfg.Validator,
+		adminApiFactories: map[int]adminApiFactory{
+			0: newAdminApiV0,
+			1: newAdminApiV1,
+		},
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
@@ -338,11 +343,20 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	err := srv.validateEnvironUUID(envUUID)
+
+	var err error
+	var h *apiHandler
+	if err = srv.validateEnvironUUID(envUUID); err == nil {
+		h, err = newApiHandler(srv, conn, reqNotifier)
+	}
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
-		conn.Serve(newStateServer(srv, conn, reqNotifier, srv.limiter), serverError)
+		adminApis := make(map[int]interface{})
+		for apiVersion, factory := range srv.adminApiFactories {
+			adminApis[apiVersion] = factory(srv, h, reqNotifier)
+		}
+		conn.ServeFinder(newAnonRoot(h, adminApis), serverError)
 	}
 	conn.Start()
 	select {

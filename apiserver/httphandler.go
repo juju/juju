@@ -49,9 +49,9 @@ func (h *httpHandler) authenticate(r *http.Request) error {
 		return common.ErrBadCreds
 	}
 	// Ensure the credentials are correct.
-	_, err = checkCreds(h.state, params.Creds{
-		AuthTag:  tagPass[0],
-		Password: tagPass[1],
+	_, err = checkCreds(h.state, params.LoginRequest{
+		AuthTag:     tagPass[0],
+		Credentials: tagPass[1],
 	})
 	return err
 }
