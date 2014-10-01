@@ -16,7 +16,9 @@ import (
 
 // File represents a file during testing.
 type File struct {
-	Name    string
+	// Name is the path to which the file will be identified in the archive.
+	Name string
+	// Content is the data that will be written to the archive for the file.
 	Content string
 }
 
