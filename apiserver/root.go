@@ -38,46 +38,45 @@ type objectKey struct {
 	objId   string
 }
 
-// srvRoot represents a single client's connection to the state
-// after it has logged in. It implements apiRoot.
-type srvRoot struct {
-	state       *state.State
-	rpcConn     *rpc.Conn
-	resources   *common.Resources
-	entity      state.Entity
-	objectMutex sync.RWMutex
-	objectCache map[objectKey]reflect.Value
+// apiHandler represents a single client's connection to the state
+// after it has logged in. It contains an rpc.MethodFinder which it
+// uses to dispatch Api calls appropriately.
+type apiHandler struct {
+	state     *state.State
+	rpcConn   *rpc.Conn
+	resources *common.Resources
+	entity    state.Entity
 }
 
-var _ apiRoot = (*srvRoot)(nil)
+var _ = (*apiHandler)(nil)
 
-// newSrvRoot creates the client's connection representation
-// and starts a ping timeout for the monitoring of this
-// connection.
-func newSrvRoot(root *initialRoot, entity state.Entity) *srvRoot {
-	r := &srvRoot{
-		state:       root.srv.state,
-		rpcConn:     root.rpcConn,
-		resources:   common.NewResources(),
-		entity:      entity,
-		objectCache: make(map[objectKey]reflect.Value),
+// newApiHandler returns a new apiHandler.
+func newApiHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) (*apiHandler, error) {
+	r := &apiHandler{
+		state:     srv.state,
+		resources: common.NewResources(),
+		rpcConn:   rpcConn,
 	}
-	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
-	r.resources.RegisterNamed("logDir", common.StringResource(root.srv.logDir))
-	return r
+	if err := r.resources.RegisterNamed("dataDir", common.StringResource(srv.dataDir)); err != nil {
+		return nil, err
+	}
+	if err := r.resources.RegisterNamed("logDir", common.StringResource(srv.logDir)); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
-func (r *srvRoot) getResources() *common.Resources {
+func (r *apiHandler) getResources() *common.Resources {
 	return r.resources
 }
 
-func (r *srvRoot) getRpcConn() *rpc.Conn {
+func (r *apiHandler) getRpcConn() *rpc.Conn {
 	return r.rpcConn
 }
 
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
-func (r *srvRoot) Kill() {
+func (r *apiHandler) Kill() {
 	r.resources.StopAll()
 }
 
@@ -113,13 +112,37 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 	return s.objMethod.Call(objVal, arg)
 }
 
+// apiRoot implements basic method dispatching to the facade registry.
+type apiRoot struct {
+	state       *state.State
+	resources   *common.Resources
+	authorizer  common.Authorizer
+	objectMutex sync.RWMutex
+	objectCache map[objectKey]reflect.Value
+}
+
+// newApiRoot returns a new apiRoot.
+func newApiRoot(srv *Server, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
+	r := &apiRoot{
+		state:       srv.state,
+		resources:   resources,
+		authorizer:  authorizer,
+		objectCache: make(map[objectKey]reflect.Value),
+	}
+	return r
+}
+
+func (r *apiRoot) Kill() {
+	r.resources.StopAll()
+}
+
 // FindMethod looks up the given rootName and version in our facade registry
 // and returns a MethodCaller that will be used by the RPC code to place calls on
 // that facade.
 // FindMethod uses the global registry apiserver/common.Facades.
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
-func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
@@ -147,7 +170,7 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 			// check.
 			return reflect.Value{}, err
 		}
-		obj, err := factory(r.state, r.resources, r, id)
+		obj, err := factory(r.state, r.resources, r.authorizer, id)
 		if err != nil {
 			return reflect.Value{}, err
 		}
@@ -176,7 +199,7 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
-func (r *srvRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	noMethod := rpcreflect.ObjMethod{}
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {
@@ -203,49 +226,82 @@ func (r *srvRoot) lookupMethod(rootName string, version int, methodName string) 
 	return goType, objMethod, nil
 }
 
+// AnonRoot dispatches API calls to those available to an anonymous connection
+// which has not logged in.
+type anonRoot struct {
+	*apiHandler
+	adminApis map[int]interface{}
+}
+
+// NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
+func newAnonRoot(h *apiHandler, adminApis map[int]interface{}) *anonRoot {
+	r := &anonRoot{
+		apiHandler: h,
+		adminApis:  adminApis,
+	}
+	return r
+}
+
+func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	if rootName != "Admin" {
+		return nil, &rpcreflect.CallNotImplementedError{
+			RootMethod: rootName,
+			Version:    version,
+		}
+	}
+	if api, ok := r.adminApis[version]; ok {
+		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, 0, methodName)
+	}
+	return nil, &rpcreflect.CallNotImplementedError{
+		RootMethod: rootName,
+		Method:     methodName,
+		Version:    version,
+	}
+}
+
 // AuthMachineAgent returns whether the current client is a machine agent.
-func (r *srvRoot) AuthMachineAgent() bool {
+func (r *apiHandler) AuthMachineAgent() bool {
 	_, isMachine := r.GetAuthTag().(names.MachineTag)
 	return isMachine
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.
-func (r *srvRoot) AuthUnitAgent() bool {
+func (r *apiHandler) AuthUnitAgent() bool {
 	_, isUnit := r.GetAuthTag().(names.UnitTag)
 	return isUnit
 }
 
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
-func (r *srvRoot) AuthOwner(tag names.Tag) bool {
+func (r *apiHandler) AuthOwner(tag names.Tag) bool {
 	return r.entity.Tag() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *srvRoot) AuthEnvironManager() bool {
+func (r *apiHandler) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
 // AuthClient returns whether the authenticated entity is a client
 // user.
-func (r *srvRoot) AuthClient() bool {
+func (r *apiHandler) AuthClient() bool {
 	_, isUser := r.GetAuthTag().(names.UserTag)
 	return isUser
 }
 
 // GetAuthTag returns the tag of the authenticated entity.
-func (r *srvRoot) GetAuthTag() names.Tag {
+func (r *apiHandler) GetAuthTag() names.Tag {
 	return r.entity.Tag()
 }
 
 // GetAuthEntity returns the authenticated entity.
-func (r *srvRoot) GetAuthEntity() state.Entity {
+func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
-func (r *srvRoot) DescribeFacades() []params.FacadeVersions {
+func DescribeFacades() []params.FacadeVersions {
 	facades := common.Facades.List()
 	result := make([]params.FacadeVersions, len(facades))
 	for i, facade := range facades {

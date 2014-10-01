@@ -288,18 +288,6 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
-func CountofSentMetrics(st *State) (int, error) {
-	return st.countofSentMetrics()
-}
-
-func CountofUnsentMetrics(st *State) (int, error) {
-	return st.countofUnsentMetrics()
-}
-
-func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
-	return st.setMetricBatchesSent(metrics)
-}
-
 func DocID(st *State, id string) string {
 	return st.docID(id)
 }
