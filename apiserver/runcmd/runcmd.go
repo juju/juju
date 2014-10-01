@@ -96,7 +96,7 @@ func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResu
 			execParam = remoteParamsForMachine(machine, command, runCmd.Timeout)
 		case names.UnitTagKind:
 			if runCmd.Context != nil {
-				relation, err := api.getRelation(api.state, runCmd.Context)
+				relation, err := api.getRelation(api.state, tag, runCmd.Context)
 				if err != nil {
 					return results, errors.Annotate(err, "--relation")
 				}
@@ -265,11 +265,11 @@ func (c commandRelation) isValidRemoteUnit() bool {
 // getRelation takes a RunContext and turns the string representations of a Relation
 // and RemoteUnit in to an actual state.Relation Id (relatioin)
 // and state.Unit Name (remoteUnit).
-func (api *RunCommandAPI) getRelation(state *state.State, context *params.RunContext) (commandRelation, error) {
+func (api *RunCommandAPI) getRelation(state *state.State, tag names.Tag, context *params.RunContext) (commandRelation, error) {
 	result := commandRelation{Id: -1, RemoteUnit: ""}
 
 	if len(context.Relation) > 0 {
-		endpoints, err := api.state.InferEndpoints(context.Relation)
+		endpoints, err := api.state.InferEndpoints(names.UnitService(tag.Id()), context.Relation)
 		if err != nil {
 			return result, errors.Trace(err)
 		}

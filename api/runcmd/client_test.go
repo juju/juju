@@ -72,9 +72,6 @@ func (s *runcmdSuite) TestRunMachineAndService(c *gc.C) {
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	_, err = s.State.Service(magic.Tag().Id())
-	c.Assert(err, gc.IsNil)
-
 	s.mockSSH(c, echoInput)
 
 	results, err := s.runcmd.Run(
@@ -99,6 +96,39 @@ func (s *runcmdSuite) TestRunMachineAndService(c *gc.C) {
 			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
 			MachineId:    "2",
 			UnitId:       "magic/1",
+		},
+	}
+
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
+func (s *runcmdSuite) TestRunWithContext(c *gc.C) {
+	// Make three machines.
+	s.addMachineWithAddress(c, "10.3.2.1")
+
+	owner := s.Factory.MakeUser(c, nil).Tag()
+	charm := s.AddTestingCharm(c, "wordpress")
+	wordpress, err := s.State.AddService("wordpress", owner.String(), charm, nil)
+	c.Assert(err, gc.IsNil)
+	unit := s.addUnit(c, wordpress)
+
+	s.addRelatedService(c, "wordpress", "mysql", unit)
+	s.mockSSH(c, echoInput)
+
+	results, err := s.runcmd.Run(
+		params.RunParamsV1{
+			Commands: "hostname",
+			Timeout:  testing.LongWait,
+			Targets:  []string{wordpress.Tag().String()},
+			Context:  &params.RunContext{Relation: "mysql"},
+		})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.HasLen, 1)
+	expectedResults := []params.RunResult{
+		params.RunResult{
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --relation 0 wordpress/0 'hostname'\n")},
+			MachineId:    "1",
+			UnitId:       "wordpress/0",
 		},
 	}
 
@@ -136,6 +166,27 @@ func (s *runcmdSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 	c.Assert(err, gc.IsNil)
 	machine.SetAddresses(network.NewAddress("10.3.2.1", network.ScopeUnknown))
 	return unit
+}
+
+func (s *runcmdSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Relation, *state.Service, *state.Unit) {
+	relatedService := s.AddTestingService(c, relatedSvc, s.AddTestingCharm(c, relatedSvc))
+	rel := s.addRelation(c, firstSvc, relatedSvc)
+	relUnit, err := rel.Unit(unit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.addUnit(c, relatedService)
+	relatedUnit, err := s.State.Unit(relatedSvc + "/0")
+	c.Assert(err, gc.IsNil)
+	return rel, relatedService, relatedUnit
+}
+
+func (s *runcmdSuite) addRelation(c *gc.C, first, second string) *state.Relation {
+	eps, err := s.State.InferEndpoints(first, second)
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	return rel
 }
 
 var echoInputShowArgs = `#!/bin/bash
