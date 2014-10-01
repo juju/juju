@@ -35,10 +35,10 @@ def get_files(args):
 
 
 def upload_changes(args, remote_files):
-    container_path = '{0}/{1}/'.format(args.container, args.path)
+    container_path = os.path.join(args.container, args.path)
     count = 0
     for file_name in args.files:
-        local_path = "{0}/{1}".format(args.path, file_name).replace('//', '/')
+        local_path = os.path.join(args.path, file_name)
         remote_file = remote_files.get(local_path)
         if remote_file is None:
             if args.verbose:
@@ -60,7 +60,8 @@ def upload_changes(args, remote_files):
         count += 1
         print("Uploading {0}/{1}".format(args.container, local_path))
         cmd = ['swift', 'upload', container_path, file_name]
-        output = subprocess.check_output(cmd)
+        if not args.dry_run:
+            output = subprocess.check_output(cmd)
         print(' '.join(cmd))
         print(output)
     print('Uploaded {0} files'.format(count))
@@ -68,6 +69,9 @@ def upload_changes(args, remote_files):
 
 def main():
     parser = ArgumentParser('Sync changed and new files.')
+    parser.add_argument(
+        "-d", "--dry-run", action="store_true", default=False,
+        help="Do not make changes")
     parser.add_argument(
         '-v', '--verbose', action="store_true", help='Increse verbosity.')
     parser.add_argument(
