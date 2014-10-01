@@ -30,21 +30,33 @@ type APIInfoCommand struct {
 }
 
 const apiInfoDoc = `
-Returns the values of the various fields used to connect to an API server.
+Print the field values used to connect to the environment's API servers"
 
-By default the password is not shown in the result.  If the password is specified
-explicitly, or through the --password option, the value is included.
-
-By specifying individual fields, the user is able to return just those fields.
-The valid field options are:
+The exact fields to output can be specified on the command line.  The
+available fields are:
   user
   password
   environ-uuid
   state-servers
   ca-cert
 
+If "password" is included as a field, or the --password option is given, the
+password value will be shown.
+
 
 Examples:
+  $ juju api-info
+  user: admin
+  environ-uuid: 373b309b-4a86-4f13-88e2-c213d97075b8
+  state-servers:
+  - localhost:17070
+  - 10.0.3.1:17070
+  - 192.168.2.21:17070
+  ca-cert: '-----BEGIN CERTIFICATE-----
+    ...
+    -----END CERTIFICATE-----
+  '
+
   $ juju api-info user
   admin
 
@@ -58,8 +70,8 @@ Examples:
 func (c *APIInfoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-info",
-		Args:    "",
-		Purpose: "print the field values used to connect to the API",
+		Args:    "[field ...]",
+		Purpose: "print the field values used to connect to the environment's API servers",
 		Doc:     apiInfoDoc,
 	}
 }
@@ -153,7 +165,7 @@ func (c *APIInfoCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *APIInfoCommand) format(value interface{}) ([]byte, error) {
-	if count := len(c.fields); count == 1 {
+	if len(c.fields) == 1 {
 		data := value.(InfoData)
 		field, err := data.field(c.fields[0])
 		if err != nil {
