@@ -11,10 +11,20 @@ import (
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
+	http   base.HTTPCaller
 }
 
 // NewClient returns a new backups API client.
 func NewClient(st base.APICallCloser) *Client {
+	http, ok := st.(base.HTTPCaller)
+	if !ok {
+		http = nil
+	}
 	frontend, backend := base.NewClientFacade(st, "Backups")
-	return &Client{ClientFacade: frontend, facade: backend}
+	client := Client{
+		ClientFacade: frontend,
+		facade:       backend,
+		http:         http,
+	}
+	return &client
 }
