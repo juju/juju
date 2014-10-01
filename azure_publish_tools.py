@@ -78,7 +78,7 @@ def get_local_files(purpose, local_dir):
         print('%s not found.' % local_dir)
         return None
     if purpose == RELEASE:
-        replacements = (local_dir + '/', 'tools/')
+        replacements = ('{}/'.format(local_dir), 'tools/')
     else:
         replacements = (local_dir, purpose)
     found = []
@@ -163,6 +163,8 @@ def publish_files(purpose, local_dir, args):
     print("Looking for local files in %s" % local_dir)
     local_files = get_local_files(purpose, local_dir)
     if local_files is None:
+        if args.verbose:
+            print("No files were found at {}".format(local_dir))
         return NO_LOCAL_FILES
     if args.verbose:
         for lf in local_files:
@@ -206,8 +208,10 @@ def main():
     parser = get_option_parser()
     args = parser.parse_args()
     if args.purpose not in PURPOSES:
+        print('Unknown purpose: {}'.format(args.purpose))
         return UNKNOWN_PURPOSE
     if args.command not in COMMANDS:
+        print('Unknown command: {}'.format(args.command))
         return UNKNOWN_COMMAND
     elif args.command == LIST:
         return list_published_files(args.purpose)
