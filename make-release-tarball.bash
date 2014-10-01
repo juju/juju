@@ -92,12 +92,8 @@ if [[ ! -f $GODEPS ]]; then
 fi
 GOPATH=$WORK $GODEPS -u "$WORKPACKAGE/dependencies.tsv"
 
-# TODO(gz): Ideally just run ./scripts/pre-push.bash instead, but govet issues
-BADFMT=$(find $WORKPACKAGE -name '*.go' -not -name '.#*' | xargs gofmt -l)
-if [[ -n "$BADFMT" ]]; then
-    BADFMT=$(echo "$BADFMT" | sed "s/^/  /")
-    echo -e "gofmt is sad:\n\n$BADFMT"
-    exit 1
+if [[ $(lsb_release -sc) == "trusty" ]]; then
+    (cd $WORKPACKAGE && GOPATH=$WORK ./scripts/pre-push.bash)
 fi
 
 # Remove godeps, non-free data, and any binaries.
