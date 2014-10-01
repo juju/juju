@@ -77,10 +77,7 @@ def get_local_files(purpose, local_dir):
     if not os.path.isdir(local_dir):
         print('%s not found.' % local_dir)
         return None
-    if purpose == RELEASE:
-        replacements = ('{}/'.format(local_dir), 'tools/')
-    else:
-        replacements = (local_dir, purpose)
+    replacements = (local_dir, get_prefix(purpose))
     found = []
     for path, subdirs, files in os.walk(local_dir):
         for name in files:
