@@ -5,9 +5,9 @@ package api
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -38,8 +38,8 @@ func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	return req, nil
 }
 
-func newHTTPRequest(method string, URL *url.URL, path, uuid, tag, pw string) (*http.Request, error) {
-	URL.Path = fmt.Sprintf("/environment/%s/%s", uuid, path)
+func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*http.Request, error) {
+	URL.Path = path.Join("/environment", uuid, pth)
 	req, err := http.NewRequest(method, URL.String(), nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "while building HTTP request")
