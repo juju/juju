@@ -17,9 +17,8 @@ type downloadSuite struct {
 
 var _ = gc.Suite(&downloadSuite{})
 
-func (s *downloadSuite) TestOkay(c *gc.C) {
-	backups.SetHTTP(s.client,
-		&fakeHTTPCaller{Data: "<compressed archive data>"})
+func (s *downloadSuite) TestSuccessfulRequest(c *gc.C) {
+	backups.SetHTTP(s.client, &fakeHTTPCaller{Data: "<compressed archive data>"})
 
 	resultArchive, err := s.client.Download("spam")
 	c.Assert(err, gc.IsNil)
