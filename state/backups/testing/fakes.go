@@ -50,42 +50,25 @@ func (b *FakeBackups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metad
 	b.OriginArg = &origin
 	b.NotesArg = notes
 
-	if b.Error != nil {
-		return nil, b.Error
-	}
-	return b.Meta, nil
+	return b.Meta, b.Error
 }
 
 // Get returns the metadata and archive file associated with the ID.
 func (b *FakeBackups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
 	b.Calls = append(b.Calls, "Get")
-
 	b.IDArg = id
-
-	if b.Error != nil {
-		return nil, nil, b.Error
-	}
-	return b.Meta, b.Archive, nil
+	return b.Meta, b.Archive, b.Error
 }
 
 // List returns the metadata for all stored backups.
 func (b *FakeBackups) List() ([]metadata.Metadata, error) {
 	b.Calls = append(b.Calls, "List")
-
-	if b.Error != nil {
-		return nil, b.Error
-	}
-	return b.MetaList, nil
+	return b.MetaList, b.Error
 }
 
 // Remove deletes the backup from storage.
 func (b *FakeBackups) Remove(id string) error {
 	b.Calls = append(b.Calls, "Remove")
-
 	b.IDArg = id
-
-	if b.Error != nil {
-		return b.Error
-	}
-	return nil
+	return b.Error
 }
