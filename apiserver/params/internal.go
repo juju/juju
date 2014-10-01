@@ -614,7 +614,8 @@ type RunParams struct {
 	Units    []string
 }
 
-// RunCommands holds the information for a `juju run` command.
+// RunCommands holds the information for a `juju run` command using
+// version 1 of the runcmd API
 type RunParamsV1 struct {
 	Commands string
 	Targets  []string
@@ -623,7 +624,8 @@ type RunParamsV1 struct {
 }
 
 // RunContext holds the information for a `juju-run` command
-// that was provided the --relation option.
+// that was provided the --relation option. Used with V1 of the
+// runcmd API.
 type RunContext struct {
 	Relation   string
 	RemoteUnit string
