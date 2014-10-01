@@ -13,8 +13,13 @@ import (
 	"github.com/juju/utils"
 )
 
-var sendHTTPRequest = func(r *http.Request, c *http.Client) (*http.Response, error) {
-	return c.Do(r)
+// Doer sends an HTTP request, returning the subsequent response.
+type Doer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
+var newHTTPClient = func(state *State) Doer {
+	return state.GetHTTPClient()
 }
 
 // NewHTTPRequest returns a new API-supporting HTTP request based on State.
@@ -48,7 +53,7 @@ func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*ht
 	return req, nil
 }
 
-func (s *State) getHTTPClient() *http.Client {
+func (s *State) GetHTTPClient() Doer {
 	// For reference, call utils.GetNonValidatingHTTPClient() to get a
 	// non-validating client.
 	httpclient := utils.GetValidatingHTTPClient()
@@ -60,8 +65,8 @@ func (s *State) getHTTPClient() *http.Client {
 // SendHTTPRequest sends the request using the HTTP client derived from
 // State.
 func (s *State) SendHTTPRequest(req *http.Request) (*http.Response, error) {
-	httpclient := s.getHTTPClient()
-	resp, err := sendHTTPRequest(req, httpclient)
+	httpclient := newHTTPClient(s)
+	resp, err := httpclient.Do(req)
 	if err != nil {
 		return nil, errors.Annotate(err, "error when sending HTTP request")
 	}
