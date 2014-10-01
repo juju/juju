@@ -42,11 +42,11 @@ verify_stream() {
         local root="$PURPOSE/tools"
     fi
     curl $location/$root/streams/v1/index.json > $WORK/index.json
-    diff $JUJU_DIST/tools/streams/v1/index.json $WORK/index.json
+    diff $STREAM_PATH/streams/v1/index.json $WORK/index.json
     curl $location/$root/streams/v1/index.json > \
-        $WORK/com.ubuntu.juju:released:tools.json.json
-    diff $JUJU_DIST/tools/streams/v1/index.json \
-        $WORK/com.ubuntu.juju:released:tools.json.json
+        $WORK/com.ubuntu.juju:released:tools.json
+    diff $STREAM_PATH/streams/v1/index.json \
+        $WORK/com.ubuntu.juju:released:tools.json
     rm $WORK/*
 }
 
@@ -78,7 +78,7 @@ publish_to_aws() {
     fi
     echo "Phase 1: Publishing $PURPOSE to AWS."
     s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
-        ${JUJU_DIST}/tools $destination
+        $STREAM_PATH $destination
     verify_stream $AWS_SITE
 }
 
@@ -93,9 +93,9 @@ publish_to_canonistack() {
     fi
     echo "Phase 2: Publishing $PURPOSE to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
-    cd $JUJU_DIST/tools/releases/
+    cd $STREAM_PATH/releases/
     ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
+    cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
     verify_stream $CAN_SITE
 }
@@ -110,9 +110,9 @@ publish_to_hp() {
     fi
     echo "Phase 3: Publishing $PURPOSE to HP Cloud."
     source $JUJU_DIR/hptoolsrc
-    cd $JUJU_DIST/tools/releases/
+    cd $STREAM_PATH/releases/
     ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
+    cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
     verify_stream $HP_SITE
 }
@@ -122,15 +122,14 @@ publish_to_azure() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     if [[ $PURPOSE == "release" ]]; then
         local destination="release"
-        local local_dir="tools"
+        local local_dir=$STREAM_PATH
     else
         local destination="$PURPOSE"
-        local local_dir=""
+        local local_dir="$JUJU_DIST/$PURPOSE"
     fi
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
-    ${SCRIPT_DIR}/azure_publish_tools.py publish \
-        $destination $JUJU_DIST/$local_dir
+    ${SCRIPT_DIR}/azure_publish_tools.py publish $destination $local_dir
     verify_stream $AZURE_SITE
 }
 
@@ -145,9 +144,9 @@ publish_to_joyent() {
     fi
     echo "Phase 5: Publishing $PURPOSE to Joyent."
     source $JUJU_DIR/joyentrc
-    cd $JUJU_DIST/tools/releases/
+    cd $STREAM_PATH/releases/
     ${SCRIPT_DIR}/manta_sync.py $destination/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
+    cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/manta_sync.py $destination/streams/v1/ {index,com}*
     verify_stream $JOYENT_SITE
 }
@@ -174,8 +173,13 @@ if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
 fi
 
 JUJU_DIST=$(cd $2; pwd)
-if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
-    echo "Invalid JUJU-DIST."
+if [[ $PURPOSE == "release" ]]; then
+    STREAM_PATH="$JUJU_DIST/tools"
+else
+    STREAM_PATH="$JUJU_DIST/$PURPOSE/tools"
+fi
+if [[ ! -d $STREAM_PATH/releases && ! -d $STREAM_PATH/streams ]]; then
+    echo "Invalid JUJU-DIST: $STREAM_PATH"
     usage
 fi
 
