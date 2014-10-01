@@ -48,23 +48,19 @@ func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*ht
 	return req, nil
 }
 
-func (s *State) getHTTPClient(secure bool) *http.Client {
-	var httpclient *http.Client
-	if secure {
-		httpclient = utils.GetValidatingHTTPClient()
-		tlsconfig := tls.Config{RootCAs: s.certPool, ServerName: "anything"}
-		httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
-	} else {
-		httpclient = utils.GetNonValidatingHTTPClient()
-	}
+func (s *State) getHTTPClient() *http.Client {
+	// For reference, call utils.GetNonValidatingHTTPClient() to get a
+	// non-validating client.
+	httpclient := utils.GetValidatingHTTPClient()
+	tlsconfig := tls.Config{RootCAs: s.certPool, ServerName: "anything"}
+	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
 	return httpclient
 }
 
 // SendHTTPRequest sends the request using the HTTP client derived from
 // State.
 func (s *State) SendHTTPRequest(req *http.Request) (*http.Response, error) {
-	secure := true
-	httpclient := s.getHTTPClient(secure)
+	httpclient := s.getHTTPClient()
 	resp, err := sendHTTPRequest(req, httpclient)
 	if err != nil {
 		return nil, errors.Annotate(err, "error when sending HTTP request")
