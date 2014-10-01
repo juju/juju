@@ -4,6 +4,9 @@
 package main
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -27,19 +30,36 @@ type APIInfoCommand struct {
 }
 
 const apiInfoDoc = `
-Returns the address of the current API server formatted as host:port.
+Returns the values of the various fields used to connect to the API server.
+
+By default the password is not shown in the result.  If the password is specified
+explicitly, or through the --password option, the value is included.
+
+By specifying individual fields, the user is able to return just those fields.
+The valid field options are:
+  user
+  password
+  environ-uuid
+  state-servers
+  ca-cert
+
 
 Examples:
-  $ juju api-endpoints
-  10.0.3.1:17070
-  $
+  $ juju api-info user
+  admin
+
+  $ juju api-info user password
+  user: admin
+  password: sekrit
+
+
 `
 
 func (c *APIInfoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-info",
 		Args:    "",
-		Purpose: "Print the API server address",
+		Purpose: "print the field values used to connect to the API",
 		Doc:     apiInfoDoc,
 	}
 }
@@ -66,7 +86,11 @@ func (c *APIInfoCommand) Init(args []string) error {
 			fields.Remove(name)
 		}
 		if fields.Size() > 0 {
-			return errors.Errorf("unknown fields: %v", fields.SortedValues())
+			var quoted []string
+			for _, field := range fields.SortedValues() {
+				quoted = append(quoted, fmt.Sprintf("%q", field))
+			}
+			return errors.Errorf("unknown fields: %s", strings.Join(quoted, ", "))
 		}
 
 	} else {
@@ -135,7 +159,10 @@ func (c *APIInfoCommand) format(value interface{}) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		return cmd.FormatYaml(field)
+		if value, ok := field.([]string); ok {
+			return []byte(strings.Join(value, "\n")), nil
+		}
+		return []byte(field.(string)), nil
 	}
 
 	return cmd.FormatYaml(value)
