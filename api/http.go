@@ -17,6 +17,7 @@ var sendHTTPRequest = func(r *http.Request, c *http.Client) (*http.Response, err
 	return c.Do(r)
 }
 
+// NewHTTPRequest returns a new API-supporting HTTP request based on State.
 func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	baseURL, err := url.Parse(s.serverRoot)
 	if err != nil {
@@ -59,6 +60,8 @@ func (s *State) getHTTPClient(secure bool) *http.Client {
 	return httpclient
 }
 
+// SendHTTPRequest sends the request using the HTTP client derived from
+// State.
 func (s *State) SendHTTPRequest(req *http.Request) (*http.Response, error) {
 	secure := true
 	httpclient := s.getHTTPClient(secure)
