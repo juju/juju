@@ -46,11 +46,12 @@ class Client:
     """
 
     def __init__(self, manta_url, account, key_id,
-                 user_agent=USER_AGENT, verbose=False):
+                 user_agent=USER_AGENT, verbose=False, dry_run=False):
         self.manta_url = manta_url
         self.account = account
         self.key_id = key_id
         self.user_agent = user_agent
+        self.dry_run = dry_run
 
     def make_request_headers(self, headers=None):
         """Return a dict of required headers.
@@ -100,7 +101,8 @@ class Client:
         marker = ''
         incomplete = True
         while incomplete:
-            path_query = "{}?limit=256&marker={}".format(container_path, marker)
+            path_query = "{}?limit=256&marker={}".format(
+                container_path, marker)
             last_marker = marker
             headers, content = self._request(path_query)
             for string in content.splitlines():
@@ -126,6 +128,8 @@ class Client:
             headers["x-durability-level"] = durability_level
         headers["Content-Length"] = str(len(content))
         headers["Content-MD5"] = get_md5content(path, content)
+        if self.dry_run:
+            return
         response, content = self._request(
             remote_path, method="PUT", body=content, headers=headers)
         if response["status"] != "204":
@@ -190,6 +194,9 @@ def upload_changes(args, remote_files, container_path, client):
 def main():
     parser = ArgumentParser('Sync changed and new files.')
     parser.add_argument(
+        "-d", "--dry-run", action="store_true", default=False,
+        help="Do not make changes")
+    parser.add_argument(
         '-v', '--verbose', action="store_true", help='Increse verbosity.')
     parser.add_argument(
         "-u", "--url", dest="manta_url",
@@ -213,7 +220,8 @@ def main():
         print('MANTA_URL must be sourced into the environment.')
         sys.exit(1)
     client = Client(
-        args.manta_url, args.account, args.key_id, verbose=args.verbose)
+        args.manta_url, args.account, args.key_id,
+        verbose=args.verbose, dry_run=args.dry_run)
     # /cpcjoyentsupport/public/juju-dist/tools/streams/v1/
     container_path = '/{0}/public/{1}/{2}'.format(
         args.account, args.container, args.path).replace('//', '/')
