@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -63,8 +62,7 @@ func (s *downloadSuite) TestHelp(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	info := s.subcommand.Info()
-	expected := "(?sm)usage: juju backups download [options] " + info.Args + "$.*"
-	expected = strings.Replace(expected, "[", `\[`, -1)
+	expected := `(?sm)usage: juju backups download \[options] ` + info.Args + `$.*`
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
 	expected = "(?sm).*^purpose: " + info.Purpose + "$.*"
 	c.Check(testing.Stdout(ctx), gc.Matches, expected)
