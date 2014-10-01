@@ -83,8 +83,14 @@ var _ = gc.Suite(&loginAncientSuite{
 	},
 })
 
-func (s *baseLoginSuite) setupServer(c *gc.C) (*api.Info, func()) {
-	return s.setupServerWithValidator(c, nil)
+func (s *baseLoginSuite) setupServer(c *gc.C) (*api.State, func()) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	return st, func() {
+		st.Close()
+		cleanup()
+	}
 }
 
 func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
@@ -96,7 +102,7 @@ func (s *baseLoginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -107,7 +113,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
 	// called with user-admin permissions automatically.
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
 	adminUser := s.AdminUserTag(c)
@@ -159,7 +165,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
 	info.Tag = nil
@@ -212,7 +218,7 @@ func (s *loginV1Suite) TestLoginSetsLogIdentifier(c *gc.C) {
 }
 
 func (s *baseLoginSuite) runLoginSetsLogIdentifier(c *gc.C, expected []string) {
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 
 	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -490,7 +496,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	info.Tag = s.AdminUserTag(c)
 	info.Password = "dummy-secret"
 	defer cleanup()
@@ -517,7 +523,7 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 }
 
 func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "dummy-password", NoEnvUser: true})
 	info.Password = "dummy-password"
@@ -527,7 +533,7 @@ func (s *loginSuite) TestNonEnvironUserLoginFails(c *gc.C) {
 }
 
 func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
 	// If we call api.Open without giving a username and password, then it
 	// won't call Login, so we can call it ourselves.
@@ -535,15 +541,12 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 	// us in, and that we can find out the real EnvironTag from the
 	// response.
 	adminUser := s.AdminUserTag(c)
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  adminUser.String(),
 		Password: "dummy-secret",
 	}
-	err = st.APICall("Admin", 0, "", "Login", creds, &result)
+	err := st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -551,17 +554,14 @@ func (s *loginV0Suite) TestLoginReportsEnvironTag(c *gc.C) {
 }
 
 func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResultV1
 	creds := &params.LoginRequest{
 		AuthTag:     s.AdminUserTag(c).String(),
 		Credentials: "dummy-secret",
 	}
-	err = st.APICall("Admin", 1, "", "Login", creds, &result)
+	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -569,18 +569,15 @@ func (s *loginV1Suite) TestLoginReportsEnvironTag(c *gc.C) {
 }
 
 func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResultV1
 	userTag := s.AdminUserTag(c)
 	creds := &params.LoginRequest{
 		AuthTag:     userTag.String(),
 		Credentials: "dummy-secret",
 	}
-	err = st.APICall("Admin", 1, "", "Login", creds, &result)
+	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	c.Assert(result.UserInfo.LastConnection, gc.NotNil)
@@ -589,17 +586,14 @@ func (s *loginV1Suite) TestLoginV1Valid(c *gc.C) {
 }
 
 func (s *loginV1Suite) TestLoginRejectV0(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResultV1
 	req := &params.LoginRequest{
 		AuthTag:     s.AdminUserTag(c).String(),
 		Credentials: "dummy-secret",
 	}
-	err = st.APICall("Admin", 0, "", "Login", req, &result)
+	err := st.APICall("Admin", 0, "", "Login", req, &result)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -725,18 +719,15 @@ func (s *baseLoginSuite) openAPIWithoutLogin(c *gc.C, info *api.Info) *api.State
 }
 
 func (s *loginV0Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResult
 	adminUser := s.AdminUserTag(c)
 	creds := &params.Creds{
 		AuthTag:  adminUser.String(),
 		Password: "dummy-secret",
 	}
-	err = st.APICall("Admin", 0, "", "Login", creds, &result)
+	err := st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0
@@ -750,35 +741,29 @@ func (s *loginV0Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 }
 
 func (s *loginV0Suite) TestLoginRejectV1(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResultV1
 	creds := &params.LoginRequest{
 		AuthTag:     s.AdminUserTag(c).String(),
 		Credentials: "dummy-secret",
 	}
-	err = st.APICall("Admin", 1, "", "Login", creds, &result)
+	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	// You shouldn't be able to log into a V0 server with V1 client call
 	// This should fail & API client will degrade to a V0 login attempt.
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *loginV1Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	var result params.LoginResultV1
 	adminUser := s.AdminUserTag(c)
 	creds := &params.LoginRequest{
 		AuthTag:     adminUser.String(),
 		Credentials: "dummy-secret",
 	}
-	err = st.APICall("Admin", 1, "", "Login", creds, &result)
+	err := st.APICall("Admin", 1, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0
@@ -792,13 +777,10 @@ func (s *loginV1Suite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 }
 
 func (s *loginAncientSuite) TestAncientLoginDegrades(c *gc.C) {
-	info, cleanup := s.setupServer(c)
+	st, cleanup := s.setupServer(c)
 	defer cleanup()
-	st, err := api.Open(info, fastDialOpts)
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
 	adminUser := s.AdminUserTag(c)
-	err = st.Login(adminUser.String(), "dummy-secret", "")
+	err := st.Login(adminUser.String(), "dummy-secret", "")
 	c.Assert(err, gc.IsNil)
 	envTag, err := st.EnvironTag()
 	c.Assert(err, gc.IsNil)
