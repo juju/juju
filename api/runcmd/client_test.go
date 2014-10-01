@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/names"
 )
 
 type runcmdSuite struct {
 	jujutesting.JujuConnSuite
-
 	runcmd *runcmd.Client
 }
 
@@ -61,6 +61,50 @@ func (s *runcmdSuite) TestRunOnAllMachines(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expectedResults)
 }
 
+func (s *runcmdSuite) TestRunMachineAndService(c *gc.C) {
+	// Make three machines.
+	s.addMachineWithAddress(c, "10.3.2.1")
+
+	charm := s.AddTestingCharm(c, "dummy")
+	owner := s.Factory.MakeUser(c, nil).Tag()
+	magic, err := s.State.AddService("magic", owner.String(), charm, nil)
+	c.Assert(err, gc.IsNil)
+	s.addUnit(c, magic)
+	s.addUnit(c, magic)
+
+	_, err = s.State.Service(magic.Tag().Id())
+	c.Assert(err, gc.IsNil)
+
+	s.mockSSH(c, echoInput)
+
+	results, err := s.runcmd.Run(
+		params.RunParamsV1{
+			Commands: "hostname",
+			Timeout:  testing.LongWait,
+			Targets:  []string{names.NewMachineTag("0").String(), magic.Tag().String()},
+		})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.HasLen, 3)
+	expectedResults := []params.RunResult{
+		params.RunResult{
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
+			MachineId:    "0",
+		},
+		params.RunResult{
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/0 'hostname'\n")},
+			MachineId:    "1",
+			UnitId:       "magic/0",
+		},
+		params.RunResult{
+			ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run magic/1 'hostname'\n")},
+			MachineId:    "2",
+			UnitId:       "magic/1",
+		},
+	}
+
+	c.Assert(results, jc.DeepEquals, expectedResults)
+}
+
 func (s *runcmdSuite) addMachine(c *gc.C) *state.Machine {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -79,6 +123,19 @@ func (s *runcmdSuite) addMachineWithAddress(c *gc.C, address string) *state.Mach
 	machine := s.addMachine(c)
 	machine.SetAddresses(network.NewAddress(address, network.ScopeUnknown))
 	return machine
+}
+
+func (s *runcmdSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, gc.IsNil)
+	mId, err := unit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.Machine(mId)
+	c.Assert(err, gc.IsNil)
+	machine.SetAddresses(network.NewAddress("10.3.2.1", network.ScopeUnknown))
+	return unit
 }
 
 var echoInputShowArgs = `#!/bin/bash

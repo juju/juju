@@ -76,8 +76,6 @@ func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResu
 	var remoteParams []*RemoteExec
 	var quotedCommands = utils.ShQuote(runCmd.Commands)
 
-	command := "juju-run"
-
 	tags, err := api.expandTargets(runCmd.Targets)
 	if err != nil {
 		return results, errors.Trace(err)
@@ -85,9 +83,9 @@ func (api *RunCommandAPI) Run(runCmd params.RunParamsV1) (results params.RunResu
 
 	for _, tag := range tags {
 		var execParam *RemoteExec
+		command := "juju-run"
 
 		kind := tag.Kind()
-
 		switch kind {
 		case names.MachineTagKind:
 			machine, err := api.state.Machine(tag.Id())
@@ -215,7 +213,7 @@ func (api *RunCommandAPI) expandTargets(targets []string) ([]names.Tag, error) {
 		case names.MachineTagKind, names.UnitTagKind:
 			tagSet.Add(tag)
 		case names.ServiceTagKind:
-			service, err := api.state.Service(tag.String())
+			service, err := api.state.Service(tag.Id())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
