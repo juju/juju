@@ -75,21 +75,21 @@ func NewArchiveBasic(meta *metadata.Metadata) (*bytes.Buffer, error) {
 	files := []File{
 		File{
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
-			Content: "<binary data>",
+			Content: "<some binary data goes here>",
 		},
 		File{
 			Name:    "var/lib/juju/system-identity",
-			Content: "<ssh key>",
+			Content: "<an ssh key goes here>",
 		},
 	}
 	dump := []File{
 		File{
 			Name:    "juju-backup/dump/juju/machines.bson",
-			Content: "<db dump>",
+			Content: "<BSON data goes here>",
 		},
 		File{
 			Name:    "juju-backup/dump/oplog.bson",
-			Content: "<db dump>",
+			Content: "<BSON data goes here>",
 		},
 	}
 
