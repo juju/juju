@@ -2163,7 +2163,7 @@ func (s verifyActionResults) step(c *gc.C, ctx *context) {
 				c.Assert(err, gc.IsNil)
 				results, message := result.Results()
 				actualResults[i] = actionResult{
-					name:    result.ActionName(),
+					name:    result.Name(),
 					results: results,
 					status:  string(result.Status()),
 					message: message,

@@ -1168,7 +1168,7 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	res2, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res2, gc.DeepEquals, testOutput)
-	c.Assert(results[0].ActionName(), gc.Equals, testName)
+	c.Assert(results[0].Name(), gc.Equals, testName)
 }
 
 func (s *uniterSuite) TestActionFail(c *gc.C) {
@@ -1202,7 +1202,7 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	res2, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, testError)
 	c.Assert(res2, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(results[0].ActionName(), gc.Equals, testName)
+	c.Assert(results[0].Name(), gc.Equals, testName)
 }
 
 func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
