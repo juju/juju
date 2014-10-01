@@ -624,7 +624,7 @@ func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
 	}
 	checker := func(c *gc.C, loginErr error, _ *api.State) {
 		// error is wrapped in API server
-		c.Assert(loginErr, gc.ErrorMatches, ".*login failed - maintenance in progress.*")
+		c.Assert(loginErr, gc.ErrorMatches, "Login not allowed")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
 }
@@ -657,7 +657,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 		st := s.openAPIWithoutLogin(c, info)
 		defer st.Close()
 		err := st.Login(tag.String(), "dummy-secret", "nonce")
-		c.Assert(err, gc.ErrorMatches, ".*login failed - maintenance in progress.*")
+		c.Assert(err, gc.ErrorMatches, "something")
 	}
 	checkLogin(names.NewUserTag("definitelywontexist"))
 	checkLogin(names.NewMachineTag("99999"))

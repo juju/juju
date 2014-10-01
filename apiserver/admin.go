@@ -120,7 +120,7 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
-			return fail, errors.Wrap(err, MaintenanceNoLoginError)
+			return fail, err
 		}
 	}
 
@@ -138,6 +138,16 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 
 	entity, err := doCheckCreds(a.srv.state, req)
 	if err != nil {
+		if a.maintenanceInProgress() {
+			// An upgrade, restore or similar operation is in
+			// progress. It is possible for logins to fail until this
+			// is complete due to incomplete or updating data. Mask
+			// transitory and potentially confusing errors from failed
+			// logins with a more helpful one.
+			return fail, MaintenanceNoLoginError
+		} else {
+			return fail, err
+		}
 		return fail, err
 	}
 	a.root.entity = entity
@@ -184,6 +194,25 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		Facades:    DescribeFacades(),
 		UserInfo:   maybeUserInfo,
 	}, nil
+}
+
+func (a *admin) maintenanceInProgress() bool {
+	if a.srv.validator == nil {
+		return false
+	}
+	// jujud's login validator will return an error for any user tag
+	// if jujud is upgrading or restoring. The tag of the entity
+	// trying to log in can't be used because jujud's login validator
+	// will always return nil for the local machine agent and here we
+	// need to know if maintenance is in progress irrespective of the
+	// the authenticating entity.
+	//
+	// TODO(mjs): 2014-09-29 bug 1375110
+	// This needs improving but I don't have the cycles right now.
+	req := params.LoginRequest{
+		AuthTag: names.NewUserTag("arbitrary").String(),
+	}
+	return a.srv.validator(req) != nil
 }
 
 var doCheckCreds = checkCreds
