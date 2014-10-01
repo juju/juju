@@ -9,6 +9,6 @@ type NopSender struct {
 }
 
 // Implement the send interface, act like everything is fine.
-func (n *NopSender) Send([]*MetricBatch) error {
+func (n NopSender) Send([]*MetricBatch) error {
 	return nil
 }

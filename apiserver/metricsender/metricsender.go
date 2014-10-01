@@ -16,6 +16,8 @@ import (
 
 var sendLogger = loggo.GetLogger("juju.apiserver.metricsender")
 
+// MetricBatch is a batch of metrics that will be sent to
+// the metric collector
 type MetricBatch struct {
 	UUID     string    `json:"_id"`
 	EnvUUID  string    `json:"envuuid"`

@@ -112,8 +112,8 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
-	sender := &metricsender.MockSender{}
-	metricsmanager.PatchSender(sender)
+	var sender metricsender.MockSender
+	metricsmanager.PatchSender(&sender)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})

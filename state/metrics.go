@@ -168,9 +168,6 @@ func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if len(docs) == 0 {
-		return []*MetricBatch{}, nil
-	}
 	batch := make([]*MetricBatch, len(docs))
 	for i, doc := range docs {
 		batch[i] = &MetricBatch{st: st, doc: doc}

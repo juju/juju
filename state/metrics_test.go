@@ -178,7 +178,7 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	metrics := make([]*state.MetricBatch, 3)
-	for i, _ := range metrics {
+	for i := range metrics {
 		metrics[i] = s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	}
 	err := s.State.SetMetricBatchesSent(metrics)
