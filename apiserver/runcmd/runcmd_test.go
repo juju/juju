@@ -4,17 +4,20 @@
 package runcmd_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/runcmd"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing"
+
 	"github.com/juju/juju/state"
 )
 
 type clientSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 
 	resources  *common.Resources
 	authoriser apiservertesting.FakeAuthorizer
@@ -36,18 +39,38 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+// End to end test is already performed by api/runcmd/client_test.go
+// This is a basic sanity check test.
 func (s *clientSuite) TestRun(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	machineTag := machine.Tag()
-	runCommands := runcmd.RunCommands{
+	runParams := params.RunParamsV1{
 		Commands: "hostname",
 		Targets:  []string{machineTag.String()},
 		Context:  nil,
-		Timeout:  1,
+		Timeout:  testing.LongWait,
 	}
 
-	_, err = s.api.Run([]runcmd.RunCommands{runCommands})
+	_, err = s.api.Run(runParams)
+	c.Assert(err, gc.IsNil)
+}
+
+// End to end test is already performed by api/runcmd/client_test.go
+// This is a basic sanity check test.
+func (s *clientSuite) TestRunOnAllMachines(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	machineTag := machine.Tag()
+	runParams := params.RunParamsV1{
+		Commands: "hostname",
+		Targets:  []string{machineTag.String()},
+		Context:  nil,
+		Timeout:  testing.LongWait,
+	}
+
+	_, err = s.api.RunOnAllMachines(runParams)
 	c.Assert(err, gc.IsNil)
 }
