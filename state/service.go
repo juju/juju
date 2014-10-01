@@ -585,6 +585,9 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	sdoc := statusDoc{
 		Status: StatusPending,
 	}
+	msdoc := meterStatusDoc{
+		Code: MeterNotSet,
+	}
 	ops := []txn.Op{
 		{
 			C:      unitsC,
@@ -593,6 +596,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 			Insert: udoc,
 		},
 		createStatusOp(s.st, globalKey, sdoc),
+		createMeterStatusOp(s.st, globalKey, msdoc),
 		{
 			C:      servicesC,
 			Id:     s.doc.DocID,
@@ -678,6 +682,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	},
 		removeConstraintsOp(s.st, u.globalKey()),
 		removeStatusOp(s.st, u.globalKey()),
+		removeMeterStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)

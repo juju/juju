@@ -43,6 +43,7 @@ func (s *steps121a2Suite) TestUpgradeOperationsContent(c *gc.C) {
 		"migrate custom image metadata into environment storage",
 		"migrate tools into environment storage",
 		"migrate individual unit ports to openedPorts collection",
+		"create entries in meter status collection for existing units",
 	}
 
 	upgradeSteps := upgrades.StepsFor121a2()

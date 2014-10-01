@@ -385,6 +385,51 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	return nil
 }
 
+// CreateUnitMeterStatus creates documents in the meter status collection for all existing units.
+func CreateUnitMeterStatus(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var unitSlice []unitDoc
+	units, closer := st.getCollection(unitsC)
+	defer closer()
+
+	meterStatuses, closer := st.getCollection(meterStatusC)
+	defer closer()
+
+	// Get all units ordered by their service and name.
+	err = units.Find(nil).Sort("service", "_id").All(&unitSlice)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	upgradesLogger.Infof("creating meter status entries for all %d units", len(unitSlice))
+	for _, uDoc := range unitSlice {
+		unit := &Unit{st: st, doc: uDoc}
+		upgradesLogger.Infof("creating meter status doc for unit %q", unit)
+		cnt, err := meterStatuses.FindId(unit.globalKey()).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if cnt == 1 {
+			upgradesLogger.Infof("meter status doc already exists for unit %d", unit)
+			continue
+		}
+
+		msdoc := meterStatusDoc{
+			Code: MeterNotSet,
+		}
+		ops := []txn.Op{createMeterStatusOp(st, unit.globalKey(), msdoc)}
+		if err = st.runTransaction(ops); err != nil {
+			upgradesLogger.Warningf("migration failed for unit %q: %v", unit, err)
+		}
+	}
+	upgradesLogger.Infof("meter status docs created for all units")
+	return nil
+}
+
 // AddEnvironmentUUIDToStateServerDoc adds environment uuid to state server doc.
 func AddEnvironmentUUIDToStateServerDoc(st *State) error {
 	env, err := st.Environment()

@@ -943,6 +943,30 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 	}
 }
 
+func (s *RunCommandSuite) TestRunCommandsHasEnvironSetWithMeterStatus(c *gc.C) {
+	context := s.getHookContext(c, false)
+	defer context.PatchMeterStatus("GREEN", "Operating normally.")()
+
+	charmDir := c.MkDir()
+	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	executionEnvironment := map[string]string{}
+	for _, value := range strings.Split(string(result.Stdout), "\n") {
+		bits := strings.SplitN(value, "=", 2)
+		if len(bits) == 2 {
+			executionEnvironment[bits[0]] = bits[1]
+		}
+	}
+	expected := map[string]string{
+		"JUJU_METER_STATUS": "GREEN",
+		"JUJU_METER_INFO":   "Operating normally.",
+	}
+	for key, value := range expected {
+		c.Check(executionEnvironment[key], gc.Equals, value)
+	}
+}
+
 func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
 	context := s.getHookContext(c, false)
 	charmDir := c.MkDir()

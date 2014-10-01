@@ -776,3 +776,85 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	s.assertUnitPortsPostMigration(c, units)
 	s.assertFinalMachinePorts(c, machines, units)
 }
+
+func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
+	// Set up the test scenario with several units that have no meter status docs
+	// associated with them.
+	units := make([]*Unit, 9)
+	charm := AddTestingCharm(c, s.state, "wordpress")
+	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, gc.IsNil)
+	ownerTag := stateOwner.UserTag()
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
+	c.Assert(err, gc.IsNil)
+
+	for i := 0; i < 3; i++ {
+		svc := AddTestingService(c, s.state, fmt.Sprintf("service%d", i), charm, ownerTag)
+
+		for j := 0; j < 3; j++ {
+			name, err := svc.newUnitName()
+			c.Assert(err, gc.IsNil)
+			docID := s.state.docID(name)
+			udoc := &unitDoc{
+				DocID:     docID,
+				Name:      name,
+				EnvUUID:   svc.doc.EnvUUID,
+				Service:   svc.doc.Name,
+				Series:    svc.doc.Series,
+				Life:      Alive,
+				Principal: "",
+			}
+			ops := []txn.Op{
+				{
+					C:      unitsC,
+					Id:     docID,
+					Assert: txn.DocMissing,
+					Insert: udoc,
+				},
+				{
+					C:      servicesC,
+					Id:     svc.doc.DocID,
+					Assert: isAliveDoc,
+					Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+				}}
+			err = s.state.runTransaction(ops)
+			c.Assert(err, gc.IsNil)
+			units[i*3+j], err = s.state.Unit(name)
+			c.Assert(err, gc.IsNil)
+		}
+	}
+	return units
+}
+
+func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
+	units := s.setUpMeterStatusCreation(c)
+
+	// assert the units do not have meter status documents
+	for _, unit := range units {
+		_, _, err := unit.GetMeterStatus()
+		c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
+	}
+
+	// run meter status upgrade
+	err := CreateUnitMeterStatus(s.state)
+	c.Assert(err, gc.IsNil)
+
+	// assert the units do not have meter status documents
+	for _, unit := range units {
+		code, info, err := unit.GetMeterStatus()
+		c.Assert(err, gc.IsNil)
+		c.Assert(code, gc.Equals, "NOT SET")
+		c.Assert(info, gc.Equals, "")
+	}
+
+	// run migration again to make sure it's idempotent
+	err = CreateUnitMeterStatus(s.state)
+	c.Assert(err, gc.IsNil)
+	for _, unit := range units {
+		code, info, err := unit.GetMeterStatus()
+		c.Assert(err, gc.IsNil)
+		c.Assert(code, gc.Equals, "NOT SET")
+		c.Assert(info, gc.Equals, "")
+	}
+
+}

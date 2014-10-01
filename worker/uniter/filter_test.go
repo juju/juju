@@ -668,3 +668,44 @@ func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	c.Assert(err, gc.IsNil)
 	return rel
 }
+
+func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	assertNoChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case <-f.MeterStatusEvents():
+			c.Fatalf("unexpected meter status event")
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+	assertChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case _, ok := <-f.MeterStatusEvents():
+			c.Assert(ok, gc.Equals, true)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out")
+		}
+		assertNoChange()
+	}
+
+	// Initial meter status does not trigger event.
+	assertNoChange()
+
+	// Set unit meter status to trigger event.
+	err = s.unit.SetMeterStatus("GREEN", "Operating normally.")
+	c.Assert(err, gc.IsNil)
+	assertChange()
+
+	// Make sure bundled events arrive properly.
+	for i := 0; i < 5; i++ {
+		err = s.unit.SetMeterStatus("RED", fmt.Sprintf("Update %d.", i))
+		c.Assert(err, gc.IsNil)
+	}
+
+	assertChange()
+}

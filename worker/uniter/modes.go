@@ -246,6 +246,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
 			return modeAbideDyingLoop(u)
+		case <-u.f.MeterStatusEvents():
+			hi = hook.Info{Kind: hooks.MeterStatusChanged}
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case info := <-u.f.ActionEvents():
