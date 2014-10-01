@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 )
 
-// APIInfoCommand returns the fields used to connect to the API server.
+// APIInfoCommand returns the fields used to connect to an API server.
 type APIInfoCommand struct {
 	envcmd.EnvCommandBase
 	out      cmd.Output
@@ -30,7 +30,7 @@ type APIInfoCommand struct {
 }
 
 const apiInfoDoc = `
-Returns the values of the various fields used to connect to the API server.
+Returns the values of the various fields used to connect to an API server.
 
 By default the password is not shown in the result.  If the password is specified
 explicitly, or through the --password option, the value is included.
@@ -188,6 +188,7 @@ func (i *InfoData) field(name string) (interface{}, error) {
 		return i.StateServers, nil
 	case "ca-cert":
 		return i.CACert, nil
+	default:
+		return "", errors.Errorf("unknown field %q", name)
 	}
-	return "", errors.Errorf("unknown field %q", name)
 }
