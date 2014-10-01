@@ -5,6 +5,7 @@ package api
 
 import (
 	"crypto/tls"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -59,6 +60,27 @@ func (s *State) SendHTTPRequest(method, path string, args interface{}) (*http.Re
 	err = apiserverhttp.SetRequestArgs(req, args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "while setting request body")
+	}
+
+	httpclient := newHTTPClient(s)
+	resp, err := httpclient.Do(req)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while sending HTTP request")
+	}
+	return req, resp, nil
+}
+
+// SendHTTPRequestReader sends a request using the HTTP client derived
+// from State. The provided io.Reader and associated JSON metadata are
+// attached to the request body as multi-part data.
+func (s *State) SendHTTPRequestReader(method, path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
+	req, err := s.NewHTTPRequest(method, path)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	if err := apiserverhttp.AttachToRequest(req, attached, meta, name); err != nil {
+		return nil, nil, errors.Trace(err)
 	}
 
 	httpclient := newHTTPClient(s)

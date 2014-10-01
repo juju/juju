@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"io"
 	"net/http"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 
 type httpClient interface {
 	SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error)
+	SendHTTPRequestReader(method, path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error)
 }
 
 type apiState interface {

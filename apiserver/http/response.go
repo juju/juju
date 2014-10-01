@@ -13,6 +13,21 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// ExtractJSONResult unserializes the JSON-encoded result into the
+// provided struct.
+func ExtractJSONResult(resp *http.Response, result interface{}) error {
+	// We defer closing the body here because we want it closed whether
+	// or not the subsequent read fails.
+	defer resp.Body.Close()
+
+	if resp.Header.Get("Content-Type") != CTYPE_JSON {
+		return errors.Errorf("expected %q content type, got %q", CTYPE_JSON, resp.Header.Get("Content-Type"))
+	}
+
+	err := json.NewDecoder(resp.Body).Decode(result)
+	return errors.Trace(err)
+}
+
 // ExtractAPIError returns the failure serialized in the response
 // body.  If there is no failure (an OK status code), it simply returns
 // nil.

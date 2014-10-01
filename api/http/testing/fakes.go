@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"io"
 	"net/http"
 
 	gc "gopkg.in/check.v1"
@@ -52,10 +53,13 @@ func (f *FakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 type FakeClient struct {
-	calls     []string
-	methodArg string
-	pathArg   string
-	argsArg   interface{}
+	calls       []string
+	methodArg   string
+	pathArg     string
+	argsArg     interface{}
+	attachedArg io.Reader
+	metaArg     interface{}
+	nameArg     string
 
 	// Error is the error that will be returned for any calls.
 	Error error
@@ -73,10 +77,30 @@ func (f *FakeClient) SendHTTPRequest(method, path string, args interface{}) (*ht
 	return f.Request, f.Response, f.Error
 }
 
+func (f *FakeClient) SendHTTPRequestReader(method, path string, attached io.Reader, meta interface{}, name string) (*http.Request, *http.Response, error) {
+	f.calls = append(f.calls, "SendHTTPRequestReader")
+	f.methodArg = method
+	f.pathArg = path
+	f.attachedArg = attached
+	f.metaArg = meta
+	f.nameArg = name
+	return f.Request, f.Response, f.Error
+}
+
 // CheckCalled checks that the fake was called properly.
 func (f *FakeClient) CheckCalled(c *gc.C, method, path string, args interface{}, calls ...string) {
 	c.Check(f.calls, gc.DeepEquals, calls)
 	c.Check(f.methodArg, gc.Equals, method)
 	c.Check(f.pathArg, gc.Equals, path)
 	c.Check(f.argsArg, gc.Equals, args)
+}
+
+// CheckCalledReader checks that the fake was called properly.
+func (f *FakeClient) CheckCalledReader(c *gc.C, method, path string, attached io.Reader, meta interface{}, name string, calls ...string) {
+	c.Check(f.calls, gc.DeepEquals, calls)
+	c.Check(f.methodArg, gc.Equals, method)
+	c.Check(f.pathArg, gc.Equals, path)
+	c.Check(f.attachedArg, gc.Equals, attached)
+	c.Check(f.metaArg, gc.Equals, meta)
+	c.Check(f.nameArg, gc.Equals, name)
 }

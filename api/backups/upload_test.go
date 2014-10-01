@@ -11,46 +11,33 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/api/backups"
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 )
 
 type uploadSuite struct {
-	baseSuite
+	httpSuite
 }
 
 var _ = gc.Suite(&uploadSuite{})
 
+func (s *uploadSuite) setSuccess(c *gc.C, id string) {
+	result := params.BackupsUploadResult{ID: id}
+	s.setJSONSuccess(c, &result)
+}
+
 func (s *uploadSuite) TestUpload(c *gc.C) {
+	s.setSuccess(c, "<a new backup ID>")
+
 	data := "<compressed archive data>"
 	archive := ioutil.NopCloser(bytes.NewBufferString(data))
 
-	var meta params.BackupsMetadataResult
-	meta.UpdateFromMetadata(s.Meta)
+	meta := apiserverbackups.ResultFromMetadata(s.Meta)
 	meta.ID = ""
 	meta.Stored = time.Time{}
-
-	cleanup := backups.PatchClientFacadeCall(s.client,
-		func(req string, paramsIn interface{}, resp interface{}) error {
-			c.Check(req, gc.Equals, "UploadDirect")
-
-			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsUploadArgs{})
-			p := paramsIn.(params.BackupsUploadArgs)
-			c.Check(string(p.Data), gc.Equals, data)
-			c.Check(p.Metadata, gc.Equals, meta)
-
-			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.Meta)
-			} else {
-				c.Fatalf("wrong output structure")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
 
 	result, err := s.client.Upload(archive, meta)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.checkMetadataResult(c, result, s.Meta)
+	c.Check(result.ID, gc.Equals, "<a new backup ID>")
 }

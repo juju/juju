@@ -5,28 +5,34 @@ package backups
 
 import (
 	"io"
-	"io/ioutil"
+	"net/http"
 
 	"github.com/juju/errors"
 
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Upload sends the backup archive to storage.
+// Upload sends the backup archive to remote storage.
 func (c *Client) Upload(archive io.Reader, meta params.BackupsMetadataResult) (*params.BackupsMetadataResult, error) {
-	data, err := ioutil.ReadAll(archive)
+	// Send the request.
+	_, resp, err := c.http.SendHTTPRequestReader("PUT", "backups", archive, &meta, "juju-backup.tar.gz")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotate(err, "while sending HTTP request")
 	}
 
-	args := params.BackupsUploadArgs{
-		Data:     data,
-		Metadata: meta,
+	// Handle the response.
+	if resp.StatusCode == http.StatusOK {
+		var result params.BackupsMetadataResult
+		if err := apihttp.ExtractJSONResult(resp, &result); err != nil {
+			return nil, errors.Annotate(err, "while extracting result")
+		}
+		return &result, nil
+	} else {
+		failure, err := apihttp.ExtractAPIError(resp)
+		if err != nil {
+			return nil, errors.Annotate(err, "while extracting failure")
+		}
+		return nil, errors.Trace(failure)
 	}
-
-	var result params.BackupsMetadataResult
-	if err := c.facade.FacadeCall("UploadDirect", args, &result); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &result, nil
 }

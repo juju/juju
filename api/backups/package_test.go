@@ -4,13 +4,20 @@
 package backups_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
+	httptesting "github.com/juju/juju/api/http/testing"
 	apiserverbackups "github.com/juju/juju/apiserver/backups"
+	apiserverhttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	stbackups "github.com/juju/juju/state/backups"
@@ -61,4 +68,53 @@ func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataR
 	c.Check(result.Machine, gc.Equals, meta.Origin.Machine)
 	c.Check(result.Hostname, gc.Equals, meta.Origin.Hostname)
 	c.Check(result.Version, gc.Equals, meta.Origin.Version)
+}
+
+type httpSuite struct {
+	baseSuite
+	httpClient httptesting.FakeClient
+}
+
+func (s *httpSuite) setResponse(c *gc.C, status int, data []byte, ctype string) {
+	resp := http.Response{
+		StatusCode: status,
+		Header:     make(http.Header),
+	}
+
+	resp.Header.Set("Content-Type", ctype)
+	resp.Body = ioutil.NopCloser(bytes.NewBuffer(data))
+
+	s.httpClient.Response = &resp
+	backups.SetHTTP(s.client, &s.httpClient)
+}
+
+func (s *httpSuite) setJSONSuccess(c *gc.C, result interface{}) {
+	status := http.StatusOK
+	data, err := json.Marshal(result)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setResponse(c, status, data, apiserverhttp.CTYPE_JSON)
+}
+
+func (s *httpSuite) setFailure(c *gc.C, msg string, status int) {
+	if status < 0 {
+		status = http.StatusInternalServerError
+	}
+
+	failure := params.Error{
+		Message: msg,
+	}
+	data, err := json.Marshal(&failure)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.setResponse(c, status, data, apiserverhttp.CTYPE_JSON)
+}
+
+func (s *httpSuite) setError(c *gc.C, msg string, status int) {
+	if status < 0 {
+		status = http.StatusInternalServerError
+	}
+
+	data := []byte(msg)
+	s.setResponse(c, status, data, "application/octet-stream")
 }

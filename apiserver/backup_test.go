@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -79,9 +81,9 @@ func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
 }
 
-func (s *backupsSuite) TestRequiresGET(c *gc.C) {
+func (s *backupsSuite) TestRequiresGETOrPUT(c *gc.C) {
 	url := s.backupURL(c)
-	for _, method := range []string{"POST", "PUT", "DELETE", "OPTIONS"} {
+	for _, method := range []string{"POST", "DELETE", "OPTIONS"} {
 		c.Log("testing HTTP method: " + method)
 		s.checkInvalidMethod(c, method, url)
 	}
@@ -169,6 +171,88 @@ func (s *backupsDownloadSuite) TestBody(c *gc.C) {
 func (s *backupsDownloadSuite) TestErrorWhenGetFails(c *gc.C) {
 	s.fake.Error = errors.New("failed!")
 	resp := s.sendValid(c)
+	defer resp.Body.Close()
+
+	s.checkErrorResponse(c, resp, http.StatusInternalServerError, "failed!")
+}
+
+type backupsUploadSuite struct {
+	baseBackupsSuite
+	meta *backups.Metadata
+}
+
+var _ = gc.Suite(&backupsUploadSuite{})
+
+func (s *backupsUploadSuite) newBody(c *gc.C) *bytes.Buffer {
+
+	return bytes.NewBufferString("")
+}
+
+func (s *backupsUploadSuite) sendValid(c *gc.C, id string) *http.Response {
+	s.fake.Meta = backups.NewMetadata()
+	s.fake.Meta.SetID("<a new backup ID>")
+
+	var parts bytes.Buffer
+	writer := multipart.NewWriter(&parts)
+
+	// Set the metadata part.
+	s.meta = backups.NewMetadata()
+	var metaResult params.BackupsMetadataResult
+	metaResult.UpdateFromMetadata(s.meta)
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", `form-data; name="metadata"`)
+	header.Set("Content-Type", apihttp.CTYPE_JSON)
+	part, err := writer.CreatePart(header)
+	c.Assert(err, jc.ErrorIsNil)
+	err = json.NewEncoder(part).Encode(metaResult)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Set the attached part.
+	archive := bytes.NewBufferString("<compressed data>")
+	part, err = writer.CreateFormFile("attached", "juju-backup.tar.gz")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = io.Copy(part, archive)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send the request.
+	ctype := writer.FormDataContentType()
+	resp, err := s.authRequest(c, "PUT", s.backupURL(c), ctype, &parts)
+	c.Assert(err, jc.ErrorIsNil)
+	return resp
+}
+
+func (s *backupsUploadSuite) TestCalls(c *gc.C) {
+	resp := s.sendValid(c, "<a new backup ID>")
+	defer resp.Body.Close()
+
+	c.Check(s.fake.Calls, gc.DeepEquals, []string{"Add"})
+	c.Check(s.fake.ArchiveArg, gc.NotNil)
+	c.Check(s.fake.MetaArg, jc.DeepEquals, s.meta)
+}
+
+func (s *backupsUploadSuite) TestResponse(c *gc.C) {
+	resp := s.sendValid(c, "<a new backup ID>")
+	defer resp.Body.Close()
+
+	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_JSON)
+}
+
+func (s *backupsUploadSuite) TestBody(c *gc.C) {
+	resp := s.sendValid(c, "<a new backup ID>")
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	var result params.BackupsUploadResult
+	err = json.Unmarshal(body, &result)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(result.ID, gc.Equals, "<a new backup ID>")
+}
+
+func (s *backupsUploadSuite) TestErrorWhenGetFails(c *gc.C) {
+	s.fake.Error = errors.New("failed!")
+	resp := s.sendValid(c, "<a new backup ID>")
 	defer resp.Body.Close()
 
 	s.checkErrorResponse(c, resp, http.StatusInternalServerError, "failed!")

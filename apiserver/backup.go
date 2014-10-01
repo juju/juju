@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 
+	apiserverbackups "github.com/juju/juju/apiserver/backups"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -64,6 +65,26 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return
 		}
+	case "PUT":
+		// Since we want to stream the archive in we cannot simply use
+		// mime/multipart directly.
+		defer req.Body.Close()
+
+		var metaResult params.BackupsMetadataResult
+		archive, err := apihttp.ExtractRequestAttachment(req, &metaResult)
+		if err != nil {
+			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		meta := apiserverbackups.MetadataFromResult(metaResult)
+		id, err := backups.Add(archive, meta)
+		if err != nil {
+			h.sendError(resp, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		h.sendJSON(resp, http.StatusOK, &params.BackupsUploadResult{ID: id})
 	default:
 		h.sendError(resp, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", req.Method))
 	}
@@ -110,6 +131,19 @@ func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apih
 	return nil
 }
 
+// sendJSON sends a JSON-encoded result.
+func (h *backupHandler) sendJSON(w http.ResponseWriter, statusCode int, result interface{}) {
+	body, err := json.Marshal(result)
+	if err != nil {
+		logger.Errorf("failed to serialize the result (%v): %v", result, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", apihttp.CTYPE_JSON)
+	w.WriteHeader(statusCode)
+	w.Write(body)
+}
+
 // sendError sends a JSON-encoded error response.
 func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) {
 	failure := params.Error{
@@ -117,13 +151,5 @@ func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message
 		// Leave Code empty.
 	}
 
-	body, err := json.Marshal(&failure)
-	if err != nil {
-		logger.Errorf("failed to serialize the failure (%v): %v", failure, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", apihttp.CTYPE_JSON)
-	w.WriteHeader(statusCode)
-	w.Write(body)
+	h.sendJSON(w, statusCode, &failure)
 }
