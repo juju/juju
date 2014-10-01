@@ -1306,6 +1306,19 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 	s.runUniterTests(c, relationsErrorTests)
 }
 
+var meterStatusEventTests = []uniterTest{
+	ut(
+		"meter status event triggered by unit meter status change",
+		quickStart{},
+		changeMeterStatus{"AMBER", "Investigate charm."},
+		waitHooks{"meter-status-changed"},
+	),
+}
+
+func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
+	s.runUniterTests(c, meterStatusEventTests)
+}
+
 var actionEventTests = []uniterTest{
 	ut(
 		"simple action event: defined in actions.yaml, no args",
@@ -1722,7 +1735,7 @@ type createCharm struct {
 var charmHooks = []string{
 	"install", "start", "config-changed", "upgrade-charm", "stop",
 	"db-relation-joined", "db-relation-changed", "db-relation-departed",
-	"db-relation-broken",
+	"db-relation-broken", "meter-status-changed",
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
@@ -2163,7 +2176,7 @@ func (s verifyActionResults) step(c *gc.C, ctx *context) {
 				c.Assert(err, gc.IsNil)
 				results, message := result.Results()
 				actualResults[i] = actionResult{
-					name:    result.ActionName(),
+					name:    result.Name(),
 					results: results,
 					status:  string(result.Status()),
 					message: message,
@@ -2237,6 +2250,16 @@ type fixHook struct {
 func (s fixHook) step(c *gc.C, ctx *context) {
 	path := filepath.Join(ctx.path, "charm", "hooks", s.name)
 	ctx.writeHook(c, path, true)
+}
+
+type changeMeterStatus struct {
+	code string
+	info string
+}
+
+func (s changeMeterStatus) step(c *gc.C, ctx *context) {
+	err := ctx.unit.SetMeterStatus(s.code, s.info)
+	c.Assert(err, gc.IsNil)
 }
 
 type changeConfig map[string]interface{}

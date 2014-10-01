@@ -211,7 +211,7 @@ func (st *State) cleanupDyingUnit(name string) error {
 // cleanupRemovedUnit takes care of all the final cleanup required when
 // a unit is removed.
 func (st *State) cleanupRemovedUnit(unitId string) error {
-	actions, err := st.matchingActionsByPrefix(unitId)
+	actions, err := st.matchingActionsByReceiverName(unitId)
 	if err != nil {
 		return err
 	}

@@ -84,5 +84,12 @@ func stepsFor121a2() []Step {
 				return state.MigrateUnitPortsToOpenedPorts(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "create entries in meter status collection for existing units",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.CreateUnitMeterStatus(context.State())
+			},
+		},
 	}
 }

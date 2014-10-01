@@ -6,6 +6,7 @@ package uniter
 import (
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
@@ -36,17 +37,18 @@ type filter struct {
 	// The out* chans, when set to the corresponding out*On chan (rather than
 	// nil) indicate that an event of the appropriate type is ready to send
 	// to the client.
-	outConfig      chan struct{}
-	outConfigOn    chan struct{}
-	outAction      chan *hook.Info
-	outActionOn    chan *hook.Info
-	outUpgrade     chan *charm.URL
-	outUpgradeOn   chan *charm.URL
-	outResolved    chan params.ResolvedMode
-	outResolvedOn  chan params.ResolvedMode
-	outRelations   chan []int
-	outRelationsOn chan []int
-
+	outConfig        chan struct{}
+	outConfigOn      chan struct{}
+	outAction        chan *hook.Info
+	outActionOn      chan *hook.Info
+	outUpgrade       chan *charm.URL
+	outUpgradeOn     chan *charm.URL
+	outResolved      chan params.ResolvedMode
+	outResolvedOn    chan params.ResolvedMode
+	outRelations     chan []int
+	outRelationsOn   chan []int
+	outMeterStatus   chan struct{}
+	outMeterStatusOn chan struct{}
 	// The want* chans are used to indicate that the filter should send
 	// events if it has them available.
 	wantForcedUpgrade chan bool
@@ -92,6 +94,10 @@ type filter struct {
 	relations        []int
 	actionsPending   []string
 	nextAction       *hook.Info
+
+	// meterStatusCode and meterStatusInfo reflect the meter status values of the unit.
+	meterStatusCode string
+	meterStatusInfo string
 }
 
 // newFilter returns a filter that handles state changes pertaining to the
@@ -110,6 +116,8 @@ func newFilter(st *uniter.State, unitTag string) (*filter, error) {
 		outResolvedOn:     make(chan params.ResolvedMode),
 		outRelations:      make(chan []int),
 		outRelationsOn:    make(chan []int),
+		outMeterStatus:    make(chan struct{}),
+		outMeterStatusOn:  make(chan struct{}),
 		wantForcedUpgrade: make(chan bool),
 		wantResolved:      make(chan struct{}),
 		discardConfig:     make(chan struct{}),
@@ -158,6 +166,12 @@ func (f *filter) UpgradeEvents() <-chan *charm.URL {
 // ResolvedNoHooks will always be delivered as described.
 func (f *filter) ResolvedEvents() <-chan params.ResolvedMode {
 	return f.outResolvedOn
+}
+
+// MeterStatusEvents returns a channel that will receive a signal when the unit's
+// meter status changes.
+func (f *filter) MeterStatusEvents() <-chan struct{} {
+	return f.outMeterStatusOn
 }
 
 // ConfigEvents returns a channel that will receive a signal whenever the service's
@@ -273,6 +287,9 @@ func (f *filter) loop(unitTag string) (err error) {
 	if err = f.unitChanged(); err != nil {
 		return err
 	}
+	if err = f.meterStatusChanged(); err != nil {
+		return err
+	}
 	f.service, err = f.unit.Service()
 	if err != nil {
 		return err
@@ -306,30 +323,23 @@ func (f *filter) loop(unitTag string) (err error) {
 		filterLogger.Errorf("unit charm: %v", err)
 		return err
 	}
-	defer func() {
-		if configw != nil {
-			watcher.Stop(configw, &f.tomb)
-		}
-	}()
+	defer f.maybeStopWatcher(configw)
 	actionsw, err := f.unit.WatchActions()
 	if err != nil {
 		return err
 	}
 	f.actionsPending = make([]string, 0)
-	defer func() {
-		if actionsw != nil {
-			watcher.Stop(actionsw, &f.tomb)
-		}
-	}()
+	defer f.maybeStopWatcher(actionsw)
 	relationsw, err := f.service.WatchRelations()
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if relationsw != nil {
-			watcher.Stop(relationsw, &f.tomb)
-		}
-	}()
+	defer f.maybeStopWatcher(relationsw)
+	meterStatusw, err := f.unit.WatchMeterStatus()
+	if err != nil {
+		return err
+	}
+	defer f.maybeStopWatcher(meterStatusw)
 	var addressChanges <-chan struct{}
 	addressesw, err := f.unit.WatchAddresses()
 	if err != nil {
@@ -381,6 +391,14 @@ func (f *filter) loop(unitTag string) (err error) {
 			filterLogger.Debugf("preparing new config event")
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
+		case _, ok = <-meterStatusw.Changes():
+			filterLogger.Debugf("got meter status change")
+			if !ok {
+				return watcher.EnsureErr(configw)
+			}
+			if err = f.meterStatusChanged(); err != nil {
+				return errors.Trace(err)
+			}
 		case _, ok = <-addressChanges:
 			filterLogger.Debugf("got address change")
 			if !ok {
@@ -433,7 +451,9 @@ func (f *filter) loop(unitTag string) (err error) {
 			filterLogger.Debugf("sent relations event")
 			f.outRelations = nil
 			f.relations = nil
-
+		case f.outMeterStatus <- nothing:
+			filterLogger.Debugf("sent meter status change event")
+			f.outMeterStatus = nil
 		// Handle explicit requests.
 		case curl := <-f.setCharm:
 			filterLogger.Debugf("changing charm to %q", curl)
@@ -503,6 +523,22 @@ func (f *filter) loop(unitTag string) (err error) {
 			f.outConfig = nil
 		}
 	}
+}
+
+// meterStatusChanges respondes to changes in the unit's meter status.
+func (f *filter) meterStatusChanged() error {
+	code, info, err := f.unit.MeterStatus()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if f.meterStatusCode != code || f.meterStatusInfo != info {
+		if f.meterStatusCode != "" {
+			f.outMeterStatus = f.outMeterStatusOn
+		}
+		f.meterStatusCode = code
+		f.meterStatusInfo = info
+	}
+	return nil
 }
 
 // unitChanged responds to changes in the unit.

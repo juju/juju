@@ -67,6 +67,9 @@ const (
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
 
+	// meterStatusC is the collection used to store meter status information.
+	meterStatusC = "meterStatus"
+
 	// toolsmetadataC is the collection used to store tools metadata.
 	toolsmetadataC = "toolsmetadata"
 
@@ -1582,7 +1585,7 @@ func (st *State) Action(id string) (*Action, error) {
 	defer closer()
 
 	doc := actionDoc{}
-	err := actions.FindId(id).One(&doc)
+	err := actions.FindId(st.docID(id)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action %q", id)
 	}
@@ -1594,29 +1597,32 @@ func (st *State) Action(id string) (*Action, error) {
 
 // matchingActions finds actions that match ActionReceiver
 func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
-	return st.matchingActionsByPrefix(ar.Name())
+	return st.matchingActionsByReceiverName(ar.Name())
 }
 
-// ActionByTag returns an Action given an ActionTag
-func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
-	return st.Action(actionIdFromTag(tag))
-}
-
-// matchingActionsByPrefix finds actions with a given prefix
-func (st *State) matchingActionsByPrefix(prefix string) ([]*Action, error) {
+// matchingActionsByReceiverName returns all Actions associated with the
+// ActionReceiver with the given name.
+func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, error) {
 	var doc actionDoc
 	var actions []*Action
 
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(ensureActionMarker(prefix))}}}}
+	envuuid := st.EnvironTag().Id()
+	sel := bson.D{{"env-uuid", envuuid}, {"receiver", receiver}}
 	iter := actionsCollection.Find(sel).Iter()
 
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
 	return actions, errors.Trace(iter.Close())
+
+}
+
+// ActionByTag returns an Action given an ActionTag
+func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
+	return st.Action(actionIdFromTag(tag))
 }
 
 // ActionResult returns an ActionResult by Id.
@@ -1625,7 +1631,7 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	defer closer()
 
 	doc := actionResultDoc{}
-	err := actionresults.FindId(id).One(&doc)
+	err := actionresults.FindId(st.docID(id)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action result %q", id)
 	}
@@ -1635,7 +1641,7 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	return newActionResult(st, doc), nil
 }
 
-// matchingActionResults finds actions that match name
+// matchingActionResults finds action results from a given ActionReceiver.
 func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, error) {
 	var doc actionResultDoc
 	var results []*ActionResult
@@ -1643,8 +1649,8 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 	actionresults, closer := st.getCollection(actionresultsC)
 	defer closer()
 
-	prefix := actionResultPrefix(ar)
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
+	envuuid := st.EnvironTag().Id()
+	sel := bson.D{{"env-uuid", envuuid}, {"receiver", ar.Name()}}
 	iter := actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))

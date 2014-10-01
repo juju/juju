@@ -573,6 +573,45 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 	return result, nil
 }
 
+// WatchMeterStatus returns a NotifyWatcher for observing changes
+// to each unit's meter status.
+func (u *UniterAPI) WatchMeterStatus(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		watcherId := ""
+		if canAccess(tag) {
+			watcherId, err = u.watchOneUnitMeterStatus(tag)
+		}
+		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (u *UniterAPI) watchOneUnitMeterStatus(tag names.UnitTag) (string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", err
+	}
+	watch := unit.WatchMeterStatus()
+	if _, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), nil
+	}
+	return "", watcher.EnsureErr(watch)
+}
+
 // WatchActions returns an ActionWatcher for observing incoming action calls
 // to a unit.  See also state/watcher.go Unit.WatchActions().  This method
 // is called from api/uniter/uniter.go WatchActions().
@@ -1342,6 +1381,38 @@ func (u *UniterAPI) AddMetrics(args params.MetricsParams) (params.ErrorResults, 
 				_, err = unit.AddMetrics(time.Now(), metricBatch)
 			}
 		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// GetMeterStatus returns meter status information for each unit.
+func (u *UniterAPI) GetMeterStatus(args params.Entities) (params.MeterStatusResults, error) {
+	result := params.MeterStatusResults{
+		Results: make([]params.MeterStatusResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.MeterStatusResults{}, common.ErrPerm
+	}
+	for i, entity := range args.Entities {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = common.ErrPerm
+		var code string
+		var info string
+		if canAccess(unitTag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(unitTag)
+			if err == nil {
+				code, info, err = unit.GetMeterStatus()
+			}
+		}
+		result.Results[i].Code = code
+		result.Results[i].Info = info
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

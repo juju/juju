@@ -49,6 +49,12 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
+// meterStatus describes the unit's meter status.
+type meterStatus struct {
+	code string
+	info string
+}
+
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
 	unit *uniter.Unit
@@ -101,17 +107,20 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// serviceOwner contains the owner of the service
+	// serviceOwner contains the owner of the service.
 	serviceOwner string
 
-	// proxySettings are the current proxy settings that the uniter knows about
+	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
-	// metrics are the metrics recorded by calls to add-metric
+	// metrics are the metrics recorded by calls to add-metric.
 	metrics []jujuc.Metric
 
-	// canAddMetrics specifies whether the hook allows recording metrics
+	// canAddMetrics specifies whether the hook allows recording metrics.
 	canAddMetrics bool
+
+	// meterStatus is the status of the unit's metering.
+	meterStatus *meterStatus
 }
 
 func NewHookContext(
@@ -153,6 +162,17 @@ func NewHookContext(
 	ctx.privateAddress, err = unit.PrivateAddress()
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
+	}
+
+	statusCode, statusInfo, err := unit.MeterStatus()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
+	}
+	if statusCode != "" {
+		ctx.meterStatus = &meterStatus{
+			code: statusCode,
+			info: statusInfo,
+		}
 	}
 
 	return ctx, nil
@@ -350,7 +370,19 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
 	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
+	vars = append(vars, ctx.meterStatusEnvVars()...)
 	return vars
+}
+
+// meterStatusEnvVars returns meter status environment variables if the meter
+// status is set.
+func (ctx *HookContext) meterStatusEnvVars() []string {
+	if ctx.meterStatus != nil {
+		return []string{
+			fmt.Sprintf("JUJU_METER_STATUS=%s", ctx.meterStatus.code),
+			fmt.Sprintf("JUJU_METER_INFO=%s", ctx.meterStatus.info)}
+	}
+	return nil
 }
 
 func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {

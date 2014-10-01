@@ -669,3 +669,15 @@ type MetricsParam struct {
 type MetricsParams struct {
 	Metrics []MetricsParam
 }
+
+// MeterStatusResult holds unit meter status or error.
+type MeterStatusResult struct {
+	Code  string
+	Info  string
+	Error *Error
+}
+
+// MeterStatusResults holds meter status results for multiple units.
+type MeterStatusResults struct {
+	Results []MeterStatusResult
+}
