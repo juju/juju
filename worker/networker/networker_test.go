@@ -78,7 +78,8 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *networkerSuite) TestStartStop(c *gc.C) {
-	nw := s.newNetworker(c, true)
+	nw, restorer := s.newNetworker(c, true)
+	defer restorer()
 	c.Assert(worker.Stop(nw), gc.IsNil)
 }
 
@@ -98,7 +99,7 @@ func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
 	nw, restorer := s.newNetworker(c, false)
 	defer restorer()
 	defer worker.Stop(nw)
-	c.Assert(nw.CanWriteConfig(), jc.IsFalse)
+	c.Assert(nw.IntrusiveMode(), jc.IsFalse)
 
 	select {
 	case cmds := <-s.lastCommands:
@@ -112,7 +113,7 @@ func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *
 	nw, restorer := s.newNetworker(c, true)
 	defer restorer()
 	defer worker.Stop(nw)
-	c.Assert(nw.CanWriteConfig(), jc.IsTrue)
+	c.Assert(nw.IntrusiveMode(), jc.IsTrue)
 
 	select {
 	case <-s.lastCommands:
@@ -419,7 +420,7 @@ func (s *networkerSuite) newCustomNetworker(
 	s.lastCommands = make(chan []string)
 	s.vlanModuleLoaded = false
 	configDir := c.MkDir()
-	restorer := networker.SetConfigDir(configDir)
+	restorer := networker.SetConfigBaseDir(configDir)
 
 	nw, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode)
 	c.Assert(err, gc.IsNil)

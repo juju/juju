@@ -1041,37 +1041,36 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 
 func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 	tests := []struct {
-		descr         string
-		disable       bool
-		jobs          []state.MachineJob
-		intrusiveMode bool
+		about          string
+		managedNetwork bool
+		jobs           []state.MachineJob
+		intrusiveMode  bool
 	}{{
-		descr:         "test #%d: network management enabled, network management job set",
-		disable:       false,
-		jobs:          []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
-		intrusiveMode: true,
+		about:          "test #%d: network management enabled, network management job set",
+		managedNetwork: true,
+		jobs:           []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
+		intrusiveMode:  true,
 	}, {
-		descr:         "test #%d: network management disabled, network management job set",
-		disable:       true,
-		jobs:          []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
-		intrusiveMode: false,
+		about:          "test #%d: network management disabled, network management job set",
+		managedNetwork: false,
+		jobs:           []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
+		intrusiveMode:  false,
 	}, {
-		descr:         "test #%d: network management enabled, network management job not set",
-		disable:       false,
-		jobs:          []state.MachineJob{state.JobHostUnits},
-		intrusiveMode: false,
+		about:          "test #%d: network management enabled, network management job not set",
+		managedNetwork: true,
+		jobs:           []state.MachineJob{state.JobHostUnits},
+		intrusiveMode:  false,
 	}, {
-		descr:         "test #%d: network management disabled, network management job not set",
-		disable:       true,
-		jobs:          []state.MachineJob{state.JobHostUnits},
-		intrusiveMode: false,
+		about:          "test #%d: network management disabled, network management job not set",
+		managedNetwork: false,
+		jobs:           []state.MachineJob{state.JobHostUnits},
+		intrusiveMode:  false,
 	}}
 	// Perform tests.
-	// TODO(mue) Still sometimes race conditions.
 	for i, test := range tests {
-		c.Logf(test.descr, i)
+		c.Logf("test #%d: "+test.about, i)
 
-		modeCh := make(chan bool)
+		modeCh := make(chan bool, 1)
 		s.agentSuite.PatchValue(&newNetworker, func(
 			st *apinetworker.State,
 			conf agent.Config,
@@ -1084,15 +1083,16 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 			return networker.NewNetworker(st, conf, intrusiveMode)
 		})
 
-		attrs := coretesting.Attrs{"disable-network-management": test.disable}
+		attrs := coretesting.Attrs{"disable-network-management": !test.managedNetwork}
 		err := s.BackingState.UpdateEnvironConfig(attrs, nil, nil)
 		c.Assert(err, gc.IsNil)
 
 		m, _, _ := s.primeAgent(c, version.Current, test.jobs...)
 		a := s.newAgent(c, m)
 		defer a.Stop()
+		doneCh := make(chan error)
 		go func() {
-			c.Check(a.Run(nil), gc.IsNil)
+			doneCh <- a.Run(nil)
 		}()
 
 		select {
@@ -1103,6 +1103,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for the networker to be started")
 		}
+		s.waitStopped(c, state.JobManageNetworking, a, doneCh)
 	}
 }
 
