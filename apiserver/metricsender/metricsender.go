@@ -20,9 +20,9 @@ var sendLogger = loggo.GetLogger("juju.apiserver.metricsender")
 // the metric collector
 type MetricBatch struct {
 	UUID     string    `json:"_id"`
-	EnvUUID  string    `json:"envuuid"`
+	EnvUUID  string    `json:"env-uuid"`
 	Unit     string    `json:"unit"`
-	CharmUrl string    `json:"charmurl"`
+	CharmUrl string    `json:"charm-url"`
 	Created  time.Time `json:"created"`
 	Metrics  []Metric  `json:"metrics"`
 }

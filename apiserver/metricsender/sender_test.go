@@ -79,7 +79,7 @@ func testHandler(c *gc.C, expectedCharmUrl string) http.HandlerFunc {
 		c.Assert(v, gc.HasLen, 3)
 		for _, metric := range v {
 			c.Logf("metric: %+v", metric)
-			c.Assert(metric["charmurl"], gc.Equals, expectedCharmUrl)
+			c.Assert(metric["charm-url"], gc.Equals, expectedCharmUrl)
 		}
 	}
 }
