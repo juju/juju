@@ -219,7 +219,8 @@ def main():
         if args.path is None or len(args.path) != 1:
             parser.print_usage()
             return BAD_ARGS
-        return publish_files(args.purpose, args.path[0], args)
+        stream_path = os.path.join(args.path[0], get_prefix(args.purpose))
+        return publish_files(args.purpose, stream_path, args)
     elif args.command == DELETE:
         if args.path is None:
             parser.print_usage()
