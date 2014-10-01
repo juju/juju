@@ -18,11 +18,6 @@ import (
 
 // Download implements the API method.
 func (c *Client) Download(id string) (io.ReadCloser, error) {
-	if c.http == nil {
-		msg := "API client does not support direct HTTP requests"
-		return nil, errors.NotImplementedf(msg)
-	}
-
 	// Initialize the HTTP request.
 	req, err := c.http.NewHTTPRequest("GET", "backups")
 	if err != nil {
