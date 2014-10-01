@@ -59,8 +59,8 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	for i, _ := range metrics {
 		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	}
-	sender := &metricsender.DefaultSender{}
-	err := s.State.SendMetrics(sender, 10)
+	var sender metricsender.DefaultSender
+	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, gc.IsNil)
 	for _, metric := range metrics {
 		m, err := s.State.MetricBatch(metric.UUID())
@@ -78,7 +78,8 @@ func testHandler(c *gc.C, expectedCharmUrl string) http.HandlerFunc {
 		c.Assert(err, gc.IsNil)
 		c.Assert(v, gc.HasLen, 3)
 		for _, metric := range v {
-			c.Assert(metric["CharmUrl"], gc.Equals, expectedCharmUrl)
+			c.Logf("metric: %+v", metric)
+			c.Assert(metric["charm-url"], gc.Equals, expectedCharmUrl)
 		}
 	}
 }
@@ -112,8 +113,8 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		for i, _ := range metrics {
 			metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 		}
-		sender := &metricsender.DefaultSender{}
-		err := s.State.SendMetrics(sender, 10)
+		var sender metricsender.DefaultSender
+		err := metricsender.SendMetrics(s.State, &sender, 10)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, metric := range metrics {
 			m, err := s.State.MetricBatch(metric.UUID())
