@@ -454,7 +454,9 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 func runViaSSH(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
-	userCmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
+	sshOptions := ssh.Options{}
+	sshOptions.SetIdentities("/var/lib/juju/system-identity")
+	userCmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, &sshOptions)
 	var stderrBuf bytes.Buffer
 	var stdoutBuf bytes.Buffer
 	userCmd.Stderr = &stderrBuf
@@ -536,11 +538,9 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot update mongo entries")
 	}
-
-	/* err = updateAllMachines(privateAddress, agentConf)
+	err = updateAllMachines(privateAddress, agentConf)
 	if err != nil {
 		return fmt.Errorf("cannot update agents: %v", err)
 	}
-	*/
 	return nil
 }
