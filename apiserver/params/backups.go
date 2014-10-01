@@ -77,8 +77,3 @@ func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.Hostname = origin.Hostname()
 	r.Version = origin.Version()
 }
-
-// BackupsDownloadResult holds the requested backup archive file.
-type BackupsDownloadDirectResult struct {
-	Data []byte
-}
