@@ -22,10 +22,9 @@ type httpAPICallCloser interface {
 // NewClient returns a new backups API client.
 func NewClient(st httpAPICallCloser) *Client {
 	frontend, backend := base.NewClientFacade(st, "Backups")
-	client := Client{
+	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,
 		http:         st,
 	}
-	return &client
 }
