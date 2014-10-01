@@ -9,6 +9,7 @@ package provider
 
 const (
 	Local = "local"
+	MAAS  = "maas"
 )
 
 // IsManual returns true iff the specified provider

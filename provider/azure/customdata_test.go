@@ -47,7 +47,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		MachineNonce:       "gxshasqlnng",
 		DataDir:            environs.DataDir,
 		LogDir:             agent.DefaultLogDir,
-		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
+		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits, params.JobManageNetworking},
 		CloudInitOutputLog: cloudInitOutputLog,
 		Tools: &tools.Tools{
 			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
