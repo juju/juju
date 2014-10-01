@@ -77,10 +77,7 @@ def get_local_files(purpose, local_dir):
     if not os.path.isdir(local_dir):
         print('%s not found.' % local_dir)
         return None
-    if purpose == RELEASE:
-        replacements = (local_dir + '/', 'tools/')
-    else:
-        replacements = (local_dir, purpose)
+    replacements = (local_dir, get_prefix(purpose))
     found = []
     for path, subdirs, files in os.walk(local_dir):
         for name in files:
@@ -88,9 +85,6 @@ def get_local_files(purpose, local_dir):
             publish_path = local_path.replace(*replacements)
             if 'mirror' in name or os.path.islink(local_path):
                 # The mirror files only belong on streams.canonical.com.
-                continue
-            ignore, extension = os.path.splitext(name)
-            if purpose == TESTING and extension in SIGNED_EXTS:
                 continue
             size = os.path.getsize(local_path)
             md5content = get_md5content(local_path)
@@ -163,6 +157,8 @@ def publish_files(purpose, local_dir, args):
     print("Looking for local files in %s" % local_dir)
     local_files = get_local_files(purpose, local_dir)
     if local_files is None:
+        if args.verbose:
+            print("No files were found at {}".format(local_dir))
         return NO_LOCAL_FILES
     if args.verbose:
         for lf in local_files:
@@ -206,8 +202,10 @@ def main():
     parser = get_option_parser()
     args = parser.parse_args()
     if args.purpose not in PURPOSES:
+        print('Unknown purpose: {}'.format(args.purpose))
         return UNKNOWN_PURPOSE
     if args.command not in COMMANDS:
+        print('Unknown command: {}'.format(args.command))
         return UNKNOWN_COMMAND
     elif args.command == LIST:
         return list_published_files(args.purpose)
@@ -215,7 +213,8 @@ def main():
         if args.path is None or len(args.path) != 1:
             parser.print_usage()
             return BAD_ARGS
-        return publish_files(args.purpose, args.path[0], args)
+        stream_path = os.path.join(args.path[0], get_prefix(args.purpose))
+        return publish_files(args.purpose, stream_path, args)
     elif args.command == DELETE:
         if args.path is None:
             parser.print_usage()

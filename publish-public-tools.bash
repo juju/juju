@@ -34,19 +34,19 @@ usage() {
 
 verify_stream() {
     local location="$1"
-    echo "Verifying the streams at $location"
-    echo "are public and are identical to the source"
     if [[ $PURPOSE == "release" ]]; then
         local root="tools"
     else
         local root="$PURPOSE/tools"
     fi
-    curl $location/$root/streams/v1/index.json > $WORK/index.json
-    diff $JUJU_DIST/tools/streams/v1/index.json $WORK/index.json
-    curl $location/$root/streams/v1/index.json > \
-        $WORK/com.ubuntu.juju:released:tools.json.json
-    diff $JUJU_DIST/tools/streams/v1/index.json \
-        $WORK/com.ubuntu.juju:released:tools.json.json
+    echo "Verifying the streams at $location/$root"
+    echo "are public and are identical to the source"
+    curl -s $location/$root/streams/v1/index.json > $WORK/index.json
+    diff $STREAM_PATH/streams/v1/index.json $WORK/index.json
+    curl -s $location/$root/streams/v1/index.json > \
+        $WORK/com.ubuntu.juju:released:tools.json
+    diff $STREAM_PATH/streams/v1/index.json \
+        $WORK/com.ubuntu.juju:released:tools.json
     rm $WORK/*
 }
 
@@ -77,8 +77,8 @@ publish_to_aws() {
         local destination="s3://juju-dist/$PURPOSE/"
     fi
     echo "Phase 1: Publishing $PURPOSE to AWS."
-    s3cmd -c $JUJU_DIR/s3cfg sync --exclude '*mirror*' \
-        ${JUJU_DIST}/tools $destination
+    s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
+        $STREAM_PATH $destination
     verify_stream $AWS_SITE
 }
 
@@ -93,10 +93,10 @@ publish_to_canonistack() {
     fi
     echo "Phase 2: Publishing $PURPOSE to canonistack."
     source $JUJU_DIR/canonistacktoolsrc
-    cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
+    cd $STREAM_PATH/releases/
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
+    cd $STREAM_PATH/streams/v1
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
     verify_stream $CAN_SITE
 }
 
@@ -110,27 +110,19 @@ publish_to_hp() {
     fi
     echo "Phase 3: Publishing $PURPOSE to HP Cloud."
     source $JUJU_DIR/hptoolsrc
-    cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/swift_sync.py $destination/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/swift_sync.py $destination/streams/v1/ {index,com}*
+    cd $STREAM_PATH/releases/
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
+    cd $STREAM_PATH/streams/v1
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
     verify_stream $HP_SITE
 }
 
 
 publish_to_azure() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    if [[ $PURPOSE == "release" ]]; then
-        local destination="release"
-        local local_dir="tools"
-    else
-        local destination="$PURPOSE"
-        local local_dir=""
-    fi
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
-    ${SCRIPT_DIR}/azure_publish_tools.py publish \
-        $destination $JUJU_DIST/$local_dir
+    ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
     verify_stream $AZURE_SITE
 }
 
@@ -145,10 +137,10 @@ publish_to_joyent() {
     fi
     echo "Phase 5: Publishing $PURPOSE to Joyent."
     source $JUJU_DIR/joyentrc
-    cd $JUJU_DIST/tools/releases/
-    ${SCRIPT_DIR}/manta_sync.py $destination/releases/ *.tgz
-    cd $JUJU_DIST/tools/streams/v1
-    ${SCRIPT_DIR}/manta_sync.py $destination/streams/v1/ {index,com}*
+    cd $STREAM_PATH/releases/
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/releases/ *.tgz
+    cd $STREAM_PATH/streams/v1
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
     verify_stream $JOYENT_SITE
 }
 
@@ -158,12 +150,19 @@ publish_to_streams() {
     echo "Phase 6: Publishing $PURPOSE to streams.canonical.com."
     source $JUJU_DIR/streamsrc
     destination=$STREAMS_OFFICIAL_DEST
-    rsync -avzh $JUJU_DIST/ $destination
+    rsync $DRY_RUN -avzh $JUJU_DIST/ $destination
 }
 
 
 # The location of environments.yaml and rc files.
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
+
+DRY_RUN=""
+if  [[ "$1" == "--dry-run" ]]; then
+    DRY_RUN="--dry-run"
+    echo "No changes will be made."
+    shift
+fi
 
 test $# -eq 3 || usage
 
@@ -174,8 +173,13 @@ if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
 fi
 
 JUJU_DIST=$(cd $2; pwd)
-if [[ ! -d $JUJU_DIST/tools/releases && ! -d $JUJU_DIST/tools/streams ]]; then
-    echo "Invalid JUJU-DIST."
+if [[ $PURPOSE == "release" ]]; then
+    STREAM_PATH="$JUJU_DIST/tools"
+else
+    STREAM_PATH="$JUJU_DIST/$PURPOSE/tools"
+fi
+if [[ ! -d $STREAM_PATH/releases && ! -d $STREAM_PATH/streams ]]; then
+    echo "Invalid JUJU-DIST: $STREAM_PATH"
     usage
 fi
 
