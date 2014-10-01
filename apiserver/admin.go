@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -19,34 +18,44 @@ import (
 	"github.com/juju/juju/state/presence"
 )
 
-func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier, limiter utils.Limiter) *initialRoot {
-	r := &initialRoot{
-		srv:     srv,
-		rpcConn: rpcConn,
-	}
-	r.admin = &srvAdmin{
-		root:        r,
-		limiter:     limiter,
-		validator:   srv.validator,
-		reqNotifier: reqNotifier,
-	}
-	return r
+type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+
+// adminApiV0 implements the API that a client first sees when connecting to
+// the API. We start serving a different API once the user has logged in.
+type adminApiV0 struct {
+	admin *adminV0
 }
 
-// initialRoot implements the API that a client first sees
-// when connecting to the API. We start serving a different
-// API once the user has logged in.
-type initialRoot struct {
-	srv     *Server
-	rpcConn *rpc.Conn
+// admin is the only object that unlogged-in clients can access. It holds any
+// methods that are needed to log in.
+type admin struct {
+	srv         *Server
+	root        *apiHandler
+	reqNotifier *requestNotifier
 
-	admin *srvAdmin
+	mu       sync.Mutex
+	loggedIn bool
 }
 
-// Admin returns an object that provides API access
-// to methods that can be called even when not
-// authenticated.
-func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
+type adminV0 struct {
+	*admin
+}
+
+func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+	return &adminApiV0{
+		admin: &adminV0{
+			&admin{
+				srv:         srv,
+				root:        root,
+				reqNotifier: reqNotifier,
+			},
+		},
+	}
+}
+
+// Admin returns an object that provides API access to methods that can be
+// called even when not authenticated.
+func (r *adminApiV0) Admin(id string) (*adminV0, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
@@ -54,113 +63,141 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
-// srvAdmin is the only object that unlogged-in
-// clients can access. It holds any methods
-// that are needed to log in.
-type srvAdmin struct {
-	mu          sync.Mutex
-	limiter     utils.Limiter
-	validator   LoginValidator
-	root        *initialRoot
-	loggedIn    bool
-	reqNotifier *requestNotifier
-}
-
 var UpgradeInProgressError = errors.New("upgrade in progress")
 var AboutToRestoreError = errors.New("restore preparation in progress")
 var RestoreInProgressError = errors.New("restore in progress")
+var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress")
 var errAlreadyLoggedIn = errors.New("already logged in")
 
-// Login logs in with the provided credentials.
-// All subsequent requests on the connection will
-// act as the authenticated user.
-func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
+// Login logs in with the provided credentials.  All subsequent requests on the
+// connection will act as the authenticated user.
+func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
+	var fail params.LoginResult
+
+	resultV1, err := a.doLogin(params.LoginRequest{
+		AuthTag:     c.AuthTag,
+		Credentials: c.Password,
+		Nonce:       c.Nonce,
+	})
+	if err != nil {
+		return fail, err
+	}
+
+	resultV0 := params.LoginResult{
+		Servers:    resultV1.Servers,
+		EnvironTag: resultV1.EnvironTag,
+		Facades:    resultV1.Facades,
+	}
+	if resultV1.UserInfo != nil {
+		resultV0.LastConnection = resultV1.UserInfo.LastConnection
+	}
+	return resultV0, nil
+}
+
+func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
+	var fail params.LoginResultV1
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
-		return params.LoginResult{}, errAlreadyLoggedIn
+		return fail, errAlreadyLoggedIn
 	}
 
-	// Users are not rate limited, all other entities are
-	if kind, err := names.TagKind(c.AuthTag); err != nil || kind != names.UserTagKind {
-		if !a.limiter.Acquire() {
-			logger.Debugf("rate limiting, try again later")
-			return params.LoginResult{}, common.ErrTryAgain
+	// authedApi is the API method finder we'll use after getting logged in.
+	var authedApi rpc.MethodFinder = newApiRoot(a.srv, a.root.resources, a.root)
+
+	// Use the login validation function, if one was specified.
+	if a.srv.validator != nil {
+		err := a.srv.validator(req)
+		switch err {
+		case UpgradeInProgressError:
+			authedApi = newUpgradingRoot(authedApi)
+		case AboutToRestoreError:
+			authedApi = newAboutToRestoreRoot(authedApi)
+		case RestoreInProgressError:
+			authedApi = newRestoreInProgressRoot(authedApi)
+		case nil:
+			// in this case no need to wrap authed api so we do nothing
+		default:
+			return fail, err
 		}
-		defer a.limiter.Release()
 	}
-	entity, err := doCheckCreds(a.root.srv.state, c)
+
+	var isUser bool
+	if kind, err := names.TagKind(req.AuthTag); err != nil || kind != names.UserTagKind {
+		// Users are not rate limited, all other entities are
+		if !a.srv.limiter.Acquire() {
+			logger.Debugf("rate limiting, try again later")
+			return fail, common.ErrTryAgain
+		}
+		defer a.srv.limiter.Release()
+	} else {
+		isUser = true
+	}
+
+	entity, err := doCheckCreds(a.srv.state, req)
 	if err != nil {
-		var emptyResult params.LoginResult
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
 			// progress. It is possible for logins to fail until this
 			// is complete due to incomplete or updating data. Mask
 			// transitory and potentially confusing errors from failed
 			// logins with a more helpful one.
-			return emptyResult, errors.New("login failed - maintenance in progress")
+			return fail, MaintenanceNoLoginError
 		} else {
-			return emptyResult, err
+			return fail, err
 		}
+		return fail, err
 	}
+	a.root.entity = entity
+
 	if a.reqNotifier != nil {
 		a.reqNotifier.login(entity.Tag().String())
 	}
 
-	// We have authenticated the user; now choose an appropriate API
+	// We have authenticated the user; enable the appropriate API
 	// to serve to them.
-	var newRoot apiRoot
+	a.loggedIn = true
 
-	// Use the login validation function, if one was specified.
-	if a.validator != nil {
-		err := a.validator(c)
-		switch err {
-		case UpgradeInProgressError:
-			newRoot = newUpgradingRoot(a.root, entity)
-		case AboutToRestoreError:
-			newRoot = newAboutToRestoreRoot(a.root, entity)
-		case RestoreInProgressError:
-			newRoot = newRestoreInProgressRoot(a.root, entity)
-		case nil:
-			newRoot = newSrvRoot(a.root, entity)
-			// in this case rootFunc is srvRoot so we do nothing
-		default:
-			return params.LoginResult{}, errors.Trace(err)
-		}
-	} else {
-
-		newRoot = newSrvRoot(a.root, entity)
+	if err := startPingerIfAgent(a.root, entity); err != nil {
+		return fail, err
 	}
 
-	if err := a.startPingerIfAgent(newRoot, entity); err != nil {
-		return params.LoginResult{}, err
+	var maybeUserInfo *params.UserInfo
+	// Send back user info if user
+	if isUser {
+		lastConnection := getAndUpdateLastLoginForEntity(entity)
+		maybeUserInfo = &params.UserInfo{
+			Identity:       entity.Tag().String(),
+			LastConnection: lastConnection,
+		}
 	}
 
 	// Fetch the API server addresses from state.
-	hostPorts, err := a.root.srv.state.APIHostPorts()
+	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
-		return params.LoginResult{}, err
+		return fail, err
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
-	environ, err := a.root.srv.state.Environment()
+	environ, err := a.root.state.Environment()
 	if err != nil {
-		return params.LoginResult{}, err
+		return fail, err
 	}
 
-	a.root.rpcConn.ServeFinder(newRoot, serverError)
-	lastConnection := getAndUpdateLastLoginForEntity(entity)
-	return params.LoginResult{
-		Servers:        hostPorts,
-		EnvironTag:     environ.Tag().String(),
-		LastConnection: lastConnection,
-		Facades:        newRoot.DescribeFacades(),
+	a.root.rpcConn.ServeFinder(authedApi, serverError)
+
+	return params.LoginResultV1{
+		Servers:    hostPorts,
+		EnvironTag: environ.Tag().String(),
+		Facades:    DescribeFacades(),
+		UserInfo:   maybeUserInfo,
 	}, nil
 }
 
-func (a *srvAdmin) maintenanceInProgress() bool {
-	if a.validator == nil {
+func (a *admin) maintenanceInProgress() bool {
+	if a.srv.validator == nil {
 		return false
 	}
 	// jujud's login validator will return an error for any user tag
@@ -172,16 +209,16 @@ func (a *srvAdmin) maintenanceInProgress() bool {
 	//
 	// TODO(mjs): 2014-09-29 bug 1375110
 	// This needs improving but I don't have the cycles right now.
-	creds := params.Creds{
+	req := params.LoginRequest{
 		AuthTag: names.NewUserTag("arbitrary").String(),
 	}
-	return a.validator(creds) != nil
+	return a.srv.validator(req) != nil
 }
 
 var doCheckCreds = checkCreds
 
-func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
-	tag, err := names.ParseTag(c.AuthTag)
+func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) {
+	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +239,7 @@ func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 		return nil, err
 	}
 
-	if err = authenticator.Authenticate(entity, c.Password, c.Nonce); err != nil {
+	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
 		return nil, err
 	}
@@ -227,12 +264,12 @@ func getAndUpdateLastLoginForEntity(entity state.Entity) *time.Time {
 	return nil
 }
 
-func checkForValidMachineAgent(entity state.Entity, c params.Creds) error {
+func checkForValidMachineAgent(entity state.Entity, req params.LoginRequest) error {
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
 	if machine, ok := entity.(*state.Machine); ok {
-		if !machine.CheckProvisioned(c.Nonce) {
+		if !machine.CheckProvisioned(req.Nonce) {
 			return state.NotProvisionedError(machine.Id())
 		}
 	}
@@ -253,7 +290,7 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity state.Entity) error {
+func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	// A machine or unit agent has connected, so start a pinger to
 	// announce it's now alive, and set up the API pinger
 	// so that the connection will be terminated if a sufficient
@@ -268,15 +305,17 @@ func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity state.Entity) erro
 		return err
 	}
 
-	newRoot.getResources().Register(&machinePinger{pinger})
+	root.getResources().Register(&machinePinger{pinger})
 	action := func() {
-		if err := newRoot.getRpcConn().Close(); err != nil {
+		if err := root.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
-	newRoot.getResources().RegisterNamed("pingTimeout", pingTimeout)
-
+	err = root.getResources().RegisterNamed("pingTimeout", pingTimeout)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -288,6 +327,6 @@ type errRoot struct {
 }
 
 // Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
-func (r *errRoot) Admin(id string) (*srvAdmin, error) {
+func (r *errRoot) Admin(id string) (*adminV0, error) {
 	return nil, r.err
 }
