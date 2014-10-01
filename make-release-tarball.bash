@@ -59,12 +59,13 @@ HERE=$(pwd)
 TMP_DIR=$(mktemp -d --tmpdir=$HERE)
 mkdir $TMP_DIR/RELEASE
 WORK=$TMP_DIR/RELEASE
+WORKPACKAGE=$WORK/src/$PACKAGE
 
 echo "Getting juju core from $JUJU_CORE_REPO."
-mkdir -p $WORK/src/$PACKAGE
-git clone $JUJU_CORE_REPO $WORK/src/$PACKAGE
+mkdir -p $WORKPACKAGE
+git clone $JUJU_CORE_REPO $WORKPACKAGE
 echo "Setting juju core tree to $REVISION."
-cd $WORK/src/$PACKAGE
+cd $WORKPACKAGE
 if git ls-remote ./  | grep origin/$REVISION; then
     git checkout origin/$REVISION
 else
@@ -80,23 +81,19 @@ if [[ "$MERGE_REF" != "" && "$MERGE_REPO" != "" ]]; then
         git pull $MERGE_REPO $MERGE_REF
     fi
 fi
-echo "Getting juju core's dependencies."
-GOPATH=$WORK go get -v -d ./... || \
-    GOPATH=$WORK go get -v -d ./... || \
-    GOPATH=$WORK go get -v -d ./...
 cd $HERE
 
-echo "Updating juju-core dependencies to the required versions."
+echo "Geting and updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
 GODEPS=$WORK/bin/godeps
 if [[ ! -f $GODEPS ]]; then
     echo "! Could not install godeps."
     exit 1
 fi
-GOPATH=$WORK $GODEPS -u "$WORK/src/$PACKAGE/dependencies.tsv"
+GOPATH=$WORK $GODEPS -u "$WORKPACKAGE/dependencies.tsv"
 
 # TODO(gz): Ideally just run ./scripts/pre-push.bash instead, but govet issues
-BADFMT=$(find $WORK/src/$PACKAGE -name '*.go' -not -name '.#*' | xargs gofmt -l)
+BADFMT=$(find $WORKPACKAGE -name '*.go' -not -name '.#*' | xargs gofmt -l)
 if [[ -n "$BADFMT" ]]; then
     BADFMT=$(echo "$BADFMT" | sed "s/^/  /")
     echo -e "gofmt is sad:\n\n$BADFMT"
@@ -105,7 +102,7 @@ fi
 
 # Remove godeps, non-free data, and any binaries.
 rm -r $WORK/src/launchpad.net/godeps
-rm -r $WORK/src/github.com/kisielk/gotool
+rm -rf $WORK/src/github.com/kisielk/gotool
 rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
 rm $WORK/src/code.google.com/p/go.net/html/charset/*test.go
 rm -r $WORK/bin
@@ -114,14 +111,12 @@ if [[ -d $WORK/pkg ]]; then
 fi
 
 # Validate the go src tree against dependencies.tsv
-if [[ $(lsb_release -sc) != "precise" ]]; then
-    $SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
-        "$WORK/src/$PACKAGE/dependencies.tsv" "$WORK/src"
-fi
+$SCRIPT_DIR/check_dependencies.py --ignore $PACKAGE \
+    "$WORKPACKAGE/dependencies.tsv" "$WORK/src"
 
 # Change the generic release to the proper juju-core version.
 VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
-    $WORK/src/$PACKAGE/version/version.go)
+    $WORKPACKAGE/version/version.go)
 mv $WORK $TMP_DIR/juju-core_${VERSION}/
 
 # Tar it up.
