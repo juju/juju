@@ -43,11 +43,7 @@ func (c *Client) Download(id string) (io.ReadCloser, error) {
 
 	// Handle the response.
 	if resp.StatusCode != http.StatusOK {
-		failure, err := base.HandleHTTPFailure(resp)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		return nil, errors.Trace(failure)
+		return nil, errors.Trace(base.HandleHTTPFailure(resp))
 	}
 
 	return resp.Body, nil
