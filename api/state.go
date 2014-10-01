@@ -123,8 +123,7 @@ func (st *State) loginV0(tag, password, nonce string) error {
 	if err != nil {
 		return err
 	}
-	err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades)
-	if err != nil {
+	if err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades); err != nil {
 		return err
 	}
 	return nil
