@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/juju/names"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -19,9 +20,8 @@ const userChangePasswordDoc = `
 Change the password for the user you are currently logged in as.
 
 Examples:
-juju change-password                    (If no password is specified you will be prompted for one)
-juju change-password --password foobar  (Change password to foobar)
-juju change-password --generate         (Generate a random strong password)
+juju user change-password               (you will be prompted to enter a password)
+juju user change-password --generate    (generate a random strong password)
 `
 
 type UserChangePasswordCommand struct {
@@ -44,12 +44,11 @@ func (c *UserChangePasswordCommand) Init(args []string) error {
 }
 
 func (c *UserChangePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Password, "password", "", "New password")
-	f.BoolVar(&c.Generate, "generate", false, "Generate a new strong password")
+	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
 }
 
 type ChangePasswordAPI interface {
-	SetPassword(username, password string) error
+	SetPassword(tag names.UserTag, password string) error
 	Close() error
 }
 
@@ -73,9 +72,6 @@ var getConnectionCredentials = func(c *UserChangePasswordCommand) (configstore.A
 
 func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 	var err error
-	if c.Password != "" && c.Generate {
-		return fmt.Errorf("You need to choose a password or generate one")
-	}
 
 	if c.Generate {
 		c.Password, err = utils.RandomPassword()
@@ -96,7 +92,7 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		if newPass1 != newPass2 {
-			return fmt.Errorf("Passwords do not match")
+			return errors.New("Passwords do not match")
 		}
 		c.Password = newPass1
 	}
@@ -120,7 +116,8 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 	oldPassword := creds.Password
 	creds.Password = c.Password
 
-	err = client.SetPassword(creds.User, c.Password)
+	tag := names.NewUserTag(creds.User)
+	err = client.SetPassword(tag, c.Password)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -131,12 +128,9 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 	err = info.Write()
 	if err != nil {
 		fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, reverting to original password\n")
-		err = client.SetPassword(creds.User, oldPassword)
+		err = client.SetPassword(tag, oldPassword)
 		if err != nil {
 			fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, reverting failed, you will need to edit your environments file by hand (%s)\n", info.Location())
-			if c.Generate {
-				fmt.Fprintf(ctx.Stderr, "Your generated password: %s\n", c.Password)
-			}
 			return errors.Trace(err)
 		}
 		fmt.Fprintf(ctx.Stderr, "your password has not changed\n")

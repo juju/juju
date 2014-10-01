@@ -5,10 +5,11 @@ package main
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/apiserver/usermanager"
+	"github.com/juju/juju/apiserver/params"
 )
 
 const userInfoCommandDoc = `
@@ -55,6 +56,7 @@ type UserInfo struct {
 	DisplayName    string `yaml:"display-name" json:"display-name"`
 	DateCreated    string `yaml:"date-created" json:"date-created"`
 	LastConnection string `yaml:"last-connection" json:"last-connection"`
+	Disabled       bool   `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 }
 
 func (c *UserInfoCommand) Info() *cmd.Info {
@@ -76,7 +78,7 @@ func (c *UserInfoCommand) Init(args []string) (err error) {
 }
 
 type UserInfoAPI interface {
-	UserInfo(username string) (usermanager.UserInfoResult, error)
+	UserInfo(tags []names.UserTag, includeDeactivated bool) ([]params.UserInfo, error)
 	Close() error
 }
 
@@ -98,18 +100,28 @@ func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		username = info.User
 	}
-	userTag := names.NewUserTag(username)
-	result, err := client.UserInfo(userTag.Name())
+	userTag := names.NewLocalUserTag(username)
+	result, err := client.UserInfo([]names.UserTag{userTag}, false)
 	if err != nil {
 		return err
 	}
-	info := UserInfo{
-		Username:       result.Result.Username,
-		DisplayName:    result.Result.DisplayName,
-		DateCreated:    result.Result.DateCreated.String(),
-		LastConnection: result.Result.LastConnection.String(),
+	if len(result) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if err = c.out.Write(ctx, info); err != nil {
+	// Don't output the params type, but be explicit
+	info := result[0]
+	outInfo := UserInfo{
+		Username:    info.Username,
+		DisplayName: info.DisplayName,
+		DateCreated: info.DateCreated.String(),
+		Disabled:    info.Deactivated,
+	}
+	if info.LastConnection != nil {
+		outInfo.LastConnection = info.LastConnection.String()
+	} else {
+		outInfo.LastConnection = "not connected yet"
+	}
+	if err = c.out.Write(ctx, outInfo); err != nil {
 		return err
 	}
 	return nil

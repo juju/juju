@@ -165,3 +165,90 @@ func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
 	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
 }
+
+type ErrorResultsSuite struct{}
+
+var _ = gc.Suite(&ErrorResultsSuite{})
+
+func (s *ErrorResultsSuite) TestOneError(c *gc.C) {
+	for i, test := range []struct {
+		results  params.ErrorResults
+		errMatch string
+	}{
+		{
+			errMatch: "expected 1 result, got 0",
+		}, {
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}},
+			},
+		}, {
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}, {nil}},
+			},
+			errMatch: "expected 1 result, got 2",
+		}, {
+			results: params.ErrorResults{
+				[]params.ErrorResult{
+					{&params.Error{Message: "test error"}},
+				},
+			},
+			errMatch: "test error",
+		},
+	} {
+		c.Logf("test %d", i)
+		err := test.results.OneError()
+		if test.errMatch == "" {
+			c.Check(err, gc.IsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errMatch)
+		}
+	}
+}
+
+func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
+	for i, test := range []struct {
+		msg      string
+		results  params.ErrorResults
+		errMatch string
+	}{
+		{
+			msg: "no results, no error",
+		}, {
+			msg: "single nil result",
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}},
+			},
+		}, {
+			msg: "multiple nil results",
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}, {nil}},
+			},
+		}, {
+			msg: "one error result",
+			results: params.ErrorResults{
+				[]params.ErrorResult{
+					{&params.Error{Message: "test error"}},
+				},
+			},
+			errMatch: "test error",
+		}, {
+			msg: "mixed error results",
+			results: params.ErrorResults{
+				[]params.ErrorResult{
+					{&params.Error{Message: "test error"}},
+					{nil},
+					{&params.Error{Message: "second error"}},
+				},
+			},
+			errMatch: "test error\nsecond error",
+		},
+	} {
+		c.Logf("test %d: %s", i, test.msg)
+		err := test.results.Combine()
+		if test.errMatch == "" {
+			c.Check(err, gc.IsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errMatch)
+		}
+	}
+}
