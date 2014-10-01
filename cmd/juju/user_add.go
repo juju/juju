@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
@@ -65,12 +66,21 @@ func (c *UserAddCommand) Init(args []string) error {
 }
 
 type addUserAPI interface {
-	AddUser(username, displayname, password string) error
+	AddUser(username, displayName, password string) (names.UserTag, error)
+	Close() error
+}
+
+type shareEnvironmentAPI interface {
+	ShareEnvironment(users []names.UserTag) error
 	Close() error
 }
 
 var getAddUserAPI = func(c *UserAddCommand) (addUserAPI, error) {
 	return c.NewUserManagerClient()
+}
+
+var getShareEnvAPI = func(c *UserAddCommand) (shareEnvironmentAPI, error) {
+	return c.NewAPIClient()
 }
 
 func (c *UserAddCommand) Run(ctx *cmd.Context) error {
@@ -79,6 +89,13 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
+	shareClient, err := getShareEnvAPI(c)
+	if err != nil {
+		return err
+	}
+	defer shareClient.Close()
+
 	if c.Password == "" {
 		c.Password, err = utils.RandomPassword()
 		if err != nil {
@@ -86,24 +103,35 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	err = client.AddUser(c.User, c.DisplayName, c.Password)
+	tag, err := client.AddUser(c.User, c.DisplayName, c.Password)
 	if err != nil {
 		return err
 	}
+	// Until we have multiple environments stored in a state server
+	// it makes no sense at all to create a user and not have that user
+	// able to log in and use the one and only environment.
+	// So we share the existing environment with the user here and now.
+	err = shareClient.ShareEnvironment([]names.UserTag{tag})
+	if err != nil {
+		return err
+	}
+
 	user := c.User
 	if c.DisplayName != "" {
 		user = fmt.Sprintf("%s (%s)", c.DisplayName, user)
 	}
 
-	fmt.Fprintf(ctx.Stdout, "user %q added with password %q\n", user, c.Password)
-
-	if c.OutPath != "" {
-		outPath := NormaliseJenvPath(ctx, c.OutPath)
-		err = GenerateUserJenv(c.ConnectionName(), c.User, c.Password, outPath)
-		if err == nil {
-			fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
-		}
+	fmt.Fprintf(ctx.Stdout, "user %q added\n", user)
+	if c.OutPath == "" {
+		c.OutPath = c.User + ".jenv"
 	}
+
+	outPath := NormaliseJenvPath(ctx, c.OutPath)
+	err = GenerateUserJenv(c.ConnectionName(), c.User, c.Password, outPath)
+	if err == nil {
+		fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
+	}
+
 	return err
 }
 
@@ -123,11 +151,14 @@ func GenerateUserJenv(envName, user, password, outPath string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	outputInfo := configstore.EnvironInfoData{}
-	outputInfo.User = user
-	outputInfo.Password = password
-	outputInfo.StateServers = storeInfo.APIEndpoint().Addresses
-	outputInfo.CACert = storeInfo.APIEndpoint().CACert
+	endpoint := storeInfo.APIEndpoint()
+	outputInfo := configstore.EnvironInfoData{
+		User:         user,
+		Password:     password,
+		EnvironUUID:  endpoint.EnvironUUID,
+		StateServers: endpoint.Addresses,
+		CACert:       endpoint.CACert,
+	}
 	yaml, err := cmd.FormatYaml(outputInfo)
 	if err != nil {
 		return errors.Trace(err)

@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/usermanager"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -52,23 +53,22 @@ func (*fakeUserInfoAPI) Close() error {
 	return nil
 }
 
-func (f *fakeUserInfoAPI) UserInfo(username string) (result usermanager.UserInfoResult, err error) {
-	f.logger.Infof("fakeUserInfoAPI.UserInfo(%q)", username)
-	info := usermanager.UserInfo{
+func (f *fakeUserInfoAPI) UserInfo(tags []names.UserTag, includeDeactivated bool) ([]params.UserInfo, error) {
+	f.logger.Infof("fakeUserInfoAPI.UserInfo(%v, %v)", tags, includeDeactivated)
+	info := params.UserInfo{
 		DateCreated:    dateCreated,
 		LastConnection: &lastConnection,
 	}
-	switch username {
+	switch tags[0].Name() {
 	case "dummy-admin":
 		info.Username = "dummy-admin"
 	case "foobar":
 		info.Username = "foobar"
 		info.DisplayName = "Foo Bar"
 	default:
-		return usermanager.UserInfoResult{}, common.ErrPerm
+		return nil, common.ErrPerm
 	}
-	result.Result = &info
-	return result, nil
+	return []params.UserInfo{info}, nil
 }
 
 func (s *UserInfoCommandSuite) TestUserInfo(c *gc.C) {
