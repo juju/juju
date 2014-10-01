@@ -37,18 +37,6 @@ func (f *File) AddToArchive(archive *tar.Writer) error {
 	return nil
 }
 
-func writeToTar(archive io.Writer, files []File) error {
-	tarw := tar.NewWriter(archive)
-	defer tarw.Close()
-
-	for _, file := range files {
-		if err := file.AddToArchive(tarw); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
 // NewArchive returns a new archive file containing the files.
 func NewArchive(meta *metadata.Metadata, files, dump []File) (*bytes.Buffer, error) {
 	var rootFile bytes.Buffer
@@ -110,4 +98,16 @@ func NewArchiveBasic(meta *metadata.Metadata) (*bytes.Buffer, error) {
 		return nil, errors.Trace(err)
 	}
 	return arFile, nil
+}
+
+func writeToTar(archive io.Writer, files []File) error {
+	tarw := tar.NewWriter(archive)
+	defer tarw.Close()
+
+	for _, file := range files {
+		if err := file.AddToArchive(tarw); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
