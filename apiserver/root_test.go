@@ -112,8 +112,8 @@ func (badType) Exposed() error {
 }
 
 func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
-	srvRoot := apiserver.TestingApiRoot(nil)
-	caller, err := srvRoot.FindMethod("unknown-testing-facade", 0, "Method")
+	root := apiserver.TestingApiRoot(nil)
+	caller, err := root.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
 	c.Check(err, gc.ErrorMatches, `unknown object type "unknown-testing-facade"`)

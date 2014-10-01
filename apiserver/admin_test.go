@@ -191,6 +191,8 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 
 func (s *loginV0Suite) TestLoginSetsLogIdentifier(c *gc.C) {
 	s.runLoginSetsLogIdentifier(c, []string{
+		// RequestId starts at 2 here, because we've already attempted a v1 Login.
+		// This is the fallback to v0 Login.
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":2,"Type":"Admin","Request":"Login",` +
 			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,

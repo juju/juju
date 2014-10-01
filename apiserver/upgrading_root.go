@@ -12,12 +12,12 @@ import (
 	"github.com/juju/juju/rpc/rpcreflect"
 )
 
-// UpgradingRoot restricts API calls to those supported during an upgrade.
+// upgradingRoot restricts API calls to those supported during an upgrade.
 type upgradingRoot struct {
 	rpc.MethodFinder
 }
 
-// NewUpgradingRoot returns a new UpgradingRoot.
+// newUpgradingRoot returns a new upgradingRoot.
 func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
 	return &upgradingRoot{finder}
 }
