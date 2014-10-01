@@ -21,12 +21,12 @@ var sendHTTPRequest = func(r *http.Request, c *http.Client) (*http.Response, err
 func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	baseURL, err := url.Parse(s.serverRoot)
 	if err != nil {
-		return nil, errors.Annotate(err, "while parsing base URL")
+		return nil, errors.Annotatef(err, "while parsing base URL (%s)", s.serverRoot)
 	}
 
 	tag, err := s.EnvironTag()
 	if err != nil {
-		return nil, errors.Annotate(err, "while extracting environment ID")
+		return nil, errors.Annotate(err, "while extracting environment UUID")
 	}
 	uuid := tag.Id()
 
@@ -67,7 +67,7 @@ func (s *State) SendHTTPRequest(req *http.Request) (*http.Response, error) {
 	httpclient := s.getHTTPClient(secure)
 	resp, err := sendHTTPRequest(req, httpclient)
 	if err != nil {
-		return nil, fmt.Errorf("error when sending HTTP request: %v", err)
+		return nil, errors.Annotate(err, "error when sending HTTP request")
 	}
 	return resp, nil
 }
