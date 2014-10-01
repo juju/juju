@@ -29,18 +29,18 @@ type HTTPCaller interface {
 // HandleHTTPFailure returns the failure serialized in the response
 // body.  This function should only be called if the status code is not
 // http.StatusOkay.
-func HandleHTTPFailure(resp *http.Response) (*params.Error, error) {
+func HandleHTTPFailure(resp *http.Response) error {
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, errors.Annotate(err, "while reading HTTP response")
+		return errors.Annotate(err, "while reading HTTP response")
 	}
 
 	var failure params.Error
 	if resp.Header.Get("Content-Type") == "application/json" {
 		if err := json.Unmarshal(body, &failure); err != nil {
-			return nil, errors.Annotate(err, "while unserializing the error")
+			return errors.Annotate(err, "while unserializing the error")
 		}
 	} else {
 		switch resp.StatusCode {
@@ -54,5 +54,5 @@ func HandleHTTPFailure(resp *http.Response) (*params.Error, error) {
 
 		failure.Message = string(body)
 	}
-	return &failure, nil
+	return &failure
 }
