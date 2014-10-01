@@ -34,13 +34,13 @@ usage() {
 
 verify_stream() {
     local location="$1"
-    echo "Verifying the streams at $location"
-    echo "are public and are identical to the source"
     if [[ $PURPOSE == "release" ]]; then
         local root="tools"
     else
         local root="$PURPOSE/tools"
     fi
+    echo "Verifying the streams at $location/$root"
+    echo "are public and are identical to the source"
     curl -s $location/$root/streams/v1/index.json > $WORK/index.json
     diff $STREAM_PATH/streams/v1/index.json $WORK/index.json
     curl -s $location/$root/streams/v1/index.json > \
