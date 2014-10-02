@@ -8,8 +8,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/api/base"
 )
+
+var logger = loggo.GetLogger("juju.api.backups")
 
 type httpClient interface {
 	SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error)
