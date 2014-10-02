@@ -34,13 +34,19 @@ func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult
 		return nil, errors.Trace(err)
 	}
 
-	// Initialize the request body.
-	var parts bytes.Buffer
-	req.Body = ioutil.NopCloser(&chainedReader{[]io.Reader{&parts, archive}})
-
 	// Set up the multi-part portion of the body.
+	var parts bytes.Buffer
 	writer := multipart.NewWriter(&parts)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// Initialize the request body.
+	req.Body = ioutil.NopCloser(&chainedReader{
+		readers: []io.Reader{
+			&parts,
+			archive,
+			bytes.NewBufferString("\r\n--" + writer.Boundary() + "--\r\n"),
+		},
+	})
 
 	// Set the metadata part.
 	header := make(textproto.MIMEHeader)
@@ -94,7 +100,7 @@ type chainedReader struct {
 func (r *chainedReader) Read(p []byte) (int, error) {
 	count := 0
 	for _, reader := range r.readers {
-		n, err := reader.Read(p)
+		n, err := reader.Read(p[count:])
 		count += n
 		if err != nil {
 			return count, err
