@@ -26,7 +26,7 @@ type HTTPCaller interface {
 	SendHTTPRequest(req *http.Request) (*http.Response, error)
 }
 
-// HandleHTTPFailure returns the failure serialized in the response
+// CheckHTTPResponse returns the failure serialized in the response
 // body.  If there is no failure (an OK status code), it simply returns
 // nil.
 func CheckHTTPResponse(resp *http.Response) error {
