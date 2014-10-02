@@ -17,7 +17,14 @@ import (
 )
 
 // Download implements the API method.
-func (c *Client) Download(id string) (io.ReadCloser, error) {
+func (c *Client) Download(id string) (_ io.ReadCloser, err error) {
+	logger.Debugf("sending download request (%s)", id)
+	defer func() {
+		if err != nil {
+			logger.Debugf("download request failed (%s)", id)
+		}
+	}()
+
 	// Initialize the HTTP request.
 	req, err := c.http.NewHTTPRequest("GET", "backups")
 	if err != nil {
@@ -36,6 +43,7 @@ func (c *Client) Download(id string) (io.ReadCloser, error) {
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 
 	// Send the request.
+	logger.Debugf("sending download request (%s)", id)
 	resp, err := c.http.SendHTTPRequest(req)
 	if err != nil {
 		return nil, errors.Annotate(err, "while sending HTTP request")
@@ -45,6 +53,7 @@ func (c *Client) Download(id string) (io.ReadCloser, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.Trace(base.CheckHTTPResponse(resp))
 	}
+	logger.Debugf("download request succeeded (%s)", id)
 
 	return resp.Body, nil
 }

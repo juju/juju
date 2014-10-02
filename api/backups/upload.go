@@ -18,8 +18,15 @@ import (
 )
 
 // Info implements the API method.
-func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult) (*params.BackupsMetadataResult, error) {
+func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult) (_ *params.BackupsMetadataResult, err error) {
 	defer archive.Close()
+
+	logger.Debugf("preparing upload request")
+	defer func() {
+		if err != nil {
+			logger.Debugf("upload request failed")
+		}
+	}()
 
 	// Initialize the HTTP request.
 	req, err := c.http.NewHTTPRequest("PUT", "backups")
@@ -56,6 +63,7 @@ func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult
 	// reader instead to facilitate streaming directly from the archive.
 
 	// Send the request.
+	logger.Debugf("sending upload request")
 	resp, err := c.http.SendHTTPRequest(req)
 	if err != nil {
 		return nil, errors.Annotate(err, "while sending HTTP request")
@@ -74,6 +82,7 @@ func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return &result, errors.Trace(err)
 	}
+	logger.Debugf("upload request succeeded (%s)", result.ID)
 
 	return &result, nil
 }

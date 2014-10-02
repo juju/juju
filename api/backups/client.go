@@ -4,8 +4,12 @@
 package backups
 
 import (
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/api/base"
 )
+
+var logger = loggo.GetLogger("juju.api.backups")
 
 // Client wraps the backups API for the client.
 type Client struct {
