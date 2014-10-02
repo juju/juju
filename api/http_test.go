@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 )
 
-type fakeDoer struct {
+type fakeHTTPClient struct {
 	calls []string
 
 	response *http.Response
@@ -25,7 +25,7 @@ type fakeDoer struct {
 	reqArg *http.Request
 }
 
-func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
+func (d *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	d.calls = append(d.calls, "Do")
 	d.reqArg = req
 	if d.err != nil {
@@ -36,7 +36,7 @@ func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 
 type httpSuite struct {
 	jujutesting.JujuConnSuite
-	fake *fakeDoer
+	fake *fakeHTTPClient
 }
 
 var _ = gc.Suite(&httpSuite{})
@@ -50,13 +50,13 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 		Body:       ioutil.NopCloser(&bytes.Buffer{}),
 	}
 
-	fake := fakeDoer{
+	fake := fakeHTTPClient{
 		response: &resp,
 	}
 	s.fake = &fake
 
 	s.PatchValue(api.NewHTTPClient,
-		func(*api.State) api.Doer {
+		func(*api.State) api.HTTPClient {
 			return s.fake
 		},
 	)
