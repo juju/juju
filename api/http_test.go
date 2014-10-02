@@ -28,10 +28,7 @@ type fakeHTTPClient struct {
 func (d *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	d.calls = append(d.calls, "Do")
 	d.reqArg = req
-	if d.err != nil {
-		return nil, d.err
-	}
-	return d.response, nil
+	return d.response, d.err
 }
 
 type httpSuite struct {
