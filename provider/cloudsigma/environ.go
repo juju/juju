@@ -10,11 +10,12 @@ import (
 	"github.com/Altoros/gosigma"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/provider/common"
 )
 
@@ -35,6 +36,7 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
+var _ simplestreams.MetadataValidator = (*environ)(nil)
 
 // Name returns the Environ's name.
 func (env environ) Name() string {
@@ -180,3 +182,20 @@ func (env *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
+func (env *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
+	if region == "" {
+		region = gosigma.DefaultRegion
+	}
+
+	cloudSpec, err := env.cloudSpec(region)
+	if err != nil {
+		return nil, err
+	}
+
+	return &simplestreams.MetadataLookupParams{
+		Region:        cloudSpec.Region,
+		Endpoint:      cloudSpec.Endpoint,
+		Architectures: arch.AllSupportedArches,
+		Series:        config.PreferredSeries(env.ecfg),
+	}, nil
+}
