@@ -60,7 +60,7 @@ type APIClient interface {
 	// Download pulls the backup archive file.
 	Download(id string) (io.ReadCloser, error)
 	// Upload pushes a backup archive to storage.
-	Upload(ar io.ReadCloser, meta params.BackupsMetadataResult) (*params.BackupsMetadataResult, error)
+	Upload(ar io.ReadCloser, meta params.BackupsMetadataResult) (string, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
 }

@@ -160,12 +160,12 @@ func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
 	return c.archive, nil
 }
 
-func (c *fakeAPIClient) Upload(ar io.ReadCloser, meta params.BackupsMetadataResult) (*params.BackupsMetadataResult, error) {
+func (c *fakeAPIClient) Upload(ar io.ReadCloser, meta params.BackupsMetadataResult) (string, error) {
 	c.args = append(c.args, "ar", "meta")
 	if c.err != nil {
-		return nil, c.err
+		return "", c.err
 	}
-	return c.metaresult, nil
+	return c.metaresult.ID, nil
 }
 
 func (c *fakeAPIClient) Remove(id string) error {

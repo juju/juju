@@ -19,7 +19,10 @@ type uploadSuite struct {
 
 var _ = gc.Suite(&uploadSuite{})
 
-func (s *uploadSuite) TestUpload(c *gc.C) {
+func (s *uploadSuite) TestSuccess(c *gc.C) {
+	result := params.BackupsUploadResult{ID: "<some backup ID>"}
+	backups.SetHTTP(s.client, &fakeHTTPCaller{Result: result})
+
 	data := "<compressed archive data>"
 	archive := ioutil.NopCloser(bytes.NewBufferString(data))
 
@@ -28,27 +31,26 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	meta.ID = ""
 	meta.Stored = false
 
-	cleanup := backups.PatchClientFacadeCall(s.client,
-		func(req string, paramsIn interface{}, resp interface{}) error {
-			c.Check(req, gc.Equals, "UploadDirect")
-
-			c.Assert(paramsIn, gc.FitsTypeOf, params.BackupsUploadArgs{})
-			p := paramsIn.(params.BackupsUploadArgs)
-			c.Check(string(p.Data), gc.Equals, data)
-			c.Check(p.Metadata, gc.Equals, meta)
-
-			if result, ok := resp.(*params.BackupsMetadataResult); ok {
-				result.UpdateFromMetadata(s.Meta)
-			} else {
-				c.Fatalf("wrong output structure")
-			}
-			return nil
-		},
-	)
-	defer cleanup()
-
-	result, err := s.client.Upload(archive, meta)
+	id, err := s.client.Upload(archive, meta)
 	c.Assert(err, gc.IsNil)
 
-	s.checkMetadataResult(c, result, s.Meta)
+	c.Check(id, gc.Equals, "<some backup ID>")
+}
+
+func (s *uploadSuite) TestFunctional(c *gc.C) {
+	//result := params.BackupsUploadResult{ID: "<some backup ID>"}
+	//backups.SetHTTP(s.client, &fakeHTTPCaller{Result: result})
+
+	data := "<compressed archive data>"
+	archive := ioutil.NopCloser(bytes.NewBufferString(data))
+
+	var meta params.BackupsMetadataResult
+	meta.UpdateFromMetadata(s.Meta)
+	meta.ID = ""
+	meta.Stored = false
+
+	id, err := s.client.Upload(archive, meta)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(id, gc.Matches, `[-\d]+\.[-0-9a-f]+`)
 }

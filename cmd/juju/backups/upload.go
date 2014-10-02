@@ -65,12 +65,18 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	defer archive.Close()
 
 	// Upload the archive.
-	result, err := client.Upload(archive, *meta)
+	id, err := client.Upload(archive, *meta)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	c.dumpMetadata(ctx, result)
+	// Pull the stored metadata.
+	stored, err := client.Info(id)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	c.dumpMetadata(ctx, stored)
 	return nil
 }
 

@@ -18,7 +18,7 @@ import (
 )
 
 // Info implements the API method.
-func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult) (_ *params.BackupsMetadataResult, err error) {
+func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult) (id string, err error) {
 	defer archive.Close()
 
 	logger.Debugf("preparing upload request")
@@ -31,7 +31,7 @@ func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult
 	// Initialize the HTTP request.
 	req, err := c.http.NewHTTPRequest("PUT", "backups")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Set up the multi-part portion of the body.
@@ -54,16 +54,16 @@ func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult
 	header.Set("Content-Type", "application/json")
 	part, err := writer.CreatePart(header)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	if err := json.NewEncoder(part).Encode(&meta); err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	// Set the archive part.
 	part, err = writer.CreateFormFile("archive", "juju-backup.tar.gz")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	// We don't actually write the file to the part.  We use a chained
 	// reader instead to facilitate streaming directly from the archive.
@@ -72,25 +72,26 @@ func (c *Client) Upload(archive io.ReadCloser, meta params.BackupsMetadataResult
 	logger.Debugf("sending upload request")
 	resp, err := c.http.SendHTTPRequest(req)
 	if err != nil {
-		return nil, errors.Annotate(err, "while sending HTTP request")
+		return "", errors.Annotate(err, "while sending HTTP request")
 	}
 	defer resp.Body.Close()
 
 	// Handle the response.
 	if err := base.CheckHTTPResponse(resp); err != nil {
-		return nil, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 	ctype := resp.Header.Get("Content-Type")
 	if ctype != "application/json" {
-		return nil, errors.Errorf(`expected conten type "application/json", got %s`, ctype)
+		return "", errors.Errorf(`expected conten type "application/json", got %s`, ctype)
 	}
-	var result params.BackupsMetadataResult
+	var result params.BackupsUploadResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return &result, errors.Trace(err)
+		return "", errors.Trace(err)
 	}
-	logger.Debugf("upload request succeeded (%s)", result.ID)
+	id = result.ID
+	logger.Debugf("upload request succeeded (%s)", id)
 
-	return &result, nil
+	return id, nil
 }
 
 type chainedReader struct {
