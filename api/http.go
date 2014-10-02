@@ -53,6 +53,7 @@ func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*ht
 	return req, nil
 }
 
+// GetHTTPClient returns an HTTP client initialized based on State.
 func (s *State) GetHTTPClient() Doer {
 	// For reference, call utils.GetNonValidatingHTTPClient() to get a
 	// non-validating client.
