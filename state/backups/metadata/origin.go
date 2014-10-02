@@ -41,6 +41,23 @@ func ExistingOrigin(env, machine, hostname string, vers version.Number) *Origin 
 	return &origin
 }
 
+// UnknownString is a marker value for string fields with unknown values.
+const UnknownString = "<unknown>"
+
+// UnknownVersion is a marker value for version fields with unknown values.
+var UnknownVersion = version.MustParse("9999.9999.9999")
+
+// UnknownOrigin returns a new backups origin with unknown values.
+func UnknownOrigin() *Origin {
+	origin := Origin{
+		environment: UnknownString,
+		machine:     UnknownString,
+		hostname:    UnknownString,
+		version:     UnknownVersion,
+	}
+	return &origin
+}
+
 // Environment is the ID for the backed-up environment.
 func (o *Origin) Environment() string {
 	return o.environment

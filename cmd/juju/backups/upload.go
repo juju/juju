@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/backups/archive"
 	"github.com/juju/juju/state/backups/metadata"
-	"github.com/juju/juju/version"
 )
 
 const uploadDoc = `
@@ -117,11 +116,7 @@ func (c *UploadCommand) getArchive(filename string) (io.ReadCloser, *params.Back
 		}
 		archiveFile.Seek(0, os.SEEK_SET)
 
-		env := ""                // unknown
-		machine := ""            // unknown
-		hostname := ""           // unknown
-		vers := version.Number{} // unknown
-		origin := metadata.ExistingOrigin(env, machine, hostname, vers)
+		origin := metadata.UnknownOrigin()
 
 		notes := ""
 		meta, err = metadata.BuildMetadata(archiveFile, *origin, notes)
