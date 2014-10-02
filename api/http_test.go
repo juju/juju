@@ -84,8 +84,8 @@ func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
 	s.checkRequest(c, req, "GET", "somefacade")
 }
 
-func (s *httpSuite) TestGetHTTPClientCorrectTransport(c *gc.C) {
-	doer := s.APIState.GetHTTPClient()
+func (s *httpSuite) TestNewHTTPClientCorrectTransport(c *gc.C) {
+	doer := s.APIState.NewHTTPClient()
 
 	c.Assert(doer, gc.FitsTypeOf, (*http.Client)(nil))
 	httpClient := doer.(*http.Client)
@@ -97,9 +97,9 @@ func (s *httpSuite) TestGetHTTPClientCorrectTransport(c *gc.C) {
 	c.Check(config.RootCAs, gc.NotNil)
 }
 
-func (s *httpSuite) TestGetHTTPClientValidatesCert(c *gc.C) {
+func (s *httpSuite) TestNewHTTPClientValidatesCert(c *gc.C) {
 	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
-	doer := s.APIState.GetHTTPClient()
+	doer := s.APIState.NewHTTPClient()
 	resp, err := doer.Do(req)
 	c.Assert(err, gc.IsNil)
 
