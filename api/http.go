@@ -13,12 +13,12 @@ import (
 	"github.com/juju/utils"
 )
 
-// Doer sends an HTTP request, returning the subsequent response.
-type Doer interface {
+// HTTPClient sends an HTTP request, returning the subsequent response.
+type HTTPClient interface {
 	Do(*http.Request) (*http.Response, error)
 }
 
-var newHTTPClient = func(state *State) Doer {
+var newHTTPClient = func(state *State) HTTPClient {
 	return state.NewHTTPClient()
 }
 
@@ -54,7 +54,7 @@ func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*ht
 }
 
 // GetHTTPClient returns an HTTP client initialized based on State.
-func (s *State) NewHTTPClient() Doer {
+func (s *State) NewHTTPClient() HTTPClient {
 	// For reference, call utils.GetNonValidatingHTTPClient() to get a
 	// non-validating client.
 	httpclient := utils.GetValidatingHTTPClient()
