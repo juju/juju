@@ -4,9 +4,9 @@
 package metricsmanager
 
 import (
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/apiserver/metricsender"
 )
 
-func PatchSender(s state.MetricSender) {
+func PatchSender(s metricsender.MetricSender) {
 	sender = s
 }

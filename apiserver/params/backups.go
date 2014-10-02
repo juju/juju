@@ -15,6 +15,25 @@ type BackupsCreateArgs struct {
 	Notes string
 }
 
+// BackupsInfoArgs holds the args for the API Info method.
+type BackupsInfoArgs struct {
+	ID string
+}
+
+// BackupsListArgs holds the args for the API List method.
+type BackupsListArgs struct {
+}
+
+// BackupsRemoveArgs holds the args for the API Remove method.
+type BackupsRemoveArgs struct {
+	ID string
+}
+
+// BackupsListResult holds the list of all stored backups.
+type BackupsListResult struct {
+	List []BackupsMetadataResult
+}
+
 // BackupsMetadataResult holds the metadata for a backup as returned by
 // an API backups method (such as Create).
 type BackupsMetadataResult struct {

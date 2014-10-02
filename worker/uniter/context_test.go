@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
@@ -440,8 +440,16 @@ var _ = gc.Suite(&ContextRelationSuite{})
 
 func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+
 	ch := s.AddTestingCharm(c, "riak")
-	var err error
 	s.svc = s.AddTestingService(c, "u", ch)
 	rels, err := s.svc.Relations()
 	c.Assert(err, gc.IsNil)
@@ -449,12 +457,13 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	s.rel = rels[0]
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(machine)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, gc.IsNil)
 	err = s.ru.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 
-	password, err := utils.RandomPassword()
+	password, err = utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
@@ -463,7 +472,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
-	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
+	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
@@ -787,7 +796,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	// TODO(dfc) uniter.Relation should take a names.RelationTag
-	apiRel, err := s.uniter.Relation(rel.Tag().String())
+	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -800,11 +809,92 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
-	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
-		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies, map[string]interface{}(nil), addMetrics)
+	context, err := uniter.NewHookContext(s.apiUnit, nil, "TestCtx", uuid,
+		"test-env-name", relid, remote, s.relctxs, apiAddrs, names.NewUserTag("owner"),
+		proxies, addMetrics, nil)
 	c.Assert(err, gc.IsNil)
 	return context
+}
+
+// TestNonActionCallsToActionMethodsFail does exactly what its name says:
+// it simply makes sure that Action-related calls to HookContexts with a nil
+// actionData member error out correctly.
+func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
+	ctx := uniter.HookContext{}
+	_, err := ctx.ActionParams()
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.SetActionFailed()
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.SetActionMessage("foo")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
+	c.Check(err, gc.ErrorMatches, "not running an action")
+}
+
+// TestUpdateActionResults demonstrates that UpdateActionResults functions
+// as expected.
+func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
+	tests := []struct {
+		initial  map[string]interface{}
+		keys     []string
+		value    string
+		expected map[string]interface{}
+	}{{
+		initial: map[string]interface{}{},
+		keys:    []string{"foo"},
+		value:   "bar",
+		expected: map[string]interface{}{
+			"foo": "bar",
+		},
+	}, {
+		initial: map[string]interface{}{
+			"foo": "bar",
+		},
+		keys:  []string{"foo", "bar"},
+		value: "baz",
+		expected: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
+			},
+		},
+	}, {
+		initial: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
+			},
+		},
+		keys:  []string{"foo"},
+		value: "bar",
+		expected: map[string]interface{}{
+			"foo": "bar",
+		},
+	}}
+
+	for i, t := range tests {
+		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
+		hctx := uniter.GetStubActionContext(t.initial)
+		err := hctx.UpdateActionResults(t.keys, t.value)
+		c.Assert(err, gc.IsNil)
+		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
+	}
+}
+
+// TestSetActionFailed ensures SetActionFailed works properly.
+func (s *HookContextSuite) TestSetActionFailed(c *gc.C) {
+	hctx := uniter.GetStubActionContext(nil)
+	err := hctx.SetActionFailed()
+	c.Assert(err, gc.IsNil)
+	c.Check(hctx.ActionFailed(), jc.IsTrue)
+}
+
+// TestSetActionMessage ensures SetActionMessage works properly.
+func (s *HookContextSuite) TestSetActionMessage(c *gc.C) {
+	hctx := uniter.GetStubActionContext(nil)
+	err := hctx.SetActionMessage("because reasons")
+	c.Assert(err, gc.IsNil)
+	c.Check(hctx.ActionMessage(), gc.Equals, "because reasons")
 }
 
 func convertSettings(settings params.RelationSettings) map[string]interface{} {
@@ -856,6 +946,30 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 		"JUJU_AGENT_SOCKET":        "/path/to/socket",
 		"JUJU_UNIT_NAME":           "u/0",
 		"JUJU_ENV_NAME":            "test-env-name",
+	}
+	for key, value := range expected {
+		c.Check(executionEnvironment[key], gc.Equals, value)
+	}
+}
+
+func (s *RunCommandSuite) TestRunCommandsHasEnvironSetWithMeterStatus(c *gc.C) {
+	context := s.getHookContext(c, false)
+	defer context.PatchMeterStatus("GREEN", "Operating normally.")()
+
+	charmDir := c.MkDir()
+	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
+	c.Assert(err, gc.IsNil)
+
+	executionEnvironment := map[string]string{}
+	for _, value := range strings.Split(string(result.Stdout), "\n") {
+		bits := strings.SplitN(value, "=", 2)
+		if len(bits) == 2 {
+			executionEnvironment[bits[0]] = bits[1]
+		}
+	}
+	expected := map[string]string{
+		"JUJU_METER_STATUS": "GREEN",
+		"JUJU_METER_INFO":   "Operating normally.",
 	}
 	for key, value := range expected {
 		c.Check(executionEnvironment[key], gc.Equals, value)

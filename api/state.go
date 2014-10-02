@@ -33,31 +33,100 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
+	err := st.loginV1(tag, password, nonce)
+	if params.IsCodeNotImplemented(err) {
+		// TODO (cmars): remove fallback once we can drop v0 compatibility
+		return st.loginV0(tag, password, nonce)
+	}
+	return err
+}
+
+func (st *State) loginV1(tag, password, nonce string) error {
+	var result struct {
+		// TODO (cmars): remove once we can drop 1.18 login compatibility
+		params.LoginResult
+
+		params.LoginResultV1
+	}
+	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequestCompat{
+		LoginRequest: params.LoginRequest{
+			AuthTag:     tag,
+			Credentials: password,
+			Nonce:       nonce,
+		},
+		// TODO (cmars): remove once we can drop 1.18 login compatibility
+		Creds: params.Creds{
+			AuthTag:  tag,
+			Password: password,
+			Nonce:    nonce,
+		},
+	}, &result)
+	if err != nil {
+		return err
+	}
+
+	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
+	// server.  The JSON field names between the structures are disjoint, so only
+	// one should have an environ tag set.
+
+	var environTag string
+	var servers [][]network.HostPort
+	var facades []params.FacadeVersions
+	if result.LoginResult.EnvironTag != "" {
+		environTag = result.LoginResult.EnvironTag
+		servers = result.LoginResult.Servers
+		facades = result.LoginResult.Facades
+	} else if result.LoginResultV1.EnvironTag != "" {
+		environTag = result.LoginResultV1.EnvironTag
+		servers = result.LoginResultV1.Servers
+		facades = result.LoginResultV1.Facades
+	}
+
+	err = st.setLoginResult(tag, environTag, servers, facades)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
+	authtag, err := names.ParseTag(tag)
+	if err != nil {
+		return err
+	}
+	st.authTag = authtag
+	st.environTag = environTag
+
+	hostPorts, err := addAddress(servers, st.addr)
+	if err != nil {
+		if clerr := st.Close(); clerr != nil {
+			err = errors.Annotatef(err, "error closing state: %v", clerr)
+		}
+		return err
+	}
+	st.hostPorts = hostPorts
+
+	st.facadeVersions = make(map[string][]int, len(facades))
+	for _, facade := range facades {
+		st.facadeVersions[facade.Name] = facade.Versions
+	}
+	return nil
+}
+
+func (st *State) loginV0(tag, password, nonce string) error {
 	var result params.LoginResult
 	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
 	}, &result)
-	if err == nil {
-		authtag, err := names.ParseTag(tag)
-		if err != nil {
-			return err
-		}
-		st.authTag = authtag
-		hostPorts, err := addAddress(result.Servers, st.addr)
-		if err != nil {
-			st.Close()
-			return err
-		}
-		st.hostPorts = hostPorts
-		st.environTag = result.EnvironTag
-		st.facadeVersions = make(map[string][]int, len(result.Facades))
-		for _, facade := range result.Facades {
-			st.facadeVersions[facade.Name] = facade.Versions
-		}
+	if err != nil {
+		return err
 	}
-	return err
+	if err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades); err != nil {
+		return err
+	}
+	return nil
 }
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be

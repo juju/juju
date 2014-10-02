@@ -18,20 +18,20 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 )
 
-type firewallerV1Suite struct {
+type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.EnvironWatcherTest
 
-	firewaller *firewaller.FirewallerAPIV1
+	firewaller *firewaller.FirewallerAPI
 }
 
-var _ = gc.Suite(&firewallerV1Suite{})
+var _ = gc.Suite(&firewallerSuite{})
 
-func (s *firewallerV1Suite) SetUpTest(c *gc.C) {
+func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.firewallerBaseSuite.setUpTest(c)
 
-	// Create a firewaller API V1 for the machine.
-	firewallerAPI, err := firewaller.NewFirewallerAPIV1(
+	// Create a firewaller API for the machine.
+	firewallerAPI, err := firewaller.NewFirewallerAPI(
 		s.State,
 		s.resources,
 		s.authorizer,
@@ -41,57 +41,57 @@ func (s *firewallerV1Suite) SetUpTest(c *gc.C) {
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(s.firewaller, s.State, s.resources, commontesting.HasSecrets)
 }
 
-func (s *firewallerV1Suite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
+func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
 	constructor := func(st *state.State, res *common.Resources, auth common.Authorizer) error {
-		_, err := firewaller.NewFirewallerAPIV1(st, res, auth)
+		_, err := firewaller.NewFirewallerAPI(st, res, auth)
 		return err
 	}
 	s.testFirewallerFailsWithNonEnvironManagerUser(c, constructor)
 }
 
-func (s *firewallerV1Suite) TestLife(c *gc.C) {
+func (s *firewallerSuite) TestLife(c *gc.C) {
 	s.testLife(c, s.firewaller)
 }
 
-func (s *firewallerV1Suite) TestInstanceId(c *gc.C) {
+func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	s.testInstanceId(c, s.firewaller)
 }
 
-func (s *firewallerV1Suite) TestWatchEnvironMachines(c *gc.C) {
+func (s *firewallerSuite) TestWatchEnvironMachines(c *gc.C) {
 	s.testWatchEnvironMachines(c, s.firewaller)
 }
 
-func (s *firewallerV1Suite) TestWatch(c *gc.C) {
+func (s *firewallerSuite) TestWatch(c *gc.C) {
 	s.testWatch(c, s.firewaller, cannotWatchUnits)
 }
 
-func (s *firewallerV1Suite) TestWatchUnits(c *gc.C) {
+func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 	s.testWatchUnits(c, s.firewaller)
 }
 
-func (s *firewallerV1Suite) TestGetExposed(c *gc.C) {
+func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	s.testGetExposed(c, s.firewaller)
 }
 
-func (s *firewallerV1Suite) TestOpenedPortsNotImplemented(c *gc.C) {
-	s.assertNotImplemented(c, s.firewaller, "OpenedPorts")
+func (s *firewallerSuite) TestOpenedPortsNotImplemented(c *gc.C) {
+	apiservertesting.AssertNotImplemented(c, s.firewaller, "OpenedPorts")
 }
 
-func (s *firewallerV1Suite) TestGetAssignedMachine(c *gc.C) {
+func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	s.testGetAssignedMachine(c, s.firewaller)
 }
 
-func (s *firewallerV1Suite) openPorts(c *gc.C) {
+func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	err := s.units[0].OpenPort("tcp", 1234)
+	err := s.units[0].OpenPorts("tcp", 1234, 1400)
 	c.Assert(err, gc.IsNil)
 	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
-	err = s.units[2].OpenPort("tcp", 1111)
+	err = s.units[2].OpenPorts("udp", 1111, 2222)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *firewallerV1Suite) TestWatchOpenedPorts(c *gc.C) {
+func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	s.openPorts(c)
@@ -136,7 +136,7 @@ func (s *firewallerV1Suite) TestWatchOpenedPorts(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *firewallerV1Suite) TestGetMachinePorts(c *gc.C) {
+func (s *firewallerSuite) TestGetMachinePorts(c *gc.C) {
 	s.openPorts(c)
 
 	networkTag := names.NewNetworkTag(network.DefaultPublic).String()
@@ -153,7 +153,7 @@ func (s *firewallerV1Suite) TestGetMachinePorts(c *gc.C) {
 	unit0Tag := s.units[0].Tag().String()
 	expectPortsMachine0 := []params.MachinePortRange{
 		{UnitTag: unit0Tag, PortRange: network.PortRange{
-			FromPort: 1234, ToPort: 1234, Protocol: "tcp",
+			FromPort: 1234, ToPort: 1400, Protocol: "tcp",
 		}},
 		{UnitTag: unit0Tag, PortRange: network.PortRange{
 			FromPort: 4321, ToPort: 4321, Protocol: "tcp",
@@ -162,7 +162,7 @@ func (s *firewallerV1Suite) TestGetMachinePorts(c *gc.C) {
 	unit2Tag := s.units[2].Tag().String()
 	expectPortsMachine2 := []params.MachinePortRange{
 		{UnitTag: unit2Tag, PortRange: network.PortRange{
-			FromPort: 1111, ToPort: 1111, Protocol: "tcp",
+			FromPort: 1111, ToPort: 2222, Protocol: "udp",
 		}},
 	}
 	result, err := s.firewaller.GetMachinePorts(args)
@@ -180,7 +180,7 @@ func (s *firewallerV1Suite) TestGetMachinePorts(c *gc.C) {
 
 }
 
-func (s *firewallerV1Suite) TestGetMachineActiveNetworks(c *gc.C) {
+func (s *firewallerSuite) TestGetMachineActiveNetworks(c *gc.C) {
 	s.openPorts(c)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{

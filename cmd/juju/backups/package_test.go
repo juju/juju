@@ -118,6 +118,7 @@ type fakeAPIClient struct {
 	err        error
 
 	args  []string
+	idArg string
 	notes string
 }
 
@@ -128,6 +129,33 @@ func (c *fakeAPIClient) Create(notes string) (*params.BackupsMetadataResult, err
 		return nil, c.err
 	}
 	return c.metaresult, nil
+}
+
+func (c *fakeAPIClient) Info(id string) (*params.BackupsMetadataResult, error) {
+	c.args = append(c.args, "id")
+	c.idArg = id
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.metaresult, nil
+}
+
+func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	var result params.BackupsListResult
+	result.List = []params.BackupsMetadataResult{*c.metaresult}
+	return &result, nil
+}
+
+func (c *fakeAPIClient) Remove(id string) error {
+	c.args = append(c.args, "id")
+	c.idArg = id
+	if c.err != nil {
+		return c.err
+	}
+	return nil
 }
 
 func (c *fakeAPIClient) Close() error {

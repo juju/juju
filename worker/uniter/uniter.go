@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 
 // Licensed under the AGPLv3, see LICENCE file for details.
 
@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
@@ -94,7 +95,7 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fslock.Lock) *Uniter {
+func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
 		st:       st,
 		dataDir:  dataDir,
@@ -107,7 +108,7 @@ func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fsloc
 	return u
 }
 
-func (u *Uniter) loop(unitTag string) (err error) {
+func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -177,12 +178,8 @@ func (u *Uniter) sockPath(name, prefix string) string {
 	}
 }
 
-func (u *Uniter) init(unitTag string) (err error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return err
-	}
-	u.unit, err = u.st.Unit(tag)
+func (u *Uniter) init(unitTag names.UnitTag) (err error) {
+	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
 	}
@@ -196,20 +193,16 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag)
+	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag.String())
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
-	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag)
+	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag.String())
 	u.relationsDir = filepath.Join(u.baseDir, "state", "relations")
 	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
-	serviceTag, err := names.ParseServiceTag(u.unit.ServiceTag())
-	if err != nil {
-		return err
-	}
-	u.service, err = u.st.Service(serviceTag)
+	u.service, err = u.st.Service(u.unit.ServiceTag())
 	if err != nil {
 		return err
 	}
@@ -354,13 +347,12 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
-
+func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (context *HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
 	}
-	ownerTag, err := u.service.GetOwnerTag()
+	ownerTag, err := u.service.OwnerTag()
 	if err != nil {
 		return nil, err
 	}
@@ -377,9 +369,15 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
-	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
+
+	var actionData *actionData
+	if actionTag != nil {
+		actionData = newActionData(actionTag, actionParams)
+	}
+
+	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		actionParams, canAddMetrics)
+		canAddMetrics, actionData)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -429,7 +427,8 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", map[string]interface{}(nil))
+	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", nil, nil)
+
 	if err != nil {
 		return nil, err
 	}
@@ -488,37 +487,96 @@ func (u *Uniter) validateAction(name string, params map[string]interface{}) (boo
 	return spec.ValidateParams(params)
 }
 
-// runHook executes the supplied hook.Info in an appropriate hook context. If
-// the hook itself fails to execute, it returns errHookFailed.
-func (u *Uniter) runHook(hi hook.Info) (err error) {
-	// Prepare context.
+// runAction executes the supplied hook.Info as an Action.
+func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err = hi.Validate(); err != nil {
 		return err
 	}
 
-	hookName := string(hi.Kind)
-	actionParams := map[string]interface{}(nil)
+	tag := names.NewActionTag(hi.ActionId)
+	action, err := u.st.Action(tag)
+	if err != nil {
+		return err
+	}
 
-	// This value is needed to pass results of Action param validation
-	// in case of error or invalidation.  This is probably bad form; it
-	// will be corrected in PR refactoring HookContext.
-	// TODO(binary132): handle errors before grabbing hook context.
-	var actionParamsErr error = nil
+	actionParams := action.Params()
+	actionName := action.Name()
+	_, actionParamsErr := u.validateAction(actionName, actionParams)
+	if actionParamsErr != nil {
+		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", actionName)
+	}
 
+	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), actionName, u.rand.Int63())
+
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), actionName)
+	if err = u.acquireHookLock(lockMessage); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
+
+	hctx, err := u.getHookContext(hctxId, hi.Kind, -1, "", actionParams, &tag)
+	if err != nil {
+		return err
+	}
+
+	srv, socketPath, err := u.startJujucServer(hctx)
+	if err != nil {
+		return err
+	}
+	defer srv.Close()
+
+	if actionParamsErr != nil {
+		// If errors come back here, we have a problem; this should
+		// never happen, since errors will only occur if the context
+		// had a nil actionData, and actionData != nil runs this
+		// method.
+		err = hctx.SetActionMessage(actionParamsErr.Error())
+		if err != nil {
+			return err
+		}
+		err = hctx.SetActionFailed()
+		if err != nil {
+			return err
+		}
+	}
+
+	// err will be any unhandled error from finalizeContext.
+	err = hctx.RunAction(actionName, u.charmPath, u.toolsDir, socketPath)
+
+	if err != nil {
+		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
+		logger.Errorf("action failed: %s", err.Error())
+		u.notifyHookFailed(actionName, hctx)
+		return err
+	}
+	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
+		return err
+	}
+	logger.Infof(hctx.actionData.ResultsMessage)
+	u.notifyHookCompleted(actionName, hctx)
+	return u.commitHook(hi)
+}
+
+// runHook executes the supplied hook.Info in an appropriate hook context. If
+// the hook itself fails to execute, it returns errHookFailed.
+func (u *Uniter) runHook(hi hook.Info) (err error) {
+	if hi.Kind == hooks.Action {
+		return u.runAction(hi)
+	}
+
+	if err = hi.Validate(); err != nil {
+		return err
+	}
+
+	// If it wasn't an Action, continue as normal.
 	relationId := -1
+	hookName := string(hi.Kind)
+
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
 			return err
 		}
-	} else if hi.Kind == hooks.ActionRequested {
-		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
-		if err != nil {
-			return err
-		}
-		actionParams = action.Params()
-		hookName = action.Name()
-		_, actionParamsErr = u.validateAction(hookName, actionParams)
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -528,7 +586,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, actionParams)
+	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -546,23 +604,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookName)
 
 	ranHook := true
-	// The reason for the conditional at this point is that once inside
-	// RunHook, we don't know whether we're running an Action or a regular
-	// Hook.  RunAction simply calls the exact same method as RunHook, but
-	// with the location as "actions" instead of "hooks".
-	if hi.Kind == hooks.ActionRequested {
-		if actionParamsErr != nil {
-			logger.Errorf("action %q param validation failed: %s", hookName, actionParamsErr.Error())
-			u.notifyHookFailed(hookName, hctx)
-			return u.commitHook(hi)
-		}
-		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
-	} else {
-		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
-	}
+	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 
-	// Since the Action validation error was separated, regular error pathways
-	// will still occur correctly.
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
@@ -612,7 +655,7 @@ func (u *Uniter) currentHookName() string {
 		relationer := u.relationers[hookInfo.RelationId]
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
-	} else if hookInfo.Kind == hooks.ActionRequested {
+	} else if hookInfo.Kind == hooks.Action {
 		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
 	return hookName
@@ -622,7 +665,7 @@ func (u *Uniter) currentHookName() string {
 // working around the fact that pre-1.19 (1.18.1?) unit agents don't write a
 // state dir for a relation until a remote unit joins.
 func (u *Uniter) getJoinedRelations() (map[int]*uniter.Relation, error) {
-	var joinedRelationTags []string
+	var joinedRelationTags []names.RelationTag
 	for {
 		var err error
 		joinedRelationTags, err = u.unit.JoinedRelations()

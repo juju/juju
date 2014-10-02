@@ -112,7 +112,7 @@ type addMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
-	DestroyMachines(machines ...string) error
+	ForceDestroyMachines(machines ...string) error
 	EnvironmentUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }

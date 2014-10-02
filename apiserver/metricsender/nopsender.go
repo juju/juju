@@ -3,16 +3,12 @@
 
 package metricsender
 
-import (
-	"github.com/juju/juju/state"
-)
-
 // NopSender is a sender that acts like everything worked fine
 // But doesn't do anything.
 type NopSender struct {
 }
 
 // Implement the send interface, act like everything is fine.
-func (n *NopSender) Send([]*state.MetricBatch) error {
+func (n NopSender) Send([]*MetricBatch) error {
 	return nil
 }

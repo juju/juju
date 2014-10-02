@@ -41,9 +41,9 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		fallthrough
-	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken, hooks.CollectMetrics:
+	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken, hooks.CollectMetrics, hooks.MeterStatusChanged:
 		return nil
-	case hooks.ActionRequested:
+	case hooks.Action:
 		if !names.IsValidAction(hi.ActionId) {
 			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
 		}

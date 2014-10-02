@@ -46,11 +46,6 @@ type Firewaller struct {
 // NewFirewaller returns a new Firewaller or a new FirewallerV0,
 // depending on what the API supports.
 func NewFirewaller(st *apifirewaller.State) (worker.Worker, error) {
-	if st.BestAPIVersion() == 0 {
-		// TODO(dimitern) Once FirewallerV0 is dropped, drop this
-		// check.
-		return NewFirewallerV0(st)
-	}
 	environWatcher, err := st.WatchForEnvironConfigChanges()
 	if err != nil {
 		return nil, err

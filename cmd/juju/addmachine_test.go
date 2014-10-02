@@ -234,7 +234,7 @@ func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([
 	return f.AddMachines(args)
 }
 
-func (f *fakeAddMachineAPI) DestroyMachines(machines ...string) error {
+func (f *fakeAddMachineAPI) ForceDestroyMachines(machines ...string) error {
 	return fmt.Errorf("not implemented")
 }
 func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {

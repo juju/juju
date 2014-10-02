@@ -180,7 +180,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, reason)
@@ -219,7 +219,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, "")
@@ -356,7 +356,7 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		expected := newSet(test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %+v", ix, test))
-		err := state.WatcherMergeIds(changes, initial, updates)
+		err := state.WatcherMergeIds(s.State, changes, initial, updates)
 		c.Assert(err, gc.IsNil)
 		c.Assert(changes.SortedValues(), jc.DeepEquals, expected.SortedValues())
 	}
@@ -380,7 +380,7 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 		changes, initial, updates := newSet(""), newSet(""), map[interface{}]bool{}
 
 		updates[test.key] = true
-		err := state.WatcherMergeIds(changes, initial, updates)
+		err := state.WatcherMergeIds(s.State, changes, initial, updates)
 
 		if test.ok {
 			c.Assert(err, gc.IsNil)
@@ -414,12 +414,12 @@ func (s *ActionSuite) TestEnsureSuffix(c *gc.C) {
 func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	marker := "-marker-"
 	badmarker := "-bad-"
-	fn := state.WatcherMakeIdFilter(marker)
+	fn := state.WatcherMakeIdFilter(s.State, marker)
 	c.Assert(fn, gc.IsNil)
 
 	ar1 := mockAR{id: "mock1"}
 	ar2 := mockAR{id: "mock2"}
-	fn = state.WatcherMakeIdFilter(marker, ar1, ar2)
+	fn = state.WatcherMakeIdFilter(s.State, marker, ar1, ar2)
 	c.Assert(fn, gc.Not(gc.IsNil))
 
 	var tests = []struct {
@@ -448,7 +448,7 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		c.Assert(fn(test.id), gc.Equals, test.match)
+		c.Assert(fn(state.DocID(s.State, test.id)), gc.Equals, test.match)
 	}
 }
 

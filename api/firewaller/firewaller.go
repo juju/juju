@@ -21,43 +21,14 @@ type State struct {
 	*common.EnvironWatcher
 }
 
-// newStateForVersion creates a new client-side Firewaller API facade
-// for the given version. If version is -1, the best facade version
-// among the ones supported by both the client and the server is
-// chosen.
-func newStateForVersion(caller base.APICaller, version int) *State {
-	var facadeCaller base.FacadeCaller
-	if version == -1 {
-		facadeCaller = base.NewFacadeCaller(caller, firewallerFacade)
-	} else {
-		facadeCaller = base.NewFacadeCallerForVersion(caller, firewallerFacade, version)
-	}
+// NewState creates a new client-side Firewaller API facade.
+func NewState(caller base.APICaller) *State {
+	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &State{
 		facade:         facadeCaller,
 		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 	}
 }
-
-// newStateV0 creates a new client-side Firewaller facade, version 0.
-func newStateV0(caller base.APICaller) *State {
-	return newStateForVersion(caller, 0)
-}
-
-// newStateV1 creates a new client-side Firewaller facade, version 1.
-func newStateV1(caller base.APICaller) *State {
-	return newStateForVersion(caller, 1)
-}
-
-// newStateBestVersion creates a new client-side Firewaller facade
-// with the best API version supported by both the client and the
-// server.
-func newStateBestVersion(caller base.APICaller) *State {
-	return newStateForVersion(caller, -1)
-}
-
-// NewState creates a new client-side Firewaller facade.
-// Defined like this to allow patching during tests.
-var NewState = newStateBestVersion
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.
@@ -121,10 +92,6 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current environment.
 func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
-	if st.BestAPIVersion() < 1 {
-		// WatchOpenedPorts() was introduced in FirewallerAPIV1.
-		return nil, errors.NotImplementedf("WatchOpenedPorts() (need V1+)")
-	}
 	envTag, err := st.EnvironTag()
 	if err != nil {
 		return nil, errors.Annotatef(err, "invalid environ tag")

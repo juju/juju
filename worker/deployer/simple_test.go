@@ -247,7 +247,7 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		if err == nil {
-			c.Log("Warning: %q not removed as expected", path)
+			c.Logf("Warning: %q not removed as expected", path)
 		} else {
 			c.Assert(err, jc.Satisfies, os.IsNotExist)
 		}

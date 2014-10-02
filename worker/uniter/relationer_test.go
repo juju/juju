@@ -68,7 +68,7 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
+	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -413,7 +413,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetAddresses(network.NewAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, gc.IsNil)
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -434,7 +434,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 
 	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRel, err := uniterState.Relation(rel.Tag().String())
+	apiRel, err := uniterState.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -445,7 +445,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Join the relation.
 	err = r.Join()
 	c.Assert(err, gc.IsNil)
-	sub, err := logging.Unit("logging/0")
+	sub, err := s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Join the other side; check no hooks are sent.
