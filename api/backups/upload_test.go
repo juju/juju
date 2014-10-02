@@ -26,7 +26,7 @@ func (s *uploadSuite) setSuccess(c *gc.C, id string) {
 	s.setJSONSuccess(c, &result)
 }
 
-func (s *uploadSuite) TestUpload(c *gc.C) {
+func (s *uploadSuite) TestSuccess(c *gc.C) {
 	s.setSuccess(c, "<a new backup ID>")
 
 	data := "<compressed archive data>"
@@ -36,8 +36,23 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	meta.ID = ""
 	meta.Stored = time.Time{}
 
-	result, err := s.client.Upload(archive, meta)
+	id, err := s.client.Upload(archive, meta)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(id, gc.Equals, "<a new backup ID>")
+}
+
+func (s *uploadSuite) TestFunctional(c *gc.C) {
+	data := "<compressed archive data>"
+	archive := ioutil.NopCloser(bytes.NewBufferString(data))
+
+	var meta params.BackupsMetadataResult
+	meta.UpdateFromMetadata(s.Meta)
+	meta.ID = ""
+	meta.Stored = time.Time{}
+
+	id, err := s.client.Upload(archive, meta)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Check(result.ID, gc.Equals, "<a new backup ID>")
+	c.Check(id, gc.Matches, `[-\d]+\.[-0-9a-f]+`)
 }
