@@ -19,7 +19,7 @@ type Doer interface {
 }
 
 var newHTTPClient = func(state *State) Doer {
-	return state.GetHTTPClient()
+	return state.NewHTTPClient()
 }
 
 // NewHTTPRequest returns a new API-supporting HTTP request based on State.
@@ -54,7 +54,7 @@ func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*ht
 }
 
 // GetHTTPClient returns an HTTP client initialized based on State.
-func (s *State) GetHTTPClient() Doer {
+func (s *State) NewHTTPClient() Doer {
 	// For reference, call utils.GetNonValidatingHTTPClient() to get a
 	// non-validating client.
 	httpclient := utils.GetValidatingHTTPClient()
