@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -130,9 +129,9 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 		return nil, errors.Annotatef(err, "cannot detect whether old instance is still running")
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
-	if err := env.Storage().Remove(common.StateFile); err != nil {
-		return nil, errors.Annotatef(err, "cannot remove %q from storage", common.StateFile)
-	}
+	//if err := env.Storage().Remove(common.StateFile); err != nil {
+	//	return nil, errors.Annotatef(err, "cannot remove %q from storage", common.StateFile)
+	//}
 
 	// TODO If we fail beyond here, then we won't have a state file and
 	// we won't be able to re-run this script because it fails without it.

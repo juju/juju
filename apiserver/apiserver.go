@@ -51,6 +51,11 @@ type Server struct {
 // are to be allowed. The validator is called before credentials are
 // checked.
 type LoginValidator func(params.LoginRequest) error
+type RestoreContext interface {
+	PrepareRestore () error
+	BeginRestore () error
+	FinishRestore () error
+}
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
@@ -59,6 +64,7 @@ type ServerConfig struct {
 	DataDir   string
 	LogDir    string
 	Validator LoginValidator
+	RestoreContext RestoreContext
 }
 
 // NewServer serves the given state by accepting requests on the given
