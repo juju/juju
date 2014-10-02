@@ -194,6 +194,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	allJobs := []params.MachineJob{
 		params.JobManageEnviron,
 		params.JobHostUnits,
+		params.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",
