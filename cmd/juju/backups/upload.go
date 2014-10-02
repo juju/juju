@@ -4,11 +4,13 @@
 package backups
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/backups/archive"
@@ -25,6 +27,16 @@ type UploadCommand struct {
 	CommandBase
 	// Filename is where to find the archive to upload.
 	Filename string
+	// ShowMeta indicates that the uploaded metadata should be printed.
+	ShowMeta bool
+	// Quiet indicates that the stored metadata should not be dumped.
+	Quiet bool
+}
+
+// SetFlags implements Command.SetFlags.
+func (c *UploadCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.ShowMeta, "show-uploaded", false, "show the uploaded metadata")
+	f.BoolVar(&c.Quiet, "quiet", false, "do not print the stored metadata")
 }
 
 // Info implements Command.Info.
@@ -64,10 +76,21 @@ func (c *UploadCommand) Run(ctx *cmd.Context) error {
 	}
 	defer archive.Close()
 
+	if c.ShowMeta {
+		fmt.Fprintln(ctx.Stdout, "Uploaded metadata:")
+		c.dumpMetadata(ctx, meta)
+		fmt.Fprintln(ctx.Stdout)
+	}
+
 	// Upload the archive.
 	id, err := client.Upload(archive, *meta)
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	if c.Quiet {
+		fmt.Fprintln(ctx.Stdout, id)
+		return nil
 	}
 
 	// Pull the stored metadata.
