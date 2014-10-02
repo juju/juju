@@ -10,12 +10,19 @@ import (
 	"github.com/juju/juju/worker"
 )
 
+// RestoreStatus is the type of the possible statuses for restore mode.
 type RestoreStatus string
 
-var (
+const (
+	// UnknownRestoreStatus is the initial status of the context.
 	UnknownRestoreStatus RestoreStatus = "UNKNOWN"
-	PreparingRestore     RestoreStatus = "PREPARING"
-	RestoreInProgress    RestoreStatus = "RESTORING"
+	// PreparingRestore status is an intermediate state it signals that
+	// preparations for restore are happening and as such no api commands
+	// should be accepted besides the actual "Restore".
+	PreparingRestore RestoreStatus = "PREPARING"
+	// RestoreInProgress indicates that no api command should be allowed
+	// since the restore process will wipe the state db.
+	RestoreInProgress RestoreStatus = "RESTORING"
 )
 
 type restoreContext struct {
@@ -23,6 +30,9 @@ type restoreContext struct {
 	tomb          *tomb.Tomb
 }
 
+// NewRestoreContext returns a restoreContext in UnknownRestoreStatus and
+// holding a reference to the provided tomb which will be used when
+// restore process finishes to restart jujud.
 func NewRestoreContext(tomb *tomb.Tomb) *restoreContext {
 	return &restoreContext{
 		UnknownRestoreStatus,
@@ -63,7 +73,7 @@ func (r *restoreContext) BeginRestore() error {
 	return nil
 }
 
-// FinishRestore will restart jujud and err if restore flag is not true
+// FinishRestore will restart jujud and err if restore flag is not true.
 func (r *restoreContext) FinishRestore() error {
 	if r.restoreStatus != RestoreInProgress {
 		return errors.Errorf("restore is not in progress")
