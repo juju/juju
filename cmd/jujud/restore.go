@@ -4,7 +4,6 @@
 package main
 
 import (
-
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
@@ -15,18 +14,18 @@ type RestoreStatus string
 
 var (
 	UnknownRestoreStatus RestoreStatus = "UNKNOWN"
-	PreparingRestore RestoreStatus = "PREPARING"
-	RestoreInProgress RestoreStatus = "RESTORING"
+	PreparingRestore     RestoreStatus = "PREPARING"
+	RestoreInProgress    RestoreStatus = "RESTORING"
 )
 
 type restoreContext struct {
 	restoreStatus RestoreStatus
-	tomb *tomb.Tomb
+	tomb          *tomb.Tomb
 }
 
 func NewRestoreContext(tomb *tomb.Tomb) *restoreContext {
 	return &restoreContext{
-		UnknownRestoreStatus, 
+		UnknownRestoreStatus,
 		tomb}
 }
 

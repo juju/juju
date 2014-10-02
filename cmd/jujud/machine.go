@@ -127,7 +127,7 @@ type MachineAgent struct {
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
-	restoreContext	*restoreContext
+	restoreContext       *restoreContext
 	restoreMode          bool
 	restoring            bool
 	workersStarted       chan struct{}
@@ -646,11 +646,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return nil, err
 				}
 				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-					Cert:      cert,
-					Key:       key,
-					DataDir:   dataDir,
-					LogDir:    logDir,
-					Validator: a.limitLogins,
+					Cert:           cert,
+					Key:            key,
+					DataDir:        dataDir,
+					LogDir:         logDir,
+					Validator:      a.limitLogins,
 					RestoreContext: a.restoreContext,
 				})
 			})
