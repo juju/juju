@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/testing"

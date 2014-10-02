@@ -8,17 +8,19 @@ package metricsmanager
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/metricsender"
 )
 
 var (
 	logger            = loggo.GetLogger("juju.apiserver.metricsmanager")
-	sender            = (state.MetricSender)(&metricsender.NopSender{})
 	maxBatchesPerSend = 1000
+
+	sender metricsender.MetricSender = &metricsender.NopSender{}
 )
 
 func init() {
@@ -35,6 +37,8 @@ type MetricsManager interface {
 // implementation of the api end point.
 type MetricsManagerAPI struct {
 	state *state.State
+
+	accessEnviron common.GetAuthFunc
 }
 
 var _ MetricsManager = (*MetricsManagerAPI)(nil)
@@ -45,11 +49,24 @@ func NewMetricsManagerAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*MetricsManagerAPI, error) {
-	if !authorizer.AuthClient() {
+	if !(authorizer.AuthMachineAgent() && authorizer.AuthEnvironManager()) {
 		return nil, common.ErrPerm
 	}
 
-	return &MetricsManagerAPI{state: st}, nil
+	// Allow access only to the current environment.
+	accessEnviron := func() (common.AuthFunc, error) {
+		return func(tag names.Tag) bool {
+			if tag == nil {
+				return false
+			}
+			return tag == st.EnvironTag()
+		}, nil
+	}
+
+	return &MetricsManagerAPI{
+		state:         st,
+		accessEnviron: accessEnviron,
+	}, nil
 }
 
 // CleanupOldMetrics removes old metrics from the collection.
@@ -64,12 +81,21 @@ func (api *MetricsManagerAPI) CleanupOldMetrics(args params.Entities) (params.Er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	canAccess, err := api.accessEnviron()
+	if err != nil {
+		return result, err
+	}
 	for i, arg := range args.Entities {
-		if arg.Tag != api.state.EnvironTag().String() {
+		tag, err := names.ParseEnvironTag(arg.Tag)
+		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err := api.state.CleanupOldMetrics()
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = api.state.CleanupOldMetrics()
 		if err != nil {
 			err = errors.Annotate(err, "failed to cleanup old metrics")
 			result.Results[i].Error = common.ServerError(err)
@@ -83,16 +109,24 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	canAccess, err := api.accessEnviron()
+	if err != nil {
+		return result, err
+	}
 	for i, arg := range args.Entities {
-		if arg.Tag != api.state.EnvironTag().String() {
+		tag, err := names.ParseEnvironTag(arg.Tag)
+		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err := api.state.SendMetrics(sender, maxBatchesPerSend)
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
 			result.Results[i].Error = common.ServerError(err)

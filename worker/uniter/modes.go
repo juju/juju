@@ -7,8 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -176,7 +176,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case _, ok := <-w.Changes():
 			if !ok {
-				return nil, watcher.MustErr(w)
+				return nil, watcher.EnsureErr(w)
 			}
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err
@@ -246,6 +246,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
 			return modeAbideDyingLoop(u)
+		case <-u.f.MeterStatusEvents():
+			hi = hook.Info{Kind: hooks.MeterStatusChanged}
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case info := <-u.f.ActionEvents():
@@ -313,6 +315,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 // * user resolution of hook errors
 // * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
+	// TODO(binary132): In case of a crashed Action, simply set it to
+	// failed and return to ModeContinue.
 	defer modeContext("ModeHookError", &err)()
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)

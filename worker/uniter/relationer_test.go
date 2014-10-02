@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3/hooks"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -62,7 +62,8 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter = s.st.Uniter()
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
@@ -412,7 +413,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetAddresses(network.NewAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, gc.IsNil)
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -427,7 +428,8 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = u.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	st := s.OpenAPIAs(c, u.Tag(), password)
-	uniterState := st.Uniter()
+	uniterState, err := st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(uniterState, gc.NotNil)
 
 	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
@@ -443,7 +445,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Join the relation.
 	err = r.Join()
 	c.Assert(err, gc.IsNil)
-	sub, err := logging.Unit("logging/0")
+	sub, err := s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Join the other side; check no hooks are sent.

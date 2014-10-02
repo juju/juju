@@ -3,7 +3,7 @@ package machine_test
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"

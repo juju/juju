@@ -6,7 +6,7 @@ package main
 import (
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
 )

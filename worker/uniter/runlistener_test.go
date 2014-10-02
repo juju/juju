@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	"github.com/juju/utils/exec"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"

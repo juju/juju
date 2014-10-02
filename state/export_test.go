@@ -12,12 +12,12 @@ import (
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
 )
@@ -250,16 +250,16 @@ func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
 
-func WatcherMergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
-	return mergeIds(changes, initial, updates)
+func WatcherMergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
+	return mergeIds(st, changes, initial, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
 	return ensureSuffixFn(marker)
 }
 
-func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) bool {
-	return makeIdFilter(marker, receivers...)
+func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
+	return makeIdFilter(st, marker, receivers...)
 }
 
 var (
@@ -288,21 +288,14 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 	return out, nil
 }
 
-func CountofSentMetrics(st *State) (int, error) {
-	return st.countofSentMetrics()
-}
-
-func CountofUnsentMetrics(st *State) (int, error) {
-	return st.countofUnsentMetrics()
-}
-
-func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
-	return st.setMetricBatchesSent(metrics)
-}
-
 func DocID(st *State, id string) string {
 	return st.docID(id)
 }
+
 func LocalID(st *State, id string) string {
 	return st.localID(id)
+}
+
+func GetUnitEnvUUID(unit *Unit) string {
+	return unit.doc.EnvUUID
 }

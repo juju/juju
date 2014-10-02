@@ -53,7 +53,7 @@ type EnvironProvider interface {
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
 }
 
-// EnvironStorage implements storage access for an environment
+// EnvironStorage implements storage access for an environment.
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
@@ -80,10 +80,6 @@ type BootstrapParams struct {
 	// AvailableTools is a collection of tools which the Bootstrap method
 	// may use to decide which architecture/series to instantiate.
 	AvailableTools tools.List
-
-	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
-	// if there is an error during bootstrap.
-	KeepBroken bool
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
@@ -159,8 +155,6 @@ type Environ interface {
 	// to Juju state servers. If there are no state server instances,
 	// ErrNotBootstrapped is returned.
 	StateServerInstances() ([]instance.Id, error)
-
-	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,

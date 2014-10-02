@@ -3,7 +3,8 @@
 
 package firewaller
 
-var (
-	NewStateV0 = newStateV0
-	NewStateV1 = newStateV1
+import (
+	"github.com/juju/loggo"
 )
+
+var logger = loggo.GetLogger("juju.worker.firewaller")

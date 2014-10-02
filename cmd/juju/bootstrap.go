@@ -9,14 +9,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -189,7 +188,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 					"When you are finished diagnosing the problem, remember to run juju destroy-environment --force\n" +
 					"to clean up the environment.")
 			} else {
-				cleanup()
+				handleBootstrapError(ctx, resultErr, cleanup)
 			}
 		}
 	}()
@@ -241,13 +240,26 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,
-		KeepBroken:  c.KeepBrokenEnvironment,
 		MetadataDir: metadataDir,
 	})
 	if err != nil {
 		return errors.Annotate(err, "failed to bootstrap environment")
 	}
 	return c.SetBootstrapEndpointAddress(environ)
+}
+
+// handleBootstrapError is called to clean up if bootstrap fails.
+func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
+	ch := make(chan os.Signal, 1)
+	ctx.InterruptNotify(ch)
+	defer ctx.StopInterruptNotify(ch)
+	defer close(ch)
+	go func() {
+		for _ = range ch {
+			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
+		}
+	}()
+	cleanup()
 }
 
 var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {

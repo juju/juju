@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	contentDir  = "juju-backup"
-	filesBundle = "root.tar"
-	dbDumpDir   = "dump"
+	contentDir   = "juju-backup"
+	filesBundle  = "root.tar"
+	dbDumpDir    = "dump"
+	metadataFile = "metadata.json"
 )
 
 // Archive is used to represent the contents of a backup archive.  This
@@ -47,4 +48,9 @@ func (ar Archive) FilesBundle() string {
 // that contains all the files dumped from the juju state database.
 func (ar Archive) DBDumpDir() string {
 	return filepath.Join(ar.ContentDir(), dbDumpDir)
+}
+
+// MetadataFile is the path to the metadata file.
+func (ar Archive) MetadataFile() string {
+	return filepath.Join(ar.ContentDir(), metadataFile)
 }

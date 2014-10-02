@@ -120,10 +120,18 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
-		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir, hookLock), nil
+		uniterFacade, err := st.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return uniter.NewUniter(uniterFacade, entity.Tag(), dataDir, hookLock), nil
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		return apiaddressupdater.NewAPIAddressUpdater(st.Uniter(), a), nil
+		uniterFacade, err := st.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)

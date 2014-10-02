@@ -6,7 +6,7 @@ package state
 import (
 	"net/url"
 
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.

@@ -47,7 +47,7 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = e.resources.Register(watch)
 	} else {
-		return result, watcher.MustErr(watch)
+		return result, watcher.EnsureErr(watch)
 	}
 	return result, nil
 }

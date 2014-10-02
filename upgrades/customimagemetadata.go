@@ -39,8 +39,10 @@ func migrateCustomImageMetadata(st *state.State, agentConfig agent.Config) error
 		}
 	} else {
 		var err error
-		pstor, err = environs.GetStorage(st)
-		if err != nil {
+		pstor, err = environs.LegacyStorage(st)
+		if errors.IsNotSupported(err) {
+			return nil
+		} else if err != nil {
 			return errors.Annotate(err, "cannot get provider storage")
 		}
 	}

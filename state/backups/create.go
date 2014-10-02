@@ -33,6 +33,7 @@ const (
 type createArgs struct {
 	filesToBackUp []string
 	db            db.Dumper
+	metadataFile  io.Reader
 }
 
 type createResult struct {
@@ -57,6 +58,14 @@ func create(args *createArgs) (_ *createResult, err error) {
 			}
 		}
 	}()
+
+	// Inject the metadata file.
+	if args.metadataFile == nil {
+		return nil, errors.New("missing metadataFile")
+	}
+	if err := builder.injectMetadataFile(args.metadataFile); err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	// Build the backup.
 	if err := builder.buildAll(); err != nil {
@@ -218,6 +227,19 @@ func (b *builder) cleanUp() *cleanupErrors {
 
 	if errors != nil {
 		return &cleanupErrors{errors}
+	}
+	return nil
+}
+
+func (b *builder) injectMetadataFile(file io.Reader) error {
+	metadataFile, err := os.Create(b.archive.MetadataFile())
+	if err != nil {
+		return errors.Annotate(err, "while creating metadata file")
+	}
+	defer metadataFile.Close()
+	_, err = io.Copy(metadataFile, file)
+	if err != nil {
+		return errors.Annotate(err, "while creating metadata file")
 	}
 	return nil
 }

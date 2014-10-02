@@ -16,6 +16,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -658,6 +659,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
+
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
 		Mem:      &spec.InstanceType.Mem,
@@ -685,7 +692,10 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
-	return e.terminateInstances(ids)
+	if err := e.terminateInstances(ids); err != nil {
+		return errors.Trace(err)
+	}
+	return common.RemoveStateInstances(e.Storage(), ids...)
 }
 
 // minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
@@ -883,7 +893,10 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy() error {
-	return common.Destroy(e)
+	if err := common.Destroy(e); err != nil {
+		return errors.Trace(err)
+	}
+	return e.Storage().RemoveAll()
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {

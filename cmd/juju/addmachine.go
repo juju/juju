@@ -110,8 +110,9 @@ func (c *AddMachineCommand) Init(args []string) error {
 
 type addMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
-	DestroyMachines(machines ...string) error
+	ForceDestroyMachines(machines ...string) error
 	EnvironmentUUID() string
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
@@ -177,6 +178,24 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 
 	results, err := client.AddMachines(machines)
+	if params.IsCodeNotImplemented(err) {
+		if c.Placement != nil {
+			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
+			if parseErr != nil {
+				// The user specified a non-container placement directive:
+				// return original API not implemented error.
+				return err
+			}
+			machineParams.ContainerType = containerType
+			machineParams.ParentId = c.Placement.Directive
+			machineParams.Placement = nil
+		}
+		logger.Infof(
+			"AddMachinesWithPlacement not supported by the API server, " +
+				"falling back to 1.18 compatibility mode",
+		)
+		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

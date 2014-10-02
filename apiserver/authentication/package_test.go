@@ -3,7 +3,7 @@ package authentication_test
 import (
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
 )

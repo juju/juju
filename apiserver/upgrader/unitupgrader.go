@@ -56,7 +56,7 @@ func (u *UnitUpgraderAPI) watchAssignedMachine(unitTag names.Tag) (string, error
 	if _, ok := <-watch.Changes(); ok {
 		return u.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 
 // WatchAPIVersion starts a watcher to track if there is a new version

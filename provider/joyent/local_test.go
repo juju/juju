@@ -12,7 +12,7 @@ import (
 	lm "github.com/joyent/gomanta/localservices/manta"
 	lc "github.com/joyent/gosdc/localservices/cloudapi"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -345,7 +345,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
-	env := s.Prepare(c)
+	env := s.Prepare(c).(environs.EnvironStorage)
 	stor := env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
@@ -366,7 +366,7 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
-	env := s.Prepare(c)
+	env := s.Prepare(c).(environs.EnvironStorage)
 	stor := env.Storage()
 	// 6*26 = 156 items
 	for _, a := range []byte("abcdef") {

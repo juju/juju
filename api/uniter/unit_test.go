@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -226,41 +226,75 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
-func (s *unitSuite) TestOpenClosePort(c *gc.C) {
-	ports := s.wordpressUnit.OpenedPorts()
+func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
+	ports, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err := s.apiUnit.OpenPort("tcp", 1234)
+	err = s.apiUnit.OpenPorts("tcp", 1234, 1400)
+	c.Assert(err, gc.IsNil)
+	err = s.apiUnit.OpenPorts("udp", 4321, 5000)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	// OpenedPorts returns a sorted slice.
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	})
+
+	err = s.apiUnit.ClosePorts("udp", 4321, 5000)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	// OpenedPorts returns a sorted slice.
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+	})
+
+	err = s.apiUnit.ClosePorts("tcp", 1234, 1400)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestOpenClosePort(c *gc.C) {
+	ports, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+
+	err = s.apiUnit.OpenPort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
 	err = s.apiUnit.OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.Refresh()
+	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.Port{
-		{Protocol: "tcp", Number: 1234},
-		{Protocol: "tcp", Number: 4321},
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
+		{Protocol: "tcp", FromPort: 4321, ToPort: 4321},
 	})
 
 	err = s.apiUnit.ClosePort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.Refresh()
+	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.Port{
-		{Protocol: "tcp", Number: 1234},
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
 	})
 
 	err = s.apiUnit.ClosePort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.Refresh()
+	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
 	c.Assert(ports, gc.HasLen, 0)
 }
 
@@ -542,4 +576,75 @@ func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
 	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "error adding metrics")
+}
+
+func (s *unitSuite) TestMeterStatus(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			result.Results[0].Code = "GREEN"
+			result.Results[0].Info = "All ok."
+			return nil
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.IsNil)
+	c.Assert(statusCode, gc.Equals, "GREEN")
+	c.Assert(statusInfo, gc.Equals, "All ok.")
+}
+
+func (s *unitSuite) TestMeterStatusError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			return fmt.Errorf("boo")
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "boo")
+	c.Assert(statusCode, gc.Equals, "")
+	c.Assert(statusInfo, gc.Equals, "")
+}
+
+func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			result.Results[0].Error = &params.Error{
+				Message: "error getting meter status",
+				Code:    params.CodeNotAssigned,
+			}
+			return nil
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "error getting meter status")
+	c.Assert(statusCode, gc.Equals, "")
+	c.Assert(statusInfo, gc.Equals, "")
+}
+
+func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
+	w, err := s.apiUnit.WatchMeterStatus()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	err = s.wordpressUnit.SetMeterStatus("GREEN", "ok")
+	c.Assert(err, gc.IsNil)
+	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Non-change is not reported.
+	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }

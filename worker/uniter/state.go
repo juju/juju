@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	uhook "github.com/juju/juju/worker/uniter/hook"
 )
@@ -78,7 +78,7 @@ type State struct {
 func (st State) validate() (err error) {
 	defer errors.Maskf(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
-	isAction := hasHook && st.Hook.Kind == hooks.ActionRequested
+	isAction := hasHook && st.Hook.Kind == hooks.Action
 	hasCharm := st.CharmURL != nil
 	switch st.Op {
 	case Install:

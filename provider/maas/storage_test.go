@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs/storage"

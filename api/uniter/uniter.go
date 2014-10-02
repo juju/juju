@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -178,7 +178,7 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 	}
 	return &Action{
 		name:   result.Action.Name,
-		params: result.Action.Params,
+		params: result.Action.Parameters,
 	}, nil
 }
 
@@ -186,8 +186,8 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 func (st *State) ActionFinish(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
 	var outcome params.ErrorResults
 
-	args := params.ActionResults{
-		Results: []params.ActionResult{
+	args := params.ActionExecutionResults{
+		Results: []params.ActionExecutionResult{
 			{
 				ActionTag: tag.String(),
 				Status:    status,

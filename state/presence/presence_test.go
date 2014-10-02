@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/presence"

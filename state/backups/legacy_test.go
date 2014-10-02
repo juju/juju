@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 )
@@ -156,6 +156,7 @@ func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) 
 		{"juju-backup", "", nil},
 		{"juju-backup/dump", "", nil},
 		{"juju-backup/root.tar", "", bundle},
+		{"juju-backup/metadata.json", "", nil},
 	}
 
 	tarFile, err := gzip.NewReader(file)

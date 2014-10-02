@@ -303,9 +303,6 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	if len(instanceIds) == 0 {
 		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
-	if len(instanceIds) > 1 {
-		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
-	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
 		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
@@ -314,8 +311,10 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
-	if err := env.Storage().Remove(common.StateFile); err != nil {
-		return nil, errors.Annotate(err, fmt.Sprintf("cannot remove %q from storage", common.StateFile))
+	if env, ok := env.(environs.EnvironStorage); ok {
+		if err := env.Storage().Remove(common.StateFile); err != nil {
+			return nil, errors.Annotate(err, fmt.Sprintf("cannot remove %q from storage", common.StateFile))
+		}
 	}
 
 	// TODO If we fail beyond here, then we won't have a state file and

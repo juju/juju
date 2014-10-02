@@ -11,7 +11,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/environs"
@@ -254,7 +254,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
 		c.Check(apiInfo.Password, gc.Equals, "adminpass")
 		// EnvironTag wasn't in regular Config
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
+		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
@@ -357,7 +357,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
+		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		called++
 		return expectState, nil
 	}
@@ -404,7 +404,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
+		c.Check(apiInfo.EnvironTag.Id(), gc.Equals, "")
 		called++
 		return expectState, nil
 	}
@@ -834,7 +834,7 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 	}
 
 	envTag := names.NewEnvironTag(fakeUUID)
-	err := juju.CacheChangedAPIInfo(info, hostPorts, envTag.String())
+	err := juju.CacheChangedAPIInfo(info, hostPorts, envTag)
 	c.Assert(err, gc.IsNil)
 
 	endpoint := info.APIEndpoint()

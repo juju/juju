@@ -4,10 +4,9 @@
 package environs_test
 
 import (
-	"strings"
-
 	"github.com/juju/errors"
-	gc "launchpad.net/gocheck"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/utils"
 )
 
 type ImageMetadataSuite struct {
@@ -46,11 +44,6 @@ func (s *ImageMetadataSuite) env(c *gc.C, imageMetadataURL, stream string) envir
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
-	c.Assert(err, gc.IsNil)
-	// Put a file in images since the dummy storage provider requires a
-	// file to exist before the URL can be found. This is to ensure it behaves
-	// the same way as MAAS.
-	err = env.Storage().Put("images/dummy", strings.NewReader("dummy"), 5)
 	c.Assert(err, gc.IsNil)
 	return env
 }

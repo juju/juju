@@ -11,8 +11,8 @@ import (
 	"github.com/juju/names"
 	patchtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
@@ -502,7 +502,7 @@ func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, un
 	c.Assert(err, gc.IsNil)
 	err = relUnit.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
+	relatedUnit, err := s.State.Unit(relatedSvc + "/0")
 	c.Assert(err, gc.IsNil)
 	return rel, relatedService, relatedUnit
 }
@@ -670,8 +670,68 @@ func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
 	c.Assert(needsUpgrade, jc.IsTrue)
 }
 
+func (s *uniterSuite) TestOpenPorts(c *gc.C) {
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.HasLen, 0)
+
+	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
+		{Tag: "unit-mysql-0", Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
+		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
+	}}
+	result, err := s.uniter.OpenPorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the wordpressUnit's port is opened.
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	})
+}
+
+func (s *uniterSuite) TestClosePorts(c *gc.C) {
+	// Open port udp:4321 in advance on wordpressUnit.
+	err := s.wordpressUnit.OpenPorts("udp", 4321, 5000)
+	c.Assert(err, gc.IsNil)
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	})
+
+	args := params.EntitiesPortRanges{Entities: []params.EntityPortRange{
+		{Tag: "unit-mysql-0", Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+		{Tag: "unit-wordpress-0", Protocol: "udp", FromPort: 4321, ToPort: 5000},
+		{Tag: "unit-foo-42", Protocol: "tcp", FromPort: 42, ToPort: 42},
+	}}
+	result, err := s.uniter.ClosePorts(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the wordpressUnit's port is closed.
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(openedPorts, gc.HasLen, 0)
+}
+
 func (s *uniterSuite) TestOpenPort(c *gc.C) {
-	openedPorts := s.wordpressUnit.OpenedPorts()
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(openedPorts, gc.HasLen, 0)
 
 	args := params.EntitiesPorts{Entities: []params.EntityPort{
@@ -690,11 +750,10 @@ func (s *uniterSuite) TestOpenPort(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is opened.
-	err = s.wordpressUnit.Refresh()
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	openedPorts = s.wordpressUnit.OpenedPorts()
-	c.Assert(openedPorts, gc.DeepEquals, []network.Port{
-		{Protocol: "udp", Number: 4321},
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
 	})
 }
 
@@ -702,11 +761,10 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
 	err := s.wordpressUnit.OpenPort("udp", 4321)
 	c.Assert(err, gc.IsNil)
-	err = s.wordpressUnit.Refresh()
+	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	openedPorts := s.wordpressUnit.OpenedPorts()
-	c.Assert(openedPorts, gc.DeepEquals, []network.Port{
-		{Protocol: "udp", Number: 4321},
+	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
+		{Protocol: "udp", FromPort: 4321, ToPort: 4321},
 	})
 
 	args := params.EntitiesPorts{Entities: []params.EntityPort{
@@ -725,9 +783,8 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	})
 
 	// Verify the wordpressUnit's port is closed.
-	err = s.wordpressUnit.Refresh()
+	openedPorts, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	openedPorts = s.wordpressUnit.OpenedPorts()
 	c.Assert(openedPorts, gc.HasLen, 0)
 }
 
@@ -973,20 +1030,20 @@ func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 func (s *uniterSuite) TestAction(c *gc.C) {
 	var actionTests = []struct {
 		description string
-		action      params.Action
+		action      params.ActionItem
 	}{{
 		description: "A simple action.",
-		action: params.Action{
+		action: params.ActionItem{
 			Name: "snapshot",
-			Params: map[string]interface{}{
+			Parameters: map[string]interface{}{
 				"outfile": "foo.txt",
 			},
 		},
 	}, {
 		description: "An action with nested parameters.",
-		action: params.Action{
+		action: params.ActionItem{
 			Name: "backup",
-			Params: map[string]interface{}{
+			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
 					"kind":    "bzip",
@@ -1001,7 +1058,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 
 		a, err := s.wordpressUnit.AddAction(
 			actionTest.action.Name,
-			actionTest.action.Params)
+			actionTest.action.Parameters)
 		c.Assert(err, gc.IsNil)
 		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
@@ -1092,8 +1149,8 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResults := params.ActionResults{
-		Results: []params.ActionResult{{
+	actionResults := params.ActionExecutionResults{
+		Results: []params.ActionExecutionResult{{
 			ActionTag: action.ActionTag().String(),
 			Status:    params.ActionCompleted,
 			Results:   testOutput,
@@ -1111,7 +1168,7 @@ func (s *uniterSuite) TestActionComplete(c *gc.C) {
 	res2, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res2, gc.DeepEquals, testOutput)
-	c.Assert(results[0].ActionName(), gc.Equals, testName)
+	c.Assert(results[0].Name(), gc.Equals, testName)
 }
 
 func (s *uniterSuite) TestActionFail(c *gc.C) {
@@ -1125,8 +1182,8 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	action, err := s.wordpressUnit.AddAction(testName, nil)
 	c.Assert(err, gc.IsNil)
 
-	actionResults := params.ActionResults{
-		Results: []params.ActionResult{{
+	actionResults := params.ActionExecutionResults{
+		Results: []params.ActionExecutionResult{{
 			ActionTag: action.ActionTag().String(),
 			Status:    params.ActionFailed,
 			Results:   nil,
@@ -1145,7 +1202,7 @@ func (s *uniterSuite) TestActionFail(c *gc.C) {
 	res2, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, testError)
 	c.Assert(res2, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(results[0].ActionName(), gc.Equals, testName)
+	c.Assert(results[0].Name(), gc.Equals, testName)
 }
 
 func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
@@ -1169,9 +1226,9 @@ func (s *uniterSuite) TestFinishActionAuthAccess(c *gc.C) {
 	}
 
 	// Queue up actions from tests
-	actionResults := params.ActionResults{Results: make([]params.ActionResult, len(tests))}
+	actionResults := params.ActionExecutionResults{Results: make([]params.ActionExecutionResult, len(tests))}
 	for i, test := range tests {
-		actionResults.Results[i] = params.ActionResult{
+		actionResults.Results[i] = params.ActionExecutionResult{
 			ActionTag: test.actionTag,
 			Status:    params.ActionCompleted,
 			Results:   map[string]interface{}{},
@@ -1872,4 +1929,87 @@ func (s *uniterSuite) TestAddMetricsUnauthenticated(c *gc.C) {
 	metrics, err := s.State.MetricBatches()
 	c.Assert(err, gc.IsNil)
 	c.Assert(metrics, gc.HasLen, 0)
+}
+
+func (s *uniterSuite) TestGetMeterStatus(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{Tag: s.wordpressUnit.Tag().String()}}}
+	result, err := s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Code, gc.Equals, "NOT SET")
+	c.Assert(result.Results[0].Info, gc.Equals, "")
+
+	newCode := "GREEN"
+	newInfo := "All is ok."
+
+	err = s.wordpressUnit.SetMeterStatus(newCode, newInfo)
+	c.Assert(err, gc.IsNil)
+
+	result, err = s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Code, gc.DeepEquals, newCode)
+	c.Assert(result.Results[0].Info, gc.DeepEquals, newInfo)
+}
+
+func (s *uniterSuite) TestGetMeterStatusUnauthenticated(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{s.mysqlUnit.Tag().String()}}}
+	result, err := s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.ErrorMatches, "permission denied")
+	c.Assert(result.Results[0].Code, gc.Equals, "")
+	c.Assert(result.Results[0].Info, gc.Equals, "")
+}
+
+func (s *uniterSuite) TestGetMeterStatusBadTag(c *gc.C) {
+	tags := []string{"user-admin", "unit-nosuchunit", "thisisnotatag", "machine-0", "environment-blah"}
+
+	args := params.Entities{Entities: make([]params.Entity, len(tags))}
+	for i, tag := range tags {
+		args.Entities[i] = params.Entity{Tag: tag}
+	}
+	result, err := s.uniter.GetMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, len(tags))
+	for i, result := range result.Results {
+		c.Logf("checking result %d", i)
+		c.Assert(result.Code, gc.Equals, "")
+		c.Assert(result.Info, gc.Equals, "")
+		c.Assert(result.Error, gc.ErrorMatches, "permission denied")
+	}
+}
+
+func (s *uniterSuite) TestWatchMeterStatus(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.WatchMeterStatus(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
+
+	err = s.wordpressUnit.SetMeterStatus("GREEN", "No additional information.")
+	wc.AssertOneChange()
 }
