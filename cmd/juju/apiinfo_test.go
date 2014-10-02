@@ -85,7 +85,7 @@ func (s *APIInfoSuite) TestArgParsing(c *gc.C) {
 		}, {
 			message:  "multiple unknown fields",
 			args:     []string{"user", "pwd", "foo"},
-			errMatch: `unknown fields: "foo", "pwd"`,
+			errMatch: `unknown fields: "pwd", "foo"`,
 		},
 	} {
 		c.Logf("test %v: %s", i, test.message)

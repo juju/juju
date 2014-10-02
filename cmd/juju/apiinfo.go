@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -78,39 +77,35 @@ func (c *APIInfoCommand) Info() *cmd.Info {
 
 func (c *APIInfoCommand) Init(args []string) error {
 	c.fields = args
-	if len(args) > 0 {
-		fields := set.NewStrings(args...)
-		for _, name := range args {
-			switch name {
-			case "user":
-				c.user = true
-			case "password":
-				c.password = true
-			case "environ-uuid":
-				c.envuuid = true
-			case "state-servers":
-				c.servers = true
-			case "ca-cert":
-				c.cacert = true
-			default:
-				continue
-			}
-			fields.Remove(name)
-		}
-		if fields.Size() > 0 {
-			var quoted []string
-			for _, field := range fields.SortedValues() {
-				quoted = append(quoted, fmt.Sprintf("%q", field))
-			}
-			return errors.Errorf("unknown fields: %s", strings.Join(quoted, ", "))
-		}
-
-	} else {
+	if len(args) == 0 {
 		c.user = true
 		c.envuuid = true
 		c.servers = true
 		c.cacert = true
+		return nil
 	}
+
+	var unknown []string
+	for _, name := range args {
+		switch name {
+		case "user":
+			c.user = true
+		case "password":
+			c.password = true
+		case "environ-uuid":
+			c.envuuid = true
+		case "state-servers":
+			c.servers = true
+		case "ca-cert":
+			c.cacert = true
+		default:
+			unknown = append(unknown, fmt.Sprintf("%q", name))
+		}
+	}
+	if len(unknown) > 0 {
+		return errors.Errorf("unknown fields: %s", strings.Join(unknown, ", "))
+	}
+
 	return nil
 }
 
@@ -124,13 +119,17 @@ func (c *APIInfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.password, "password", false, "include the password in the output fields")
 }
 
+func connectionEndpoint(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
+	return c.ConnectionEndpoint(refresh)
+}
+
+func connectionCredentials(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
+	return c.ConnectionCredentials()
+}
+
 var (
-	endpoint = func(c envcmd.EnvCommandBase, refresh bool) (configstore.APIEndpoint, error) {
-		return c.ConnectionEndpoint(refresh)
-	}
-	creds = func(c envcmd.EnvCommandBase) (configstore.APICredentials, error) {
-		return c.ConnectionCredentials()
-	}
+	endpoint = connectionEndpoint
+	creds    = connectionCredentials
 )
 
 // Print out the addresses of the API server endpoints.
@@ -171,10 +170,14 @@ func (c *APIInfoCommand) format(value interface{}) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if value, ok := field.([]string); ok {
+		switch value := field.(type) {
+		case []string:
 			return []byte(strings.Join(value, "\n")), nil
+		case string:
+			return []byte(value), nil
+		default:
+			return nil, errors.Errorf("Unsupported type %T", field)
 		}
-		return []byte(field.(string)), nil
 	}
 
 	return cmd.FormatYaml(value)
