@@ -127,7 +127,7 @@ class CheckBlockers(TestCase):
 
     def test_get_json(self):
         response = Mock()
-        response.read.side_effect = ["{\"result\"": []}]
+        response.read.side_effect = ['{"result": []}']
         with patch('check_blockers.urllib2.urlopen') as urlopen:
             urlopen.return_value = response
             json = check_blockers.get_json("http://api.testing/")
