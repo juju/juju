@@ -414,7 +414,7 @@ func CreateUnitMeterStatus(st *State) error {
 			return errors.Trace(err)
 		}
 		if cnt == 1 {
-			upgradesLogger.Infof("meter status doc already exists for unit %d", unit)
+			upgradesLogger.Infof("meter status doc already exists for unit %q", unit)
 			continue
 		}
 
