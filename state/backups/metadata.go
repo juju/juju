@@ -35,6 +35,22 @@ type Origin struct {
 	Version     version.Number
 }
 
+// UnknownString is a marker value for string fields with unknown values.
+const UnknownString = "<unknown>"
+
+// UnknownVersion is a marker value for version fields with unknown values.
+var UnknownVersion = version.MustParse("9999.9999.9999")
+
+// UnknownOrigin returns a new backups origin with unknown values.
+func UnknownOrigin() Origin {
+	return Origin{
+		Environment: UnknownString,
+		Machine:     UnknownString,
+		Hostname:    UnknownString,
+		Version:     UnknownVersion,
+	}
+}
+
 // Metadata contains the metadata for a single state backup archive.
 type Metadata struct {
 	*filestorage.FileMetadata
