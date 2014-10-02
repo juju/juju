@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -1863,10 +1864,14 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if ctx.s.uniter == nil {
 		panic("API connection not established")
 	}
+	tag, err := names.ParseUnitTag(s.unitTag)
+	if err != nil {
+		panic(err.Error())
+	}
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, gc.IsNil)
-	ctx.uniter = uniter.NewUniter(ctx.s.uniter, s.unitTag, ctx.dataDir, lock)
+	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 

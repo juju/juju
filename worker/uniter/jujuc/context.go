@@ -69,7 +69,8 @@ type Context interface {
 	// currently participating in.
 	RelationIds() []int
 
-	// OwnerTag returns the owner of the service the executing units belongs to
+	// OwnerTag returns the user tag of the service the executing
+	// units belongs to.
 	OwnerTag() string
 
 	// AddMetric records a metric to return after hook execution.

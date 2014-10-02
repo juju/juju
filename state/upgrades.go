@@ -134,7 +134,7 @@ func validateUnitPorts(st *State, unit *Unit) (
 			stateRange = stateRange.SanitizeBounds()
 			upgradesLogger.Debugf(
 				"merged range %v sanitized as %v",
-				mergedRange, stateRange, unit,
+				mergedRange, stateRange,
 			)
 			// Now try again.
 			if err := stateRange.Validate(); err != nil {

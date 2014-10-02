@@ -440,8 +440,16 @@ var _ = gc.Suite(&ContextRelationSuite{})
 
 func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+
 	ch := s.AddTestingCharm(c, "riak")
-	var err error
 	s.svc = s.AddTestingService(c, "u", ch)
 	rels, err := s.svc.Relations()
 	c.Assert(err, gc.IsNil)
@@ -449,12 +457,13 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	s.rel = rels[0]
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(machine)
 	s.ru, err = s.rel.Unit(unit)
 	c.Assert(err, gc.IsNil)
 	err = s.ru.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
 
-	password, err := utils.RandomPassword()
+	password, err = utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
@@ -463,7 +472,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
-	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
+	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
@@ -787,7 +796,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	// TODO(dfc) uniter.Relation should take a names.RelationTag
-	apiRel, err := s.uniter.Relation(rel.Tag().String())
+	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -801,7 +810,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		c.Assert(found, jc.IsTrue)
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, nil, "TestCtx", uuid,
-		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
+		"test-env-name", relid, remote, s.relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, addMetrics, nil)
 	c.Assert(err, gc.IsNil)
 	return context

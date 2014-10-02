@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 const uniterFacade = "Uniter"
@@ -30,9 +32,19 @@ type State struct {
 	charmsURL *url.URL
 }
 
-// NewState creates a new client-side Uniter facade.
-func NewState(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) *State {
-	facadeCaller := base.NewFacadeCaller(caller, uniterFacade)
+// newStateForVersion creates a new client-side Uniter facade for the
+// given version.
+func newStateForVersion(
+	caller base.APICaller,
+	authTag names.UnitTag,
+	charmsURL *url.URL,
+	version int,
+) *State {
+	facadeCaller := base.NewFacadeCallerForVersion(
+		caller,
+		uniterFacade,
+		version,
+	)
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
@@ -40,6 +52,26 @@ func NewState(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) 
 		unitTag:        authTag,
 		charmsURL:      charmsURL,
 	}
+}
+
+// newStateV0 creates a new client-side Uniter facade, version 0.
+func newStateV0(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) *State {
+	return newStateForVersion(caller, authTag, charmsURL, 0)
+}
+
+// newStateV1 creates a new client-side Uniter facade, version 1.
+func newStateV1(caller base.APICaller, authTag names.UnitTag, charmsURL *url.URL) *State {
+	return newStateForVersion(caller, authTag, charmsURL, 1)
+}
+
+// NewState creates a new client-side Uniter facade.
+// Defined like this to allow patching during tests.
+var NewState = newStateV1
+
+// BestAPIVersion returns the API version that we were able to
+// determine is supported by both the client and the API Server.
+func (st *State) BestAPIVersion() int {
+	return st.facade.BestAPIVersion()
 }
 
 // life requests the lifecycle of the given entity from the server.
@@ -153,18 +185,14 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 }
 
 // Relation returns the existing relation with the given tag.
-func (st *State) Relation(relationTag string) (*Relation, error) {
-	rtag, err := names.ParseRelationTag(relationTag)
-	if err != nil {
-		return nil, err
-	}
-	result, err := st.relation(rtag, st.unitTag)
+func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
+	result, err := st.relation(relationTag, st.unitTag)
 	if err != nil {
 		return nil, err
 	}
 	return &Relation{
 		id:   result.Id,
-		tag:  rtag,
+		tag:  relationTag,
 		life: result.Life,
 		st:   st,
 	}, nil
@@ -255,6 +283,39 @@ func (st *State) Environment() (*Environment, error) {
 		name: result.Name,
 		uuid: result.UUID,
 	}, nil
+}
+
+// AllMachinePorts returns all port ranges currently open on the given
+// machine, mapped to the tags of the unit that opened them and the
+// relation that applies.
+func (st *State) AllMachinePorts(machineTag names.MachineTag) (map[network.PortRange]params.RelationUnit, error) {
+	if st.BestAPIVersion() < 1 {
+		// AllMachinePorts() was introduced in UniterAPIV1.
+		return nil, errors.NotImplementedf("AllMachinePorts() (need V1+)")
+	}
+	var results params.MachinePortsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: machineTag.String()}},
+	}
+	err := st.facade.FacadeCall("AllMachinePorts", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	portsMap := make(map[network.PortRange]params.RelationUnit)
+	for _, ports := range result.Ports {
+		portsMap[ports.PortRange] = params.RelationUnit{
+			Unit:     ports.UnitTag,
+			Relation: ports.RelationTag,
+		}
+	}
+	return portsMap, nil
 }
 
 // environment1dot16 requests just the UUID of the current environment, when
