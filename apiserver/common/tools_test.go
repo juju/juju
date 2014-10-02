@@ -157,7 +157,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 		SHA256:  "feedface",
 	}}
 
-	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (coretools.List, error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (coretools.List, error) {
 		c.Assert(major, gc.Equals, 123)
 		c.Assert(minor, gc.Equals, 456)
 		c.Assert(filter.Series, gc.Equals, "win81")
@@ -185,7 +185,7 @@ func (s *toolsSuite) TestFindTools(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindToolsNotFound(c *gc.C) {
-	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (list coretools.List, err error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	toolsFinder := common.NewToolsFinder(s.State, s.State, sprintfURLGetter("%s"))
@@ -208,7 +208,7 @@ func (s *toolsSuite) TestFindToolsExactNotInStorage(c *gc.C) {
 
 func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, inStorage bool) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		c.Assert(filter.Number, gc.Equals, version.Current.Number)
 		c.Assert(filter.Series, gc.Equals, version.Current.Series)
@@ -235,7 +235,7 @@ func (s *toolsSuite) testFindToolsExact(c *gc.C, t common.ToolsStorageGetter, in
 
 func (s *toolsSuite) TestFindToolsToolsStorageError(c *gc.C) {
 	var called bool
-	s.PatchValue(common.EnvtoolsFindTools, func(g environs.ConfigGetter, major, minor int, filter coretools.Filter, allowRetry bool) (list coretools.List, err error) {
+	s.PatchValue(common.EnvtoolsFindTools, func(e environs.Environ, major, minor int, filter coretools.Filter) (list coretools.List, err error) {
 		called = true
 		return nil, errors.NotFoundf("tools")
 	})

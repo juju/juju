@@ -23,6 +23,16 @@ func AssertStop(c *gc.C, stopper Stopper) {
 	c.Assert(stopper.Stop(), gc.IsNil)
 }
 
+type KillWaiter interface {
+	Kill()
+	Wait() error
+}
+
+func AssertKillAndWait(c *gc.C, killWaiter KillWaiter) {
+	killWaiter.Kill()
+	c.Assert(killWaiter.Wait(), gc.IsNil)
+}
+
 // AssertCanStopWhenSending ensures even when there are changes
 // pending to be delivered by the watcher it can still stop
 // cleanly. This is necessary to check for deadlocks in case the

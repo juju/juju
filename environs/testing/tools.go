@@ -15,6 +15,7 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -49,6 +50,14 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
+// UploadFakeToolsToDirectory uploads fake tools of the architectures in
+// s.UploadArches for each LTS release to the specified directory.
+func (s *ToolsFixture) UploadFakeToolsToDirectory(c *gc.C, dir string) {
+	stor, err := filestorage.NewFileStorageWriter(dir)
+	c.Assert(err, gc.IsNil)
+	s.UploadFakeTools(c, stor)
+}
+
 // UploadFakeTools uploads fake tools of the architectures in
 // s.UploadArches for each LTS release to the specified storage.
 func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
@@ -71,7 +80,7 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
 
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
-	files := []string{simplestreams.UnsignedIndex("v1"), envtools.ProductMetadataPath}
+	files := []string{simplestreams.UnsignedIndex("v1"), envtools.ProductMetadataPath("released")}
 	for _, file := range files {
 		toolspath := path.Join("tools", file)
 		err := stor.Remove(toolspath)
@@ -173,7 +182,7 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 			agentTools[i] = t
 		}
 	}
-	if err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors); err != nil {
+	if err := envtools.MergeAndWriteMetadata(stor, "released", agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
 	return agentTools, nil
@@ -183,7 +192,7 @@ func UploadFakeToolsVersions(stor storage.Storage, versions ...version.Binary) (
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, versions...)
 	c.Assert(err, gc.IsNil)
-	err = envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors)
+	err = envtools.MergeAndWriteMetadata(stor, "released", agentTools, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	return agentTools
 }
@@ -198,7 +207,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 		}
 		agentTools[i] = t
 	}
-	err := envtools.MergeAndWriteMetadata(stor, agentTools, envtools.DoNotWriteMirrors)
+	err := envtools.MergeAndWriteMetadata(stor, "released", agentTools, envtools.DoNotWriteMirrors)
 	if err != nil {
 		panic(err)
 	}

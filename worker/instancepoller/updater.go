@@ -107,7 +107,7 @@ func watchMachinesLoop(context updaterContext, w machinesWatcher) (err error) {
 		select {
 		case ids, ok := <-w.Changes():
 			if !ok {
-				return watcher.MustErr(w)
+				return watcher.EnsureErr(w)
 			}
 			if err := p.startMachines(ids); err != nil {
 				return err

@@ -32,19 +32,40 @@ var _ = gc.Suite(&metricsManagerSuite{})
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.AdminUserTag(c),
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
 	manager, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.metricsmanager = manager
 }
 
-func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonClient(c *gc.C) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
-	endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+func (s *metricsManagerSuite) TestNewMetricsManagerAPIRefusesNonMachine(c *gc.C) {
+	tests := []struct {
+		tag            names.Tag
+		environManager bool
+		expectedError  string
+	}{
+		{names.NewUnitTag("mysql/0"), true, "permission denied"},
+		{names.NewLocalUserTag("admin"), true, "permission denied"},
+		{names.NewMachineTag("0"), false, "permission denied"},
+		{names.NewMachineTag("0"), true, ""},
+	}
+	for i, test := range tests {
+		c.Logf("test %d", i)
+
+		anAuthoriser := s.authorizer
+		anAuthoriser.EnvironManager = test.environManager
+		anAuthoriser.Tag = test.tag
+		endPoint, err := metricsmanager.NewMetricsManagerAPI(s.State, nil, anAuthoriser)
+		if test.expectedError == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(endPoint, gc.NotNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.expectedError)
+			c.Assert(endPoint, gc.IsNil)
+		}
+	}
 }
 
 func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {

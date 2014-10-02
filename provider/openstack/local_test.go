@@ -5,6 +5,7 @@ package openstack_test
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -700,6 +701,11 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
+	// Check that StateServerInstances returns the same.
+	ids, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, jc.SameContents, stateData.StateInstances)
+
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
@@ -742,17 +748,31 @@ func (s *localServerSuite) assertGetImageMetadataSources(c *gc.C, stream, offici
 	c.Assert(urls[2], gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
 }
 
-func (s *localServerSuite) TestmageMetadataSources(c *gc.C) {
+func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
 	s.assertGetImageMetadataSources(c, "", "releases")
 	s.assertGetImageMetadataSources(c, "released", "releases")
 	s.assertGetImageMetadataSources(c, "daily", "daily")
 }
 
+func (s *localServerSuite) TestGetImageMetadataSourcesNoProductStreams(c *gc.C) {
+	s.PatchValue(openstack.MakeServiceURL, func(client.AuthenticatingClient, string, []string) (string, error) {
+		return "", errors.New("cannae do it captain")
+	})
+	env := s.Open(c)
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(sources, gc.HasLen, 2)
+	c.Check(sources[0].Description(), gc.Equals, "image-metadata-url")
+	c.Check(sources[1].Description(), gc.Equals, "default cloud images")
+}
+
 func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
+	s.PatchValue(&tools.DefaultBaseURL, "")
+
 	env := s.Open(c)
 	sources, err := tools.GetMetadataSources(env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 3)
+	c.Assert(sources, gc.HasLen, 2)
 	var urls = make([]string, len(sources))
 	for i, source := range sources {
 		url, err := source.URL("")
@@ -761,10 +781,8 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 	}
 	// The tools-metadata-url ends with "/juju-dist-test/tools/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
-	// The control bucket URL contains the bucket name.
-	c.Check(strings.Contains(urls[1], openstack.ControlBucketName(env)+"/tools"), jc.IsTrue)
 	// Check that the URL from keystone parses.
-	_, err = url.Parse(urls[2])
+	_, err = url.Parse(urls[1])
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1162,14 +1180,9 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sources, err := tools.GetMetadataSources(s.env)
 	c.Assert(err, gc.IsNil)
-	c.Assert(sources, gc.HasLen, 4)
+	c.Assert(sources, gc.HasLen, 3)
 
 	// Make sure there is something to download from each location
-	private := "private-tools-content"
-	// The Private data storage always tacks on "tools/" to the URL stream,
-	// so add it in here
-	err = s.env.Storage().Put("tools/"+private, bytes.NewBufferString(private), int64(len(private)))
-	c.Assert(err, gc.IsNil)
 
 	keystone := "keystone-tools-content"
 	// The keystone entry just points at the root of the Swift storage, and
@@ -1193,19 +1206,9 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Assert(string(content), gc.Equals, custom)
 	c.Check(url[:8], gc.Equals, "https://")
 
-	// Read from the private bucket
-	contentReader, url, err = sources[1].Fetch(private)
-	c.Assert(err, gc.IsNil)
-	defer contentReader.Close()
-	content, err = ioutil.ReadAll(contentReader)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(content), gc.Equals, private)
-	//c.Check(url[:8], gc.Equals, "https://")
-	c.Check(strings.HasSuffix(url, "tools/"+private), jc.IsTrue)
-
 	// Check the entry we got from keystone
 	// Now fetch the data, and verify the contents.
-	contentReader, url, err = sources[2].Fetch(keystoneContainer + "/" + keystone)
+	contentReader, url, err = sources[1].Fetch(keystoneContainer + "/" + keystone)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
 	content, err = ioutil.ReadAll(contentReader)

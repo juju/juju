@@ -145,7 +145,7 @@ func (n *NetworkerAPI) watchOneMachineInterfaces(id string) (string, error) {
 	if _, ok := <-watch.Changes(); ok {
 		return n.resources.Register(watch), nil
 	}
-	return "", watcher.MustErr(watch)
+	return "", watcher.EnsureErr(watch)
 }
 
 // WatchInterfaces returns a NotifyWatcher for observing changes

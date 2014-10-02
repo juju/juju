@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -76,6 +77,25 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
 		return validator, nil
 	}
+}
+
+func (s *StateSuite) TestDocID(c *gc.C) {
+	id := "wordpress"
+	docID := state.DocID(s.State, id)
+	c.Assert(docID, gc.Equals, s.State.EnvironTag().Id()+":"+id)
+}
+
+func (s *StateSuite) TestLocalID(c *gc.C) {
+	id := s.State.EnvironTag().Id() + ":wordpress"
+	localID := state.LocalID(s.State, id)
+	c.Assert(localID, gc.Equals, "wordpress")
+}
+
+func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
+	id := "wordpress"
+	docID := state.DocID(s.State, id)
+	localID := state.LocalID(s.State, docID)
+	c.Assert(localID, gc.Equals, id)
 }
 
 func (s *StateSuite) TestDialAgain(c *gc.C) {
@@ -1294,11 +1314,16 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(services), gc.Equals, 2)
+	c.Assert(services, gc.HasLen, 2)
 
 	// Check the returned service, order is defined by sorted keys.
-	c.Assert(services[0].Name(), gc.Equals, "wordpress")
-	c.Assert(services[1].Name(), gc.Equals, "mysql")
+	names := make([]string, len(services))
+	for i, svc := range services {
+		names[i] = svc.Name()
+	}
+	sort.Strings(names)
+	c.Assert(names[0], gc.Equals, "mysql")
+	c.Assert(names[1], gc.Equals, "wordpress")
 }
 
 var inferEndpointsTests = []struct {
@@ -2412,7 +2437,7 @@ func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, svc.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
-	c.Assert(id, gc.Equals, svc.Name())
+	c.Assert(id, gc.Equals, state.DocID(s.State, svc.Name()))
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {

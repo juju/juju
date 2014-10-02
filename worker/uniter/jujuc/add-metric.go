@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -66,6 +67,7 @@ func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
 		err := c.ctx.AddMetrics(metric.Key, metric.Value, metric.Time)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "can't add metrics!")
 			return errors.Annotate(err, "cannot record metric")
 		}
 	}

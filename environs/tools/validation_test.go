@@ -21,7 +21,7 @@ type ValidateSuite struct {
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, series string) error {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series string) error {
 	tm := []*ToolsMetadata{{
 		Version:  version,
 		Release:  series,
@@ -34,7 +34,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, series string) error
 
 	stor, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
-	err = WriteMetadata(stor, tm, false)
+	err = WriteMetadata(stor, stream, tm, false)
 	c.Assert(err, gc.IsNil)
 	return nil
 }
@@ -49,7 +49,7 @@ func (s *ValidateSuite) toolsURL() string {
 }
 
 func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
@@ -57,6 +57,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
+			Stream:        "released",
 			Sources: []simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
@@ -73,7 +74,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
 		Minor: -1,
@@ -82,6 +83,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
+			Stream:        "released",
 			Sources: []simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
@@ -98,7 +100,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
 	params := &ToolsMetadataLookupParams{
 		Major: 1,
 		Minor: 11,
@@ -107,6 +109,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Series:        "raring",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
+			Stream:        "released",
 			Sources: []simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},
@@ -123,7 +126,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.2", "raring")
+	s.makeLocalMetadata(c, "released", "1.11.2", "raring")
 	params := &ToolsMetadataLookupParams{
 		Version: "1.11.2",
 		MetadataLookupParams: simplestreams.MetadataLookupParams{
@@ -131,6 +134,25 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Series:        "precise",
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
+			Stream:        "released",
+			Sources: []simplestreams.DataSource{
+				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
+		},
+	}
+	_, _, err := ValidateToolsMetadata(params)
+	c.Assert(err, gc.Not(gc.IsNil))
+}
+
+func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
+	s.makeLocalMetadata(c, "proposed", "1.11.2", "raring")
+	params := &ToolsMetadataLookupParams{
+		Version: "1.11.2",
+		MetadataLookupParams: simplestreams.MetadataLookupParams{
+			Region:        "region-2",
+			Series:        "raring",
+			Architectures: []string{"amd64"},
+			Endpoint:      "some-auth-url",
+			Stream:        "testing",
 			Sources: []simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames)},
 		},

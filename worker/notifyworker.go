@@ -10,9 +10,9 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-// mustErr is defined as a variable to allow the test suite
+// ensureErr is defined as a variable to allow the test suite
 // to override it.
-var mustErr = watcher.MustErr
+var ensureErr = watcher.EnsureErr
 
 // notifyWorker is the internal implementation of the Worker
 // interface, using a NotifyWatcher for handling changes.
@@ -94,7 +94,7 @@ func (nw *notifyWorker) loop() error {
 			return tomb.ErrDying
 		case _, ok := <-w.Changes():
 			if !ok {
-				return mustErr(w)
+				return ensureErr(w)
 			}
 			if err := nw.handler.Handle(); err != nil {
 				return err

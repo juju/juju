@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/manual"
 	envtesting "github.com/juju/juju/environs/testing"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -52,7 +53,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	hostname := args.Host
 	args.Host = "ubuntu@" + args.Host
 
-	envtesting.RemoveTools(c, s.Environ.Storage())
+	defaultToolsURL := envtools.DefaultBaseURL
+	envtools.DefaultBaseURL = ""
+
 	defer fakeSSH{
 		Series:             series,
 		Arch:               arch,
@@ -68,7 +71,8 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	binVersion := version.Binary{number, series, arch, operatingSystem}
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), binVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, binVersion)
+	envtools.DefaultBaseURL = defaultToolsURL
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)

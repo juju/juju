@@ -111,7 +111,7 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
-	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
+	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", "released", versionStrings)
 	toolsFile := envtools.StorageName(vers)
 	return expectedTools, vers, path.Join(localStorage, toolsFile)
 }
@@ -237,7 +237,7 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// the API server to search for the tools in simplestreams, fetch
 	// them, and then cache them in toolstorage.
 	vers := version.MustParseBinary("1.23.0-trusty-amd64")
-	stor := s.Environ.Storage()
+	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, vers)[0]
 	data := s.testDownload(c, tools, "")
@@ -250,10 +250,11 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	stor := s.Environ.Storage()
+	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader("!"), 1)
+	c.Assert(err, gc.IsNil)
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
 	c.Assert(err, gc.IsNil)
@@ -263,7 +264,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
-	stor := s.Environ.Storage()
+	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))

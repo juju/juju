@@ -3,6 +3,10 @@
 
 package base
 
+import (
+	"github.com/juju/names"
+)
+
 // APICaller is implemented by the client-facing State object.
 type APICaller interface {
 	// APICall makes a call to the API server with the given object type,
@@ -13,6 +17,10 @@ type APICaller interface {
 	// BestFacadeVersion returns the newest version of 'objType' that this
 	// client can use with the current API server.
 	BestFacadeVersion(facade string) int
+
+	// EnvironTag returns the tag of the environment the client is
+	// connected to.
+	EnvironTag() (names.EnvironTag, error)
 }
 
 // FacadeCaller is a wrapper for the common paradigm that a given client just

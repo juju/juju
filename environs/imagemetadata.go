@@ -49,6 +49,8 @@ func RegisterImageDataSourceFunc(id string, f ImageDataSourceFunc) {
 // UnregisterImageDataSourceFunc unregisters an ImageDataSourceFunc
 // with the specified id.
 func UnregisterImageDataSourceFunc(id string) {
+	datasourceFuncsMu.Lock()
+	defer datasourceFuncsMu.Unlock()
 	for i, f := range datasourceFuncs {
 		if f.id == id {
 			head := datasourceFuncs[:i]

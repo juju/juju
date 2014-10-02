@@ -299,3 +299,10 @@ func CountofUnsentMetrics(st *State) (int, error) {
 func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
 	return st.setMetricBatchesSent(metrics)
 }
+
+func DocID(st *State, id string) string {
+	return st.docID(id)
+}
+func LocalID(st *State, id string) string {
+	return st.localID(id)
+}

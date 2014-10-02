@@ -72,7 +72,7 @@ func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatch
 				result[i].NotifyWatcherId = api.resources.Register(watch)
 				err = nil
 			} else {
-				err = watcher.MustErr(watch)
+				err = watcher.EnsureErr(watch)
 			}
 		}
 		result[i].Error = common.ServerError(err)

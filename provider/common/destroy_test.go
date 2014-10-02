@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
-	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
@@ -54,7 +52,9 @@ func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "nah")
 }
 
-func (s *DestroySuite) TestCannotTrashStorage(c *gc.C) {
+func (s *DestroySuite) TestSuccessWhenStorageErrors(c *gc.C) {
+	// common.Destroy doesn't touch storage anymore, so
+	// failing storage should not affect success.
 	env := &mockEnviron{
 		storage: &mockStorage{removeAllErr: fmt.Errorf("noes!")},
 		allInstances: func() ([]instance.Instance, error) {
@@ -72,7 +72,7 @@ func (s *DestroySuite) TestCannotTrashStorage(c *gc.C) {
 		config: configGetter(c),
 	}
 	err := common.Destroy(env)
-	c.Assert(err, gc.ErrorMatches, "noes!")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *DestroySuite) TestSuccess(c *gc.C) {
@@ -96,20 +96,11 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 	}
 	err = common.Destroy(env)
 	c.Assert(err, gc.IsNil)
-	_, err = stor.Get("somewhere")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
 
-func (s *DestroySuite) TestCannotTrashStorageWhenNoInstances(c *gc.C) {
-	env := &mockEnviron{
-		storage: &mockStorage{removeAllErr: fmt.Errorf("noes!")},
-		allInstances: func() ([]instance.Instance, error) {
-			return nil, environs.ErrNoInstances
-		},
-		config: configGetter(c),
-	}
-	err := common.Destroy(env)
-	c.Assert(err, gc.ErrorMatches, "noes!")
+	// common.Destroy doesn't touch storage anymore.
+	r, err := stor.Get("somewhere")
+	c.Assert(err, gc.IsNil)
+	r.Close()
 }
 
 func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
@@ -126,6 +117,4 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 	}
 	err = common.Destroy(env)
 	c.Assert(err, gc.IsNil)
-	_, err = stor.Get("elsewhere")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

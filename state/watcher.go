@@ -264,9 +264,10 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
-		ids.Add(doc.Id)
+		id := w.st.localID(doc.Id)
+		ids.Add(id)
 		if doc.Life != Dead {
-			w.life[doc.Id] = doc.Life
+			w.life[id] = doc.Life
 		}
 	}
 	return ids, iter.Close()
@@ -279,16 +280,16 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 	// Separate ids into those thought to exist and those known to be removed.
 	var changed []string
 	latest := make(map[string]Life)
-	for id, exists := range updates {
-		switch id := id.(type) {
+	for docID, exists := range updates {
+		switch docID := docID.(type) {
 		case string:
 			if exists {
-				changed = append(changed, id)
+				changed = append(changed, docID)
 			} else {
-				latest[id] = Dead
+				latest[w.st.localID(docID)] = Dead
 			}
 		default:
-			return errors.Errorf("id is not of type string, got %T", id)
+			return errors.Errorf("id is not of type string, got %T", docID)
 		}
 	}
 
@@ -299,7 +300,7 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 	iter := coll.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
-		latest[doc.Id] = doc.Life
+		latest[w.st.localID(doc.Id)] = doc.Life
 	}
 	if err := iter.Close(); err != nil {
 		return err
@@ -793,7 +794,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case c, ok := <-w.sw.Changes():
 			if !ok {
-				return watcher.MustErr(w.sw)
+				return watcher.EnsureErr(w.sw)
 			}
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
@@ -1081,7 +1082,7 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case settings, ok := <-sw.Changes():
 			if !ok {
-				return watcher.MustErr(sw)
+				return watcher.EnsureErr(sw)
 			}
 			cfg, err = config.New(config.NoDefaults, settings.Map())
 			if err == nil {
@@ -1184,7 +1185,7 @@ func (m *Machine) Watch() NotifyWatcher {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() NotifyWatcher {
-	return newEntityWatcher(s.st, servicesC, s.doc.Name)
+	return newEntityWatcher(s.st, servicesC, s.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to a unit.
@@ -1909,7 +1910,9 @@ type openedPortsWatcher struct {
 var _ Watcher = (*openedPortsWatcher)(nil)
 
 // WatchOpenedPorts starts and returns a StringsWatcher notifying of
-// changes to the openedPorts collection.
+// changes to the openedPorts collection. Reported changes have the
+// following format: "<machine-id>:<network-name>", i.e.
+// "0:juju-public".
 func (st *State) WatchOpenedPorts() StringsWatcher {
 	return newOpenedPortsWatcher(st)
 }
@@ -1934,7 +1937,22 @@ func (w *openedPortsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *openedPortsWatcher) initial() (*set.Strings, error) {
+// transformId converts a global key for a ports document (e.g.
+// "m#42#n#juju-public") into a colon-separated string with the
+// machine id and network name (e.g. "42:juju-public").
+func (w *openedPortsWatcher) transformId(globalKey string) (string, error) {
+	machineId, err := extractPortsIdPart(globalKey, machineIdPart)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot parse ports key %q", globalKey)
+	}
+	networkName, err := extractPortsIdPart(globalKey, networkNamePart)
+	if err != nil {
+		return "", errors.Annotatef(err, "cannot parse ports key %q", globalKey)
+	}
+	return fmt.Sprintf("%s:%s", machineId, networkName), nil
+}
+
+func (w *openedPortsWatcher) initial() (set.Strings, error) {
 	ports, closer := w.st.getCollection(openedPortsC)
 	defer closer()
 
@@ -1942,10 +1960,16 @@ func (w *openedPortsWatcher) initial() (*set.Strings, error) {
 	var doc portsDoc
 	iter := ports.Find(nil).Select(bson.D{{"_id", 1}, {"txn-revno", 1}}).Iter()
 	for iter.Next(&doc) {
-		w.known[doc.Id] = doc.TxnRevno
-		portDocs.Add(doc.Id)
+		if doc.TxnRevno != -1 {
+			w.known[doc.Id] = doc.TxnRevno
+		}
+		if changeId, err := w.transformId(doc.Id); err != nil {
+			logger.Errorf(err.Error())
+		} else {
+			portDocs.Add(changeId)
+		}
 	}
-	return &portDocs, errors.Trace(iter.Close())
+	return portDocs, errors.Trace(iter.Close())
 }
 
 func (w *openedPortsWatcher) loop() error {
@@ -1957,10 +1981,7 @@ func (w *openedPortsWatcher) loop() error {
 	w.st.watcher.WatchCollection(openedPortsC, in)
 	defer w.st.watcher.UnwatchCollection(openedPortsC, in)
 
-	var out chan []string
-	if !changes.IsEmpty() {
-		out = w.out
-	}
+	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -1976,19 +1997,23 @@ func (w *openedPortsWatcher) loop() error {
 			}
 		case out <- changes.Values():
 			out = nil
-			changes = &set.Strings{}
+			changes = set.NewStrings()
 		}
 	}
 }
 
-func (w *openedPortsWatcher) merge(ids *set.Strings, change watcher.Change) error {
+func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error {
 	id, ok := change.Id.(string)
 	if !ok {
 		return errors.Errorf("id %v is not of type string, got %T", id, id)
 	}
 	if change.Revno == -1 {
 		delete(w.known, id)
-		ids.Remove(id)
+		if changeId, err := w.transformId(id); err != nil {
+			logger.Errorf(err.Error())
+		} else {
+			ids.Remove(changeId)
+		}
 		return nil
 	}
 
@@ -2001,7 +2026,11 @@ func (w *openedPortsWatcher) merge(ids *set.Strings, change watcher.Change) erro
 	knownRevno, isKnown := w.known[id]
 	w.known[id] = currentRevno
 	if !isKnown || currentRevno > knownRevno {
-		ids.Add(id)
+		if changeId, err := w.transformId(id); err != nil {
+			logger.Errorf(err.Error())
+		} else {
+			ids.Add(changeId)
+		}
 	}
 	return nil
 }

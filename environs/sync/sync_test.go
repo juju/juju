@@ -10,10 +10,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"sort"
 	"testing"
 
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -87,8 +89,8 @@ environments:
 	for i, vers := range vAll {
 		versionStrings[i] = vers.String()
 	}
-	toolstesting.MakeTools(c, baseDir, "releases", versionStrings)
-	toolstesting.MakeTools(c, s.localStorage, "releases", versionStrings)
+	toolstesting.MakeTools(c, baseDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, s.localStorage, "releases", "released", versionStrings)
 
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
@@ -104,14 +106,13 @@ func (s *syncSuite) tearDownTest(c *gc.C) {
 }
 
 var tests = []struct {
-	description   string
-	ctx           *sync.SyncContext
-	source        bool
-	tools         []version.Binary
-	version       version.Number
-	major         int
-	minor         int
-	expectMirrors bool
+	description string
+	ctx         *sync.SyncContext
+	source      bool
+	tools       []version.Binary
+	version     version.Number
+	major       int
+	minor       int
 }{
 	{
 		description: "copy newest from the filesystem",
@@ -149,14 +150,6 @@ var tests = []struct {
 		ctx: &sync.SyncContext{
 			AllVersions: true,
 		},
-		tools: v1noDev,
-	},
-	{
-		description: "copy all and dev from the dummy environment",
-		ctx: &sync.SyncContext{
-			AllVersions: true,
-			Dev:         true,
-		},
 		tools: v1all,
 	},
 }
@@ -181,20 +174,31 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 				test.ctx.MinorVersion = test.minor
 			}
 			stor := s.targetEnv.Storage()
+			uploader := fakeToolsUploader{
+				uploaded: make(map[version.Binary]bool),
+			}
 			test.ctx.TargetToolsFinder = sync.StorageToolsFinder{stor}
-			test.ctx.TargetToolsUploader = sync.StorageToolsUploader{stor, true, false}
+			test.ctx.TargetToolsUploader = &uploader
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := envtools.FindTools(
-				s.targetEnv, test.ctx.MajorVersion, test.ctx.MinorVersion, coretools.Filter{}, envtools.DoNotAllowRetry)
-			c.Assert(err, gc.IsNil)
-			assertToolsList(c, targetTools, test.tools)
-			assertNoUnexpectedTools(c, s.targetEnv.Storage())
-			assertMirrors(c, s.targetEnv.Storage(), test.expectMirrors)
+			var uploaded []version.Binary
+			for v := range uploader.uploaded {
+				uploaded = append(uploaded, v)
+			}
+			c.Assert(uploaded, jc.SameContents, test.tools)
 		}()
 	}
+}
+
+type fakeToolsUploader struct {
+	uploaded map[version.Binary]bool
+}
+
+func (u *fakeToolsUploader) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
+	u.uploaded[tools.Version] = true
+	return nil
 }
 
 var (
@@ -208,44 +212,12 @@ var (
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190all = []version.Binary{v190q64, v190p32}
-	v1noDev = append(v100all, v180all...)
-	v1all   = append(v1noDev, v190all...)
+	v1all   = append(append(v100all, v180all...), v190all...)
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	v310p64 = version.MustParseBinary("3.1.0-precise-amd64")
 	v320p64 = version.MustParseBinary("3.2.0-precise-amd64")
 	vAll    = append(append(v1all, v200p64), v310p64, v320p64)
 )
-
-func assertNoUnexpectedTools(c *gc.C, stor storage.StorageReader) {
-	// We only expect v1.x tools, no v2.x tools.
-	list, err := envtools.ReadList(stor, 2, 0)
-	if len(list) > 0 {
-		c.Logf("got unexpected tools: %s", list)
-	}
-	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
-}
-
-func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
-	urls := list.URLs()
-	c.Check(urls, gc.HasLen, len(expected))
-	for _, vers := range expected {
-		c.Assert(urls[vers], gc.Not(gc.Equals), "")
-	}
-}
-
-func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
-	r, err := storage.Get(stor, "tools/"+simplestreams.UnsignedMirror("v1"))
-	if err == nil {
-		defer r.Close()
-	}
-	if expectMirrors {
-		data, err := ioutil.ReadAll(r)
-		c.Assert(err, gc.IsNil)
-		c.Assert(string(data), jc.Contains, `"mirrors":`)
-	} else {
-		c.Assert(err, gc.NotNil)
-	}
-}
 
 type uploadSuite struct {
 	env environs.Environ
@@ -357,7 +329,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata, err := envtools.ReadMetadata(s.env.Storage())
+	metadata, err := envtools.ReadMetadata(s.env.Storage(), "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(metadata, gc.HasLen, 0)
 }
@@ -545,4 +517,45 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
 	}
 	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+}
+
+func (s *uploadSuite) TestStorageToolsUploaderWriteMirrors(c *gc.C) {
+	s.testStorageToolsUploaderWriteMirrors(c, envtools.WriteMirrors)
+}
+
+func (s *uploadSuite) TestStorageToolsUploaderDontWriteMirrors(c *gc.C) {
+	s.testStorageToolsUploaderWriteMirrors(c, envtools.DoNotWriteMirrors)
+}
+
+func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors envtools.ShouldWriteMirrors) {
+	storageDir := c.MkDir()
+	stor, err := filestorage.NewFileStorageWriter(storageDir)
+	c.Assert(err, gc.IsNil)
+
+	uploader := &sync.StorageToolsUploader{
+		Storage:       stor,
+		WriteMetadata: true,
+		WriteMirrors:  writeMirrors,
+	}
+
+	err = uploader.UploadTools(
+		"released",
+		&coretools.Tools{
+			Version: version.Current,
+			Size:    7,
+			SHA256:  "ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73",
+		}, []byte("content"))
+	c.Assert(err, gc.IsNil)
+
+	mirrorsPath := simplestreams.MirrorsPath(envtools.StreamsVersionV1) + simplestreams.UnsignedSuffix
+	r, err := stor.Get(path.Join(storage.BaseToolsPath, mirrorsPath))
+	if writeMirrors == envtools.WriteMirrors {
+		c.Assert(err, gc.IsNil)
+		data, err := ioutil.ReadAll(r)
+		r.Close()
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(data), jc.Contains, `"mirrors":`)
+	} else {
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
 }
