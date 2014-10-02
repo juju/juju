@@ -59,6 +59,7 @@ func AttachToRequest(req *http.Request, attached io.Reader, meta interface{}, na
 		readers: []io.Reader{
 			&parts,
 			attached,
+			bytes.NewBufferString("\r\n--" + writer.Boundary() + "--\r\n"),
 		},
 	})
 
@@ -92,7 +93,7 @@ type chainedReader struct {
 func (r *chainedReader) Read(p []byte) (int, error) {
 	count := 0
 	for _, reader := range r.readers {
-		n, err := reader.Read(p)
+		n, err := reader.Read(p[count:])
 		count += n
 		if err != nil {
 			return count, err
