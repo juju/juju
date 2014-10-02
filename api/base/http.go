@@ -27,9 +27,12 @@ type HTTPCaller interface {
 }
 
 // HandleHTTPFailure returns the failure serialized in the response
-// body.  This function should only be called if the status code is not
-// http.StatusOkay.
-func HandleHTTPFailure(resp *http.Response) error {
+// body.  If there is no failure (an OK status code), it simply returns
+// nil.
+func CheckHTTPResponse(resp *http.Response) error {
+	if resp.StatusCode == http.StatusOK {
+		return nil
+	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
