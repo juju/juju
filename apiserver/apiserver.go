@@ -51,6 +51,9 @@ type Server struct {
 // are to be allowed. The validator is called before credentials are
 // checked.
 type LoginValidator func(params.LoginRequest) error
+
+// RestoreContext is intended to be passed as a control mechanism
+// for stopping and starting agent Logins when restoring.
 type RestoreContext interface {
 	PrepareRestore() error
 	BeginRestore() error
