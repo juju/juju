@@ -66,6 +66,7 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
+	rebootC            = "reboot"
 
 	// meterStatusC is the collection used to store meter status information.
 	meterStatusC = "meterStatus"

@@ -636,6 +636,7 @@ func (m *Machine) Remove() (err error) {
 		removeConstraintsOp(m.st, m.globalKey()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
+		removeRebootDocOps(m.globalKey()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
