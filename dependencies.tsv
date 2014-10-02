@@ -20,7 +20,7 @@ github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
 github.com/juju/testing	git	ab9111f762f6cdaaceb44c879b6e146164a22b0b	
 github.com/juju/txn	git	e02f26c56cfb81c7c1236df499deebb0369bd97c	
-github.com/juju/utils	git	f4ce20edb098e37f8cd6ff06dc71fc108cc0a236	
+github.com/juju/utils	git	74fbd2b8ab737a6fc7036dcb182e703086e55f38	
 github.com/juju/syslog	git	2b69d6582feb16ff8b6d644495e16c2d8314fcb8	
 gopkg.in/check.v1	git	91ae5f88a67b14891cfd43895b01164f6c120420	
 gopkg.in/juju/charm.v4	git	8b3cc836f54c2c78ce73d198100a30bb31d28392	

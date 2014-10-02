@@ -134,7 +134,7 @@ func validateUnitPorts(st *State, unit *Unit) (
 			stateRange = stateRange.SanitizeBounds()
 			upgradesLogger.Debugf(
 				"merged range %v sanitized as %v",
-				mergedRange, stateRange, unit,
+				mergedRange, stateRange,
 			)
 			// Now try again.
 			if err := stateRange.Validate(); err != nil {
@@ -414,7 +414,7 @@ func CreateUnitMeterStatus(st *State) error {
 			return errors.Trace(err)
 		}
 		if cnt == 1 {
-			upgradesLogger.Infof("meter status doc already exists for unit %d", unit)
+			upgradesLogger.Infof("meter status doc already exists for unit %q", unit)
 			continue
 		}
 
