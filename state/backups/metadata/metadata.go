@@ -82,6 +82,8 @@ func (m *Metadata) Finish(size int64, checksum, format string, finished *time.Ti
 	return nil
 }
 
+// TODO(ericsnow) Move AsJSONBuffer to filestorage.Metadata.
+
 // AsJSONBuffer returns a bytes.Buffer containing the JSON-ified metadata.
 func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 	data, err := json.Marshal(m)
