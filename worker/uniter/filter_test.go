@@ -674,7 +674,6 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
-
 	assertNoChange := func() {
 		s.BackingState.StartSync()
 		select {
@@ -693,7 +692,6 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 		}
 		assertNoChange()
 	}
-
 	// Initial meter status does not trigger event.
 	assertNoChange()
 
@@ -707,6 +705,5 @@ func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
 		err = s.unit.SetMeterStatus("RED", fmt.Sprintf("Update %d.", i))
 		c.Assert(err, gc.IsNil)
 	}
-
 	assertChange()
 }
