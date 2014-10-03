@@ -62,8 +62,8 @@ def upload_changes(args, remote_files):
         cmd = ['swift', 'upload', container_path, file_name]
         if not args.dry_run:
             output = subprocess.check_output(cmd)
-        print(' '.join(cmd))
-        print(output)
+            print(' '.join(cmd))
+            print(output)
     print('Uploaded {0} files'.format(count))
 
 

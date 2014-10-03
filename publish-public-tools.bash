@@ -33,6 +33,7 @@ usage() {
 
 
 verify_stream() {
+    [[ -z "$DRY_RUN" ]] || return 0
     local location="$1"
     if [[ $PURPOSE == "release" ]]; then
         local root="tools"
