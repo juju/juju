@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+import json
 import sys
 
 RELEASE = 'release'
@@ -13,7 +14,17 @@ PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
 
 
 def find_tools(file_path):
-    return None
+    with open(file_path) as f:
+        raw = f.read()
+    stream = json.loads(raw)
+    tools = {}
+    for name, product in stream['products'].items():
+        versions = product['versions']
+        for version in versions.values():
+            if isinstance(version, dict):
+                items = version['items']
+                tools.update(items)
+    return tools
 
 
 def parse_args(args=None):
@@ -36,7 +47,14 @@ def parse_args(args=None):
 
 def main(argv):
     args = parse_args(argv[1:])
-    old_tools = find_tools(args.old_data)
+    try:
+        old_tools = find_tools(args.old_data)
+    except Exception as e:
+        print(e)
+        if args.verbose:
+            print(sys.exc_info()[0])
+        return 2
+    return 0
 
 
 if __name__ == '__main__':
