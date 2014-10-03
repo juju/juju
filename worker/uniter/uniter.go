@@ -61,15 +61,16 @@ type UniterExecutionObserver interface {
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb          tomb.Tomb
-	st            *uniter.State
-	f             *filter
-	unit          *uniter.Unit
-	service       *uniter.Service
-	relationers   map[int]*Relationer
-	relationHooks chan hook.Info
-	uuid          string
-	envName       string
+	tomb               tomb.Tomb
+	st                 *uniter.State
+	f                  *filter
+	unit               *uniter.Unit
+	assignedMachineTag names.MachineTag
+	service            *uniter.Service
+	relationers        map[int]*Relationer
+	relationHooks      chan hook.Info
+	uuid               string
+	envName            string
 
 	dataDir      string
 	baseDir      string
@@ -189,6 +190,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// operations in progress before detecting it; but that race is fundamental
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
+	}
+	u.assignedMachineTag, err = u.unit.AssignedMachine()
+	if err != nil {
+		return err
 	}
 	if err = u.setupLocks(); err != nil {
 		return err
@@ -377,7 +382,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 
 	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		canAddMetrics, actionData)
+		canAddMetrics, actionData, u.assignedMachineTag)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
