@@ -242,6 +242,17 @@ func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error 
 	)
 }
 
+func (ctx *HookContext) OpenedPorts() []network.PortRange {
+	var unitRanges []network.PortRange
+	for portRange, relUnit := range ctx.machinePorts {
+		if relUnit.Unit == ctx.unit.Tag().String() {
+			unitRanges = append(unitRanges, portRange)
+		}
+	}
+	network.SortPortRanges(unitRanges)
+	return unitRanges
+}
+
 func (ctx *HookContext) OwnerTag() string {
 	return ctx.serviceOwner.String()
 }

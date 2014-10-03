@@ -30,6 +30,7 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"config-get" + cmdSuffix:    NewConfigGetCommand,
 	"juju-log" + cmdSuffix:      NewJujuLogCommand,
 	"open-port" + cmdSuffix:     NewOpenPortCommand,
+	"opened-ports" + cmdSuffix:  NewOpenedPortsCommand,
 	"relation-get" + cmdSuffix:  NewRelationGetCommand,
 	"action-get" + cmdSuffix:    NewActionGetCommand,
 	"action-set" + cmdSuffix:    NewActionSetCommand,
