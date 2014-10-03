@@ -11,15 +11,13 @@ import (
 	"github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
-	"github.com/juju/juju/utils/rebootstate"
-	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.reboot")
 
 const RebootMessage = "preparing for reboot"
+const RebootLock = "machine-reboot-lock"
 
 var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 
@@ -29,75 +27,62 @@ var _ worker.NotifyWatchHandler = (*Reboot)(nil)
 // up by the machine agent as a fatal error and will do the
 // right thing (reboot or shutdown)
 type Reboot struct {
-	tomb tomb.Tomb
-	st   *reboot.State
-	tag  names.MachineTag
-	lock *fslock.Lock
+	tomb        tomb.Tomb
+	st          *reboot.State
+	tag         names.MachineTag
+	machineLock *fslock.Lock
+	rebootLock  *fslock.Lock
 }
 
-func NewReboot(st *reboot.State, agentConfig agent.Config, lock fslock.Lock) (worker.Worker, error) {
+func NewReboot(st *reboot.State, agentConfig agent.Config, machineLock *fslock.Lock) (worker.Worker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
-		return nil, errors.Errorf("Expected names.MachineTag, got %T", agentConfig.Tag())
+		return nil, errors.Errorf("Expected names.MachineTag, got %T: %v", agentConfig.Tag(), agentConfig.Tag())
 	}
-	lock, err := fslock.NewLock(LockDir, "uniter-hook-execution")
+	rebootLock, err := fslock.NewLock(agent.DefaultLockDir, RebootLock)
 	if err != nil {
 		return nil, err
 	}
 	r := &Reboot{
-		st:   st,
-		tag:  tag,
-		lock: lock,
+		st:          st,
+		tag:         tag,
+		machineLock: machineLock,
+		rebootLock:  rebootLock,
 	}
 	return worker.NewNotifyWorker(r), nil
 }
 
 func (r *Reboot) breakHookLock() error {
-	if r.lock.Message() != RebootMessage {
-		// Not a lock held by the machine agent in order to reboot
-		return nil
+	var err error
+	if r.machineLock.Message() == RebootMessage {
+		// Not a lock held by the machne agent in order to reboot
+		err = r.machineLock.BreakLock()
+		if err != nil {
+			return err
+		}
 	}
-	err := r.lock.BreakLock()
-	if err != nil {
-		return err
+	if r.rebootLock.IsLocked() {
+		err = r.rebootLock.BreakLock()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (r *Reboot) checkForRebootState() error {
-	isPresent, err := rebootstate.IsPresent()
-	if err != nil {
-		return err
-	}
-	if !isPresent {
+	if r.rebootLock.IsLocked() == false {
 		return nil
 	}
-
-	// Check if reboot flag is set.
-	rAction, err := r.st.GetRebootAction()
-	if err != nil {
-		return err
-	}
-	if rAction == params.ShouldDoNothing {
-		// Reboot flag is clear.
-		logger.Infof("Clearing stale reboot state file")
-		err = rebootstate.Remove()
-		return err
-	}
+	defer r.breakHookLock()
 
 	// Clear reboot flag
-	err = r.st.ClearReboot()
+	err := r.st.ClearReboot()
 	if err != nil {
 		logger.Errorf("Failed to clear reboot flag: %v", err)
 		return err
 	}
-	// Remove reboot state file
-	err = rebootstate.Remove()
-	if err != nil {
-		return err
-	}
-	// Break the hook lock if held
-	return r.breakHookLock()
+	return nil
 }
 
 func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
@@ -121,10 +106,12 @@ func (r *Reboot) Handle() error {
 	logger.Debugf("Reboot worker got action: %v", rAction)
 	switch rAction {
 	case params.ShouldReboot:
-		r.lock.Lock(RebootMessage)
+		r.machineLock.Lock(RebootMessage)
+		r.rebootLock.Lock(RebootMessage)
 		return worker.ErrRebootMachine
 	case params.ShouldShutdown:
-		r.lock.Lock(RebootMessage)
+		r.machineLock.Lock(RebootMessage)
+		r.rebootLock.Lock(RebootMessage)
 		return worker.ErrShutdownMachine
 	}
 	return nil

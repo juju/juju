@@ -1,20 +1,19 @@
 package reboot_test
 
 import (
-	"path/filepath"
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apireboot "github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/rebootstate"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/reboot"
 	"github.com/juju/utils/fslock"
@@ -40,6 +39,9 @@ type rebootSuite struct {
 
 	ct            *state.Machine
 	ctRebootState *apireboot.State
+
+	lock       *fslock.Lock
+	lockReboot *fslock.Lock
 }
 
 var _ = gc.Suite(&rebootSuite{})
@@ -53,8 +55,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&reboot.LockDir, filepath.FromSlash(c.MkDir()))
-	s.PatchValue(&rebootstate.RebootStateFile, filepath.Join(c.MkDir(), "reboot-state.txt"))
+	s.PatchValue(&agent.DefaultLockDir, c.MkDir())
 
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	s.rebootState, err = s.stateAPI.Reboot()
@@ -76,6 +77,14 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	s.ctRebootState, err = ctState.Reboot()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
+
+	lock, err := fslock.NewLock(agent.DefaultLockDir, "fake")
+	c.Assert(err, gc.IsNil)
+	s.lock = lock
+
+	lockReboot, err := fslock.NewLock(agent.DefaultLockDir, reboot.RebootLock)
+	c.Assert(err, gc.IsNil)
+	s.lockReboot = lockReboot
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
@@ -83,14 +92,14 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
+	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, gc.IsNil)
@@ -98,7 +107,7 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()))
+	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, gc.IsNil)
@@ -106,23 +115,19 @@ func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
 }
 
 func (s *rebootSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
-	lock, err := fslock.NewLock(reboot.LockDir, "uniter-hook-execution")
-	c.Assert(err, gc.IsNil)
-	err = rebootstate.New()
+	s.lock.Lock(reboot.RebootMessage)
+	s.lockReboot.Lock("foo")
+
+	err := s.machine.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
 
-	err = s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
-
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	wrk.Kill()
 	c.Assert(wrk.Wait(), gc.IsNil)
 
-	isPresent, err := rebootstate.IsPresent()
-	c.Assert(err, gc.IsNil)
-	c.Assert(isPresent, jc.IsFalse)
-	c.Assert(lock.IsLocked(), jc.IsFalse)
+	c.Assert(s.lockReboot.IsLocked(), jc.IsFalse)
+	c.Assert(s.lock.IsLocked(), jc.IsFalse)
 
 	rFlag, err := s.machine.GetRebootFlag()
 	c.Assert(err, gc.IsNil)
