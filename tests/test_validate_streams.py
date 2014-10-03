@@ -6,8 +6,9 @@ from tempfile import mkdtemp
 from unittest import TestCase
 
 from validate_streams import (
-    parse_args,
+    compare_tools,
     find_tools,
+    parse_args,
 )
 
 
@@ -37,7 +38,7 @@ def make_tool_data(version='1.20.7', release='trusty', arch='amd64'):
 
 def make_product_data(release='trusty', arch='amd64', versions=['1.20.7']):
     name = 'com.ubuntu.juju:{}:{}'.format(release, arch)
-    items = [make_tool_data(v, release, arch) for v in versions]
+    items = dict(make_tool_data(v, release, arch) for v in versions)
     product = {
         "version": "{}".format(versions[0]),
         "arch": "{}".format(arch),
@@ -50,7 +51,7 @@ def make_product_data(release='trusty', arch='amd64', versions=['1.20.7']):
     return name, product
 
 
-def make_products_data(versions=('1.20.7', '1.20.8')):
+def make_products_data(versions):
     products = {}
     for release, arch in (('trusty', 'amd64'), ('trusty', 'i386')):
         name, product = make_product_data(release, arch, versions)
@@ -71,7 +72,7 @@ class ValidateStreams(TestCase):
         required = ['proposed', '1.20.9', 'old/json', 'new/json']
         args = parse_args(required)
         self.assertEqual('proposed', args.purpose)
-        self.assertEqual('1.20.9', args.release)
+        self.assertEqual('1.20.9', args.version)
         self.assertEqual('old/json', args.old_json)
         self.assertEqual('new/json', args.new_json)
         # A bad release version can be retracted.
@@ -79,7 +80,7 @@ class ValidateStreams(TestCase):
         self.assertEqual('bad', args.retracted)
 
     def test_find_tools(self):
-        products = make_products_data()
+        products = make_products_data(['1.20.7', '1.20.8'])
         with temp_dir() as wd:
             file_path = '{}/json'.format(wd)
             with open(file_path, 'w') as f:
@@ -89,3 +90,13 @@ class ValidateStreams(TestCase):
             '1.20.7-trusty-i386', '1.20.7-trusty-amd64',
             '1.20.8-trusty-amd64', '1.20.8-trusty-i386']
         self.assertEqual(expected, tools.keys())
+
+    def test_compare_tools_identical(self):
+        old_tools = dict(
+            make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
+        new_tools = dict(
+            make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', 'IGNORE', retracted=None)
+        self.assertEqual(0, code)
+        self.assertIs(None, info)
