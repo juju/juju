@@ -2,9 +2,7 @@
 """Backup Jenkins data to S3 and remove old backups."""
 
 from datetime import datetime
-import os
 import re
-import subprocess
 
 from utility import s3_cmd
 
