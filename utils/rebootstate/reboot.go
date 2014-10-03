@@ -24,16 +24,22 @@ func New() error {
 }
 
 func Remove() error {
-	if _, err := os.Stat(RebootStateFile); err == nil {
-		err = os.Remove(RebootStateFile)
+	_, err := os.Stat(RebootStateFile)
+	if err != nil && os.IsNotExist(err) {
+		return nil
+	} else {
 		return err
 	}
-	return nil
+	err = os.Remove(RebootStateFile)
+	return err
 }
 
-func IsPresent() bool {
-	if _, err := os.Stat(RebootStateFile); err != nil {
-		return false
+func IsPresent() (bool, error) {
+	_, err := os.Stat(RebootStateFile)
+	if err != nil && os.IsNotExist(err) {
+		return false, nil
+	} else {
+		return false, err
 	}
-	return true
+	return true, nil
 }

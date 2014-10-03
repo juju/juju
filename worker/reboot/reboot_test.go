@@ -119,7 +119,9 @@ func (s *rebootSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
 	wrk.Kill()
 	c.Assert(wrk.Wait(), gc.IsNil)
 
-	c.Assert(rebootstate.IsPresent(), jc.IsFalse)
+	isPresent, err := rebootstate.IsPresent()
+	c.Assert(err, gc.IsNil)
+	c.Assert(isPresent, jc.IsFalse)
 	c.Assert(lock.IsLocked(), jc.IsFalse)
 
 	rFlag, err := s.machine.GetRebootFlag()

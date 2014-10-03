@@ -66,16 +66,6 @@ func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
 }
 
-// LockDir returns the absolute path to the locks directory for
-// a particula series
-func LockDir(series string) (string, error) {
-	dataDir, err := DataDir(series)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dataDir, "locks"), nil
-}
-
 // JujuRun returns the absolute path to the juju-run binary for
 // a particula series
 func JujuRun(series string) (string, error) {

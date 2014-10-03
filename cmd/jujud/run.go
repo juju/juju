@@ -136,11 +136,6 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	return &result, err
 }
 
-func getLock() (*fslock.Lock, error) {
-	lockDir := filepath.Join(DataDir, "locks")
-	return fslock.NewLock(lockDir, "uniter-hook-execution")
-}
-
 // appendProxyToCommands activates proxy settings on platforms
 // that support this feature via the command line. Currently this
 // will work on most GNU/Linux systems, but has no use in Windows
@@ -159,7 +154,7 @@ func (c *RunCommand) appendProxyToCommands() string {
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
-	lock, err := getLock()
+	lock, err := hookExecutionLock(dataDir)
 	if err != nil {
 		return nil, err
 	}
