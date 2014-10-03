@@ -30,12 +30,13 @@ fi
 
 usage() {
     options="[-t TEST_DEBS_DIR]"
-    echo "usage: $0 $options RELEASE DESTINATION_DIRECTORY [SIGNING_KEY]"
+    echo "usage: $0 $options PURPOSE RELEASE STREAMS_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
+    echo "  PURPOSE: testing, devel, proposed, release"
     echo "  RELEASE: The pattern (version) to match packages in the archives."
     echo "           Use IGNORE when you want to regenerate metadata without"
     echo "           downloading debs and extracting new tools."
-    echo "  DESTINATION_DIRECTORY: The directory to assemble the tools in."
+    echo "  STREAMS_DIRECTORY: The directory to assemble the tools in."
     echo "  SIGNING_KEY: When provided, the metadata will be signed."
     exit 1
 }
@@ -423,6 +424,7 @@ while getopts "r:s:t:n" o; do
             echo "Not downloading release tools."
             ;;
         *)
+            echo "Invalid option: ${o}"
             usage
             ;;
     esac
