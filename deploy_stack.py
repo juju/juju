@@ -441,10 +441,6 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         finally:
             if created_machines:
                 destroy_job_instances(job_name)
-    except Exception as e:
-        raise
-        print('%s (%s)' % (e, type(e).__name__))
-        sys.exit(1)
     finally:
         if env.config['type'] == 'maas':
             logging.info("Waiting for destroy-environment to complete")
