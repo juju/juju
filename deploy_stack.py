@@ -441,6 +441,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
         finally:
             if created_machines:
                 destroy_job_instances(job_name)
+    finally:
         if env.config['type'] == 'maas':
             logging.info("Waiting for destroy-environment to complete")
             sleep(90)
@@ -450,10 +451,6 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                     logging.info("Attempting to stop %s at %s" % (name, URI))
                     status_msg = stop_libvirt_domain(URI, name)
                     logging.info("%s" % status_msg)
-    except Exception as e:
-        raise
-        print('%s (%s)' % (e, type(e).__name__))
-        sys.exit(1)
 
 
 def get_machine_dns_name(env, machine):
