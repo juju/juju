@@ -34,13 +34,13 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     if retracted:
         for n, t in old_tools.items():
             if t['version'] == retracted:
-                expected.update(n, t)
-                del old_tools[t]
+                expected.update([(n, t)])
+                del old_tools[n]
     else:
         for n, t in new_tools.items():
-            if t['version'] == retracted:
-                expected.update(n, t)
-                del new_tools[t]
+            if t['version'] == version:
+                expected.update([(n, t)])
+                del new_tools[n]
     unexpected = [(x, y) for x, y in zip(old_tools, new_tools) if x != y]
     if unexpected:
         return 1, unexpected

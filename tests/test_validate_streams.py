@@ -98,5 +98,16 @@ class ValidateStreams(TestCase):
             make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', 'IGNORE', retracted=None)
-        self.assertEqual(0, code)
         self.assertIs(None, info)
+        self.assertEqual(0, code)
+
+    def test_compare_tools_added_new(self):
+        old_tools = dict(
+            make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
+        new_tools = dict(
+            make_tool_data(v, 'trusty', 'amd64')
+            for v in ['1.20.7', '1.20.8', '1.20.9'])
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+        self.assertIs(None, info)
+        self.assertEqual(0, code)
