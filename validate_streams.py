@@ -54,8 +54,17 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
         return 1, old_extras
     elif new_extras:
         return 2, new_extras
-    else:
-        return 0, None
+    # The version are what we expect, but are they identical?
+    for name, old_tool in old_tools.items():
+        new_tool = new_tools[name]
+        changed = []
+        for old_key, old_val in old_tool.items():
+            new_val = new_tool[old_key]
+            if old_val != new_val:
+                changed.append((name, old_key, old_val, new_val))
+        if changed:
+            return 3, changed
+    return 0, None
 
 
 def parse_args(args=None):

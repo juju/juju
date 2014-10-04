@@ -23,7 +23,6 @@ def temp_dir():
 
 def make_tool_data(version='1.20.7', release='trusty', arch='amd64'):
     name = '{}-{}-{}'.format(version, release, arch)
-    sha = '3dd276c232f6fae2c547de7fe1aa6825e8a937487d6f6cda01a11f8b39580511'
     tool = {
         "release": "{}".format(release),
         "version": "{}".format(version),
@@ -31,7 +30,7 @@ def make_tool_data(version='1.20.7', release='trusty', arch='amd64'):
         "size": 8234578,
         "path": "releases/juju-{}.tgz".format(name),
         "ftype": "tar.gz",
-        "sha256": "{}".format(sha)
+        "sha256": "valid_sum"
     }
     return name, tool
 
@@ -149,3 +148,14 @@ class ValidateStreams(TestCase):
             old_tools, new_tools, 'proposed', '1.20.8', retracted='1.20.9')
         self.assertEqual(['1.20.9-trusty-amd64'], info)
         self.assertEqual(2, code)
+
+    def test_compare_tools_changed_tool(self):
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
+        new_tools['1.20.7-trusty-amd64']['sha256'] = 'bad_sum'
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+        self.assertEqual(
+            [('1.20.7-trusty-amd64', 'sha256', 'valid_sum', 'bad_sum')], info)
+        self.assertEqual(3, code)
