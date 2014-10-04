@@ -36,9 +36,13 @@ def make_tool_data(version='1.20.7', release='trusty', arch='amd64'):
     return name, tool
 
 
+def make_tools_data(release='trusty', arch='amd64', versions=['1.20.7']):
+    return dict(make_tool_data(v, release, arch) for v in versions)
+
+
 def make_product_data(release='trusty', arch='amd64', versions=['1.20.7']):
     name = 'com.ubuntu.juju:{}:{}'.format(release, arch)
-    items = dict(make_tool_data(v, release, arch) for v in versions)
+    items = make_tools_data(release, arch, versions)
     product = {
         "version": "{}".format(versions[0]),
         "arch": "{}".format(arch),
@@ -92,21 +96,17 @@ class ValidateStreams(TestCase):
         self.assertEqual(expected, tools.keys())
 
     def test_compare_tools_identical(self):
-        old_tools = dict(
-            make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
-        new_tools = dict(
-            make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', 'IGNORE', retracted=None)
         self.assertIs(None, info)
         self.assertEqual(0, code)
 
     def test_compare_tools_added_new(self):
-        old_tools = dict(
-            make_tool_data(v, 'trusty', 'amd64') for v in ['1.20.7', '1.20.8'])
-        new_tools = dict(
-            make_tool_data(v, 'trusty', 'amd64')
-            for v in ['1.20.7', '1.20.8', '1.20.9'])
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
         self.assertIs(None, info)
