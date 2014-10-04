@@ -111,3 +111,41 @@ class ValidateStreams(TestCase):
             old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
         self.assertIs(None, info)
         self.assertEqual(0, code)
+
+    def test_compare_tools_retracted_old(self):
+        old_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        # revert to 1.20.8 as the newest, remove 1.20.9.
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.20.8', retracted='1.20.9')
+        self.assertIs(None, info)
+        self.assertEqual(0, code)
+
+    def test_compare_tools_missing_from_new(self):
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.9'])
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+        self.assertEqual(['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'], info)
+        self.assertEqual(1, code)
+
+    def test_compare_tools_wrongly_added_new(self):
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7'])
+        new_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+        self.assertEqual(['1.20.8-trusty-amd64'], info)
+        self.assertEqual(2, code)
+
+    def test_compare_tools_failed_retraction_old(self):
+        old_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
+        new_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
+        # revert to 1.20.8 as the newest, remove 1.20.9.
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.20.8', retracted='1.20.9')
+        self.assertEqual(['1.20.9-trusty-amd64'], info)
+        self.assertEqual(2, code)

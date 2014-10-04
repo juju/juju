@@ -32,6 +32,9 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     # Remove the expected difference between the two collections of tools.
     expected = {}
     if retracted:
+        # Retracted domiated version because streams.canonical.com always
+        # needs a version to get and user to make streams, even when it
+        # intends to remove something.
         for n, t in old_tools.items():
             if t['version'] == retracted:
                 expected.update([(n, t)])
@@ -41,9 +44,16 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
             if t['version'] == version:
                 expected.update([(n, t)])
                 del new_tools[n]
-    unexpected = [(x, y) for x, y in zip(old_tools, new_tools) if x != y]
-    if unexpected:
-        return 1, unexpected
+    # The old and new should be identical. but if there is a problem,
+    # we want to explain what problems are in each set of versions.
+    old_versions = set(old_tools.keys())
+    new_versions = set(new_tools.keys())
+    old_extras = list(old_versions - new_versions)
+    new_extras = list(new_versions - old_versions)
+    if old_extras:
+        return 1, old_extras
+    elif new_extras:
+        return 2, new_extras
     else:
         return 0, None
 
