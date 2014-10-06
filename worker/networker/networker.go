@@ -27,14 +27,9 @@ import (
 
 var logger = loggo.GetLogger("juju.networker")
 
-// defaultConfigBaseDir is the usual root directory where the
+// DefaultConfigBaseDir is the usual root directory where the
 // network configuration is kept.
-const defaultConfigBaseDir = "/etc/network"
-
-// configBaseDir is the root directory where the networking
-// config is kept (usually /etc/network). It's stored as package
-// private variable for testing purposes.
-var configBaseDir = defaultConfigBaseDir
+const DefaultConfigBaseDir = "/etc/network"
 
 // Networker configures network interfaces on the machine, as needed.
 type Networker struct {
@@ -50,6 +45,10 @@ type Networker struct {
 	// intrusiveMode determines whether to write any changes
 	// to the network config (intrusive mode) or not (non-intrusive mode).
 	intrusiveMode bool
+
+	// configBasePath is the root directory where the networking
+	// config is kept (usually /etc/network).
+	configBaseDir string
 
 	// primaryInterface is the name of the primary network interface
 	// on the machine (usually "eth0").
@@ -85,6 +84,7 @@ func NewNetworker(
 	st *apinetworker.State,
 	agentConfig agent.Config,
 	intrusiveMode bool,
+	configBaseDir string,
 ) (*Networker, error) {
 	tag, ok := agentConfig.Tag().(names.MachineTag)
 	if !ok {
@@ -96,6 +96,7 @@ func NewNetworker(
 		st:            st,
 		tag:           tag,
 		intrusiveMode: intrusiveMode,
+		configBaseDir: configBaseDir,
 		configFiles:   make(map[string]*configFile),
 		networkInfo:   make(map[string]network.Info),
 		interfaces:    make(map[string]net.Interface),
@@ -117,17 +118,17 @@ func (nw *Networker) Wait() error {
 	return nw.tomb.Wait()
 }
 
-// ConfigDir returns the root directory where the networking config is
+// ConfigBaseDir returns the root directory where the networking config is
 // kept. Usually, this is /etc/network.
-func (nw *Networker) ConfigDir() string {
-	return configBaseDir
+func (nw *Networker) ConfigBaseDir() string {
+	return nw.configBaseDir
 }
 
 // ConfigSubDir returns the directory where individual config files
 // for each network interface are kept. Usually, this is
 // /etc/network/interfaces.d.
 func (nw *Networker) ConfigSubDir() string {
-	return filepath.Join(nw.ConfigDir(), "interfaces.d")
+	return filepath.Join(nw.ConfigBaseDir(), "interfaces.d")
 }
 
 // ConfigFile returns the full path to the network config file for the
@@ -136,7 +137,7 @@ func (nw *Networker) ConfigSubDir() string {
 // /etc/network/interfaces).
 func (nw *Networker) ConfigFile(interfaceName string) string {
 	if interfaceName == "" {
-		return filepath.Join(nw.ConfigDir(), "interfaces")
+		return filepath.Join(nw.ConfigBaseDir(), "interfaces")
 	}
 	return filepath.Join(nw.ConfigSubDir(), interfaceName+".cfg")
 }

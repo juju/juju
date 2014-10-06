@@ -412,7 +412,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	intrusiveMode = intrusiveMode && !disableNetworkManagement
 	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-		return newNetworker(st.Networker(), agentConfig, intrusiveMode)
+		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
 	})
 
 	// If not a local provider bootstrap machine, start the worker to

@@ -1046,22 +1046,22 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 		jobs           []state.MachineJob
 		intrusiveMode  bool
 	}{{
-		about:          "test #%d: network management enabled, network management job set",
+		about:          "network management enabled, network management job set",
 		managedNetwork: true,
 		jobs:           []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
 		intrusiveMode:  true,
 	}, {
-		about:          "test #%d: network management disabled, network management job set",
+		about:          "network management disabled, network management job set",
 		managedNetwork: false,
 		jobs:           []state.MachineJob{state.JobHostUnits, state.JobManageNetworking},
 		intrusiveMode:  false,
 	}, {
-		about:          "test #%d: network management enabled, network management job not set",
+		about:          "network management enabled, network management job not set",
 		managedNetwork: true,
 		jobs:           []state.MachineJob{state.JobHostUnits},
 		intrusiveMode:  false,
 	}, {
-		about:          "test #%d: network management disabled, network management job not set",
+		about:          "network management disabled, network management job not set",
 		managedNetwork: false,
 		jobs:           []state.MachineJob{state.JobHostUnits},
 		intrusiveMode:  false,
@@ -1075,12 +1075,13 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 			st *apinetworker.State,
 			conf agent.Config,
 			intrusiveMode bool,
+			configBaseDir string,
 		) (*networker.Networker, error) {
 			select {
 			case modeCh <- intrusiveMode:
 			default:
 			}
-			return networker.NewNetworker(st, conf, intrusiveMode)
+			return networker.NewNetworker(st, conf, intrusiveMode, configBaseDir)
 		})
 
 		attrs := coretesting.Attrs{"disable-network-management": !test.managedNetwork}

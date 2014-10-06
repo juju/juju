@@ -133,7 +133,8 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
 
-	// No JobManageNetworking to not change local networking configuration files.
+	// No JobManageNetworking added in order not to change the network
+	// configuration of the user's machine.
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()

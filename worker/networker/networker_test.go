@@ -412,7 +412,7 @@ func (s *networkerSuite) newCustomNetworker(
 	machineId string,
 	intrusiveMode bool,
 	initInterfaces bool,
-) (*networker.Networker, string, func()) {
+) (*networker.Networker, string) {
 	if initInterfaces {
 		s.upInterfaces = set.NewStrings("lo", "eth0")
 		s.interfacesWithAddress = set.NewStrings("lo", "eth0")
@@ -420,18 +420,17 @@ func (s *networkerSuite) newCustomNetworker(
 	s.lastCommands = make(chan []string)
 	s.vlanModuleLoaded = false
 	configDir := c.MkDir()
-	restorer := networker.SetConfigBaseDir(configDir)
 
-	nw, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode)
+	nw, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode, configDir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(nw, gc.NotNil)
 
-	return nw, configDir, restorer
+	return nw, configDir
 }
 
-func (s *networkerSuite) newNetworker(c *gc.C, canWriteConfig bool) (*networker.Networker, func()) {
-	nw, _, restorer := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), canWriteConfig, true)
-	return nw, restorer
+func (s *networkerSuite) newNetworker(c *gc.C, canWriteConfig bool) *networker.Networker {
+	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), canWriteConfig, true)
+	return nw
 }
 
 func (s *networkerSuite) assertNoConfig(c *gc.C, nw *networker.Networker, interfaceNames ...string) {

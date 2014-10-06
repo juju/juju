@@ -1592,12 +1592,15 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// If the machine has the JobManagesEnviron job,
 	// we should see stateServer==true.
 	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits, apiparams.JobManageNetworking,
+		apiparams.JobHostUnits,
+		apiparams.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
 	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits, apiparams.JobManageEnviron, apiparams.JobManageNetworking,
+		apiparams.JobHostUnits,
+		apiparams.JobManageEnviron,
+		apiparams.JobManageNetworking,
 	}
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)

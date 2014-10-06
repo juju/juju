@@ -25,18 +25,6 @@ func IsRunningInLXC(machineId string) bool {
 	return nw.isRunningInLXC()
 }
 
-// SetConfigBaseDir allows to change the configuration base directory
-// to an alternative directory. It returns a function to restore the
-// original setting with defer.
-func SetConfigBaseDir(dir string) func() {
-	orig := configBaseDir
-	restore := func() {
-		configBaseDir = orig
-	}
-	configBaseDir = dir
-	return restore
-}
-
 // IsVLANModuleLoaded returns whether 8021q kernel module has been
 // loaded.
 func (nw *Networker) IsVLANModuleLoaded() bool {

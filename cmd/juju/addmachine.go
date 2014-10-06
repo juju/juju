@@ -169,7 +169,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 
 	jobs := []params.MachineJob{params.JobHostUnits}
 	if config.Type() != provider.MAAS {
-		// MAAS needs non-intrusive network management.
+		// MAAS needs network management w/o change of local files.
 		jobs = append(jobs, params.JobManageNetworking)
 	}
 
