@@ -47,6 +47,24 @@ func (r *restoreContext) restorePreparing() bool {
 	return r.restoreStatus == PreparingRestore
 }
 
+// HandleCall will receive the FindMethod params and enable restore
+// mode when appropriate
+func (r *restoreContext) HandleCall(rootName, methodName string) error {
+	if rootName != "Backups" {
+		return nil
+	}
+	switch methodName {
+		case "PrepareRestore":
+			return r.PrepareRestore()
+		case "Restore":
+			return r.BeginRestore()
+		case "FinishRestore":
+			return r.FinishRestore()
+	}
+	return nil
+
+}
+
 // PrepareRestore will flag the agent to allow only one command:
 // Restore, this will ensure that we can do all the file movements
 // required for restore and no one will do changes while we do that.

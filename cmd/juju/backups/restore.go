@@ -77,7 +77,12 @@ const restoreAPIIncompatibility = "server version not compatible for " +
 func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 
 	fileName := filepath.Base(c.filename)
-
+	if err := client.PrepareRestore(); err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return errors.Errorf(restoreAPIIncompatibility)
+		}
+		return err
+	}
 	if err := client.Restore(fileName, c.backupId); err != nil {
 
 		if params.IsCodeNotImplemented(err) {
@@ -85,6 +90,13 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 		}
 		return err
 	}
+	if err := client.FinishRestore(); err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return errors.Errorf(restoreAPIIncompatibility)
+		}
+		return err
+	}
+
 	fmt.Fprintf(ctx.Stdout, "restore from %s completed\n", c.filename)
 	return nil
 }
@@ -117,9 +129,6 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 	}
 	if len(instanceIds) == 0 {
 		return nil, errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
-	}
-	if len(instanceIds) > 1 {
-		return nil, errors.Errorf("restore does not support HA juju configurations yet")
 	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
@@ -176,7 +185,6 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer client.Close()
-
 	if c.filename != "" {
 		if err := c.doUpload(client); err != nil {
 			return errors.Annotatef(err, "cannot upload backup")

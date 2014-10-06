@@ -47,6 +47,14 @@ func (c *Client) Restore(backupFileName, backupId string) error {
 	return err
 }
 
+func (c *Client) PrepareRestore() error {
+	return c.facade.FacadeCall("PrepareRestore", nil, nil)
+}
+
+func (c *Client) FinishRestore() error {
+	return c.facade.FacadeCall("FinishRestore", nil, nil)
+}
+
 // PublicAddress returns the public address of the specified
 // machine or unit. For a machine, target is an id not a tag.
 func (c *Client) PublicAddress(target string) (string, error) {

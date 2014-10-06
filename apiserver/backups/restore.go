@@ -31,3 +31,11 @@ func (a *API) Restore(p params.Restore) error {
 
 	return restore.Restore(filename, addr, a.st)
 }
+
+func (a *API) PrepareRestore() error {
+	return nil
+}
+
+func (a *API) FinishRestore() error {
+	return nil
+}

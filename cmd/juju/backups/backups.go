@@ -62,6 +62,8 @@ type APIClient interface {
 	// Remove removes the stored backup.
 	Remove(id string) error
 	Restore(string, string) error
+	PrepareRestore() error
+	FinishRestore() error
 	PublicAddress(target string) (string, error)
 }
 

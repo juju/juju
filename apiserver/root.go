@@ -117,6 +117,7 @@ type apiRoot struct {
 	state       *state.State
 	resources   *common.Resources
 	authorizer  common.Authorizer
+	restoreHandler	func(string, string) error
 	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
@@ -127,6 +128,7 @@ func newApiRoot(srv *Server, resources *common.Resources, authorizer common.Auth
 		state:       srv.state,
 		resources:   resources,
 		authorizer:  authorizer,
+		restoreHandler:	srv.restoreContext.HandleCall,
 		objectCache: make(map[objectKey]reflect.Value),
 	}
 	return r
@@ -193,6 +195,10 @@ func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (r
 		r.objectCache[objKey] = objValue
 		return objValue, nil
 	}
+	if err := r.restoreHandler(rootName, methodName); err != nil {
+		return nil, err
+	}
+	
 	return &srvCaller{
 		creator:   creator,
 		objMethod: objMethod,
