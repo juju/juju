@@ -39,6 +39,7 @@ const (
 	JobHostUnits        MachineJob = "JobHostUnits"
 	JobManageEnviron    MachineJob = "JobManageEnviron"
 	JobManageNetworking MachineJob = "JobManageNetworking"
+
 	// Deprecated in 1.18
 	JobManageStateDeprecated MachineJob = "JobManageState"
 )

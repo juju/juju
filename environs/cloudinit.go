@@ -58,7 +58,7 @@ func NewMachineConfig(
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
-		Jobs:                    []params.MachineJob{params.JobHostUnits},
+		Jobs:                    []params.MachineJob{params.JobHostUnits, params.JobManageNetworking},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -85,7 +85,11 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
+	mcfg.Jobs = []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+		params.JobManageNetworking,
+	}
 	mcfg.Constraints = cons
 	return mcfg, nil
 }

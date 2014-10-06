@@ -27,7 +27,9 @@ import (
 
 var logger = loggo.GetLogger("juju.networker")
 
-const DefaultConfigDir = "/etc/network"
+// DefaultConfigBaseDir is the usual root directory where the
+// network configuration is kept.
+const DefaultConfigBaseDir = "/etc/network"
 
 // Networker configures network interfaces on the machine, as needed.
 type Networker struct {
@@ -40,9 +42,13 @@ type Networker struct {
 	// module 8021q was installed.
 	isVLANSupportInstalled bool
 
-	// canWriteNetworkConfig determines whether to write any changes
-	// to the network config (normal mode) or not (safe mode).
-	canWriteNetworkConfig bool
+	// intrusiveMode determines whether to write any changes
+	// to the network config (intrusive mode) or not (non-intrusive mode).
+	intrusiveMode bool
+
+	// configBasePath is the root directory where the networking
+	// config is kept (usually /etc/network).
+	configBaseDir string
 
 	// primaryInterface is the name of the primary network interface
 	// on the machine (usually "eth0").
@@ -51,10 +57,6 @@ type Networker struct {
 	// loopbackInterface is the name of the loopback interface on the
 	// machine (usually "lo").
 	loopbackInterface string
-
-	// configBasePath is the root directory where the networking
-	// config is kept (usually /etc/network).
-	configBasePath string
 
 	// configFiles holds all loaded network config files, using the
 	// full file path as key.
@@ -81,19 +83,29 @@ var _ worker.Worker = (*Networker)(nil)
 func NewNetworker(
 	st *apinetworker.State,
 	agentConfig agent.Config,
-	configBasePath string,
+	intrusiveMode bool,
+	configBaseDir string,
 ) (*Networker, error) {
-	return newNetworker(st, agentConfig, configBasePath, true)
-}
-
-// NewSafeNetworker returns a Worker that handles machine networking
-// configuration. It does not write out config files.
-func NewSafeNetworker(
-	st *apinetworker.State,
-	agentConfig agent.Config,
-	configBasePath string,
-) (*Networker, error) {
-	return newNetworker(st, agentConfig, configBasePath, false)
+	tag, ok := agentConfig.Tag().(names.MachineTag)
+	if !ok {
+		// This should never happen, as there is a check for it in the
+		// machine agent.
+		return nil, fmt.Errorf("expected names.MachineTag, got %T", agentConfig.Tag())
+	}
+	nw := &Networker{
+		st:            st,
+		tag:           tag,
+		intrusiveMode: intrusiveMode,
+		configBaseDir: configBaseDir,
+		configFiles:   make(map[string]*configFile),
+		networkInfo:   make(map[string]network.Info),
+		interfaces:    make(map[string]net.Interface),
+	}
+	go func() {
+		defer nw.tomb.Done()
+		nw.tomb.Kill(nw.loop())
+	}()
+	return nw, nil
 }
 
 // Kill implements Worker.Kill().
@@ -106,17 +118,17 @@ func (nw *Networker) Wait() error {
 	return nw.tomb.Wait()
 }
 
-// ConfigDir returns the root directory where the networking config is
+// ConfigBaseDir returns the root directory where the networking config is
 // kept. Usually, this is /etc/network.
-func (nw *Networker) ConfigDir() string {
-	return nw.configBasePath
+func (nw *Networker) ConfigBaseDir() string {
+	return nw.configBaseDir
 }
 
 // ConfigSubDir returns the directory where individual config files
 // for each network interface are kept. Usually, this is
 // /etc/network/interfaces.d.
 func (nw *Networker) ConfigSubDir() string {
-	return filepath.Join(nw.configBasePath, "interfaces.d")
+	return filepath.Join(nw.ConfigBaseDir(), "interfaces.d")
 }
 
 // ConfigFile returns the full path to the network config file for the
@@ -125,16 +137,16 @@ func (nw *Networker) ConfigSubDir() string {
 // /etc/network/interfaces).
 func (nw *Networker) ConfigFile(interfaceName string) string {
 	if interfaceName == "" {
-		return filepath.Join(nw.configBasePath, "interfaces")
+		return filepath.Join(nw.ConfigBaseDir(), "interfaces")
 	}
 	return filepath.Join(nw.ConfigSubDir(), interfaceName+".cfg")
 }
 
-// CanWriteConfig returns whether the networker is running in "safe
-// mode" and won't modify the networking config on the machine or it
-// will (normal mode).
-func (nw *Networker) CanWriteConfig() bool {
-	return nw.canWriteNetworkConfig
+// IntrusiveMode returns whether the networker is changing networking
+// configuration files (intrusive mode) or won't modify them on the
+// machine (non-intrusive mode).
+func (nw *Networker) IntrusiveMode() bool {
+	return nw.intrusiveMode
 }
 
 // IsPrimaryInterfaceOrLoopback returns whether the given
@@ -144,40 +156,11 @@ func (nw *Networker) IsPrimaryInterfaceOrLoopback(interfaceName string) bool {
 		interfaceName == nw.loopbackInterface
 }
 
-// newNetworker creates a Networker worker with the specified arguments.
-func newNetworker(
-	st *apinetworker.State,
-	agentConfig agent.Config,
-	configBasePath string,
-	canWriteNetworkConfig bool,
-) (*Networker, error) {
-	tag, ok := agentConfig.Tag().(names.MachineTag)
-	if !ok {
-		// This should never happen, as there is a check for it in the
-		// machine agent.
-		return nil, fmt.Errorf("expected names.MachineTag, got %T", agentConfig.Tag())
-	}
-	nw := &Networker{
-		st:                    st,
-		tag:                   tag,
-		configBasePath:        configBasePath,
-		canWriteNetworkConfig: canWriteNetworkConfig,
-		configFiles:           make(map[string]*configFile),
-		networkInfo:           make(map[string]network.Info),
-		interfaces:            make(map[string]net.Interface),
-	}
-	go func() {
-		defer nw.tomb.Done()
-		nw.tomb.Kill(nw.loop())
-	}()
-	return nw, nil
-}
-
 // loop is the worker's main loop.
 func (nw *Networker) loop() error {
 	logger.Debugf("starting on machine %q", nw.tag)
-	if !nw.CanWriteConfig() {
-		logger.Warningf("running in safe mode - no commands or changes to network config will be done")
+	if !nw.IntrusiveMode() {
+		logger.Warningf("running in non-intrusive mode - no commands or changes to network config will be done")
 	}
 	w, err := nw.init()
 	if err != nil {
@@ -378,8 +361,8 @@ func (nw *Networker) fetchNetworkInfo() error {
 // resets the commands slice. If the networker is running in "safe
 // mode" nothing is changed.
 func (nw *Networker) applyAndExecute() error {
-	if !nw.CanWriteConfig() {
-		logger.Warningf("running in safe mode - no changes made")
+	if !nw.IntrusiveMode() {
+		logger.Warningf("running in non-intrusive mode - no changes made")
 		return nil
 	}
 
