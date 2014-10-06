@@ -74,7 +74,7 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestOpenedPortsNotImplemented(c *gc.C) {
-	s.assertNotImplemented(c, s.firewaller, "OpenedPorts")
+	apiservertesting.AssertNotImplemented(c, s.firewaller, "OpenedPorts")
 }
 
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {

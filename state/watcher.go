@@ -2049,3 +2049,67 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 	}
 	return nil
 }
+
+// WatchForRebootEvent returns a notify watcher that will trigger an event
+// when the reboot flag is set on our machine agent, our parent machine agent
+// or grandparent machine agent
+func (m *Machine) WatchForRebootEvent() (NotifyWatcher, error) {
+	machineIds := m.machinesToCareAboutRebootsFor()
+	machines := set.NewStrings(machineIds...)
+	return newRebootWatcher(m.st, machines), nil
+}
+
+type rebootWatcher struct {
+	commonWatcher
+	machines set.Strings
+	out      chan struct{}
+}
+
+func newRebootWatcher(st *State, machines set.Strings) NotifyWatcher {
+	w := &rebootWatcher{
+		commonWatcher: commonWatcher{st: st},
+		machines:      machines,
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for the rebootWatcher.
+func (w *rebootWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *rebootWatcher) loop() error {
+	in := make(chan watcher.Change)
+	filter := func(key interface{}) bool {
+		if id, ok := key.(string); ok {
+			return w.machines.Contains(id)
+		}
+		w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
+		return false
+	}
+	w.st.watcher.WatchCollectionWithFilter(rebootC, in, filter)
+	defer w.st.watcher.UnwatchCollection(rebootC, in)
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
+
+		}
+	}
+}

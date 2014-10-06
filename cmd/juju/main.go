@@ -106,6 +106,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&StatusCommand{}))
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
+	r.Register(wrapEnvCommand(&APIInfoCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))

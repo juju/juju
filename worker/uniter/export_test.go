@@ -4,6 +4,9 @@
 package uniter
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/juju/utils/proxy"
 )
 
@@ -15,6 +18,10 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 	u.proxyMutex.Lock()
 	defer u.proxyMutex.Unlock()
 	return u.proxy
+}
+
+func PatchMetricsTimer(newTimer func(now, lastRun time.Time, interval time.Duration) <-chan time.Time) {
+	collectMetricsAt = newTimer
 }
 
 func (c *HookContext) ActionResultsMap() map[string]interface{} {
@@ -58,10 +65,40 @@ func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	}
 }
 
-var MergeEnvironment = mergeEnvironment
+var (
+	MergeEnvironment    = mergeEnvironment
+	SearchHook          = searchHook
+	HookCommand         = hookCommand
+	LookPath            = lookPath
+	ValidatePortRange   = validatePortRange
+	TryOpenPorts        = tryOpenPorts
+	TryClosePorts       = tryClosePorts
+	CollectMetricsTimer = collectMetricsTimer
+)
 
-var SearchHook = searchHook
+// manualTicker will be used to generate collect-metrics events
+// in a time-independent manner for testing.
+type ManualTicker struct {
+	c chan time.Time
+}
 
-var HookCommand = hookCommand
+// Tick sends a signal on the ticker channel.
+func (t *ManualTicker) Tick() error {
+	select {
+	case t.c <- time.Now():
+	default:
+		return fmt.Errorf("ticker channel blocked")
+	}
+	return nil
+}
 
-var LookPath = lookPath
+// ReturnTimer can be used to replace the metrics signal generator.
+func (t *ManualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
+	return t.c
+}
+
+func NewManualTicker() *ManualTicker {
+	return &ManualTicker{
+		c: make(chan time.Time, 1),
+	}
+}

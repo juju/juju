@@ -27,7 +27,7 @@ func (s *AddMetricSuite) TestHelp(c *gc.C) {
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
-usage: add-metric key=value [key=value ...]
+usage: add-metric key1=value1 [key2=value2 ...]
 purpose: send metrics
 `[1:])
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
@@ -95,10 +95,10 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"multiple metrics, matching keys",
 			[]string{"add-metric", "key=60", "key=50.4"},
 			true,
-			0,
+			2,
 			"",
-			"",
-			[]jujuc.Metric{{"key", "60", time.Now()}, {"key", "50.4", time.Now()}},
+			"error: cannot set the same metric key twice: \"key\" already set\n",
+			nil,
 		}, {
 			"can't add metrics",
 			[]string{"add-metric", "key=60", "key2=50.4"},

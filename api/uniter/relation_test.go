@@ -27,7 +27,7 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 	s.commonRelationSuiteMixin.SetUpTest(c, s.uniterSuite)
 
 	var err error
-	s.apiRelation, err = s.uniter.Relation(s.stateRelation.Tag().String())
+	s.apiRelation, err = s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -39,8 +39,9 @@ func (s *relationSuite) TestString(c *gc.C) {
 	c.Assert(s.apiRelation.String(), gc.Equals, "wordpress:db mysql:server")
 }
 
-func (s *relationSuite) TestId(c *gc.C) {
+func (s *relationSuite) TestIdAndTag(c *gc.C) {
 	c.Assert(s.apiRelation.Id(), gc.Equals, s.stateRelation.Id())
+	c.Assert(s.apiRelation.Tag(), gc.Equals, s.stateRelation.Tag().(names.RelationTag))
 }
 
 func (s *relationSuite) TestRefresh(c *gc.C) {

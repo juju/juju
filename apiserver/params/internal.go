@@ -78,10 +78,11 @@ type MachinePorts struct {
 }
 
 // MachinePortRange holds a single port range open on a machine for
-// the given unit tag.
+// the given unit and relation tags.
 type MachinePortRange struct {
-	UnitTag   string
-	PortRange network.PortRange
+	UnitTag     string
+	RelationTag string
+	PortRange   network.PortRange
 }
 
 // MachinePortsParams holds the arguments for making a
@@ -91,14 +92,16 @@ type MachinePortsParams struct {
 }
 
 // MachinePortsResult holds a single result of the
-// FirewallerAPIV1.GetMachinePorts() API call.
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
 type MachinePortsResult struct {
 	Error *Error
 	Ports []MachinePortRange
 }
 
 // MachinePortsResults holds all the results of the
-// FirewallerAPIV1.GetMachinePorts() API call.
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
 type MachinePortsResults struct {
 	Results []MachinePortsResult
 }
