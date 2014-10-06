@@ -78,17 +78,15 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *networkerSuite) TestStartStop(c *gc.C) {
-	nw, restorer := s.newNetworker(c, true)
-	defer restorer()
+	nw := s.newNetworker(c, true)
 	c.Assert(worker.Stop(nw), gc.IsNil)
 }
 
 func (s *networkerSuite) TestConfigPaths(c *gc.C) {
-	nw, configDir, restorer := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, true)
-	defer restorer()
+	nw, configDir := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, true)
 	defer worker.Stop(nw)
 
-	c.Assert(nw.ConfigDir(), gc.Equals, configDir)
+	c.Assert(nw.ConfigBaseDir(), gc.Equals, configDir)
 	subdir := filepath.Join(configDir, "interfaces.d")
 	c.Assert(nw.ConfigSubDir(), gc.Equals, subdir)
 	c.Assert(nw.ConfigFile(""), gc.Equals, filepath.Join(configDir, "interfaces"))
@@ -96,8 +94,7 @@ func (s *networkerSuite) TestConfigPaths(c *gc.C) {
 }
 
 func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
-	nw, restorer := s.newNetworker(c, false)
-	defer restorer()
+	nw := s.newNetworker(c, false)
 	defer worker.Stop(nw)
 	c.Assert(nw.IntrusiveMode(), jc.IsFalse)
 
@@ -110,8 +107,7 @@ func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
 }
 
 func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *gc.C) {
-	nw, restorer := s.newNetworker(c, true)
-	defer restorer()
+	nw := s.newNetworker(c, true)
 	defer worker.Stop(nw)
 	c.Assert(nw.IntrusiveMode(), jc.IsTrue)
 
@@ -136,8 +132,7 @@ func (s *networkerSuite) TestPrimaryOrLoopbackInterfacesAreSkipped(c *gc.C) {
 	s.upInterfaces = set.NewStrings()
 	s.interfacesWithAddress = set.NewStrings()
 
-	nw, _, restorer := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
-	defer restorer()
+	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
 	defer worker.Stop(nw)
 
 	timeout := time.After(coretesting.LongWait)
@@ -181,8 +176,7 @@ func (s *networkerSuite) TestDisabledInterfacesAreBroughtDown(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces[2].IsDisabled(), jc.IsTrue)
 
-	nw, _, restorer := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
-	defer restorer()
+	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
 	defer worker.Stop(nw)
 
 	timeout := time.After(coretesting.LongWait)
@@ -257,8 +251,7 @@ func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
 	c.Assert(lxcFacade, gc.NotNil)
 
 	// Create and setup networker for the LXC machine.
-	nw, _, restorer := s.newCustomNetworker(c, lxcFacade, lxcMachine.Id(), true, true)
-	defer restorer()
+	nw, _ := s.newCustomNetworker(c, lxcFacade, lxcMachine.Id(), true, true)
 	defer worker.Stop(nw)
 
 	timeout := time.After(coretesting.LongWait)

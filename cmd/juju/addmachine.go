@@ -169,7 +169,9 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 
 	jobs := []params.MachineJob{params.JobHostUnits}
 	if config.Type() != provider.MAAS {
-		// MAAS needs network management w/o change of local files.
+		// In case of MAAS JobManageNetworking is not added to ensure
+		// the non-intrusive start of a networker like above for the
+		// manual provisioning.
 		jobs = append(jobs, params.JobManageNetworking)
 	}
 

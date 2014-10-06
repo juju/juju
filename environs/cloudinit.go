@@ -85,7 +85,11 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits, params.JobManageNetworking}
+	mcfg.Jobs = []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+		params.JobManageNetworking,
+	}
 	mcfg.Constraints = cons
 	return mcfg, nil
 }

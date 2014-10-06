@@ -323,7 +323,9 @@ func uint64p(v uint64) *uint64 {
 
 func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
-		state.JobManageEnviron, state.JobHostUnits, state.JobManageNetworking,
+		state.JobManageEnviron,
+		state.JobHostUnits,
+		state.JobManageNetworking,
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)

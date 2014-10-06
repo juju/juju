@@ -1068,7 +1068,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 	}}
 	// Perform tests.
 	for i, test := range tests {
-		c.Logf("test #%d: "+test.about, i)
+		c.Logf("test #%d: %s", i, test.about)
 
 		modeCh := make(chan bool, 1)
 		s.agentSuite.PatchValue(&newNetworker, func(
@@ -1102,7 +1102,7 @@ func (s *MachineSuite) TestMachineAgentNetworkerMode(c *gc.C) {
 				c.Fatalf("expected networker intrusive mode = %v, got mode = %v", test.intrusiveMode, intrusiveMode)
 			}
 		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out waiting for the networker to be started")
+			c.Fatalf("timed out waiting for the networker to start")
 		}
 		s.waitStopped(c, state.JobManageNetworking, a, doneCh)
 	}
