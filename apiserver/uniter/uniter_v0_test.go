@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -318,4 +319,30 @@ func (s *uniterV0Suite) TestAssignedMachineV0NotImplemented(c *gc.C) {
 
 func (s *uniterV0Suite) TestAllMachinePortsV0NotImplemented(c *gc.C) {
 	apiservertesting.AssertNotImplemented(c, s.uniter, "AllMachinePorts")
+}
+
+func (s *uniterV0Suite) TestRequestReboot(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machine0.Tag().String()},
+		{Tag: s.machine1.Tag().String()},
+		{Tag: "bogus"},
+		{Tag: "nasty-tag"},
+	}}
+	errResult, err := s.uniter.RequestReboot(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		}})
+
+	rFlag, err := s.machine0.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
+
+	rFlag, err = s.machine1.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsFalse)
 }

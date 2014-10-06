@@ -28,18 +28,31 @@ type uniterBaseAPI struct {
 	*common.AgentEntityWatcher
 	*common.APIAddresser
 	*common.EnvironWatcher
+	*common.RebootRequester
 
 	st            *state.State
 	auth          common.Authorizer
 	resources     *common.Resources
 	accessUnit    common.GetAuthFunc
 	accessService common.GetAuthFunc
+	unit          *state.Unit
 }
 
 // newUniterBaseAPI creates a new instance of the uniter base API.
 func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*uniterBaseAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
+	}
+	var unit *state.Unit
+	var err error
+	switch tag := authorizer.GetAuthTag().(type) {
+	case names.UnitTag:
+		unit, err = st.Unit(tag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	default:
+		return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 	}
 	accessUnit := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
@@ -60,6 +73,20 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 		}
 	}
+	accessMachine := func() (common.AuthFunc, error) {
+		machineId, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		machine, err := st.Machine(machineId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return func(tag names.Tag) bool {
+			return tag == machine.Tag()
+		}, nil
+	}
+
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	return &uniterBaseAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
@@ -68,12 +95,14 @@ func newUniterBaseAPI(st *state.State, resources *common.Resources, authorizer c
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
 		EnvironWatcher:     common.NewEnvironWatcher(st, resources, authorizer),
+		RebootRequester:    common.NewRebootRequester(st, accessMachine),
 
 		st:            st,
 		auth:          authorizer,
 		resources:     resources,
 		accessUnit:    accessUnit,
 		accessService: accessService,
+		unit:          unit,
 	}, nil
 }
 
