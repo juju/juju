@@ -1241,7 +1241,7 @@ func (u *Unit) WatchMeterStatus() NotifyWatcher {
 	return newEntityWatcher(u.st, meterStatusC, u.globalKey())
 }
 
-func newEntityWatcher(st *State, collName string, key string) NotifyWatcher {
+func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {
 	w := &entityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
@@ -1263,7 +1263,7 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 // given key in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
+func getTxnRevno(coll *mgo.Collection, key interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
@@ -1276,7 +1276,7 @@ func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
 	return doc.TxnRevno, nil
 }
 
-func (w *entityWatcher) loop(collName string, key string) error {
+func (w *entityWatcher) loop(collName string, key interface{}) error {
 	coll, closer := w.st.getCollection(collName)
 	txnRevno, err := getTxnRevno(coll, key)
 	closer()
