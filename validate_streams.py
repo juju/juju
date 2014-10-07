@@ -4,6 +4,7 @@ from __future__ import print_function
 
 from argparse import ArgumentParser
 import json
+import re
 import sys
 
 RELEASE = 'release'
@@ -29,6 +30,16 @@ def find_tools(file_path):
 
 
 def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
+    # devel versions cannot be proposed or release because the letters in
+    # the version break older jujus
+    old_tools = dict(old_tools)
+    new_tools = dict(new_tools)
+    if purpose in (PROPOSED, RELEASE):
+        stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
+        devel_versions = [
+            v for v in new_tools.keys() if not stable_pattern.match(v)]
+        if devel_versions:
+            return 4, devel_versions
     # Remove the expected difference between the two collections of tools.
     expected = {}
     if retracted:

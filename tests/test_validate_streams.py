@@ -159,3 +159,29 @@ class ValidateStreams(TestCase):
         self.assertEqual(
             [('1.20.7-trusty-amd64', 'sha256', 'valid_sum', 'bad_sum')], info)
         self.assertEqual(3, code)
+
+    def test_compare_tools_added_devel_version(self):
+        # devel tools cannot ever got to proposed and release.
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.21-alpha1'])
+        # Devel versions can go to testing
+        code, info = compare_tools(
+            old_tools, new_tools, 'testing', '1.21-alpha1', retracted=None)
+        self.assertIs(None, info)
+        self.assertEqual(0, code)
+        # Devel versions can go to devel
+        code, info = compare_tools(
+            old_tools, new_tools, 'devel', '1.21-alpha1', retracted=None)
+        self.assertIs(None, info)
+        self.assertEqual(0, code)
+        # Devel versions cannot be proposed.
+        code, info = compare_tools(
+            old_tools, new_tools, 'proposed', '1.21-alpha1', retracted=None)
+        self.assertEqual(['1.21-alpha1-trusty-amd64'], info)
+        self.assertEqual(4, code)
+        # Devel versions cannot be release.
+        code, info = compare_tools(
+            old_tools, new_tools, 'release', '1.21-alpha1', retracted=None)
+        self.assertEqual(['1.21-alpha1-trusty-amd64'], info)
+        self.assertEqual(4, code)
