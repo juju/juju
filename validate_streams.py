@@ -30,6 +30,11 @@ def find_tools(file_path):
 
 
 def check_devel_not_stable(old_tools, new_tools, purpose):
+    """Return an error message if the version can be included in the stream.
+
+    Devel versions cannot be proposed or release because the letters in
+    the version break older jujus.
+    """
     if purpose in (TESTING, DEVEL):
         return
     stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
@@ -40,54 +45,83 @@ def check_devel_not_stable(old_tools, new_tools, purpose):
             purpose, devel_versions)
 
 
-def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
-    # devel versions cannot be proposed or release because the letters in
-    # the version break older jujus
-    old_tools = dict(old_tools)
-    new_tools = dict(new_tools)
-    errors = []
-    devel_versions = check_devel_not_stable(old_tools, new_tools, purpose)
-    if devel_versions:
-        errors.append(devel_versions)
+def check_expected_tools(old_tools, new_tools, version, retracted=None):
+    """Return a 4-tuple of new_expected, new_errors, old_expected, old_errors
+
+    The new and old expected dicts are the tools common to old and new streams.
+    The new and old errors are string s of missing ot extra versions.
+    """
     # Remove the expected difference between the two collections of tools.
+    old_expected = dict(old_tools)
+    new_expected = dict(new_tools)
     expected = {}
     if retracted:
         # Retracted domiates version because streams.canonical.com always
         # needs a version to get and use to make streams, even when it
         # intends to remove something.
-        for n, t in old_tools.items():
+        for n, t in old_expected.items():
             if t['version'] == retracted:
                 expected.update([(n, t)])
-                del old_tools[n]
+                del old_expected[n]
     else:
-        for n, t in new_tools.items():
+        for n, t in new_expected.items():
             if t['version'] == version:
                 expected.update([(n, t)])
-                del new_tools[n]
+                del new_expected[n]
     # The old and new should be identical. but if there is a problem,
     # we want to explain what problems are in each set of versions.
-    old_versions = set(old_tools.keys())
-    new_versions = set(new_tools.keys())
-    old_extras = list(old_versions - new_versions)
-    if old_extras:
-        errors.append('Missing versions: {}'.format(old_extras))
-    new_extras = list(new_versions - old_versions)
-    if new_extras:
-        errors.append('Extra versions: {}'.format(new_extras))
-    # The version are what we expect, but are they identical?
-    # We care are change values, not new keys in the new tool.
-    if new_tools:
-        for name, old_tool in old_tools.items():
-            new_tool = new_tools[name]
-            for old_key, old_val in old_tool.items():
-                new_val = new_tool[old_key]
-                if old_val != new_val:
-                    errors.append(
-                        'Tool {} {} changed from {} to {}'.format(
-                            name, old_key, old_val, new_val))
-    if errors:
-        return 1, errors
-    return 0, None
+    old_versions = set(old_expected.keys())
+    new_versions = set(new_expected.keys())
+    missing = list(old_versions - new_versions)
+    if missing:
+        missing_errors = 'Missing versions: {}'.format(missing)
+    else:
+        missing_errors = None
+    extras = list(new_versions - old_versions)
+    if extras:
+        extra_errors = 'Extra versions: {}'.format(extras)
+    else:
+        extra_errors = None
+    return new_expected, extra_errors, old_expected, missing_errors
+
+
+def check_tools_content(old_tools, new_tools):
+    """Return the error messages if tool content has changed.
+
+    Are the old versions identical to the new versions?
+    We care about change values, not new keys in the new tool.
+    """
+    if not new_tools:
+        return None
+    for name, old_tool in old_tools.items():
+        new_tool = new_tools[name]
+        for old_key, old_val in old_tool.items():
+            new_val = new_tool[old_key]
+            if old_val != new_val:
+                return 'Tool {} {} changed from {} to {}'.format(
+                    name, old_key, old_val, new_val)
+
+
+def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
+    """Return a tuple of an exit code and an explanation.
+
+    An exit code of 1 will have a list of strings explaining the problems.
+    An exit code of 0 is a pass and the exlanation is None.
+    """
+    errors = []
+    devel_versions = check_devel_not_stable(old_tools, new_tools, purpose)
+    if devel_versions:
+        errors.append(devel_versions)
+    tools = check_expected_tools(old_tools, new_tools, version, retracted)
+    new_expected, extra_errors, old_expected, missing_errors = tools
+    if missing_errors:
+        errors.append(missing_errors)
+    if extra_errors:
+        errors.append(extra_errors)
+    content_changes = check_tools_content(old_expected, new_expected)
+    if content_changes:
+        errors.append(content_changes)
+    return errors or None
 
 
 def parse_args(args=None):
