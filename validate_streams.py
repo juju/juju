@@ -29,21 +29,26 @@ def find_tools(file_path):
     return tools
 
 
+def check_devel_not_stable(old_tools, new_tools, purpose):
+    if purpose in (TESTING, DEVEL):
+        return
+    stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
+    devel_versions = [
+        v for v in new_tools.keys() if not stable_pattern.match(v)]
+    if devel_versions:
+        return 'Devel versions in {} stream: {}'.format(
+            purpose, devel_versions)
+
+
 def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     # devel versions cannot be proposed or release because the letters in
     # the version break older jujus
     old_tools = dict(old_tools)
     new_tools = dict(new_tools)
     errors = []
-    devel_versions = []
-    if purpose in (PROPOSED, RELEASE):
-        stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
-        devel_versions = [
-            v for v in new_tools.keys() if not stable_pattern.match(v)]
-        if devel_versions:
-            errors.append(
-                'Devel versions in {} stream: {}'.format(
-                    purpose, devel_versions))
+    devel_versions = check_devel_not_stable(old_tools, new_tools, purpose)
+    if devel_versions:
+        errors.append(devel_versions)
     # Remove the expected difference between the two collections of tools.
     expected = {}
     if retracted:

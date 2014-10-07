@@ -6,6 +6,7 @@ from tempfile import mkdtemp
 from unittest import TestCase
 
 from validate_streams import (
+    check_devel_not_stable,
     compare_tools,
     find_tools,
     parse_args,
@@ -93,6 +94,28 @@ class ValidateStreams(TestCase):
             '1.20.7-trusty-i386', '1.20.7-trusty-amd64',
             '1.20.8-trusty-amd64', '1.20.8-trusty-i386']
         self.assertEqual(expected, tools.keys())
+
+    def test_check_devel_not_stable(self):
+        # devel tools cannot ever got to proposed and release.
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8', '1.21-alpha1'])
+        # Devel versions can go to testing
+        message = check_devel_not_stable(old_tools, new_tools, 'testing')
+        self.assertIs(None, message)
+        # Devel versions can go to devel
+        message = check_devel_not_stable(old_tools, new_tools, 'devel')
+        self.assertIs(None, message)
+        # Devel versions cannot be proposed.
+        message = check_devel_not_stable(old_tools, new_tools, 'proposed')
+        self.assertEqual(
+            "Devel versions in proposed stream: ['1.21-alpha1-trusty-amd64']",
+            message)
+        # Devel versions cannot be release.
+        message = check_devel_not_stable(old_tools, new_tools, 'release')
+        self.assertEqual(
+            "Devel versions in release stream: ['1.21-alpha1-trusty-amd64']",
+            message)
 
     def test_compare_tools_identical(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
