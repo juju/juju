@@ -39,7 +39,7 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
         devel_versions = [
             v for v in new_tools.keys() if not stable_pattern.match(v)]
         if devel_versions:
-            return 4, devel_versions
+            return 1, devel_versions
     # Remove the expected difference between the two collections of tools.
     expected = {}
     if retracted:
@@ -64,7 +64,7 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     if old_extras:
         return 1, old_extras
     elif new_extras:
-        return 2, new_extras
+        return 1, new_extras
     # The version are what we expect, but are they identical?
     # We care are change values, not new keys in the new tool.
     for name, old_tool in old_tools.items():
@@ -75,7 +75,7 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
             if old_val != new_val:
                 changed.append((name, old_key, old_val, new_val))
         if changed:
-            return 3, changed
+            return 1, changed
     return 0, None
 
 

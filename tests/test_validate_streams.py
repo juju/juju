@@ -136,7 +136,7 @@ class ValidateStreams(TestCase):
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
         self.assertEqual(['1.20.8-trusty-amd64'], info)
-        self.assertEqual(2, code)
+        self.assertEqual(1, code)
 
     def test_compare_tools_failed_retraction_old(self):
         old_tools = make_tools_data(
@@ -147,7 +147,7 @@ class ValidateStreams(TestCase):
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', '1.20.8', retracted='1.20.9')
         self.assertEqual(['1.20.9-trusty-amd64'], info)
-        self.assertEqual(2, code)
+        self.assertEqual(1, code)
 
     def test_compare_tools_changed_tool(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
@@ -158,7 +158,7 @@ class ValidateStreams(TestCase):
             old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
         self.assertEqual(
             [('1.20.7-trusty-amd64', 'sha256', 'valid_sum', 'bad_sum')], info)
-        self.assertEqual(3, code)
+        self.assertEqual(1, code)
 
     def test_compare_tools_added_devel_version(self):
         # devel tools cannot ever got to proposed and release.
@@ -179,9 +179,9 @@ class ValidateStreams(TestCase):
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', '1.21-alpha1', retracted=None)
         self.assertEqual(['1.21-alpha1-trusty-amd64'], info)
-        self.assertEqual(4, code)
+        self.assertEqual(1, code)
         # Devel versions cannot be release.
         code, info = compare_tools(
             old_tools, new_tools, 'release', '1.21-alpha1', retracted=None)
         self.assertEqual(['1.21-alpha1-trusty-amd64'], info)
-        self.assertEqual(4, code)
+        self.assertEqual(1, code)
