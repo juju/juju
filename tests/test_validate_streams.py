@@ -178,10 +178,13 @@ class ValidateStreams(TestCase):
         # Devel versions cannot be proposed.
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', '1.21-alpha1', retracted=None)
-        self.assertEqual(['1.21-alpha1-trusty-amd64'], info)
+        expected = (
+            "Devel versions cannot be included in proposed and release "
+            "streams: ['1.21-alpha1-trusty-amd64']")
+        self.assertEqual([expected], info)
         self.assertEqual(1, code)
         # Devel versions cannot be release.
         code, info = compare_tools(
             old_tools, new_tools, 'release', '1.21-alpha1', retracted=None)
-        self.assertEqual(['1.21-alpha1-trusty-amd64'], info)
+        self.assertEqual([expected], info)
         self.assertEqual(1, code)

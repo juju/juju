@@ -34,12 +34,16 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     # the version break older jujus
     old_tools = dict(old_tools)
     new_tools = dict(new_tools)
+    errors = []
+    devel_versions = []
     if purpose in (PROPOSED, RELEASE):
         stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
         devel_versions = [
             v for v in new_tools.keys() if not stable_pattern.match(v)]
         if devel_versions:
-            return 1, devel_versions
+            errors.append(
+                'Devel versions cannot be included in proposed and release'
+                ' streams: {}'.format(devel_versions))
     # Remove the expected difference between the two collections of tools.
     expected = {}
     if retracted:
@@ -61,21 +65,19 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     new_versions = set(new_tools.keys())
     old_extras = list(old_versions - new_versions)
     new_extras = list(new_versions - old_versions)
-    if old_extras:
-        return 1, old_extras
-    elif new_extras:
-        return 1, new_extras
     # The version are what we expect, but are they identical?
     # We care are change values, not new keys in the new tool.
-    for name, old_tool in old_tools.items():
-        new_tool = new_tools[name]
-        changed = []
-        for old_key, old_val in old_tool.items():
-            new_val = new_tool[old_key]
-            if old_val != new_val:
-                changed.append((name, old_key, old_val, new_val))
-        if changed:
-            return 1, changed
+    changed = []
+    if new_tools:
+        for name, old_tool in old_tools.items():
+            new_tool = new_tools[name]
+            for old_key, old_val in old_tool.items():
+                new_val = new_tool[old_key]
+                if old_val != new_val:
+                    changed.append((name, old_key, old_val, new_val))
+    errors = errors + old_extras + new_extras + changed
+    if errors:
+        return 1, errors
     return 0, None
 
 
