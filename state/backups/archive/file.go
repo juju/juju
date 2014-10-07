@@ -7,7 +7,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"encoding/json"
 	"io"
 	"io/ioutil"
 
@@ -50,7 +49,8 @@ func Extract(arFile io.Reader, filename string) (io.Reader, error) {
 // the archive does not have a metadata file, errors.NotFound is
 // returned.
 func GetMetadata(arFile io.Reader) (*metadata.Metadata, error) {
-	metaFile, err := Extract(arFile, "metadata.json")
+	name := Archive{}.MetadataFile()
+	metaFile, err := Extract(arFile, name)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -60,10 +60,7 @@ func GetMetadata(arFile io.Reader) (*metadata.Metadata, error) {
 		return nil, errors.Trace(err)
 	}
 
-	var meta metadata.Metadata
-	err = json.Unmarshal(data, &meta)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &meta, nil
+	var empty metadata.Metadata
+	meta, err := empty.UpdateFromJSON(data)
+	return meta, errors.Trace(err)
 }
