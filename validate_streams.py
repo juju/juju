@@ -71,15 +71,15 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
         errors.append('Extra versions: {}'.format(new_extras))
     # The version are what we expect, but are they identical?
     # We care are change values, not new keys in the new tool.
-    changed = []
     if new_tools:
         for name, old_tool in old_tools.items():
             new_tool = new_tools[name]
             for old_key, old_val in old_tool.items():
                 new_val = new_tool[old_key]
                 if old_val != new_val:
-                    changed.append((name, old_key, old_val, new_val))
-    errors = errors + changed
+                    errors.append(
+                        'Tool {} {} changed from {} to {}'.format(
+                            name, old_key, old_val, new_val))
     if errors:
         return 1, errors
     return 0, None

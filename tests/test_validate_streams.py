@@ -156,8 +156,11 @@ class ValidateStreams(TestCase):
         new_tools['1.20.7-trusty-amd64']['sha256'] = 'bad_sum'
         code, info = compare_tools(
             old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+
         self.assertEqual(
-            [('1.20.7-trusty-amd64', 'sha256', 'valid_sum', 'bad_sum')], info)
+            ['Tool 1.20.7-trusty-amd64 sha256 changed from '
+             'valid_sum to bad_sum'],
+            info)
         self.assertEqual(1, code)
 
     def test_compare_tools_added_devel_version(self):
