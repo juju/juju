@@ -317,6 +317,60 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
 }
 
+func (suite *environSuite) TestParseTags(c *gc.C) {
+	tests := []struct {
+		about         string
+		input         []string
+		tags, notTags []string
+	}{{
+		about:   "nil input",
+		input:   nil,
+		tags:    []string{},
+		notTags: []string{},
+	}, {
+		about:   "empty input",
+		input:   []string{},
+		tags:    []string{},
+		notTags: []string{},
+	}, {
+		about:   "tag list with embedded spaces",
+		input:   []string{"   tag1  ", " tag2", " ^ not Tag 3  ", "  ", " ", "", "", " ^notTag4   "},
+		tags:    []string{"tag1", "tag2"},
+		notTags: []string{"notTag3", "notTag4"},
+	}, {
+		about:   "only positive tags",
+		input:   []string{"tag1", "tag2", "tag3"},
+		tags:    []string{"tag1", "tag2", "tag3"},
+		notTags: []string{},
+	}, {
+		about:   "only negative tags",
+		input:   []string{"^tag1", "^tag2", "^tag3"},
+		tags:    []string{},
+		notTags: []string{"tag1", "tag2", "tag3"},
+	}, {
+		about:   "both positive and negative tags",
+		input:   []string{"^tag1", "tag2", "^tag3", "tag4"},
+		tags:    []string{"tag2", "tag4"},
+		notTags: []string{"tag1", "tag3"},
+	}, {
+		about:   "single positive tag",
+		input:   []string{"tag1"},
+		tags:    []string{"tag1"},
+		notTags: []string{},
+	}, {
+		about:   "single negative tag",
+		input:   []string{"^tag1"},
+		tags:    []string{},
+		notTags: []string{"tag1"},
+	}}
+	for i, test := range tests {
+		c.Logf("test %d: %s", i, test.about)
+		tags, notTags := parseTags(test.input)
+		c.Check(tags, jc.DeepEquals, test.tags)
+		c.Check(notTags, jc.DeepEquals, test.notTags)
+	}
+}
+
 func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
@@ -330,6 +384,24 @@ func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
 	c.Assert(nodeRequestValues[0].Get("agent_name"), gc.Equals, exampleAgentName)
 }
 
+func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C) {
+	env := suite.makeEnviron()
+	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
+
+	_, err := env.acquireNode(
+		"",
+		constraints.Value{Tags: &[]string{"tag1", "^tag2", "tag3", "^tag4"}},
+		nil, nil,
+	)
+
+	c.Check(err, gc.IsNil)
+	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
+	nodeValues, found := requestValues["node0"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(nodeValues[0].Get("tags"), gc.Equals, "tag1,tag3")
+	c.Assert(nodeValues[0].Get("not_tags"), gc.Equals, "tag2,tag4")
+}
+
 var testValues = []struct {
 	constraints    constraints.Value
 	expectedResult url.Values
@@ -337,6 +409,7 @@ var testValues = []struct {
 	{constraints.Value{Arch: stringp("arm")}, url.Values{"arch": {"arm"}}},
 	{constraints.Value{CpuCores: uint64p(4)}, url.Values{"cpu_count": {"4"}}},
 	{constraints.Value{Mem: uint64p(1024)}, url.Values{"mem": {"1024"}}},
+	{constraints.Value{Tags: &[]string{"tag1", "tag2", "^tag3", "^tag4"}}, url.Values{"tags": {"tag1,tag2"}, "not_tags": {"tag3,tag4"}}},
 
 	// CpuPower is ignored.
 	{constraints.Value{CpuPower: uint64p(1024)}, url.Values{}},

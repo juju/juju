@@ -328,8 +328,9 @@ cpu-power
 
 tags
    Tags defines the list of tags that the machine must have applied to it.
-   Multiple tags must be delimited by a comma. Tags are currently only supported
-   by the MaaS environment.
+   Multiple tags must be delimited by a comma. Both positive and negative
+   tags constraints are supported, the latter have a "^" prefix. Tags are
+   currently only supported by the MaaS environment.
 
 networks
    Networks defines the list of networks to ensure are available or not on the
@@ -348,7 +349,7 @@ instance-type
 
 Example:
 
-   juju add-machine --constraints "arch=amd64 mem=8G tags=foo,bar"
+   juju add-machine --constraints "arch=amd64 mem=8G tags=foo,^bar"
 
 See Also:
    juju help set-constraints
