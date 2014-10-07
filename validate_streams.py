@@ -42,8 +42,8 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
             v for v in new_tools.keys() if not stable_pattern.match(v)]
         if devel_versions:
             errors.append(
-                'Devel versions cannot be included in proposed and release'
-                ' streams: {}'.format(devel_versions))
+                'Devel versions in {} stream: {}'.format(
+                    purpose, devel_versions))
     # Remove the expected difference between the two collections of tools.
     expected = {}
     if retracted:
@@ -64,7 +64,11 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
     old_versions = set(old_tools.keys())
     new_versions = set(new_tools.keys())
     old_extras = list(old_versions - new_versions)
+    if old_extras:
+        errors.append('Missing versions: {}'.format(old_extras))
     new_extras = list(new_versions - old_versions)
+    if new_extras:
+        errors.append('Extra versions: {}'.format(new_extras))
     # The version are what we expect, but are they identical?
     # We care are change values, not new keys in the new tool.
     changed = []
@@ -75,7 +79,7 @@ def compare_tools(old_tools, new_tools, purpose, version, retracted=None):
                 new_val = new_tool[old_key]
                 if old_val != new_val:
                     changed.append((name, old_key, old_val, new_val))
-    errors = errors + old_extras + new_extras + changed
+    errors = errors + changed
     if errors:
         return 1, errors
     return 0, None
