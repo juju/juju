@@ -2420,7 +2420,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, nil)
 	c.Assert(err, gc.ErrorMatches, "tag is nil")
 	c.Assert(coll, gc.Equals, "")
-	c.Assert(id, gc.Equals, "")
+	c.Assert(id, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
