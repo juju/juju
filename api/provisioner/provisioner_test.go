@@ -2,6 +2,9 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 
+// TODO(anastasia) 2014-10-08 #1378716
+// Re-enable tests for PPC64/ARM64 when the fixed gccgo has been backported to trusty and the CI machines have been updated.
+
 // +build !ppc64el,!arm64
 
 package provisioner_test
