@@ -143,8 +143,9 @@ type lifecycleWatcher struct {
 
 	// coll is a function returning the mgo.Collection holding all
 	// interesting entities
-	coll     func() (*mgo.Collection, func())
-	collName string
+	coll          func() (*mgo.Collection, func())
+	collName      string
+	docIDToString func(interface{}) string
 
 	// members is used to select the initial set of interesting entities.
 	members bson.D
@@ -163,7 +164,10 @@ func collFactory(st *State, collName string) func() (*mgo.Collection, func()) {
 // WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() StringsWatcher {
-	return newLifecycleWatcher(st, servicesC, nil, nil)
+	extractLocalID := func(id interface{}) string {
+		return st.localID(id.(string))
+	}
+	return newLifecycleWatcher(st, servicesC, extractLocalID, nil, nil)
 }
 
 // WatchUnits returns a StringsWatcher that notifies of changes to the
@@ -174,7 +178,14 @@ func (s *Service) WatchUnits() StringsWatcher {
 	filter := func(unitDocID interface{}) bool {
 		return strings.HasPrefix(s.st.localID(unitDocID.(string)), prefix)
 	}
-	return newLifecycleWatcher(s.st, unitsC, members, filter)
+	extractLocalID := func(id interface{}) string {
+		return s.st.localID(id.(string))
+	}
+	return newLifecycleWatcher(s.st, unitsC, extractLocalID, members, filter)
+}
+
+func toString(id interface{}) string {
+	return id.(string)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to the
@@ -187,7 +198,7 @@ func (s *Service) WatchRelations() StringsWatcher {
 		k := key.(string)
 		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
 	}
-	return newLifecycleWatcher(s.st, relationsC, members, filter)
+	return newLifecycleWatcher(s.st, relationsC, toString, members, filter)
 }
 
 // WatchEnvironMachines returns a StringsWatcher that notifies of changes to
@@ -200,7 +211,7 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 	filter := func(id interface{}) bool {
 		return !strings.Contains(id.(string), "/")
 	}
-	return newLifecycleWatcher(st, machinesC, members, filter)
+	return newLifecycleWatcher(st, machinesC, toString, members, filter)
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes to the
@@ -223,14 +234,21 @@ func (m *Machine) containersWatcher(isChildRegexp string) StringsWatcher {
 	filter := func(key interface{}) bool {
 		return compiled.MatchString(key.(string))
 	}
-	return newLifecycleWatcher(m.st, machinesC, members, filter)
+	return newLifecycleWatcher(m.st, machinesC, toString, members, filter)
 }
 
-func newLifecycleWatcher(st *State, collName string, members bson.D, filter func(key interface{}) bool) StringsWatcher {
+func newLifecycleWatcher(
+	st *State,
+	collName string,
+	docIDToString func(interface{}) string,
+	members bson.D,
+	filter func(key interface{}) bool,
+) StringsWatcher {
 	w := &lifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          collFactory(st, collName),
 		collName:      collName,
+		docIDToString: docIDToString,
 		members:       members,
 		filter:        filter,
 		life:          make(map[string]Life),
@@ -245,7 +263,7 @@ func newLifecycleWatcher(st *State, collName string, members bson.D, filter func
 }
 
 type lifeDoc struct {
-	Id   string `bson:"_id"`
+	Id   interface{} `bson:"_id"`
 	Life Life
 }
 
@@ -264,7 +282,7 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
-		id := w.st.localID(doc.Id)
+		id := w.docIDToString(doc.Id)
 		ids.Add(id)
 		if doc.Life != Dead {
 			w.life[id] = doc.Life
@@ -300,7 +318,7 @@ func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) 
 	iter := coll.Find(bson.D{{"_id", bson.D{{"$in", changed}}}}).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
-		latest[w.st.localID(doc.Id)] = doc.Life
+		latest[w.docIDToString(doc.Id)] = doc.Life
 	}
 	if err := iter.Close(); err != nil {
 		return err

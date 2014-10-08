@@ -129,11 +129,11 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	})
 
 	// * If the unit should have a subordinate, and does not, create it.
-	var existingSubName string
+	var existingSubId string
 	if subOps, subName, err := ru.subordinateOps(); err != nil {
 		return err
 	} else {
-		existingSubName = subName
+		existingSubId = subName
 		ops = append(ops, subOps...)
 	}
 
@@ -166,8 +166,8 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// Maybe a subordinate used to exist, but is no longer alive. If that is
 	// case, we will be unable to enter scope until that unit is gone.
-	if existingSubName != "" {
-		if alive, err := isAliveWithSession(db.C(unitsC), existingSubName); err != nil {
+	if existingSubId != "" {
+		if alive, err := isAliveWithSession(db.C(unitsC), existingSubId); err != nil {
 			return err
 		} else if !alive {
 			return ErrCannotEnterScopeYet
@@ -227,7 +227,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		C:      unitsC,
 		Id:     lDoc.Id,
 		Assert: isAliveDoc,
-	}}, lDoc.Id, nil
+	}}, lDoc.Id.(string), nil
 }
 
 // PrepareLeaveScope causes the unit to be reported as departed by watchers,
