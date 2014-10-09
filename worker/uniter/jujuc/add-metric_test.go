@@ -97,7 +97,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: cannot set the same metric key twice: \"key\" already set\n",
+			"error: duplicate metric key given: \"key\"\n",
 			nil,
 		}, {
 			"can't add metrics",
@@ -116,15 +116,13 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		ret := cmd.Main(com, ctx, t.cmd[1:])
-		c.Assert(ret, gc.Equals, t.result)
-		c.Assert(bufferString(ctx.Stdout), gc.Equals, t.stdout)
-		c.Assert(bufferString(ctx.Stderr), gc.Equals, t.stderr)
-		c.Assert(len(hctx.metrics), gc.Equals, len(t.expect))
-		if len(t.expect) > 0 {
-			for i, expected := range t.expect {
-				c.Assert(expected.Key, gc.Equals, hctx.metrics[i].Key)
-				c.Assert(expected.Value, gc.Equals, hctx.metrics[i].Value)
-			}
+		c.Check(ret, gc.Equals, t.result)
+		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)
+		c.Check(bufferString(ctx.Stderr), gc.Equals, t.stderr)
+		c.Check(hctx.metrics, gc.HasLen, len(t.expect))
+		for i, expected := range t.expect {
+			c.Check(expected.Key, gc.Equals, hctx.metrics[i].Key)
+			c.Check(expected.Value, gc.Equals, hctx.metrics[i].Value)
 		}
 	}
 }
