@@ -148,9 +148,12 @@ def main(argv):
     try:
         old_tools = find_tools(args.old_data)
         new_tools = find_tools(args.new_data)
-        compare_tools(
+        messages = compare_tools(
             old_tools, new_tools, args.purpose, args.version,
             retracted=args.retracted)
+        if messages:
+            print('\n'.join(messages))
+            return 1
     except Exception as e:
         print(e)
         if args.verbose:
