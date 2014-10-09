@@ -54,6 +54,8 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
     # Remove the expected difference between the two collections of tools.
     old_expected = dict(old_tools)
     new_expected = dict(new_tools)
+    missing_errors = None
+    extra_errors = None
     expected = {}
     if retracted:
         # Retracted domiates version because streams.canonical.com always
@@ -68,6 +70,8 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
             if t['version'] == version:
                 expected.update([(n, t)])
                 del new_expected[n]
+        if version != 'IGNORE' and not expected:
+            missing_errors = 'Missing versions: {}'.format(version)
     # The old and new should be identical. but if there is a problem,
     # we want to explain what problems are in each set of versions.
     old_versions = set(old_expected.keys())
@@ -75,13 +79,9 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
     missing = list(old_versions - new_versions)
     if missing:
         missing_errors = 'Missing versions: {}'.format(missing)
-    else:
-        missing_errors = None
     extras = list(new_versions - old_versions)
     if extras:
         extra_errors = 'Extra versions: {}'.format(extras)
-    else:
-        extra_errors = None
     return new_expected, extra_errors, old_expected, missing_errors
 
 

@@ -179,6 +179,17 @@ class ValidateStreams(TestCase):
         self.assertEqual(
             "Missing versions: ['1.20.8-trusty-amd64']", missing_errors)
 
+    def test_check_expected_tools_missing_version(self):
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.8'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.8'])
+        tools = check_expected_tools(old_tools, new_tools, '1.20.9', None)
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(['1.20.8-trusty-amd64'], new_expected.keys())
+        self.assertIs(None, extra_errors)
+        self.assertEqual(['1.20.8-trusty-amd64'], old_expected.keys())
+        self.assertEqual(
+            "Missing versions: 1.20.9", missing_errors)
+
     def test_check_expected_tools_extra_new(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7'])
         new_tools = make_tools_data(
@@ -228,11 +239,11 @@ class ValidateStreams(TestCase):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         with patch("validate_streams.check_expected_tools",
-                   return_value=(new_tools, None, old_tools, None)) as cet_mock:
+                   return_value=(new_tools, 'foo', old_tools, None)) as mock:
             message = compare_tools(
                 old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
-            cet_mock.assert_called_with(old_tools, new_tools, '1.20.9', None)
-        self.assertIs(None, message)
+            mock.assert_called_with(old_tools, new_tools, '1.20.9', None)
+        self.assertEqual(['foo'], message)
 
     def test_compare_tools_added_devel_version(self):
         # devel tools cannot ever got to proposed and release.
