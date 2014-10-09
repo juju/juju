@@ -36,7 +36,7 @@ def check_devel_not_stable(old_tools, new_tools, purpose):
     the version break older jujus.
     """
     if purpose in (TESTING, DEVEL):
-        return
+        return None
     stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
     devel_versions = [
         v for v in new_tools.keys() if not stable_pattern.match(v)]
@@ -49,7 +49,7 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
     """Return a 4-tuple of new_expected, new_errors, old_expected, old_errors
 
     The new and old expected dicts are the tools common to old and new streams.
-    The new and old errors are string s of missing ot extra versions.
+    The new and old errors are strings of missing ot extra versions.
     """
     # Remove the expected difference between the two collections of tools.
     old_expected = dict(old_tools)
@@ -57,7 +57,7 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
     expected = {}
     if retracted:
         # Retracted domiates version because streams.canonical.com always
-        # needs a version to get and use to make streams, even when it
+        # needs a version to install to make streams, even when it
         # intends to remove something.
         for n, t in old_expected.items():
             if t['version'] == retracted:
@@ -86,7 +86,7 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
 
 
 def check_tools_content(old_tools, new_tools):
-    """Return the error messages if tool content has changed.
+    """Return the error messages if tools content changes.
 
     Are the old versions identical to the new versions?
     We care about change values, not new keys in the new tool.

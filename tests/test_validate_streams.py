@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-#from mock import patch
+from mock import patch
 import json
 import shutil
 from tempfile import mkdtemp
@@ -7,6 +7,7 @@ from unittest import TestCase
 
 from validate_streams import (
     check_devel_not_stable,
+    check_expected_tools,
     check_tools_content,
     compare_tools,
     find_tools,
@@ -136,48 +137,80 @@ class ValidateStreams(TestCase):
             old_tools, new_tools, 'proposed', 'IGNORE', retracted=None)
         self.assertIs(None, message)
 
-    def test_compare_tools_added_new(self):
+    def test_check_expected_tools_added_new(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         new_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
-        message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
-        self.assertIs(None, message)
+        tools = check_expected_tools(old_tools, new_tools, '1.20.9', None)
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            new_expected.keys())
+        self.assertIs(None, extra_errors)
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            old_expected.keys())
+        self.assertIs(None, missing_errors)
 
-    def test_compare_tools_retracted_old(self):
+    def test_check_expected_tools_retracted_old(self):
         old_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         # revert to 1.20.8 as the newest, remove 1.20.9.
-        message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.20.8', retracted='1.20.9')
-        self.assertIs(None, message)
+        tools = check_expected_tools(old_tools, new_tools, '1.20.8', '1.20.9')
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            new_expected.keys())
+        self.assertIs(None, extra_errors)
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            old_expected.keys())
+        self.assertIs(None, missing_errors)
 
-    def test_compare_tools_missing_from_new(self):
+    def test_check_expected_tools_missing_from_new(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.8'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.9'])
-        message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+        tools = check_expected_tools(old_tools, new_tools, '1.20.9', None)
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual([], new_expected.keys())
+        self.assertIs(None, extra_errors)
+        self.assertEqual(['1.20.8-trusty-amd64'], old_expected.keys())
         self.assertEqual(
-            ["Missing versions: ['1.20.8-trusty-amd64']"], message)
+            "Missing versions: ['1.20.8-trusty-amd64']", missing_errors)
 
-    def test_compare_tools_extra_added_new(self):
+    def test_check_expected_tools_extra_new(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7'])
         new_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
-        message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
-        self.assertEqual(["Extra versions: ['1.20.8-trusty-amd64']"], message)
+        tools = check_expected_tools(old_tools, new_tools, '1.20.9')
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            new_expected.keys())
+        self.assertEqual(
+            "Extra versions: ['1.20.8-trusty-amd64']", extra_errors)
+        self.assertEqual(['1.20.7-trusty-amd64'], old_expected.keys())
+        self.assertIs(None, missing_errors)
 
-    def test_compare_tools_failed_retraction_old(self):
+    def test_check_expected_tools_failed_retraction_old(self):
         old_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         # revert to 1.20.8 as the newest, remove 1.20.9.
-        message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.20.8', retracted='1.20.9')
-        self.assertEqual(["Extra versions: ['1.20.9-trusty-amd64']"], message)
+        tools = check_expected_tools(old_tools, new_tools, '1.20.8', '1.20.9')
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64',
+             '1.20.9-trusty-amd64'],
+            sorted(new_expected.keys()))
+        self.assertEqual(
+            "Extra versions: ['1.20.9-trusty-amd64']", extra_errors)
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            old_expected.keys())
+        self.assertIs(None, missing_errors)
 
     def test_compare_tools_changed_tool(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
@@ -190,6 +223,16 @@ class ValidateStreams(TestCase):
             ['Tool 1.20.7-trusty-amd64 sha256 changed from '
              'valid_sum to bad_sum'],
             message)
+
+    def test_compare_tools_called_check_expected_tools_called(self):
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        with patch("validate_streams.check_expected_tools",
+                   return_value=(new_tools, None, old_tools, None)) as cet_mock:
+            message = compare_tools(
+                old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+            cet_mock.assert_called_with(old_tools, new_tools, '1.20.9', None)
+        self.assertIs(None, message)
 
     def test_compare_tools_added_devel_version(self):
         # devel tools cannot ever got to proposed and release.
