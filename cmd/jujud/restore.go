@@ -5,7 +5,6 @@ package main
 
 import (
 	"github.com/juju/errors"
-	"launchpad.net/tomb"
 )
 
 // RestoreStatus is the type of the possible statuses for restore mode.
@@ -25,16 +24,14 @@ const (
 
 type restoreContext struct {
 	restoreStatus RestoreStatus
-	tomb          *tomb.Tomb
 }
 
 // NewRestoreContext returns a restoreContext in UnknownRestoreStatus and
 // holding a reference to the provided tomb which will be used when
 // restore process finishes to restart jujud.
-func NewRestoreContext(tomb *tomb.Tomb) *restoreContext {
+func NewRestoreContext() *restoreContext {
 	return &restoreContext{
-		UnknownRestoreStatus,
-		tomb}
+		UnknownRestoreStatus}
 }
 
 func (r *restoreContext) restoreRunning() bool {

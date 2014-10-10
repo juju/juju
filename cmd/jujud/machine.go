@@ -160,7 +160,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
-	a.restoreContext = NewRestoreContext(&a.tomb)
+	a.restoreContext = NewRestoreContext()
 	return nil
 }
 
