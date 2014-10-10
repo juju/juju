@@ -124,7 +124,7 @@ fi
 tar -xzf $tarfile
 export GOPATH=\$HOME/$juju_version
 cd \$GOPATH/src/github.com/juju/juju
-if [[ "$INSTANCE_TYPE" != "lxc" ]]; then
+if [[ "$INSTANCE_TYPE" != "lxc" && "$INSTANCE_TYPE" != "host" ]]; then
     for attempt in \$(seq 10); do
         if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
             break
