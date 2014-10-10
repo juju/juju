@@ -780,6 +780,7 @@ func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 		URL:      curl.String(),
 		Config:   charm.Config(),
 		Meta:     charm.Meta(),
+		Actions:  charm.Actions(),
 	}
 	return info, nil
 }
