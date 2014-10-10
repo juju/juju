@@ -40,42 +40,75 @@ func NewActionsAPI(st *state.State, resources *common.Resources, authorizer comm
 }
 
 // Enqueue takes a list of Actions and queues them up to be executed by
-// the designated Unit.
-func (a *ActionsAPI) Enqueue(arg params.Actions) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotImplementedf("Enqueue")
+// the designated ActionReceiver, returning the params.Action for each
+// queued Action, or an error if there was a problem queueing up the
+// Action.
+func (a *ActionsAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
+	// TODO(jcw4) authorization checks
+	for i, action := range arg.Actions {
+		cur := &response.Results[i]
+
+		if action.Receiver == nil {
+			cur.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+
+		entity, err := a.state.FindEntity(action.Receiver)
+		if err != nil {
+			cur.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+		r, ok := entity.(state.ActionReceiver)
+		if !ok {
+			cur.Error = common.ServerError(common.ErrBadId)
+			continue
+		}
+
+		queued, err := r.AddAction(action.Name, action.Parameters)
+		if err != nil {
+			cur.Error = common.ServerError(err)
+			continue
+		}
+		cur.Action = &params.Action{
+			Receiver: entity.Tag(),
+			Tag:      queued.ActionTag(),
+		}
+	}
+	return response, nil
 }
 
 // ListAll takes a list of Tags representing ActionReceivers and returns
 // all of the Actions that have been queued or run by each of those
 // Entities.
-func (a *ActionsAPI) ListAll(arg params.Tags) (params.ActionsByTag, error) {
+func (a *ActionsAPI) ListAll(arg params.Tags) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, combine(actionReceiverToActions, actionReceiverToActionResults))
 }
 
 // ListPending takes a list of Tags representing ActionReceivers
 // and returns all of the Actions that are queued for each of those
 // Entities.
-func (a *ActionsAPI) ListPending(arg params.Tags) (params.ActionsByTag, error) {
+func (a *ActionsAPI) ListPending(arg params.Tags) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, actionReceiverToActions)
 }
 
 // ListCompleted takes a list of Tags representing ActionReceivers
 // and returns all of the Actions that have been run on each of those
 // Entities.
-func (a *ActionsAPI) ListCompleted(arg params.Tags) (params.ActionsByTag, error) {
+func (a *ActionsAPI) ListCompleted(arg params.Tags) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, actionReceiverToActionResults)
 }
 
 // Cancel attempts to cancel a queued up Action from running.
-func (a *ActionsAPI) Cancel(arg params.ActionsRequest) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotImplementedf("Cancel")
+func (a *ActionsAPI) Cancel(arg params.Actions) (params.ActionResults, error) {
+	return params.ActionResults{}, errors.NotImplementedf("Cancel")
 }
 
 // internalList takes a list of Tags representing ActionReceivers and
 // returns all of the Actions the extractorFn can get out of the
 // ActionReceiver.
-func (a *ActionsAPI) internalList(arg params.Tags, fn extractorFn) (params.ActionsByTag, error) {
-	response := params.ActionsByTag{Actions: make([]params.Actions, len(arg.Tags))}
+func (a *ActionsAPI) internalList(arg params.Tags, fn extractorFn) (params.ActionsByReceivers, error) {
+	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Tags))}
 	// TODO(jcw4) authorization checks
 	for i, tag := range arg.Tags {
 		cur := &response.Actions[i]
@@ -113,13 +146,13 @@ func tagToActionReceiver(st *state.State, tag names.Tag) (state.ActionReceiver, 
 // extractorFn is the generic signature for functions that extract
 // Actions or ActionResults from an ActionReceiver, and return them as
 // params.Actions.
-type extractorFn func(state.ActionReceiver) ([]params.Action, error)
+type extractorFn func(state.ActionReceiver) ([]params.ActionResult, error)
 
 // combine takes multiple extractorFn's and combines them into
 // one function.
 func combine(funcs ...extractorFn) extractorFn {
-	return func(ar state.ActionReceiver) ([]params.Action, error) {
-		result := []params.Action{}
+	return func(ar state.ActionReceiver) ([]params.ActionResult, error) {
+		result := []params.ActionResult{}
 		for _, fn := range funcs {
 			items, err := fn(ar)
 			if err != nil {
@@ -133,8 +166,8 @@ func combine(funcs ...extractorFn) extractorFn {
 
 // actionReceiverToActions iterates through the Actions() queued up for
 // an ActionReceiver, and converts them to a slice of params.Action.
-func actionReceiverToActions(ar state.ActionReceiver) ([]params.Action, error) {
-	items := []params.Action{}
+func actionReceiverToActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
+	items := []params.ActionResult{}
 	actions, err := ar.Actions()
 	if err != nil {
 		return items, err
@@ -143,11 +176,13 @@ func actionReceiverToActions(ar state.ActionReceiver) ([]params.Action, error) {
 		if action == nil {
 			continue
 		}
-		items = append(items, params.Action{
-			Tag:        action.ActionTag(),
-			Name:       action.Name(),
-			Parameters: action.Parameters(),
-			Status:     "pending",
+		items = append(items, params.ActionResult{
+			Action: &params.Action{
+				Tag:        action.ActionTag(),
+				Name:       action.Name(),
+				Parameters: action.Parameters(),
+			},
+			Status: "pending",
 		})
 	}
 	return items, nil
@@ -156,8 +191,8 @@ func actionReceiverToActions(ar state.ActionReceiver) ([]params.Action, error) {
 // actionReceiverToActionResults iterates through the ActionResults()
 // aqueued up for n ActionReceiver, and converts them to a slice of
 // aparams.Action.
-func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.Action, error) {
-	items := []params.Action{}
+func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.ActionResult, error) {
+	items := []params.ActionResult{}
 	results, err := ar.ActionResults()
 	if err != nil {
 		return items, err
@@ -167,13 +202,15 @@ func actionReceiverToActionResults(ar state.ActionReceiver) ([]params.Action, er
 			continue
 		}
 		output, message := result.Results()
-		items = append(items, params.Action{
-			Tag:        result.ActionTag(),
-			Name:       result.Name(),
-			Parameters: result.Parameters(),
-			Status:     string(result.Status()),
-			Message:    message,
-			Output:     output,
+		items = append(items, params.ActionResult{
+			Action: &params.Action{
+				Tag:        result.ActionTag(),
+				Name:       result.Name(),
+				Parameters: result.Parameters(),
+			},
+			Status:  string(result.Status()),
+			Message: message,
+			Output:  output,
 		})
 	}
 	return items, nil

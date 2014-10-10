@@ -205,8 +205,8 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		return nil, err
 	}
 	return &Action{
-		name:   result.Action.Name,
-		params: result.Action.Parameters,
+		name:   result.Action.Action.Name,
+		params: result.Action.Action.Parameters,
 	}, nil
 }
 

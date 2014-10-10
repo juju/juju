@@ -726,8 +726,10 @@ func (u *uniterBaseAPI) Actions(args params.Entities) (params.ActionsQueryResult
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		results.Results[i].Action.Name = action.Name()
-		results.Results[i].Action.Parameters = action.Parameters()
+		results.Results[i].Action.Action = &params.Action{
+			Name:       action.Name(),
+			Parameters: action.Parameters(),
+		}
 	}
 
 	return results, nil

@@ -7,14 +7,31 @@ import (
 	"github.com/juju/names"
 )
 
+// Actions is a slice of Action for bulk requests.
+type Actions struct {
+	Actions []Action `json"actions,omitempty"`
+}
+
 // Action describes an Action that will be or has been queued up.
 type Action struct {
 	Tag        names.ActionTag        `json:"tag"`
+	Receiver   names.Tag              `json:"receiver"`
 	Name       string                 `json:"name"`
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
-	Status     string                 `json:"status,omitempty"`
-	Message    string                 `json:"message,omitempty"`
-	Output     map[string]interface{} `json:"results,omitempty"`
+}
+
+// ActionResults is a slice of ActionResult for bulk requests.
+type ActionResults struct {
+	Results []ActionResult `json"results,omitempty"`
+}
+
+// ActionResult describes an ActionResult that will be or has been queued up.
+type ActionResult struct {
+	Action  *Action                `json:"action,omitempty"`
+	Status  string                 `json:"status,omitempty"`
+	Message string                 `json:"message,omitempty"`
+	Output  map[string]interface{} `json:"output,omitempty"`
+	Error   *Error                 `json:"error,omitempty"`
 }
 
 // Tags wrap a slice of names.Tag for API calls.
@@ -22,22 +39,22 @@ type Tags struct {
 	Tags []names.Tag `json:"tags"`
 }
 
-// ActionsByTag wrap a slice of Actions for API calls.
-type ActionsByTag struct {
-	Actions []Actions `json:"actions,omitempty"`
+// ActionsByReceivers wrap a slice of Actions for API calls.
+type ActionsByReceivers struct {
+	Actions []ActionsByReceiver `json:"actions,omitempty"`
 }
 
-// Actions is a bulk API call wrapper containing Actions, either as
-// input paramters or as results.
-type Actions struct {
-	Error    *Error    `json:"error,omitempty"`
-	Receiver names.Tag `json:"receiver,omitempty"`
-	Actions  []Action  `json:"actions,omitempty"`
+// ActionsByReceiver is a bulk API call wrapper containing Actions,
+// either as input paramters or as results.
+type ActionsByReceiver struct {
+	Receiver names.Tag      `json:"receiver,omitempty"`
+	Actions  []ActionResult `json:"actions,omitempty"`
+	Error    *Error         `json:"error,omitempty"`
 }
 
 // ActionTags are an array of ActionTag for bulk API calls
 type ActionTags struct {
-	Actions []names.ActionTag `json:"actiontags,omitempty"`
+	Actions []names.ActionTag `json:"actions,omitempty"`
 }
 
 // ActionsQueryResults holds a slice of responses from the Actions
@@ -48,15 +65,9 @@ type ActionsQueryResults struct {
 
 // ActionsQueryResult holds the name and parameters of an query result.
 type ActionsQueryResult struct {
-	Error    *Error    `json:"error,omitempty"`
-	Receiver names.Tag `json:"receiver,omitempty"`
-	Action   Action    `json:"result,omitempty"`
-}
-
-// ActionsRequest wraps a slice of Action's that represent Action
-// definitions.
-type ActionsRequest struct {
-	Actions []Action `json:"actions,omitempty"`
+	Receiver names.Tag    `json:"receiver,omitempty"`
+	Action   ActionResult `json:"action,omitempty"`
+	Error    *Error       `json:"error,omitempty"`
 }
 
 // ActionExecutionResults holds a slice of ActionExecutionResult for a

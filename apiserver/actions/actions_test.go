@@ -94,8 +94,70 @@ func (s *actionsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *actionsSuite) TestEnqueue(c *gc.C) {
-	// TODO(jcw4) implement
-	c.Skip("Enqueue not yet implemented")
+	// Make sure no Actions already exist on wordpress Unit.
+	actions, err := s.wordpressUnit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Make sure no Actions already exist on mysql Unit.
+	actions, err = s.mysqlUnit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Add Actions.
+	expectedName := "bar"
+	expectedParameters := map[string]interface{}{"kan jy nie": "verstaand"}
+	arg := params.Actions{
+		Actions: []params.Action{
+			// No receiver.
+			{Name: "foo"},
+			// Good.
+			{Receiver: s.wordpressUnit.Tag(), Name: expectedName, Parameters: expectedParameters},
+			// Service tag instead of Unit tag.
+			{Receiver: s.wordpress.Tag(), Name: "baz"},
+			// TODO(jcw4) notice no Name.
+			{Receiver: s.mysqlUnit.Tag(), Parameters: expectedParameters},
+		},
+	}
+	res, err := s.actions.Enqueue(arg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(res.Results, gc.HasLen, 4)
+
+	expectedError := &params.Error{Message: "id not found", Code: "not found"}
+	emptyActionTag := names.ActionTag{}
+	c.Assert(res.Results[0].Error, gc.DeepEquals, expectedError)
+	c.Assert(res.Results[0].Action, gc.IsNil)
+
+	c.Assert(res.Results[1].Error, gc.IsNil)
+	c.Assert(res.Results[1].Action, gc.NotNil)
+	c.Assert(res.Results[1].Action.Receiver, gc.Equals, s.wordpressUnit.Tag())
+	c.Assert(res.Results[1].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+
+	c.Assert(res.Results[2].Error, gc.DeepEquals, expectedError)
+	c.Assert(res.Results[2].Action, gc.IsNil)
+
+	// TODO(jcw4) shouldn't Action Names be required?
+	c.Assert(res.Results[3].Error, gc.IsNil)
+	c.Assert(res.Results[3].Action, gc.NotNil)
+	c.Assert(res.Results[3].Action.Receiver, gc.Equals, s.mysqlUnit.Tag())
+	c.Assert(res.Results[3].Action.Tag, gc.Not(gc.Equals), emptyActionTag)
+
+	// Make sure an Action was enqueued for the wordpress Unit.
+	actions, err = s.wordpressUnit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.HasLen, 1)
+	c.Assert(actions[0].Name(), gc.Equals, expectedName)
+	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
+	c.Assert(actions[0].Receiver(), gc.Equals, s.wordpressUnit.Name())
+
+	// Make sure an Action was enqueued for the mysql Unit.
+	actions, err = s.mysqlUnit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.HasLen, 1)
+	// TODO(jcw4) notice Action Name empty.
+	c.Assert(actions[0].Name(), gc.Equals, "")
+	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
+	c.Assert(actions[0].Receiver(), gc.Equals, s.mysqlUnit.Name())
 }
 
 type testCaseAction struct {
@@ -143,7 +205,7 @@ func (s *actionsSuite) TestListAll(c *gc.C) {
 		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
 
 		// prepare state, and set up expectations.
-		expected := params.ActionsByTag{Actions: make([]params.Actions, len(testCase.Groups))}
+		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
 		for i, group := range testCase.Groups {
 			arg.Tags[i] = group.Receiver
 
@@ -156,7 +218,7 @@ func (s *actionsSuite) TestListAll(c *gc.C) {
 			}
 
 			cur.Receiver = group.Receiver
-			cur.Actions = make([]params.Action, len(group.Actions))
+			cur.Actions = make([]params.ActionResult, len(group.Actions))
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
@@ -180,9 +242,11 @@ func (s *actionsSuite) TestListAll(c *gc.C) {
 
 				// make expectation
 				exp := &cur.Actions[j]
-				exp.Tag = added.ActionTag()
-				exp.Name = action.Name
-				exp.Parameters = action.Parameters
+				exp.Action = &params.Action{
+					Tag:        added.ActionTag(),
+					Name:       action.Name,
+					Parameters: action.Parameters,
+				}
 				exp.Status = "pending"
 
 				if action.Execute {
@@ -213,7 +277,7 @@ func (s *actionsSuite) TestListPending(c *gc.C) {
 		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
 
 		// prepare state, and set up expectations.
-		expected := params.ActionsByTag{Actions: make([]params.Actions, len(testCase.Groups))}
+		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
 		for i, group := range testCase.Groups {
 			arg.Tags[i] = group.Receiver
 
@@ -226,7 +290,7 @@ func (s *actionsSuite) TestListPending(c *gc.C) {
 			}
 
 			cur.Receiver = group.Receiver
-			cur.Actions = []params.Action{}
+			cur.Actions = []params.ActionResult{}
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
@@ -257,11 +321,13 @@ func (s *actionsSuite) TestListPending(c *gc.C) {
 					c.Assert(err, gc.IsNil)
 				} else {
 					// add expectation
-					exp := params.Action{
-						Tag:        added.ActionTag(),
-						Name:       action.Name,
-						Parameters: action.Parameters,
-						Status:     "pending",
+					exp := params.ActionResult{
+						Action: &params.Action{
+							Tag:        added.ActionTag(),
+							Name:       action.Name,
+							Parameters: action.Parameters,
+						},
+						Status: "pending",
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}
@@ -281,7 +347,7 @@ func (s *actionsSuite) TestListCompleted(c *gc.C) {
 		arg := params.Tags{Tags: make([]names.Tag, len(testCase.Groups))}
 
 		// prepare state, and set up expectations.
-		expected := params.ActionsByTag{Actions: make([]params.Actions, len(testCase.Groups))}
+		expected := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(testCase.Groups))}
 		for i, group := range testCase.Groups {
 			arg.Tags[i] = group.Receiver
 
@@ -294,7 +360,7 @@ func (s *actionsSuite) TestListCompleted(c *gc.C) {
 			}
 
 			cur.Receiver = group.Receiver
-			cur.Actions = []params.Action{}
+			cur.Actions = []params.ActionResult{}
 
 			// get Unit (ActionReceiver) for this Pair in the test case.
 			unit, err := s.State.Unit(group.Receiver.Id())
@@ -325,13 +391,15 @@ func (s *actionsSuite) TestListCompleted(c *gc.C) {
 					c.Assert(err, gc.IsNil)
 
 					// add expectation
-					exp := params.Action{
-						Tag:        added.ActionTag(),
-						Name:       action.Name,
-						Parameters: action.Parameters,
-						Status:     string(status),
-						Message:    message,
-						Output:     output,
+					exp := params.ActionResult{
+						Action: &params.Action{
+							Tag:        added.ActionTag(),
+							Name:       action.Name,
+							Parameters: action.Parameters,
+						},
+						Status:  string(status),
+						Message: message,
+						Output:  output,
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}
@@ -350,7 +418,7 @@ func (s *actionsSuite) TestCancel(c *gc.C) {
 	c.Skip("Cancel not yet implemented")
 }
 
-func assertSame(c *gc.C, got, expected params.ActionsByTag) {
+func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {
 	c.Assert(got.Actions, gc.HasLen, len(expected.Actions))
 	for i, g1 := range got.Actions {
 		e1 := expected.Actions[i]
@@ -360,7 +428,7 @@ func assertSame(c *gc.C, got, expected params.ActionsByTag) {
 	}
 }
 
-func toStrings(items []params.Action) []string {
+func toStrings(items []params.ActionResult) []string {
 	ret := make([]string, len(items))
 	for i, a := range items {
 		ret[i] = stringify(a)
@@ -368,6 +436,10 @@ func toStrings(items []params.Action) []string {
 	return ret
 }
 
-func stringify(a params.Action) string {
-	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, a.Status, a.Message, a.Output)
+func stringify(r params.ActionResult) string {
+	a := r.Action
+	if a == nil {
+		a = &params.Action{}
+	}
+	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
 }
