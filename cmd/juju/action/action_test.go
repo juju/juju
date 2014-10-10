@@ -40,7 +40,7 @@ func (s *ActionCommandSuite) TestHelp(c *gc.C) {
 
 func (s *ActionCommandSuite) checkHelpSubCommands(c *gc.C) {
 	var expectedSubCommmands = [][]string{
-		[]string{"defined", "TODO: show actions defined for a service"},
+		[]string{"defined", "WIP: show actions defined for a service"},
 		[]string{"do", "TODO: queue an action for execution"},
 		[]string{"fetch", "TODO: retrieve the results of an action"},
 		[]string{"help", "show help on a command or other topic"},
