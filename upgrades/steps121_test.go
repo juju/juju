@@ -37,6 +37,10 @@ var _ = gc.Suite(&steps121a2Suite{})
 
 func (s *steps121a2Suite) TestUpgradeOperationsContent(c *gc.C) {
 	var expectedSteps = []string{
+		"prepend the environment UUID to the ID of all machine docs",
+		"prepend the environment UUID to the ID of all reboot docs",
+		"prepend the environment UUID to the ID of all containerRef docs",
+		"prepend the environment UUID to the ID of all instanceData docs",
 		"prepend the environment UUID to the ID of all service docs",
 		"prepend the environment UUID to the ID of all unit docs",
 		"migrate charm archives into environment storage",

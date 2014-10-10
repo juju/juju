@@ -103,10 +103,11 @@ func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 
 type machineLife struct {
 	machine *state.Machine
+	st      *state.State
 }
 
 func (l *machineLife) id() (coll string, id interface{}) {
-	return "machines", l.machine.Id()
+	return "machines", state.DocID(l.st, l.machine.Id())
 }
 
 func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
@@ -134,7 +135,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
-	for i, lfix := range []lifeFixture{&unitLife{st: s.State}, &machineLife{}} {
+	for i, lfix := range []lifeFixture{&unitLife{st: s.State}, &machineLife{st: s.State}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {
 			c.Logf("sequence %d", j)

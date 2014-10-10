@@ -157,20 +157,19 @@ func (info *UpgradeInfo) AllProvisionedStateServersReady() (bool, error) {
 	}
 
 	// Extract current and provisioned state servers.
-	sel := bson.D{{
-		"_id", bson.D{{"$in", stateServerInfo.MachineIds}},
-	}}
-
+	sel := bson.D{
+		{"env-uuid", info.st.EnvironTag().Id()},
+		{"machineid", bson.D{{"$in", stateServerInfo.MachineIds}}},
+	}
 	instanceData, closer := info.st.getCollection(instanceDataC)
 	defer closer()
-	iter := instanceData.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
-
+	iter := instanceData.Find(sel).Select(bson.D{{"machineid", 1}}).Iter()
 	var doc struct {
-		Id string `bson:"_id"`
+		MachineId string `bson:"machineid"`
 	}
 	provisionedMachineIds := set.NewStrings()
 	for iter.Next(&doc) {
-		provisionedMachineIds.Add(doc.Id)
+		provisionedMachineIds.Add(doc.MachineId)
 	}
 	if err := iter.Close(); err != nil {
 		return false, errors.Annotate(err, "cannot read provisioned machines")
@@ -249,7 +248,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Insert: doc,
 	}, {
 		C:      instanceDataC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: txn.DocExists,
 	}}
 	if err := st.runTransaction(ops); err == nil {
@@ -292,7 +291,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
 	instanceData, closer := st.getCollection(instanceDataC)
 	defer closer()
-	count, err := instanceData.FindId(machineId).Count()
+	count, err := instanceData.FindId(st.docID(machineId)).Count()
 	if err != nil {
 		return false, errors.Annotate(err, "cannot read instance data")
 	}

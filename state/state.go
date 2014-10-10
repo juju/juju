@@ -288,18 +288,17 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
 		collection := db.C(name)
-
 		var doc struct {
-			Id string `bson:"_id"`
+			DocID string `bson:"_id"`
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
+			localID := st.localID(doc.DocID)
 			switch name {
 			case machinesC:
-				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
+				agentTags = append(agentTags, names.NewMachineTag(localID).String())
 			case unitsC:
-				unitName := st.localID(doc.Id)
-				agentTags = append(agentTags, names.NewUnitTag(unitName).String())
+				agentTags = append(agentTags, names.NewUnitTag(localID).String())
 			}
 		}
 		if err := iter.Close(); err != nil {
@@ -542,8 +541,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	defer closer()
 
 	mdoc := &machineDoc{}
-	sel := bson.D{{"_id", id}}
-	err := machinesCollection.Find(sel).One(mdoc)
+	err := machinesCollection.FindId(st.docID(id)).One(mdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("machine %s", id)
 	}
@@ -615,6 +613,7 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 	switch tag := tag.(type) {
 	case names.MachineTag:
 		coll = machinesC
+		id = st.docID(id)
 	case names.ServiceTag:
 		coll = servicesC
 		id = st.docID(id)

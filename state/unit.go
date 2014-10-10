@@ -397,14 +397,14 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if len(containers) > 0 {
 		ops = append(ops, txn.Op{
 			C:      containerRefsC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: bson.D{{"children.0", bson.D{{"$exists", 1}}}},
 		})
 		containerCheck = false
 	} else {
 		ops = append(ops, txn.Op{
 			C:  containerRefsC,
-			Id: m.doc.Id,
+			Id: m.doc.DocID,
 			Assert: bson.D{{"$or", []bson.D{
 				{{"children", bson.D{{"$size", 0}}}},
 				{{"children", bson.D{{"$exists", false}}}},
@@ -448,7 +448,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 
 	ops = append(ops, txn.Op{
 		C:      machinesC,
-		Id:     u.doc.MachineId,
+		Id:     m.doc.DocID,
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
@@ -1041,7 +1041,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Update: bson.D{{"$set", bson.D{{"machineid", m.doc.Id}}}},
 	}, {
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: massert,
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
@@ -1117,13 +1117,14 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 	}
 	// Ensure the host machine is really clean.
 	if parentId != "" {
+		parentDocId := u.st.docID(parentId)
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     parentId,
+			Id:     parentDocId,
 			Assert: bson.D{{"clean", true}},
 		}, txn.Op{
 			C:      containerRefsC,
-			Id:     parentId,
+			Id:     parentDocId,
 			Assert: bson.D{hasNoContainersTerm},
 		})
 	}
@@ -1347,7 +1348,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	var machinesWithContainers = make([]string, len(containerRefs))
 	for i, cref := range containerRefs {
-		machinesWithContainers[i] = cref.Id
+		machinesWithContainers[i] = u.st.docID(cref.Id)
 	}
 	terms := bson.D{
 		{"life", Alive},
@@ -1402,7 +1403,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		}
 		var suitableIds = make([]string, len(suitableInstanceData))
 		for i, m := range suitableInstanceData {
-			suitableIds[i] = m.Id
+			suitableIds[i] = m.DocID
 		}
 		terms = append(terms, bson.DocElem{"_id", bson.D{{"$in", suitableIds}}})
 	}
@@ -1521,7 +1522,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	if u.doc.MachineId != "" {
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     u.doc.MachineId,
+			Id:     u.st.docID(u.doc.MachineId),
 			Assert: txn.DocExists,
 			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})

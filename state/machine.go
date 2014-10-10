@@ -92,7 +92,9 @@ func (job MachineJob) String() string {
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in apiserver/params.
 type machineDoc struct {
-	Id            string `bson:"_id"`
+	DocID         string `bson:"_id"`
+	Id            string `bson:"machineid"`
+	EnvUUID       string `bson:"env-uuid"`
 	Nonce         string
 	Series        string
 	ContainerType string
@@ -164,8 +166,10 @@ func (m *Machine) globalKey() string {
 
 // instanceData holds attributes relevant to a provisioned machine.
 type instanceData struct {
-	Id         string      `bson:"_id"`
+	DocID      string      `bson:"_id"`
+	MachineId  string      `bson:"machineid"`
 	InstanceId instance.Id `bson:"instanceid"`
+	EnvUUID    string      `bson:"env-uuid"`
 	Status     string      `bson:"status,omitempty"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
@@ -200,7 +204,7 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	defer closer()
 
 	var instData instanceData
-	err := instanceDataCollection.FindId(id).One(&instData)
+	err := instanceDataCollection.FindId(st.docID(id)).One(&instData)
 	if err == mgo.ErrNotFound {
 		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}
@@ -246,7 +250,7 @@ func (m *Machine) HasVote() bool {
 func (m *Machine) SetHasVote(hasVote bool) error {
 	ops := []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
@@ -314,7 +318,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
@@ -349,7 +353,7 @@ func (m *Machine) SetPassword(password string) error {
 func (m *Machine) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
@@ -403,7 +407,7 @@ func (m *Machine) ForceDestroy() error {
 	if !m.IsManager() {
 		ops := []txn.Op{{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 		}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
@@ -443,7 +447,7 @@ func (m *Machine) Containers() ([]string, error) {
 	defer closer()
 
 	var mc machineContainers
-	err := containerRefs.FindId(m.Id()).One(&mc)
+	err := containerRefs.FindId(m.doc.DocID).One(&mc)
 	if err == nil {
 		return mc.Children, nil
 	}
@@ -506,7 +510,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	// op and
 	op := txn.Op{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}
 	advanceAsserts := bson.D{
@@ -595,7 +599,7 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 	}
 	ops := []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: isDeadDoc,
 	}}
 	sel := bson.D{{"machineid", m.doc.Id}}
@@ -624,25 +628,25 @@ func (m *Machine) Remove() (err error) {
 	ops := []txn.Op{
 		{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: txn.DocExists,
 			Remove: true,
 		},
 		{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: isDeadDoc,
 		},
 		{
 			C:      instanceDataC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Remove: true,
 		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
-		removeRebootDocOps(m.globalKey()),
+		removeRebootDocOp(m.st, m.globalKey()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {
@@ -668,7 +672,7 @@ func (m *Machine) Refresh() error {
 	defer closer()
 
 	var doc machineDoc
-	err := machines.FindId(m.doc.Id).One(&doc)
+	err := machines.FindId(m.doc.DocID).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("machine %v", m)
 	}
@@ -778,7 +782,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 	ops := []txn.Op{
 		{
 			C:      instanceDataC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"status", status}}}},
 		},
@@ -836,8 +840,10 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		characteristics = &instance.HardwareCharacteristics{}
 	}
 	instData := &instanceData{
-		Id:         m.doc.Id,
+		DocID:      m.doc.DocID,
+		MachineId:  m.doc.Id,
 		InstanceId: id,
+		EnvUUID:    m.doc.EnvUUID,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
 		RootDisk:   characteristics.RootDisk,
@@ -851,12 +857,12 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	ops := []txn.Op{
 		{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: append(isAliveDoc, notSetYet...),
 			Update: bson.D{{"$set", bson.D{{"instanceid", id}, {"nonce", nonce}}}},
 		}, {
 			C:      instanceDataC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: txn.DocMissing,
 			Insert: instData,
 		},
@@ -871,7 +877,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
-	} else if alive, err := isAlive(m.st.db, machinesC, m.doc.Id); err != nil {
+	} else if alive, err := isAlive(m.st.db, machinesC, m.doc.DocID); err != nil {
 		return err
 	} else if !alive {
 		return errNotAlive
@@ -1011,7 +1017,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 		}
 		op := txn.Op{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
 		}
 		if !addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
@@ -1110,7 +1116,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		Assert: txn.DocExists,
 	}, {
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: isAliveDoc,
 	}, {
 		C:      networkInterfacesC,
@@ -1199,7 +1205,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	ops := []txn.Op{
 		{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: append(isAliveDoc, notSetYet...),
 		},
 		setConstraintsOp(m.st, m.globalKey(), cons),
@@ -1256,7 +1262,7 @@ func (m *Machine) SetStatus(status Status, info string, data map[string]interfac
 	}
 	ops := []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: notDeadDoc,
 	},
 		updateStatusOp(m.st, m.globalKey(), doc),
@@ -1316,7 +1322,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 	ops := []txn.Op{
 		{
 			C:      machinesC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: notDeadDoc,
 			Update: bson.D{
 				{"$set", bson.D{
