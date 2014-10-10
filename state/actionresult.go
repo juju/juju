@@ -172,3 +172,16 @@ func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 		Insert: doc,
 	}
 }
+
+// ensureActionResultMarker makes sure that the provided string has the
+// action result marker token at the end of the string.
+var ensureActionResultMarker = ensureSuffixFn(actionResultMarker)
+
+// actionResultIdFromTag converts an ActionTag to an actionResultId.
+func actionResultIdFromTag(tag names.ActionTag) string {
+	ptag := tag.PrefixTag()
+	if ptag == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%d", ensureActionResultMarker(ptag.Id()), tag.Sequence())
+}

@@ -1214,7 +1214,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 
 	actionResults := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{{
-			ActionTag: action.ActionTag().String(),
+			ActionTag: action.ActionTag(),
 			Status:    params.ActionCompleted,
 			Results:   testOutput,
 		}},
@@ -1246,7 +1246,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 
 	actionResults := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{{
-			ActionTag: action.ActionTag().String(),
+			ActionTag: action.ActionTag(),
 			Status:    params.ActionFailed,
 			Results:   nil,
 			Message:   testError,
@@ -1274,15 +1274,11 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	c.Assert(err, gc.IsNil)
 
 	var tests = []struct {
-		actionTag string
+		actionTag names.ActionTag
 		err       error
 	}{
-		{actionTag: "", err: errors.Errorf(`"" is not a valid tag`)},
-		{actionTag: s.machine0.Tag().String(), err: errors.Errorf(`"machine-0" is not a valid action tag`)},
-		{actionTag: s.mysql.Tag().String(), err: errors.Errorf(`"service-mysql" is not a valid action tag`)},
-		{actionTag: good.Tag().String(), err: nil},
-		{actionTag: bad.Tag().String(), err: common.ErrPerm},
-		{actionTag: "asdf", err: errors.Errorf(`"asdf" is not a valid tag`)},
+		{actionTag: good.ActionTag(), err: nil},
+		{actionTag: bad.ActionTag(), err: common.ErrPerm},
 	}
 
 	// Queue up actions from tests

@@ -9,7 +9,7 @@ import (
 
 // ActionItem describes an Action that will be or has been queued up.
 type ActionItem struct {
-	UUID       string                 `json:"uuid"`
+	Tag        names.ActionTag        `json:"tag"`
 	Name       string                 `json:"name"`
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 	Status     string                 `json:"status,omitempty"`
@@ -17,9 +17,21 @@ type ActionItem struct {
 	Output     map[string]interface{} `json:"results,omitempty"`
 }
 
-// Actions is a bulk API call wrapper containing ActionItems, either
-// as input paramters or as results.
+// Tags wrap a slice of names.Tag for API calls.
+type Tags struct {
+	Tags []names.Tag `json:"tags"`
+}
+
+// ActionsByTag wrap a slice of Actions for API calls.
+type ActionsByTag struct {
+	Actions []Actions `json:"actions,omitempty"`
+}
+
+// Actions is a bulk API call wrapper containing ActionItems, either as
+// input paramters or as results.
 type Actions struct {
+	Error       *Error       `json:"error,omitempty"`
+	Receiver    names.Tag    `json:"receiver,omitempty"`
 	ActionItems []ActionItem `json:"actions,omitempty"`
 }
 
@@ -28,33 +40,35 @@ type ActionTags struct {
 	Actions []names.ActionTag `json:"actiontags,omitempty"`
 }
 
-// ActionsQueryResults holds a slice of responses from the Actions query.
+// ActionsQueryResults holds a slice of responses from the Actions
+// query.
 type ActionsQueryResults struct {
 	Results []ActionsQueryResult `json:"results,omitempty"`
 }
 
-// ActionsQueryResult holds the name and parameters of an
-// Actions query result.
+// ActionsQueryResult holds the name and parameters of an query result.
 type ActionsQueryResult struct {
-	Error  *Error     `json:"error,omitempty"`
-	Action ActionItem `json:"result,omitempty"`
+	Error    *Error     `json:"error,omitempty"`
+	Receiver names.Tag  `json:"receiver,omitempty"`
+	Action   ActionItem `json:"result,omitempty"`
 }
 
-// ActionsRequest is the wrapper struct for a bulk API call taking
-// []Action
+// ActionsRequest wraps a slice of ActionItem's that represent Action
+// definitions.
 type ActionsRequest struct {
 	Actions []ActionItem `json:"actions,omitempty"`
 }
 
-// ActionExecutionResults holds a slice of ActionExecutionResult for a bulk action API call
+// ActionExecutionResults holds a slice of ActionExecutionResult for a
+// bulk action API call
 type ActionExecutionResults struct {
 	Results []ActionExecutionResult `json:"results,omitempty"`
 }
 
-// ActionExecutionResult holds the action tag and output used when recording the
-// result of an action.
+// ActionExecutionResult holds the action tag and output used when
+// recording the result of an action.
 type ActionExecutionResult struct {
-	ActionTag string                 `json:"actiontag"`
+	ActionTag names.ActionTag        `json:"actiontag"`
 	Status    string                 `json:"status"`
 	Results   map[string]interface{} `json:"results,omitempty"`
 	Message   string                 `json:"message,omitempty"`

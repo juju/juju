@@ -217,7 +217,7 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 	args := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{
 			{
-				ActionTag: tag.String(),
+				ActionTag: tag,
 				Status:    status,
 				Results:   results,
 				Message:   message,
