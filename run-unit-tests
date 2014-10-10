@@ -88,6 +88,8 @@ if [[ $INSTANCE_TYPE == "lxc" ]]; then
     echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' | sudo tee -a $sudoers_file
     sudo chmod 0440 $sudoers_file
     echo "$instance_id is at $instance_name"
+elif [[ $INSTANCE_TYPE == "host" ]]; then
+    instance_name=$AMI_IMAGE
 else
     instance_id=$($SCRIPTS/ec2-run-instance-get-id)
     $SCRIPTS/ec2-tag-job-instances $instance_id
@@ -111,7 +113,9 @@ scp -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     ubuntu@$instance_name  <<EOT
 set -eux
-ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+if [[ ! -f ~/.ssh/id_rsa ]]; then
+    ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+fi
 if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mkdir -m 777 /mnt/tmp
     sudo mount -t tmpfs -o size=2G /mnt/tmp /mnt/tmp
@@ -138,6 +142,7 @@ sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y make python-software-properties
 make install-dependencies
+# TODO(gz): Remove bzr whoami?
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 go version || gccgo -v
 make build
@@ -157,6 +162,19 @@ if [[ $INSTANCE_TYPE == "lxc" ]]; then
     echo "Deleting lxc"
     sudo lxc-stop -n $instance_id
     sudo lxc-destroy -n $instance_id
+elif [[ $INSTANCE_TYPE == "host" ]]; then
+    ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
+        ubuntu@$instance_name  <<EOT
+    set -eux
+    echo "Cleaning up /tmp"
+    sudo killall -SIGABRT /usr/bin/mongod
+    rm -r \$HOME/$juju_version
+    rm -r /tmp/adduser-* || true
+    rm -r /tmp/go-* || true
+    rm -r /tmp/gocheck-* || true
+    rm -r /tmp/juju-* || true
+    rm -r /tmp/test-* || true
+EOT
 else
     $SCRIPTS/ec2-terminate-job-instances
 fi
