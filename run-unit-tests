@@ -167,7 +167,7 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
         ubuntu@$instance_name  <<EOT
     set -eux
     echo "Cleaning up /tmp"
-    sudo killall -SIGABRT /usr/bin/mongod
+    sudo killall -SIGABRT /usr/bin/mongod || true
     rm -rf /home/ubuntu/$juju_version
     rm -rf /tmp/adduser-*
     rm -rf /tmp/go-*
