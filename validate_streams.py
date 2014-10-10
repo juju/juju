@@ -6,6 +6,8 @@ from argparse import ArgumentParser
 import json
 import re
 import sys
+import traceback
+
 
 RELEASE = 'release'
 PROPOSED = 'proposed'
@@ -94,7 +96,11 @@ def check_tools_content(old_tools, new_tools):
     if not new_tools:
         return None
     for name, old_tool in old_tools.items():
-        new_tool = new_tools[name]
+        try:
+            new_tool = new_tools[name]
+        except KeyError:
+            # This is a missing version case reported by check_expected_tools.
+            continue
         for old_key, old_val in old_tool.items():
             new_val = new_tool[old_key]
             if old_val != new_val:
@@ -128,9 +134,6 @@ def parse_args(args=None):
     """Return the argument parser for this program."""
     parser = ArgumentParser("Compare old and new stream data.")
     parser.add_argument(
-        "-d", "--dry-run", action="store_true", default=False,
-        help="Do not publish or delete")
-    parser.add_argument(
         '-v', '--verbose', action="store_true", default=False,
         help='Increse verbosity.')
     parser.add_argument(
@@ -146,8 +149,8 @@ def parse_args(args=None):
 def main(argv):
     args = parse_args(argv[1:])
     try:
-        old_tools = find_tools(args.old_data)
-        new_tools = find_tools(args.new_data)
+        old_tools = find_tools(args.old_json)
+        new_tools = find_tools(args.new_json)
         messages = compare_tools(
             old_tools, new_tools, args.purpose, args.version,
             retracted=args.retracted)
@@ -157,7 +160,7 @@ def main(argv):
     except Exception as e:
         print(e)
         if args.verbose:
-            print(sys.exc_info()[0])
+            traceback.print_tb(sys.exc_info()[2])
         return 2
     return 0
 
