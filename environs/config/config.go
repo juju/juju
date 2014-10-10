@@ -710,6 +710,11 @@ func (c *Config) AptFtpProxy() string {
 	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
+// AptMirror sets the apt mirror for the environment.
+func (c *Config) AptMirror() string {
+	return c.asString("apt-mirror")
+}
+
 // BootstrapSSHOpts returns the SSH timeout and retry delays used
 // during bootstrap.
 func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
@@ -984,6 +989,7 @@ var fields = schema.Fields{
 	"apt-http-proxy":             schema.String(),
 	"apt-https-proxy":            schema.String(),
 	"apt-ftp-proxy":              schema.String(),
+	"apt-mirror":                 schema.String(),
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
 	"bootstrap-addresses-delay":  schema.ForceInt(),
@@ -1030,6 +1036,7 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":             schema.Omit,
 	"apt-https-proxy":            schema.Omit,
 	"apt-ftp-proxy":              schema.Omit,
+	"apt-mirror":                 schema.Omit,
 	"lxc-clone":                  schema.Omit,
 	"disable-network-management": schema.Omit,
 	"tools-stream":               schema.Omit,

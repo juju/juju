@@ -633,6 +633,7 @@ type ContainerConfig struct {
 	SSLHostnameVerification bool
 	Proxy                   proxy.Settings
 	AptProxy                proxy.Settings
+	AptMirror               string
 	PreferIPv6              bool
 	*UpdateBehavior
 }

@@ -169,9 +169,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		mcfg.EnableOSUpgrade = val
 	}
 
-	// don't write proxy settings for local machine
+	// don't write proxy or mirror settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
 	mcfg.ProxySettings = proxy.Settings{}
+	mcfg.AptMirror = ""
 
 	cloudcfg := coreCloudinit.New()
 	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
