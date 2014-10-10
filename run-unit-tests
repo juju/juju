@@ -168,12 +168,12 @@ elif [[ $INSTANCE_TYPE == "host" ]]; then
     set -eux
     echo "Cleaning up /tmp"
     sudo killall -SIGABRT /usr/bin/mongod
-    rm -r \$HOME/$juju_version
-    rm -r /tmp/adduser-* || true
-    rm -r /tmp/go-* || true
-    rm -r /tmp/gocheck-* || true
-    rm -r /tmp/juju-* || true
-    rm -r /tmp/test-* || true
+    rm -rf /home/ubuntu/$juju_version
+    rm -rf /tmp/adduser-*
+    rm -rf /tmp/go-*
+    rm -rf /tmp/gocheck-*
+    rm -rf /tmp/juju-*
+    rm -rf /tmp/test-*
 EOT
 else
     $SCRIPTS/ec2-terminate-job-instances
