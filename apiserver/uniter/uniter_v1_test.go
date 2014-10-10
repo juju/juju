@@ -391,9 +391,9 @@ func (s *uniterV1Suite) TestAllMachinePorts(c *gc.C) {
 	}}
 	expectPorts := []params.MachinePortRange{
 		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{100, 200, "tcp"}},
-		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{10, 20, "udp"}},
 		{UnitTag: "unit-mysql-1", PortRange: network.PortRange{201, 250, "tcp"}},
 		{UnitTag: "unit-mysql-1", PortRange: network.PortRange{1, 8, "udp"}},
+		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{10, 20, "udp"}},
 	}
 	result, err := s.uniter.AllMachinePorts(args)
 	c.Assert(err, gc.IsNil)
