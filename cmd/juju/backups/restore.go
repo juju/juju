@@ -82,7 +82,7 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
-		return err
+		return errors.Trace(err)
 	}
 	if err := client.Restore(fileName, c.backupId); err != nil {
 
@@ -95,16 +95,15 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 				return errors.Trace(err)
 			}
 		} else {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	if err := client.FinishRestore(); err != nil {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
-		return err
+		return errors.Trace(err)
 	}
-
 	fmt.Fprintf(ctx.Stdout, "restore from %s completed\n", c.filename)
 	return nil
 }
@@ -145,16 +144,6 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 	if err != environs.ErrNoInstances {
 		return nil, errors.Annotatef(err, "cannot detect whether old instance is still running")
 	}
-	// Remove the storage so that we can bootstrap without the provider complaining.
-	//if err := env.Storage().Remove(common.StateFile); err != nil {
-	//	return nil, errors.Annotatef(err, "cannot remove %q from storage", common.StateFile)
-	//}
-
-	// TODO If we fail beyond here, then we won't have a state file and
-	// we won't be able to re-run this script because it fails without it.
-	// We could either try to recreate the file if we fail (which is itself
-	// error-prone) or we could provide a --no-check flag to make
-	// it go ahead anyway without the check.
 
 	args := bootstrap.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
@@ -174,8 +163,6 @@ func (c *RestoreCommand) doUpload(client APIClient) error {
 	if err := ssh.Copy([]string{c.filename, fmt.Sprintf("ubuntu@%s:%s", addr, fileName)}, nil); err != nil {
 		return errors.Trace(err)
 	}
-	//TODO(perrito666) add to envstorage, is it worthy? or will I need to remove afer?
-	// Also make sure to have ensurebackups
 	return nil
 }
 
@@ -183,7 +170,7 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
 		_, err := c.rebootstrap(ctx)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 
