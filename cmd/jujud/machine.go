@@ -106,7 +106,6 @@ var (
 	getMetricAPI = metricAPI
 )
 
-
 // IsRestorePreparing returns bool representing if we are in restore mode
 // but not running restore
 func (a *MachineAgent) IsRestorePreparing() bool {

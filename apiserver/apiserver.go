@@ -41,7 +41,7 @@ type Server struct {
 	logDir            string
 	limiter           utils.Limiter
 	validator         LoginValidator
-	restoreContext	RestoreContext
+	restoreContext    RestoreContext
 	adminApiFactories map[int]adminApiFactory
 
 	mu          sync.Mutex // protects the fields that follow
@@ -86,13 +86,13 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		return nil, err
 	}
 	srv := &Server{
-		state:     s,
-		addr:      net.JoinHostPort("localhost", listeningPort),
-		dataDir:   cfg.DataDir,
-		logDir:    cfg.LogDir,
-		limiter:   utils.NewLimiter(loginRateLimit),
-		validator: cfg.Validator,
-		restoreContext:	cfg.RestoreContext,
+		state:          s,
+		addr:           net.JoinHostPort("localhost", listeningPort),
+		dataDir:        cfg.DataDir,
+		logDir:         cfg.LogDir,
+		limiter:        utils.NewLimiter(loginRateLimit),
+		validator:      cfg.Validator,
+		restoreContext: cfg.RestoreContext,
 		adminApiFactories: map[int]adminApiFactory{
 			0: newAdminApiV0,
 			1: newAdminApiV1,

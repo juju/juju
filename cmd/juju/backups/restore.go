@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -88,7 +89,14 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
-		return err
+		if err == rpc.ErrShutdown {
+			client, err = c.NewAPIClient()
+			if err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			return err
+		}
 	}
 	if err := client.FinishRestore(); err != nil {
 		if params.IsCodeNotImplemented(err) {

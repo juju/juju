@@ -6,8 +6,6 @@ package main
 import (
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
-
-	"github.com/juju/juju/worker"
 )
 
 // RestoreStatus is the type of the possible statuses for restore mode.
@@ -54,12 +52,12 @@ func (r *restoreContext) HandleCall(rootName, methodName string) error {
 		return nil
 	}
 	switch methodName {
-		case "PrepareRestore":
-			return r.PrepareRestore()
-		case "Restore":
-			return r.BeginRestore()
-		case "FinishRestore":
-			return r.FinishRestore()
+	case "PrepareRestore":
+		return r.PrepareRestore()
+	case "Restore":
+		return r.BeginRestore()
+	case "FinishRestore":
+		return r.FinishRestore()
 	}
 	return nil
 
@@ -93,9 +91,6 @@ func (r *restoreContext) BeginRestore() error {
 
 // FinishRestore will restart jujud and err if restore flag is not true.
 func (r *restoreContext) FinishRestore() error {
-	if r.restoreStatus != RestoreInProgress {
-		return errors.Errorf("restore is not in progress")
-	}
-	r.tomb.Kill(worker.ErrTerminateAgent)
+	//TODO (perrito666) better check that restore actually took place
 	return nil
 }

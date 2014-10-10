@@ -5,6 +5,7 @@ package backups
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/juju/errors"
 
@@ -29,7 +30,12 @@ func (a *API) Restore(p params.Restore) error {
 		return errors.Errorf("machine %q has no internal address", machine)
 	}
 
-	return restore.Restore(filename, addr, a.st)
+	if err := restore.Restore(filename, addr, a.st); err != nil {
+		return err
+	}
+	os.Exit(1)
+	return nil
+
 }
 
 func (a *API) PrepareRestore() error {
