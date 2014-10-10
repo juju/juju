@@ -36,6 +36,7 @@ func NewSuperCommand() cmd.Command {
 			UsagePrefix: "juju",
 			Purpose:     actionPurpose,
 		})
+	actionCmd.Register(envcmd.Wrap(&DefinedCommand{}))
 	return actionCmd
 }
 
