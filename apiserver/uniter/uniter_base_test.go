@@ -1098,10 +1098,10 @@ type actions interface {
 func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 	var actionTests = []struct {
 		description string
-		action      params.ActionItem
+		action      params.Action
 	}{{
 		description: "A simple action.",
-		action: params.ActionItem{
+		action: params.Action{
 			Name: "snapshot",
 			Parameters: map[string]interface{}{
 				"outfile": "foo.txt",
@@ -1109,7 +1109,7 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 		},
 	}, {
 		description: "An action with nested parameters.",
-		action: params.ActionItem{
+		action: params.Action{
 			Name: "backup",
 			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
