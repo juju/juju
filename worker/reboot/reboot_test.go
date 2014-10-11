@@ -3,7 +3,6 @@ package reboot_test
 import (
 	stdtesting "testing"
 
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -77,14 +76,6 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	s.ctRebootState, err = ctState.Reboot()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
-
-	lock, err := fslock.NewLock(agent.DefaultLockDir, "fake")
-	c.Assert(err, gc.IsNil)
-	s.lock = lock
-
-	lockReboot, err := fslock.NewLock(agent.DefaultLockDir, reboot.RebootLock)
-	c.Assert(err, gc.IsNil)
-	s.lockReboot = lockReboot
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
@@ -92,14 +83,14 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
+	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
 	c.Assert(err, gc.IsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
 	c.Assert(err, gc.IsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, gc.IsNil)
@@ -107,29 +98,9 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), s.lock)
+	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()))
 	c.Assert(err, gc.IsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, gc.IsNil)
 	c.Assert(wrk.Wait(), gc.Equals, worker.ErrShutdownMachine)
-}
-
-func (s *rebootSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
-	s.lock.Lock(reboot.RebootMessage)
-	s.lockReboot.Lock("foo")
-
-	err := s.machine.SetRebootFlag(true)
-	c.Assert(err, gc.IsNil)
-
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
-	c.Assert(err, gc.IsNil)
-	wrk.Kill()
-	c.Assert(wrk.Wait(), gc.IsNil)
-
-	c.Assert(s.lockReboot.IsLocked(), jc.IsFalse)
-	c.Assert(s.lock.IsLocked(), jc.IsFalse)
-
-	rFlag, err := s.machine.GetRebootFlag()
-	c.Assert(err, gc.IsNil)
-	c.Assert(rFlag, jc.IsFalse)
 }
