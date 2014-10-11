@@ -13,23 +13,28 @@ const (
 	Dead  Life = "dead"
 )
 
-// RebootAction defines the action a machine should
-// take when a hook needs to reboot
-type RebootAction string
+type rebootAction string
 
 const (
 	// ShouldDoNothing instructs a machine agent that no action
 	// is required on its part
-	ShouldDoNothing RebootAction = "noop"
+	ShouldDoNothing rebootAction = "noop"
 	// ShouldReboot instructs a machine to reboot
 	// this happens when a hook running on a machine, requests
 	// a reboot
-	ShouldReboot RebootAction = "reboot"
+	ShouldReboot rebootAction = "reboot"
 	// ShouldShutdown instructs a machine to shut down. This usually
 	// happens when running inside a container, and a hook on the parent
 	// machine requests a reboot
-	ShouldShutdown RebootAction = "shutdown"
+	ShouldShutdown rebootAction = "shutdown"
 )
+
+// RebootAction defines the action a machine should
+// take when a hook needs to reboot
+type RebootAction struct {
+	Action rebootAction
+	UUID   string
+}
 
 // MachineJob values define responsibilities that machines may be
 // expected to fulfil.

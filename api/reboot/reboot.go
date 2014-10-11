@@ -99,14 +99,14 @@ func (st *State) GetRebootAction() (params.RebootAction, error) {
 
 	err := st.facade.FacadeCall("GetRebootAction", args, &results)
 	if err != nil {
-		return params.ShouldDoNothing, err
+		return params.RebootAction{Action: params.ShouldDoNothing}, err
 	}
 	if len(results.Results) != 1 {
-		return params.ShouldDoNothing, errors.Errorf("expected 1 result, got %d", len(results.Results))
+		return params.RebootAction{Action: params.ShouldDoNothing}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 
 	if results.Results[0].Error != nil {
-		return params.ShouldDoNothing, errors.Trace(results.Results[0].Error)
+		return params.RebootAction{Action: params.ShouldDoNothing}, errors.Trace(results.Results[0].Error)
 	}
 
 	return results.Results[0].Result, nil

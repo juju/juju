@@ -116,22 +116,22 @@ func (s *machineRebootSuite) TestGetRebootAction(c *gc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if resp, ok := resp.(*params.RebootActionResults); ok {
 			resp.Results = []params.RebootActionResult{
-				{Result: params.ShouldDoNothing},
+				{Result: params.RebootAction{Action: params.ShouldDoNothing}},
 			}
 		}
 		return nil
 	})
 	rAction, err := s.reboot.GetRebootAction()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, params.ShouldDoNothing)
+	c.Assert(rAction, gc.DeepEquals, params.RebootAction{Action: params.ShouldDoNothing})
 }
 
 func (s *machineRebootSuite) TestGetRebootActionMultipleResults(c *gc.C) {
 	reboot.PatchFacadeCall(s, s.reboot, func(facade string, p interface{}, resp interface{}) error {
 		if resp, ok := resp.(*params.RebootActionResults); ok {
 			resp.Results = []params.RebootActionResult{
-				{Result: params.ShouldDoNothing},
-				{Result: params.ShouldDoNothing},
+				{Result: params.RebootAction{Action: params.ShouldDoNothing}},
+				{Result: params.RebootAction{Action: params.ShouldDoNothing}},
 			}
 		}
 		return nil

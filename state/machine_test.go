@@ -64,7 +64,7 @@ func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
 
 	action, err := s.machine.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(action, gc.Equals, state.ShouldDoNothing)
+	c.Assert(action.Action, gc.Equals, state.ShouldDoNothing)
 }
 
 func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
@@ -125,15 +125,18 @@ func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
 
 	rAction, err := s.machine.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldDoNothing)
+	c.Assert(rAction.UUID, gc.Equals, "")
 
 	rAction, err = c1.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldDoNothing)
+	c.Assert(rAction.UUID, gc.Equals, "")
 
 	rAction, err = c2.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldReboot)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldReboot)
+	c.Assert(rAction.UUID, gc.Not(gc.Equals), "")
 
 	// // Reboot happens on the root node
 	err = c2.SetRebootFlag(false)
@@ -144,15 +147,18 @@ func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
 
 	rAction, err = s.machine.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldReboot)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldReboot)
+	c.Assert(rAction.UUID, gc.Not(gc.Equals), "")
 
 	rAction, err = c1.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldShutdown)
+	c.Assert(rAction.UUID, gc.Not(gc.Equals), "")
 
 	rAction, err = c2.ShouldRebootOrShutdown()
 	c.Assert(err, gc.IsNil)
-	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldShutdown)
+	c.Assert(rAction.UUID, gc.Not(gc.Equals), "")
 }
 
 func (s *MachineSuite) TestContainerDefaults(c *gc.C) {

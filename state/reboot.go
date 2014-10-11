@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -12,30 +14,37 @@ import (
 var _ RebootFlagSetter = (*Machine)(nil)
 var _ RebootActionGetter = (*Machine)(nil)
 
-// RebootAction defines the action a machine should
-// take when a hook needs to reboot
-type RebootAction string
+type rebootAction string
 
 const (
 	// ShouldDoNothing instructs a machine agent that no action
 	// is required on its part
-	ShouldDoNothing RebootAction = "noop"
+	ShouldDoNothing rebootAction = "noop"
 	// ShouldReboot instructs a machine to reboot
 	// this happens when a hook running on a machine, requests
 	// a reboot
-	ShouldReboot RebootAction = "reboot"
+	ShouldReboot rebootAction = "reboot"
 	// ShouldShutdown instructs a machine to shut down. This usually
 	// happens when running inside a container, and a hook on the parent
 	// machine requests a reboot
-	ShouldShutdown RebootAction = "shutdown"
+	ShouldShutdown rebootAction = "shutdown"
 )
+
+// RebootAction defines the action a machine should
+// take when a hook needs to reboot. The UUID is used to
+// keep track of reboot actions on machines
+type RebootAction struct {
+	Action rebootAction
+	UUID   string
+}
 
 // rebootDoc will hold the reboot flag for a machine.
 type rebootDoc struct {
-	Id string `bson:"_id"`
+	Id   string `bson:"_id"`
+	UUID string `bson:"UUID"`
 }
 
-func addRebootDocOps(machineId string) []txn.Op {
+func addRebootDocOps(machineId string, uuid string) []txn.Op {
 	ops := []txn.Op{{
 		C:      machinesC,
 		Id:     machineId,
@@ -43,7 +52,8 @@ func addRebootDocOps(machineId string) []txn.Op {
 	}, {
 		C:      rebootC,
 		Id:     machineId,
-		Insert: rebootDoc{Id: machineId},
+		Assert: txn.DocMissing,
+		Insert: rebootDoc{Id: machineId, UUID: uuid},
 	}}
 	return ops
 }
@@ -61,13 +71,27 @@ func (m *Machine) setFlag() error {
 	if m.Life() == Dead {
 		return mgo.ErrNotFound
 	}
-	t := addRebootDocOps(m.Id())
-	err := m.st.runTransaction(t)
-	if err == txn.ErrAborted {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return err
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if m.Life() != Dead {
+				// Previous error caused by reboot document existance
+				return nil, nil
+			} else {
+				return nil, mgo.ErrNotFound
+			}
+		}
+		return addRebootDocOps(m.Id(), uuid.String()), nil
+	}
+	if err = m.st.run(buildTxn); err == txn.ErrAborted {
 		return mgo.ErrNotFound
 	} else if err != nil {
-		return errors.Errorf("failed to set reboot flag: %v", err)
+		return err
 	}
+
 	return nil
 }
 
@@ -136,20 +160,22 @@ func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
 	docs := []rebootDoc{}
 	sel := bson.D{{"_id", bson.D{{"$in", machines}}}}
 	if err := rebootCol.Find(sel).All(&docs); err != nil {
-		return ShouldDoNothing, errors.Trace(err)
+		return RebootAction{Action: ShouldDoNothing}, errors.Trace(err)
 	}
 
 	iNeedReboot := false
+	var uuid string
 	for _, val := range docs {
 		if val.Id != m.doc.Id {
-			return ShouldShutdown, nil
+			return RebootAction{Action: ShouldShutdown, UUID: val.UUID}, nil
 		}
+		uuid = val.UUID
 		iNeedReboot = true
 	}
 	if iNeedReboot {
-		return ShouldReboot, nil
+		return RebootAction{Action: ShouldReboot, UUID: uuid}, nil
 	}
-	return ShouldDoNothing, nil
+	return RebootAction{Action: ShouldDoNothing}, nil
 }
 
 type RebootFlagSetter interface {
