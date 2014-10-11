@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
@@ -549,8 +550,7 @@ func (s *LxcSuite) TestIsLXCSupportedOnHost(c *gc.C) {
 	baseDir := c.MkDir()
 	cgroup := filepath.Join(baseDir, "cgroup")
 
-	err := ioutil.WriteFile(cgroup, []byte(hostCgroupContents), 0400)
-	c.Assert(err, gc.IsNil)
+	ft.File{"cgroup", hostCgroupContents, 0400}.Create(c, baseDir)
 
 	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
 	supports, err := lxc.IsLXCSupported()
@@ -563,8 +563,7 @@ func (s *LxcSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
 	baseDir := c.MkDir()
 	cgroup := filepath.Join(baseDir, "cgroup")
 
-	err := ioutil.WriteFile(cgroup, []byte(lxcCgroupContents), 0400)
-	c.Assert(err, gc.IsNil)
+	ft.File{"cgroup", lxcCgroupContents, 0400}.Create(c, baseDir)
 
 	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
 	supports, err := lxc.IsLXCSupported()
