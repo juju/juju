@@ -80,7 +80,7 @@ func IsLXCSupported() (bool, error) {
 
 	file, err := os.Open(initProcessCgroupFile)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 	defer file.Close()
 

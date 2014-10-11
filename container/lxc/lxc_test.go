@@ -575,7 +575,7 @@ func (s *LxcSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
 func (s *LxcSuite) TestIsLXCSupportedMissingCgroupFile(c *gc.C) {
 	s.PatchValue(lxc.InitProcessCgroupFile, "")
 	supports, err := lxc.IsLXCSupported()
-	c.Assert(os.IsNotExist(err), jc.IsTrue)
+	c.Assert(err.Error(), gc.Matches, "open : no such file or directory")
 	c.Assert(supports, jc.IsFalse)
 }
 
@@ -583,12 +583,11 @@ func (s *LxcSuite) TestIsLXCSupportedMalformedCgroupFile(c *gc.C) {
 	baseDir := c.MkDir()
 	cgroup := filepath.Join(baseDir, "cgroup")
 
-	err := ioutil.WriteFile(cgroup, []byte(malformedCgroupFile), 0400)
-	c.Assert(err, gc.IsNil)
+	ft.File{"cgroup", malformedCgroupFile, 0400}.Create(c, baseDir)
 
 	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
 	supports, err := lxc.IsLXCSupported()
-	c.Assert(err, gc.ErrorMatches, "Malformed cgroup file")
+	c.Assert(err.Error(), gc.Equals, "Malformed cgroup file")
 	c.Assert(supports, jc.IsFalse)
 }
 
