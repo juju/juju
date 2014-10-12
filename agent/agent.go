@@ -38,9 +38,6 @@ var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 // dataDir returns the default data directory for this running system
 var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
-// lockDir is the path on the filesystem to the locks directory
-var lockDir = paths.MustSucceed(paths.LockDir(version.Current.Series))
-
 // DefaultLogDir defines the default log directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
 var DefaultLogDir = path.Join(logDir, "juju")
@@ -48,9 +45,6 @@ var DefaultLogDir = path.Join(logDir, "juju")
 // DefaultDataDir defines the default data directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
 var DefaultDataDir = dataDir
-
-// DefaultLockDir is the default location where juju may create locks
-var DefaultLockDir = lockDir
 
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"

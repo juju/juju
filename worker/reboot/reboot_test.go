@@ -3,6 +3,7 @@ package reboot_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
@@ -76,6 +77,10 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	s.ctRebootState, err = ctState.Reboot()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
+
+	lock, err := fslock.NewLock(agent.DefaultLockDir, "fake")
+	c.Assert(err, gc.IsNil)
+	s.lock = lock
 }
 
 func (s *rebootSuite) TearDownTest(c *gc.C) {
@@ -83,14 +88,14 @@ func (s *rebootSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *rebootSuite) TestStartStop(c *gc.C) {
-	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
+	worker, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
 }
 
 func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()))
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, gc.IsNil)
@@ -98,9 +103,20 @@ func (s *rebootSuite) TestWorkerCatchesRebootEvent(c *gc.C) {
 }
 
 func (s *rebootSuite) TestContainerCatchesParentFlag(c *gc.C) {
-	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()))
+	wrk, err := reboot.NewReboot(s.ctRebootState, s.AgentConfigForTag(c, s.ct.Tag()), s.lock)
 	c.Assert(err, gc.IsNil)
 	err = s.rebootState.RequestReboot()
 	c.Assert(err, gc.IsNil)
 	c.Assert(wrk.Wait(), gc.Equals, worker.ErrShutdownMachine)
+}
+
+func (s *rebootSuite) TestCleanupIsDoneOnBoot(c *gc.C) {
+	s.lock.Lock(reboot.RebootMessage)
+
+	wrk, err := reboot.NewReboot(s.rebootState, s.AgentConfigForTag(c, s.machine.Tag()), s.lock)
+	c.Assert(err, gc.IsNil)
+	wrk.Kill()
+	c.Assert(wrk.Wait(), gc.IsNil)
+
+	c.Assert(s.lock.IsLocked(), jc.IsFalse)
 }
