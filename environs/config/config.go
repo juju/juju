@@ -36,6 +36,12 @@ const (
 	// port opened.
 	FwGlobal = "global"
 
+	// FwNone requests that no firewalling should be performed inside
+	// the environment. No firewaller worker will be started. It's
+	// useful for clouds without support for either global or per
+	// instance security groups.
+	FwNone = "none"
+
 	// DefaultStatePort is the default port the state server is listening on.
 	DefaultStatePort int = 37017
 
@@ -425,7 +431,9 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// Check firewall mode.
-	if mode := cfg.FirewallMode(); mode != FwInstance && mode != FwGlobal {
+	switch mode := cfg.FirewallMode(); mode {
+	case FwInstance, FwGlobal, FwNone:
+	default:
 		return fmt.Errorf("invalid firewall mode in environment configuration: %q", mode)
 	}
 
@@ -763,8 +771,8 @@ func (c *Config) AdminSecret() string {
 }
 
 // FirewallMode returns whether the firewall should
-// manage ports per machine or global
-// (FwInstance or FwGlobal)
+// manage ports per machine, globally, or not at all.
+// (FwInstance, FwGlobal, or FwNone).
 func (c *Config) FirewallMode() string {
 	return c.mustString("firewall-mode")
 }

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
+	apifirewaller "github.com/juju/juju/api/firewaller"
 	apimetricsmanager "github.com/juju/juju/api/metricsmanager"
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
@@ -457,6 +458,28 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 		"minunitsworker",
 		"resumer",
 	})
+}
+
+func (s *MachineSuite) TestManageEnvironDoesNotRunFirewallerWhenModeIsNone(c *gc.C) {
+	started := make(chan struct{}, 1)
+	s.agentSuite.PatchValue(&newFirewaller, func(st *apifirewaller.State) (worker.Worker, error) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+		c.Fatalf("firewaller worker unexpectedly started")
+	case <-time.After(coretesting.ShortWait):
+	}
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
