@@ -7,8 +7,8 @@ import (
 	"github.com/juju/names"
 )
 
-// ActionItem describes an Action that will be or has been queued up.
-type ActionItem struct {
+// Action describes an Action that will be or has been queued up.
+type Action struct {
 	Tag        names.ActionTag        `json:"tag"`
 	Name       string                 `json:"name"`
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
@@ -27,12 +27,12 @@ type ActionsByTag struct {
 	Actions []Actions `json:"actions,omitempty"`
 }
 
-// Actions is a bulk API call wrapper containing ActionItems, either as
+// Actions is a bulk API call wrapper containing Actions, either as
 // input paramters or as results.
 type Actions struct {
-	Error       *Error       `json:"error,omitempty"`
-	Receiver    names.Tag    `json:"receiver,omitempty"`
-	ActionItems []ActionItem `json:"actions,omitempty"`
+	Error    *Error    `json:"error,omitempty"`
+	Receiver names.Tag `json:"receiver,omitempty"`
+	Actions  []Action  `json:"actions,omitempty"`
 }
 
 // ActionTags are an array of ActionTag for bulk API calls
@@ -48,15 +48,15 @@ type ActionsQueryResults struct {
 
 // ActionsQueryResult holds the name and parameters of an query result.
 type ActionsQueryResult struct {
-	Error    *Error     `json:"error,omitempty"`
-	Receiver names.Tag  `json:"receiver,omitempty"`
-	Action   ActionItem `json:"result,omitempty"`
+	Error    *Error    `json:"error,omitempty"`
+	Receiver names.Tag `json:"receiver,omitempty"`
+	Action   Action    `json:"result,omitempty"`
 }
 
-// ActionsRequest wraps a slice of ActionItem's that represent Action
+// ActionsRequest wraps a slice of Action's that represent Action
 // definitions.
 type ActionsRequest struct {
-	Actions []ActionItem `json:"actions,omitempty"`
+	Actions []Action `json:"actions,omitempty"`
 }
 
 // ActionExecutionResults holds a slice of ActionExecutionResult for a

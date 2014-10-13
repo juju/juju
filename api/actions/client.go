@@ -31,7 +31,6 @@ func (c *Client) Enqueue(arg params.Actions) (params.ErrorResults, error) {
 // ListAll takes a list of Entities and returns all of the Actions that have been queued
 // or run by that Entity.
 func (c *Client) ListAll(arg params.Tags) (params.ActionsByTag, error) {
-	// TODO(jcw4) implement this fully
 	results := params.ActionsByTag{}
 	err := c.facade.FacadeCall("ListAll", arg, &results)
 	return results, err
@@ -39,18 +38,16 @@ func (c *Client) ListAll(arg params.Tags) (params.ActionsByTag, error) {
 
 // ListPending takes a list of Entities and returns all of the Actions that are queued for
 // that Entity.
-func (c *Client) ListPending(arg params.Entities) (params.Actions, error) {
-	// TODO(jcw4) implement this fully
-	results := params.Actions{}
+func (c *Client) ListPending(arg params.Entities) (params.ActionsByTag, error) {
+	results := params.ActionsByTag{}
 	err := c.facade.FacadeCall("ListPending", arg, &results)
 	return results, err
 }
 
 // ListCompleted takes a list of Entities and returns all of the Actions that have been
 // run on that Entity.
-func (c *Client) ListCompleted(arg params.Entities) (params.Actions, error) {
-	// TODO(jcw4) implement this fully
-	results := params.Actions{}
+func (c *Client) ListCompleted(arg params.Entities) (params.ActionsByTag, error) {
+	results := params.ActionsByTag{}
 	err := c.facade.FacadeCall("ListCompleted", arg, &results)
 	return results, err
 }

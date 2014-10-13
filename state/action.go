@@ -38,6 +38,9 @@ type ActionReceiver interface {
 	// Name returns the name that will be used to filter actions
 	// that are queued for this ActionReceiver.
 	Name() string
+
+	// Tag returns the names.Tag of the ActionReceiver.
+	Tag() names.Tag
 }
 
 var (
