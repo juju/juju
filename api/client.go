@@ -465,6 +465,7 @@ type CharmInfo struct {
 	URL      string
 	Config   *charm.Config
 	Meta     *charm.Meta
+	Actions  *charm.Actions
 }
 
 // CharmInfo returns information about the requested charm.
