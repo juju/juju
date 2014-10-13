@@ -1098,26 +1098,28 @@ type actions interface {
 func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 	var actionTests = []struct {
 		description string
-		action      params.Action
+		action      params.ActionResult
 	}{{
 		description: "A simple action.",
-		action: params.Action{
-			Name: "snapshot",
-			Parameters: map[string]interface{}{
-				"outfile": "foo.txt",
-			},
+		action: params.ActionResult{
+			Action: &params.Action{
+				Name: "snapshot",
+				Parameters: map[string]interface{}{
+					"outfile": "foo.txt",
+				}},
 		},
 	}, {
 		description: "An action with nested parameters.",
-		action: params.Action{
-			Name: "backup",
-			Parameters: map[string]interface{}{
-				"outfile": "foo.bz2",
-				"compression": map[string]interface{}{
-					"kind":    "bzip",
-					"quality": 5,
-				},
-			},
+		action: params.ActionResult{
+			Action: &params.Action{
+				Name: "backup",
+				Parameters: map[string]interface{}{
+					"outfile": "foo.bz2",
+					"compression": map[string]interface{}{
+						"kind":    "bzip",
+						"quality": 5,
+					},
+				}},
 		},
 	}}
 
@@ -1125,8 +1127,8 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 		c.Logf("test %d: %s", i, actionTest.description)
 
 		a, err := s.wordpressUnit.AddAction(
-			actionTest.action.Name,
-			actionTest.action.Parameters)
+			actionTest.action.Action.Name,
+			actionTest.action.Action.Parameters)
 		c.Assert(err, gc.IsNil)
 		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
