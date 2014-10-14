@@ -10,6 +10,7 @@ package state
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/errors"
@@ -112,6 +113,32 @@ func (st *State) User(tag names.UserTag) (*User, error) {
 		return nil, errors.Trace(err)
 	}
 	return user, nil
+}
+
+// User returns the state User for the given name,
+func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
+	var result []*User
+
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	query := bson.D{}
+	if !includeDeactivated {
+		query = append(query, bson.DocElem{"deactivated", false})
+	}
+	iter := users.Find(query).Iter()
+	defer iter.Close()
+
+	var doc userDoc
+	for iter.Next(&doc) {
+		result = append(result, &User{st: st, doc: doc})
+	}
+	if err := iter.Err(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Always return a predictable order, sort by Name.
+	sort.Sort(userList(result))
+	return result, nil
 }
 
 // User represents a local user in the database.
@@ -308,3 +335,10 @@ func (u *User) IsDeactivated() bool {
 	// never held around for a long time.
 	return u.doc.Deactivated
 }
+
+// userList type is used to provide the methods for sorting.
+type userList []*User
+
+func (u userList) Len() int           { return len(u) }
+func (u userList) Swap(i, j int)      { u[i], u[j] = u[j], u[i] }
+func (u userList) Less(i, j int) bool { return u[i].Name() < u[j].Name() }
