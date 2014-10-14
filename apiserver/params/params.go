@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
 
@@ -58,6 +60,22 @@ func (result ErrorResults) OneError() error {
 	}
 	if err := result.Results[0].Error; err != nil {
 		return err
+	}
+	return nil
+}
+
+// Combine returns one error from the result which is an accumulation of the
+// errors.  If there are no errors in the result, the return value is nil.
+// Otherwise the error values are combined with new-line characters.
+func (result ErrorResults) Combine() error {
+	var errorStrings []string
+	for _, r := range result.Results {
+		if r.Error != nil {
+			errorStrings = append(errorStrings, r.Error.Error())
+		}
+	}
+	if errorStrings != nil {
+		return errors.New(strings.Join(errorStrings, "\n"))
 	}
 	return nil
 }
@@ -779,8 +797,8 @@ type ReauthRequest struct {
 	Nonce  string `json:"nonce"`
 }
 
-// UserInfo describes a logged-in local user or remote identity.
-type UserInfo struct {
+// AuthUserInfo describes a logged-in local user or remote identity.
+type AuthUserInfo struct {
 	DisplayName    string     `json:"display-name"`
 	Identity       string     `json:"identity"`
 	LastConnection *time.Time `json:"last-connection,omitempty"`
@@ -806,7 +824,7 @@ type LoginResultV1 struct {
 	ReauthRequest *ReauthRequest `json:"reauth-request,omitempty"`
 
 	// UserInfo describes the authenticated user, if any.
-	UserInfo *UserInfo `json:"user-info,omitempty"`
+	UserInfo *AuthUserInfo `json:"user-info,omitempty"`
 
 	// Facades describes all the available API facade versions to the
 	// authenticated client.

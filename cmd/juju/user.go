@@ -48,5 +48,7 @@ func NewUserCommand() cmd.Command {
 	// (with tests in user_FOO_test.go) and wire in here.
 	usercmd.Register(envcmd.Wrap(&UserAddCommand{}))
 	usercmd.Register(envcmd.Wrap(&UserChangePasswordCommand{}))
+	usercmd.Register(envcmd.Wrap(&UserInfoCommand{}))
+	usercmd.Register(envcmd.Wrap(&DisableUserCommand{}))
 	return usercmd
 }

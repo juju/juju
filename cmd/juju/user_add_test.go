@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/juju/names"
 	"io/ioutil"
 	"path/filepath"
 
@@ -178,14 +179,14 @@ type mockAddUserAPI struct {
 	password    string
 }
 
-func (m *mockAddUserAPI) AddUser(username, displayname, password string) error {
+func (m *mockAddUserAPI) AddUser(username, displayname, password string) (names.UserTag, error) {
 	m.username = username
 	m.displayname = displayname
 	m.password = password
 	if m.failMessage == "" {
-		return nil
+		return names.NewLocalUserTag(username), nil
 	}
-	return errors.New(m.failMessage)
+	return names.UserTag{}, errors.New(m.failMessage)
 }
 
 func (*mockAddUserAPI) Close() error {
