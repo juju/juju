@@ -752,22 +752,13 @@ func (u *uniterBaseAPI) FinishActions(args params.ActionExecutionResults) (param
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		var status state.ActionStatus
-		switch arg.Status {
-		case "complete":
-			status = state.ActionCompleted
-		case "fail":
-			status = state.ActionFailed
-		default:
-			results.Results[i].Error = common.ServerError(errors.Errorf("unrecognized action status '%s'", arg.Status))
+		actionResults, err := paramsActionExecutionResultsToStateActionResults(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		actionResults := state.ActionResults{
-			Status:  status,
-			Results: arg.Results,
-			Message: arg.Message,
-		}
-		err = action.Finish(actionResults)
+
+		_, err = action.Finish(actionResults)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -775,6 +766,29 @@ func (u *uniterBaseAPI) FinishActions(args params.ActionExecutionResults) (param
 	}
 
 	return results, nil
+}
+
+// paramsActionExecutionResultsToStateActionResults does exactly what
+// the name implies.
+func paramsActionExecutionResultsToStateActionResults(arg params.ActionExecutionResult) (state.ActionResults, error) {
+	var status state.ActionStatus
+	switch arg.Status {
+	case params.ActionCancelled:
+		status = state.ActionCancelled
+	case params.ActionCompleted:
+		status = state.ActionCompleted
+	case params.ActionFailed:
+		status = state.ActionFailed
+	case params.ActionPending:
+		status = state.ActionPending
+	default:
+		return state.ActionResults{}, errors.Errorf("unrecognized action status '%s'", arg.Status)
+	}
+	return state.ActionResults{
+		Status:  status,
+		Results: arg.Results,
+		Message: arg.Message,
+	}, nil
 }
 
 // RelationById returns information about all given relations,
