@@ -197,11 +197,11 @@ func (s *loginV0Suite) TestLoginSetsLogIdentifier(c *gc.C) {
 			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
-		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
+		// [0-9.µmns] is to handle timestamps that are ns, µs, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":2,"Response":.*} Admin\[""\].Login`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.µmns]+ {"RequestId":2,"Response":.*} Admin\[""\].Login`,
 		`<- \[[0-9A-F]+\] machine-0 {"RequestId":3,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.umns]+ {"RequestId":3,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.µmns]+ {"RequestId":3,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
 }
 
