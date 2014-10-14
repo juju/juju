@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/actions"
 	"github.com/juju/juju/apiserver/common"
@@ -35,6 +36,7 @@ type actionsSuite struct {
 	charm         *state.Charm
 	machine0      *state.Machine
 	machine1      *state.Machine
+	dummy         *state.Service
 	wordpress     *state.Service
 	mysql         *state.Service
 	wordpressUnit *state.Unit
@@ -59,6 +61,13 @@ func (s *actionsSuite) SetUpTest(c *gc.C) {
 		Name: "wordpress",
 	})
 
+	s.dummy = factory.MakeService(c, &jujuFactory.ServiceParams{
+		Name: "dummy",
+		Charm: factory.MakeCharm(c, &jujuFactory.CharmParams{
+			Name: "dummy",
+		}),
+		Creator: s.AdminUserTag(c),
+	})
 	s.wordpress = factory.MakeService(c, &jujuFactory.ServiceParams{
 		Name:    "wordpress",
 		Charm:   s.charm,
@@ -480,6 +489,79 @@ func (s *actionsSuite) TestCancel(c *gc.C) {
 	c.Assert(myActions[1].Action.Name, gc.Equals, "my-one")
 	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
 
+}
+
+func (s *actionsSuite) TestServicesCharmActions(c *gc.C) {
+	actionSchemas := map[string]map[string]interface{}{
+		"outfile": map[string]interface{}{
+			"outfile": map[string]interface{}{
+				"description": "The file to write out to.",
+				"type":        "string",
+				"default":     "foo.bz2",
+			},
+		},
+	}
+	tests := []struct {
+		serviceNames    []string
+		expectedResults params.ServicesCharmActions
+	}{{
+		serviceNames: []string{"dummy"},
+		expectedResults: params.ServicesCharmActions{
+			[]params.ServiceCharmActions{
+				params.ServiceCharmActions{
+					ServiceTag: names.NewServiceTag("dummy"),
+					Actions: &charm.Actions{
+						ActionSpecs: map[string]charm.ActionSpec{
+							"snapshot": charm.ActionSpec{
+								Description: "Take a snapshot of the database.",
+								Params:      actionSchemas["outfile"],
+							},
+						},
+					},
+				},
+			},
+		},
+	}, {
+		serviceNames: []string{"wordpress"},
+		expectedResults: params.ServicesCharmActions{
+			[]params.ServiceCharmActions{
+				params.ServiceCharmActions{
+					ServiceTag: names.NewServiceTag("wordpress"),
+					Actions:    &charm.Actions{},
+				},
+			},
+		},
+	}, {
+		serviceNames: []string{"nonsense"},
+		expectedResults: params.ServicesCharmActions{
+			[]params.ServiceCharmActions{
+				params.ServiceCharmActions{
+					ServiceTag: names.NewServiceTag("nonsense"),
+					Error: &params.Error{
+						Message: `service "nonsense" not found`,
+						Code:    "not found",
+					},
+				},
+			},
+		},
+	}}
+
+	for i, t := range tests {
+		c.Logf("test %d: services: %#v", i, t.serviceNames)
+
+		svcTags := params.ServiceTags{
+			ServiceTags: make([]names.ServiceTag, len(t.serviceNames)),
+		}
+
+		for j, svc := range t.serviceNames {
+			svcTag := names.NewServiceTag(svc)
+			svcTags.ServiceTags[j] = svcTag
+		}
+
+		results, err := s.actions.ServicesCharmActions(svcTags)
+		c.Assert(err, gc.IsNil)
+		c.Check(results.Results, jc.DeepEquals, t.expectedResults.Results)
+	}
 }
 
 func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v4"
 
@@ -533,6 +534,11 @@ func (i *MachineInfo) EntityId() EntityId {
 		Kind: "machine",
 		Id:   i.Id,
 	}
+}
+
+// ServiceTags encapsulates a slice of names.ServiceTag.
+type ServiceTags struct {
+	ServiceTags []names.ServiceTag `json:"servicetags,omitempty"`
 }
 
 type ServiceInfo struct {

@@ -5,6 +5,7 @@ package params
 
 import (
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4"
 )
 
 const (
@@ -101,4 +102,18 @@ type ActionExecutionResult struct {
 	Status    string                 `json:"status"`
 	Results   map[string]interface{} `json:"results,omitempty"`
 	Message   string                 `json:"message,omitempty"`
+}
+
+// ServicesCharmActions holds a slice of ServiceCharmActions for a bulk result
+type ServicesCharmActions struct {
+	Results []ServiceCharmActions `json:"results,omitempty"`
+}
+
+// ServiceCharmActions holds service name and charm.Actions for the service.
+// If an error such as a missing charm or malformed service name occurs, it
+// is encapsulated in this type.
+type ServiceCharmActions struct {
+	ServiceTag names.ServiceTag `json:"servicetag,omitempty"`
+	Actions    *charm.Actions   `json:"charmactions,omitempty"`
+	Error      *Error           `json:"error,omitempty"`
 }
