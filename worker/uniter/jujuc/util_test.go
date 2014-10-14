@@ -12,11 +12,11 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -81,7 +81,7 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	ports         set.Strings
+	ports         []network.PortRange
 	relid         int
 	remote        string
 	rels          map[int]*ContextRelation
@@ -110,21 +110,33 @@ func (c *Context) PrivateAddress() (string, bool) {
 }
 
 func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
-	if fromPort == toPort {
-		c.ports.Add(fmt.Sprintf("%d/%s", fromPort, protocol))
-	} else {
-		c.ports.Add(fmt.Sprintf("%d-%d/%s", fromPort, toPort, protocol))
-	}
+	c.ports = append(c.ports, network.PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	})
+	network.SortPortRanges(c.ports)
 	return nil
 }
 
 func (c *Context) ClosePorts(protocol string, fromPort, toPort int) error {
-	if fromPort == toPort {
-		c.ports.Remove(fmt.Sprintf("%d/%s", fromPort, protocol))
-	} else {
-		c.ports.Remove(fmt.Sprintf("%d-%d/%s", fromPort, toPort, protocol))
+	portRange := network.PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
 	}
+	for i, port := range c.ports {
+		if port == portRange {
+			c.ports = append(c.ports[:i], c.ports[i+1:]...)
+			break
+		}
+	}
+	network.SortPortRanges(c.ports)
 	return nil
+}
+
+func (c *Context) OpenedPorts() []network.PortRange {
+	return c.ports
 }
 
 func (c *Context) ConfigSettings() (charm.Settings, error) {

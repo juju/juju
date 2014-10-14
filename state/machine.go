@@ -44,14 +44,16 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
+	JobManageNetworking
 
 	// Deprecated in 1.18.
 	JobManageStateDeprecated
 )
 
 var jobNames = map[MachineJob]params.MachineJob{
-	JobHostUnits:     params.JobHostUnits,
-	JobManageEnviron: params.JobManageEnviron,
+	JobHostUnits:        params.JobHostUnits,
+	JobManageEnviron:    params.JobManageEnviron,
+	JobManageNetworking: params.JobManageNetworking,
 
 	// Deprecated in 1.18.
 	JobManageStateDeprecated: params.JobManageStateDeprecated,
@@ -59,7 +61,11 @@ var jobNames = map[MachineJob]params.MachineJob{
 
 // AllJobs returns all supported machine jobs.
 func AllJobs() []MachineJob {
-	return []MachineJob{JobHostUnits, JobManageEnviron}
+	return []MachineJob{
+		JobHostUnits,
+		JobManageEnviron,
+		JobManageNetworking,
+	}
 }
 
 // ToParams returns the job as params.MachineJob.
@@ -636,6 +642,7 @@ func (m *Machine) Remove() (err error) {
 		removeConstraintsOp(m.st, m.globalKey()),
 		removeRequestedNetworksOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
+		removeRebootDocOps(m.globalKey()),
 	}
 	ifacesOps, err := m.removeNetworkInterfacesOps()
 	if err != nil {

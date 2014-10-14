@@ -68,18 +68,18 @@ type ActionResult struct {
 	doc actionResultDoc
 }
 
-// Id returns the local id of the ActionResult
+// Id returns the local id of the ActionResult.
 func (a *ActionResult) Id() string {
 	return a.st.localID(a.doc.DocId)
 }
 
 // Receiver  returns the Name of the ActionReceiver for which this action
-// is enqueued.  Usually this is a Unit Name()
+// is enqueued.  Usually this is a Unit Name().
 func (a *ActionResult) Receiver() string {
 	return a.doc.Receiver
 }
 
-// Sequence returns the unique suffix of the ActionResult _id
+// Sequence returns the unique suffix of the ActionResult _id.
 func (a *ActionResult) Sequence() int {
 	return a.doc.Sequence
 }
@@ -106,15 +106,22 @@ func (a *ActionResult) Results() (map[string]interface{}, string) {
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
-// is a names.ActionResultTag
+// is a names.ActionResultTag.
 func (a *ActionResult) Tag() names.Tag {
 	return a.ActionResultTag()
 }
 
 // ActionResultTag returns an ActionResultTag constructed from this
-// actionResult's Prefix and Sequence
+// actionResult's Prefix and Sequence.
 func (a *ActionResult) ActionResultTag() names.ActionResultTag {
 	return names.NewActionResultTag(a.Id())
+}
+
+// ActionTag returns the ActionTag for the Action that this ActionResult
+// is for.
+func (a *ActionResult) ActionTag() names.ActionTag {
+	ar := a.ActionResultTag()
+	return names.JoinActionTag(ar.Prefix(), ar.Sequence())
 }
 
 // newActionResult builds an ActionResult from the supplied state and
@@ -171,4 +178,17 @@ func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
+}
+
+// ensureActionResultMarker makes sure that the provided string has the
+// action result marker token at the end of the string.
+var ensureActionResultMarker = ensureSuffixFn(actionResultMarker)
+
+// actionResultIdFromTag converts an ActionTag to an actionResultId.
+func actionResultIdFromTag(tag names.ActionTag) string {
+	ptag := tag.PrefixTag()
+	if ptag == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%d", ensureActionResultMarker(ptag.Id()), tag.Sequence())
 }

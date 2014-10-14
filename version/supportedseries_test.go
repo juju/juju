@@ -37,9 +37,8 @@ var getOSFromSeriesTests = []struct {
 	series: "win2012r2",
 	want:   version.Windows,
 }, {
-	// GetOSFromSeries only supports Ubuntu and Windows.
 	series: "mountainlion",
-	err:    `invalid series "mountainlion"`,
+	want:   version.OSX,
 }}
 
 func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {

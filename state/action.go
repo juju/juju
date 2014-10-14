@@ -10,12 +10,14 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// ActionReceiver describes objects that can have actions queued for them, and
+// ActionReceiver describes Entities that can have Actions queued for them, and
 // that can get ActionRelated information about those actions.
 // TODO(jcw4) consider implementing separate Actor classes for this interface;
 // for example UnitActor that implements this interface, and takes a Unit and
 // performs all these actions.
 type ActionReceiver interface {
+	Entity
+
 	// AddAction queues an action with the given name and payload for this
 	// ActionReceiver.
 	AddAction(name string, payload map[string]interface{}) (*Action, error)

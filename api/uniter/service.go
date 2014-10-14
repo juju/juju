@@ -24,6 +24,11 @@ type Service struct {
 	life params.Life
 }
 
+// Tag returns the service's tag.
+func (s *Service) Tag() names.ServiceTag {
+	return s.tag
+}
+
 // Name returns the service name.
 func (s *Service) Name() string {
 	return s.tag.Id()
@@ -109,19 +114,46 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	return nil, false, fmt.Errorf("%q has no charm url set", s.tag)
 }
 
-// TODO(dimitern) bug #1270795 2014-01-20
-// Add a doc comment here.
-func (s *Service) GetOwnerTag() (string, error) {
+// OwnerTag returns the service's owner user tag.
+func (s *Service) OwnerTag() (names.UserTag, error) {
+	if s.st.BestAPIVersion() > 0 {
+		return s.serviceOwnerTag()
+	}
+	return s.ownerTag()
+}
+
+func (s *Service) serviceOwnerTag() (names.UserTag, error) {
+	var invalidTag names.UserTag
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.tag.String()}},
+	}
+	err := s.st.facade.FacadeCall("ServiceOwner", args, &results)
+	if err != nil {
+		return invalidTag, err
+	}
+	if len(results.Results) != 1 {
+		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return invalidTag, result.Error
+	}
+	return names.ParseUserTag(result.Result)
+}
+
+func (s *Service) ownerTag() (names.UserTag, error) {
+	var invalidTag names.UserTag
 	var result params.StringResult
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.facade.FacadeCall("GetOwnerTag", args, &result)
 	if err != nil {
-		return "", err
+		return invalidTag, err
 	}
 	if result.Error != nil {
-		return "", result.Error
+		return invalidTag, result.Error
 	}
-	return result.Result, nil
+	return names.ParseUserTag(result.Result)
 }

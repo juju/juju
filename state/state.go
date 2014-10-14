@@ -66,6 +66,7 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
+	rebootC            = "reboot"
 
 	// meterStatusC is the collection used to store meter status information.
 	meterStatusC = "meterStatus"
@@ -605,9 +606,9 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag names.Tag) (string, string, error) {
+func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 	if tag == nil {
-		return "", "", errors.Errorf("tag is nil")
+		return "", nil, errors.Errorf("tag is nil")
 	}
 	coll := ""
 	id := tag.Id()
@@ -623,7 +624,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
-			return "", "", fmt.Errorf("%q is not a local user", tag.Username())
+			return "", nil, fmt.Errorf("%q is not a local user", tag.Username())
 		}
 		id = tag.Name()
 	case names.RelationTag:
@@ -636,7 +637,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 		coll = actionsC
 		id = actionIdFromTag(tag)
 	default:
-		return "", "", errors.Errorf("%q is not a valid collection tag", tag)
+		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}
 	return coll, id, nil
 }
@@ -1639,6 +1640,11 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 		return nil, errors.Annotatef(err, "cannot get actionresult %q", id)
 	}
 	return newActionResult(st, doc), nil
+}
+
+// ActionResultByTag returns an ActionResult given an ActionTag
+func (st *State) ActionResultByTag(tag names.ActionTag) (*ActionResult, error) {
+	return st.ActionResult(actionResultIdFromTag(tag))
 }
 
 // matchingActionResults finds action results from a given ActionReceiver.

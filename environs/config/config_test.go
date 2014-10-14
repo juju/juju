@@ -782,6 +782,15 @@ var configTests = []configTest{
 			"provisioner-harvest-mode": config.HarvestNone.String(),
 		},
 	},
+	{
+		about:       "Explicit apt-mirror",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"apt-mirror": "http://my.archive.ubuntu.com",
+		},
+	},
 }
 
 // authTokenConfigTest returns a config test that checks

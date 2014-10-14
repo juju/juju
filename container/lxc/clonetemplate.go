@@ -52,6 +52,7 @@ func templateUserData(
 	series string,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
+	aptMirror string,
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
 ) ([]byte, error) {
@@ -63,7 +64,7 @@ func templateUserData(
 	if enablePackageUpdates {
 		cloudinit.MaybeAddCloudArchiveCloudTools(config, series)
 	}
-	cloudinit.AddAptCommands(aptProxy, config, enablePackageUpdates, enableOSUpgrades)
+	cloudinit.AddAptCommands(aptProxy, aptMirror, config, enablePackageUpdates, enableOSUpgrades)
 	config.AddScripts(
 		fmt.Sprintf(
 			"printf '%%s\n' %s > %s",
@@ -104,6 +105,7 @@ func EnsureCloneTemplate(
 	network *container.NetworkConfig,
 	authorizedKeys string,
 	aptProxy proxy.Settings,
+	aptMirror string,
 	enablePackageUpdates bool,
 	enableOSUpgrades bool,
 ) (golxc.Container, error) {
@@ -131,6 +133,7 @@ func EnsureCloneTemplate(
 		series,
 		authorizedKeys,
 		aptProxy,
+		aptMirror,
 		enablePackageUpdates,
 		enableOSUpgrades,
 	)

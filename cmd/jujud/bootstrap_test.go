@@ -170,7 +170,9 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 	if len(jobs) == 0 {
 		// Add default jobs.
 		jobs = []params.MachineJob{
-			params.JobManageEnviron, params.JobHostUnits,
+			params.JobManageEnviron,
+			params.JobHostUnits,
+			params.JobManageNetworking,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -321,7 +323,9 @@ func uint64p(v uint64) *uint64 {
 
 func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
-		state.JobManageEnviron, state.JobHostUnits,
+		state.JobManageEnviron,
+		state.JobHostUnits,
+		state.JobManageNetworking,
 	}
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)

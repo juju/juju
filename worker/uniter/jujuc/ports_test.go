@@ -5,10 +5,13 @@
 package jujuc_test
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/juju/cmd"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
@@ -21,18 +24,47 @@ var _ = gc.Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
-	expect set.Strings
+	expect []network.PortRange
 }{
-	{[]string{"open-port", "80"}, set.NewStrings("80/tcp")},
-	{[]string{"open-port", "99/tcp"}, set.NewStrings("80/tcp", "99/tcp")},
-	{[]string{"open-port", "100-200"}, set.NewStrings("80/tcp", "99/tcp", "100-200/tcp")},
-	{[]string{"open-port", "443/udp"}, set.NewStrings("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
-	{[]string{"close-port", "80/TCP"}, set.NewStrings("99/tcp", "100-200/tcp", "443/udp")},
-	{[]string{"close-port", "100-200/tcP"}, set.NewStrings("99/tcp", "443/udp")},
-	{[]string{"close-port", "443"}, set.NewStrings("99/tcp", "443/udp")},
-	{[]string{"close-port", "443/udp"}, set.NewStrings("99/tcp")},
-	{[]string{"open-port", "123/udp"}, set.NewStrings("99/tcp", "123/udp")},
-	{[]string{"close-port", "9999/UDP"}, set.NewStrings("99/tcp", "123/udp")},
+	{[]string{"open-port", "80"}, makeRanges("80/tcp")},
+	{[]string{"open-port", "99/tcp"}, makeRanges("80/tcp", "99/tcp")},
+	{[]string{"open-port", "100-200"}, makeRanges("80/tcp", "99/tcp", "100-200/tcp")},
+	{[]string{"open-port", "443/udp"}, makeRanges("80/tcp", "99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "80/TCP"}, makeRanges("99/tcp", "100-200/tcp", "443/udp")},
+	{[]string{"close-port", "100-200/tcP"}, makeRanges("99/tcp", "443/udp")},
+	{[]string{"close-port", "443"}, makeRanges("99/tcp", "443/udp")},
+	{[]string{"close-port", "443/udp"}, makeRanges("99/tcp")},
+	{[]string{"open-port", "123/udp"}, makeRanges("99/tcp", "123/udp")},
+	{[]string{"close-port", "9999/UDP"}, makeRanges("99/tcp", "123/udp")},
+}
+
+func makeRanges(stringRanges ...string) []network.PortRange {
+	var results []network.PortRange
+	for _, s := range stringRanges {
+		if strings.Contains(s, "-") {
+			parts := strings.Split(s, "-")
+			fromPort, _ := strconv.Atoi(parts[0])
+			parts = strings.Split(parts[1], "/")
+			toPort, _ := strconv.Atoi(parts[0])
+			proto := parts[1]
+			results = append(results, network.PortRange{
+				FromPort: fromPort,
+				ToPort:   toPort,
+				Protocol: proto,
+			})
+		} else {
+			parts := strings.Split(s, "/")
+			port, _ := strconv.Atoi(parts[0])
+			proto := parts[1]
+			results = append(results, network.PortRange{
+				FromPort: port,
+				ToPort:   port,
+				Protocol: proto,
+			})
+		}
+	}
+	network.SortPortRanges(results)
+	return results
 }
 
 func (s *PortsSuite) TestOpenClose(c *gc.C) {

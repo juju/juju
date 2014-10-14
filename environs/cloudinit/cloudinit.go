@@ -139,6 +139,10 @@ type MachineConfig struct {
 	// for apt, which may or may not be the same as the normal ProxySettings.
 	AptProxySettings proxy.Settings
 
+	// AptMirror defines an APT mirror location, which, if specified, will
+	// override the default APT sources.
+	AptMirror string
+
 	// PreferIPv6 mirrors the value of prefer-ipv6 environment setting
 	// and when set IPv6 addresses for connecting to the API/state
 	// servers will be preferred over IPv4 ones.
@@ -178,9 +182,10 @@ const NonceFile = "nonce.txt"
 
 // AddAptCommands update the cloudinit.Config instance with the necessary
 // packages, the request to do the apt-get update/upgrade on boot, and adds
-// the apt proxy settings if there are any.
+// the apt proxy and mirror settings if there are any.
 func AddAptCommands(
 	proxySettings proxy.Settings,
+	aptMirror string,
 	c *cloudinit.Config,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
@@ -189,6 +194,9 @@ func AddAptCommands(
 	if c == nil {
 		panic("c is nil")
 	}
+
+	// Set the APT mirror.
+	c.SetAptMirror(aptMirror)
 
 	// Bring packages up-to-date.
 	c.SetAptUpdate(addUpdateScripts)

@@ -152,26 +152,6 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 	c.Assert(err, gc.IsNil)
 }
 
-type MongoIPV6Suite struct {
-	coretesting.BaseSuite
-}
-
-var _ = gc.Suite(&MongoIPV6Suite{})
-
-func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
-	c.Skip("Skipping test until mgo issue 22 is fixed")
-
-	root := newServer(c)
-	defer root.Destroy()
-	// Note: we use the ::1:port format because mongo doesn't understand
-	// [::1]:port
-	getAddr := func(inst *gitjujutesting.MgoInstance) string {
-		return fmt.Sprintf("::1:%v", inst.Port())
-	}
-	dialAndTestInitiate(c, root, getAddr(root))
-	assertAddRemoveSet(c, root, getAddr)
-}
-
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return inst.Addr()
@@ -425,4 +405,47 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 func closeEnough(expected, obtained time.Time) bool {
 	t := obtained.Sub(expected)
 	return (-500*time.Millisecond) < t && t < (500*time.Millisecond)
+}
+
+func ipv6GetAddr(inst *gitjujutesting.MgoInstance) string {
+	return fmt.Sprintf("[::1]:%v", inst.Port())
+}
+
+type MongoIPV6Suite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&MongoIPV6Suite{})
+
+func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
+	c.Skip("Skipping test until mgo issue 22 is fixed")
+
+	root := newServer(c)
+	defer root.Destroy()
+	dialAndTestInitiate(c, root, ipv6GetAddr(root))
+	assertAddRemoveSet(c, root, ipv6GetAddr)
+}
+
+func (s *MongoIPV6Suite) TestAddressFixing(c *gc.C) {
+	root := newServer(c)
+	defer root.Destroy()
+	dialAndTestInitiate(c, root, ipv6GetAddr(root))
+	session := root.MustDial()
+	defer session.Close()
+
+	status, err := CurrentStatus(session)
+	c.Assert(err, gc.IsNil)
+	c.Check(len(status.Members), jc.DeepEquals, 1)
+	c.Check(status.Members[0].Address, gc.Equals, ipv6GetAddr(root))
+
+	cfg, err := CurrentConfig(session)
+	c.Assert(err, gc.IsNil)
+	c.Check(len(cfg.Members), jc.DeepEquals, 1)
+	c.Check(cfg.Members[0].Address, gc.Equals, ipv6GetAddr(root))
+
+	result, err := IsMaster(session)
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Address, gc.Equals, ipv6GetAddr(root))
+	c.Check(result.PrimaryAddress, gc.Equals, ipv6GetAddr(root))
+	c.Check(result.Addresses, jc.DeepEquals, []string{ipv6GetAddr(root)})
 }

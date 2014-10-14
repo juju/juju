@@ -46,6 +46,9 @@ const (
 	// workloads in the future, we'll need to move these into a file that is
 	// compiled conditionally for different targets and use tcp (most likely).
 	RunListenerFile = "run.socket"
+
+	// interval at which the unit's metrics should be collected
+	metricsPollInterval = 5 * time.Minute
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -56,20 +59,33 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
+// collectMetricsTimer returns a channel that will signal the collect metrics hook
+// as close to metricsPollInterval after the last run as possible.
+func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
+	waitDuration := interval - now.Sub(lastRun)
+	logger.Debugf("waiting for %v", waitDuration)
+	return time.After(waitDuration)
+}
+
+// collectMetricsAt defines a function that will be used to generate signals
+// for the collect-metrics hook. It will be replaced in tests.
+var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time = collectMetricsTimer
+
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb          tomb.Tomb
-	st            *uniter.State
-	f             *filter
-	unit          *uniter.Unit
-	service       *uniter.Service
-	relationers   map[int]*Relationer
-	relationHooks chan hook.Info
-	uuid          string
-	envName       string
+	tomb               tomb.Tomb
+	st                 *uniter.State
+	f                  *filter
+	unit               *uniter.Unit
+	assignedMachineTag names.MachineTag
+	service            *uniter.Service
+	relationers        map[int]*Relationer
+	relationHooks      chan hook.Info
+	uuid               string
+	envName            string
 
 	dataDir      string
 	baseDir      string
@@ -87,6 +103,7 @@ type Uniter struct {
 	proxyMutex sync.Mutex
 
 	ranConfigChanged bool
+
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
@@ -95,7 +112,7 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fslock.Lock) *Uniter {
+func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
 		st:       st,
 		dataDir:  dataDir,
@@ -108,7 +125,7 @@ func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fsloc
 	return u
 }
 
-func (u *Uniter) loop(unitTag string) (err error) {
+func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 	if err := u.init(unitTag); err != nil {
 		if err == worker.ErrTerminateAgent {
 			return err
@@ -178,12 +195,8 @@ func (u *Uniter) sockPath(name, prefix string) string {
 	}
 }
 
-func (u *Uniter) init(unitTag string) (err error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return err
-	}
-	u.unit, err = u.st.Unit(tag)
+func (u *Uniter) init(unitTag names.UnitTag) (err error) {
+	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
 		return err
 	}
@@ -194,23 +207,23 @@ func (u *Uniter) init(unitTag string) (err error) {
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
 	}
+	u.assignedMachineTag, err = u.unit.AssignedMachine()
+	if err != nil {
+		return err
+	}
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag)
+	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag.String())
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}
-	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag)
+	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag.String())
 	u.relationsDir = filepath.Join(u.baseDir, "state", "relations")
 	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
-	serviceTag, err := names.ParseServiceTag(u.unit.ServiceTag())
-	if err != nil {
-		return err
-	}
-	u.service, err = u.st.Service(serviceTag)
+	u.service, err = u.st.Service(u.unit.ServiceTag())
 	if err != nil {
 		return err
 	}
@@ -272,14 +285,24 @@ func (u *Uniter) Dead() <-chan struct{} {
 // writeState saves uniter state with the supplied values, and infers the appropriate
 // value of Started.
 func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
-	s := State{
-		Started:  op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
-		Op:       op,
-		OpStep:   step,
-		Hook:     hi,
-		CharmURL: url,
+	var collectMetricsTime int64 = 0
+	if hi != nil && hi.Kind == hooks.CollectMetrics && step == Done {
+		// update collectMetricsTime if the collect-metrics hook was run
+		collectMetricsTime = time.Now().Unix()
+	} else if u.s != nil {
+		// or preserve existing value
+		collectMetricsTime = u.s.CollectMetricsTime
 	}
-	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL); err != nil {
+
+	s := State{
+		Started:            op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
+		Op:                 op,
+		OpStep:             step,
+		Hook:               hi,
+		CharmURL:           url,
+		CollectMetricsTime: collectMetricsTime,
+	}
+	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL, s.CollectMetricsTime); err != nil {
 		return err
 	}
 	u.s = &s
@@ -360,7 +383,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	if err != nil {
 		return nil, err
 	}
-	ownerTag, err := u.service.GetOwnerTag()
+	ownerTag, err := u.service.OwnerTag()
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +408,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 
 	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		canAddMetrics, actionData)
+		canAddMetrics, actionData, u.assignedMachineTag)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -673,7 +696,7 @@ func (u *Uniter) currentHookName() string {
 // working around the fact that pre-1.19 (1.18.1?) unit agents don't write a
 // state dir for a relation until a remote unit joins.
 func (u *Uniter) getJoinedRelations() (map[int]*uniter.Relation, error) {
-	var joinedRelationTags []string
+	var joinedRelationTags []names.RelationTag
 	for {
 		var err error
 		joinedRelationTags, err = u.unit.JoinedRelations()

@@ -42,7 +42,9 @@ var _ = gc.Suite(&cloudinitSuite{})
 var envConstraints = constraints.MustParse("mem=2G")
 
 var allMachineJobs = []params.MachineJob{
-	params.JobManageEnviron, params.JobHostUnits,
+	params.JobManageEnviron,
+	params.JobHostUnits,
+	params.JobManageNetworking,
 }
 var normalMachineJobs = []params.MachineJob{
 	params.JobHostUnits,
@@ -1045,6 +1047,32 @@ export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:u
 		}
 	}
 	c.Assert(found, jc.IsTrue)
+}
+
+func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"apt-mirror": "http://my.archive.ubuntu.com/ubuntu",
+	})
+	c.Assert(err, gc.IsNil)
+	s.testAptMirror(c, environConfig, "http://my.archive.ubuntu.com/ubuntu")
+}
+
+func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
+	environConfig := minimalConfig(c)
+	s.testAptMirror(c, environConfig, "")
+}
+
+func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
+	machineCfg := s.createMachineConfig(c, cfg)
+	cloudcfg := coreCloudinit.New()
+	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.Configure()
+	c.Assert(err, gc.IsNil)
+	mirror, ok := cloudcfg.AptMirror()
+	c.Assert(mirror, gc.Equals, expect)
+	c.Assert(ok, gc.Equals, expect != "")
 }
 
 var serverCert = []byte(`

@@ -8,7 +8,11 @@ import (
 	"github.com/juju/juju/api/base/testing"
 )
 
-var NewSettings = newSettings
+var (
+	NewSettings = newSettings
+	NewStateV0  = newStateV0
+	NewStateV1  = newStateV1
+)
 
 // PatchResponses changes the internal FacadeCaller to one that lets you return
 // canned results. The responseFunc will get the 'response' interface object,

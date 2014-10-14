@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils/set"
@@ -496,3 +497,4 @@ func (r mockAR) WatchActionResults() state.StringsWatcher      { return nil }
 func (r mockAR) Actions() ([]*state.Action, error)             { return nil, nil }
 func (r mockAR) ActionResults() ([]*state.ActionResult, error) { return nil, nil }
 func (r mockAR) Name() string                                  { return r.id }
+func (r mockAR) Tag() names.Tag                                { return nil }

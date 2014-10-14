@@ -60,7 +60,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		Version: 1,
 		Members: []Member{{
 			Id:      1,
-			Address: address,
+			Address: fixIpv6Address(address),
 			Tags:    tags,
 		}},
 	}
@@ -148,31 +148,38 @@ func fmtConfigForLog(config *Config) string {
 		config.Name, config.Version, strings.Join(memberInfo, ", "))
 }
 
-// applyRelSetConfig applies the new config to the mongo session. It also logs
+// applyReplSetConfig applies the new config to the mongo session. It also logs
 // what the changes are. It checks if the replica set changes cause the DB
 // connection to be dropped. If so, it Refreshes the session and tries to Ping
 // again.
-func applyRelSetConfig(cmd string, session *mgo.Session, oldconfig, newconfig *Config) error {
+func applyReplSetConfig(cmd string, session *mgo.Session, oldconfig, newconfig *Config) error {
 	logger.Debugf("%s() changing replica set\nfrom %s\n  to %s",
 		cmd, fmtConfigForLog(oldconfig), fmtConfigForLog(newconfig))
+
+	// newConfig here is internal and safe to mutate
+	for index, member := range newconfig.Members {
+		newconfig.Members[index].Address = fixIpv6Address(member.Address)
+	}
 	err := session.Run(bson.D{{"replSetReconfig", newconfig}}, nil)
+	if err == io.EOF {
+		// If the primary changes due to replSetReconfig, then all
+		// current connections are dropped.
+		// Refreshing should fix us up.
+		logger.Debugf("got EOF while running %s(), calling session.Refresh()", cmd)
+		session.Refresh()
+	} else if err != nil {
+		// For all errors that aren't EOF, return immediately
+		return err
+	}
+	err = nil
 	// We will only try to Ping 2 times
 	for i := 0; i < 2; i++ {
-		if err == io.EOF {
-			// If the primary changes due to replSetReconfig, then all
-			// current connections are dropped.
-			// Refreshing should fix us up.
-			logger.Debugf("got EOF while running %s(), calling session.Refresh()", cmd)
-			session.Refresh()
-		} else if err != nil {
-			// For all errors that aren't EOF, return immediately
-			return err
-		}
-		// err is either nil or EOF and we called Refresh, so Ping to
+		// err was either nil, or EOF and we called Refresh, so Ping to
 		// make sure we're actually connected
 		err = session.Ping()
-		// Change the command because it is the new command we ran
-		cmd = "Ping"
+		if err == nil {
+			break
+		}
 	}
 	return err
 }
@@ -211,7 +218,7 @@ outerLoop:
 		}
 		config.Members = append(config.Members, newMember)
 	}
-	return applyRelSetConfig("Add", session, &oldconfig, config)
+	return applyReplSetConfig("Add", session, &oldconfig, config)
 }
 
 // Remove removes members with the given addresses from the replica set. It is
@@ -231,7 +238,7 @@ func Remove(session *mgo.Session, addrs ...string) error {
 			}
 		}
 	}
-	return applyRelSetConfig("Remove", session, &oldconfig, config)
+	return applyReplSetConfig("Remove", session, &oldconfig, config)
 }
 
 // Set changes the current set of replica set members.  Members will have their
@@ -269,7 +276,7 @@ func Set(session *mgo.Session, members []Member) error {
 
 	config.Members = members
 
-	return applyRelSetConfig("Set", session, &oldconfig, config)
+	return applyReplSetConfig("Set", session, &oldconfig, config)
 }
 
 // Config reports information about the configuration of a given mongo node
@@ -295,6 +302,12 @@ func IsMaster(session *mgo.Session) (*IsMasterResults, error) {
 	err := session.Run("isMaster", results)
 	if err != nil {
 		return nil, err
+	}
+
+	results.Address = unFixIpv6Address(results.Address)
+	results.PrimaryAddress = unFixIpv6Address(results.PrimaryAddress)
+	for index, address := range results.Addresses {
+		results.Addresses[index] = unFixIpv6Address(address)
 	}
 	return results, nil
 }
@@ -338,6 +351,13 @@ func CurrentConfig(session *mgo.Session) (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replset config: %s", err.Error())
 	}
+
+	members := make([]Member, len(cfg.Members), len(cfg.Members))
+	for index, member := range cfg.Members {
+		member.Address = unFixIpv6Address(member.Address)
+		members[index] = member
+	}
+	cfg.Members = members
 	return cfg, nil
 }
 
@@ -355,6 +375,10 @@ func CurrentStatus(session *mgo.Session) (*Status, error) {
 	err := session.Run("replSetGetStatus", status)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get replica set status: %v", err)
+	}
+
+	for index, member := range status.Members {
+		status.Members[index].Address = unFixIpv6Address(member.Address)
 	}
 	return status, nil
 }
@@ -439,4 +463,24 @@ func (state MemberState) String() string {
 		return "INVALID_MEMBER_STATE"
 	}
 	return memberStateStrings[state]
+}
+
+// Turn normal ipv6 addresses into the "bad format" that mongo requires us
+// to use. (Mongo can't parse square brackets in ipv6 addresses.)
+func fixIpv6Address(address string) string {
+	address = strings.Replace(address, "[", "", 1)
+	address = strings.Replace(address, "]", "", 1)
+	return address
+}
+
+// Turn "bad format" ipv6 addresses ("::1:port"), that mongo uses,  into good
+// format addresses ("[::1]:port").
+func unFixIpv6Address(address string) string {
+	if strings.Count(address, ":") >= 2 && strings.Count(address, "[") == 0 {
+		lastColon := strings.LastIndex(address, ":")
+		host := address[:lastColon]
+		port := address[lastColon+1:]
+		return fmt.Sprintf("[%s]:%s", host, port)
+	}
+	return address
 }

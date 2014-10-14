@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -24,6 +25,8 @@ var relhook = &hook.Info{
 	Kind:       hooks.RelationJoined,
 	RemoteUnit: "some-thing/123",
 }
+
+var now = time.Now().Round(time.Second)
 
 var stateTests = []struct {
 	st  uniter.State
@@ -155,9 +158,10 @@ var stateTests = []struct {
 		err: `unexpected charm URL`,
 	}, {
 		st: uniter.State{
-			Op:     uniter.Continue,
-			OpStep: uniter.Pending,
-			Hook:   relhook,
+			Op:                 uniter.Continue,
+			OpStep:             uniter.Pending,
+			Hook:               relhook,
+			CollectMetricsTime: now.Unix(),
 		},
 	},
 }
@@ -170,7 +174,7 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		_, err := file.Read()
 		c.Assert(err, gc.Equals, uniter.ErrNoStateFile)
 		write := func() {
-			err := file.Write(t.st.Started, t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL)
+			err := file.Write(t.st.Started, t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
 			c.Assert(err, gc.IsNil)
 		}
 		if t.err != "" {

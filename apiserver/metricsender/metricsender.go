@@ -49,7 +49,7 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 		metrics[i] = Metric{
 			Key:         m.Key,
 			Value:       m.Value,
-			Time:        m.Time,
+			Time:        m.Time.UTC(),
 			Credentials: m.Credentials,
 		}
 	}
@@ -58,7 +58,7 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 		EnvUUID:  mb.EnvUUID(),
 		Unit:     mb.Unit(),
 		CharmUrl: mb.CharmURL(),
-		Created:  mb.Created(),
+		Created:  mb.Created().UTC(),
 		Metrics:  metrics,
 	}
 }
