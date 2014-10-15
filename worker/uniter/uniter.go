@@ -417,8 +417,8 @@ func (u *Uniter) getHookContext(h hookContextArgs) (context *HookContext, err er
 		actionData = newActionData(h.actionTag, h.actionParams)
 	}
 
-	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
+	return NewHookContext(u.unit, u.st, h.hctxId, u.uuid, u.envName, h.relationId,
+		h.remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
 		canAddMetrics, actionData, u.assignedMachineTag)
 }
 
