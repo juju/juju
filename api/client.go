@@ -933,7 +933,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
 	cfg.Header = utils.BasicAuthHeader(c.st.tag, c.st.password)
-	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
+	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "juju-apiserver"}
 	connection, err := websocketDialConfig(cfg)
 	if err != nil {
 		return nil, err
