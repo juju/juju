@@ -1192,7 +1192,8 @@ class TestLibvirt(TestCase):
         dom_name = 'fido'
         with patch('subprocess.check_output',
                    return_value='running') as mock_sp:
-            start_libvirt_domain(URI, dom_name)
+            with patch('jujupy.sleep'):
+                start_libvirt_domain(URI, dom_name)
         mock_sp.assert_any_call(['virsh', '-c', URI, 'start', dom_name],
                                 stderr=ANY)
 
@@ -1201,7 +1202,8 @@ class TestLibvirt(TestCase):
         dom_name = 'fido'
         with patch('subprocess.check_output',
                    return_value='shut off') as mock_sp:
-            stop_libvirt_domain(URI, dom_name)
+            with patch('jujupy.sleep'):
+                stop_libvirt_domain(URI, dom_name)
         mock_sp.assert_any_call(['virsh', '-c', URI, 'shutdown', dom_name],
                                 stderr=ANY)
 
