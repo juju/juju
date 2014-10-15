@@ -22,6 +22,8 @@ TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
 GOPATH = os.path.join(CI_DIR, 'gogo')
 JUJU_CMD_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
+JUJUD_CMD_DIR = os.path.join(
+    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
 ISS_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
 
@@ -57,6 +59,11 @@ def setup(tarball_name):
     juju_tars = [
         n for n in os.listdir(CI_DIR) if 'tar.gz' in n and n != tarball_name]
     for name in juju_tars:
+        path = os.path.join(CI_DIR, name)
+        os.remove(path)
+        print('Removed {0}'.format(path))
+    agent_tars = [n for n in os.listdir(CI_DIR) if 'tgz' in n]
+    for name in agent_tars:
         path = os.path.join(CI_DIR, name)
         os.remove(path)
         print('Removed {0}'.format(path))
@@ -132,6 +139,24 @@ def test(version):
         raise Exception("Juju did not install")
 
 
+def build_agent():
+    env = dict(os.environ)
+    env['GOPATH'] = GOPATH
+    env['GOARCH'] = 'amd64'
+    with WorkingDirectory(JUJUD_CMD_DIR):
+        output = run(GO_CMD, 'build', env=env)
+        print(output)
+        print('Built jujud.exe')
+
+
+def create_cloud_agent(version):
+    tarball_name = 'juju-{}-win2012-amd64.tgz'.format(version)
+    tarball_path = os.path.join(CI_DIR, tarball_name)
+    agent_path = os.path.join(JUJUD_CMD_DIR, 'jujud.exe')
+    with tarfile.open(name=tarball_path, mode='w:gz') as tar:
+        tar.add(agent_path, arcname='jujud.exe')
+
+
 def main():
     if len(sys.argv) != 2:
         print('USAGE: {0} juju-core_X.X.X.tar.gz')
@@ -151,6 +176,8 @@ def main():
         installer_name = create_installer(version)
         install(installer_name)
         test(version)
+        build_agent()
+        create_cloud_agent(version)
         return 0
     except Exception as e:
         print(str(e))
