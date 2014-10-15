@@ -4,6 +4,9 @@
 package main
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -45,10 +48,15 @@ Examples:
 	last-connection: 2014-01-01 00:00:00 +0000 UTC
 `
 
-type UserInfoCommand struct {
+type UserInfoCommandBase struct {
 	UserCommandBase
+	exactTime bool
+	out       cmd.Output
+}
+
+type UserInfoCommand struct {
+	UserInfoCommandBase
 	Username string
-	out      cmd.Output
 }
 
 type UserInfo struct {
@@ -68,7 +76,12 @@ func (c *UserInfoCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *UserInfoCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
+}
+
 func (c *UserInfoCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.UserInfoCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 }
 
@@ -82,12 +95,12 @@ type UserInfoAPI interface {
 	Close() error
 }
 
-var getUserInfoAPI = func(c *UserInfoCommand) (UserInfoAPI, error) {
+var getUserInfoAPI = func(c *UserCommandBase) (UserInfoAPI, error) {
 	return c.NewUserManagerClient()
 }
 
 func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := getUserInfoAPI(c)
+	client, err := getUserInfoAPI(&c.UserCommandBase)
 	if err != nil {
 		return err
 	}
@@ -105,24 +118,71 @@ func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if len(result) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(result))
+	// Don't output the params type, but be explicit. We convert before
+	// checking length because we want to reuse the conversion function, and
+	// we are pretty sure that there is one value there.
+	output := c.apiUsersToUserInfoSlice(result)
+	if len(output) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(output))
 	}
-	// Don't output the params type, but be explicit
-	info := result[0]
-	outInfo := UserInfo{
-		Username:    info.Username,
-		DisplayName: info.DisplayName,
-		DateCreated: info.DateCreated.String(),
-		Disabled:    info.Deactivated,
-	}
-	if info.LastConnection != nil {
-		outInfo.LastConnection = info.LastConnection.String()
-	} else {
-		outInfo.LastConnection = "not connected yet"
-	}
-	if err = c.out.Write(ctx, outInfo); err != nil {
+	if err = c.out.Write(ctx, output[0]); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (c *UserInfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
+	var output []UserInfo
+	var now = time.Now()
+	for _, info := range users {
+		outInfo := UserInfo{
+			Username:    info.Username,
+			DisplayName: info.DisplayName,
+			Disabled:    info.Deactivated,
+		}
+		if c.exactTime {
+			outInfo.DateCreated = info.DateCreated.String()
+		} else {
+			outInfo.DateCreated = userFriendlyDuration(info.DateCreated, now)
+		}
+		if info.LastConnection != nil {
+			if c.exactTime {
+				outInfo.LastConnection = info.LastConnection.String()
+			} else {
+				outInfo.LastConnection = userFriendlyDuration(*info.LastConnection, now)
+			}
+		} else {
+			outInfo.LastConnection = "not connected yet"
+		}
+
+		output = append(output, outInfo)
+	}
+
+	return output
+}
+
+func userFriendlyDuration(when, now time.Time) string {
+	since := now.Sub(when)
+	// if over 24 hours ago, just say the date.
+	if since.Hours() >= 24 {
+		return when.Format("2006-01-02")
+	}
+	if since.Hours() >= 1 {
+		unit := "hours"
+		if int(since.Hours()) == 1 {
+			unit = "hour"
+		}
+		return fmt.Sprintf("%d %s ago", int(since.Hours()), unit)
+	}
+	if since.Minutes() >= 1 {
+		unit := "minutes"
+		if int(since.Minutes()) == 1 {
+			unit = "minute"
+		}
+		return fmt.Sprintf("%d %s ago", int(since.Minutes()), unit)
+	}
+	if since.Seconds() >= 2 {
+		return fmt.Sprintf("%d seconds ago", int(since.Seconds()))
+	}
+	return "just now"
 }
