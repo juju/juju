@@ -16,10 +16,16 @@ type ActionStatus string
 
 const (
 	// ActionFailed signifies that the action did not complete successfully.
-	ActionFailed ActionStatus = "fail"
+	ActionFailed ActionStatus = "failed"
 
 	// ActionCompleted indicates that the action ran to completion as intended.
-	ActionCompleted ActionStatus = "complete"
+	ActionCompleted ActionStatus = "completed"
+
+	// ActionCancelled means that the Action was cancelled before being run.
+	ActionCancelled ActionStatus = "cancelled"
+
+	// ActionPending is the default status when an Action is first queued.
+	ActionPending ActionStatus = "pending"
 )
 
 const actionResultMarker string = "_ar_"

@@ -1369,7 +1369,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1396,7 +1396,7 @@ var actionEventTests = []uniterTest{
 				"foo": "still works",
 			},
 			message: "I'm afraid I can't let you do that, Dave.",
-			status:  "fail",
+			status:  params.ActionFailed,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1423,7 +1423,7 @@ var actionEventTests = []uniterTest{
 				"foo": "still works",
 			},
 			message: "A real message",
-			status:  "fail",
+			status:  params.ActionFailed,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1459,7 +1459,7 @@ var actionEventTests = []uniterTest{
 				},
 				"completion": "yes",
 			},
-			status: "complete",
+			status: params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1486,7 +1486,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1510,7 +1510,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1541,15 +1541,15 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}, {
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}, {
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1572,7 +1572,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action not implemented on unit "u/0"`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1601,7 +1601,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	),

@@ -7,6 +7,24 @@ import (
 	"github.com/juju/names"
 )
 
+const (
+	// ActionCancelled is the status for an Action that has been
+	// cancelled prior to execution.
+	ActionCancelled string = "cancelled"
+
+	// ActionCompleted is the status of an Action that has completed
+	// successfully.
+	ActionCompleted string = "completed"
+
+	// ActionFailed is the status of an Action that has completed with
+	// an error.
+	ActionFailed string = "failed"
+
+	// ActionPending is the status of an Action that has been queued up
+	// but not executed yet.
+	ActionPending string = "pending"
+)
+
 // Actions is a slice of Action for bulk requests.
 type Actions struct {
 	Actions []Action `json"actions,omitempty"`

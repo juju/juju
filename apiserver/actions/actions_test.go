@@ -247,14 +247,14 @@ func (s *actionsSuite) TestListAll(c *gc.C) {
 					Name:       action.Name,
 					Parameters: action.Parameters,
 				}
-				exp.Status = "pending"
+				exp.Status = params.ActionPending
 
 				if action.Execute {
 					status := state.ActionCompleted
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					err = added.Finish(state.ActionResults{status, output, message})
+					_, err = added.Finish(state.ActionResults{status, output, message})
 					c.Assert(err, gc.IsNil)
 
 					exp.Status = string(status)
@@ -317,7 +317,7 @@ func (s *actionsSuite) TestListPending(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					err = added.Finish(state.ActionResults{status, output, message})
+					_, err = added.Finish(state.ActionResults{status, output, message})
 					c.Assert(err, gc.IsNil)
 				} else {
 					// add expectation
@@ -327,7 +327,7 @@ func (s *actionsSuite) TestListPending(c *gc.C) {
 							Name:       action.Name,
 							Parameters: action.Parameters,
 						},
-						Status: "pending",
+						Status: params.ActionPending,
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}
@@ -387,7 +387,7 @@ func (s *actionsSuite) TestListCompleted(c *gc.C) {
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
 
-					err = added.Finish(state.ActionResults{status, output, message})
+					_, err = added.Finish(state.ActionResults{status, output, message})
 					c.Assert(err, gc.IsNil)
 
 					// add expectation
@@ -414,8 +414,72 @@ func (s *actionsSuite) TestListCompleted(c *gc.C) {
 }
 
 func (s *actionsSuite) TestCancel(c *gc.C) {
-	// TODO(jcw4) implement
-	c.Skip("Cancel not yet implemented")
+	// Make sure no Actions already exist on wordpress Unit.
+	actions, err := s.wordpressUnit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Make sure no Actions already exist on mysql Unit.
+	actions, err = s.mysqlUnit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Add Actions.
+	tests := params.Actions{
+		Actions: []params.Action{{
+			Receiver: s.wordpressUnit.Tag(),
+			Name:     "wp-one",
+		}, {
+			Receiver: s.wordpressUnit.Tag(),
+			Name:     "wp-two",
+		}, {
+			Receiver: s.mysqlUnit.Tag(),
+			Name:     "my-one",
+		}, {
+			Receiver: s.mysqlUnit.Tag(),
+			Name:     "my-two",
+		}},
+	}
+
+	results, err := s.actions.Enqueue(tests)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 4)
+	for _, res := range results.Results {
+		c.Assert(res.Error, gc.IsNil)
+	}
+
+	// Cancel Some.
+	arg := params.ActionTags{
+		Actions: []names.ActionTag{
+			// "wp-two"
+			results.Results[1].Action.Tag,
+			// "my-one"
+			results.Results[2].Action.Tag,
+		}}
+	results, err = s.actions.Cancel(arg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+
+	// Assert the Actions are all in the expected state.
+	tags := params.Tags{Tags: []names.Tag{s.wordpressUnit.Tag(), s.mysqlUnit.Tag()}}
+	obtained, err := s.actions.ListAll(tags)
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained.Actions, gc.HasLen, 2)
+
+	wpActions := obtained.Actions[0].Actions
+	c.Assert(wpActions, gc.HasLen, 2)
+	c.Assert(wpActions[0].Action.Name, gc.Equals, "wp-one")
+	c.Assert(wpActions[0].Status, gc.Equals, params.ActionPending)
+	c.Assert(wpActions[1].Action.Name, gc.Equals, "wp-two")
+	c.Assert(wpActions[1].Status, gc.Equals, params.ActionCancelled)
+
+	myActions := obtained.Actions[1].Actions
+	c.Assert(myActions, gc.HasLen, 2)
+	c.Assert(myActions[0].Action.Name, gc.Equals, "my-two")
+	c.Assert(myActions[0].Status, gc.Equals, params.ActionPending)
+	c.Assert(myActions[1].Action.Name, gc.Equals, "my-one")
+	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
+
 }
 
 func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {
