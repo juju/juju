@@ -107,6 +107,14 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"",
 			"error: cannot record metric: metrics disabled\n",
 			nil,
+		}, {
+			"can't add metric with with key unit-time",
+			[]string{"add-metric", "unit-time=60"},
+			false,
+			2,
+			"",
+			"error: cannot record metric with builtin name \"unit-time\"\n",
+			nil,
 		}}
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)

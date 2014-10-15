@@ -1322,6 +1322,22 @@ var collectMetricsEventTests = []uniterTest{
 		quickStart{},
 		metricsTick{},
 		waitHooks{"collect-metrics"},
+		waitMetrics{"unit-time"},
+	),
+	ut(
+		"no metrics are created if the collect-metrics hook causes an error",
+		createCharm{badHooks: []string{"collect-metrics"}},
+		serveCharm{},
+		createUniter{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		metricsTick{},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "collect-metrics"`,
+		},
+		waitMetrics{},
 	),
 
 	ut(
@@ -1341,6 +1357,56 @@ var collectMetricsEventTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
 	s.runUniterTests(c, collectMetricsEventTests)
+}
+
+var unitTimeTimerTests = []uniterTest{
+	ut(
+		"unitTime starts running only after the unit has started",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				appendHook(c, path, "config-changed", "config-get --format yaml --output config.out")
+			},
+		},
+		serveCharm{},
+		createUniter{},
+		waitHooks{"install"},
+		verifyUnitTimeRunning{false},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		verifyUnitTimeRunning{true},
+	),
+	ut(
+		"start hook fail and unit timer stops",
+		startupError{"start"},
+		verifyWaiting{},
+		verifyUnitTimeRunning{false},
+	),
+	ut(
+		"start hook fail, timer stops and resolves, timer continues",
+		startupError{"start"},
+		verifyWaiting{},
+		verifyUnitTimeRunning{false},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"config-changed"},
+		verifyRunning{},
+		verifyUnitTimeRunning{true},
+	),
+	ut(
+		"unittime stops when the unit stops",
+		quickStart{},
+		verifyUnitTimeRunning{true},
+		unitDying,
+		waitHooks{"stop"},
+		verifyUnitTimeRunning{false},
+	),
+}
+
+func (s *UniterSuite) TestUniterUnitTimer(c *gc.C) {
+	s.runUniterTests(c, unitTimeTimerTests)
 }
 
 var actionEventTests = []uniterTest{
@@ -2175,6 +2241,36 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 			c.Fatalf("never got expected hooks")
 		}
 	}
+}
+
+type waitMetrics []string
+
+func (s waitMetrics) step(c *gc.C, ctx *context) {
+	metricBatches, err := ctx.st.MetricBatches()
+	c.Assert(err, gc.IsNil)
+
+	foundMetrics := map[string]string{}
+	for _, mb := range metricBatches {
+		for _, m := range mb.Metrics() {
+			foundMetrics[m.Key] = m.Value
+		}
+	}
+	for _, wm := range s {
+		if _, ok := foundMetrics[wm]; !ok {
+			c.Fatalf("didn't find expected metric %s", wm)
+		}
+	}
+	if len(s) != len(foundMetrics) {
+		c.Fatalf("we have more metrics than we were expecting to find")
+	}
+}
+
+type verifyUnitTimeRunning struct {
+	expected bool
+}
+
+func (s verifyUnitTimeRunning) step(c *gc.C, ctx *context) {
+	c.Assert(ctx.uniter.UnitTime().Running(), gc.Equals, s.expected)
 }
 
 type actionResult struct {

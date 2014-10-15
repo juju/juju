@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
+	"github.com/juju/juju/worker/uniter/unittime"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter")
@@ -105,6 +106,8 @@ type Uniter struct {
 
 	ranConfigChanged bool
 
+	unitTime *unittime.UnitTimeCounter
+
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
@@ -118,6 +121,7 @@ func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock
 		st:       st,
 		dataDir:  dataDir,
 		hookLock: hookLock,
+		unitTime: &unittime.UnitTimeCounter{},
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -638,6 +642,9 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
 	if err != nil {
 		return err
+	}
+	if hi.Kind == hooks.CollectMetrics {
+		hctx.AddMetrics("unit-time", fmt.Sprintf("%v", u.unitTime.Value().Seconds()), time.Now())
 	}
 
 	srv, socketPath, err := u.startJujucServer(hctx)
