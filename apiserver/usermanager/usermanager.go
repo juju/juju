@@ -150,20 +150,9 @@ func (api *UserManagerAPI) DeactivateUser(args params.DeactivateUsers) (params.E
 
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(args params.UserInfoRequest) (params.UserInfoResults, error) {
-	// TODO(thumper): If no specific users are specified
-	// we need to return all the users in the database,
-	// just showing the enabled ones unless specified.
-	results := params.UserInfoResults{
-		Results: make([]params.UserInfoResult, len(args.Entities)),
-	}
 
-	for i, arg := range args.Entities {
-		user, err := api.getUser(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i] = params.UserInfoResult{
+	var infoForUser = func(user *state.User) params.UserInfoResult {
+		return params.UserInfoResult{
 			Result: &params.UserInfo{
 				Username:       user.Name(),
 				DisplayName:    user.DisplayName(),
@@ -173,6 +162,29 @@ func (api *UserManagerAPI) UserInfo(args params.UserInfoRequest) (params.UserInf
 				Deactivated:    user.IsDeactivated(),
 			},
 		}
+	}
+
+	var results params.UserInfoResults
+	argCount := len(args.Entities)
+	if argCount == 0 {
+		users, err := api.state.AllUsers(args.IncludeDeactivated)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		for _, user := range users {
+			results.Results = append(results.Results, infoForUser(user))
+		}
+		return results, nil
+	}
+
+	results.Results = make([]params.UserInfoResult, argCount)
+	for i, arg := range args.Entities {
+		user, err := api.getUser(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i] = infoForUser(user)
 	}
 
 	return results, nil
