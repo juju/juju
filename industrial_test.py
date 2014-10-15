@@ -3,20 +3,36 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 
-from jujupy import EnvJujuClient
+from jujupy import (
+    EnvJujuClient,
+    SimpleEnvironment,
+    )
 
 
 class IndustrialTest:
 
     @classmethod
-    def from_args(cls, env, new_juju_path):
+    def from_args(cls, env, new_juju_path, stage_attempts):
+        env = SimpleEnvironment.from_config(env)
         old_client = EnvJujuClient.by_version(env)
         new_client = EnvJujuClient.by_version(env, new_juju_path)
-        return cls(old_client, new_client)
+        return cls(old_client, new_client, stage_attempts)
 
-    def __init__(self, old_client, new_client):
+    def __init__(self, old_client, new_client, stage_attempts):
         self.old_client = old_client
         self.new_client = new_client
+        self.stage_attempts = stage_attempts
+
+    def run_attempt(self):
+        for attempt in self.stage_attempts:
+            result = attempt.do_stage()
+            yield result
+            if False in result:
+                try:
+                    self.old_client.destroy_environment()
+                finally:
+                    self.new_client.destroy_environment()
+                break
 
 
 class StageAttempt:
@@ -52,7 +68,8 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    industrial = IndustrialTest.from_args(args)
+    industrial = IndustrialTest.from_args(args.env, args.new_juju_path, [])
+    industrial.run_attempt()
 
 
 if __name__ == '__main__':
