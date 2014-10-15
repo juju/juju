@@ -95,7 +95,7 @@ def move_source_to_gopath(tarball_name):
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
 
 
-def build():
+def build_client():
     env = dict(os.environ)
     env['GOPATH'] = GOPATH
     env['GOARCH'] = '386'
@@ -107,7 +107,7 @@ def build():
         print('Moved {0} to {1}'.format('juju.exe', ISS_DIR))
 
 
-def package(version):
+def create_installer(version):
     with WorkingDirectory(ISS_DIR):
         output = run(ISS_CMD, 'setup.iss')
         print(output)
@@ -147,8 +147,8 @@ def main():
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
-        build()
-        installer_name = package(version)
+        build_client()
+        installer_name = create_installer(version)
         install(installer_name)
         test(version)
         return 0
