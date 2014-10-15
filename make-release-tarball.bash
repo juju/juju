@@ -83,7 +83,7 @@ if [[ "$MERGE_REF" != "" && "$MERGE_REPO" != "" ]]; then
 fi
 cd $HERE
 
-echo "Geting and updating juju-core dependencies to the required versions."
+echo "Getting and updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
 GODEPS=$WORK/bin/godeps
 if [[ ! -f $GODEPS ]]; then
