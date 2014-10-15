@@ -503,12 +503,12 @@ func (s *actionsSuite) TestServicesCharmActions(c *gc.C) {
 	}
 	tests := []struct {
 		serviceNames    []string
-		expectedResults params.ServicesCharmActions
+		expectedResults params.ServicesCharmActionsResults
 	}{{
 		serviceNames: []string{"dummy"},
-		expectedResults: params.ServicesCharmActions{
-			[]params.ServiceCharmActions{
-				params.ServiceCharmActions{
+		expectedResults: params.ServicesCharmActionsResults{
+			[]params.ServiceCharmActionsResult{
+				params.ServiceCharmActionsResult{
 					ServiceTag: names.NewServiceTag("dummy"),
 					Actions: &charm.Actions{
 						ActionSpecs: map[string]charm.ActionSpec{
@@ -523,9 +523,9 @@ func (s *actionsSuite) TestServicesCharmActions(c *gc.C) {
 		},
 	}, {
 		serviceNames: []string{"wordpress"},
-		expectedResults: params.ServicesCharmActions{
-			[]params.ServiceCharmActions{
-				params.ServiceCharmActions{
+		expectedResults: params.ServicesCharmActionsResults{
+			[]params.ServiceCharmActionsResult{
+				params.ServiceCharmActionsResult{
 					ServiceTag: names.NewServiceTag("wordpress"),
 					Actions:    &charm.Actions{},
 				},
@@ -533,9 +533,9 @@ func (s *actionsSuite) TestServicesCharmActions(c *gc.C) {
 		},
 	}, {
 		serviceNames: []string{"nonsense"},
-		expectedResults: params.ServicesCharmActions{
-			[]params.ServiceCharmActions{
-				params.ServiceCharmActions{
+		expectedResults: params.ServicesCharmActionsResults{
+			[]params.ServiceCharmActionsResult{
+				params.ServiceCharmActionsResult{
 					ServiceTag: names.NewServiceTag("nonsense"),
 					Error: &params.Error{
 						Message: `service "nonsense" not found`,

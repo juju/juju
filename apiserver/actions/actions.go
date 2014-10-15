@@ -135,11 +135,10 @@ func (a *ActionsAPI) Cancel(arg params.ActionTags) (params.ActionResults, error)
 }
 
 // ServicesCharmActions returns a slice of charm Actions for a slice of services.
-func (a *ActionsAPI) ServicesCharmActions(args params.ServiceTags) (params.ServicesCharmActions, error) {
-	none := params.ServicesCharmActions{}
-	result := none
+func (a *ActionsAPI) ServicesCharmActions(args params.ServiceTags) (params.ServicesCharmActionsResults, error) {
+	result := params.ServicesCharmActionsResults{}
 	for _, svcTag := range args.ServiceTags {
-		newResult := params.ServiceCharmActions{ServiceTag: svcTag}
+		newResult := params.ServiceCharmActionsResult{ServiceTag: svcTag}
 		svc, err := a.state.Service(svcTag.Id())
 		if err != nil {
 			newResult.Error = common.ServerError(err)
