@@ -390,7 +390,7 @@ func (suite *environSuite) TestAcquireNodePassesPositiveAndNegativeTags(c *gc.C)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0"}`)
 
 	_, err := env.acquireNode(
-		"",
+		"", "",
 		constraints.Value{Tags: &[]string{"tag1", "^tag2", "tag3", "^tag4"}},
 		nil, nil,
 	)
