@@ -19,6 +19,30 @@ class IndustrialTest:
         self.new_client = new_client
 
 
+class StageAttempt:
+
+    def do_stage(self, old, new):
+        self.do_operation(old)
+        self.do_operation(new)
+        old_result = self.get_result(old)
+        new_result = self.get_result(new)
+        return old_result, new_result
+
+
+class BootstrapAttempt:
+
+    def do_operation(self, client):
+        client.bootstrap()
+
+    def get_result(self, client):
+        try:
+            client.wait_for_started()
+        except Exception:
+            return False
+        else:
+            return True
+
+
 def parse_args(args=None):
     parser = ArgumentParser()
     parser.add_argument('env')
