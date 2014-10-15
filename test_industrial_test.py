@@ -10,6 +10,7 @@ import yaml
 
 from industrial_test import (
     BootstrapAttempt,
+    DestroyEnvironmentAttempt,
     IndustrialTest,
     parse_args,
     StageAttempt,
@@ -49,7 +50,7 @@ class FakeAttempt:
     def __init__(self, *result):
         self.result = result
 
-    def do_stage(self):
+    def do_stage(self, old_client, new_client):
         return self.result
 
 
@@ -211,6 +212,23 @@ class TestBootstrapAttempt(TestCase):
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
             '--constraints', 'mem=2G'))
 
+    def test_do_operation_exception(self):
+        client = FakeEnvJujuClient()
+        bootstrap = BootstrapAttempt()
+        with patch('subprocess.check_call', side_effect=Exception
+                ) as mock_cc:
+            bootstrap.do_operation(client)
+        assert_juju_call(self, mock_cc, client, (
+            'juju', '--show-log', 'bootstrap', '-e', 'steve',
+            '--constraints', 'mem=2G'))
+        output = yaml.safe_dump({
+            'machines': {'0': {'agent-state': 'started'}},
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output):
+            self.assertFalse(bootstrap.get_result(client))
+
+
     def test_get_result_true(self):
         bootstrap = BootstrapAttempt()
         client = FakeEnvJujuClient()
@@ -230,3 +248,14 @@ class TestBootstrapAttempt(TestCase):
             })
         with patch('subprocess.check_output', return_value=output):
             self.assertFalse(bootstrap.get_result(client))
+
+
+class TestDestroyEnvironmentAttempt(TestCase):
+
+    def test_do_operation(self):
+        client = FakeEnvJujuClient()
+        bootstrap = DestroyEnvironmentAttempt()
+        with patch('subprocess.check_call') as mock_cc:
+            bootstrap.do_operation(client)
+        assert_juju_call(self, mock_cc, client, (
+            'juju', '--show-log', 'destroy-environment', 'steve'))

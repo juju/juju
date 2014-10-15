@@ -25,7 +25,7 @@ class IndustrialTest:
 
     def run_attempt(self):
         for attempt in self.stage_attempts:
-            result = attempt.do_stage()
+            result = attempt.do_stage(self.old_client, self.new_client)
             yield result
             if False in result:
                 try:
@@ -45,18 +45,38 @@ class StageAttempt:
         return old_result, new_result
 
 
-class BootstrapAttempt:
+class BootstrapAttempt(StageAttempt):
+
+    def __init__(self):
+        super(BootstrapAttempt, self).__init__()
+        self.failure_clients = set()
 
     def do_operation(self, client):
-        client.bootstrap()
+        try:
+            client.bootstrap()
+        except Exception:
+            self.failure_clients.add(client)
 
     def get_result(self, client):
+        if client in self.failure_clients:
+            return False
         try:
             client.wait_for_started()
         except Exception:
             return False
         else:
             return True
+
+
+class DestroyEnvironmentAttempt(StageAttempt):
+
+    def do_operation(self, client):
+        client.juju('destroy-environment', (client.env.environment,),
+                    include_e=False)
+
+    def get_result(self, client):
+        return True
+
 
 
 def parse_args(args=None):
@@ -68,8 +88,10 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    industrial = IndustrialTest.from_args(args.env, args.new_juju_path, [])
-    industrial.run_attempt()
+    stages = [BootstrapAttempt(), DestroyEnvironmentAttempt()]
+    industrial = IndustrialTest.from_args(args.env, args.new_juju_path, stages)
+    results = list(industrial.run_attempt())
+    print results
 
 
 if __name__ == '__main__':
