@@ -118,3 +118,18 @@ func (m *Entity) SetPassword(password string) error {
 	}
 	return results.OneError()
 }
+
+// ClearReboot clears the reboot flag of the machine.
+func (m *Entity) ClearReboot() error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: m.tag.String()},
+		},
+	}
+	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}

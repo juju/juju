@@ -38,6 +38,14 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *unitSuite) TestRequestReboot(c *gc.C) {
+	err := s.apiUnit.RequestReboot()
+	c.Assert(err, gc.IsNil)
+	rFlag, err := s.wordpressMachine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
+}
+
 func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	apiUnitFoo, err := s.uniter.Unit(names.NewUnitTag("foo/42"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
