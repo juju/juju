@@ -134,6 +134,30 @@ func (a *ActionsAPI) Cancel(arg params.ActionTags) (params.ActionResults, error)
 	return response, nil
 }
 
+// ServicesCharmActions returns a slice of charm Actions for a slice of services.
+func (a *ActionsAPI) ServicesCharmActions(args params.ServiceTags) (params.ServicesCharmActionsResults, error) {
+	result := params.ServicesCharmActionsResults{}
+	for _, svcTag := range args.ServiceTags {
+		newResult := params.ServiceCharmActionsResult{ServiceTag: svcTag}
+		svc, err := a.state.Service(svcTag.Id())
+		if err != nil {
+			newResult.Error = common.ServerError(err)
+			result.Results = append(result.Results, newResult)
+			continue
+		}
+		ch, _, err := svc.Charm()
+		if err != nil {
+			newResult.Error = common.ServerError(err)
+			result.Results = append(result.Results, newResult)
+			continue
+		}
+		newResult.Actions = ch.Actions()
+		result.Results = append(result.Results, newResult)
+	}
+
+	return result, nil
+}
+
 // internalList takes a list of Tags representing ActionReceivers and
 // returns all of the Actions the extractorFn can get out of the
 // ActionReceiver.
