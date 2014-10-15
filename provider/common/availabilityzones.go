@@ -83,7 +83,9 @@ func AvailabilityZoneAllocations(env ZonedEnviron, group []instance.Id) ([]Avail
 	}
 	instanceZones, err := env.InstanceAvailabilityZoneNames(group)
 	switch err {
-	case nil, environs.ErrPartialInstances, environs.ErrNoInstances:
+	case nil, environs.ErrPartialInstances:
+	case environs.ErrNoInstances:
+		group = nil
 	default:
 		return nil, err
 	}
