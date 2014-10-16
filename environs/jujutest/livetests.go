@@ -330,7 +330,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	}()
 
 	attrs := t.Env.Config().AllAttrs()
-	attrs["firewall-mode"] = "global"
+	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := t.Env.Config().Apply(attrs)
 	c.Assert(err, gc.IsNil)
 	err = t.Env.SetConfig(newConfig)

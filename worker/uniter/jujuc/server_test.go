@@ -196,6 +196,7 @@ var newCommandTests = []struct {
 	{"config-get", ""},
 	{"juju-log", ""},
 	{"open-port", ""},
+	{"opened-ports", ""},
 	{"relation-get", ""},
 	{"relation-ids", ""},
 	{"relation-list", ""},

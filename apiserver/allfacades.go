@@ -7,6 +7,7 @@ package apiserver
 // When adding a new facade implementation, import it here so that its init()
 // function will get called to register it.
 import (
+	_ "github.com/juju/juju/apiserver/actions"
 	_ "github.com/juju/juju/apiserver/agent"
 	_ "github.com/juju/juju/apiserver/backups"
 	_ "github.com/juju/juju/apiserver/charmrevisionupdater"
@@ -21,6 +22,7 @@ import (
 	_ "github.com/juju/juju/apiserver/metricsmanager"
 	_ "github.com/juju/juju/apiserver/networker"
 	_ "github.com/juju/juju/apiserver/provisioner"
+	_ "github.com/juju/juju/apiserver/reboot"
 	_ "github.com/juju/juju/apiserver/rsyslog"
 	_ "github.com/juju/juju/apiserver/uniter"
 	_ "github.com/juju/juju/apiserver/upgrader"

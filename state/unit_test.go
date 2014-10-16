@@ -1478,6 +1478,8 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
+	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// identically named units and ensure there's no leakage.
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
@@ -1600,4 +1602,46 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
+}
+
+func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
+	// Add simple service and two units
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	unit1, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	unit2, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	// Add 3 actions to first unit, and 2 to the second unit
+	_, err = unit1.AddAction("action1.1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("action1.2", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("action1.3", nil)
+	c.Assert(err, gc.IsNil)
+
+	_, err = unit2.AddAction("action2.1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit2.AddAction("action2.2", nil)
+	c.Assert(err, gc.IsNil)
+
+	// Verify that calling Actions on unit1 returns only
+	// the three actions added to unit1
+	actions1, err := unit1.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions1), gc.Equals, 3)
+	for _, action := range actions1 {
+		c.Assert(action.Name(), gc.Matches, "^action1\\..")
+	}
+
+	// Verify that calling Actions on unit2 returns only
+	// the two actions added to unit2
+	actions2, err := unit2.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions2), gc.Equals, 2)
+	for _, action := range actions2 {
+		c.Assert(action.Name(), gc.Matches, "^action2\\..")
+	}
 }

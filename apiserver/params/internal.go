@@ -78,10 +78,11 @@ type MachinePorts struct {
 }
 
 // MachinePortRange holds a single port range open on a machine for
-// the given unit tag.
+// the given unit and relation tags.
 type MachinePortRange struct {
-	UnitTag   string
-	PortRange network.PortRange
+	UnitTag     string
+	RelationTag string
+	PortRange   network.PortRange
 }
 
 // MachinePortsParams holds the arguments for making a
@@ -91,14 +92,16 @@ type MachinePortsParams struct {
 }
 
 // MachinePortsResult holds a single result of the
-// FirewallerAPIV1.GetMachinePorts() API call.
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
 type MachinePortsResult struct {
 	Error *Error
 	Ports []MachinePortRange
 }
 
 // MachinePortsResults holds all the results of the
-// FirewallerAPIV1.GetMachinePorts() API call.
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
 type MachinePortsResults struct {
 	Results []MachinePortsResult
 }
@@ -265,38 +268,6 @@ type RelationResults struct {
 	Results []RelationResult
 }
 
-// ActionResults holds a slice of responses from the Actions query.
-type ActionsQueryResults struct {
-	Results []ActionsQueryResult `json:"results,omitempty"`
-}
-
-// Action holds the name and parameters of an Actions query.
-type ActionsQueryResult struct {
-	Error  *Error `json:"error,omitempty"`
-	Action Action `json:"result,omitempty"`
-}
-
-// Action holds the actual name and parameters of an Action.
-type Action struct {
-	Name   string                 `json:"name,omitempty"`
-	Params map[string]interface{} `json:"params,omitempty"`
-}
-
-// ActionResults holds a slice of ActionResult for a bulk action API call
-type ActionResults struct {
-	Results []ActionResult `json:"results"`
-}
-
-// ActionResult holds the action tag and output used when recording the
-// result of an action. This is an argument, not a result, despite the
-// confusing name.
-type ActionResult struct {
-	ActionTag string                 `json:"actiontag"`
-	Status    string                 `json:"status"`
-	Results   map[string]interface{} `json:"results,omitempty"`
-	Message   string                 `json:"message"`
-}
-
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string
@@ -308,6 +279,20 @@ type EntityPort struct {
 // ClosePort on some entities.
 type EntitiesPorts struct {
 	Entities []EntityPort
+}
+
+// EntityPortRange holds an entity's tag, a protocol and a port range.
+type EntityPortRange struct {
+	Tag      string
+	Protocol string
+	FromPort int
+	ToPort   int
+}
+
+// EntitiesPortRanges holds the parameters for making an OpenPorts or
+// ClosePorts on some entities.
+type EntitiesPortRanges struct {
+	Entities []EntityPortRange
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
@@ -686,4 +671,16 @@ type MetricsParam struct {
 // MetricsParams contains the metrics for multiple units.
 type MetricsParams struct {
 	Metrics []MetricsParam
+}
+
+// MeterStatusResult holds unit meter status or error.
+type MeterStatusResult struct {
+	Code  string
+	Info  string
+	Error *Error
+}
+
+// MeterStatusResults holds meter status results for multiple units.
+type MeterStatusResults struct {
+	Results []MeterStatusResult
 }

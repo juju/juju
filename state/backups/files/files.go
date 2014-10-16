@@ -4,6 +4,7 @@
 package files
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -21,6 +22,7 @@ const (
 	machinesConfs = "jujud-machine-*.conf"
 	agentsDir     = "agents"
 	agentsConfs   = "machine-*"
+	jujuInitConfs = "juju-*.conf"
 	loggingConfs  = "*juju.conf"
 	toolsDir      = "tools"
 
@@ -35,9 +37,15 @@ const (
 	dbSecret      = "shared-secret"
 )
 
+// Paths holds the paths that backups needs.
+type Paths struct {
+	DataDir string
+	LogsDir string
+}
+
 // GetFilesToBackUp returns the paths that should be included in the
 // backup archive.
-func GetFilesToBackUp(rootDir string) ([]string, error) {
+func GetFilesToBackUp(rootDir string, paths Paths) ([]string, error) {
 	var glob string
 
 	glob = filepath.Join(rootDir, startupDir, machinesConfs)
@@ -46,7 +54,13 @@ func GetFilesToBackUp(rootDir string) ([]string, error) {
 		return nil, errors.Annotate(err, "failed to fetch machine init files")
 	}
 
-	glob = filepath.Join(rootDir, dataDir, agentsDir, agentsConfs)
+	glob = filepath.Join(rootDir, startupDir, jujuInitConfs)
+	initConfs, err := filepath.Glob(glob)
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to fetch startup conf files")
+	}
+
+	glob = filepath.Join(rootDir, paths.DataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to fetch agent config files")
@@ -59,20 +73,39 @@ func GetFilesToBackUp(rootDir string) ([]string, error) {
 	}
 
 	backupFiles := []string{
-		filepath.Join(rootDir, dataDir, toolsDir),
+		filepath.Join(rootDir, paths.DataDir, toolsDir),
 
-		filepath.Join(rootDir, dataDir, sshIdentFile),
-		filepath.Join(rootDir, dataDir, nonceFile),
-		filepath.Join(rootDir, logsDir, allMachinesLog),
-		filepath.Join(rootDir, logsDir, machine0Log),
-		filepath.Join(rootDir, sshDir, authKeysFile),
+		filepath.Join(rootDir, paths.DataDir, sshIdentFile),
+		filepath.Join(rootDir, paths.LogsDir, allMachinesLog),
+		filepath.Join(rootDir, paths.LogsDir, machine0Log),
 
-		filepath.Join(rootDir, startupDir, dbStartupConf),
-		filepath.Join(rootDir, dataDir, dbPEM),
-		filepath.Join(rootDir, dataDir, dbSecret),
+		filepath.Join(rootDir, paths.DataDir, dbPEM),
+		filepath.Join(rootDir, paths.DataDir, dbSecret),
 	}
 	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
+	backupFiles = append(backupFiles, initConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
+
+	// Handle nonce.txt (might not exist).
+	nonce := filepath.Join(rootDir, paths.DataDir, nonceFile)
+	if _, err := os.Stat(nonce); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		backupFiles = append(backupFiles, nonce)
+	}
+
+	// Handle user SSH files (might not exist).
+	SSHDir := filepath.Join(rootDir, sshDir)
+	if _, err := os.Stat(SSHDir); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		backupFiles = append(backupFiles, filepath.Join(SSHDir, authKeysFile))
+	}
+
 	return backupFiles, nil
 }

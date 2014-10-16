@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
@@ -34,6 +35,9 @@ func (dummyHookContext) OpenPort(protocol string, port int) error {
 	return nil
 }
 func (dummyHookContext) ClosePort(protocol string, port int) error {
+	return nil
+}
+func (dummyHookContext) OpenedPorts() []network.PortRange {
 	return nil
 }
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {

@@ -4,41 +4,25 @@
 package apiserver
 
 import (
-	"github.com/juju/errors"
+	"errors"
+
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 )
 
-var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")
-
+// upgradingRoot restricts API calls to those supported during an upgrade.
 type upgradingRoot struct {
-	srvRoot
+	rpc.MethodFinder
 }
 
-var _ apiRoot = (*upgradingRoot)(nil)
-
-// newUpgradingRoot creates a root where all but a few "safe" API
-// calls fail with inUpgradeError.
-func newUpgradingRoot(root *initialRoot, entity state.Entity) *upgradingRoot {
-	return &upgradingRoot{
-		srvRoot: *newSrvRoot(root, entity),
-	}
+// newUpgradingRoot returns a new upgradingRoot.
+func newUpgradingRoot(finder rpc.MethodFinder) *upgradingRoot {
+	return &upgradingRoot{finder}
 }
 
-// FindMethod extended srvRoot.FindMethod. It returns inUpgradeError
-// for most API calls except those that are deemed safe or important
-// for use while Juju is upgrading.
-func (r *upgradingRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	if _, _, err := r.lookupMethod(rootName, version, methodName); err != nil {
-		return nil, err
-	}
-	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
-		return nil, inUpgradeError
-	}
-	return r.srvRoot.FindMethod(rootName, version, methodName)
-}
+var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")
 
 var allowedMethodsDuringUpgrades = set.NewStrings(
 	"FullStatus",     // for "juju status"
@@ -53,4 +37,17 @@ func IsMethodAllowedDuringUpgrade(rootName, methodName string) bool {
 		return false
 	}
 	return allowedMethodsDuringUpgrades.Contains(methodName)
+}
+
+// FindMethod returns inUpgradeError for most API calls except those that are
+// deemed safe or important for use while Juju is upgrading.
+func (r *upgradingRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	if err != nil {
+		return nil, err
+	}
+	if !IsMethodAllowedDuringUpgrade(rootName, methodName) {
+		return nil, inUpgradeError
+	}
+	return caller, nil
 }

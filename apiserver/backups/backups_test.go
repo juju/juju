@@ -15,6 +15,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/backups/db"
+	"github.com/juju/juju/state/backups/files"
 	"github.com/juju/juju/state/backups/metadata"
 )
 
@@ -24,7 +25,7 @@ type fakeBackups struct {
 	err     error
 }
 
-func (i *fakeBackups) Create(db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
+func (i *fakeBackups) Create(files.Paths, db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
 	if i.err != nil {
 		return nil, errors.Trace(i.err)
 	}
@@ -36,6 +37,20 @@ func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
 		return nil, nil, errors.Trace(i.err)
 	}
 	return i.meta, i.archive, nil
+}
+
+func (i *fakeBackups) List() ([]metadata.Metadata, error) {
+	if i.err != nil {
+		return nil, errors.Trace(i.err)
+	}
+	return []metadata.Metadata{*i.meta}, nil
+}
+
+func (i *fakeBackups) Remove(string) error {
+	if i.err != nil {
+		return errors.Trace(i.err)
+	}
+	return nil
 }
 
 type backupsSuite struct {
@@ -51,6 +66,7 @@ var _ = gc.Suite(&backupsSuite{})
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
+	s.resources.RegisterNamed("dataDir", common.StringResource("/var/lib/juju"))
 	tag := names.NewLocalUserTag("spam")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
 	var err error

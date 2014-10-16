@@ -179,3 +179,22 @@ func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
 	cfg.SetAptGetWrapper("eatmydata")
 	assertScriptMatches(c, cfg, aptgetRegexp, false)
 }
+
+func (s *configureSuite) TestAptMirrorWrapper(c *gc.C) {
+	expectedCommands := regexp.QuoteMeta(`
+echo 'Changing apt mirror to http://woat.com' >&9
+old_mirror=$(awk "/^deb .* $(lsb_release -sc) .*main.*\$/{print \$2;exit}" /etc/apt/sources.list)
+new_mirror=http://woat.com
+sed -i s,$old_mirror,$new_mirror, /etc/apt/sources.list
+old_prefix=/var/lib/apt/lists/$(echo $old_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+new_prefix=/var/lib/apt/lists/$(echo $new_mirror | sed 's,.*://,,' | sed 's,/$,,' | tr / _)
+[ "$old_prefix" != "$new_prefix" ] &&
+for old in ${old_prefix}_*; do
+    new=$(echo $old | sed s,^$old_prefix,$new_prefix,)
+    mv $old $new
+done`)
+	aptMirrorRegexp := "(.|\n)*" + expectedCommands + "(.|\n)*"
+	cfg := cloudinit.New()
+	cfg.SetAptMirror("http://woat.com")
+	assertScriptMatches(c, cfg, aptMirrorRegexp, true)
+}

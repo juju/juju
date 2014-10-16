@@ -81,7 +81,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = relUnit0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.subordinate0, err = s.service1.Unit("logging/0")
+	s.subordinate0, err = s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

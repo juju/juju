@@ -247,6 +247,9 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 		name: params.JobManageEnviron,
 		want: state.JobManageEnviron,
 	}, {
+		name: params.JobManageNetworking,
+		want: state.JobManageNetworking,
+	}, {
 		name: params.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,
 	}, {

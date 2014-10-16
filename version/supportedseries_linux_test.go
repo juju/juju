@@ -21,7 +21,8 @@ func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
 }
 
 func (s *supportedSeriesSuite) TestSupportedSeries(c *gc.C) {
+	expectedSeries := []string{"precise", "quantal", "raring", "saucy", "trusty", "utopic"}
 	series := version.SupportedSeries()
 	sort.Strings(series)
-	c.Assert(series, gc.DeepEquals, []string{"precise", "quantal", "raring", "saucy", "trusty", "utopic"})
+	c.Assert(series, gc.DeepEquals, expectedSeries)
 }

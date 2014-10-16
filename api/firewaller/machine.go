@@ -5,7 +5,6 @@ package firewaller
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/watcher"
@@ -77,11 +76,6 @@ func (m *Machine) Life() params.Life {
 // ActiveNetworks returns a list of network tags for which the machine
 // has opened ports.
 func (m *Machine) ActiveNetworks() ([]names.NetworkTag, error) {
-	if m.st.facade.BestAPIVersion() < 1 {
-		// ActiveNetworks() is implemented in FirewallerAPIV1 or
-		// later.
-		return nil, errors.NotImplementedf("ActiveNetworks() (need V1+)")
-	}
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
@@ -112,11 +106,6 @@ func (m *Machine) ActiveNetworks() ([]names.NetworkTag, error) {
 // OpenedPorts returns a map of network.PortRange to unit tag for all
 // opened port ranges on the machine for the given network tag.
 func (m *Machine) OpenedPorts(networkTag names.NetworkTag) (map[network.PortRange]names.UnitTag, error) {
-	if m.st.facade.BestAPIVersion() < 1 {
-		// OpenedPorts() is implemented in FirewallerAPIV1 or
-		// later.
-		return nil, errors.NotImplementedf("machine.OpenedPorts() (need V1+)")
-	}
 	var results params.MachinePortsResults
 	args := params.MachinePortsParams{
 		Params: []params.MachinePorts{

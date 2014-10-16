@@ -92,9 +92,13 @@ func (fw *Firewaller) loop() error {
 	}
 
 	portsChange := fw.portsWatcher.Changes()
-	if fw.environ.Config().FirewallMode() == config.FwGlobal {
+	switch fw.environ.Config().FirewallMode() {
+	case config.FwGlobal:
 		fw.globalMode = true
 		fw.globalPortRef = make(map[network.PortRange]int)
+	case config.FwNone:
+		logger.Warningf("stopping firewaller - firewall-mode is %q", config.FwNone)
+		return errors.Errorf("firewaller is disabled when firewall-mode is %q", config.FwNone)
 	}
 	for {
 		select {

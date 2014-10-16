@@ -1,8 +1,6 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package metricsender contains types and functions for sending
-// metrics from a state server to a remote metric collector.
 package metricsender
 
 import (
@@ -13,8 +11,6 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/state"
 )
 
 var (
@@ -28,7 +24,7 @@ type DefaultSender struct {
 }
 
 // Send sends the given metrics to the collector service.
-func (s *DefaultSender) Send(metrics []*state.MetricBatch) error {
+func (s *DefaultSender) Send(metrics []*MetricBatch) error {
 	b, err := json.Marshal(metrics)
 	if err != nil {
 		return err
