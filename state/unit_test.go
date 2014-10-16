@@ -283,6 +283,27 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
+func (s *UnitSuite) TestAssignStateServerLocalCannotHostUnits(c *gc.C) {
+	//This will ensure that machine cannot host units
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	// This is not something we would do in practice but
+	// it's the most convenient way to pretend to run local provider.
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"type": "local"}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(m)
+	c.Assert(err, gc.ErrorMatches, ".* machine .* is the state server for a local environment.*")
+}
+
+func (s *UnitSuite) TestAssignStateServerNonLocalCannotHostUnits(c *gc.C) {
+	//This will ensure that machine cannot host units
+	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(m)
+	c.Assert(err, gc.ErrorMatches, ".* machine .* cannot host units")
+	c.Assert(err, gc.Not(gc.ErrorMatches), ".* machine .* is the state server for a local environment.*")
+}
+
 type destroyMachineTestCase struct {
 	target    *state.Unit
 	host      *state.Machine

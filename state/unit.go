@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -1016,8 +1017,22 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 			break
 		}
 	}
+
 	if !canHost {
-		return fmt.Errorf("machine %q cannot host units", m)
+		err := fmt.Errorf("machine %q cannot host units", m)
+		var providerType string
+		if cfg, err := m.st.EnvironConfig(); err != nil {
+			return errors.Annotate(err, "cannot load environment configuration")
+		} else {
+			providerType = cfg.Type()
+		}
+
+		//Offering more descriptive error message for user-friendliness since
+		//state server is the only one that cannot host units.
+		if providerType == provider.Local {
+			err = errors.Annotatef(err, "machine %q is the state server for a local environment", m)
+		}
+		return err
 	}
 	// assignToMachine implies assignment to an existing machine,
 	// which is only permitted if unit placement is supported.
