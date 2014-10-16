@@ -71,6 +71,14 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		args:     []string{"--all", "--service=wordpress,mysql", "sudo reboot"},
 		errMatch: `You cannot specify --all and individual services`,
 	}, {
+		message:  "all and defined relation",
+		args:     []string{"--all", "--relation=mysql", "sudo reboot"},
+		errMatch: `You cannot specify --all and individual relations`,
+	}, {
+		message:  "all and defined remote-unit",
+		args:     []string{"--all", "--remote-unit=mysql/0", "sudo reboot"},
+		errMatch: `You cannot specify --all and a remote-unit`,
+	}, {
 		message:  "command to services wordpress and mysql",
 		args:     []string{"--service=wordpress,mysql", "sudo reboot"},
 		commands: "sudo reboot",
@@ -105,6 +113,20 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 		machines: []string{"0"},
 		services: []string{"mysql"},
 		units:    []string{"wordpress/0", "wordpress/1"},
+	}, {
+		message:  "relation to machine target",
+		args:     []string{"--machine=0", "--relation=mysql", "sudo reboot"},
+		errMatch: `You cannot specify --machine and individual relations`,
+	}, {
+		message: "bad remote-unit name",
+		args:    []string{"--unit=mysql/0", "--relation=mysql", "--remote-unit=2", "sudo reboot"},
+		errMatch: "" +
+			"The following run targets are not valid:\n" +
+			"  \"2\" is not a valid remote-unit name",
+	}, {
+		message:  "remote-unit to machine target",
+		args:     []string{"--machine=0", "--remote-unit=mysql/0", "sudo reboot"},
+		errMatch: `You cannot specify --machine and a remote-unit`,
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		runCmd := &RunCommand{}

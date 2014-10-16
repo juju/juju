@@ -426,6 +426,9 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 	}
 	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
 	vars = append(vars, ctx.meterStatusEnvVars()...)
+
+	logger.Debugf("hookVars: %+v", vars)
+
 	return vars
 }
 

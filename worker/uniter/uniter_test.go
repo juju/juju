@@ -1737,6 +1737,32 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestParseRelationId(c *gc.C) {
+	emptyRelation, err := uniter.ParseRelationId("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(emptyRelation, gc.Equals, -1)
+
+	badRelation, err := uniter.ParseRelationId("NaN")
+	c.Assert(err, gc.NotNil)
+	c.Assert(badRelation, gc.Equals, -1)
+
+	goodRelation, err := uniter.ParseRelationId("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(goodRelation, gc.Equals, 1)
+}
+
+func (s *UniterSuite) TestParseRemoteUnit(c *gc.C) {
+	relationers := map[int]*uniter.Relationer{}
+	args := uniter.RunCommandsArgs{
+		Commands:   "",
+		Relation:   "",
+		RemoteUnit: "",
+	}
+	remoteUnit, err := uniter.ParseRemoteUnit(relationers, -1, args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(remoteUnit, gc.Equals, "")
+}
+
 func step(c *gc.C, ctx *context, s stepper) {
 	c.Logf("%#v", s)
 	s.step(c, ctx)
@@ -2787,7 +2813,10 @@ type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	result, err := ctx.uniter.RunCommands(commands)
+	args := uniter.RunCommandsArgs{
+		Commands: commands,
+	}
+	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Code, gc.Equals, 0)
 	c.Check(string(result.Stdout), gc.Equals, "")
@@ -2807,7 +2836,10 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer client.Close()
 
 		var result utilexec.ExecResponse
-		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
+		args := uniter.RunCommandsArgs{
+			Commands: commands,
+		}
+		err = client.Call(uniter.JujuRunEndpoint, args, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)
 		c.Check(string(result.Stdout), gc.Equals, "")

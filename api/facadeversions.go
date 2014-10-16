@@ -35,6 +35,7 @@ var facadeVersions = map[string]int{
 	"Rsyslog":              0,
 	"Uniter":               1,
 	"Actions":              0,
+	"RunCommand":           1,
 }
 
 // bestVersion tries to find the newest version in the version list that we can

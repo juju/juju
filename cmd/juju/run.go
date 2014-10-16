@@ -11,9 +11,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/runcmd"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
@@ -21,13 +23,16 @@ import (
 // RunCommand is responsible for running arbitrary commands on remote machines.
 type RunCommand struct {
 	envcmd.EnvCommandBase
-	out      cmd.Output
-	all      bool
-	timeout  time.Duration
-	machines []string
-	services []string
-	units    []string
-	commands string
+	out        cmd.Output
+	all        bool
+	timeout    time.Duration
+	machines   []string
+	services   []string
+	units      []string
+	targets    []string
+	relation   string
+	remoteUnit string
+	commands   string
 }
 
 const runDoc = `
@@ -52,9 +57,15 @@ is equivalent to
 Commands run for services or units are executed in a 'hook context' for
 the unit.
 
+--relation allows you to ensure the command is executed on the specified
+service or unit targets with a specific relation context.
+
+--remote-unit is used with --relation to specify a remote-unit in cases where
+more than one exists. If only one remote-unit exists there is no need to specify this.
+
 --all is provided as a simple way to run the command on all the machines
 in the environment.  If you specify --all you cannot provide additional
-targets.
+targets or a relation.
 
 `
 
@@ -74,27 +85,48 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "one or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.services), "service", "one or more service names")
 	f.Var(cmd.NewStringsValue(nil, &c.units), "unit", "one or more unit ids")
+	f.StringVar(&c.relation, "relation", "", "relation context to run the command under")
+	f.StringVar(&c.remoteUnit, "remote-unit", "", "run the command for a specific remote unit for a given relation")
 }
 
 func (c *RunCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return fmt.Errorf("no commands specified")
+		return errors.Errorf("no commands specified")
 	}
 	c.commands, args = args[0], args[1:]
 
 	if c.all {
 		if len(c.machines) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual machines")
+			return errors.Errorf("You cannot specify --all and individual machines")
 		}
 		if len(c.services) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual services")
+			return errors.Errorf("You cannot specify --all and individual services")
 		}
 		if len(c.units) != 0 {
-			return fmt.Errorf("You cannot specify --all and individual units")
+			return errors.Errorf("You cannot specify --all and individual units")
 		}
+		if len(c.relation) != 0 {
+			return errors.Errorf("You cannot specify --all and a relation")
+		}
+		if len(c.remoteUnit) != 0 {
+			return errors.Errorf("You cannot specify --all and a remote-unit")
+		}
+
 	} else {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
-			return fmt.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
+			return errors.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
+		}
+		if len(c.relation) == 0 && len(c.remoteUnit) != 0 {
+			return errors.Errorf("You must specify a relation through --relation")
+		}
+	}
+
+	if len(c.machines) != 0 {
+		if len(c.relation) != 0 {
+			return errors.Errorf("You cannot specify --machine and a relations")
+		}
+		if len(c.remoteUnit) != 0 {
+			return errors.Errorf("You cannot specify --machine and a remote-unit")
 		}
 	}
 
@@ -103,19 +135,27 @@ func (c *RunCommand) Init(args []string) error {
 		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
+		c.targets = append(c.targets, names.NewMachineTag(machineId).String())
 	}
 	for _, service := range c.services {
 		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
+		c.targets = append(c.targets, names.NewServiceTag(service).String())
 	}
 	for _, unit := range c.units {
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
+		c.targets = append(c.targets, names.NewUnitTag(unit).String())
 	}
+
+	if len(c.remoteUnit) > 0 && !names.IsValidUnit(c.remoteUnit) {
+		nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid remote-unit name", c.remoteUnit))
+	}
+
 	if len(nameErrors) > 0 {
-		return fmt.Errorf("The following run targets are not valid:\n%s",
+		return errors.Errorf("The following run targets are not valid:\n%s",
 			strings.Join(nameErrors, "\n"))
 	}
 
@@ -172,24 +212,56 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
-	client, err := getRunAPIClient(c)
+	root, err := c.NewAPIRoot()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "cannot get API connection")
 	}
-	defer client.Close()
+
+	runClient := runcmd.NewClient(root)
+	defer runClient.Close()
+
+	runContext := &params.RunContext{Relation: c.relation, RemoteUnit: c.remoteUnit}
+
+	runParams := params.RunParamsV1{
+		Commands: c.commands,
+		Timeout:  c.timeout,
+		Targets:  c.targets,
+		Context:  runContext,
+	}
 
 	var runResults []params.RunResult
 	if c.all {
-		runResults, err = client.RunOnAllMachines(c.commands, c.timeout)
+		runResults, err = runClient.RunOnAllMachines(runParams)
 	} else {
-		params := params.RunParams{
+		runResults, err = runClient.Run(runParams)
+	}
+
+	if params.IsCodeNotImplemented(err) {
+		oldParams := params.RunParams{
 			Commands: c.commands,
 			Timeout:  c.timeout,
 			Machines: c.machines,
 			Services: c.services,
 			Units:    c.units,
 		}
-		runResults, err = client.Run(params)
+
+		oldClient, err := getRunAPIClient(c)
+		if err != nil {
+			return errors.Annotate(err, "unable to get a suitable client")
+		}
+
+		if c.all {
+			runResults, err = oldClient.RunOnAllMachines(oldParams.Commands, oldParams.Timeout)
+		} else {
+			if len(c.relation) > 0 || len(c.remoteUnit) > 0 {
+				return errors.Errorf("option(s) --relation, --remote-unit are not supported by this server")
+			}
+			runResults, err = oldClient.Run(oldParams)
+		}
+
+		if err != nil {
+			return err
+		}
 	}
 
 	if err != nil {
@@ -204,7 +276,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		ctx.Stderr.Write(result.Stderr)
 		if result.Error != "" {
 			// Convert the error string back into an error object.
-			return fmt.Errorf("%s", result.Error)
+			return errors.Errorf("%s", result.Error)
 		}
 		if result.Code != 0 {
 			return cmd.NewRcPassthroughError(result.Code)

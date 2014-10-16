@@ -26,10 +26,12 @@ var (
 
 type RunCommand struct {
 	cmd.CommandBase
-	unit      string
-	commands  string
-	showHelp  bool
-	noContext bool
+	unit       string
+	commands   string
+	showHelp   bool
+	noContext  bool
+	relation   string
+	remoteUnit string
 }
 
 const runCommandDoc = `
@@ -60,6 +62,8 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showHelp, "h", false, "show help on juju-run")
 	f.BoolVar(&c.showHelp, "help", false, "")
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
+	f.StringVar(&c.relation, "relation", "", "run the commands for a specific relation context on a unit")
+	f.StringVar(&c.remoteUnit, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
 }
 
 func (c *RunCommand) Init(args []string) error {
@@ -144,7 +148,12 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	defer client.Close()
 
 	var result exec.ExecResponse
-	err = client.Call(uniter.JujuRunEndpoint, c.commands, &result)
+	args := uniter.RunCommandsArgs{
+		Commands:   c.commands,
+		Relation:   c.relation,
+		RemoteUnit: c.remoteUnit,
+	}
+	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	return &result, err
 }
 

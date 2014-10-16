@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -378,15 +379,25 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (context *HookContext, err error) {
+type hookContextArgs struct {
+	hctxId         string
+	hookKind       hooks.Kind
+	relationId     int
+	remoteUnitName string
+	actionParams   map[string]interface{}
+	actionTag      *names.ActionTag
+}
+
+func (u *Uniter) getHookContext(h hookContextArgs) (context *HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	ownerTag, err := u.service.OwnerTag()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
 	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
@@ -396,18 +407,18 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	defer u.proxyMutex.Unlock()
 
 	// Metrics can only be added in collect-metrics hooks.
-	canAddMetrics := hookKind == hooks.CollectMetrics
+	canAddMetrics := h.hookKind == hooks.CollectMetrics
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 
 	var actionData *actionData
-	if actionTag != nil {
-		actionData = newActionData(actionTag, actionParams)
+	if h.actionTag != nil {
+		actionData = newActionData(h.actionTag, h.actionParams)
 	}
 
-	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
+	return NewHookContext(u.unit, u.st, h.hctxId, u.uuid, u.envName, h.relationId,
+		h.remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
 		canAddMetrics, actionData, u.assignedMachineTag)
 }
 
@@ -424,7 +435,7 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 		return nil
 	}
 	if err = u.hookLock.LockWithFunc(message, checkTomb); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -435,45 +446,64 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 		// TODO: switch to long-running server with single context;
 		// use nonce in place of context id.
 		if ctxId != context.id {
-			return nil, fmt.Errorf("expected context id %q, got %q", context.id, ctxId)
+			return nil, errors.Errorf("expected context id %q, got %q", context.id, ctxId)
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
 	socketPath := u.sockPath("agent.socket", "@")
 	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
-		return nil, "", err
+		return nil, "", errors.Trace(err)
 	}
 	go srv.Run()
 	return srv, socketPath, nil
 }
 
 // RunCommands executes the supplied commands in a hook context.
-func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
-	logger.Tracef("run commands: %s", commands)
+func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	logger.Tracef("run commands: %s", args.Commands)
 	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", nil, nil)
+	relationId, err := parseRelationId(args.Relation)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	remoteUnit, err := parseRemoteUnit(u.relationers, relationId, args)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	hcArgs := hookContextArgs{
+		hctxId:         hctxId,
+		actionTag:      nil,
+		actionParams:   nil,
+		hookKind:       hooks.Kind(""),
+		relationId:     relationId,
+		remoteUnitName: remoteUnit,
+	}
+	hctx, err := u.getHookContext(hcArgs)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
+
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer srv.Close()
 
-	result, err := hctx.RunCommands(commands, u.charmPath, u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(args.Commands, u.charmPath, u.toolsDir, socketPath)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
-	return result, err
+	return result, errors.Trace(err)
 }
 
 func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {
@@ -504,7 +534,7 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
 	ch, err := corecharm.ReadCharm(u.charmPath)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(err)
 	}
 
 	// Note that ch.Actions() will never be nil, rather an empty struct.
@@ -512,7 +542,7 @@ func (u *Uniter) validateAction(name string, params map[string]interface{}) (boo
 
 	spec, ok := actionSpecs.ActionSpecs[name]
 	if !ok {
-		return false, fmt.Errorf("no spec was defined for action %q", name)
+		return false, errors.Errorf("no spec was defined for action %q", name)
 	}
 
 	return spec.ValidateParams(params)
@@ -545,7 +575,15 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, -1, "", actionParams, &tag)
+	hcArgs := hookContextArgs{
+		hctxId:         hctxId,
+		actionTag:      &tag,
+		actionParams:   actionParams,
+		hookKind:       hi.Kind,
+		relationId:     -1,
+		remoteUnitName: "",
+	}
+	hctx, err := u.getHookContext(hcArgs)
 	if err != nil {
 		return err
 	}
@@ -596,7 +634,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 
 	if err = hi.Validate(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// If it wasn't an Action, continue as normal.
@@ -606,31 +644,39 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
+	hcArgs := hookContextArgs{
+		hctxId:         hctxId,
+		actionTag:      nil,
+		actionParams:   nil,
+		hookKind:       hi.Kind,
+		relationId:     relationId,
+		remoteUnitName: hi.RemoteUnit,
+	}
+	hctx, err := u.getHookContext(hcArgs) // hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer srv.Close()
 
 	// Run the hook.
 	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Infof("running %q hook", hookName)
 
@@ -645,7 +691,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if ranHook {
 		logger.Infof("ran %q hook", hookName)
@@ -926,4 +972,51 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 			}
 		}
 	}()
+}
+
+// parseRelationId converts the relation ID in string format from juju-run
+// to an int format for use with getHookContext. If relation string is empty
+// then parseRelationId returns -1 which is a valid value for getHookContext
+// that informs getHookContext to run in the anonymous context.
+func parseRelationId(relation string) (int, error) {
+	if len(relation) > 0 {
+		id, err := strconv.ParseInt(relation, 0, 0)
+		if err != nil {
+			return -1, errors.Trace(err)
+		}
+		return int(id), nil
+	}
+	return -1, nil
+}
+
+// parseRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
+// remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
+// the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
+// a given relationId an error is returned for display to the user.
+func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCommandsArgs) (string, error) {
+	remoteUnit := args.RemoteUnit
+	if relationId != -1 && len(remoteUnit) == 0 {
+		relationer, found := relationers[relationId]
+		if !found {
+			return "", errors.Errorf("unable to find any relations for %v", args.Relation)
+		}
+
+		var err error
+		remoteUnits := relationer.Context().UnitNames()
+		numRemoteUnits := len(remoteUnits)
+
+		switch numRemoteUnits {
+		case 0:
+			err = errors.Errorf("no remote unit found for relation: %s", args.Relation)
+		case 1:
+			remoteUnit = remoteUnits[0]
+		default:
+			err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
+		}
+
+		if err != nil {
+			return "", err
+		}
+	}
+	return remoteUnit, nil
 }
