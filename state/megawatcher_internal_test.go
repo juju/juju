@@ -1062,7 +1062,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", JobManageEnviron)
+	m0, err := s.State.AddMachine("trusty", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
@@ -1080,7 +1080,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Id:        "0",
 			Status:    params.StatusPending,
 			Life:      params.Alive,
-			Series:    "quantal",
+			Series:    "trusty",
 			Jobs:      []params.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
 		},
@@ -1104,15 +1104,24 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	}
 	err = m0.SetProvisioned("i-0", "bootstrap_nonce", hc)
 	c.Assert(err, gc.IsNil)
+
 	err = m1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = m1.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = m1.Remove()
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("trusty", JobHostUnits)
+
+	m2, err := s.State.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
+
+	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"), s.owner)
+	wu, err := wordpress.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = wu.AssignToMachine(m2)
+	c.Assert(err, gc.IsNil)
+
 	s.State.StartSync()
 
 	// Check that we see the changes happen within a
@@ -1132,7 +1141,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			InstanceId:              "i-0",
 			Status:                  params.StatusPending,
 			Life:                    params.Alive,
-			Series:                  "quantal",
+			Series:                  "trusty",
 			Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
@@ -1149,13 +1158,28 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 		},
 	}, {
 		Entity: &params.MachineInfo{
-			Id:         "2",
-			Status:     params.StatusPending,
-			Life:       params.Alive,
-			Series:     "trusty",
-			Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
-			Addresses:  []network.Address{},
-			StatusData: make(map[string]interface{}),
+			Id:        "2",
+			Status:    params.StatusPending,
+			Life:      params.Alive,
+			Series:    "quantal",
+			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Addresses: []network.Address{},
+		},
+	}, {
+		Entity: &params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:quantal/quantal-wordpress-3",
+			OwnerTag: s.owner.String(),
+			Life:     "alive",
+			Config:   make(map[string]interface{}),
+		},
+	}, {
+		Entity: &params.UnitInfo{
+			Name:      "wordpress/0",
+			Service:   "wordpress",
+			Series:    "quantal",
+			MachineId: "2",
+			Status:    "pending",
 		},
 	}})
 
