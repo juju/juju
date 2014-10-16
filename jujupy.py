@@ -424,6 +424,24 @@ class SimpleEnvironment:
             self.hpcloud = False
             self.maas = False
 
+    def __eq__(self, other):
+        if type(self) != type(other):
+            return False
+        if self.environment != other.environment:
+            return False
+        if self.config != other.config:
+            return False
+        if self.local != other.local:
+            return False
+        if self.hpcloud != other.hpcloud:
+            return False
+        if self.maas != other.maas:
+            return False
+        return True
+
+    def __ne__(self, other):
+        return not self == other
+
     @classmethod
     def from_config(cls, name):
         return cls(name, get_selected_environment(name)[0])

@@ -2,20 +2,41 @@
 __metaclass__ = type
 
 from argparse import ArgumentParser
+import logging
+import sys
 
+from jujuconfig import get_juju_home
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
+    temp_bootstrap_env,
     )
+
+
+def uniquify_local(env):
+    if not env.local:
+        return
+    port_defaults = {
+        'api-port': 17070,
+        'state-port': 37017,
+        'storage-port': 8040,
+        'syslog-port': 6514,
+    }
+    for key, default in port_defaults.items():
+        env.config[key] = env.config.get(key, default) + 1
 
 
 class IndustrialTest:
 
     @classmethod
     def from_args(cls, env, new_juju_path, stage_attempts):
-        env = SimpleEnvironment.from_config(env)
-        old_client = EnvJujuClient.by_version(env)
-        new_client = EnvJujuClient.by_version(env, new_juju_path)
+        old_env = SimpleEnvironment.from_config(env)
+        old_env.environment = env + '-old'
+        old_client = EnvJujuClient.by_version(old_env)
+        new_env = SimpleEnvironment.from_config(env)
+        new_env.environment = env + '-new'
+        uniquify_local(new_env)
+        new_client = EnvJujuClient.by_version(new_env, new_juju_path)
         return cls(old_client, new_client, stage_attempts)
 
     def __init__(self, old_client, new_client, stage_attempts):
@@ -24,6 +45,11 @@ class IndustrialTest:
         self.stage_attempts = stage_attempts
 
     def run_attempt(self):
+        self.old_client.destroy_environment()
+        self.new_client.destroy_environment()
+        return self.run_stages()
+
+    def run_stages(self):
         for attempt in self.stage_attempts:
             result = attempt.do_stage(self.old_client, self.new_client)
             yield result
@@ -37,6 +63,9 @@ class IndustrialTest:
 
 class StageAttempt:
 
+    def __init__(self):
+        self.failure_clients = set()
+
     def do_stage(self, old, new):
         self.do_operation(old)
         self.do_operation(new)
@@ -44,37 +73,40 @@ class StageAttempt:
         new_result = self.get_result(new)
         return old_result, new_result
 
-
-class BootstrapAttempt(StageAttempt):
-
-    def __init__(self):
-        super(BootstrapAttempt, self).__init__()
-        self.failure_clients = set()
-
-    def do_operation(self, client):
+    def do_operation(self, client, output=None):
         try:
-            client.bootstrap()
-        except Exception:
+            self._operation(client)
+        except Exception as e:
+            logging.exception(e)
             self.failure_clients.add(client)
 
     def get_result(self, client):
         if client in self.failure_clients:
             return False
         try:
-            client.wait_for_started()
+            return self._result(client)
         except Exception:
             return False
-        else:
-            return True
+
+
+class BootstrapAttempt(StageAttempt):
+
+    def _operation(self, client):
+        with temp_bootstrap_env(get_juju_home(), client):
+            client.bootstrap()
+
+    def _result(self, client):
+        client.wait_for_started()
+        return True
 
 
 class DestroyEnvironmentAttempt(StageAttempt):
 
-    def do_operation(self, client):
-        client.juju('destroy-environment', (client.env.environment,),
+    def _operation(self, client):
+        client.juju('destroy-environment', ('-y', client.env.environment),
                     include_e=False)
 
-    def get_result(self, client):
+    def _result(self, client):
         return True
 
 
