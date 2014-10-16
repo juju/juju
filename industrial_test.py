@@ -109,7 +109,6 @@ class DestroyEnvironmentAttempt(StageAttempt):
         return True
 
 
-
 def parse_args(args=None):
     parser = ArgumentParser()
     parser.add_argument('env')
