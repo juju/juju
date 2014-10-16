@@ -9,20 +9,8 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     temp_bootstrap_env,
+    uniquify_local,
     )
-
-
-def uniquify_local(env):
-    if not env.local:
-        return
-    port_defaults = {
-        'api-port': 17070,
-        'state-port': 37017,
-        'storage-port': 8040,
-        'syslog-port': 6514,
-    }
-    for key, default in port_defaults.items():
-        env.config[key] = env.config.get(key, default) + 1
 
 
 class IndustrialTest:
