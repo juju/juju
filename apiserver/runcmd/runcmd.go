@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -262,6 +263,15 @@ func (c commandRelation) isValidRemoteUnit() bool {
 	return len(c.RemoteUnit) > 0
 }
 
+// parseRelation
+func splitRelation(name string) string {
+	j := strings.Index(name, " ")
+	name = name[j+1:]
+
+	i := strings.Index(name, ":")
+	return name[i+1:]
+}
+
 // getRelation takes a RunContext and turns the string representations of a Relation
 // and RemoteUnit in to an actual state.Relation Id (relatioin)
 // and state.Unit Name (remoteUnit).
@@ -269,16 +279,40 @@ func (api *RunCommandAPI) getRelation(state *state.State, tag names.Tag, context
 	result := commandRelation{Id: -1, RemoteUnit: ""}
 
 	if len(context.Relation) > 0 {
-		endpoints, err := api.state.InferEndpoints(names.UnitService(tag.Id()), context.Relation)
+		unit, err := state.Unit(tag.Id())
 		if err != nil {
 			return result, errors.Trace(err)
 		}
 
-		relation, err := api.state.EndpointsRelation(endpoints...)
+		service, err := unit.Service()
 		if err != nil {
-			return result, errors.Errorf("no relation %s", context.Relation)
+			return result, errors.Trace(err)
 		}
-		result.Id = relation.Id()
+
+		relationFound := false
+		var relationPos int
+		relations, err := service.Relations()
+		if err != nil {
+			return result, errors.Trace(err)
+		}
+
+		for i, relation := range relations {
+			rel := splitRelation(relation.String())
+			logger.Debugf("runcmd.getRelation: %s, %s, %s", relation.String(), context.Relation, rel)
+			if rel == context.Relation {
+				if relationFound {
+					return result, errors.Errorf("disambiguate")
+				}
+				relationPos = i
+				relationFound = true
+			}
+		}
+
+		if !relationFound {
+			return result, errors.Errorf("no relation found matching %s", context.Relation)
+		}
+
+		result.Id = relations[relationPos].Id()
 	}
 
 	if len(context.RemoteUnit) > 0 {

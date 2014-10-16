@@ -479,7 +479,6 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		return nil, errors.Trace(err)
 	}
 
-	logger.Debugf("remoteUnit: %+v", remoteUnit)
 	hcArgs := hookContextArgs{
 		hctxId:         hctxId,
 		actionTag:      nil,
@@ -488,7 +487,6 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		relationId:     relationId,
 		remoteUnitName: remoteUnit,
 	}
-	logger.Debugf("getHookContext args: %+v", hcArgs)
 	hctx, err := u.getHookContext(hcArgs)
 
 	if err != nil {
@@ -1020,5 +1018,5 @@ func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCo
 			return "", err
 		}
 	}
-	return "", nil
+	return remoteUnit, nil
 }
