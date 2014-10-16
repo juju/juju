@@ -340,11 +340,11 @@ func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
 }
 
 func (s *backupMetadataStorage) AddDoc(doc interface{}) (string, error) {
-	metadata, ok := doc.(metadata.Metadata)
+	meta, ok := doc.(*metadata.Metadata)
 	if !ok {
 		return "", errors.Errorf("doc must be of type state.backups.metadata.Metadata")
 	}
-	return addBackupMetadata(s.state, &metadata)
+	return addBackupMetadata(s.state, meta)
 }
 
 func (s *backupMetadataStorage) Doc(id string) (interface{}, error) {
@@ -372,17 +372,26 @@ func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
 }
 
 func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
-	// This will be implemented when backups needs this functionality.
-	// For now the method is stubbed out for the same of the
-	// MetadataStorage interface.
-	return nil, errors.NotImplementedf("ListMetadata")
+	collection, closer := s.state.getCollection(backupsMetaC)
+	defer closer()
+
+	var docs []backupMetadataDoc
+	if err := collection.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	list := make([]filestorage.Metadata, len(docs))
+	for i, doc := range docs {
+		meta := doc.asMetadata()
+		list[i] = meta
+	}
+	return list, nil
 }
 
 func (s *backupMetadataStorage) RemoveDoc(id string) error {
-	// This will be implemented when backups needs this functionality.
-	// For now the method is stubbed out for the same of the
-	// MetadataStorage interface.
-	return errors.NotImplementedf("RemoveDoc")
+	collection, closer := s.state.getCollection(backupsMetaC)
+	defer closer()
+
+	return errors.Trace(collection.RemoveId(id))
 }
 
 func (s *backupMetadataStorage) New() filestorage.Metadata {
@@ -402,7 +411,7 @@ func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
 //---------------------------
 // raw file storage
 
-const backupStorageRoot = "/"
+const backupStorageRoot = "backups"
 
 // Ensure we satisfy the interface.
 var _ filestorage.RawFileStorage = (*envFileStorage)(nil)

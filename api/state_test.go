@@ -6,7 +6,7 @@ package api_test
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -87,7 +87,7 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	// Now that we've logged in, EnvironTag should be updated correctly.
 	envTag, err = apistate.EnvironTag()
 	c.Check(err, gc.IsNil)
-	c.Check(envTag.String(), gc.Equals, env.Tag().String())
+	c.Check(envTag, gc.Equals, env.EnvironTag())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {

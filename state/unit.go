@@ -13,7 +13,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -65,7 +65,9 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
-	Name         string `bson:"_id"`
+	DocID        string `bson:"_id"`
+	Name         string `bson:"name"`
+	EnvUUID      string `bson:"env-uuid"`
 	Service      string
 	Series       string
 	CharmURL     *charm.URL
@@ -74,12 +76,12 @@ type unitDoc struct {
 	MachineId    string
 	Resolved     ResolvedMode
 	Tools        *tools.Tools `bson:",omitempty"`
-	Ports        []network.Port
 	Life         Life
 	TxnRevno     int64 `bson:"txn-revno"`
 	PasswordHash string
 
 	// No longer used - to be removed.
+	Ports          []network.Port
 	PublicAddress  string
 	PrivateAddress string
 }
@@ -189,7 +191,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
@@ -214,7 +216,7 @@ func (u *Unit) SetPassword(password string) error {
 func (u *Unit) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
@@ -327,7 +329,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
 	setDyingOps := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}, cleanupOp, minUnitsOp}
@@ -368,7 +370,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if s.doc.Subordinate {
 		return []txn.Op{{
 			C:      unitsC,
-			Id:     u.doc.Principal,
+			Id:     u.st.docID(u.doc.Principal),
 			Assert: txn.DocExists,
 			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
 		}}, nil
@@ -494,14 +496,14 @@ func (u *Unit) EnsureDead() (err error) {
 	}()
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
 	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if notDead, err := isNotDead(u.st.db, unitsC, u.doc.Name); err != nil {
+	if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !notDead {
 		return nil
@@ -681,7 +683,7 @@ func (u *Unit) Refresh() error {
 	units, closer := u.st.getCollection(unitsC)
 	defer closer()
 
-	err := units.FindId(u.doc.Name).One(&u.doc)
+	err := units.FindId(u.doc.DocID).One(&u.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("unit %q", u)
 	}
@@ -716,7 +718,7 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 	},
 		updateStatusOp(u.st, u.globalKey(), doc),
@@ -728,195 +730,92 @@ func (u *Unit) SetStatus(status Status, info string, data map[string]interface{}
 	return nil
 }
 
-// OpenPort sets the policy of the port with protocol and number to be opened.
-func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	ports, err := NewPortRange(u.Name(), number, number, protocol)
+// OpenPorts opens the given port range and protocol for the unit, if
+// it does not conflict with another already opened range on the
+// unit's assigned machine.
+func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
+	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.Maskf(&err, "cannot open ports %v for unit %q", ports, u)
+	defer errors.Contextf(&err, "cannot open ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
 	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
 	}
 
-	// Check if this unit is still storing ports in its own document,
-	// if so - attempt a migration. Migration is only performed if the
-	// openedPorts document contains no ports for the unit.
-	//
-	// TODO(dimitern) Once the migration is performed as an upgrade
-	// step, this won't be necessary.
-	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
-		err = machinePorts.migratePorts(u)
-		if err != nil {
-			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
-			return errors.Trace(err)
-		}
-		err = machinePorts.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	err = machinePorts.OpenPorts(ports)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is
-	// updated to watch openedPorts collection
-	return u.openUnitPort(protocol, number)
+	return machinePorts.OpenPorts(ports)
 }
 
-// openUnitPort is the old implementation of OpenPort that amends the
-// list of ports on the unit document.
-//
-// TODO(domas) 2014-07-04 bug #1337813 This is kept in place until the
-// firewaller is updated to watch the OpenedPorts collection.
-func (u *Unit) openUnitPort(protocol string, number int) (err error) {
-	port := network.Port{Protocol: protocol, Number: number}
-	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = u.st.runTransaction(ops)
+// ClosePorts closes the given port range and protocol for the unit.
+func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
+	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
 	if err != nil {
-		return onAbort(err, ErrDead)
+		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	found := false
-	for _, p := range u.doc.Ports {
-		if p == port {
-			found = true
-			break
-		}
-	}
-	if !found {
-		u.doc.Ports = append(u.doc.Ports, port)
-	}
-	return nil
-}
-
-// closeUnitPort is the old implementation of ClosePort that alters
-// the list of ports on the unit document.
-//
-// TODO(domas) 2014-07-04 bug #1337813 This is kept in place until the
-// firewaller is updated to watch the OpenedPorts collection.
-func (u *Unit) closeUnitPort(protocol string, number int) (err error) {
-	port := network.Port{Protocol: protocol, Number: number}
-	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$pull", bson.D{{"ports", port}}}},
-	}}
-	err = u.st.runTransaction(ops)
-	if err != nil {
-		return onAbort(err, ErrDead)
-	}
-	newPorts := make([]network.Port, 0, len(u.doc.Ports))
-	for _, p := range u.doc.Ports {
-		if p != port {
-			newPorts = append(newPorts, p)
-		}
-	}
-	u.doc.Ports = newPorts
-	return nil
-}
-
-// ClosePort sets the policy of the port with protocol and number to be closed.
-func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	ports, err := NewPortRange(u.Name(), number, number, protocol)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer errors.Maskf(&err, "cannot close ports %v for unit %q", ports, u)
+	defer errors.Contextf(&err, "cannot close ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
 	machinePorts, err := getOrCreatePorts(u.st, machineId, network.DefaultPublic)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot get or create ports for machine %q", machineId)
 	}
 
-	// Check if this unit is still storing ports in its own document,
-	// if so - attempt a migration.
-	//
-	// TODO(dimitern) Once the ports migration is done as an upgrade
-	// step, remove this.
-	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
-		err = machinePorts.migratePorts(u)
-		if err != nil {
-			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
-			return errors.Trace(err)
-		}
-		err = machinePorts.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.Refresh()
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	err = machinePorts.ClosePorts(ports)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is
-	// updated to watch openedPorts collection
-	return u.closeUnitPort(protocol, number)
+	return machinePorts.ClosePorts(ports)
 }
 
-// OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []network.Port {
+// OpenPort opens the given port and protocol for the unit.
+func (u *Unit) OpenPort(protocol string, number int) error {
+	return u.OpenPorts(protocol, number, number)
+}
+
+// ClosePort closes the given port and protocol for the unit.
+func (u *Unit) ClosePort(protocol string, number int) error {
+	return u.ClosePorts(protocol, number, number)
+}
+
+// OpenedPorts returns a slice containing the open port ranges of the
+// unit.
+func (u *Unit) OpenedPorts() ([]network.PortRange, error) {
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
-		unitLogger.Errorf("cannot retrieve opened ports list for unit %v: %v", u, err)
-		return nil
+		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	// TODO(dimitern) 2014-09-10 bug #1337804: network name is
 	// hard-coded until multiple network support lands
 	machinePorts, err := getPorts(u.st, machineId, network.DefaultPublic)
-	result := []network.Port{}
+	result := []network.PortRange{}
 	if err == nil {
 		ports := machinePorts.PortsForUnit(u.Name())
 		for _, port := range ports {
-			result = append(result, network.Port{
+			result = append(result, network.PortRange{
 				Protocol: port.Protocol,
-				Number:   port.FromPort})
+				FromPort: port.FromPort,
+				ToPort:   port.ToPort,
+			})
 		}
 	} else {
 		if !errors.IsNotFound(err) {
-			unitLogger.Errorf("getting ports for unit %v failed: %v", u, err)
+			return nil, errors.Annotatef(err, "failed getting ports for unit %q", u)
 		}
-		// Read the port list in the unit document if the ports
-		// document does not exist.
-		result = append([]network.Port{}, u.doc.Ports...)
 	}
-	network.SortPorts(result)
-	return result
+	network.SortPortRanges(result)
+	return result, nil
 }
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -945,12 +844,12 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	charms := db.C(charmsC)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.Name); err != nil {
+		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
 			return nil, err
 		} else if !notDead {
 			return nil, fmt.Errorf("unit %q is dead", u)
 		}
-		sel := bson.D{{"_id", u.doc.Name}, {"charmurl", curl}}
+		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
 		if count, err := units.Find(sel).Count(); err != nil {
 			return nil, err
 		} else if count == 1 {
@@ -975,7 +874,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			incOp,
 			{
 				C:      unitsC,
-				Id:     u.doc.Name,
+				Id:     u.doc.DocID,
 				Assert: append(notDeadDoc, differentCharm...),
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
 			}}
@@ -1070,7 +969,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	defer closer()
 
 	pudoc := unitDoc{}
-	err = units.Find(bson.D{{"_id", u.doc.Principal}}).One(&pudoc)
+	err = units.FindId(u.st.docID(u.doc.Principal)).One(&pudoc)
 	if err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("principal unit %q of %q", u.doc.Principal, u)
 	} else if err != nil {
@@ -1137,7 +1036,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: assert,
 		Update: bson.D{{"$set", bson.D{{"machineid", m.doc.Id}}}},
 	}, {
@@ -1232,7 +1131,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 	asserts := append(isAliveDoc, isUnassigned...)
 	ops = append(ops, txn.Op{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: asserts,
 		Update: bson.D{{"$set", bson.D{{"machineid", mdoc.Id}}}},
 	})
@@ -1615,7 +1514,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	// machine id is as expected.
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"machineid", ""}}}},
 	}}
@@ -1644,17 +1543,17 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: notDeadDoc,
 	}, {
 		C:      actionsC,
-		Id:     doc.Id,
+		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.Name); err != nil {
+		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
 			return nil, err
 		} else if !notDead {
 			return nil, fmt.Errorf("unit %q is dead", u)
@@ -1665,6 +1564,12 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		return newAction(u.st, doc), nil
 	}
 	return nil, err
+}
+
+// CancelAction removes a pending Action from the queue for this
+// ActionReceiver and marks it as cancelled.
+func (u *Unit) CancelAction(action *Action) (*ActionResult, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
 // Actions returns a list of actions for this unit
@@ -1713,7 +1618,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	resolvedNotSet := bson.D{{"resolved", ResolvedNone}}
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
@@ -1723,7 +1628,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 	} else if err != txn.ErrAborted {
 		return err
 	}
-	if ok, err := isNotDead(u.st.db, unitsC, u.doc.Name); err != nil {
+	if ok, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
 		return err
 	} else if !ok {
 		return ErrDead
@@ -1736,7 +1641,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 func (u *Unit) ClearResolved() error {
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}

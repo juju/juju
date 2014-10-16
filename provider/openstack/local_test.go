@@ -15,7 +15,7 @@ import (
 
 	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
@@ -425,7 +425,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+		"firewall-mode": config.FwInstance}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -456,7 +456,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	)
 	defer cleanup()
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+		"firewall-mode": config.FwInstance}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -472,7 +472,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+		"firewall-mode": config.FwInstance}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -488,7 +488,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobal(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "global"}))
+		"firewall-mode": config.FwGlobal}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -697,7 +697,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := common.LoadState(env.Storage())
+	stor := env.(environs.EnvironStorage).Storage()
+	stateData, err := common.LoadState(stor)
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 
@@ -920,7 +921,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 	env := s.Prepare(c)
-	stor := env.Storage()
+	stor := env.(environs.EnvironStorage).Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
 		name := string(content)
@@ -941,7 +942,7 @@ func (s *localServerSuite) TestRemoveAll(c *gc.C) {
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 	env := s.Prepare(c)
-	stor := env.Storage()
+	stor := env.(environs.EnvironStorage).Storage()
 	// 6*26 = 156 items
 	for _, a := range []byte("abcdef") {
 		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
@@ -1068,10 +1069,6 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *localHTTPSServerSuite) TestCanUploadTools(c *gc.C) {
-	envtesting.UploadFakeTools(c, s.env.Storage())
-}
-
 func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	// If you don't have ssl-hostname-verification set to false, then we
 	// fail to connect to the environment. Copy the attrs used by SetUp and
@@ -1083,14 +1080,14 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	env, err := environs.NewFromAttrs(newattrs)
 	c.Assert(err, gc.IsNil)
-	err = env.Storage().Put("test-name", strings.NewReader("content"), 7)
+	err = env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 	// However, it works just fine if you use the one with the credentials set
-	err = s.env.Storage().Put("test-name", strings.NewReader("content"), 7)
+	err = s.env.(environs.EnvironStorage).Storage().Put("test-name", strings.NewReader("content"), 7)
 	c.Assert(err, gc.IsNil)
-	_, err = env.Storage().Get("test-name")
+	_, err = env.(environs.EnvironStorage).Storage().Get("test-name")
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
-	reader, err := s.env.Storage().Get("test-name")
+	reader, err := s.env.(environs.EnvironStorage).Storage().Get("test-name")
 	c.Assert(err, gc.IsNil)
 	contents, err := ioutil.ReadAll(reader)
 	c.Assert(string(contents), gc.Equals, "content")
@@ -1307,7 +1304,6 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -1383,7 +1379,6 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -1408,7 +1403,6 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	env := t.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -1432,7 +1426,6 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	env := t.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -1444,7 +1437,6 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
 	env := t.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 

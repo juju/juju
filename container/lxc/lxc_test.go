@@ -16,8 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/symlink"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
@@ -271,12 +271,14 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	network := container.BridgeNetworkConfig("nic42")
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}
+	aptMirror := "http://my.archive.ubuntu.com/ubuntu"
 	template, err := lxc.EnsureCloneTemplate(
 		"ext4",
 		"quantal",
 		network,
 		authorizedKeys,
 		aptProxy,
+		aptMirror,
 		true,
 		true,
 	)

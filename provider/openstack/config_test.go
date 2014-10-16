@@ -5,11 +5,9 @@ package openstack
 
 import (
 	"os"
-	"time"
 
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -175,6 +173,7 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 		s.savedVars[v] = os.Getenv(v)
 		os.Setenv(v, val)
 	}
+	s.PatchValue(&authenticateClient, func(*environ) error { return nil })
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
@@ -397,6 +396,12 @@ var configTests = []configTest{
 		},
 		firewallMode: config.FwGlobal,
 	}, {
+		summary: "none firewall-mode",
+		config: attrs{
+			"firewall-mode": "none",
+		},
+		firewallMode: config.FwNone,
+	}, {
 		config: attrs{
 			"future": "hammerstein",
 		},
@@ -507,51 +512,4 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_AUTH_URL", "http://auth")
 	os.Setenv("OS_TENANT_NAME", "sometenant")
 	os.Setenv("OS_REGION_NAME", "region")
-}
-
-type ConfigDeprecationSuite struct {
-	ConfigSuite
-	writer *testWriter
-}
-
-var _ = gc.Suite(&ConfigDeprecationSuite{})
-
-func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
-	s.ConfigSuite.SetUpTest(c)
-}
-
-func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
-	s.ConfigSuite.TearDownTest(c)
-}
-
-func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) {
-	var err error
-	s.writer = &testWriter{}
-	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *ConfigDeprecationSuite) resetLogger(c *gc.C) {
-	_, _, err := loggo.RemoveWriter("test")
-	c.Assert(err, gc.IsNil)
-}
-
-type testWriter struct {
-	messages []string
-}
-
-func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
-	t.messages = append(t.messages, message)
-}
-
-func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
-	s.setupEnvCredentials()
-	attrs := testing.FakeConfig().Merge(testing.Attrs{
-		"name":           "testenv",
-		"type":           "openstack",
-		"control-bucket": "x",
-		deprecatedKey:    value,
-	})
-	_, err := environs.NewFromAttrs(attrs)
-	c.Assert(err, gc.IsNil)
 }

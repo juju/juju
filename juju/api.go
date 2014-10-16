@@ -249,11 +249,13 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	var environTag names.Tag
-	if endpoint.EnvironUUID != "" {
-		// Note: we should be validating that EnvironUUID contains a
-		// valid UUID.
+	var environTag names.EnvironTag
+	if names.IsValidEnvironment(endpoint.EnvironUUID) {
 		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
+	} else {
+		// For backwards-compatibility, we have to allow connections
+		// with an empty UUID. Login will work for the same reasons.
+		logger.Warningf("ignoring invalid API endpoint environment UUID %v", endpoint.EnvironUUID)
 	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
@@ -336,8 +338,12 @@ func environAPIInfo(environ environs.Environ, user names.UserTag) (*api.Info, er
 func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
 	var environUUID string
-	if apiInfo.EnvironTag != nil {
+	if names.IsValidEnvironment(apiInfo.EnvironTag.Id()) {
 		environUUID = apiInfo.EnvironTag.Id()
+	} else {
+		// For backwards-compatibility, we have to allow connections
+		// with an empty UUID. Login will work for the same reasons.
+		logger.Warningf("ignoring invalid cached API endpoint environment UUID %v", apiInfo.EnvironTag.Id())
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   apiInfo.Addrs,
@@ -375,7 +381,7 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 	}
 	endpoint := info.APIEndpoint()
 	changed := false
-	if newEnvironTag.Id() != "" {
+	if names.IsValidEnvironment(newEnvironTag.Id()) {
 		if environUUID := newEnvironTag.Id(); endpoint.EnvironUUID != environUUID {
 			changed = true
 			endpoint.EnvironUUID = environUUID

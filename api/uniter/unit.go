@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
@@ -18,13 +18,13 @@ import (
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
 	st   *State
-	tag  names.Tag
+	tag  names.UnitTag
 	life params.Life
 }
 
 // Tag returns the unit's tag.
-func (u *Unit) Tag() string {
-	return u.tag.String()
+func (u *Unit) Tag() names.UnitTag {
+	return u.tag
 }
 
 // Name returns the name of the unit.
@@ -104,10 +104,9 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	serviceTag := names.NewServiceTag(u.ServiceName())
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag,
+		tag: u.ServiceTag(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -147,8 +146,8 @@ func (u *Unit) ServiceName() string {
 }
 
 // ServiceTag returns the service tag.
-func (u *Unit) ServiceTag() string {
-	return names.NewServiceTag(u.ServiceName()).String()
+func (u *Unit) ServiceTag() names.ServiceTag {
+	return names.NewServiceTag(u.ServiceName())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -202,6 +201,32 @@ func (u *Unit) Resolved() (params.ResolvedMode, error) {
 		return "", result.Error
 	}
 	return result.Mode, nil
+}
+
+// AssignedMachine returns the unit's assigned machine tag or an error
+// satisfying params.IsCodeNotAssigned when the unit has no assigned
+// machine..
+func (u *Unit) AssignedMachine() (names.MachineTag, error) {
+	if u.st.BestAPIVersion() < 1 {
+		return names.MachineTag{}, errors.NotImplementedf("unit.AssignedMachine() (need V1+)")
+	}
+	var invalidTag names.MachineTag
+	var results params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("AssignedMachine", args, &results)
+	if err != nil {
+		return invalidTag, err
+	}
+	if len(results.Results) != 1 {
+		return invalidTag, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return invalidTag, result.Error
+	}
+	return names.ParseMachineTag(result.Result)
 }
 
 // IsPrincipal returns whether the unit is deployed in its own container,
@@ -303,11 +328,49 @@ func (u *Unit) PrivateAddress() (string, error) {
 	return result.Result, nil
 }
 
+// OpenPorts sets the policy of the port range with protocol to be
+// opened.
+func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
+	var result params.ErrorResults
+	args := params.EntitiesPortRanges{
+		Entities: []params.EntityPortRange{{
+			Tag:      u.tag.String(),
+			Protocol: protocol,
+			FromPort: fromPort,
+			ToPort:   toPort,
+		}},
+	}
+	err := u.st.facade.FacadeCall("OpenPorts", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
+// ClosePorts sets the policy of the port range with protocol to be
+// closed.
+func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) error {
+	var result params.ErrorResults
+	args := params.EntitiesPortRanges{
+		Entities: []params.EntityPortRange{{
+			Tag:      u.tag.String(),
+			Protocol: protocol,
+			FromPort: fromPort,
+			ToPort:   toPort,
+		}},
+	}
+	err := u.st.facade.FacadeCall("ClosePorts", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // OpenPort sets the policy of the port with protocol and number to be
 // opened.
 //
-// TODO: We should really be opening and closing ports on machines,
-// rather than units.
+// TODO(dimitern): This is deprecated and is kept for
+// backwards-compatibility. Use OpenPorts instead.
 func (u *Unit) OpenPort(protocol string, number int) error {
 	var result params.ErrorResults
 	args := params.EntitiesPorts{
@@ -325,8 +388,8 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 // ClosePort sets the policy of the port with protocol and number to
 // be closed.
 //
-// TODO: We should really be opening and closing ports on machines,
-// rather than units.
+// TODO(dimitern): This is deprecated and is kept for
+// backwards-compatibility. Use ClosePorts instead.
 func (u *Unit) ClosePort(protocol string, number int) error {
 	var result params.ErrorResults
 	args := params.EntitiesPorts{
@@ -476,8 +539,25 @@ func (u *Unit) WatchActions() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
+// RequestReboot sets the reboot flag for its machine agent
+func (u *Unit) RequestReboot() error {
+	machineId, err := u.AssignedMachine()
+	if err != nil {
+		return err
+	}
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: machineId.String()}},
+	}
+	err = u.st.facade.FacadeCall("RequestReboot", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}
+
 // JoinedRelations returns the tags of the relations the unit has joined.
-func (u *Unit) JoinedRelations() ([]string, error) {
+func (u *Unit) JoinedRelations() ([]names.RelationTag, error) {
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
@@ -493,5 +573,55 @@ func (u *Unit) JoinedRelations() ([]string, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return result.Result, nil
+	var relTags []names.RelationTag
+	for _, rel := range result.Result {
+		tag, err := names.ParseRelationTag(rel)
+		if err != nil {
+			return nil, err
+		}
+		relTags = append(relTags, tag)
+	}
+	return relTags, nil
+}
+
+// MeterStatus returns the meter status of the unit.
+func (u *Unit) MeterStatus() (statusCode, statusInfo string, rErr error) {
+	var results params.MeterStatusResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("GetMeterStatus", args, &results)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return "", "", errors.Trace(result.Error)
+	}
+	return result.Code, result.Info, nil
+}
+
+// WatchMeterStatus returns a watcher for observing changes to the
+// unit's meter status.
+func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchMeterStatus", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
 }

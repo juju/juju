@@ -5,15 +5,16 @@ package uniter_test
 
 import (
 	"fmt"
-	"sort"
+	"net/url"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
@@ -37,8 +38,12 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *unitSuite) TearDownTest(c *gc.C) {
-	s.uniterSuite.TearDownTest(c)
+func (s *unitSuite) TestRequestReboot(c *gc.C) {
+	err := s.apiUnit.RequestReboot()
+	c.Assert(err, gc.IsNil)
+	rFlag, err := s.wordpressMachine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
 }
 
 func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
@@ -47,7 +52,7 @@ func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(apiUnitFoo, gc.IsNil)
 
-	c.Assert(s.apiUnit.Tag(), gc.Equals, "unit-wordpress-0")
+	c.Assert(s.apiUnit.Tag(), gc.Equals, s.wordpressUnit.Tag().(names.UnitTag))
 }
 
 func (s *unitSuite) TestSetStatus(c *gc.C) {
@@ -182,6 +187,22 @@ func (s *unitSuite) TestResolve(c *gc.C) {
 	c.Assert(mode, gc.Equals, params.ResolvedNone)
 }
 
+func (s *unitSuite) TestAssignedMachineV0NotImplemented(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV0)
+
+	_, err := s.apiUnit.AssignedMachine()
+	c.Assert(err, jc.Satisfies, errors.IsNotImplemented)
+	c.Assert(err.Error(), gc.Equals, "unit.AssignedMachine() (need V1+) not implemented")
+}
+
+func (s *unitSuite) TestAssignedMachineV1(c *gc.C) {
+	s.patchNewState(c, uniter.NewStateV1)
+
+	machineTag, err := s.apiUnit.AssignedMachine()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineTag, gc.Equals, s.wordpressMachine.Tag())
+}
+
 func (s *unitSuite) TestIsPrincipal(c *gc.C) {
 	ok, err := s.apiUnit.IsPrincipal()
 	c.Assert(err, gc.IsNil)
@@ -226,41 +247,75 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "1.2.3.4")
 }
 
-func (s *unitSuite) TestOpenClosePort(c *gc.C) {
-	ports := s.wordpressUnit.OpenedPorts()
+func (s *unitSuite) TestOpenClosePortRanges(c *gc.C) {
+	ports, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err := s.apiUnit.OpenPort("tcp", 1234)
+	err = s.apiUnit.OpenPorts("tcp", 1234, 1400)
+	c.Assert(err, gc.IsNil)
+	err = s.apiUnit.OpenPorts("udp", 4321, 5000)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	// OpenedPorts returns a sorted slice.
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+		{Protocol: "udp", FromPort: 4321, ToPort: 5000},
+	})
+
+	err = s.apiUnit.ClosePorts("udp", 4321, 5000)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	// OpenedPorts returns a sorted slice.
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1400},
+	})
+
+	err = s.apiUnit.ClosePorts("tcp", 1234, 1400)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+}
+
+func (s *unitSuite) TestOpenClosePort(c *gc.C) {
+	ports, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+
+	err = s.apiUnit.OpenPort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
 	err = s.apiUnit.OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.Refresh()
+	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.Port{
-		{Protocol: "tcp", Number: 1234},
-		{Protocol: "tcp", Number: 4321},
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
+		{Protocol: "tcp", FromPort: 4321, ToPort: 4321},
 	})
 
 	err = s.apiUnit.ClosePort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.Refresh()
+	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
 	// OpenedPorts returns a sorted slice.
-	c.Assert(ports, gc.DeepEquals, []network.Port{
-		{Protocol: "tcp", Number: 1234},
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{
+		{Protocol: "tcp", FromPort: 1234, ToPort: 1234},
 	})
 
 	err = s.apiUnit.ClosePort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
 
-	err = s.wordpressUnit.Refresh()
+	ports, err = s.wordpressUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	ports = s.wordpressUnit.OpenedPorts()
 	c.Assert(ports, gc.HasLen, 0)
 }
 
@@ -444,8 +499,8 @@ func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
 }
 
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
-	c.Assert(s.apiUnit.ServiceName(), gc.Equals, "wordpress")
-	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, "service-wordpress")
+	c.Assert(s.apiUnit.ServiceName(), gc.Equals, s.wordpressService.Name())
+	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, s.wordpressService.Tag())
 }
 
 func (s *unitSuite) TestJoinedRelations(c *gc.C) {
@@ -456,13 +511,17 @@ func (s *unitSuite) TestJoinedRelations(c *gc.C) {
 	rel1, _, _ := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, gc.IsNil)
-	c.Assert(joinedRelations, gc.DeepEquals, []string{rel1.Tag().String()})
+	c.Assert(joinedRelations, gc.DeepEquals, []names.RelationTag{
+		rel1.Tag().(names.RelationTag),
+	})
 
 	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, gc.IsNil)
-	sort.Strings(joinedRelations)
-	c.Assert(joinedRelations, gc.DeepEquals, []string{rel2.Tag().String(), rel1.Tag().String()})
+	c.Assert(joinedRelations, gc.DeepEquals, []names.RelationTag{
+		rel2.Tag().(names.RelationTag),
+		rel1.Tag().(names.RelationTag),
+	})
 }
 
 func (s *unitSuite) TestWatchAddresses(c *gc.C) {
@@ -542,4 +601,85 @@ func (s *unitSuite) TestAddMetricsResultError(c *gc.C) {
 	metrics := []params.Metric{{"A", "23", time.Now()}, {"B", "27.0", time.Now()}}
 	err := s.apiUnit.AddMetrics(metrics)
 	c.Assert(err, gc.ErrorMatches, "error adding metrics")
+}
+
+func (s *unitSuite) TestMeterStatus(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			result.Results[0].Code = "GREEN"
+			result.Results[0].Info = "All ok."
+			return nil
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.IsNil)
+	c.Assert(statusCode, gc.Equals, "GREEN")
+	c.Assert(statusInfo, gc.Equals, "All ok.")
+}
+
+func (s *unitSuite) TestMeterStatusError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			return fmt.Errorf("boo")
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "boo")
+	c.Assert(statusCode, gc.Equals, "")
+	c.Assert(statusInfo, gc.Equals, "")
+}
+
+func (s *unitSuite) TestMeterStatusResultError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "GetMeterStatus",
+		func(results interface{}) error {
+			result := results.(*params.MeterStatusResults)
+			result.Results = make([]params.MeterStatusResult, 1)
+			result.Results[0].Error = &params.Error{
+				Message: "error getting meter status",
+				Code:    params.CodeNotAssigned,
+			}
+			return nil
+		},
+	)
+	statusCode, statusInfo, err := s.apiUnit.MeterStatus()
+	c.Assert(err, gc.ErrorMatches, "error getting meter status")
+	c.Assert(statusCode, gc.Equals, "")
+	c.Assert(statusInfo, gc.Equals, "")
+}
+
+func (s *unitSuite) TestWatchMeterStatus(c *gc.C) {
+	w, err := s.apiUnit.WatchMeterStatus()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	err = s.wordpressUnit.SetMeterStatus("GREEN", "ok")
+	c.Assert(err, gc.IsNil)
+	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Non-change is not reported.
+	err = s.wordpressUnit.SetMeterStatus("AMBER", "ok")
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *unitSuite) patchNewState(
+	c *gc.C,
+	patchFunc func(_ base.APICaller, _ names.UnitTag, _ *url.URL) *uniter.State,
+) {
+	s.uniterSuite.patchNewState(c, patchFunc)
+	var err error
+	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
+	c.Assert(err, gc.IsNil)
 }

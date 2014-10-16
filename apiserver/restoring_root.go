@@ -7,34 +7,34 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
-	"github.com/juju/juju/state"
 )
 
 var aboutToRestoreError = errors.New("juju restore is in progress - Juju functionality is limited to avoid data loss")
 var restoreInProgressError = errors.New("juju restore is in progress - Juju api is off to prevent data loss")
 
 type aboutToRestoreRoot struct {
-	srvRoot
+	rpc.MethodFinder
 }
 
 type restoreInProgressRoot struct {
-	srvRoot
+	rpc.MethodFinder
 }
 
 // newAboutToRestoreRoot creates a root where all API calls
 // but restore will fail with aboutToRestoreError.
-func newAboutToRestoreRoot(root *initialRoot, entity state.Entity) *aboutToRestoreRoot {
+func newAboutToRestoreRoot(finder rpc.MethodFinder) *aboutToRestoreRoot {
 	return &aboutToRestoreRoot{
-		srvRoot: *newSrvRoot(root, entity),
+		MethodFinder: finder,
 	}
 }
 
 // newRestoreInProressRoot creates a root where all API calls
 // but restore will fail with restoreInProgressError.
-func newRestoreInProgressRoot(root *initialRoot, entity state.Entity) *restoreInProgressRoot {
+func newRestoreInProgressRoot(finder rpc.MethodFinder) *restoreInProgressRoot {
 	return &restoreInProgressRoot{
-		srvRoot: *newSrvRoot(root, entity),
+		MethodFinder: finder,
 	}
 }
 
@@ -42,13 +42,14 @@ func newRestoreInProgressRoot(root *initialRoot, entity state.Entity) *restoreIn
 // for all API calls except Client.Restore
 // for use while Juju is preparing to restore a backup.
 func (r *aboutToRestoreRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	if _, _, err := r.lookupMethod(rootName, version, methodName); err != nil {
+	caller, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	if err != nil {
 		return nil, err
 	}
 	if !isMethodAllowedAboutToRestore(rootName, methodName) {
 		return nil, aboutToRestoreError
 	}
-	return r.srvRoot.FindMethod(rootName, version, methodName)
+	return caller, nil
 }
 
 var allowedMethodsAboutToRestore = set.NewStrings(
@@ -64,7 +65,8 @@ func isMethodAllowedAboutToRestore(rootName, methodName string) bool {
 // for all API calls.
 // for use while Juju is restoring a backup.
 func (r *restoreInProgressRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	if _, _, err := r.lookupMethod(rootName, version, methodName); err != nil {
+	_, err := r.MethodFinder.FindMethod(rootName, version, methodName)
+	if err != nil {
 		return nil, err
 	}
 	return nil, restoreInProgressError

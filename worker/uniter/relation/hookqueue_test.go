@@ -7,8 +7,8 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3/hooks"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/apiserver/params"
 	coretesting "github.com/juju/juju/testing"
@@ -308,7 +308,7 @@ func (d expect) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook
 	}
 	select {
 	case actual := <-out:
-		c.Assert(actual, gc.DeepEquals, d.info())
+		c.Assert(actual, jc.DeepEquals, d.info())
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for %#v", d.info())
 	}
@@ -319,7 +319,7 @@ func (d expect) checkDirect(c *gc.C, q relation.HookSource) {
 		c.Check(q.Empty(), jc.IsTrue)
 	} else {
 		c.Check(q.Empty(), jc.IsFalse)
-		c.Check(q.Next(), gc.DeepEquals, d.info())
+		c.Check(q.Next(), jc.DeepEquals, d.info())
 		q.Pop()
 	}
 }

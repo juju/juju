@@ -5,7 +5,6 @@ package jujuc
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ func NewAddMetricCommand(ctx Context) cmd.Command {
 func (c *AddMetricCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-metric",
-		Args:    "key=value [key=value ...]",
+		Args:    "key1=value1 [key2=value2 ...]",
 		Purpose: "send metrics",
 	}
 }
@@ -48,11 +47,17 @@ func (c *AddMetricCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no metrics specified")
 	}
+	keys := make(map[string]struct{})
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", 2)
 		if len(parts) != 2 || len(parts[0]) == 0 {
 			return fmt.Errorf(`expected "key=value", got %q`, kv)
 		}
+		if _, ok := keys[parts[0]]; ok {
+			return fmt.Errorf("duplicate metric key given: %q",
+				parts[0])
+		}
+		keys[parts[0]] = struct{}{}
 		_, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
 			return fmt.Errorf("invalid value type: expected float, got %q", parts[1])
@@ -67,7 +72,6 @@ func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
 		err := c.ctx.AddMetrics(metric.Key, metric.Value, metric.Time)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "can't add metrics!")
 			return errors.Annotate(err, "cannot record metric")
 		}
 	}

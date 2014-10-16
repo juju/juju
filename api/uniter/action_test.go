@@ -5,7 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -27,14 +27,14 @@ func (s *actionSuite) TestAction(c *gc.C) {
 	}{{
 		description: "A simple Action.",
 		action: params.Action{
-			Name:   "snapshot",
-			Params: basicParams,
+			Name:       "snapshot",
+			Parameters: basicParams,
 		},
 	}, {
 		description: "An Action with nested parameters.",
 		action: params.Action{
 			Name: "backup",
-			Params: map[string]interface{}{
+			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
 					"kind":    "bzip",
@@ -48,7 +48,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 		c.Logf("test %d: %s", i, actionTest.description)
 		a, err := s.uniterSuite.wordpressUnit.AddAction(
 			actionTest.action.Name,
-			actionTest.action.Params)
+			actionTest.action.Parameters)
 		c.Assert(err, gc.IsNil)
 
 		actionTag := names.JoinActionTag(s.uniterSuite.wordpressUnit.Name(), i)
@@ -58,7 +58,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 
 		c.Assert(retrievedAction.Name(), gc.DeepEquals, actionTest.action.Name)
-		c.Assert(retrievedAction.Params(), gc.DeepEquals, actionTest.action.Params)
+		c.Assert(retrievedAction.Params(), gc.DeepEquals, actionTest.action.Parameters)
 	}
 }
 
@@ -96,7 +96,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res, gc.DeepEquals, actionResult)
-	c.Assert(results[0].ActionName(), gc.Equals, "gabloxi")
+	c.Assert(results[0].Name(), gc.Equals, "gabloxi")
 }
 
 func (s *actionSuite) TestActionFail(c *gc.C) {
@@ -118,5 +118,5 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, errmsg)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(results[0].ActionName(), gc.Equals, "beebz")
+	c.Assert(results[0].Name(), gc.Equals, "beebz")
 }

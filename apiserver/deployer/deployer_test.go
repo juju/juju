@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/deployer"
@@ -81,7 +81,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = relUnit0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.subordinate0, err = s.service1.Unit("logging/0")
+	s.subordinate0, err = s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

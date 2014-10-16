@@ -5,21 +5,29 @@ package highavailability
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 )
 
+var logger = loggo.GetLogger("juju.api.highavailability")
+
 // Client provides access to the high availability service, used to manage state servers.
 type Client struct {
 	base.ClientFacade
 	facade     base.FacadeCaller
-	environTag string
+	environTag names.EnvironTag
 }
 
 // NewClient returns a new HighAvailability client.
-func NewClient(caller base.APICallCloser, environTag string) *Client {
+func NewClient(caller base.APICallCloser) *Client {
+	environTag, err := caller.EnvironTag()
+	if err != nil {
+		logger.Errorf("ignoring invalid environment tag: %v", err)
+	}
 	frontend, backend := base.NewClientFacade(caller, "HighAvailability")
 	return &Client{ClientFacade: frontend, facade: backend, environTag: environTag}
 }
@@ -32,7 +40,7 @@ func (c *Client) EnsureAvailability(
 	var results params.StateServersChangeResults
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
-			EnvironTag:      c.environTag,
+			EnvironTag:      c.environTag.String(),
 			NumStateServers: numStateServers,
 			Constraints:     cons,
 			Series:          series,

@@ -6,7 +6,7 @@ package version
 import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 type macOSXVersionSuite struct{}

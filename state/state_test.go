@@ -18,11 +18,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -2400,12 +2400,12 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			kind := test.tag.Kind()
 			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
-			if kind == "environment" {
+			if kind == names.EnvironTagKind {
 				// TODO(axw) 2013-12-04 #1257587
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
-			} else if kind == "user" {
+			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
 				expected := test.tag.(names.UserTag).Username()
 				c.Assert(e.Tag().(names.UserTag).Username(), gc.Equals, expected)
@@ -2420,7 +2420,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, nil)
 	c.Assert(err, gc.ErrorMatches, "tag is nil")
 	c.Assert(coll, gc.Equals, "")
-	c.Assert(id, gc.Equals, "")
+	c.Assert(id, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
@@ -2447,7 +2447,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, u.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
-	c.Assert(id, gc.Equals, u.Name())
+	c.Assert(id, gc.Equals, state.DocID(s.State, u.Name()))
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
@@ -3528,97 +3528,6 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
-	// Add simple service and two units
-	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-
-	unit1, err := mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
-
-	unit2, err := mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
-
-	// Add 3 actions to first unit, and 2 to the second unit
-	_, err = unit1.AddAction("action1.1", nil)
-	c.Assert(err, gc.IsNil)
-	_, err = unit1.AddAction("action1.2", nil)
-	c.Assert(err, gc.IsNil)
-	_, err = unit1.AddAction("action1.3", nil)
-	c.Assert(err, gc.IsNil)
-
-	_, err = unit2.AddAction("action2.1", nil)
-	c.Assert(err, gc.IsNil)
-	_, err = unit2.AddAction("action2.2", nil)
-	c.Assert(err, gc.IsNil)
-
-	// Verify that calling Actions on unit1 returns only
-	// the three actions added to unit1
-	actions1, err := unit1.Actions()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(actions1), gc.Equals, 3)
-	for _, action := range actions1 {
-		c.Assert(action.Name(), gc.Matches, "^action1\\..")
-	}
-
-	// Verify that calling Actions on unit2 returns only
-	// the two actions added to unit2
-	actions2, err := unit2.Actions()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(actions2), gc.Equals, 2)
-	for _, action := range actions2 {
-		c.Assert(action.Name(), gc.Matches, "^action2\\..")
-	}
-}
-
-func (s *StateSuite) TestWatchActions(c *gc.C) {
-	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	u, err := svc.AddUnit()
-	c.Assert(err, gc.IsNil)
-
-	w := s.State.WatchActions()
-	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange()
-	wc.AssertNoChange()
-
-	// add 3 actions
-	_, err = u.AddAction("fakeaction1", nil)
-	c.Assert(err, gc.IsNil)
-	fa2, err := u.AddAction("fakeaction2", nil)
-	c.Assert(err, gc.IsNil)
-	_, err = u.AddAction("fakeaction3", nil)
-	c.Assert(err, gc.IsNil)
-
-	// fail the middle one
-	action, err := s.State.Action(fa2.Id())
-	c.Assert(err, gc.IsNil)
-	err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
-	c.Assert(err, gc.IsNil)
-
-	// expect the first and last one in the watcher
-	expect := expectActionIds(u, "0", "2")
-	wc.AssertChange(expect...)
-	wc.AssertNoChange()
-}
-
-func expectActionIds(u *state.Unit, suffixes ...string) []string {
-	ids := make([]string, len(suffixes))
-	prefix := state.EnsureActionMarker(u.Name())
-	for i, suffix := range suffixes {
-		ids[i] = prefix + suffix
-	}
-	return ids
-}
-
-func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
-	ids := make([]string, len(suffixes))
-	prefix := state.EnsureActionResultMarker(u.Name())
-	for i, suffix := range suffixes {
-		ids[i] = prefix + suffix
-	}
-	return ids
-}
-
 func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -3681,6 +3590,12 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 		c.Fatalf("watcher not closed")
 	}
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
+	t := state.NowToTheSecond()
+	rounded := t.Round(time.Second)
+	c.Assert(t, gc.DeepEquals, rounded)
 }
 
 type SetAdminMongoPasswordSuite struct {

@@ -328,8 +328,9 @@ cpu-power
 
 tags
    Tags defines the list of tags that the machine must have applied to it.
-   Multiple tags must be delimited by a comma. Tags are currently only supported
-   by the MaaS environment.
+   Multiple tags must be delimited by a comma. Both positive and negative
+   tags constraints are supported, the latter have a "^" prefix. Tags are
+   currently only supported by the MaaS environment.
 
 networks
    Networks defines the list of networks to ensure are available or not on the
@@ -340,9 +341,15 @@ networks
    network. Positive network constraints do not imply the networks will be enabled,
    use the --networks argument for that, just that they could be enabled.
 
+instance-type
+   Instance-type is the provider-specific name of a type of machine to deploy,
+   for example m1.small on EC2 or A4 on Azure.  Specifying this constraint may
+   conflict with other constraints depending on the provider (since the instance
+   type my determine things like memory size etc.)
+
 Example:
 
-   juju add-machine --constraints "arch=amd64 mem=8G tags=foo,bar"
+   juju add-machine --constraints "arch=amd64 mem=8G tags=foo,^bar"
 
 See Also:
    juju help set-constraints

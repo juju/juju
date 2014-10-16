@@ -4,16 +4,103 @@
 package jujuc
 
 import (
-	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
-const portFormat = "<port>[/<protocol>]"
+const (
+	portFormat = "<port>[/<protocol>] or <from>-<to>[/<protocol>]"
+
+	portExp  = "(?:[0-9]+)"
+	protoExp = "(?:[a-z0-9]+)"
+)
+
+var validPortOrRange = regexp.MustCompile("^" + portExp + "(?:-" + portExp + ")?(/" + protoExp + ")?$")
+
+type port struct {
+	number   int
+	protocol string
+}
+
+func (p port) validate() error {
+	if p.number < 1 || p.number > 65535 {
+		return errors.Errorf(`port must be in the range [1, 65535]; got "%v"`, p.number)
+	}
+	proto := strings.ToLower(p.protocol)
+	if proto != "tcp" && proto != "udp" {
+		return errors.Errorf(`protocol must be "tcp" or "udp"; got %q`, p.protocol)
+	}
+	return nil
+}
+
+type portRange struct {
+	fromPort, toPort int
+	protocol         string
+}
+
+func (pr portRange) validate() error {
+	if pr.fromPort == pr.toPort {
+		return port{pr.fromPort, pr.protocol}.validate()
+	}
+	if pr.fromPort > pr.toPort {
+		return errors.Errorf(
+			"invalid port range %d-%d/%s; expected fromPort <= toPort",
+			pr.fromPort, pr.toPort, pr.protocol,
+		)
+	}
+	if pr.fromPort < 1 || pr.fromPort > 65535 {
+		return errors.Errorf(`fromPort must be in the range [1, 65535]; got "%v"`, pr.fromPort)
+	}
+	if pr.toPort < 1 || pr.toPort > 65535 {
+		return errors.Errorf(`toPort must be in the range [1, 65535]; got "%v"`, pr.toPort)
+	}
+	proto := strings.ToLower(pr.protocol)
+	if proto != "tcp" && proto != "udp" {
+		return errors.Errorf(`protocol must be "tcp" or "udp"; got %q`, pr.protocol)
+	}
+	return nil
+}
+
+func parseArguments(args []string) (portRange, error) {
+	arg := strings.ToLower(args[0])
+	if !validPortOrRange.MatchString(arg) {
+		return portRange{}, errors.Errorf("expected %s; got %q", portFormat, args[0])
+	}
+	portOrRange := validPortOrRange.FindString(arg)
+	parts := strings.SplitN(portOrRange, "/", 2)
+
+	protocol := "tcp"
+	if len(parts) > 1 {
+		protocol = parts[1]
+	}
+	ports := parts[0]
+	portParts := strings.SplitN(ports, "-", 2)
+	fromPort, toPort := 0, 0
+	if len(portParts) >= 1 {
+		port, err := strconv.Atoi(portParts[0])
+		if err != nil {
+			return portRange{}, errors.Annotatef(err, "expected port number; got %q", portParts[0])
+		}
+		fromPort = port
+	}
+	if len(portParts) == 2 {
+		port, err := strconv.Atoi(portParts[1])
+		if err != nil {
+			return portRange{}, errors.Annotatef(err, "expected port number; got %q", portParts[1])
+		}
+		toPort = port
+	} else {
+		toPort = fromPort
+	}
+	pr := portRange{fromPort, toPort, protocol}
+	return pr, pr.validate()
+}
 
 // portCommand implements the open-port and close-port commands.
 type portCommand struct {
@@ -21,16 +108,13 @@ type portCommand struct {
 	info       *cmd.Info
 	action     func(*portCommand) error
 	Protocol   string
-	Port       int
+	FromPort   int
+	ToPort     int
 	formatFlag string // deprecated
 }
 
 func (c *portCommand) Info() *cmd.Info {
 	return c.info
-}
-
-func badPort(value interface{}) error {
-	return fmt.Errorf(`port must be in the range [1, 65535]; got "%v"`, value)
 }
 
 func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
@@ -39,28 +123,17 @@ func (c *portCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *portCommand) Init(args []string) error {
 	if args == nil {
-		return errors.New("no port specified")
+		return errors.Errorf("no port or range specified")
 	}
-	parts := strings.Split(args[0], "/")
-	if len(parts) > 2 {
-		return fmt.Errorf("expected %s; got %q", portFormat, args[0])
-	}
-	port, err := strconv.Atoi(parts[0])
+
+	portRange, err := parseArguments(args)
 	if err != nil {
-		return badPort(parts[0])
+		return errors.Trace(err)
 	}
-	if port < 1 || port > 65535 {
-		return badPort(port)
-	}
-	protocol := "tcp"
-	if len(parts) == 2 {
-		protocol = strings.ToLower(parts[1])
-		if protocol != "tcp" && protocol != "udp" {
-			return fmt.Errorf(`protocol must be "tcp" or "udp"; got %q`, protocol)
-		}
-	}
-	c.Port = port
-	c.Protocol = protocol
+
+	c.FromPort = portRange.fromPort
+	c.ToPort = portRange.toPort
+	c.Protocol = portRange.protocol
 	return cmd.CheckEmpty(args[1:])
 }
 
@@ -74,15 +147,15 @@ func (c *portCommand) Run(ctx *cmd.Context) error {
 var openPortInfo = &cmd.Info{
 	Name:    "open-port",
 	Args:    portFormat,
-	Purpose: "register a port to open",
-	Doc:     "The port will only be open while the service is exposed.",
+	Purpose: "register a port or range to open",
+	Doc:     "The port range will only be open while the service is exposed.",
 }
 
 func NewOpenPortCommand(ctx Context) cmd.Command {
 	return &portCommand{
 		info: openPortInfo,
 		action: func(c *portCommand) error {
-			return ctx.OpenPort(c.Protocol, c.Port)
+			return ctx.OpenPorts(c.Protocol, c.FromPort, c.ToPort)
 		},
 	}
 }
@@ -90,14 +163,14 @@ func NewOpenPortCommand(ctx Context) cmd.Command {
 var closePortInfo = &cmd.Info{
 	Name:    "close-port",
 	Args:    portFormat,
-	Purpose: "ensure a port is always closed",
+	Purpose: "ensure a port or range is always closed",
 }
 
 func NewClosePortCommand(ctx Context) cmd.Command {
 	return &portCommand{
 		info: closePortInfo,
 		action: func(c *portCommand) error {
-			return ctx.ClosePort(c.Protocol, c.Port)
+			return ctx.ClosePorts(c.Protocol, c.FromPort, c.ToPort)
 		},
 	}
 }

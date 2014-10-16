@@ -5,7 +5,7 @@ package version_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -37,9 +37,8 @@ var getOSFromSeriesTests = []struct {
 	series: "win2012r2",
 	want:   version.Windows,
 }, {
-	// GetOSFromSeries only supports Ubuntu and Windows.
 	series: "mountainlion",
-	err:    `invalid series "mountainlion"`,
+	want:   version.OSX,
 }}
 
 func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {

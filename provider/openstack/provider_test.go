@@ -7,7 +7,7 @@ import (
 	"flag"
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 

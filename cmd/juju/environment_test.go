@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
@@ -178,7 +178,7 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 var immutableConfigTests = map[string]string{
 	"name":          "foo",
 	"type":          "local",
-	"firewall-mode": "global",
+	"firewall-mode": config.FwGlobal,
 	"state-port":    "1",
 	"api-port":      "666",
 }

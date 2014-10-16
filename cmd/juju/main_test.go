@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
 	cmdtesting "github.com/juju/juju/cmd/testing"
@@ -167,6 +167,7 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"api-endpoints",
+	"api-info",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
 	"backups",
@@ -320,5 +321,44 @@ func (s *MainSuite) TestEnvironCommands(c *gc.C) {
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
 		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
+	}
+}
+
+func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
+	// Verify each command that:
+	// - the Purpose field is not empty and begins with a lowercase
+	// letter, and,
+	// - if set, the Doc field either begins with the name of the
+	// command or and uppercase letter.
+	//
+	// The first makes Purpose a required documentation. Also, makes
+	// both "help commands"'s output and "help <cmd>"'s header more
+	// uniform. The second makes the Doc content either start like a
+	// sentence, or start godoc-like by using the command's name in
+	// lowercase.
+	var commands commands
+	registerCommands(&commands, testing.Context(c))
+	for _, cmd := range commands {
+		info := cmd.Info()
+		c.Logf("%v", info.Name)
+		purpose := strings.TrimSpace(info.Purpose)
+		doc := strings.TrimSpace(info.Doc)
+		comment := func(message string) interface{} {
+			return gc.Commentf("command %q %s", info.Name, message)
+		}
+
+		c.Check(purpose, gc.Not(gc.Equals), "", comment("has empty Purpose"))
+		if purpose != "" {
+			prefix := string(purpose[0])
+			c.Check(prefix, gc.Equals, strings.ToLower(prefix),
+				comment("expected lowercase first-letter Purpose"),
+			)
+		}
+		if doc != "" && !strings.HasPrefix(doc, info.Name) {
+			prefix := string(doc[0])
+			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),
+				comment("expected uppercase first-letter Doc"),
+			)
+		}
 	}
 }

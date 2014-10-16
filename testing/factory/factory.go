@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -303,7 +303,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds")}}
+		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), *params.Time, []byte("creds")}}
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)

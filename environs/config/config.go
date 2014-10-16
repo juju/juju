@@ -18,7 +18,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
@@ -35,6 +35,12 @@ const (
 	// When ports are opened for one machine, all machines will have the same
 	// port opened.
 	FwGlobal = "global"
+
+	// FwNone requests that no firewalling should be performed inside
+	// the environment. No firewaller worker will be started. It's
+	// useful for clouds without support for either global or per
+	// instance security groups.
+	FwNone = "none"
 
 	// DefaultStatePort is the default port the state server is listening on.
 	DefaultStatePort int = 37017
@@ -425,7 +431,9 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// Check firewall mode.
-	if mode := cfg.FirewallMode(); mode != FwInstance && mode != FwGlobal {
+	switch mode := cfg.FirewallMode(); mode {
+	case FwInstance, FwGlobal, FwNone:
+	default:
 		return fmt.Errorf("invalid firewall mode in environment configuration: %q", mode)
 	}
 
@@ -710,6 +718,11 @@ func (c *Config) AptFtpProxy() string {
 	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
+// AptMirror sets the apt mirror for the environment.
+func (c *Config) AptMirror() string {
+	return c.asString("apt-mirror")
+}
+
 // BootstrapSSHOpts returns the SSH timeout and retry delays used
 // during bootstrap.
 func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
@@ -758,8 +771,8 @@ func (c *Config) AdminSecret() string {
 }
 
 // FirewallMode returns whether the firewall should
-// manage ports per machine or global
-// (FwInstance or FwGlobal)
+// manage ports per machine, globally, or not at all.
+// (FwInstance, FwGlobal, or FwNone).
 func (c *Config) FirewallMode() string {
 	return c.mustString("firewall-mode")
 }
@@ -984,6 +997,7 @@ var fields = schema.Fields{
 	"apt-http-proxy":             schema.String(),
 	"apt-https-proxy":            schema.String(),
 	"apt-ftp-proxy":              schema.String(),
+	"apt-mirror":                 schema.String(),
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
 	"bootstrap-addresses-delay":  schema.ForceInt(),
@@ -1030,6 +1044,7 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":             schema.Omit,
 	"apt-https-proxy":            schema.Omit,
 	"apt-ftp-proxy":              schema.Omit,
+	"apt-mirror":                 schema.Omit,
 	"lxc-clone":                  schema.Omit,
 	"disable-network-management": schema.Omit,
 	"tools-stream":               schema.Omit,

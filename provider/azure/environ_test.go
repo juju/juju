@@ -18,7 +18,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/api"
@@ -1593,11 +1593,14 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// we should see stateServer==true.
 	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
 		apiparams.JobHostUnits,
+		apiparams.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
 	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits, apiparams.JobManageEnviron,
+		apiparams.JobHostUnits,
+		apiparams.JobManageEnviron,
+		apiparams.JobManageNetworking,
 	}
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)

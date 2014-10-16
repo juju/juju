@@ -45,37 +45,55 @@ type Firewaller struct {
 
 // NewFirewaller returns a new Firewaller or a new FirewallerV0,
 // depending on what the API supports.
-func NewFirewaller(st *apifirewaller.State) (worker.Worker, error) {
-	if st.BestAPIVersion() == 0 {
-		// TODO(dimitern) Once FirewallerV0 is dropped, drop this
-		// check.
-		return NewFirewallerV0(st)
+func NewFirewaller(st *apifirewaller.State) (_ worker.Worker, err error) {
+	fw := &Firewaller{
+		st:            st,
+		machineds:     make(map[names.MachineTag]*machineData),
+		unitsChange:   make(chan *unitsChange),
+		unitds:        make(map[names.UnitTag]*unitData),
+		serviceds:     make(map[names.ServiceTag]*serviceData),
+		exposedChange: make(chan *exposedChange),
+		machinePorts:  make(map[names.MachineTag]machineRanges),
 	}
-	environWatcher, err := st.WatchForEnvironConfigChanges()
+	defer func() {
+		if err != nil {
+			fw.stopWatchers()
+		}
+	}()
+
+	fw.environWatcher, err = st.WatchForEnvironConfigChanges()
 	if err != nil {
 		return nil, err
 	}
-	machinesWatcher, err := st.WatchEnvironMachines()
+
+	fw.machinesWatcher, err = st.WatchEnvironMachines()
 	if err != nil {
 		return nil, err
 	}
-	portsWatcher, err := st.WatchOpenedPorts()
+
+	fw.portsWatcher, err = st.WatchOpenedPorts()
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to start ports watcher")
 	}
 	logger.Debugf("started watching opened port ranges for the environment")
-	fw := &Firewaller{
-		st:              st,
-		environWatcher:  environWatcher,
-		machinesWatcher: machinesWatcher,
-		portsWatcher:    portsWatcher,
-		machineds:       make(map[names.MachineTag]*machineData),
-		unitsChange:     make(chan *unitsChange),
-		unitds:          make(map[names.UnitTag]*unitData),
-		serviceds:       make(map[names.ServiceTag]*serviceData),
-		exposedChange:   make(chan *exposedChange),
-		machinePorts:    make(map[names.MachineTag]machineRanges),
+
+	// We won't "wait" actually, because the environ is already
+	// available and has a guaranteed valid config, but until
+	// WaitForEnviron goes away, this code needs to stay.
+	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.st, fw.tomb.Dying())
+	if err != nil {
+		return nil, err
 	}
+
+	switch fw.environ.Config().FirewallMode() {
+	case config.FwGlobal:
+		fw.globalMode = true
+		fw.globalPortRef = make(map[network.PortRange]int)
+	case config.FwNone:
+		logger.Warningf("stopping firewaller - firewall-mode is %q", config.FwNone)
+		return nil, errors.Errorf("firewaller is disabled when firewall-mode is %q", config.FwNone)
+	}
+
 	go func() {
 		defer fw.tomb.Done()
 		fw.tomb.Kill(fw.loop())
@@ -88,19 +106,9 @@ var _ worker.Worker = (*Firewaller)(nil)
 func (fw *Firewaller) loop() error {
 	defer fw.stopWatchers()
 
-	var err error
 	var reconciled bool
 
-	fw.environ, err = worker.WaitForEnviron(fw.environWatcher, fw.st, fw.tomb.Dying())
-	if err != nil {
-		return err
-	}
-
 	portsChange := fw.portsWatcher.Changes()
-	if fw.environ.Config().FirewallMode() == config.FwGlobal {
-		fw.globalMode = true
-		fw.globalPortRef = make(map[network.PortRange]int)
-	}
 	for {
 		select {
 		case <-fw.tomb.Dying():
@@ -655,14 +663,24 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 
 // stopWatchers stops all the firewaller's watchers.
 func (fw *Firewaller) stopWatchers() {
-	watcher.Stop(fw.environWatcher, &fw.tomb)
-	watcher.Stop(fw.machinesWatcher, &fw.tomb)
-	watcher.Stop(fw.portsWatcher, &fw.tomb)
+	if fw.environWatcher != nil {
+		watcher.Stop(fw.environWatcher, &fw.tomb)
+	}
+	if fw.machinesWatcher != nil {
+		watcher.Stop(fw.machinesWatcher, &fw.tomb)
+	}
+	if fw.portsWatcher != nil {
+		watcher.Stop(fw.portsWatcher, &fw.tomb)
+	}
 	for _, serviced := range fw.serviceds {
-		watcher.Stop(serviced, &fw.tomb)
+		if serviced != nil {
+			watcher.Stop(serviced, &fw.tomb)
+		}
 	}
 	for _, machined := range fw.machineds {
-		watcher.Stop(machined, &fw.tomb)
+		if machined != nil {
+			watcher.Stop(machined, &fw.tomb)
+		}
 	}
 }
 

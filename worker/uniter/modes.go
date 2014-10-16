@@ -6,9 +6,10 @@ package uniter
 import (
 	stderrors "errors"
 	"fmt"
+	"time"
 
-	"gopkg.in/juju/charm.v3"
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4"
+	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/apiserver/params"
@@ -240,17 +241,22 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 // is in an Alive state.
 func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 	for {
+		collectMetricsSignal := collectMetricsAt(time.Now(), time.Unix(u.s.CollectMetricsTime, 0), metricsPollInterval)
 		hi := hook.Info{}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
 		case <-u.f.UnitDying():
 			return modeAbideDyingLoop(u)
+		case <-u.f.MeterStatusEvents():
+			hi = hook.Info{Kind: hooks.MeterStatusChanged}
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
 		case info := <-u.f.ActionEvents():
 			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
+		case <-collectMetricsSignal:
+			hi = hook.Info{Kind: hooks.CollectMetrics}
 		case ids := <-u.f.RelationsEvents():
 			added, err := u.updateRelations(ids)
 			if err != nil {
@@ -313,6 +319,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 // * user resolution of hook errors
 // * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
+	// TODO(binary132): In case of a crashed Action, simply set it to
+	// failed and return to ModeContinue.
 	defer modeContext("ModeHookError", &err)()
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)

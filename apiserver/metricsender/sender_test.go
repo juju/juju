@@ -12,7 +12,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/cert"
@@ -59,13 +59,13 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	for i, _ := range metrics {
 		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	}
-	sender := &metricsender.DefaultSender{}
-	err := s.State.SendMetrics(sender, 10)
+	var sender metricsender.DefaultSender
+	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, gc.IsNil)
 	for _, metric := range metrics {
-		err = metric.Refresh()
+		m, err := s.State.MetricBatch(metric.UUID())
 		c.Assert(err, gc.IsNil)
-		c.Assert(metric.Sent(), jc.IsTrue)
+		c.Assert(m.Sent(), jc.IsTrue)
 	}
 }
 
@@ -78,7 +78,8 @@ func testHandler(c *gc.C, expectedCharmUrl string) http.HandlerFunc {
 		c.Assert(err, gc.IsNil)
 		c.Assert(v, gc.HasLen, 3)
 		for _, metric := range v {
-			c.Assert(metric["CharmUrl"], gc.Equals, expectedCharmUrl)
+			c.Logf("metric: %+v", metric)
+			c.Assert(metric["charm-url"], gc.Equals, expectedCharmUrl)
 		}
 	}
 }
@@ -112,13 +113,13 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		for i, _ := range metrics {
 			metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 		}
-		sender := &metricsender.DefaultSender{}
-		err := s.State.SendMetrics(sender, 10)
+		var sender metricsender.DefaultSender
+		err := metricsender.SendMetrics(s.State, &sender, 10)
 		c.Assert(err, gc.ErrorMatches, test.expectedErr)
 		for _, metric := range metrics {
-			err = metric.Refresh()
+			m, err := s.State.MetricBatch(metric.UUID())
 			c.Assert(err, gc.IsNil)
-			c.Assert(metric.Sent(), jc.IsFalse)
+			c.Assert(m.Sent(), jc.IsFalse)
 		}
 	}
 }

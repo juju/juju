@@ -4,11 +4,9 @@
 package firewaller_test
 
 import (
-	"reflect"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -418,15 +416,6 @@ func (s *firewallerBaseSuite) assertLife(c *gc.C, index int, expectLife state.Li
 	err := s.machines[index].Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machines[index].Life(), gc.Equals, expectLife)
-}
-
-func (s *firewallerBaseSuite) assertNotImplemented(c *gc.C, apiFacade interface{}, methodName string) {
-	val := reflect.ValueOf(apiFacade)
-	c.Assert(val.IsValid(), jc.IsTrue)
-	indir := reflect.Indirect(val)
-	c.Assert(indir.IsValid(), jc.IsTrue)
-	method := indir.MethodByName(methodName)
-	c.Assert(method.IsValid(), jc.IsFalse)
 }
 
 var commonFakeEntities = []params.Entity{

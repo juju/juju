@@ -130,6 +130,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 
 	AddAptCommands(
 		w.mcfg.AptProxySettings,
+		w.mcfg.AptMirror,
 		w.conf,
 		w.mcfg.EnableOSRefreshUpdate,
 		w.mcfg.EnableOSUpgrade,

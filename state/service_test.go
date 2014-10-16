@@ -10,9 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -774,6 +774,8 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
 	c.Assert(unitZero.IsPrincipal(), gc.Equals, true)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
+	c.Assert(state.GetUnitEnvUUID(unitZero), gc.Equals, s.State.EnvironTag().Id())
+
 	unitOne, err := s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(unitOne.Name(), gc.Equals, "mysql/1")
@@ -838,41 +840,19 @@ func (s *ServiceSuite) TestReadUnit(c *gc.C) {
 	_, err = s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	// Check that retrieving a unit from the service works correctly.
-	unit, err := s.mysql.Unit("mysql/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-
 	// Check that retrieving a unit from state works correctly.
-	unit, err = s.State.Unit("mysql/0")
+	unit, err := s.State.Unit("mysql/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
 
 	// Check that retrieving a non-existent or an invalidly
 	// named unit fail nicely.
-	unit, err = s.mysql.Unit("mysql")
-	c.Assert(err, gc.ErrorMatches, `"mysql" is not a valid unit name`)
-	unit, err = s.mysql.Unit("mysql/0/0")
-	c.Assert(err, gc.ErrorMatches, `"mysql/0/0" is not a valid unit name`)
-	unit, err = s.mysql.Unit("pressword/0")
-	c.Assert(err, gc.ErrorMatches, `cannot get unit "pressword/0" from service "mysql": .*`)
-
-	// Check direct state retrieval also fails nicely.
 	unit, err = s.State.Unit("mysql")
 	c.Assert(err, gc.ErrorMatches, `"mysql" is not a valid unit name`)
 	unit, err = s.State.Unit("mysql/0/0")
 	c.Assert(err, gc.ErrorMatches, `"mysql/0/0" is not a valid unit name`)
 	unit, err = s.State.Unit("pressword/0")
 	c.Assert(err, gc.ErrorMatches, `unit "pressword/0" not found`)
-
-	// Add another service to check units are not misattributed.
-	mysql := s.AddTestingService(c, "wordpress", s.charm)
-	_, err = mysql.AddUnit()
-	c.Assert(err, gc.IsNil)
-
-	// BUG(aram): use error strings from state.
-	unit, err = s.mysql.Unit("wordpress/0")
-	c.Assert(err, gc.ErrorMatches, `cannot get unit "wordpress/0" from service "mysql": .*`)
 
 	units, err := s.mysql.AllUnits()
 	c.Assert(err, gc.IsNil)
@@ -888,7 +868,7 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.mysql.AllUnits()
 	c.Assert(err, gc.IsNil)
-	_, err = s.mysql.Unit("mysql/0")
+	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, gc.IsNil)
 
 	// ...and when those units are Dying or Dead...
@@ -896,7 +876,7 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *gc.C) {
 		_, err := s.mysql.AllUnits()
 		return err
 	}, func() error {
-		_, err := s.mysql.Unit("mysql/0")
+		_, err := s.State.Unit("mysql/0")
 		return err
 	})
 

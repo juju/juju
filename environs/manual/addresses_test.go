@@ -6,7 +6,7 @@ package manual_test
 import (
 	"errors"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/network"

@@ -18,6 +18,7 @@ const (
 	Unknown OSType = iota
 	Ubuntu
 	Windows
+	OSX
 )
 
 // seriesVersions provides a mapping between Ubuntu series names and version numbers.
@@ -81,6 +82,11 @@ func GetOSFromSeries(series string) (OSType, error) {
 	for _, val := range windowsVersions {
 		if val == series {
 			return Windows, nil
+		}
+	}
+	for _, val := range macOSXSeries {
+		if val == series {
+			return OSX, nil
 		}
 	}
 

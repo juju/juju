@@ -109,7 +109,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 	pool.AddCert(xcert)
 	tlsConfig := &tls.Config{
 		RootCAs:    pool,
-		ServerName: "anything",
+		ServerName: "juju-mongodb",
 	}
 	dial := func(addr net.Addr) (net.Conn, error) {
 		c, err := net.Dial("tcp", addr.String())

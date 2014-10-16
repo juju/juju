@@ -8,7 +8,7 @@ import (
 	"path"
 
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -43,11 +43,15 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 	machineId := "0"
 	machineTag := names.NewMachineTag(machineId)
 	return &cloudinit.MachineConfig{
-		MachineId:          machineId,
-		MachineNonce:       "gxshasqlnng",
-		DataDir:            environs.DataDir,
-		LogDir:             agent.DefaultLogDir,
-		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
+		MachineId:    machineId,
+		MachineNonce: "gxshasqlnng",
+		DataDir:      environs.DataDir,
+		LogDir:       agent.DefaultLogDir,
+		Jobs: []params.MachineJob{
+			params.JobManageEnviron,
+			params.JobHostUnits,
+			params.JobManageNetworking,
+		},
 		CloudInitOutputLog: cloudInitOutputLog,
 		Tools: &tools.Tools{
 			Version: version.MustParseBinary("1.2.3-quantal-amd64"),

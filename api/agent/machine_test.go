@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/api"
 	apiserveragent "github.com/juju/juju/apiserver/agent"
@@ -131,6 +131,8 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
 	err = entity.SetPassword("foo-12345678901234567890")
 	c.Assert(err, gc.IsNil)
+	err = entity.ClearReboot()
+	c.Assert(err, gc.IsNil)
 
 	err = s.machine.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -148,6 +150,24 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	info.Password = "foo-12345678901234567890"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+}
+
+func (s *machineSuite) TestClearReboot(c *gc.C) {
+	err := s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+	rFlag, err := s.machine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
+
+	entity, err := s.st.Agent().Entity(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+
+	err = entity.ClearReboot()
+	c.Assert(err, gc.IsNil)
+
+	rFlag, err = s.machine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsFalse)
 }
 
 func tryOpenState(info *mongo.MongoInfo) error {

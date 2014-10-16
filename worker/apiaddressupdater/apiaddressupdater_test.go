@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"

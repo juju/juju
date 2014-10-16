@@ -8,7 +8,8 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -197,6 +198,7 @@ func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error)
 	c.Assert(info.URL, gc.Equals, "local:quantal/wordpress-3")
 	c.Assert(info.Meta.Name, gc.Equals, "wordpress")
 	c.Assert(info.Revision, gc.Equals, 3)
+	c.Assert(info.Actions, jc.DeepEquals, &charm.Actions{ActionSpecs: nil})
 	return func() {}, nil
 }
 

@@ -9,14 +9,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/metricsender"
 	"github.com/juju/juju/apiserver/metricsmanager"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -112,8 +112,8 @@ func (s *metricsManagerSuite) TestCleanupArgsIndependent(c *gc.C) {
 }
 
 func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
-	sender := &statetesting.MockSender{}
-	metricsmanager.PatchSender(sender)
+	var sender metricsender.MockSender
+	metricsmanager.PatchSender(&sender)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})

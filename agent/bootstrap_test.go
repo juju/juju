@@ -8,7 +8,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
@@ -246,6 +246,9 @@ func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	}, {
 		name: params.JobManageEnviron,
 		want: state.JobManageEnviron,
+	}, {
+		name: params.JobManageNetworking,
+		want: state.JobManageNetworking,
 	}, {
 		name: params.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,

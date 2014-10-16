@@ -4,8 +4,9 @@
 package machine_test
 
 import (
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/machine"

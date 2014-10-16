@@ -6,7 +6,7 @@ package relation
 import (
 	"sort"
 
-	"gopkg.in/juju/charm.v3/hooks"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -28,9 +28,9 @@ func NewDyingHookSource(initial *State) HookSource {
 	}
 
 	// Depart in consistent order, mainly for testing purposes.
-	departs := make([]string, len(initial.Members))
-	for i, name := range initial.Members {
-		departs[i] = name
+	departs := []string{}
+	for name := range initial.Members {
+		departs = append(departs, name)
 	}
 	sort.Strings(departs)
 	for _, name := range departs {

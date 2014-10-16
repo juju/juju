@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -210,6 +210,11 @@ var configTests = []configTest{
 			"firewall-mode": "global",
 		},
 		firewallMode: config.FwGlobal,
+	}, {
+		config: attrs{
+			"firewall-mode": "none",
+		},
+		firewallMode: config.FwNone,
 	}, {
 		config: attrs{
 			"ssl-hostname-verification": false,

@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
@@ -146,14 +147,27 @@ func (st *State) cleanupServicesForDyingEnvironment() error {
 // cleanupUnitsForDyingService sets all units with the given prefix to Dying,
 // if they are not already Dying or Dead. It's expected to be used when a
 // service is destroyed.
-func (st *State) cleanupUnitsForDyingService(prefix string) error {
+func (st *State) cleanupUnitsForDyingService(serviceName string) error {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
 	units, closer := st.getCollection(unitsC)
 	defer closer()
+
+	// TODO(mjs) - remove this post v1.21
+	// Older versions of the code put a trailing forward slash on the
+	// end of the service name. Remove it here in case a pre-upgrade
+	// cleanup document is seen.
+	serviceName = strings.TrimSuffix(serviceName, "/")
+
 	unit := Unit{st: st}
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}, {"life", Alive}}
+	// TODO(mjs) - ENVUUID - test env filtering needs to be tested
+	// when multiple environments exist.
+	sel := bson.D{
+		{"service", serviceName},
+		{"env-uuid", st.EnvironTag().Id()},
+		{"life", Alive},
+	}
 	iter := units.Find(sel).Iter()
 	for iter.Next(&unit.doc) {
 		if err := unit.Destroy(); err != nil {
@@ -197,14 +211,14 @@ func (st *State) cleanupDyingUnit(name string) error {
 // cleanupRemovedUnit takes care of all the final cleanup required when
 // a unit is removed.
 func (st *State) cleanupRemovedUnit(unitId string) error {
-	actions, err := st.matchingActionsByPrefix(unitId)
+	actions, err := st.matchingActionsByReceiverName(unitId)
 	if err != nil {
 		return err
 	}
 
-	cancelled := ActionResults{Status: ActionFailed, Message: "unit removed"}
+	cancelled := ActionResults{Status: ActionCancelled, Message: "unit removed"}
 	for _, action := range actions {
-		if err = action.Finish(cancelled); err != nil {
+		if _, err = action.Finish(cancelled); err != nil {
 			return err
 		}
 	}
@@ -248,7 +262,14 @@ func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	// again -- which it *probably* will anyway -- the issue can be resolved by
 	// force-destroying the machine again; that's better than adding layer
 	// upon layer of complication here.
-	return machine.EnsureDead()
+	if err := machine.EnsureDead(); err != nil {
+		return err
+	}
+	removePortsOps, err := machine.removePortsOps()
+	if err != nil {
+		return err
+	}
+	return st.runTransaction(removePortsOps)
 
 	// Note that we do *not* remove the machine entirely: we leave it for the
 	// provisioner to clean up, so that we don't end up with an unreferenced
