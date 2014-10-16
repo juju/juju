@@ -81,10 +81,10 @@ type EnvironCapability interface {
 	// without units, and units cannot be placed explcitly.
 	SupportsUnitPlacement() error
 
-	// SupportsAddressAllocation takes a network.Id and returns a bool
+	// SupportAddressAllocation takes a network.Id and returns a bool
 	// and an error. The bool indicates whether that network supports
 	// static ip address allocation.
-	SupportsAddressAllocation(netId network.Id) (bool, error)
+	SupportAddressAllocation(netId network.Id) (bool, error)
 }
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain

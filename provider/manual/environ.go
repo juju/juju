@@ -101,8 +101,8 @@ func (e *manualEnviron) SupportNetworks() bool {
 	return false
 }
 
-// SupportsAddressAllocation is specified on the EnvironCapability interface.
-func (e *manualEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
 	return false, nil
 }
 

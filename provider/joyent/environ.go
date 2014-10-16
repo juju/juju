@@ -122,8 +122,8 @@ func (e *joyentEnviron) SupportNetworks() bool {
 	return false
 }
 
-// SupportsAddressAllocation is specified on the EnvironCapability interface.
-func (e *joyentEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *joyentEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
 	return false, nil
 }
 

@@ -165,8 +165,8 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 	return env.supportedArchitectures, nil
 }
 
-// SupportsAddressAllocation is specified on the EnvironCapability interface.
-func (e *maasEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
 	return false, nil
 }
 

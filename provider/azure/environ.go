@@ -458,8 +458,8 @@ func (env *azureEnviron) SupportNetworks() bool {
 	return false
 }
 
-// SupportsAddressAllocation is specified on the EnvironCapability interface.
-func (e *azureEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *azureEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
 	return false, nil
 }
 
