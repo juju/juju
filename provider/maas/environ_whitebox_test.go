@@ -866,7 +866,7 @@ func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
 }
 
-func (t *environSuite) TestSupportAddressAllocation(c *gc.C) {
+func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	env := suite.makeEnviron()
 	result, err := env.SupportAddressAllocation("")
 	c.Assert(result, jc.IsFalse)
