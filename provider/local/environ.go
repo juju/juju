@@ -75,6 +75,11 @@ func (*localEnviron) SupportNetworks() bool {
 	return false
 }
 
+// SupportsAddressAllocation is specified on the EnvironCapability interface.
+func (e *localEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)

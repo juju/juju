@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
@@ -119,6 +120,11 @@ func (env *joyentEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *joyentEnviron) SupportNetworks() bool {
 	return false
+}
+
+// SupportsAddressAllocation is specified on the EnvironCapability interface.
+func (e *joyentEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {

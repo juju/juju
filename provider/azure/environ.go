@@ -458,6 +458,11 @@ func (env *azureEnviron) SupportNetworks() bool {
 	return false
 }
 
+// SupportsAddressAllocation is specified on the EnvironCapability interface.
+func (e *azureEnviron) SupportsAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 // selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (*instances.InstanceType, string, error) {
