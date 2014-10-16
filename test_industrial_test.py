@@ -145,8 +145,7 @@ class TestIndustrialTest(TestCase):
                           side_effect=Exception) as oc_mock:
             with patch.object(new_client, 'destroy_environment',
                               side_effect=Exception) as nc_mock:
-                with self.assertRaises(Exception) as exc:
-#                    import pdb; pdb.set_trace()
+                with self.assertRaises(Exception):
                     list(attempt)
         oc_mock.assert_called_once_with()
         nc_mock.assert_called_once_with()

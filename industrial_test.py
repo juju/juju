@@ -3,7 +3,6 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import logging
-import sys
 
 from jujuconfig import get_juju_home
 from jujupy import (
