@@ -662,6 +662,13 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
+func (t *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
+}
+
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {

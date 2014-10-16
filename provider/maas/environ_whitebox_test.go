@@ -866,6 +866,13 @@ func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
 }
 
+func (t *environSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := suite.makeEnviron()
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()

@@ -799,6 +799,13 @@ func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
+func (s *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := s.Open(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	// Prevent falling over to the public datasource.
 	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
