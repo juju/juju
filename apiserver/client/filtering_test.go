@@ -5,17 +5,9 @@ package client_test
 
 import (
 	"github.com/juju/juju/apiserver/client"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 
 	gc "gopkg.in/check.v1"
-
-	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/juju/cmd"
-	cmdtesting "github.com/juju/juju/cmd/testing"
-	coretesting "github.com/juju/juju/testing"
-	"strconv"
 )
 
 type filteringUnitTests struct {

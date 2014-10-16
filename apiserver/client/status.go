@@ -39,7 +39,6 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	}
 
 	if len(args.Patterns) > 0 {
-		logger.Errorf("Patterns: %v\n", args.Patterns)
 		predicate := BuildPredicateFor(args.Patterns)
 
 		// Filter machines
@@ -50,49 +49,25 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 				} else if !matches {
 					// TODO(katco-): Check for index errors.
 					context.machines[status] = append(machList[:idx], machList[idx+1:]...)
-				} else {
-					logger.Errorf("%v matches.", mach.Addresses())
 				}
 			}
 		}
 
 		// Filter units
-		toRemove := make(map[string][]*state.Unit)
-		for svcName, unitMap := range context.units {
+		unitChainPredicate := unitChainPredicateFn(predicate, context.unitByName)
+		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
-				if matches, err := predicate(unit); err != nil {
+				// Always start examining at the top-level. This
+				// prevents a situation where we filter a subordinate
+				// before we discover it's parent is a match.
+				if !unit.IsPrincipal() {
+					continue
+				}
+				if matches, err := unitChainPredicate(unit); err != nil {
 					return noStatus, errors.Annotate(err, "could not filter units")
 				} else if !matches {
-					logger.Debugf("%v didn't match.", name)
-					logger.Debugf("Subordinates: %v", unit.SubordinateNames())
-					if !unit.IsPrincipal() {
-						delete(unitMap, name)
-					}
-					toRemove[svcName] = append(toRemove[svcName], unit)
-				} else {
-					// TODO(katco): AWFUL, AWFUL code. Not meant to be
-					// pushed to production. Just hackin'.
-					logger.Debugf("%v matches.", name)
-					ru := toRemove[svcName]
-					for i, u := range ru {
-						for _, sn := range u.SubordinateNames() {
-							if sn == name {
-								logger.Debugf("%v matched %v, removing", sn, name)
-								ru = append(ru[:i], ru[i+1:]...)
-								toRemove[svcName] = ru
-								break
-							}
-							logger.Debugf("%v did not match %v", sn, name)
-						}
-					}
+					delete(unitMap, name)
 				}
-			}
-		}
-
-		for svcName, v := range toRemove {
-			for _, u := range v {
-				logger.Debugf("Deleting %v -- %v", svcName, u.Name())
-				delete(context.units[svcName], u.Name())
 			}
 		}
 	}
@@ -104,6 +79,56 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		Networks:        context.processNetworks(),
 		Relations:       context.processRelations(),
 	}, nil
+}
+
+// unitChainPredicateFn builds a function which runs the given
+// predicate over a unit and all of its subordinates. If one unit in
+// the chain matches, the entire chain matches.
+func unitChainPredicateFn(
+	predicate Predicate,
+	getUnit func(string) *state.Unit,
+) func(*state.Unit) (bool, error) {
+	considered := make(map[string]bool)
+	var f func(unit *state.Unit) (bool, error)
+	f = func(unit *state.Unit) (bool, error) {
+		// Don't try and filter the same unit 2x.
+		if matches, ok := considered[unit.Name()]; ok {
+			logger.Debugf("%s has already been examined and found to be: %t", unit.Name(), matches)
+			return matches, nil
+		}
+
+		// Check the current unit.
+		matches, err := predicate(unit)
+		if err != nil {
+			return false, errors.Annotate(err, "could not filter units")
+		}
+		considered[unit.Name()] = matches
+
+		// Now check all of this unit's subordinates.
+		for _, subName := range unit.SubordinateNames() {
+			// A master match supercedes any subordinate match.
+			if matches {
+				logger.Debugf("%s is a subordinate to a match.", subName)
+				considered[subName] = true
+				continue
+			}
+
+			subUnit := getUnit(subName)
+			if subUnit == nil {
+				// We have already deleted this unit
+				matches = false
+				continue
+			}
+			matches, err = f(subUnit)
+			if err != nil {
+				return false, err
+			}
+			considered[subName] = matches
+		}
+
+		return matches, nil
+	}
+	return f
 }
 
 // Status is a stub version of FullStatus that was introduced in 1.16

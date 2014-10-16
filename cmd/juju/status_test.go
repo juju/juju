@@ -1877,6 +1877,8 @@ type setServiceExposed struct {
 func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sse.name)
 	c.Assert(err, gc.IsNil)
+	err = s.ClearExposed()
+	c.Assert(err, gc.IsNil)
 	if sse.exposed {
 		err = s.SetExposed()
 		c.Assert(err, gc.IsNil)
@@ -2099,6 +2101,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
 		args := append([]string{"--format", format.name}, e.scope...)
+		c.Logf("running status %s", strings.Join(args, " "))
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
 		if !c.Check(stderr, gc.HasLen, 0) {
@@ -2596,7 +2599,7 @@ func (f *filteringFeature) SetUpTest(c *gc.C) {
 }
 
 func (f *filteringFeature) TearDownTest(c *gc.C) {
-	f.resetContext(c, <-f.ctx)
+	//f.resetContext(c, <-f.ctx)
 	f.StatusSuite.TearDownTest(c)
 }
 
@@ -2610,13 +2613,14 @@ func (f *filteringFeature) TestFilterToStarted(c *gc.C) {
 	defer func() { f.ctx <- ctx }()
 	// Given unit 1 of the "logging" service has an error
 	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
+	// And unit 0 of the "mysql" service has an error
+	setUnitStatus{"mysql/0", state.StatusError, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline started
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "started")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- mysql/0: dummyenv-2.dns (started)
 - wordpress/0: dummyenv-1.dns (started)
   - logging/0: dummyenv-1.dns (started)
 `
@@ -2636,7 +2640,8 @@ func (f *filteringFeature) TestFilterToErrored(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- logging/1: dummyenv-2.dns (error)
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (error)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -2653,6 +2658,7 @@ func (f *filteringFeature) TestFilterToService(c *gc.C) {
 	const expected = `
 
 - mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -2664,6 +2670,10 @@ func (f *filteringFeature) TestFilterToExposedService(c *gc.C) {
 	defer func() { f.ctx <- ctx }()
 	// Given unit 1 of the "mysql" service is exposed
 	setServiceExposed{"mysql", true}.step(c, ctx)
+	// And the logging service is not exposed
+	setServiceExposed{"logging", false}.step(c, ctx)
+	// And the wordpress service is not exposed
+	setServiceExposed{"wordpress", false}.step(c, ctx)
 	// When I run juju status --format oneline exposed
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "exposed")
 	c.Assert(stderr, gc.IsNil)
@@ -2671,6 +2681,7 @@ func (f *filteringFeature) TestFilterToExposedService(c *gc.C) {
 	const expected = `
 
 - mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -2689,6 +2700,7 @@ func (f *filteringFeature) TestFilterToNotExposedService(c *gc.C) {
 	const expected = `
 
 - wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
@@ -2732,6 +2744,44 @@ func (f *filteringFeature) TestFilterOnPorts(c *gc.C) {
 
 - wordpress/0: localhost (started)
   - logging/0: localhost (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters out a parent, but not its subordinate
+func (f *filteringFeature) TestFilterParentButNotSubordinate(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// When I run juju status --format oneline 80/tcp
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "logging")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+// Scenario: User filters out a subordinate, but not its parent
+func (f *filteringFeature) TestFilterSubordinateButNotParent(c *gc.C) {
+	ctx := <-f.ctx
+	defer func() { f.ctx <- ctx }()
+	// Given the wordpress service is exposed
+	setServiceExposed{"wordpress", true}.step(c, ctx)
+	// When I run juju status --format oneline not exposed
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])
