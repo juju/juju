@@ -78,6 +78,11 @@ func stepsFor121a2() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "migrate machine jobs into ones with JobManageNetworking based on rules",
+			targets:     []Target{DatabaseMaster},
+			run:         migrateJobManageNetworking,
+		},
+		&upgradeStep{
 			description: "migrate individual unit ports to openedPorts collection",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {

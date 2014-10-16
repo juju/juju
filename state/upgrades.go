@@ -554,3 +554,63 @@ func addEnvUUIDToEntityCollection(st *State, collName string) error {
 	}
 	return st.runTransaction(ops)
 }
+
+// migrateJobManageNetworking adds the JobManageNetworking according
+// to all machines but
+//
+// - machines in a MAAS environment,
+// - machines in a manual environment,
+// - bootstrap node (host machine) in a local environment, and
+// - manually provisioned machines.
+func MigrateJobManageNetworking(st *State) error {
+	// Retrieve the provider.
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "failed to read current config")
+	}
+	envType := envConfig.Type()
+
+	// Check for MAAS or manual (aka null) provider.
+	if envType == "maas" || envType == "manual" || envType == "null" {
+		// No job adding for these environment types.
+		return nil
+	}
+
+	// Iterate over all machines and create operations.
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+
+	iter := machinesCollection.Find(nil).Iter()
+	defer iter.Close()
+
+	ops := []txn.Op{}
+	mdoc := machineDoc{}
+
+	for iter.Next(&mdoc) {
+		// Check possible exceptions.
+		if mdoc.Id == "0" && envType == "local" {
+			// Skip machine 0 in local environment.
+			continue
+		}
+		if strings.HasPrefix(mdoc.Nonce, "manual:") {
+			// Skip manually provisioned machine in non-manual environments.
+			continue
+		}
+		if hasJob(mdoc.Jobs, JobManageNetworking) {
+			// Should not happen during update, but just to
+			// prevent double entries.
+			continue
+		}
+		// Everything fine, now add job.
+		jobs := append(mdoc.Jobs, JobManageNetworking)
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     mdoc.Id,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$set", bson.D{{"jobs", jobs}}}},
+		})
+	}
+
+	// Run transaction.
+	return st.runTransaction(ops)
+}
