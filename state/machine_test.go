@@ -741,22 +741,6 @@ func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 	}
 }
 
-func (s *MachineSuite) TestMachineInstanceId(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.machines.Update(
-		bson.D{{"_id", machine.Id()}},
-		bson.D{{"$set", bson.D{{"instanceid", "spaceship/0"}}}},
-	)
-	c.Assert(err, gc.IsNil)
-
-	err = machine.Refresh()
-	c.Assert(err, gc.IsNil)
-	iid, err := machine.InstanceId()
-	c.Assert(err, gc.IsNil)
-	c.Assert(iid, gc.Equals, instance.Id("spaceship/0"))
-}
-
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -840,9 +824,6 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(id), gc.Equals, "umbrella/0")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
-	// Clear the deprecated machineDoc InstanceId attribute and ensure that CheckProvisioned()
-	// still works as expected with the new data model.
-	state.SetMachineInstanceId(s.machine, "")
 	id, err = s.machine.InstanceId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(id), gc.Equals, "umbrella/0")
@@ -925,26 +906,6 @@ func (s *MachineSuite) TestNotProvisionedMachineSetInstanceStatus(c *gc.C) {
 func (s *MachineSuite) TestNotProvisionedMachineInstanceStatus(c *gc.C) {
 	_, err := s.machine.InstanceStatus()
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
-}
-
-// SCHEMACHANGE
-func (s *MachineSuite) TestInstanceStatusOldSchema(c *gc.C) {
-	// Machine needs to be provisioned first.
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-
-	// Remove the InstanceId from instanceData doc to simulate an old schema.
-	state.ClearInstanceDocId(c, s.machine)
-
-	err = s.machine.SetInstanceStatus("ALIVE")
-	c.Assert(err, gc.IsNil)
-
-	// Reload machine and check result.
-	err = s.machine.Refresh()
-	c.Assert(err, gc.IsNil)
-	status, err := s.machine.InstanceStatus()
-	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.DeepEquals, "ALIVE")
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *gc.C) {

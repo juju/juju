@@ -18,8 +18,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/instance"
 )
 
 var (
@@ -142,28 +140,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 }
 
 var MachineIdLessThan = machineIdLessThan
-
-// SCHEMACHANGE
-// This method is used to reset a deprecated machine attribute.
-func SetMachineInstanceId(m *Machine, instanceId string) {
-	m.doc.InstanceId = instance.Id(instanceId)
-}
-
-// SCHEMACHANGE
-// ClearInstanceDocId sets instanceid on instanceData for machine to "".
-func ClearInstanceDocId(c *gc.C, m *Machine) {
-	ops := []txn.Op{
-		{
-			C:      instanceDataC,
-			Id:     m.doc.Id,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
-		},
-	}
-
-	err := m.st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-}
 
 // SCHEMACHANGE
 // This method is used to reset the ownertag attribute

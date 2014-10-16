@@ -667,9 +667,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	mhc, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(*mhc, gc.DeepEquals, hc)
-	// Clear the deprecated machineDoc InstanceId attribute and do it again.
-	// still works as expected with the new data model.
-	state.SetMachineInstanceId(m, "")
 	instId, err = m.InstanceId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(instId), gc.Equals, "inst-id")

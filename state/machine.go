@@ -117,11 +117,6 @@ type machineDoc struct {
 	// Placement is the placement directive that should be used when provisioning
 	// an instance for the machine.
 	Placement string `bson:",omitempty"`
-	// Deprecated. InstanceId, now lives on instanceData.
-	// This attribute is retained so that data from existing machines can be read.
-	// SCHEMACHANGE
-	// TODO(wallyworld): remove this attribute when schema upgrades are possible.
-	InstanceId instance.Id
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -731,12 +726,6 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this
 // machine, or a NotProvisionedError, if not set.
 func (m *Machine) InstanceId() (instance.Id, error) {
-	// SCHEMACHANGE
-	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-	// (we first check for InstanceId stored on the machineDoc)
-	if m.doc.InstanceId != "" {
-		return m.doc.InstanceId, nil
-	}
 	instData, err := getInstanceData(m.st, m.Id())
 	if (err == nil && instData.InstanceId == "") || errors.IsNotFound(err) {
 		err = NotProvisionedError(m.Id())
@@ -744,37 +733,26 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	if err != nil {
 		return "", err
 	}
-	return instData.InstanceId, nil
+	return instData.InstanceId, err
 }
 
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (string, error) {
-	// SCHEMACHANGE
-	// InstanceId may not be stored in the instanceData doc, so we
-	// get it using an API on machine which knows to look in the old
-	// place if necessary.
-	instId, err := m.InstanceId()
-	if err != nil {
-		return "", err
-	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instId == "") || errors.IsNotFound(err) {
+	if (err == nil && instData.InstanceId == "") || errors.IsNotFound(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
 		return "", err
 	}
-	return instData.Status, nil
+	return instData.Status, err
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(status string) (err error) {
 	defer errors.Maskf(&err, "cannot set instance status for machine %q", m)
 
-	// SCHEMACHANGE - we can't do this yet until the schema is updated
-	// so just do a txn.DocExists for now.
-	// provisioned := bson.D{{"instanceid", bson.D{{"$ne", ""}}}}
 	ops := []txn.Op{
 		{
 			C:      instanceDataC,
@@ -845,15 +823,13 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		CpuPower:   characteristics.CpuPower,
 		Tags:       characteristics.Tags,
 	}
-	// SCHEMACHANGE
-	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
-	notSetYet := bson.D{{"instanceid", ""}, {"nonce", ""}}
+
 	ops := []txn.Op{
 		{
 			C:      machinesC,
 			Id:     m.doc.Id,
-			Assert: append(isAliveDoc, notSetYet...),
-			Update: bson.D{{"$set", bson.D{{"instanceid", id}, {"nonce", nonce}}}},
+			Assert: append(isAliveDoc, bson.DocElem{"nonce", ""}),
+			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
 		}, {
 			C:      instanceDataC,
 			Id:     m.doc.Id,
@@ -864,10 +840,6 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 
 	if err = m.st.runTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
-		// SCHEMACHANGE
-		// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-		// (InstanceId is stored on the instanceData document but we duplicate the value on the machineDoc.
-		m.doc.InstanceId = id
 		return nil
 	} else if err != txn.ErrAborted {
 		return err

@@ -91,5 +91,12 @@ func stepsFor121a2() []Step {
 				return state.CreateUnitMeterStatus(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "migrate machine instanceId into instanceData",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateMachineInstanceIdToInstanceData(context.State())
+			},
+		},
 	}
 }

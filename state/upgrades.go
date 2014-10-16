@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 )
 
@@ -498,6 +499,64 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 			{"owner", owner.Username()},
 		}}},
 	}}
+	return st.runTransaction(ops)
+}
+
+// MigrateMachineInstanceIdToInstanceData migrates the depricated "instanceid"
+// machine field into "instanceid" in the instanceData doc.
+func MigrateMachineInstanceIdToInstanceData(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	instDatas, closer := st.getCollection(instanceDataC)
+	defer closer()
+	machines, closer := st.getCollection(machinesC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := machines.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		var instID interface{}
+		mID := doc["_id"]
+		i, err := instDatas.FindId(mID).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if i == 0 {
+			var ok bool
+			if instID, ok = doc["instanceid"]; !ok || instID == "" {
+				return errors.New("machine doc has no instanceid")
+			}
+
+			// Insert instanceData doc.
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     mID,
+				Assert: txn.DocMissing,
+				Insert: instanceData{
+					Id:         mID.(string),
+					InstanceId: instance.Id(instID.(string)),
+				},
+			})
+		}
+
+		// Remove instanceid field from machine doc.
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     mID,
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$unset", bson.D{{"instanceid", nil}}},
+			},
+		})
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
 	return st.runTransaction(ops)
 }
 
