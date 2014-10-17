@@ -10,6 +10,7 @@ from unittest import TestCase
 import winbuildtest
 from winbuildtest import (
     build_agent,
+    build_client,
     create_cloud_agent,
     GO_CMD,
     GOPATH,
@@ -36,9 +37,25 @@ def temp_path(module, attr):
 
 class WinBuildTestTestCase(TestCase):
 
+    def test_build_client(self):
+        with temp_path(winbuildtest, 'JUJU_CMD_DIR') as cmd_dir:
+            with temp_path(winbuildtest, 'ISS_DIR'):
+
+                def make_juju(*args, **kwargs):
+                    with open('%s/juju.exe' % cmd_dir, 'w') as fake_juju:
+                        fake_juju.write('juju')
+
+                with patch('winbuildtest.run',
+                           return_value='', side_effect=make_juju) as run_mock:
+                    build_client()
+                    args, kwargs = run_mock.call_args
+                    self.assertEqual((GO_CMD, 'build'), args)
+                    self.assertEqual('386', kwargs['env'].get('GOARCH'))
+                    self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+
     def test_build_agent(self):
         with temp_path(winbuildtest, 'JUJUD_CMD_DIR'):
-            with patch('winbuildtest.run', return_value='built') as run_mock:
+            with patch('winbuildtest.run', return_value='') as run_mock:
                 build_agent()
                 args, kwargs = run_mock.call_args
                 self.assertEqual((GO_CMD, 'build'), args)
