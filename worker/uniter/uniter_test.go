@@ -1328,6 +1328,7 @@ var collectMetricsEventTests = []uniterTest{
 		metricsTick{},
 		waitHooks{"collect-metrics"},
 	),
+
 	ut(
 		"collect-metrics resumed after hook error",
 		startupError{"config-changed"},
@@ -1338,13 +1339,13 @@ var collectMetricsEventTests = []uniterTest{
 		waitUnit{
 			status: params.StatusStarted,
 		},
-		waitHooks{"config-changed", "start", "collect-metrics"},
+		waitHooks{"config-changed", "start", "collect-metrics", "config-changed"},
 		verifyRunning{},
 	),
 }
 
 func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
-	s.runUniterTests(c, meterStatusEventTests)
+	s.runUniterTests(c, collectMetricsEventTests)
 }
 
 var actionEventTests = []uniterTest{
@@ -1898,8 +1899,10 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, gc.IsNil)
-	ctx.ticker = uniter.NewManualTicker()
-	uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
+	if ctx.ticker == nil {
+		ctx.ticker = uniter.NewManualTicker()
+		uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
+	}
 	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
