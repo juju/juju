@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter_test
+package operation_test
 
 import (
 	"path/filepath"
@@ -12,8 +12,8 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/operation"
 )
 
 type StateFileSuite struct{}
@@ -29,90 +29,90 @@ var relhook = &hook.Info{
 var now = time.Now().Round(time.Second)
 
 var stateTests = []struct {
-	st  uniter.State
+	st  operation.State
 	err string
 }{
 	// Invalid op/step.
 	{
-		st:  uniter.State{Op: uniter.Op("bloviate")},
+		st:  operation.State{Op: operation.Kind("bloviate")},
 		err: `unknown operation "bloviate"`,
 	}, {
-		st: uniter.State{
-			Op:     uniter.Continue,
-			OpStep: uniter.OpStep("dudelike"),
+		st: operation.State{
+			Op:     operation.Continue,
+			OpStep: operation.Step("dudelike"),
 			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unknown operation step "dudelike"`,
 	},
 	// Install operation.
 	{
-		st: uniter.State{
-			Op:     uniter.Install,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.Install,
+			OpStep: operation.Pending,
 			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unexpected hook info`,
 	}, {
-		st: uniter.State{
-			Op:     uniter.Install,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.Install,
+			OpStep: operation.Pending,
 		},
 		err: `missing charm URL`,
 	}, {
-		st: uniter.State{
-			Op:       uniter.Install,
-			OpStep:   uniter.Pending,
+		st: operation.State{
+			Op:       operation.Install,
+			OpStep:   operation.Pending,
 			CharmURL: stcurl,
 		},
 	},
 	// RunHook operation.
 	{
-		st: uniter.State{
-			Op:     uniter.RunHook,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.RunHook,
+			OpStep: operation.Pending,
 			Hook:   &hook.Info{Kind: hooks.Kind("machine-exploded")},
 		},
 		err: `unknown hook kind "machine-exploded"`,
 	}, {
-		st: uniter.State{
-			Op:     uniter.RunHook,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.RunHook,
+			OpStep: operation.Pending,
 			Hook:   &hook.Info{Kind: hooks.RelationJoined},
 		},
 		err: `"relation-joined" hook requires a remote unit`,
 	}, {
-		st: uniter.State{
-			Op:       uniter.RunHook,
-			OpStep:   uniter.Pending,
+		st: operation.State{
+			Op:       operation.RunHook,
+			OpStep:   operation.Pending,
 			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
 	}, {
-		st: uniter.State{
-			Op:     uniter.RunHook,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.RunHook,
+			OpStep: operation.Pending,
 			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
 		},
 	}, {
-		st: uniter.State{
-			Op:     uniter.RunHook,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.RunHook,
+			OpStep: operation.Pending,
 			Hook:   relhook,
 		},
 	}, {
-		st: uniter.State{
-			Op:     uniter.RunHook,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.RunHook,
+			OpStep: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
 				ActionId: "wordpress/0_a_1",
 			},
 		},
 	}, {
-		st: uniter.State{
-			Op:     uniter.RunHook,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.RunHook,
+			OpStep: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
 				ActionId: "foo",
@@ -122,44 +122,44 @@ var stateTests = []struct {
 	},
 	// Upgrade operation.
 	{
-		st: uniter.State{
-			Op:     uniter.Upgrade,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.Upgrade,
+			OpStep: operation.Pending,
 		},
 		err: `missing charm URL`,
 	}, {
-		st: uniter.State{
-			Op:       uniter.Upgrade,
-			OpStep:   uniter.Pending,
+		st: operation.State{
+			Op:       operation.Upgrade,
+			OpStep:   operation.Pending,
 			CharmURL: stcurl,
 		},
 	}, {
-		st: uniter.State{
-			Op:       uniter.Upgrade,
-			OpStep:   uniter.Pending,
+		st: operation.State{
+			Op:       operation.Upgrade,
+			OpStep:   operation.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
 		},
 	},
 	// Continue operation.
 	{
-		st: uniter.State{
-			Op:     uniter.Continue,
-			OpStep: uniter.Pending,
+		st: operation.State{
+			Op:     operation.Continue,
+			OpStep: operation.Pending,
 		},
 		err: `missing hook info`,
 	}, {
-		st: uniter.State{
-			Op:       uniter.Continue,
-			OpStep:   uniter.Pending,
+		st: operation.State{
+			Op:       operation.Continue,
+			OpStep:   operation.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
 	}, {
-		st: uniter.State{
-			Op:                 uniter.Continue,
-			OpStep:             uniter.Pending,
+		st: operation.State{
+			Op:                 operation.Continue,
+			OpStep:             operation.Pending,
 			Hook:               relhook,
 			CollectMetricsTime: now.Unix(),
 		},
@@ -170,9 +170,9 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 	for i, t := range stateTests {
 		c.Logf("test %d", i)
 		path := filepath.Join(c.MkDir(), "uniter")
-		file := uniter.NewStateFile(path)
+		file := operation.NewStateFile(path)
 		_, err := file.Read()
-		c.Assert(err, gc.Equals, uniter.ErrNoStateFile)
+		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
 		write := func() {
 			err := file.Write(t.st.Started, t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
 			c.Assert(err, gc.IsNil)

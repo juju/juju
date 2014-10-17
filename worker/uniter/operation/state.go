@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package operation
 
 import (
 	"fmt"
@@ -13,42 +13,42 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	uhook "github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
-// Op enumerates the operations the uniter can perform.
-type Op string
+// Kind enumerates the operations the uniter can perform.
+type Kind string
 
 const (
 	// Install indicates that the uniter is installing the charm.
-	Install Op = "install"
+	Install Kind = "install"
 
 	// RunHook indicates that the uniter is running a hook.
-	RunHook Op = "run-hook"
+	RunHook Kind = "run-hook"
 
 	// Upgrade indicates that the uniter is upgrading the charm.
-	Upgrade Op = "upgrade"
+	Upgrade Kind = "upgrade"
 
 	// Continue indicates that the uniter should run ModeContinue
 	// to determine the next operation.
-	Continue Op = "continue"
+	Continue Kind = "continue"
 )
 
-// OpStep describes the recorded progression of an operation.
-type OpStep string
+// Step describes the recorded progression of an operation.
+type Step string
 
 const (
 	// Queued indicates that the uniter should undertake the operation
 	// as soon as possible.
-	Queued OpStep = "queued"
+	Queued Step = "queued"
 
 	// Pending indicates that the uniter has started, but not completed,
 	// the operation.
-	Pending OpStep = "pending"
+	Pending Step = "pending"
 
 	// Done indicates that the uniter has completed the operation,
 	// but may not yet have synchronized all necessary secondary state.
-	Done OpStep = "done"
+	Done Step = "done"
 )
 
 // State defines the local persistent state of the uniter, excluding relation
@@ -58,17 +58,17 @@ type State struct {
 	Started bool
 
 	// Op indicates the current operation.
-	Op Op
+	Op Kind
 
 	// OpStep indicates the current operation's progression.
-	OpStep OpStep
+	OpStep Step
 
 	// Hook holds hook information relevant to the current operation. If Op
 	// is Continue, it holds the last hook that was executed; if Op is RunHook,
 	// it holds the running hook; if Op is Upgrade, a non-nil hook indicates
 	// that the uniter should return to that hook's Pending state after the
 	// upgrade is complete (instead of running an upgrade-charm hook).
-	Hook *uhook.Info `yaml:"hook,omitempty"`
+	Hook *hook.Info `yaml:"hook,omitempty"`
 
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
@@ -153,7 +153,7 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url *charm.URL, metricsTime int64) error {
+func (f *StateFile) Write(started bool, op Kind, step Step, hi *hook.Info, url *charm.URL, metricsTime int64) error {
 	st := &State{
 		Started:            started,
 		Op:                 op,
