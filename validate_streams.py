@@ -162,6 +162,8 @@ def main(argv):
         if args.verbose:
             traceback.print_tb(sys.exc_info()[2])
         return 2
+    if args.verbose:
+        print("All changes are correct.")
     return 0
 
 
