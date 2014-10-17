@@ -1,10 +1,8 @@
-from contextlib import contextmanager
 from mock import patch
 import json
-import shutil
-from tempfile import mkdtemp
 from unittest import TestCase
 
+from utils import temp_dir
 from validate_streams import (
     check_devel_not_stable,
     check_expected_tools,
@@ -13,15 +11,6 @@ from validate_streams import (
     find_tools,
     parse_args,
 )
-
-
-@contextmanager
-def temp_dir():
-    dirname = mkdtemp()
-    try:
-        yield dirname
-    finally:
-        shutil.rmtree(dirname)
 
 
 def make_tool_data(version='1.20.7', release='trusty', arch='amd64'):
