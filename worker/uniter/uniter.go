@@ -88,17 +88,17 @@ type Uniter struct {
 	uuid               string
 	envName            string
 
-	dataDir      string
-	baseDir      string
-	toolsDir     string
-	relationsDir string
-	charmPath    string
-	deployer     charm.Deployer
-	s            *operation.State
-	sf           *operation.StateFile
-	rand         *rand.Rand
-	hookLock     *fslock.Lock
-	runListener  *RunListener
+	dataDir            string
+	baseDir            string
+	toolsDir           string
+	relationsDir       string
+	charmPath          string
+	deployer           charm.Deployer
+	operationState     *operation.State
+	operationStateFile *operation.StateFile
+	rand               *rand.Rand
+	hookLock           *fslock.Lock
+	runListener        *RunListener
 
 	proxy      proxyutils.Settings
 	proxyMutex sync.Mutex
@@ -245,7 +245,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
-	u.sf = operation.NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
+	operationStateFilePath := filepath.Join(u.baseDir, "state", "uniter")
+	u.operationStateFile = operation.NewStateFile(operationStateFilePath)
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 
 	// If we start trying to listen for juju-run commands before we have valid
@@ -290,23 +291,36 @@ func (u *Uniter) writeOperationState(kind operation.Kind, step operation.Step, h
 	if hi != nil && hi.Kind == hooks.CollectMetrics && step == operation.Done {
 		// update collectMetricsTime if the collect-metrics hook was run
 		collectMetricsTime = time.Now().Unix()
-	} else if u.s != nil {
+	} else if u.operationState != nil {
 		// or preserve existing value
-		collectMetricsTime = u.s.CollectMetricsTime
+		collectMetricsTime = u.operationState.CollectMetricsTime
 	}
 
-	s := operation.State{
-		Started:            kind == operation.RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
+	reachedStartHook := false
+	if kind == operation.RunHook && hi.Kind == hooks.Start {
+		reachedStartHook = true
+	} else if u.operationState != nil && u.operationState.Started {
+		reachedStartHook = true
+	}
+	operationState := operation.State{
+		Started:            reachedStartHook,
 		Kind:               kind,
 		Step:               step,
 		Hook:               hi,
 		CharmURL:           url,
 		CollectMetricsTime: collectMetricsTime,
 	}
-	if err := u.sf.Write(s.Started, s.Kind, s.Step, s.Hook, s.CharmURL, s.CollectMetricsTime); err != nil {
+	if err := u.operationStateFile.Write(
+		operationState.Started,
+		operationState.Kind,
+		operationState.Step,
+		operationState.Hook,
+		operationState.CharmURL,
+		operationState.CollectMetricsTime,
+	); err != nil {
 		return err
 	}
-	u.s = &s
+	u.operationState = &operationState
 	return nil
 }
 
@@ -317,15 +331,18 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
 	var hi *hook.Info
-	if u.s != nil && (u.s.Kind == operation.RunHook || u.s.Kind == operation.Upgrade) {
+	if u.operationState != nil {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
 		// if we're resuming (or have force-interrupted) an Upgrade, we also
 		// need to preserve whatever hook info was preserved when we initially
 		// started upgrading, to ensure we still return to the correct state.
-		hi = u.s.Hook
+		kind := u.operationState.Kind
+		if kind == operation.RunHook || kind == operation.Upgrade {
+			hi = u.operationState.Hook
+		}
 	}
-	if u.s == nil || u.s.Step != operation.Done {
+	if u.operationState == nil || u.operationState.Step != operation.Done {
 		// Get the new charm bundle before announcing intention to use it.
 		logger.Infof("fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)
@@ -681,7 +698,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 
 // currentHookName returns the current full hook name.
 func (u *Uniter) currentHookName() string {
-	hookInfo := u.s.Hook
+	hookInfo := u.operationState.Hook
 	hookName := string(hookInfo.Kind)
 	if hookInfo.Kind.IsRelation() {
 		relationer := u.relationers[hookInfo.RelationId]
