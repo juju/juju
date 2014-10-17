@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
 
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 
