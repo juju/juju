@@ -75,12 +75,12 @@ class ValidateStreams(TestCase):
 
     def test_parge_args(self):
         # The purpose, release, old json and new json are required.
-        required = ['proposed', '1.20.9', 'old/json', 'new/json']
+        required = ['--added', '1.20.9', 'proposed', 'old/json', 'new/json']
         args = parse_args(required)
         self.assertEqual('proposed', args.purpose)
-        self.assertEqual('1.20.9', args.version)
         self.assertEqual('old/json', args.old_json)
         self.assertEqual('new/json', args.new_json)
+        self.assertEqual('1.20.9', args.added)
         # A bad release version can be retracted.
         args = parse_args(['--retracted', 'bad'] + required)
         self.assertEqual('bad', args.retracted)
@@ -136,6 +136,20 @@ class ValidateStreams(TestCase):
         message = compare_tools(
             old_tools, new_tools, 'proposed', 'IGNORE', retracted=None)
         self.assertIs(None, message)
+
+    def test_check_expected_tools_no_added_no_retraced(self):
+        old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
+        tools = check_expected_tools(old_tools, new_tools, None, None)
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            new_expected.keys())
+        self.assertIs(None, extra_errors)
+        self.assertEqual(
+            ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
+            old_expected.keys())
+        self.assertIs(None, missing_errors)
 
     def test_check_expected_tools_added_new(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
