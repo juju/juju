@@ -283,9 +283,9 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-// writeState saves uniter state with the supplied values, and infers the appropriate
-// value of Started.
-func (u *Uniter) writeState(op operation.Kind, step operation.Step, hi *hook.Info, url *corecharm.URL) error {
+// writeOperationState saves uniter state with the supplied values, inferring
+// the appropriate values of Started and CollectMetricsTime.
+func (u *Uniter) writeOperationState(kind operation.Kind, step operation.Step, hi *hook.Info, url *corecharm.URL) error {
 	var collectMetricsTime int64 = 0
 	if hi != nil && hi.Kind == hooks.CollectMetrics && step == operation.Done {
 		// update collectMetricsTime if the collect-metrics hook was run
@@ -296,14 +296,14 @@ func (u *Uniter) writeState(op operation.Kind, step operation.Step, hi *hook.Inf
 	}
 
 	s := operation.State{
-		Started:            op == operation.RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
-		Op:                 op,
-		OpStep:             step,
+		Started:            kind == operation.RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
+		Kind:               kind,
+		Step:               step,
 		Hook:               hi,
 		CharmURL:           url,
 		CollectMetricsTime: collectMetricsTime,
 	}
-	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL, s.CollectMetricsTime); err != nil {
+	if err := u.sf.Write(s.Started, s.Kind, s.Step, s.Hook, s.CharmURL, s.CollectMetricsTime); err != nil {
 		return err
 	}
 	u.s = &s
@@ -317,7 +317,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
 	var hi *hook.Info
-	if u.s != nil && (u.s.Op == operation.RunHook || u.s.Op == operation.Upgrade) {
+	if u.s != nil && (u.s.Kind == operation.RunHook || u.s.Kind == operation.Upgrade) {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
 		// if we're resuming (or have force-interrupted) an Upgrade, we also
@@ -325,7 +325,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 		// started upgrading, to ensure we still return to the correct state.
 		hi = u.s.Hook
 	}
-	if u.s == nil || u.s.OpStep != operation.Done {
+	if u.s == nil || u.s.Step != operation.Done {
 		// Get the new charm bundle before announcing intention to use it.
 		logger.Infof("fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)
@@ -347,13 +347,13 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 			return err
 		}
 		logger.Infof("deploying charm %q", curl)
-		if err = u.writeState(reason, operation.Pending, hi, curl); err != nil {
+		if err = u.writeOperationState(reason, operation.Pending, hi, curl); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(); err != nil {
 			return err
 		}
-		if err = u.writeState(reason, operation.Done, hi, curl); err != nil {
+		if err = u.writeOperationState(reason, operation.Done, hi, curl); err != nil {
 			return err
 		}
 	}
@@ -372,7 +372,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 			hi.Kind = hooks.UpgradeCharm
 		}
 	}
-	return u.writeState(operation.RunHook, status, hi, nil)
+	return u.writeOperationState(operation.RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
@@ -581,7 +581,7 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
-	if err := u.writeState(operation.RunHook, operation.Done, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
 	logger.Infof(hctx.actionData.ResultsMessage)
@@ -630,7 +630,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.writeState(operation.RunHook, operation.Pending, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.RunHook, operation.Pending, &hi, nil); err != nil {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
@@ -645,7 +645,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
-	if err := u.writeState(operation.RunHook, operation.Done, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
 	if ranHook {
@@ -672,7 +672,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
-	if err := u.writeState(operation.Continue, operation.Pending, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.Continue, operation.Pending, &hi, nil); err != nil {
 		return err
 	}
 	logger.Infof("committed %q hook", hi.Kind)

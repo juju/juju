@@ -45,7 +45,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	}
 
 	// Filter out states not related to charm deployment.
-	switch u.s.Op {
+	switch u.s.Kind {
 	case operation.Continue:
 		logger.Infof("continuing after %q hook", u.s.Hook.Kind)
 		switch u.s.Hook.Kind {
@@ -63,14 +63,14 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		}
 		return ModeAbide, nil
 	case operation.RunHook:
-		if u.s.OpStep == operation.Queued {
+		if u.s.Step == operation.Queued {
 			logger.Infof("found queued %q hook", u.s.Hook.Kind)
 			if err = u.runHook(*u.s.Hook); err != nil && err != errHookFailed {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		if u.s.OpStep == operation.Done {
+		if u.s.Step == operation.Done {
 			logger.Infof("found uncommitted %q hook", u.s.Hook.Kind)
 			if err = u.commitHook(*u.s.Hook); err != nil {
 				return nil, err
@@ -83,14 +83,14 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	// Resume interrupted deployment operations.
 	curl := u.s.CharmURL
-	if u.s.Op == operation.Install {
+	if u.s.Kind == operation.Install {
 		logger.Infof("resuming charm install")
 		return ModeInstalling(curl), nil
-	} else if u.s.Op == operation.Upgrade {
+	} else if u.s.Kind == operation.Upgrade {
 		logger.Infof("resuming charm upgrade")
 		return ModeUpgrading(curl), nil
 	}
-	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Op))
+	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Kind))
 }
 
 // ModeInstalling is responsible for the initial charm deployment.
@@ -210,7 +210,7 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 // * unit death
 func ModeAbide(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeAbide", &err)()
-	if u.s.Op != operation.Continue {
+	if u.s.Kind != operation.Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	if err := u.fixDeployer(); err != nil {
@@ -323,7 +323,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	// TODO(binary132): In case of a crashed Action, simply set it to
 	// failed and return to ModeContinue.
 	defer modeContext("ModeHookError", &err)()
-	if u.s.Op != operation.RunHook || u.s.OpStep != operation.Pending {
+	if u.s.Kind != operation.RunHook || u.s.Step != operation.Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
 	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())

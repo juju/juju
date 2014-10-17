@@ -34,76 +34,76 @@ var stateTests = []struct {
 }{
 	// Invalid op/step.
 	{
-		st:  operation.State{Op: operation.Kind("bloviate")},
+		st:  operation.State{Kind: operation.Kind("bloviate")},
 		err: `unknown operation "bloviate"`,
 	}, {
 		st: operation.State{
-			Op:     operation.Continue,
-			OpStep: operation.Step("dudelike"),
-			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
+			Kind: operation.Continue,
+			Step: operation.Step("dudelike"),
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unknown operation step "dudelike"`,
 	},
 	// Install operation.
 	{
 		st: operation.State{
-			Op:     operation.Install,
-			OpStep: operation.Pending,
-			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
+			Kind: operation.Install,
+			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
 		err: `unexpected hook info`,
 	}, {
 		st: operation.State{
-			Op:     operation.Install,
-			OpStep: operation.Pending,
+			Kind: operation.Install,
+			Step: operation.Pending,
 		},
 		err: `missing charm URL`,
 	}, {
 		st: operation.State{
-			Op:       operation.Install,
-			OpStep:   operation.Pending,
+			Kind:     operation.Install,
+			Step:     operation.Pending,
 			CharmURL: stcurl,
 		},
 	},
 	// RunHook operation.
 	{
 		st: operation.State{
-			Op:     operation.RunHook,
-			OpStep: operation.Pending,
-			Hook:   &hook.Info{Kind: hooks.Kind("machine-exploded")},
+			Kind: operation.RunHook,
+			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.Kind("machine-exploded")},
 		},
 		err: `unknown hook kind "machine-exploded"`,
 	}, {
 		st: operation.State{
-			Op:     operation.RunHook,
-			OpStep: operation.Pending,
-			Hook:   &hook.Info{Kind: hooks.RelationJoined},
+			Kind: operation.RunHook,
+			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.RelationJoined},
 		},
 		err: `"relation-joined" hook requires a remote unit`,
 	}, {
 		st: operation.State{
-			Op:       operation.RunHook,
-			OpStep:   operation.Pending,
+			Kind:     operation.RunHook,
+			Step:     operation.Pending,
 			Hook:     &hook.Info{Kind: hooks.ConfigChanged},
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
 	}, {
 		st: operation.State{
-			Op:     operation.RunHook,
-			OpStep: operation.Pending,
-			Hook:   &hook.Info{Kind: hooks.ConfigChanged},
+			Kind: operation.RunHook,
+			Step: operation.Pending,
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		},
 	}, {
 		st: operation.State{
-			Op:     operation.RunHook,
-			OpStep: operation.Pending,
-			Hook:   relhook,
+			Kind: operation.RunHook,
+			Step: operation.Pending,
+			Hook: relhook,
 		},
 	}, {
 		st: operation.State{
-			Op:     operation.RunHook,
-			OpStep: operation.Pending,
+			Kind: operation.RunHook,
+			Step: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
 				ActionId: "wordpress/0_a_1",
@@ -111,8 +111,8 @@ var stateTests = []struct {
 		},
 	}, {
 		st: operation.State{
-			Op:     operation.RunHook,
-			OpStep: operation.Pending,
+			Kind: operation.RunHook,
+			Step: operation.Pending,
 			Hook: &hook.Info{
 				Kind:     hooks.Action,
 				ActionId: "foo",
@@ -123,20 +123,20 @@ var stateTests = []struct {
 	// Upgrade operation.
 	{
 		st: operation.State{
-			Op:     operation.Upgrade,
-			OpStep: operation.Pending,
+			Kind: operation.Upgrade,
+			Step: operation.Pending,
 		},
 		err: `missing charm URL`,
 	}, {
 		st: operation.State{
-			Op:       operation.Upgrade,
-			OpStep:   operation.Pending,
+			Kind:     operation.Upgrade,
+			Step:     operation.Pending,
 			CharmURL: stcurl,
 		},
 	}, {
 		st: operation.State{
-			Op:       operation.Upgrade,
-			OpStep:   operation.Pending,
+			Kind:     operation.Upgrade,
+			Step:     operation.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
 		},
@@ -144,22 +144,22 @@ var stateTests = []struct {
 	// Continue operation.
 	{
 		st: operation.State{
-			Op:     operation.Continue,
-			OpStep: operation.Pending,
+			Kind: operation.Continue,
+			Step: operation.Pending,
 		},
 		err: `missing hook info`,
 	}, {
 		st: operation.State{
-			Op:       operation.Continue,
-			OpStep:   operation.Pending,
+			Kind:     operation.Continue,
+			Step:     operation.Pending,
 			Hook:     relhook,
 			CharmURL: stcurl,
 		},
 		err: `unexpected charm URL`,
 	}, {
 		st: operation.State{
-			Op:                 operation.Continue,
-			OpStep:             operation.Pending,
+			Kind:               operation.Continue,
+			Step:               operation.Pending,
 			Hook:               relhook,
 			CollectMetricsTime: now.Unix(),
 		},
@@ -174,7 +174,7 @@ func (s *StateFileSuite) TestStates(c *gc.C) {
 		_, err := file.Read()
 		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
 		write := func() {
-			err := file.Write(t.st.Started, t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
+			err := file.Write(t.st.Started, t.st.Kind, t.st.Step, t.st.Hook, t.st.CharmURL, t.st.CollectMetricsTime)
 			c.Assert(err, gc.IsNil)
 		}
 		if t.err != "" {
