@@ -157,7 +157,7 @@ class ValidateStreams(TestCase):
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         # revert to 1.20.8 as the newest, remove 1.20.9.
-        tools = check_expected_tools(old_tools, new_tools, '1.20.8', '1.20.9')
+        tools = check_expected_tools(old_tools, new_tools, None, '1.20.9')
         new_expected, extra_errors, old_expected, missing_errors = tools
         self.assertEqual(
             ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
@@ -166,6 +166,18 @@ class ValidateStreams(TestCase):
         self.assertEqual(
             ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64'],
             old_expected.keys())
+        self.assertIs(None, missing_errors)
+
+    def test_check_expected_tools_retracted_old_and_added_new(self):
+        old_tools = make_tools_data(
+            'trusty', 'amd64', ['1.20.7', '1.20.8'])
+        new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.9'])
+        # Remove 1.20.8, leep to 1.20.9.
+        tools = check_expected_tools(old_tools, new_tools, '1.20.9', '1.20.8')
+        new_expected, extra_errors, old_expected, missing_errors = tools
+        self.assertEqual(['1.20.7-trusty-amd64'], new_expected.keys())
+        self.assertIs(None, extra_errors)
+        self.assertEqual(['1.20.7-trusty-amd64'], old_expected.keys())
         self.assertIs(None, missing_errors)
 
     def test_check_expected_tools_missing_from_new(self):
@@ -204,13 +216,13 @@ class ValidateStreams(TestCase):
         self.assertEqual(['1.20.7-trusty-amd64'], old_expected.keys())
         self.assertIs(None, missing_errors)
 
-    def test_check_expected_tools_failed_retraction_old(self):
+    def test_check_expected_tools_failed_retracted_old(self):
         old_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         # revert to 1.20.8 as the newest, remove 1.20.9.
-        tools = check_expected_tools(old_tools, new_tools, '1.20.8', '1.20.9')
+        tools = check_expected_tools(old_tools, new_tools, None, '1.20.9')
         new_expected, extra_errors, old_expected, missing_errors = tools
         self.assertEqual(
             ['1.20.7-trusty-amd64', '1.20.8-trusty-amd64',

@@ -47,7 +47,7 @@ def check_devel_not_stable(old_tools, new_tools, purpose):
             purpose, devel_versions)
 
 
-def check_expected_tools(old_tools, new_tools, version, retracted=None):
+def check_expected_tools(old_tools, new_tools, added=None, retracted=None):
     """Return a 4-tuple of new_expected, new_errors, old_expected, old_errors
 
     The new and old expected dicts are the tools common to old and new streams.
@@ -58,22 +58,22 @@ def check_expected_tools(old_tools, new_tools, version, retracted=None):
     new_expected = dict(new_tools)
     missing_errors = None
     extra_errors = None
-    expected = {}
+    expected_differences = {}
     if retracted:
         # Retracted domiates version because streams.canonical.com always
         # needs a version to install to make streams, even when it
         # intends to remove something.
         for n, t in old_expected.items():
             if t['version'] == retracted:
-                expected.update([(n, t)])
+                expected_differences.update([(n, t)])
                 del old_expected[n]
-    else:
+    if added:
         for n, t in new_expected.items():
-            if t['version'] == version:
-                expected.update([(n, t)])
+            if t['version'] == added:
+                expected_differences.update([(n, t)])
                 del new_expected[n]
-        if version != 'IGNORE' and not expected:
-            missing_errors = 'Missing versions: {}'.format(version)
+        if added != 'IGNORE' and not expected_differences:
+            missing_errors = 'Missing versions: {}'.format(added)
     # The old and new should be identical. but if there is a problem,
     # we want to explain what problems are in each set of versions.
     old_versions = set(old_expected.keys())
