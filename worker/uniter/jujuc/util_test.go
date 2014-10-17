@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	stdtesting "testing"
 	"time"
 
 	gc "gopkg.in/check.v1"
@@ -21,8 +20,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
-
-func TestPackage(t *stdtesting.T) { gc.TestingT(t) }
 
 func bufferBytes(stream io.Writer) []byte {
 	return stream.(*bytes.Buffer).Bytes()

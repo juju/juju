@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,10 +49,6 @@ import (
 // not affect the overall running time of the tests
 // unless they fail.
 const worstCase = coretesting.LongWait
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type UniterSuite struct {
 	coretesting.GitSuite
