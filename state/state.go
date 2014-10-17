@@ -83,6 +83,9 @@ const (
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
+
+	// restoreC is used to track restore progress
+	restoreInfoC = "restoreInfo"
 )
 
 // State represents the state of an environment
