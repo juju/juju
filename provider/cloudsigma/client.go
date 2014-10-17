@@ -9,17 +9,17 @@ import (
 
 	"github.com/Altoros/gosigma"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
-	"github.com/juju/juju/environs/imagemetadata"
 )
 
 // This file contains implementation of CloudSigma client.
 type environClient struct {
-	conn     *gosigma.Client
-	uuid 	 string
-	storage   *environStorage
+	conn    *gosigma.Client
+	uuid    string
+	storage *environStorage
 }
 
 type tracer struct{}
@@ -29,7 +29,7 @@ func (tracer) Logf(format string, args ...interface{}) {
 }
 
 // newClient returns an instance of the CloudSigma client.
-var newClient = func(cfg *environConfig) (client *environClient,err error) {
+var newClient = func(cfg *environConfig) (client *environClient, err error) {
 	uuid, ok := cfg.UUID()
 	if !ok {
 		return nil, fmt.Errorf("Environ uuid must not be empty")
@@ -49,9 +49,9 @@ var newClient = func(cfg *environConfig) (client *environClient,err error) {
 		conn.Logger(&tracer{})
 	}
 
-	client = &environClient {
-		conn:     conn,
-		uuid:	  uuid,
+	client = &environClient{
+		conn: conn,
+		uuid: uuid,
 	}
 
 	return
@@ -190,7 +190,7 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	logger.Tracef("MachineConfig: %#v", args.MachineConfig)
 
 	constraints, err := newConstraints(args.MachineConfig.Bootstrap,
-		args.Constraints,img)
+		args.Constraints, img)
 	if err != nil {
 		return
 	}
@@ -217,7 +217,24 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 		}
 	}
 
-	var cc gosigma.Components
+	cc, err := c.generateSigmaComponents(baseName, constraints, args, drv)
+	if err != nil {
+		return nil, drv, err
+	}
+
+	if srv, err = c.conn.CreateServer(cc); err != nil {
+		err = fmt.Errorf("error creating new instance: %v", err)
+		return
+	}
+
+	if err = srv.Start(); err != nil {
+		err = fmt.Errorf("error booting new instance: %v", err)
+	}
+
+	return
+}
+
+func (c *environClient) generateSigmaComponents(baseName string, constraints *sigmaConstraints, args environs.StartInstanceParams, drv gosigma.Drive) (cc gosigma.Components, err error) {
 	cc.SetName(baseName)
 	cc.SetDescription(baseName)
 	cc.SetSMP(constraints.cores)
@@ -242,15 +259,6 @@ func (c *environClient) newInstance(args environs.StartInstanceParams, img *imag
 	}
 
 	cc.SetMeta(jujuMetaEnvironment, c.uuid)
-
-	if srv, err = c.conn.CreateServer(cc); err != nil {
-		err = fmt.Errorf("error creating new instance: %v", err)
-		return
-	}
-
-	if err = srv.Start(); err != nil {
-		err = fmt.Errorf("error booting new instance: %v", err)
-	}
 
 	return
 }
