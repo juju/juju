@@ -205,8 +205,8 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		return nil, err
 	}
 	return &Action{
-		name:   result.Action.Name,
-		params: result.Action.Parameters,
+		name:   result.Action.Action.Name,
+		params: result.Action.Action.Parameters,
 	}, nil
 }
 
@@ -217,7 +217,7 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 	args := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{
 			{
-				ActionTag: tag.String(),
+				ActionTag: tag,
 				Status:    status,
 				Results:   results,
 				Message:   message,

@@ -133,6 +133,11 @@ func (mi *maasInstance) architecture() (arch, subarch string, err error) {
 	return arch, subarch, nil
 }
 
+func (mi *maasInstance) zone() string {
+	zone, _ := mi.getMaasObject().GetField("zone")
+	return zone
+}
+
 func (mi *maasInstance) cpuCount() (uint64, error) {
 	count, err := mi.getMaasObject().GetMap()["cpu_count"].GetFloat64()
 	if err != nil {

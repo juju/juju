@@ -396,6 +396,12 @@ var configTests = []configTest{
 		},
 		firewallMode: config.FwGlobal,
 	}, {
+		summary: "none firewall-mode",
+		config: attrs{
+			"firewall-mode": "none",
+		},
+		firewallMode: config.FwNone,
+	}, {
 		config: attrs{
 			"future": "hammerstein",
 		},

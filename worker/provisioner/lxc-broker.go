@@ -75,6 +75,7 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.SSLHostnameVerification,
 		config.Proxy,
 		config.AptProxy,
+		config.AptMirror,
 		config.PreferIPv6,
 		config.EnableOSRefreshUpdate,
 		config.EnableOSUpgrade,

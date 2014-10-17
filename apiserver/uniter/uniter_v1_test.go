@@ -391,9 +391,9 @@ func (s *uniterV1Suite) TestAllMachinePorts(c *gc.C) {
 	}}
 	expectPorts := []params.MachinePortRange{
 		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{100, 200, "tcp"}},
-		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{10, 20, "udp"}},
 		{UnitTag: "unit-mysql-1", PortRange: network.PortRange{201, 250, "tcp"}},
 		{UnitTag: "unit-mysql-1", PortRange: network.PortRange{1, 8, "udp"}},
+		{UnitTag: "unit-wordpress-0", PortRange: network.PortRange{10, 20, "udp"}},
 	}
 	result, err := s.uniter.AllMachinePorts(args)
 	c.Assert(err, gc.IsNil)
@@ -407,4 +407,30 @@ func (s *uniterV1Suite) TestAllMachinePorts(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *uniterV1Suite) TestRequestReboot(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machine0.Tag().String()},
+		{Tag: s.machine1.Tag().String()},
+		{Tag: "bogus"},
+		{Tag: "nasty-tag"},
+	}}
+	errResult, err := s.uniter.RequestReboot(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(errResult, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		}})
+
+	rFlag, err := s.machine0.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
+
+	rFlag, err = s.machine1.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsFalse)
 }

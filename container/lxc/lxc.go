@@ -193,6 +193,7 @@ func (manager *containerManager) CreateContainer(
 			network,
 			machineConfig.AuthorizedKeys,
 			machineConfig.AptProxySettings,
+			machineConfig.AptMirror,
 			machineConfig.EnableOSRefreshUpdate,
 			machineConfig.EnableOSUpgrade,
 		)

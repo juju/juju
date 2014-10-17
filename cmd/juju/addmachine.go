@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -130,15 +131,15 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
+	var config *config.Config
+	if defaultStore, err := configstore.Default(); err != nil {
+		return err
+	} else if config, err = c.Config(defaultStore); err != nil {
+		return err
+	}
+
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
-
-		var config *config.Config
-		if defaultStore, err := configstore.Default(); err != nil {
-			return err
-		} else if config, err = c.Config(defaultStore); err != nil {
-			return err
-		}
-
+		// Manual provisioning.
 		args := manual.ProvisionMachineArgs{
 			Host:   c.Placement.Directive,
 			Client: client,
@@ -166,11 +167,19 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("machine-id cannot be specified when adding machines")
 	}
 
+	jobs := []params.MachineJob{params.JobHostUnits}
+	if config.Type() != provider.MAAS {
+		// In case of MAAS JobManageNetworking is not added to ensure
+		// the non-intrusive start of a networker like above for the
+		// manual provisioning.
+		jobs = append(jobs, params.JobManageNetworking)
+	}
+
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,
 		Series:      c.Series,
 		Constraints: c.Constraints,
-		Jobs:        []params.MachineJob{params.JobHostUnits},
+		Jobs:        jobs,
 	}
 	machines := make([]params.AddMachineParams, c.NumMachines)
 	for i := 0; i < c.NumMachines; i++ {

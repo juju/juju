@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -72,6 +73,11 @@ type State struct {
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
 	CharmURL *charm.URL `yaml:"charm,omitempty"`
+
+	// CollectMetricsTime records the time the collect metrics hook was last run.
+	// It's set to nil if the hook was not run at all. Recording time as int64
+	// because the yaml encoder cannot encode the time.Time struct.
+	CollectMetricsTime int64
 }
 
 // validate returns an error if the state violates expectations.
@@ -115,6 +121,10 @@ func (st State) validate() (err error) {
 	return nil
 }
 
+func (st State) CollectedMetricsAt() time.Time {
+	return time.Unix(st.CollectMetricsTime, 0)
+}
+
 // StateFile holds the disk state for a uniter.
 type StateFile struct {
 	path string
@@ -143,13 +153,14 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url *charm.URL) error {
+func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url *charm.URL, metricsTime int64) error {
 	st := &State{
-		Started:  started,
-		Op:       op,
-		OpStep:   step,
-		Hook:     hi,
-		CharmURL: url,
+		Started:            started,
+		Op:                 op,
+		OpStep:             step,
+		Hook:               hi,
+		CharmURL:           url,
+		CollectMetricsTime: metricsTime,
 	}
 	if err := st.validate(); err != nil {
 		panic(err)

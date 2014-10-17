@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/constraints"
@@ -45,6 +46,113 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *MachineSuite) TestSetRebootFlagDeadMachine(c *gc.C) {
+	err := s.machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+
+	rFlag, err := s.machine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsFalse)
+
+	err = s.machine.SetRebootFlag(false)
+	c.Assert(err, gc.IsNil)
+
+	action, err := s.machine.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(action, gc.Equals, state.ShouldDoNothing)
+}
+
+func (s *MachineSuite) TestSetRebootFlagDeadMachineRace(c *gc.C) {
+	setFlag := txn.TestHook{
+		Before: func() {
+			err := s.machine.EnsureDead()
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	defer state.SetTestHooks(c, s.State, setFlag).Check()
+
+	err := s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.Equals, mgo.ErrNotFound)
+}
+
+func (s *MachineSuite) TestSetRebootFlag(c *gc.C) {
+	err := s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	rebootFlag, err := s.machine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rebootFlag, jc.IsTrue)
+}
+
+func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
+	err := s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	rebootFlag, err := s.machine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rebootFlag, jc.IsTrue)
+
+	err = s.machine.SetRebootFlag(false)
+	c.Assert(err, gc.IsNil)
+
+	rebootFlag, err = s.machine.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rebootFlag, jc.IsFalse)
+}
+
+func (s *MachineSuite) TestShouldShutdownOrReboot(c *gc.C) {
+	// Add first container.
+	c1, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, s.machine.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
+
+	// Add second container.
+	c2, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, c1.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
+
+	err = c2.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	rAction, err := s.machine.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
+
+	rAction, err = c1.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction, gc.Equals, state.ShouldDoNothing)
+
+	rAction, err = c2.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction, gc.Equals, state.ShouldReboot)
+
+	// // Reboot happens on the root node
+	err = c2.SetRebootFlag(false)
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	rAction, err = s.machine.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction, gc.Equals, state.ShouldReboot)
+
+	rAction, err = c1.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
+
+	rAction, err = c2.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction, gc.Equals, state.ShouldShutdown)
 }
 
 func (s *MachineSuite) TestContainerDefaults(c *gc.C) {

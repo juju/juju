@@ -96,20 +96,28 @@ func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(
 }
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
-	var returnErr error
+	returnErr := fmt.Errorf("whatever")
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
 		called++
 		return nil, returnErr
 	})
-	errors := []error{environs.ErrNoInstances, fmt.Errorf("whatever")}
-	for i, err := range errors {
-		returnErr = err
-		zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
-		c.Assert(called, gc.Equals, i+1)
-		c.Assert(err, gc.Equals, returnErr)
-		c.Assert(zoneInstances, gc.HasLen, 0)
-	}
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
+	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, gc.Equals, returnErr)
+	c.Assert(zoneInstances, gc.HasLen, 0)
+}
+
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesNoInstances(c *gc.C) {
+	var called int
+	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
+		called++
+		return nil, environs.ErrNoInstances
+	})
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
+	c.Assert(called, gc.Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(zoneInstances, gc.HasLen, 2)
 }
 
 func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) {

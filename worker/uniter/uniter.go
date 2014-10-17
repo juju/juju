@@ -46,6 +46,9 @@ const (
 	// workloads in the future, we'll need to move these into a file that is
 	// compiled conditionally for different targets and use tcp (most likely).
 	RunListenerFile = "run.socket"
+
+	// interval at which the unit's metrics should be collected
+	metricsPollInterval = 5 * time.Minute
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -56,20 +59,33 @@ type UniterExecutionObserver interface {
 	HookFailed(hookName string)
 }
 
+// collectMetricsTimer returns a channel that will signal the collect metrics hook
+// as close to metricsPollInterval after the last run as possible.
+func collectMetricsTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
+	waitDuration := interval - now.Sub(lastRun)
+	logger.Debugf("waiting for %v", waitDuration)
+	return time.After(waitDuration)
+}
+
+// collectMetricsAt defines a function that will be used to generate signals
+// for the collect-metrics hook. It will be replaced in tests.
+var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-chan time.Time = collectMetricsTimer
+
 // Uniter implements the capabilities of the unit agent. It is not intended to
 // implement the actual *behaviour* of the unit agent; that responsibility is
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb          tomb.Tomb
-	st            *uniter.State
-	f             *filter
-	unit          *uniter.Unit
-	service       *uniter.Service
-	relationers   map[int]*Relationer
-	relationHooks chan hook.Info
-	uuid          string
-	envName       string
+	tomb               tomb.Tomb
+	st                 *uniter.State
+	f                  *filter
+	unit               *uniter.Unit
+	assignedMachineTag names.MachineTag
+	service            *uniter.Service
+	relationers        map[int]*Relationer
+	relationHooks      chan hook.Info
+	uuid               string
+	envName            string
 
 	dataDir      string
 	baseDir      string
@@ -87,6 +103,7 @@ type Uniter struct {
 	proxyMutex sync.Mutex
 
 	ranConfigChanged bool
+
 	// The execution observer is only used in tests at this stage. Should this
 	// need to be extended, perhaps a list of observers would be needed.
 	observer UniterExecutionObserver
@@ -190,6 +207,10 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
 	}
+	u.assignedMachineTag, err = u.unit.AssignedMachine()
+	if err != nil {
+		return err
+	}
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
@@ -264,14 +285,24 @@ func (u *Uniter) Dead() <-chan struct{} {
 // writeState saves uniter state with the supplied values, and infers the appropriate
 // value of Started.
 func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
-	s := State{
-		Started:  op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
-		Op:       op,
-		OpStep:   step,
-		Hook:     hi,
-		CharmURL: url,
+	var collectMetricsTime int64 = 0
+	if hi != nil && hi.Kind == hooks.CollectMetrics && step == Done {
+		// update collectMetricsTime if the collect-metrics hook was run
+		collectMetricsTime = time.Now().Unix()
+	} else if u.s != nil {
+		// or preserve existing value
+		collectMetricsTime = u.s.CollectMetricsTime
 	}
-	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL); err != nil {
+
+	s := State{
+		Started:            op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
+		Op:                 op,
+		OpStep:             step,
+		Hook:               hi,
+		CharmURL:           url,
+		CollectMetricsTime: collectMetricsTime,
+	}
+	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL, s.CollectMetricsTime); err != nil {
 		return err
 	}
 	u.s = &s
@@ -377,7 +408,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 
 	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		canAddMetrics, actionData)
+		canAddMetrics, actionData, u.assignedMachineTag)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

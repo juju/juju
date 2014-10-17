@@ -1,10 +1,10 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package osenv_test
 
 import (
-	"path/filepath"
 	"runtime"
 
 	gc "gopkg.in/check.v1"
@@ -18,18 +18,6 @@ type varsSuite struct {
 }
 
 var _ = gc.Suite(&varsSuite{})
-
-func (s *varsSuite) TestJujuHomeWin(c *gc.C) {
-	path := `P:\FooBar\AppData`
-	s.PatchEnvironment("APPDATA", path)
-	c.Assert(osenv.JujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
-}
-
-func (s *varsSuite) TestJujuHomeLinux(c *gc.C) {
-	path := `/foo/bar/baz/`
-	s.PatchEnvironment("HOME", path)
-	c.Assert(osenv.JujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
-}
 
 func (s *varsSuite) TestJujuHomeEnvVar(c *gc.C) {
 	path := "/foo/bar/baz"

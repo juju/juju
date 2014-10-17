@@ -5,7 +5,10 @@ import (
 
 	"github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/state"
+	jc "github.com/juju/testing/checkers"
 )
 
 // V1 test suite, no additional or changed tests.
@@ -19,6 +22,36 @@ type agentSuiteV1 struct {
 }
 
 var _ = gc.Suite(&agentSuiteV1{})
+
+func (s *agentSuiteV1) TestClearReboot(c *gc.C) {
+	api, err := agent.NewAgentAPIV1(s.State, s.resources, s.authorizer)
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine1.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.machine0.Tag().String()},
+		{Tag: s.machine1.Tag().String()},
+	}}
+
+	rFlag, err := s.machine1.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsTrue)
+
+	result, err := api.ClearReboot(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+		},
+	})
+
+	rFlag, err = s.machine1.GetRebootFlag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rFlag, jc.IsFalse)
+}
 
 func (s *agentSuiteV1) TestAgentFailsWithNonAgent(c *gc.C) {
 	s.testAgentFailsWithNonAgentV0(c, factoryWrapperV1)

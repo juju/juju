@@ -24,6 +24,7 @@ var facadeVersions = map[string]int{
 	"MetricsManager":       0,
 	"Pinger":               0,
 	"Provisioner":          0,
+	"Reboot":               1,
 	"RelationUnitsWatcher": 0,
 	"UserManager":          0,
 	"CharmRevisionUpdater": 0,

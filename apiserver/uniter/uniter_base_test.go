@@ -1098,26 +1098,28 @@ type actions interface {
 func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 	var actionTests = []struct {
 		description string
-		action      params.ActionItem
+		action      params.ActionResult
 	}{{
 		description: "A simple action.",
-		action: params.ActionItem{
-			Name: "snapshot",
-			Parameters: map[string]interface{}{
-				"outfile": "foo.txt",
-			},
+		action: params.ActionResult{
+			Action: &params.Action{
+				Name: "snapshot",
+				Parameters: map[string]interface{}{
+					"outfile": "foo.txt",
+				}},
 		},
 	}, {
 		description: "An action with nested parameters.",
-		action: params.ActionItem{
-			Name: "backup",
-			Parameters: map[string]interface{}{
-				"outfile": "foo.bz2",
-				"compression": map[string]interface{}{
-					"kind":    "bzip",
-					"quality": 5,
-				},
-			},
+		action: params.ActionResult{
+			Action: &params.Action{
+				Name: "backup",
+				Parameters: map[string]interface{}{
+					"outfile": "foo.bz2",
+					"compression": map[string]interface{}{
+						"kind":    "bzip",
+						"quality": 5,
+					},
+				}},
 		},
 	}}
 
@@ -1125,8 +1127,8 @@ func (s *uniterBaseSuite) testActions(c *gc.C, facade actions) {
 		c.Logf("test %d: %s", i, actionTest.description)
 
 		a, err := s.wordpressUnit.AddAction(
-			actionTest.action.Name,
-			actionTest.action.Parameters)
+			actionTest.action.Action.Name,
+			actionTest.action.Action.Parameters)
 		c.Assert(err, gc.IsNil)
 		actionTag := names.JoinActionTag(s.wordpressUnit.UnitTag().Id(), i)
 		c.Assert(a.ActionTag(), gc.Equals, actionTag)
@@ -1214,7 +1216,7 @@ func (s *uniterBaseSuite) testFinishActionsSuccess(c *gc.C, facade finishActions
 
 	actionResults := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{{
-			ActionTag: action.ActionTag().String(),
+			ActionTag: action.ActionTag(),
 			Status:    params.ActionCompleted,
 			Results:   testOutput,
 		}},
@@ -1246,7 +1248,7 @@ func (s *uniterBaseSuite) testFinishActionsFailure(c *gc.C, facade finishActions
 
 	actionResults := params.ActionExecutionResults{
 		Results: []params.ActionExecutionResult{{
-			ActionTag: action.ActionTag().String(),
+			ActionTag: action.ActionTag(),
 			Status:    params.ActionFailed,
 			Results:   nil,
 			Message:   testError,
@@ -1274,15 +1276,11 @@ func (s *uniterBaseSuite) testFinishActionsAuthAccess(c *gc.C, facade finishActi
 	c.Assert(err, gc.IsNil)
 
 	var tests = []struct {
-		actionTag string
+		actionTag names.ActionTag
 		err       error
 	}{
-		{actionTag: "", err: errors.Errorf(`"" is not a valid tag`)},
-		{actionTag: s.machine0.Tag().String(), err: errors.Errorf(`"machine-0" is not a valid action tag`)},
-		{actionTag: s.mysql.Tag().String(), err: errors.Errorf(`"service-mysql" is not a valid action tag`)},
-		{actionTag: good.Tag().String(), err: nil},
-		{actionTag: bad.Tag().String(), err: common.ErrPerm},
-		{actionTag: "asdf", err: errors.Errorf(`"asdf" is not a valid tag`)},
+		{actionTag: good.ActionTag(), err: nil},
+		{actionTag: bad.ActionTag(), err: common.ErrPerm},
 	}
 
 	// Queue up actions from tests

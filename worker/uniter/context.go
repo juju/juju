@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -53,6 +54,21 @@ func IsMissingHookError(err error) bool {
 type meterStatus struct {
 	code string
 	info string
+}
+
+// PortRangeInfo contains information about a pending open- or
+// close-port operation for a port range. This is only exported for
+// testing.
+type PortRangeInfo struct {
+	ShouldOpen  bool
+	RelationTag names.RelationTag
+}
+
+// PortRange contains a port range and a relation id. Used as key to
+// pendingRelations and is only exported for testing.
+type PortRange struct {
+	Ports      network.PortRange
+	RelationId int
 }
 
 // HookContext is the implementation of jujuc.Context.
@@ -121,6 +137,19 @@ type HookContext struct {
 
 	// meterStatus is the status of the unit's metering.
 	meterStatus *meterStatus
+
+	// pendingPorts contains a list of port ranges to be opened or
+	// closed when the current hook is committed.
+	pendingPorts map[PortRange]PortRangeInfo
+
+	// machinePorts contains cached information about all opened port
+	// ranges on the unit's assigned machine, mapped to the unit that
+	// opened each range and the relevant relation.
+	machinePorts map[network.PortRange]params.RelationUnit
+
+	// assignedMachineTag contains the tag of the unit's assigned
+	// machine.
+	assignedMachineTag names.MachineTag
 }
 
 func NewHookContext(
@@ -137,21 +166,24 @@ func NewHookContext(
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
 	actionData *actionData,
+	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:           unit,
-		state:          state,
-		id:             id,
-		uuid:           uuid,
-		envName:        envName,
-		relationId:     relationId,
-		remoteUnitName: remoteUnitName,
-		relations:      relations,
-		apiAddrs:       apiAddrs,
-		serviceOwner:   serviceOwner,
-		proxySettings:  proxySettings,
-		canAddMetrics:  canAddMetrics,
-		actionData:     actionData,
+		unit:               unit,
+		state:              state,
+		id:                 id,
+		uuid:               uuid,
+		envName:            envName,
+		relationId:         relationId,
+		remoteUnitName:     remoteUnitName,
+		relations:          relations,
+		apiAddrs:           apiAddrs,
+		serviceOwner:       serviceOwner,
+		proxySettings:      proxySettings,
+		canAddMetrics:      canAddMetrics,
+		actionData:         actionData,
+		pendingPorts:       make(map[PortRange]PortRangeInfo),
+		assignedMachineTag: assignedMachineTag,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -162,6 +194,10 @@ func NewHookContext(
 	ctx.privateAddress, err = unit.PrivateAddress()
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
+	}
+	ctx.machinePorts, err = state.AllMachinePorts(ctx.assignedMachineTag)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	statusCode, statusInfo, err := unit.MeterStatus()
@@ -191,11 +227,30 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
-	return ctx.unit.OpenPorts(protocol, fromPort, toPort)
+	return tryOpenPorts(
+		protocol, fromPort, toPort,
+		ctx.unit.Tag(),
+		ctx.machinePorts, ctx.pendingPorts,
+	)
 }
 
 func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
-	return ctx.unit.ClosePorts(protocol, fromPort, toPort)
+	return tryClosePorts(
+		protocol, fromPort, toPort,
+		ctx.unit.Tag(),
+		ctx.machinePorts, ctx.pendingPorts,
+	)
+}
+
+func (ctx *HookContext) OpenedPorts() []network.PortRange {
+	var unitRanges []network.PortRange
+	for portRange, relUnit := range ctx.machinePorts {
+		if relUnit.Unit == ctx.unit.Tag().String() {
+			unitRanges = append(unitRanges, portRange)
+		}
+	}
+	network.SortPortRanges(unitRanges)
+	return unitRanges
 }
 
 func (ctx *HookContext) OwnerTag() string {
@@ -417,6 +472,34 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 		rctx.ClearCache()
 	}
 
+	for rangeKey, rangeInfo := range ctx.pendingPorts {
+		if ctxErr == nil {
+			var e error
+			var op string
+			if rangeInfo.ShouldOpen {
+				e = ctx.unit.OpenPorts(
+					rangeKey.Ports.Protocol,
+					rangeKey.Ports.FromPort,
+					rangeKey.Ports.ToPort,
+				)
+				op = "open"
+			} else {
+				e = ctx.unit.ClosePorts(
+					rangeKey.Ports.Protocol,
+					rangeKey.Ports.FromPort,
+					rangeKey.Ports.ToPort,
+				)
+				op = "close"
+			}
+			if e != nil {
+				e = errors.Annotatef(e, "cannot %s %v", op, rangeKey.Ports)
+				logger.Errorf("%v", e)
+				if ctxErr == nil {
+					ctxErr = e
+				}
+			}
+		}
+	}
 	if ctxErr != nil {
 		return ctxErr
 	}
@@ -836,4 +919,148 @@ func addValueToMap(keys []string, value string, target map[string]interface{}) {
 		next[keys[i]] = m
 		next = m
 	}
+}
+
+func validatePortRange(protocol string, fromPort, toPort int) (network.PortRange, error) {
+	// Validate the given range.
+	newRange := network.PortRange{
+		Protocol: strings.ToLower(protocol),
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}
+	if err := newRange.Validate(); err != nil {
+		return network.PortRange{}, err
+	}
+	return newRange, nil
+}
+
+func tryOpenPorts(
+	protocol string,
+	fromPort, toPort int,
+	unitTag names.UnitTag,
+	machinePorts map[network.PortRange]params.RelationUnit,
+	pendingPorts map[PortRange]PortRangeInfo,
+) error {
+	// TODO(dimitern) Once port ranges are linked to relations in
+	// addition to networks, refactor this functions and test it
+	// better to ensure it handles relations properly.
+	relationId := -1
+
+	//Validate the given range.
+	newRange, err := validatePortRange(protocol, fromPort, toPort)
+	if err != nil {
+		return err
+	}
+	rangeKey := PortRange{
+		Ports:      newRange,
+		RelationId: relationId,
+	}
+
+	rangeInfo, isKnown := pendingPorts[rangeKey]
+	if isKnown {
+		if !rangeInfo.ShouldOpen {
+			// If the same range is already pending to be closed, just
+			// mark is pending to be opened.
+			rangeInfo.ShouldOpen = true
+			pendingPorts[rangeKey] = rangeInfo
+		}
+		return nil
+	}
+
+	// Ensure there are no conflicts with existing ports on the
+	// machine.
+	for portRange, relUnit := range machinePorts {
+		relUnitTag, err := names.ParseUnitTag(relUnit.Unit)
+		if err != nil {
+			return errors.Annotatef(
+				err,
+				"machine ports %v contain invalid unit tag",
+				portRange,
+			)
+		}
+		if newRange.ConflictsWith(portRange) {
+			if portRange == newRange && relUnitTag == unitTag {
+				// The same unit trying to open the same range is just
+				// ignored.
+				return nil
+			}
+			return errors.Errorf(
+				"cannot open %v (unit %q): conflicts with existing %v (unit %q)",
+				newRange, unitTag.Id(), portRange, relUnitTag.Id(),
+			)
+		}
+	}
+	// Ensure other pending port ranges do not conflict with this one.
+	for rangeKey, rangeInfo := range pendingPorts {
+		if newRange.ConflictsWith(rangeKey.Ports) && rangeInfo.ShouldOpen {
+			return errors.Errorf(
+				"cannot open %v (unit %q): conflicts with %v requested earlier",
+				newRange, unitTag.Id(), rangeKey.Ports,
+			)
+		}
+	}
+
+	rangeInfo = pendingPorts[rangeKey]
+	rangeInfo.ShouldOpen = true
+	pendingPorts[rangeKey] = rangeInfo
+	return nil
+}
+
+func tryClosePorts(
+	protocol string,
+	fromPort, toPort int,
+	unitTag names.UnitTag,
+	machinePorts map[network.PortRange]params.RelationUnit,
+	pendingPorts map[PortRange]PortRangeInfo,
+) error {
+	// TODO(dimitern) Once port ranges are linked to relations in
+	// addition to networks, refactor this functions and test it
+	// better to ensure it handles relations properly.
+	relationId := -1
+
+	// Validate the given range.
+	newRange, err := validatePortRange(protocol, fromPort, toPort)
+	if err != nil {
+		return err
+	}
+	rangeKey := PortRange{
+		Ports:      newRange,
+		RelationId: relationId,
+	}
+
+	rangeInfo, isKnown := pendingPorts[rangeKey]
+	if isKnown {
+		if rangeInfo.ShouldOpen {
+			// If the same range is already pending to be opened, just
+			// remove it from pending.
+			delete(pendingPorts, rangeKey)
+		}
+		return nil
+	}
+
+	// Ensure the range we're trying to close is opened on the
+	// machine.
+	relUnit, found := machinePorts[newRange]
+	if !found {
+		// Trying to close a range which is not open is ignored.
+		return nil
+	} else if relUnit.Unit != unitTag.String() {
+		relUnitTag, err := names.ParseUnitTag(relUnit.Unit)
+		if err != nil {
+			return errors.Annotatef(
+				err,
+				"machine ports %v contain invalid unit tag",
+				newRange,
+			)
+		}
+		return errors.Errorf(
+			"cannot close %v (opened by %q) from %q",
+			newRange, relUnitTag.Id(), unitTag.Id(),
+		)
+	}
+
+	rangeInfo = pendingPorts[rangeKey]
+	rangeInfo.ShouldOpen = false
+	pendingPorts[rangeKey] = rangeInfo
+	return nil
 }

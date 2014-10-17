@@ -430,6 +430,14 @@ var configTests = []configTest{
 			"firewall-mode": config.FwGlobal,
 		},
 	}, {
+		about:       "None firewall mode",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwNone,
+		},
+	}, {
 		about:       "Illegal firewall mode",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -780,6 +788,15 @@ var configTests = []configTest{
 			"name":                     "my-name",
 			"provisioner-safe-mode":    true,
 			"provisioner-harvest-mode": config.HarvestNone.String(),
+		},
+	},
+	{
+		about:       "Explicit apt-mirror",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
 	},
 }
@@ -1261,10 +1278,15 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"agent-version": "1.9.27"},
 	err:   `cannot clear agent-version`,
 }, {
-	about: "Can't change the firewall-mode",
+	about: "Can't change the firewall-mode (global->instance)",
 	old:   testing.Attrs{"firewall-mode": config.FwGlobal},
 	new:   testing.Attrs{"firewall-mode": config.FwInstance},
 	err:   `cannot change firewall-mode from "global" to "instance"`,
+}, {
+	about: "Can't change the firewall-mode (global->none)",
+	old:   testing.Attrs{"firewall-mode": config.FwGlobal},
+	new:   testing.Attrs{"firewall-mode": config.FwNone},
+	err:   `cannot change firewall-mode from "global" to "none"`,
 }, {
 	about: "Cannot change the state-port",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},

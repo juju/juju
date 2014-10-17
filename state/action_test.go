@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils/set"
@@ -47,7 +48,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	tag := action.Tag()
 	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_0")
 
-	err = action.Finish(state.ActionResults{Status: state.ActionCompleted})
+	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, gc.IsNil)
 
 	r, err := s.unit.ActionResults()
@@ -55,6 +56,8 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 	c.Assert(len(r), gc.Equals, 1)
 
 	actionResult := r[0]
+	c.Assert(actionResult, gc.DeepEquals, result)
+
 	arTag := actionResult.Tag()
 	c.Assert(arTag.String(), gc.Equals, "actionresult-wordpress/0_ar_0")
 }
@@ -100,7 +103,7 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	// verify we can Fail one, retrieve the other, and they're not mixed up
 	action1, err := s.State.Action(a1.Id())
 	c.Assert(err, gc.IsNil)
-	err = action1.Finish(state.ActionResults{Status: state.ActionFailed})
+	_, err = action1.Finish(state.ActionResults{Status: state.ActionFailed})
 	c.Assert(err, gc.IsNil)
 
 	action2, err := s.State.Action(a2.Id())
@@ -172,13 +175,14 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 
 	// fail the action, and verify that it succeeds
 	reason := "test fail reason"
-	err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
+	result, err := action.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
 	results, err = unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0], gc.DeepEquals, result)
 
 	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
@@ -211,13 +215,14 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 
 	// complete the action, and verify that it succeeds
 	output := map[string]interface{}{"output": "action ran successfully"}
-	err = action.Finish(state.ActionResults{Status: state.ActionCompleted, Results: output})
+	result, err := action.Finish(state.ActionResults{Status: state.ActionCompleted, Results: output})
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
 	results, err = unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0], gc.DeepEquals, result)
 
 	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
@@ -299,9 +304,9 @@ func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
 	action2, err := unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 
-	err = action2.Finish(state.ActionResults{Status: state.ActionFailed})
+	_, err = action2.Finish(state.ActionResults{Status: state.ActionFailed})
 	c.Assert(err, gc.IsNil)
-	err = action1.Finish(state.ActionResults{Status: state.ActionCompleted})
+	_, err = action1.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, gc.IsNil)
 
 	w1 := unit1.WatchActionResults()
@@ -318,7 +323,7 @@ func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
 	wc2.AssertChange(expect...)
 	wc2.AssertNoChange()
 
-	err = action0.Finish(state.ActionResults{Status: state.ActionCompleted})
+	_, err = action0.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, gc.IsNil)
 
 	expect = expectActionResultIds(unit1, "0")
@@ -452,6 +457,55 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	}
 }
 
+func (s *ActionSuite) TestWatchActions(c *gc.C) {
+	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// add 3 actions
+	_, err = u.AddAction("fakeaction1", nil)
+	c.Assert(err, gc.IsNil)
+	fa2, err := u.AddAction("fakeaction2", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = u.AddAction("fakeaction3", nil)
+	c.Assert(err, gc.IsNil)
+
+	// fail the middle one
+	action, err := s.State.Action(fa2.Id())
+	c.Assert(err, gc.IsNil)
+	_, err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
+	c.Assert(err, gc.IsNil)
+
+	// expect the first and last one in the watcher
+	expect := expectActionIds(u, "0", "2")
+	wc.AssertChange(expect...)
+	wc.AssertNoChange()
+}
+
+func expectActionIds(u *state.Unit, suffixes ...string) []string {
+	ids := make([]string, len(suffixes))
+	prefix := state.EnsureActionMarker(u.Name())
+	for i, suffix := range suffixes {
+		ids[i] = prefix + suffix
+	}
+	return ids
+}
+
+func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
+	ids := make([]string, len(suffixes))
+	prefix := state.EnsureActionResultMarker(u.Name())
+	for i, suffix := range suffixes {
+		ids[i] = prefix + suffix
+	}
+	return ids
+}
+
 // newSet is a convenience method to make reading the tests easier. It
 // turns a comma delimited string into a set.Strings
 func newSet(vals string) set.Strings {
@@ -491,8 +545,10 @@ func (r mockAR) AddAction(name string, payload map[string]interface{}) (*state.A
 	return nil, nil
 }
 
-func (r mockAR) WatchActions() state.StringsWatcher            { return nil }
-func (r mockAR) WatchActionResults() state.StringsWatcher      { return nil }
-func (r mockAR) Actions() ([]*state.Action, error)             { return nil, nil }
-func (r mockAR) ActionResults() ([]*state.ActionResult, error) { return nil, nil }
-func (r mockAR) Name() string                                  { return r.id }
+func (r mockAR) CancelAction(*state.Action) (*state.ActionResult, error) { return nil, nil }
+func (r mockAR) WatchActions() state.StringsWatcher                      { return nil }
+func (r mockAR) WatchActionResults() state.StringsWatcher                { return nil }
+func (r mockAR) Actions() ([]*state.Action, error)                       { return nil, nil }
+func (r mockAR) ActionResults() ([]*state.ActionResult, error)           { return nil, nil }
+func (r mockAR) Name() string                                            { return r.id }
+func (r mockAR) Tag() names.Tag                                          { return nil }

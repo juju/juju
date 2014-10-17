@@ -108,6 +108,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		jobs = []params.MachineJob{
 			params.JobManageEnviron,
 			params.JobHostUnits,
+			params.JobManageNetworking,
 		}
 	}
 

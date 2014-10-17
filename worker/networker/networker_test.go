@@ -86,7 +86,7 @@ func (s *networkerSuite) TestConfigPaths(c *gc.C) {
 	nw, configDir := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, true)
 	defer worker.Stop(nw)
 
-	c.Assert(nw.ConfigDir(), gc.Equals, configDir)
+	c.Assert(nw.ConfigBaseDir(), gc.Equals, configDir)
 	subdir := filepath.Join(configDir, "interfaces.d")
 	c.Assert(nw.ConfigSubDir(), gc.Equals, subdir)
 	c.Assert(nw.ConfigFile(""), gc.Equals, filepath.Join(configDir, "interfaces"))
@@ -96,7 +96,7 @@ func (s *networkerSuite) TestConfigPaths(c *gc.C) {
 func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
 	nw := s.newNetworker(c, false)
 	defer worker.Stop(nw)
-	c.Assert(nw.CanWriteConfig(), jc.IsFalse)
+	c.Assert(nw.IntrusiveMode(), jc.IsFalse)
 
 	select {
 	case cmds := <-s.lastCommands:
@@ -109,7 +109,7 @@ func (s *networkerSuite) TestSafeNetworkerCannotWriteConfig(c *gc.C) {
 func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *gc.C) {
 	nw := s.newNetworker(c, true)
 	defer worker.Stop(nw)
-	c.Assert(nw.CanWriteConfig(), jc.IsTrue)
+	c.Assert(nw.IntrusiveMode(), jc.IsTrue)
 
 	select {
 	case <-s.lastCommands:
@@ -399,8 +399,13 @@ func (s *networkerSuite) executeCommandsHook(c *gc.C, commands []string) error {
 	return nil
 }
 
-func (s *networkerSuite) newCustomNetworker(c *gc.C, facade *apinetworker.State, machineId string, canWriteConfig, initInterfaces bool) (*networker.Networker, string) {
-
+func (s *networkerSuite) newCustomNetworker(
+	c *gc.C,
+	facade *apinetworker.State,
+	machineId string,
+	intrusiveMode bool,
+	initInterfaces bool,
+) (*networker.Networker, string) {
 	if initInterfaces {
 		s.upInterfaces = set.NewStrings("lo", "eth0")
 		s.interfacesWithAddress = set.NewStrings("lo", "eth0")
@@ -409,13 +414,7 @@ func (s *networkerSuite) newCustomNetworker(c *gc.C, facade *apinetworker.State,
 	s.vlanModuleLoaded = false
 	configDir := c.MkDir()
 
-	var nw *networker.Networker
-	var err error
-	if canWriteConfig {
-		nw, err = networker.NewNetworker(facade, agentConfig(machineId), configDir)
-	} else {
-		nw, err = networker.NewSafeNetworker(facade, agentConfig(machineId), configDir)
-	}
+	nw, err := networker.NewNetworker(facade, agentConfig(machineId), intrusiveMode, configDir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(nw, gc.NotNil)
 

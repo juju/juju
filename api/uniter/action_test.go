@@ -23,16 +23,16 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	var actionTests = []struct {
 		description string
-		action      params.ActionItem
+		action      params.Action
 	}{{
 		description: "A simple Action.",
-		action: params.ActionItem{
+		action: params.Action{
 			Name:       "snapshot",
 			Parameters: basicParams,
 		},
 	}, {
 		description: "An Action with nested parameters.",
-		action: params.ActionItem{
+		action: params.Action{
 			Name: "backup",
 			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -91,7 +92,7 @@ var (
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
-	newSafeNetworker         = networker.NewSafeNetworker
+	newFirewaller            = firewaller.NewFirewaller
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -326,6 +327,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
 	}
+	// Check if firewall-mode is "none" to disable the firewaller.
+	firewallMode := envConfig.FirewallMode()
+	disableFirewaller := firewallMode == config.FwNone
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
@@ -402,17 +406,19 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-	writeNetworkConfig := providerType == "maas"
-	if disableNetworkManagement || !writeNetworkConfig {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return newSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
-		})
-	} else if !disableNetworkManagement && writeNetworkConfig {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return newNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
-		})
+
+	// Start networker depending on configuration and job.
+	intrusiveMode := false
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageNetworking {
+			intrusiveMode = true
+			break
+		}
 	}
+	intrusiveMode = intrusiveMode && !disableNetworkManagement
+	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
+	})
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
@@ -446,9 +452,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// Make another job to enable the firewaller. Not all
 			// environments are capable of managing ports
 			// centrally.
-			a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st.Firewaller())
-			})
+			if !disableFirewaller {
+				a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
+					return newFirewaller(st.Firewaller())
+				})
+			} else {
+				logger.Debugf("not starting firewaller worker - firewall-mode is %q", config.FwNone)
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})

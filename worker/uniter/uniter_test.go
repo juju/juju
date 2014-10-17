@@ -156,6 +156,7 @@ type context struct {
 	relation      *state.Relation
 	relationUnits map[string]*state.RelationUnit
 	subordinate   *state.Unit
+	ticker        *uniter.ManualTicker
 
 	mu             sync.Mutex
 	hooksCompleted []string
@@ -1320,6 +1321,32 @@ func (s *UniterSuite) TestUniterMeterStatusChanged(c *gc.C) {
 	s.runUniterTests(c, meterStatusEventTests)
 }
 
+var collectMetricsEventTests = []uniterTest{
+	ut(
+		"collect-metrics event triggered by manual timer",
+		quickStart{},
+		metricsTick{},
+		waitHooks{"collect-metrics"},
+	),
+	ut(
+		"collect-metrics resumed after hook error",
+		startupError{"config-changed"},
+		metricsTick{},
+		verifyWaiting{},
+		fixHook{"config-changed"},
+		resolveError{state.ResolvedRetryHooks},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"config-changed", "start", "collect-metrics"},
+		verifyRunning{},
+	),
+}
+
+func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
+	s.runUniterTests(c, meterStatusEventTests)
+}
+
 var actionEventTests = []uniterTest{
 	ut(
 		"simple action event: defined in actions.yaml, no args",
@@ -1342,7 +1369,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1369,7 +1396,7 @@ var actionEventTests = []uniterTest{
 				"foo": "still works",
 			},
 			message: "I'm afraid I can't let you do that, Dave.",
-			status:  "fail",
+			status:  params.ActionFailed,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1396,7 +1423,7 @@ var actionEventTests = []uniterTest{
 				"foo": "still works",
 			},
 			message: "A real message",
-			status:  "fail",
+			status:  params.ActionFailed,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1432,7 +1459,7 @@ var actionEventTests = []uniterTest{
 				},
 				"completion": "yes",
 			},
-			status: "complete",
+			status: params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1459,7 +1486,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1483,7 +1510,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1514,15 +1541,15 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}, {
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}, {
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1545,7 +1572,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action not implemented on unit "u/0"`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1574,7 +1601,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	),
@@ -1736,7 +1763,7 @@ type createCharm struct {
 var charmHooks = []string{
 	"install", "start", "config-changed", "upgrade-charm", "stop",
 	"db-relation-joined", "db-relation-changed", "db-relation-departed",
-	"db-relation-broken", "meter-status-changed",
+	"db-relation-broken", "meter-status-changed", "collect-metrics",
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
@@ -1871,6 +1898,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, gc.IsNil)
+	ctx.ticker = uniter.NewManualTicker()
+	uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
 	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
@@ -2264,6 +2293,13 @@ type changeMeterStatus struct {
 
 func (s changeMeterStatus) step(c *gc.C, ctx *context) {
 	err := ctx.unit.SetMeterStatus(s.code, s.info)
+	c.Assert(err, gc.IsNil)
+}
+
+type metricsTick struct{}
+
+func (s metricsTick) step(c *gc.C, ctx *context) {
+	err := ctx.ticker.Tick()
 	c.Assert(err, gc.IsNil)
 }
 
@@ -2857,5 +2893,54 @@ func (s prepareGitUniter) step(c *gc.C, ctx *context) {
 	}
 	if ctx.uniter != nil {
 		step(c, ctx, stopUniter{})
+	}
+}
+
+type CollectMetricsTimerSuite struct{}
+
+var _ = gc.Suite(&CollectMetricsTimerSuite{})
+
+func (*CollectMetricsTimerSuite) TestTimer(c *gc.C) {
+	now := time.Now()
+	defaultInterval := coretesting.ShortWait / 5
+	testCases := []struct {
+		about        string
+		now          time.Time
+		lastRun      time.Time
+		interval     time.Duration
+		expectSignal bool
+	}{{
+		"Timer firing after delay.",
+		now,
+		now.Add(-defaultInterval / 2),
+		defaultInterval,
+		true,
+	}, {
+		"Timer firing the first time.",
+		now,
+		time.Unix(0, 0),
+		defaultInterval,
+		true,
+	}, {
+		"Timer not firing soon.",
+		now,
+		now,
+		coretesting.ShortWait * 2,
+		false,
+	}}
+
+	for i, t := range testCases {
+		c.Logf("running test %d", i)
+		sig := uniter.CollectMetricsTimer(t.now, t.lastRun, t.interval)
+		select {
+		case <-sig:
+			if !t.expectSignal {
+				c.Errorf("not expecting a signal")
+			}
+		case <-time.After(coretesting.ShortWait):
+			if t.expectSignal {
+				c.Errorf("expected a signal")
+			}
+		}
 	}
 }

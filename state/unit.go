@@ -1566,6 +1566,12 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	return nil, err
 }
 
+// CancelAction removes a pending Action from the queue for this
+// ActionReceiver and marks it as cancelled.
+func (u *Unit) CancelAction(action *Action) (*ActionResult, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
+}
+
 // Actions returns a list of actions for this unit
 func (u *Unit) Actions() ([]*Action, error) {
 	return u.st.matchingActions(u)
