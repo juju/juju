@@ -118,7 +118,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	// Try to get the charm when the content doesn't match.
 	gitjujutesting.Server.Response(200, nil, []byte("roflcopter"))
 	_, err = d.Read(apiCharm, nil)
-	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, apiCharm.ArchiveURL())
+	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from "%s": `, apiCharm.ArchiveURL())
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.
