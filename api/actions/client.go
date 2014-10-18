@@ -59,7 +59,6 @@ func (c *Client) ListCompleted(arg params.Tags) (params.ActionsByReceivers, erro
 
 // Cancel attempts to cancel a queued up Action from running.
 func (c *Client) Cancel(arg params.Actions) (params.ActionResults, error) {
-	// TODO(jcw4) implement this fully
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Cancel", arg, &results)
 	return results, err
