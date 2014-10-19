@@ -55,7 +55,7 @@ func (r *Reboot) checkForRebootState() error {
 		// Not a lock held by the machne agent in order to reboot
 		err = r.machineLock.BreakLock()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -69,7 +69,7 @@ func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
 	}
 	watcher, err := r.st.WatchForRebootEvent()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return watcher, nil
 }
@@ -77,7 +77,7 @@ func (r *Reboot) SetUp() (watcher.NotifyWatcher, error) {
 func (r *Reboot) Handle() error {
 	rAction, err := r.st.GetRebootAction()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Debugf("Reboot worker got action: %v", rAction)
 	switch rAction {
