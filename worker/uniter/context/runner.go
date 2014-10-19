@@ -68,11 +68,25 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	defer srv.Close()
 
 	env := hookVars(runner.context, runner.paths)
-	result, err := utilexec.RunCommands(
-		utilexec.RunParams{
-			Commands:    commands,
-			WorkingDir:  runner.paths.GetCharmDir(),
-			Environment: env})
+	command := utilexec.RunParams{
+		Commands:    commands,
+		WorkingDir:  runner.paths.GetCharmDir(),
+		Environment: env,
+	}
+	err = command.Run()
+	if err != nil {
+		return nil, err
+	}
+	runner.context.setProcess(command.Process())
+
+	// Block and wait for process to finish
+	result, err := command.Wait()
+
+	if runner.context.GetRebootPriority() == jujuc.RebootNow {
+		// command was killed due to --now flag
+		// clear the error
+		err = nil
+	}
 	return result, runner.context.finalizeContext("run commands", err)
 }
 
@@ -148,6 +162,11 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	err = ps.Start()
 	outWriter.Close()
 	if err == nil {
+		// Record the Pid of the hook
+		if ps.Process != nil {
+			runner.context.setProcess(ps.Process)
+		}
+		// Block until execution finishes
 		err = ps.Wait()
 	}
 	hookLogger.stop()

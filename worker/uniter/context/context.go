@@ -5,6 +5,8 @@ package context
 
 import (
 	"fmt"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -16,10 +18,12 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
+var mutex = &sync.RWMutex{}
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -112,6 +116,55 @@ type HookContext struct {
 	// assignedMachineTag contains the tag of the unit's assigned
 	// machine.
 	assignedMachineTag names.MachineTag
+
+	// pid is the process ID of the command that is being run in the local context
+	process *os.Process
+
+	// rebootPriority tells us when the hook wants to reboot. If rebootPrio is jujuc.RebootNow
+	// the hook will be killed and requeued
+	rebootPriority jujuc.RebootPriority
+}
+
+func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
+	if ctx.getProcess() == nil {
+		return errors.New("Could not determine PID")
+	}
+	ctx.setRebootPriority(priority)
+
+	if ctx.GetRebootPriority() == jujuc.RebootNow && ctx.getProcess() != nil {
+		// At this point, the hook should be running
+		logger.Infof("trying to kill hook")
+		err := ctx.killCharmHook()
+		if err != nil {
+			return err
+		}
+		logger.Infof("hook killed")
+	}
+	return nil
+}
+
+func (ctx *HookContext) GetRebootPriority() jujuc.RebootPriority {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return ctx.rebootPriority
+}
+
+func (ctx *HookContext) setRebootPriority(priority jujuc.RebootPriority) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	ctx.rebootPriority = priority
+}
+
+func (ctx *HookContext) getProcess() *os.Process {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return ctx.process
+}
+
+func (ctx *HookContext) setProcess(process *os.Process) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	ctx.process = process
 }
 
 func (ctx *HookContext) Id() string {
@@ -257,8 +310,20 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	return nil
 }
 
+func (ctx *HookContext) handleReboot(ctxErr *error) {
+	reqErr := ctx.unit.RequestReboot()
+	if reqErr != nil {
+		*ctxErr = reqErr
+	}
+	*ctxErr = worker.ErrRebootMachine
+}
+
 func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
 	writeChanges := ctxErr == nil
+	if ctx.GetRebootPriority() != jujuc.RebootSkip {
+		writeChanges = true
+		defer ctx.handleReboot(&ctxErr)
+	}
 
 	// In the case of Actions, handle any errors using finalizeAction.
 	if ctx.actionData != nil {
@@ -370,4 +435,47 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		unhandledErr = errors.Wrap(unhandledErr, callErr)
 	}
 	return unhandledErr
+}
+
+// killCharmHook tries to kill the current running charm hook.
+func (ctx *HookContext) killCharmHook() error {
+	proc := ctx.getProcess()
+	if proc == nil {
+		// nothing to kill
+		return nil
+	}
+	logger.Infof("Trying to kill: %v", proc.Pid)
+
+	err := proc.Kill()
+	if err != nil {
+		logger.Errorf("Failed to kill process %v: %v", proc.Pid, err)
+		return err
+	}
+
+	c := make(chan error, 1)
+	go func() {
+		for {
+			proc := ctx.getProcess()
+			if proc == nil {
+				c <- nil
+				return
+			}
+			err := proc.Kill()
+			if err != nil {
+				c <- nil
+				return
+			} else {
+				logger.Warningf("Pid %d is still alive", proc.Pid)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+	// wait for hook to die
+	select {
+	case <-time.After(30 * time.Second):
+		return errors.New("Failed to kill hook after 30 seconds")
+	case err := <-c:
+		return err
+	}
+	return nil
 }
