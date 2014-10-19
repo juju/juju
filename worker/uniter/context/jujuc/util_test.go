@@ -84,6 +84,8 @@ type Context struct {
 	rels          map[int]*ContextRelation
 	metrics       []jujuc.Metric
 	canAddMetrics bool
+	rebootPrio    jujuc.RebootPriority
+	shouldError   bool
 }
 
 func (c *Context) AddMetric(key, value string, created time.Time) error {
@@ -247,6 +249,15 @@ func (s Settings) Map() params.RelationSettings {
 		r[k] = v
 	}
 	return r
+}
+
+func (c *Context) RequestReboot(prio jujuc.RebootPriority) error {
+	c.rebootPrio = prio
+	if c.shouldError {
+		return fmt.Errorf("RequestReboot error!")
+	} else {
+		return nil
+	}
 }
 
 func cmdString(cmd string) string {
