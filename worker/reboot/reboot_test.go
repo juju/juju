@@ -7,7 +7,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apireboot "github.com/juju/juju/api/reboot"
 	"github.com/juju/juju/instance"
@@ -31,7 +30,6 @@ type machines struct {
 
 type rebootSuite struct {
 	jujutesting.JujuConnSuite
-	// coretesting.BaseSuite
 
 	machine     *state.Machine
 	stateAPI    *api.State
@@ -55,7 +53,6 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&agent.DefaultLockDir, c.MkDir())
 
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c)
 	s.rebootState, err = s.stateAPI.Reboot()
@@ -78,7 +75,7 @@ func (s *rebootSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.ctRebootState, gc.NotNil)
 
-	lock, err := fslock.NewLock(agent.DefaultLockDir, "fake")
+	lock, err := fslock.NewLock(c.MkDir(), "fake")
 	c.Assert(err, gc.IsNil)
 	s.lock = lock
 }

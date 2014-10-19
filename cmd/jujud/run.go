@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
@@ -153,7 +152,7 @@ func (c *RunCommand) appendProxyToCommands() string {
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
-	lock, err := hookExecutionLock(dataDir)
+	lock, err := hookExecutionLock(DataDir)
 	if err != nil {
 		return nil, err
 	}
