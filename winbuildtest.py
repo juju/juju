@@ -22,6 +22,8 @@ TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
 GOPATH = os.path.join(CI_DIR, 'gogo')
 JUJU_CMD_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
+JUJUD_CMD_DIR = os.path.join(
+    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
 ISS_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
 
@@ -60,6 +62,11 @@ def setup(tarball_name):
         path = os.path.join(CI_DIR, name)
         os.remove(path)
         print('Removed {0}'.format(path))
+    agent_tars = [n for n in os.listdir(CI_DIR) if 'tgz' in n]
+    for name in agent_tars:
+        path = os.path.join(CI_DIR, name)
+        os.remove(path)
+        print('Removed {0}'.format(path))
     juju_execs = [
         n for n in os.listdir(CI_DIR) if 'juju-setup' in n and '.exe' in n]
     for name in juju_execs:
@@ -95,26 +102,26 @@ def move_source_to_gopath(tarball_name):
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
 
 
-def build():
+def build_client(juju_cmd_dir, go_cmd, gopath, iss_dir):
     env = dict(os.environ)
-    env['GOPATH'] = GOPATH
+    env['GOPATH'] = gopath
     env['GOARCH'] = '386'
-    with WorkingDirectory(JUJU_CMD_DIR):
-        output = run(GO_CMD, 'build', env=env)
+    with WorkingDirectory(juju_cmd_dir):
+        output = run(go_cmd, 'build', env=env)
         print(output)
         print('Built Juju.exe')
-        shutil.move('juju.exe', ISS_DIR)
-        print('Moved {0} to {1}'.format('juju.exe', ISS_DIR))
+        shutil.move('juju.exe', iss_dir)
+        print('Moved {0} to {1}'.format('juju.exe', iss_dir))
 
 
-def package(version):
-    with WorkingDirectory(ISS_DIR):
-        output = run(ISS_CMD, 'setup.iss')
+def create_installer(version, iss_dir, iss_cmd, ci_dir):
+    with WorkingDirectory(iss_dir):
+        output = run(iss_cmd, 'setup.iss')
         print(output)
         installer_name = 'juju-setup-{0}.exe'.format(version)
-        installer_path = os.path.join(ISS_DIR, 'output', installer_name)
-        shutil.move(installer_path, CI_DIR)
-        print('Moved {0} to {1}'.format(installer_path, CI_DIR))
+        installer_path = os.path.join(iss_dir, 'output', installer_name)
+        shutil.move(installer_path, ci_dir)
+        print('Moved {0} to {1}'.format(installer_path, ci_dir))
     return installer_name
 
 
@@ -132,6 +139,24 @@ def test(version):
         raise Exception("Juju did not install")
 
 
+def build_agent(jujud_cmd_dir, go_cmd, gopath):
+    env = dict(os.environ)
+    env['GOPATH'] = gopath
+    env['GOARCH'] = 'amd64'
+    with WorkingDirectory(jujud_cmd_dir):
+        output = run(go_cmd, 'build', env=env)
+        print(output)
+        print('Built jujud.exe')
+
+
+def create_cloud_agent(version, jujud_cmd_dir, ci_dir):
+    tarball_name = 'juju-{}-win2012-amd64.tgz'.format(version)
+    tarball_path = os.path.join(ci_dir, tarball_name)
+    agent_path = os.path.join(jujud_cmd_dir, 'jujud.exe')
+    with tarfile.open(name=tarball_path, mode='w:gz') as tar:
+        tar.add(agent_path, arcname='jujud.exe')
+
+
 def main():
     if len(sys.argv) != 2:
         print('USAGE: {0} juju-core_X.X.X.tar.gz')
@@ -147,10 +172,12 @@ def main():
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
-        build()
-        installer_name = package(version)
+        build_client(JUJU_CMD_DIR, GO_CMD, GOPATH, ISS_DIR)
+        installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
         test(version)
+        build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
+        create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
         return 0
     except Exception as e:
         print(str(e))

@@ -15,6 +15,7 @@ from make_release_notes import (
     save_notes,
     STABLE,
 )
+from utils import temp_dir
 
 
 class FakeBug(object):
