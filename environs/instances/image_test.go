@@ -479,9 +479,9 @@ func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
 	}
 	c.Assert(
 		ic.String(), gc.Equals,
-		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: none}")
+		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: []}")
 
-	ic.Storage = &[]string{"ebs", "ssd"}
+	ic.Storage = []string{"ebs", "ssd"}
 	c.Assert(
 		ic.String(), gc.Equals,
 		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: [ebs ssd]}")

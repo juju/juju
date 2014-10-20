@@ -592,7 +592,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	arches := args.Tools.Arches()
-	stor := []string{ssdStorage, ebsStorage}
 	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, nil, nil, err
@@ -604,7 +603,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-		Storage:     &stor,
+		Storage:     []string{ssdStorage, ebsStorage},
 	})
 	if err != nil {
 		return nil, nil, nil, err

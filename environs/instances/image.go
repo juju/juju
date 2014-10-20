@@ -27,22 +27,18 @@ type InstanceConstraint struct {
 	// Storage specifies a list of storage types, in order of preference.
 	// eg ["ssd", "ebs"] means find images with ssd storage, but if none exist,
 	// find those with ebs instead.
-	Storage *[]string
+	Storage []string
 }
 
 // String returns a human readable form of this InstanceConstraint.
 func (ic *InstanceConstraint) String() string {
-	storage := "none"
-	if ic.Storage != nil {
-		storage = fmt.Sprintf("%v", *ic.Storage)
-	}
 	return fmt.Sprintf(
 		"{region: %s, series: %s, arches: %s, constraints: %s, storage: %s}",
 		ic.Region,
 		ic.Series,
 		ic.Arches,
 		ic.Constraints,
-		storage,
+		ic.Storage,
 	)
 }
 

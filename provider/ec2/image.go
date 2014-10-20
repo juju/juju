@@ -31,8 +31,8 @@ func filterImages(images []*imagemetadata.ImageMetadata, ic *instances.InstanceC
 	}
 	// If a storage constraint has been specified, use that or else default to ssd.
 	storageTypes := []string{ssdStorage}
-	if ic != nil && ic.Storage != nil {
-		storageTypes = *ic.Storage
+	if ic != nil && len(ic.Storage) > 0 {
+		storageTypes = ic.Storage
 	}
 	// Return the first set of images for which we have a storage type match.
 	for _, storageType := range storageTypes {

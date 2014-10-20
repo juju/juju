@@ -40,7 +40,7 @@ var findInstanceSpecTests = []struct {
 	cons    string
 	itype   string
 	image   string
-	storage *[]string
+	storage []string
 }{
 	{
 		series: testing.FakeDefaultSeries,
@@ -129,21 +129,21 @@ var findInstanceSpecTests = []struct {
 		arches:  both,
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "m1.large",
-		storage: &[]string{"ssd", "ebs"},
+		storage: []string{"ssd", "ebs"},
 		image:   "ami-00000033",
 	}, {
 		series:  testing.FakeDefaultSeries,
 		arches:  both,
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "m1.large",
-		storage: &[]string{"ebs", "ssd"},
+		storage: []string{"ebs", "ssd"},
 		image:   "ami-00000039",
 	}, {
 		series:  testing.FakeDefaultSeries,
 		arches:  both,
 		cons:    "mem=4G root-disk=16384M",
 		itype:   "m1.large",
-		storage: &[]string{"ebs"},
+		storage: []string{"ebs"},
 		image:   "ami-00000039",
 	},
 }
@@ -152,8 +152,8 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, test := range findInstanceSpecTests {
 		c.Logf("\ntest %d: %q; %q; %q; %v", i, test.series, test.arches, test.cons, test.storage)
 		stor := test.storage
-		if stor == nil {
-			stor = &[]string{ssdStorage, ebsStorage}
+		if len(stor) == 0 {
+			stor = []string{ssdStorage, ebsStorage}
 		}
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
@@ -221,7 +221,7 @@ func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
 	input := []*imagemetadata.ImageMetadata{&good, &bad}
 	expectation := []*imagemetadata.ImageMetadata{&good}
 
-	ic := &instances.InstanceConstraint{Storage: &[]string{"ebs"}}
+	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
 	c.Check(filterImages(input, ic), gc.DeepEquals, expectation)
 }
 
@@ -231,6 +231,6 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 		{Id: "two", Storage: "ebs"},
 		{Id: "three", Storage: "ebs"},
 	}
-	ic := &instances.InstanceConstraint{Storage: &[]string{"ebs"}}
+	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
 	c.Check(filterImages(input, ic), gc.DeepEquals, input)
 }
