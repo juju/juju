@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/provider"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -36,6 +37,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if !cmd.IsMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}
+
 	}
 	return nil
 }
@@ -98,6 +100,15 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+
+	conf, err := getClientConfig(apiclient)
+	if err != nil {
+		return err
+	}
+
+	if conf.Type() == provider.Local && c.ToMachineSpec == "0" {
+		return errors.New("machine 0 is the state server for a local environment and cannot host units")
+	}
 
 	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
 	return err
