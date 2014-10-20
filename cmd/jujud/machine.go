@@ -105,40 +105,33 @@ var (
 	getMetricAPI = metricAPI
 )
 
-// PrepareRestore will flag the agent to allow only one command:
-// Restore, this will ensure that we can do all the file movements
-// required for restore and no one will do changes while we do that.
-// it will return error if the machine is already in this state.
-func (a *MachineAgent) PrepareRestore() error {
-	if a.restoreMode {
-		return fmt.Errorf("already in restore mode")
-	}
-	a.restoreMode = true
-	return nil
-}
-
-// BeginRestore will flag the agent to disallow all commands since
-// restore should be running and therefore making changes that
-// would override anything done.
-func (a *MachineAgent) BeginRestore() error {
-	switch {
-	case !a.restoreMode:
-		return fmt.Errorf("not in restore mode, cannot begin restoration")
-	case a.restoring:
-		return fmt.Errorf("already restoring")
-	}
-	a.restoring = true
-	return nil
-}
-
 // IsRestorePreparing returns bool representing if we are in restore mode
 // but not running restore
 func (a *MachineAgent) IsRestorePreparing() bool {
-	return a.restoreMode && !a.restoring
+	if a.st == nil {
+		logger.Errorf("status not yet available: %v", err)
+		return false
+	}
+	rinfo, err := a.st.EnsureRestoreInfo()
+	if err != nil {
+		logger.Errorf("cannot get restore status: %v", err)
+		return false
+	}
+	return rinfo.Status() == state.RestorePending
 }
 
+// IsRestoreRunning returns bool representing that we are already restoring
 func (a *MachineAgent) IsRestoreRunning() bool {
-	return a.restoring
+	if a.st == nil {
+		logger.Errorf("status not yet available: %v", err)
+		return false
+	}
+	rinfo, err := a.st.EnsureRestoreInfo()
+	if err != nil {
+		logger.Errorf("cannot get restore status: %v", err)
+		return false
+	}
+	return rinfo.Status() == state.RestoreInProgress
 }
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -255,46 +248,6 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-func (a *MachineAgent) newRestoreStateWatcher() (worker.Worker, error){
-	return worker.NewSimpleWorker(a.restoreStateWatcher), nil
-}
-
-func (a *MachineAgent) restoreChanged() error{
-	rinfo, err := a.st.EnsureRestoreInfo()
-	if err != nil {
-		return errors.Annotate(err, "cannot read restore state")
-	}
-	switch rinfo.Status(){
-		case state.RestorePending:
-			a.PrepareRestore()
-		case state.RestoreInProgress:
-			a.BeginRestore()
-	}
-	return nil	
-}
-
-func (a *MachineAgent) restoreStateWatcher(stopch <-chan struct{}) error {
-	if a.st == nil {
-		return nil 
-	}
-	restoreWatch := a.st.WatchRestoreInfoChanges()
-	defer func() {
-		restoreWatch.Kill()
-		restoreWatch.Wait()
-	}()
-
-	for {
-		select {
-			case <-restoreWatch.Changes():
-				if err := a.restoreChanged(); err != nil {
-					return err
-				}
-			case <-stopch:
-				return nil
-		}
-	}
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -476,7 +429,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			a.startWorkerAfterUpgrade(runner, "restore", a.newRestoreStateWatcher)
 			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
