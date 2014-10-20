@@ -3,6 +3,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import logging
+import sys
 
 from jujuconfig import get_juju_home
 from jujupy import (
@@ -11,6 +12,72 @@ from jujupy import (
     temp_bootstrap_env,
     uniquify_local,
     )
+
+
+class MultiIndustrialTest:
+    """Run IndustrialTests until desired number of results are achieved.
+
+    :ivar env: The name of the environment to use as a base.
+    :ivar new_juju_path: Path to the non-system juju.
+    :ivar stages: A list of StageAttempts.
+    :ivar attempt_count: The number of attempts needed for each stage.
+    """
+
+    def __init__(self, env, new_juju_path, stages, attempt_count=2):
+        self.env = env
+        self.new_juju_path = new_juju_path
+        self.stages = stages
+        self.attempt_count = attempt_count
+
+    def make_results(self):
+        """Return a results list for use in run_tests."""
+        return [{
+            'title': stage.title,
+            'attempts': 0,
+            'old_failures': 0,
+            'new_failures': 0,
+        } for stage in self.stages]
+
+    def run_tests(self):
+        """Run all stages until required number of attempts are achieved.
+
+        :return: a list of dicts describing output.
+        """
+        results = self.make_results()
+        while results[-1]['attempts'] < self.attempt_count:
+            industrial = self.make_industrial_test()
+            self.update_results(industrial.run_attempt(), results)
+        return results
+
+    def make_industrial_test(self):
+        """Create an IndustrialTest for this MultiIndustrialTest."""
+        stage_attempts = [stage() for stage in self.stages]
+        return IndustrialTest.from_args(self.env, self.new_juju_path,
+                                        stage_attempts)
+
+    def update_results(self, run_attempt, results):
+        """Update results with data from run_attempt.
+
+        Results for stages that have already reached self.attempts are
+        ignored.
+        """
+        for result, cur_result in zip(results, run_attempt):
+            if result['attempts'] >= self.attempt_count:
+                continue
+            result['attempts'] += 1
+            if not cur_result[0]:
+                result['old_failures'] += 1
+            if not cur_result[1]:
+                result['new_failures'] += 1
+
+    @staticmethod
+    def results_table(results):
+        """Yield strings for a human-readable table of results."""
+        yield 'old failure | new failure | attempt | title\n'
+        for stage in results:
+            yield (' {old_failures:10d} | {new_failures:11d} | {attempts:7d}'
+                   ' | {title}\n').format(**stage)
+
 
 
 class IndustrialTest:
@@ -119,6 +186,8 @@ class StageAttempt:
 class BootstrapAttempt(StageAttempt):
     """Implementation of a bootstrap stage."""
 
+    title = 'bootstrap'
+
     def _operation(self, client):
         with temp_bootstrap_env(get_juju_home(), client):
             client.bootstrap()
@@ -130,6 +199,8 @@ class BootstrapAttempt(StageAttempt):
 
 class DestroyEnvironmentAttempt(StageAttempt):
     """Implementation of a destroy-environment stage."""
+
+    title = 'destroy environment'
 
     def _operation(self, client):
         client.juju('destroy-environment', ('-y', client.env.environment),
@@ -144,15 +215,17 @@ def parse_args(args=None):
     parser = ArgumentParser()
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
+    parser.add_argument('--attempts', type=int, default=2)
     return parser.parse_args(args)
 
 
 def main():
     args = parse_args()
-    stages = [BootstrapAttempt(), DestroyEnvironmentAttempt()]
-    industrial = IndustrialTest.from_args(args.env, args.new_juju_path, stages)
-    results = list(industrial.run_attempt())
-    print results
+    stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
+    mit = MultiIndustrialTest(args.env, args.new_juju_path,
+                              stages, args.attempts)
+    results = mit.run_tests()
+    sys.stdout.writelines(mit.results_table(results))
 
 
 if __name__ == '__main__':

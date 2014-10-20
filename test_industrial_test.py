@@ -3,6 +3,7 @@ __metaclass__ = type
 from contextlib import contextmanager
 import os.path
 from StringIO import StringIO
+from textwrap import dedent
 from unittest import TestCase
 
 from mock import patch
@@ -12,6 +13,7 @@ from industrial_test import (
     BootstrapAttempt,
     DestroyEnvironmentAttempt,
     IndustrialTest,
+    MultiIndustrialTest,
     parse_args,
     StageAttempt,
     )
@@ -44,6 +46,12 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.env, 'rai')
         self.assertEqual(args.new_juju_path, 'new-juju')
 
+    def test_parse_args_attempts(self):
+        args = parse_args(['rai', 'new-juju'])
+        self.assertEqual(args.attempts, 2)
+        args = parse_args(['rai', 'new-juju', '--attempts', '3'])
+        self.assertEqual(args.attempts, 3)
+
 
 class FakeAttempt:
 
@@ -53,6 +61,115 @@ class FakeAttempt:
     def do_stage(self, old_client, new_client):
         return self.result
 
+
+class FakeAttemptClass:
+
+    def __init__(self, title, *result):
+        self.title = title
+        self.result = result
+
+    def __call__(self):
+        return FakeAttempt(*self.result)
+
+
+class TestMultiIndustrialTest(TestCase):
+
+    def test_init(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            DestroyEnvironmentAttempt, BootstrapAttempt], 5)
+        self.assertEqual(mit.env, 'foo-env')
+        self.assertEqual(mit.new_juju_path, 'bar-path')
+        self.assertEqual(mit.stages, [DestroyEnvironmentAttempt,
+                                      BootstrapAttempt])
+        self.assertEqual(mit.attempt_count, 5)
+
+    def test_make_results(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            DestroyEnvironmentAttempt, BootstrapAttempt], 5)
+        results = mit.make_results()
+        self.assertEqual(results, [
+            {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
+             'title': 'destroy environment'},
+            {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
+             'title': 'bootstrap'},
+        ])
+
+    def test_make_industrial_test(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            DestroyEnvironmentAttempt, BootstrapAttempt], 5)
+        side_effect = lambda x, y=None: (x, y)
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                industrial = mit.make_industrial_test()
+        self.assertEqual(industrial.old_client,
+                         (SimpleEnvironment('foo-env-old', {}), None))
+        self.assertEqual(industrial.new_client,
+                         (SimpleEnvironment('foo-env-new', {}), 'bar-path'))
+        self.assertEqual(len(industrial.stage_attempts), 2)
+        for stage, attempt in zip(mit.stages, industrial.stage_attempts):
+            self.assertIs(type(attempt), stage)
+
+    def test_update_results(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            DestroyEnvironmentAttempt, BootstrapAttempt], 2)
+        results = mit.make_results()
+        mit.update_results([(True, False)], results)
+        self.assertEqual(results, [
+            {'title': 'destroy environment', 'attempts': 1, 'new_failures': 1,
+             'old_failures': 0},
+            {'title': 'bootstrap', 'attempts': 0, 'new_failures': 0,
+             'old_failures': 0},
+            ])
+        mit.update_results([(True, True), (False, True)], results)
+        self.assertEqual(results, [
+            {'title': 'destroy environment', 'attempts': 2, 'new_failures': 1,
+             'old_failures': 0},
+            {'title': 'bootstrap', 'attempts': 1, 'new_failures': 0,
+             'old_failures': 1},
+            ])
+        mit.update_results([(False, False), (False, False)], results)
+        self.assertEqual(results, [
+            {'title': 'destroy environment', 'attempts': 2, 'new_failures': 1,
+             'old_failures': 0},
+            {'title': 'bootstrap', 'attempts': 2, 'new_failures': 1,
+             'old_failures': 2},
+            ])
+
+    def test_run_tests(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            FakeAttemptClass('foo', True, True),
+            FakeAttemptClass('bar', True, False),
+            ], 5)
+        class StubJujuClient:
+
+            def destroy_environment(self):
+                pass
+        side_effect = lambda x, y=None: StubJujuClient()
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                results = mit.run_tests()
+        self.assertEqual(results, [
+            {'title': 'foo', 'attempts': 5, 'old_failures': 0,
+             'new_failures': 0},
+            {'title': 'bar', 'attempts': 5, 'old_failures': 0,
+             'new_failures': 5},
+            ])
+
+    def test_results_table(self):
+        results = [
+            {'title': 'foo', 'attempts': 5, 'old_failures': 1,
+             'new_failures': 2},
+            {'title': 'bar', 'attempts': 5, 'old_failures': 3,
+             'new_failures': 4},
+            ]
+        self.assertEqual(''.join(MultiIndustrialTest.results_table(results)),
+            dedent("""\
+                old failure | new failure | attempt | title
+                          1 |           2 |       5 | foo
+                          3 |           4 |       5 | bar
+            """))
 
 class TestIndustrialTest(TestCase):
 
