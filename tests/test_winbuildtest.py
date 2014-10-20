@@ -1,9 +1,6 @@
-from contextlib import contextmanager
 from mock import patch
 import os
-import shutil
 import tarfile
-from tempfile import mkdtemp
 from unittest import TestCase
 
 from winbuildtest import (
@@ -15,15 +12,7 @@ from winbuildtest import (
     GOPATH,
     ISS_CMD,
 )
-
-
-@contextmanager
-def temp_dir():
-    dirname = mkdtemp()
-    try:
-        yield dirname
-    finally:
-        shutil.rmtree(dirname)
+from utils import temp_dir
 
 
 class WinBuildTestTestCase(TestCase):
