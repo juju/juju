@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/provider"
 )
 
 type DeployCommand struct {
@@ -150,16 +149,6 @@ func (c *DeployCommand) Init(args []string) error {
 	return c.UnitCommandBase.Init(args)
 }
 
-var getClientConfig = func(client *api.Client) (*config.Config, error) {
-	// Separated into a variable for easy overrides
-	attrs, err := client.EnvironmentGet()
-	if err != nil {
-		return nil, err
-	}
-
-	return config.New(config.NoDefaults, attrs)
-}
-
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	client, err := c.NewAPIClient()
 	if err != nil {
@@ -172,8 +161,8 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	if conf.Type() == provider.Local && c.ToMachineSpec == "0" {
-		return errors.New("machine 0 is the state server for a local environment and cannot host units")
+	if err := c.checkProvider(conf); err != nil {
+		return err
 	}
 
 	curl, err := resolveCharmURL(c.CharmName, client, conf)

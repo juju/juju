@@ -1016,11 +1016,9 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 			break
 		}
 	}
-
 	if !canHost {
 		return fmt.Errorf("machine %q cannot host units", m)
 	}
-
 	// assignToMachine implies assignment to an existing machine,
 	// which is only permitted if unit placement is supported.
 	if err := u.st.supportsUnitPlacement(); err != nil {
