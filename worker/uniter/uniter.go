@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
 )
@@ -449,7 +448,6 @@ func (u *Uniter) validateAction(name string, params map[string]interface{}) (boo
 }
 
 func (u *Uniter) handleReboot(ctx *context.HookContext, hi *hook.Info, err *error) {
-	logger.Infof("handling reboot event")
 	switch ctx.GetRebootPriority() {
 	case jujuc.RebootNow:
 		logger.Infof("Got reboot NOW")
