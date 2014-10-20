@@ -538,7 +538,10 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
-const ebsStorage = "ebs"
+const (
+	ebsStorage = "ebs"
+	ssdStorage = "ssd"
+)
 
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
@@ -589,7 +592,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	arches := args.Tools.Arches()
-	stor := ebsStorage
+	stor := []string{ssdStorage, ebsStorage}
 	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, nil, nil, err

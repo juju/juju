@@ -19,17 +19,22 @@ type InstanceConstraint struct {
 	Series      string
 	Arches      []string
 	Constraints constraints.Value
+
 	// Optional filtering criteria not supported by all providers. These attributes are not specified
 	// by the user as a constraint but rather passed in by the provider implementation to restrict the
 	// choice of available images.
-	Storage *string
+
+	// Storage specifies a list of storage types, in order of preference.
+	// eg ["ssd", "ebs"] means find images with ssd storage, but if none exist,
+	// find those with ebs instead.
+	Storage *[]string
 }
 
-// String returns a human readable form of this InstanceConstaint.
+// String returns a human readable form of this InstanceConstraint.
 func (ic *InstanceConstraint) String() string {
 	storage := "none"
 	if ic.Storage != nil {
-		storage = *ic.Storage
+		storage = fmt.Sprintf("%v", *ic.Storage)
 	}
 	return fmt.Sprintf(
 		"{region: %s, series: %s, arches: %s, constraints: %s, storage: %s}",

@@ -638,7 +638,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {

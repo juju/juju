@@ -468,3 +468,21 @@ func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *gc.C) {
 	}
 	c.Check(ImageMetadataToImages(input), gc.DeepEquals, expectation)
 }
+
+func (*imageSuite) TestInstanceConstraintString(c *gc.C) {
+	imageCons := constraints.MustParse("mem=4G")
+	ic := &InstanceConstraint{
+		Series:      "precise",
+		Region:      "region",
+		Arches:      []string{"amd64", "arm64"},
+		Constraints: imageCons,
+	}
+	c.Assert(
+		ic.String(), gc.Equals,
+		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: none}")
+
+	ic.Storage = &[]string{"ebs", "ssd"}
+	c.Assert(
+		ic.String(), gc.Equals,
+		"{region: region, series: precise, arches: [amd64 arm64], constraints: mem=4096M, storage: [ebs ssd]}")
+}
