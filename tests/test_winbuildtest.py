@@ -46,8 +46,8 @@ def temp_dir():
 class WinBuildTestTestCase(TestCase):
 
     def test_build_client(self):
-        with temp_path(winbuildtest, 'JUJU_CMD_DIR') as cmd_dir:
-            with temp_path(winbuildtest, 'ISS_DIR'):
+        with temp_dir() as cmd_dir:
+            with temp_dir() as iss_dir:
 
                 def make_juju(*args, **kwargs):
                     with open('%s/juju.exe' % cmd_dir, 'w') as fake_juju:
@@ -55,7 +55,7 @@ class WinBuildTestTestCase(TestCase):
 
                 with patch('winbuildtest.run',
                            return_value='', side_effect=make_juju) as run_mock:
-                    build_client()
+                    build_client(cmd_dir, GO_CMD, GOPATH, iss_dir)
                     args, kwargs = run_mock.call_args
                     self.assertEqual((GO_CMD, 'build'), args)
                     self.assertEqual('386', kwargs['env'].get('GOARCH'))

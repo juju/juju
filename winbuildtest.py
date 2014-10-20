@@ -102,16 +102,16 @@ def move_source_to_gopath(tarball_name):
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
 
 
-def build_client():
+def build_client(juju_cmd_dir, go_cmd, gopath, iss_dir):
     env = dict(os.environ)
-    env['GOPATH'] = GOPATH
+    env['GOPATH'] = gopath
     env['GOARCH'] = '386'
-    with WorkingDirectory(JUJU_CMD_DIR):
-        output = run(GO_CMD, 'build', env=env)
+    with WorkingDirectory(juju_cmd_dir):
+        output = run(go_cmd, 'build', env=env)
         print(output)
         print('Built Juju.exe')
-        shutil.move('juju.exe', ISS_DIR)
-        print('Moved {0} to {1}'.format('juju.exe', ISS_DIR))
+        shutil.move('juju.exe', iss_dir)
+        print('Moved {0} to {1}'.format('juju.exe', iss_dir))
 
 
 def create_installer(version):
