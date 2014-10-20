@@ -19,8 +19,7 @@ IGNORE = 'IGNORE'
 
 def find_tools(file_path):
     with open(file_path) as f:
-        raw = f.read()
-    stream = json.loads(raw)
+        stream = json.load(f)
     tools = {}
     for name, product in stream['products'].items():
         versions = product['versions']
