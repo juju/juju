@@ -1,9 +1,6 @@
-from contextlib import contextmanager
 from mock import patch
 import os
-import shutil
 from StringIO import StringIO
-from tempfile import mkdtemp
 from unittest import TestCase
 
 
@@ -18,15 +15,7 @@ from make_release_notes import (
     save_notes,
     STABLE,
 )
-
-
-@contextmanager
-def temp_dir():
-    dirname = mkdtemp()
-    try:
-        yield dirname
-    finally:
-        shutil.rmtree(dirname)
+from utils import temp_dir
 
 
 class FakeBug(object):
