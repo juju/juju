@@ -5,7 +5,6 @@ package usermanager_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -71,40 +70,48 @@ func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
-func (s *usermanagerSuite) TestDeactivateUser(c *gc.C) {
+func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	err := s.usermanager.DeactivateUser(user.UserTag())
+	err := s.usermanager.DisableUser(user.Name())
 	c.Assert(err, gc.IsNil)
 
 	err = user.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsDeactivated(), jc.IsTrue)
+	c.Assert(user.IsDisabled(), jc.IsTrue)
 }
 
-func (s *usermanagerSuite) TestActivateUser(c *gc.C) {
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-	err := user.Deactivate()
-	c.Assert(err, gc.IsNil)
+func (s *usermanagerSuite) TestDisableUserBadName(c *gc.C) {
+	err := s.usermanager.DisableUser("not@home")
+	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+}
 
-	err = s.usermanager.ActivateUser(user.UserTag())
+func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", Disabled: true})
+
+	err := s.usermanager.EnableUser(user.Name())
 	c.Assert(err, gc.IsNil)
 
 	err = user.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
+}
+
+func (s *usermanagerSuite) TestEnableUserBadName(c *gc.C) {
+	err := s.usermanager.EnableUser("not@home")
+	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
 }
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
-	err := s.usermanager.DeactivateUser(s.AdminUserTag(c))
-	c.Assert(err, gc.ErrorMatches, "failed to deactivate user: cannot deactivate initial environment owner")
+	err := s.usermanager.DisableUser(s.AdminUserTag(c).Name())
+	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable state server environment owner")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "foobar", DisplayName: "Foo Bar"})
 
-	obtained, err := s.usermanager.UserInfo([]names.UserTag{user.UserTag()}, true)
+	obtained, err := s.usermanager.UserInfo([]string{"foobar"}, usermanager.AllUsers)
 	c.Assert(err, gc.IsNil)
 	expected := []params.UserInfo{
 		{
@@ -130,7 +137,7 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 			return errors.New("wrong result type")
 		},
 	)
-	obtained, err := s.usermanager.UserInfo(nil, false)
+	obtained, err := s.usermanager.UserInfo(nil, usermanager.AllUsers)
 	c.Assert(err, gc.IsNil)
 
 	expected := []params.UserInfo{
@@ -153,18 +160,20 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
 			return errors.New("wrong result type")
 		},
 	)
-	_, err := s.usermanager.UserInfo([]names.UserTag{
-		names.NewLocalUserTag("foo"),
-		names.NewLocalUserTag("bar"),
-	}, false)
+	_, err := s.usermanager.UserInfo([]string{"foo", "bar"}, usermanager.AllUsers)
 	c.Assert(err, gc.ErrorMatches, "foo: first error, bar: second error")
 }
 
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 	tag := s.AdminUserTag(c)
-	err := s.usermanager.SetPassword(tag, "new-password")
+	err := s.usermanager.SetPassword(tag.Name(), "new-password")
 	c.Assert(err, gc.IsNil)
 	user, err := s.State.User(tag)
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.PasswordValid("new-password"), gc.Equals, true)
+	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
+}
+
+func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
+	err := s.usermanager.SetPassword("not@home", "new-password")
+	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
 }

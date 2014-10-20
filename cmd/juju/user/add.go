@@ -1,7 +1,7 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package user
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs/configstore"
@@ -20,26 +19,35 @@ import (
 const userAddCommandDoc = `
 Add users to an existing environment.
 
-The user information is stored within an existing environment, and
-will be lost when the environent is destroyed.  An environment file
-(.jenv) identifying the new user and the environment can be generated
-using --output.
+The user information is stored within an existing environment, and will be
+lost when the environent is destroyed.  An environment file (.jenv) will be
+written out in the current directory.  You can control the name and location
+of this file using the --output option.
 
 Examples:
-  juju user add foobar                    (Add user "foobar". A strong password will be generated and printed)
-  juju user add foobar --password=mypass  (Add user "foobar" with password "mypass")
-  juju user add foobar --output filename  (Add user "foobar" and save environment file to "filename")
+  # Add user "foobar". You will be prompted to enter a password.
+  juju user add foobar
+
+  # Add user "foobar" with a strong random password is generated.
+  juju user add foobar --generate
+
+
+See Also:
+  juju user change-password
 `
 
-type UserAddCommand struct {
+// AddCommand adds new users into a Juju Server.
+type AddCommand struct {
 	UserCommandBase
 	User        string
 	DisplayName string
 	Password    string
 	OutPath     string
+	Generate    bool
 }
 
-func (c *UserAddCommand) Info() *cmd.Info {
+// Info implements Command.Info.
+func (c *AddCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
 		Args:    "<username> [<display name>]",
@@ -48,13 +56,15 @@ func (c *UserAddCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *UserAddCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Password, "password", "", "Password for new user")
-	f.StringVar(&c.OutPath, "o", "", "Output an environment file for new user")
+// SetFlags implements Command.SetFlags.
+func (c *AddCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
+	f.StringVar(&c.OutPath, "o", "", "specify the environment file for new user")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
-func (c *UserAddCommand) Init(args []string) error {
+// Init implements Command.Init.
+func (c *AddCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
 	}
@@ -65,30 +75,42 @@ func (c *UserAddCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-type addUserAPI interface {
+// AddUserAPI defines the usermanager API methods that the add command uses.
+type AddUserAPI interface {
 	AddUser(username, displayName, password string) (names.UserTag, error)
 	Close() error
 }
 
-type shareEnvironmentAPI interface {
+// ShareEnvironmentAPI defines the client API methods that the add command uses.
+type ShareEnvironmentAPI interface {
 	ShareEnvironment(users []names.UserTag) error
 	Close() error
 }
 
-var getAddUserAPI = func(c *UserAddCommand) (addUserAPI, error) {
+func (c *AddCommand) getAddUserAPI() (AddUserAPI, error) {
 	return c.NewUserManagerClient()
 }
 
-var getShareEnvAPI = func(c *UserAddCommand) (shareEnvironmentAPI, error) {
+func (c *AddCommand) getShareEnvAPI() (ShareEnvironmentAPI, error) {
 	return c.NewAPIClient()
 }
 
-func (c *UserAddCommand) Run(ctx *cmd.Context) error {
+var (
+	getAddUserAPI  = (*AddCommand).getAddUserAPI
+	getShareEnvAPI = (*AddCommand).getShareEnvAPI
+)
+
+// Run implements Command.Run.
+func (c *AddCommand) Run(ctx *cmd.Context) error {
 	client, err := getAddUserAPI(c)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
+	if !c.Generate {
+		ctx.Infof("To generate a random strong password, use the --generate flag.")
+	}
 
 	shareClient, err := getShareEnvAPI(c)
 	if err != nil {
@@ -96,11 +118,9 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 	}
 	defer shareClient.Close()
 
-	if c.Password == "" {
-		c.Password, err = utils.RandomPassword()
-		if err != nil {
-			return errors.Annotate(err, "failed to generate password")
-		}
+	c.Password, err = c.generateOrReadPassword(ctx, c.Generate)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
 	tag, err := client.AddUser(c.User, c.DisplayName, c.Password)
@@ -126,8 +146,8 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 		c.OutPath = c.User + ".jenv"
 	}
 
-	outPath := NormaliseJenvPath(ctx, c.OutPath)
-	err = GenerateUserJenv(c.ConnectionName(), c.User, c.Password, outPath)
+	outPath := normaliseJenvPath(ctx, c.OutPath)
+	err = generateUserJenv(c.ConnectionName(), c.User, c.Password, outPath)
 	if err == nil {
 		fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
 	}
@@ -135,14 +155,14 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 	return err
 }
 
-func NormaliseJenvPath(ctx *cmd.Context, outPath string) string {
+func normaliseJenvPath(ctx *cmd.Context, outPath string) string {
 	if !strings.HasSuffix(outPath, ".jenv") {
 		outPath = outPath + ".jenv"
 	}
 	return ctx.AbsPath(outPath)
 }
 
-func GenerateUserJenv(envName, user, password, outPath string) error {
+func generateUserJenv(envName, user, password, outPath string) error {
 	store, err := configstore.Default()
 	if err != nil {
 		return errors.Trace(err)
