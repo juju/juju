@@ -114,14 +114,14 @@ def build_client(juju_cmd_dir, go_cmd, gopath, iss_dir):
         print('Moved {0} to {1}'.format('juju.exe', iss_dir))
 
 
-def create_installer(version):
-    with WorkingDirectory(ISS_DIR):
-        output = run(ISS_CMD, 'setup.iss')
+def create_installer(version, iss_dir, iss_cmd, ci_dir):
+    with WorkingDirectory(iss_dir):
+        output = run(iss_cmd, 'setup.iss')
         print(output)
         installer_name = 'juju-setup-{0}.exe'.format(version)
-        installer_path = os.path.join(ISS_DIR, 'output', installer_name)
-        shutil.move(installer_path, CI_DIR)
-        print('Moved {0} to {1}'.format(installer_path, CI_DIR))
+        installer_path = os.path.join(iss_dir, 'output', installer_name)
+        shutil.move(installer_path, ci_dir)
+        print('Moved {0} to {1}'.format(installer_path, ci_dir))
     return installer_name
 
 
@@ -173,7 +173,7 @@ def main():
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
         build_client(JUJU_CMD_DIR, GO_CMD, GOPATH, ISS_DIR)
-        installer_name = create_installer(version)
+        installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
         test(version)
         build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)

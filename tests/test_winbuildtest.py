@@ -10,8 +10,10 @@ from winbuildtest import (
     build_agent,
     build_client,
     create_cloud_agent,
+    create_installer,
     GO_CMD,
     GOPATH,
+    ISS_CMD,
 )
 
 
@@ -41,6 +43,28 @@ class WinBuildTestTestCase(TestCase):
                     self.assertEqual((GO_CMD, 'build'), args)
                     self.assertEqual('386', kwargs['env'].get('GOARCH'))
                     self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+
+    def test_create_installer(self):
+        with temp_dir() as iss_dir:
+            with temp_dir() as ci_dir:
+                installer_name = 'juju-setup-1.20.1.exe'
+
+                def make_installer(*args, **kwargs):
+                    output_dir = os.path.join(iss_dir, 'output')
+                    os.makedirs(output_dir)
+                    installer_path = os.path.join(
+                        output_dir, installer_name)
+                    with open(installer_path, 'w') as fake_installer:
+                        fake_installer.write('juju installer')
+
+                with patch('winbuildtest.run',
+                           return_value='',
+                           side_effect=make_installer) as run_mock:
+                    create_installer('1.20.1', iss_dir, ISS_CMD, ci_dir)
+                    args, kwargs = run_mock.call_args
+                    self.assertEqual((ISS_CMD, 'setup.iss'), args)
+                    installer_path = os.path.join(ci_dir, installer_name)
+                    self.assertTrue(os.path.isfile(installer_path))
 
     def test_build_agent(self):
         with temp_dir() as jujud_cmd_dir:
