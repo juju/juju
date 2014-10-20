@@ -29,13 +29,15 @@ class WinBuildTestTestCase(TestCase):
 
                 with patch('winbuildtest.run',
                            return_value='', side_effect=make_juju) as run_mock:
-                    build_client(cmd_dir, GO_CMD, GOPATH, iss_dir)
-                    args, kwargs = run_mock.call_args
-                    self.assertEqual((GO_CMD, 'build'), args)
-                    self.assertEqual('386', kwargs['env'].get('GOARCH'))
-                    self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
-                    client_path = os.path.join(iss_dir, 'juju.exe')
-                    self.assertTrue(os.path.isfile(client_path))
+                    devnull = open(os.devnull, 'w')
+                    with patch('sys.stdout', devnull):
+                        build_client(cmd_dir, GO_CMD, GOPATH, iss_dir)
+                        args, kwargs = run_mock.call_args
+                        self.assertEqual((GO_CMD, 'build'), args)
+                        self.assertEqual('386', kwargs['env'].get('GOARCH'))
+                        self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+                        client_path = os.path.join(iss_dir, 'juju.exe')
+                        self.assertTrue(os.path.isfile(client_path))
 
     def test_create_installer(self):
         # create_installer() creates an iss-style installer and copies it
@@ -55,21 +57,25 @@ class WinBuildTestTestCase(TestCase):
                 with patch('winbuildtest.run',
                            return_value='',
                            side_effect=make_installer) as run_mock:
-                    create_installer('1.20.1', iss_dir, ISS_CMD, ci_dir)
-                    args, kwargs = run_mock.call_args
-                    self.assertEqual((ISS_CMD, 'setup.iss'), args)
-                    installer_path = os.path.join(ci_dir, installer_name)
-                    self.assertTrue(os.path.isfile(installer_path))
+                    devnull = open(os.devnull, 'w')
+                    with patch('sys.stdout', devnull):
+                        create_installer('1.20.1', iss_dir, ISS_CMD, ci_dir)
+                        args, kwargs = run_mock.call_args
+                        self.assertEqual((ISS_CMD, 'setup.iss'), args)
+                        installer_path = os.path.join(ci_dir, installer_name)
+                        self.assertTrue(os.path.isfile(installer_path))
 
     def test_build_agent(self):
         # build_agent creates a win amd64 jujud.
         with temp_dir() as jujud_cmd_dir:
             with patch('winbuildtest.run', return_value='') as run_mock:
-                build_agent(jujud_cmd_dir, GO_CMD, GOPATH)
-                args, kwargs = run_mock.call_args
-                self.assertEqual((GO_CMD, 'build'), args)
-                self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
-                self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+                devnull = open(os.devnull, 'w')
+                with patch('sys.stdout', devnull):
+                    build_agent(jujud_cmd_dir, GO_CMD, GOPATH)
+                    args, kwargs = run_mock.call_args
+                    self.assertEqual((GO_CMD, 'build'), args)
+                    self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
+                    self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
 
     def test_create_cloud_agent(self):
         # create_cloud_agent() creates an agent tgz from the jujud and
