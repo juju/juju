@@ -257,25 +257,25 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	return nil
 }
 
-func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error){
-	rWorker := func (stopch <- chan struct{}) error {
-			return a.restoreStateWatcher(st, stopch)
-			}
+func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+	rWorker := func(stopch <-chan struct{}) error {
+		return a.restoreStateWatcher(st, stopch)
+	}
 	return worker.NewSimpleWorker(rWorker), nil
 }
 
-func (a *MachineAgent) restoreChanged(st *state.State) error{
+func (a *MachineAgent) restoreChanged(st *state.State) error {
 	rinfo, err := st.EnsureRestoreInfo()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
-	switch rinfo.Status(){
-		case state.RestorePending:
-			a.PrepareRestore()
-		case state.RestoreInProgress:
-			a.BeginRestore()
+	switch rinfo.Status() {
+	case state.RestorePending:
+		a.PrepareRestore()
+	case state.RestoreInProgress:
+		a.BeginRestore()
 	}
-	return nil	
+	return nil
 }
 
 func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
@@ -287,12 +287,12 @@ func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct
 
 	for {
 		select {
-			case <-restoreWatch.Changes():
-				if err := a.restoreChanged(st); err != nil {
-					return err
-				}
-			case <-stopch:
-				return nil
+		case <-restoreWatch.Changes():
+			if err := a.restoreChanged(st); err != nil {
+				return err
+			}
+		case <-stopch:
+			return nil
 		}
 	}
 }

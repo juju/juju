@@ -16,15 +16,14 @@ const (
 	currentRestoreId = "curent"
 
 	UnknownRestoreStatus RestoreStatus = "UNKNOWN"
-	RestorePending RestoreStatus = "PENDING"
-	RestoreInProgress RestoreStatus = "RESTORING"
-	RestoreFinished RestoreStatus	= "RESTORED"
+	RestorePending       RestoreStatus = "PENDING"
+	RestoreInProgress    RestoreStatus = "RESTORING"
+	RestoreFinished      RestoreStatus = "RESTORED"
 )
 
-
 type restoreInfoDoc struct {
-	Id             string `bson:"_id"`
-	status             RestoreStatus `bson:"status"`
+	Id     string        `bson:"_id"`
+	status RestoreStatus `bson:"status"`
 }
 
 type RestoreInfo struct {
@@ -58,8 +57,8 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 	}
 
 	ops := []txn.Op{{
-		C:  restoreInfoC,
-		Id: currentRestoreId,
+		C:      restoreInfoC,
+		Id:     currentRestoreId,
 		Assert: assertSane,
 		Update: bson.D{{"$set", bson.D{{"status", status}}}},
 	}}
@@ -77,17 +76,17 @@ func (st *State) EnsureRestoreInfo() (*RestoreInfo, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot ensure restore info")
 	}
-	if cdoc == nil{	
+	if cdoc == nil {
 		doc = restoreInfoDoc{
-			Id: currentRestoreId,
-			status:	UnknownRestoreStatus,
+			Id:     currentRestoreId,
+			status: UnknownRestoreStatus,
 		}
 		ops := []txn.Op{{
 			C:      restoreInfoC,
 			Id:     currentRestoreId,
 			Assert: txn.DocMissing,
 			Insert: doc,
-		},}
+		}}
 		if err := st.runTransaction(ops); err != nil {
 			return nil, errors.Annotate(err, "cannot create restore info")
 		}
@@ -95,6 +94,5 @@ func (st *State) EnsureRestoreInfo() (*RestoreInfo, error) {
 		doc = *cdoc
 	}
 	return &RestoreInfo{st: st, doc: doc}, nil
-
 
 }
