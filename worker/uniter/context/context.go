@@ -1,7 +1,7 @@
 // Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package context
 
 import (
 	"bufio"
@@ -29,6 +29,8 @@ import (
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
+
+var logger = loggo.GetLogger("juju.worker.uniter.context")
 
 var windowsSuffixOrder = []string{
 	".ps1",
@@ -98,7 +100,7 @@ type HookContext struct {
 
 	// actionData contains the values relevant to the run of an Action:
 	// its tag, its parameters, and its results.
-	actionData *actionData
+	actionData *ActionData
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -165,7 +167,7 @@ func NewHookContext(
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
-	actionData *actionData,
+	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
 	ctx := &HookContext{
@@ -212,6 +214,10 @@ func NewHookContext(
 	}
 
 	return ctx, nil
+}
+
+func (ctx *HookContext) Id() string {
+	return ctx.id
 }
 
 func (ctx *HookContext) UnitName() string {
@@ -287,6 +293,15 @@ func (ctx *HookContext) SetActionMessage(message string) error {
 	}
 	ctx.actionData.ResultsMessage = message
 	return nil
+}
+
+// ActionMessage returns any message set for the action. It exists purely to allow
+// us to factor HookContext into its own package, and may not be necessary at all.
+func (ctx *HookContext) ActionMessage() (string, error) {
+	if ctx.actionData == nil {
+		return "", fmt.Errorf("not running an action")
+	}
+	return ctx.actionData.ResultsMessage, nil
 }
 
 // SetActionFailed sets the fail state of the action.
@@ -858,8 +873,8 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationS
 	return settings, nil
 }
 
-// actionData contains the tag, parameters, and results of an Action.
-type actionData struct {
+// ActionData contains the tag, parameters, and results of an Action.
+type ActionData struct {
 	ActionTag      names.ActionTag
 	ActionParams   map[string]interface{}
 	ActionFailed   bool
@@ -869,8 +884,8 @@ type actionData struct {
 
 // newActionData builds a suitable actionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
-func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionData {
-	return &actionData{
+func NewActionData(tag *names.ActionTag, params map[string]interface{}) *ActionData {
+	return &ActionData{
 		ActionTag:    *tag,
 		ActionParams: params,
 		ResultsMap:   map[string]interface{}{},

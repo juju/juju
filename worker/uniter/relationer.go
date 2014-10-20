@@ -9,13 +9,14 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 
 	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ctx   *ContextRelation
+	ctx   *context.ContextRelation
 	ru    *apiuniter.RelationUnit
 	dir   *relation.StateDir
 	queue relation.HookQueue
@@ -27,7 +28,7 @@ type Relationer struct {
 // relation until explicitly requested.
 func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
 	return &Relationer{
-		ctx:   NewContextRelation(ru, dir.State().Members),
+		ctx:   context.NewContextRelation(ru, dir.State().Members),
 		ru:    ru,
 		dir:   dir,
 		hooks: hooks,
@@ -35,7 +36,7 @@ func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir, hooks cha
 }
 
 // Context returns the ContextRelation associated with r.
-func (r *Relationer) Context() *ContextRelation {
+func (r *Relationer) Context() *context.ContextRelation {
 	return r.ctx
 }
 
@@ -137,7 +138,7 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	if hi.Kind == hooks.RelationDeparted {
 		r.ctx.DeleteMember(hi.RemoteUnit)
 	} else if hi.RemoteUnit != "" {
-		r.ctx.UpdateMembers(SettingsMap{hi.RemoteUnit: nil})
+		r.ctx.UpdateMembers(context.SettingsMap{hi.RemoteUnit: nil})
 	}
 	name := r.ru.Endpoint().Name
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
