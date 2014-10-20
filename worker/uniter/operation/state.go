@@ -1,7 +1,7 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package operation
 
 import (
 	"fmt"
@@ -13,62 +13,62 @@ import (
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	uhook "github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
-// Op enumerates the operations the uniter can perform.
-type Op string
+// Kind enumerates the operations the uniter can perform.
+type Kind string
 
 const (
 	// Install indicates that the uniter is installing the charm.
-	Install Op = "install"
+	Install Kind = "install"
 
 	// RunHook indicates that the uniter is running a hook.
-	RunHook Op = "run-hook"
+	RunHook Kind = "run-hook"
 
 	// Upgrade indicates that the uniter is upgrading the charm.
-	Upgrade Op = "upgrade"
+	Upgrade Kind = "upgrade"
 
 	// Continue indicates that the uniter should run ModeContinue
 	// to determine the next operation.
-	Continue Op = "continue"
+	Continue Kind = "continue"
 )
 
-// OpStep describes the recorded progression of an operation.
-type OpStep string
+// Step describes the recorded progression of an operation.
+type Step string
 
 const (
 	// Queued indicates that the uniter should undertake the operation
 	// as soon as possible.
-	Queued OpStep = "queued"
+	Queued Step = "queued"
 
 	// Pending indicates that the uniter has started, but not completed,
 	// the operation.
-	Pending OpStep = "pending"
+	Pending Step = "pending"
 
 	// Done indicates that the uniter has completed the operation,
 	// but may not yet have synchronized all necessary secondary state.
-	Done OpStep = "done"
+	Done Step = "done"
 )
 
 // State defines the local persistent state of the uniter, excluding relation
 // state.
 type State struct {
 	// Started indicates whether the start hook has run.
-	Started bool
+	Started bool `yaml:"started"`
 
-	// Op indicates the current operation.
-	Op Op
+	// Kind indicates the current operation.
+	Kind Kind `yaml:"op"`
 
-	// OpStep indicates the current operation's progression.
-	OpStep OpStep
+	// Step indicates the current operation's progression.
+	Step Step `yaml:"opstep"`
 
-	// Hook holds hook information relevant to the current operation. If Op
-	// is Continue, it holds the last hook that was executed; if Op is RunHook,
-	// it holds the running hook; if Op is Upgrade, a non-nil hook indicates
+	// Hook holds hook information relevant to the current operation. If Kind
+	// is Continue, it holds the last hook that was executed; if Kind is RunHook,
+	// it holds the running hook; if Kind is Upgrade, a non-nil hook indicates
 	// that the uniter should return to that hook's Pending state after the
 	// upgrade is complete (instead of running an upgrade-charm hook).
-	Hook *uhook.Info `yaml:"hook,omitempty"`
+	Hook *hook.Info `yaml:"hook,omitempty"`
 
 	// Charm describes the charm being deployed by an Install or Upgrade
 	// operation, and is otherwise blank.
@@ -77,7 +77,7 @@ type State struct {
 	// CollectMetricsTime records the time the collect metrics hook was last run.
 	// It's set to nil if the hook was not run at all. Recording time as int64
 	// because the yaml encoder cannot encode the time.Time struct.
-	CollectMetricsTime int64
+	CollectMetricsTime int64 `yaml:"collectmetricstime,omitempty"`
 }
 
 // validate returns an error if the state violates expectations.
@@ -86,7 +86,7 @@ func (st State) validate() (err error) {
 	hasHook := st.Hook != nil
 	isAction := hasHook && st.Hook.Kind == hooks.Action
 	hasCharm := st.CharmURL != nil
-	switch st.Op {
+	switch st.Kind {
 	case Install:
 		if hasHook {
 			return fmt.Errorf("unexpected hook info")
@@ -108,12 +108,12 @@ func (st State) validate() (err error) {
 			return fmt.Errorf("unexpected charm URL")
 		}
 	default:
-		return fmt.Errorf("unknown operation %q", st.Op)
+		return fmt.Errorf("unknown operation %q", st.Kind)
 	}
-	switch st.OpStep {
+	switch st.Step {
 	case Queued, Pending, Done:
 	default:
-		return fmt.Errorf("unknown operation step %q", st.OpStep)
+		return fmt.Errorf("unknown operation step %q", st.Step)
 	}
 	if hasHook {
 		return st.Hook.Validate()
@@ -153,11 +153,11 @@ func (f *StateFile) Read() (*State, error) {
 }
 
 // Write stores the supplied state to the file.
-func (f *StateFile) Write(started bool, op Op, step OpStep, hi *uhook.Info, url *charm.URL, metricsTime int64) error {
+func (f *StateFile) Write(started bool, kind Kind, step Step, hi *hook.Info, url *charm.URL, metricsTime int64) error {
 	st := &State{
 		Started:            started,
-		Op:                 op,
-		OpStep:             step,
+		Kind:               kind,
+		Step:               step,
 		Hook:               hi,
 		CharmURL:           url,
 		CollectMetricsTime: metricsTime,

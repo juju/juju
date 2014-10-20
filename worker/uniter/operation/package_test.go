@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package relation_test
+package operation_test
 
 import (
 	stdtesting "testing"
