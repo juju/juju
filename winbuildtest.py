@@ -172,7 +172,7 @@ def main():
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
-        build_client()
+        build_client(JUJU_CMD_DIR, GO_CMD, GOPATH, ISS_DIR)
         installer_name = create_installer(version)
         install(installer_name)
         test(version)
