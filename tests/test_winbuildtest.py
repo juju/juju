@@ -29,6 +29,8 @@ def temp_dir():
 class WinBuildTestTestCase(TestCase):
 
     def test_build_client(self):
+        # build_client() builds the juju client with go and moved the
+        # exe to the iss dir.
         with temp_dir() as cmd_dir:
             with temp_dir() as iss_dir:
 
@@ -43,6 +45,8 @@ class WinBuildTestTestCase(TestCase):
                     self.assertEqual((GO_CMD, 'build'), args)
                     self.assertEqual('386', kwargs['env'].get('GOARCH'))
                     self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+                    client_path = os.path.join(iss_dir, 'juju.exe')
+                    self.assertTrue(os.path.isfile(client_path))
 
     def test_create_installer(self):
         with temp_dir() as iss_dir:
@@ -81,7 +85,7 @@ class WinBuildTestTestCase(TestCase):
                 with open('%s/jujud.exe' % cmd_dir, 'w') as fake_jujud:
                     fake_jujud.write('jujud')
                 create_cloud_agent('1.20.1', cmd_dir, ci_dir)
-                agent = '{}/juju-1.20.1-win2012-amd64.tgz'.format(ci_dir)
+                agent = os.path.join(ci_dir, 'juju-1.20.1-win2012-amd64.tgz')
                 self.assertTrue(os.path.isfile(agent))
                 with tarfile.open(name=agent, mode='r:gz') as tar:
                     self.assertEqual(['jujud.exe'], tar.getnames())
