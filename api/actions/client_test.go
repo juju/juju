@@ -28,15 +28,21 @@ func (s *actionsSuite) TestClient(c *gc.C) {
 }
 
 func (s *actionsSuite) TestServiceCharmActions(c *gc.C) {
-	// Things to test:
-	//  - errors on facade call
 	tests := []struct {
 		description    string
 		patchResults   []params.ServiceCharmActionsResult
 		patchErr       string
 		expectedErr    string
-		expectedResult params.ServiceCharmActionsResult
+		expectedResult *charm.Actions
 	}{{
+		description: "result from wrong service",
+		patchResults: []params.ServiceCharmActionsResult{
+			params.ServiceCharmActionsResult{
+				ServiceTag: names.NewServiceTag("bar"),
+			},
+		},
+		expectedErr: `action results received for wrong service "service-bar"`,
+	}, {
 		description: "more than one result",
 		patchResults: []params.ServiceCharmActionsResult{
 			params.ServiceCharmActionsResult{},
@@ -68,15 +74,12 @@ func (s *actionsSuite) TestServiceCharmActions(c *gc.C) {
 				},
 			},
 		},
-		expectedResult: params.ServiceCharmActionsResult{
-			ServiceTag: names.NewServiceTag("foo"),
-			Actions: &charm.Actions{
-				ActionSpecs: map[string]charm.ActionSpec{
-					"action": charm.ActionSpec{
-						Description: "description",
-						Params: map[string]interface{}{
-							"foo": "bar",
-						},
+		expectedResult: &charm.Actions{
+			ActionSpecs: map[string]charm.ActionSpec{
+				"action": charm.ActionSpec{
+					Description: "description",
+					Params: map[string]interface{}{
+						"foo": "bar",
 					},
 				},
 			},
@@ -94,8 +97,8 @@ func (s *actionsSuite) TestServiceCharmActions(c *gc.C) {
 				c.Check(err, gc.ErrorMatches, t.expectedErr)
 			} else {
 				c.Check(err, gc.IsNil)
+				c.Check(result, jc.DeepEquals, t.expectedResult)
 			}
-			c.Check(result, jc.DeepEquals, t.expectedResult)
 		}()
 	}
 }

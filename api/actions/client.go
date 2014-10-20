@@ -6,6 +6,7 @@ package actions
 import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -77,16 +78,19 @@ func (c *Client) ServicesCharmActions(arg params.ServiceTags) (params.ServicesCh
 
 // ServiceCharmActions is a single query which uses ServicesCharmActions to
 // get the charm.Actions for a single Service by tag.
-func (c *Client) ServiceCharmActions(arg names.ServiceTag) (params.ServiceCharmActionsResult, error) {
-	none := params.ServiceCharmActionsResult{}
+func (c *Client) ServiceCharmActions(arg names.ServiceTag) (*charm.Actions, error) {
+	none := &charm.Actions{}
 	tags := params.ServiceTags{ServiceTags: []names.ServiceTag{arg}}
 	results, err := c.ServicesCharmActions(tags)
 	if err != nil {
 		return none, err
 	}
-	numResults := len(results.Results)
-	if numResults != 1 {
-		return none, errors.Errorf("%d results, expected 1", numResults)
+	if len(results.Results) != 1 {
+		return none, errors.Errorf("%d results, expected 1", len(results.Results))
 	}
-	return results.Results[0], nil
+	result := results.Results[0]
+	if result.ServiceTag != arg {
+		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
+	}
+	return result.Actions, nil
 }
