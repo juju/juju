@@ -83,7 +83,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	result, err := command.Wait()
 
 	if runner.context.GetRebootPriority() == jujuc.RebootNow {
-		// command was killed due to --now flag
+		// command was killed due to juju-reboot --now
 		// clear the error
 		err = nil
 	}

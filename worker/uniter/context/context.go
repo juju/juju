@@ -117,10 +117,11 @@ type HookContext struct {
 	// machine.
 	assignedMachineTag names.MachineTag
 
-	// pid is the process ID of the command that is being run in the local context
+	// process is the process of the command that is being run in the local context,
+	// like a juju-run command or a hook
 	process *os.Process
 
-	// rebootPriority tells us when the hook wants to reboot. If rebootPrio is jujuc.RebootNow
+	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
 	// the hook will be killed and requeued
 	rebootPriority jujuc.RebootPriority
 }
@@ -452,30 +453,10 @@ func (ctx *HookContext) killCharmHook() error {
 		return err
 	}
 
-	c := make(chan error, 1)
-	go func() {
-		for {
-			proc := ctx.getProcess()
-			if proc == nil {
-				c <- nil
-				return
-			}
-			err := proc.Kill()
-			if err != nil {
-				c <- nil
-				return
-			} else {
-				logger.Warningf("Pid %d is still alive", proc.Pid)
-			}
-			time.Sleep(1 * time.Second)
-		}
-	}()
-	// wait for hook to die
-	select {
-	case <-time.After(30 * time.Second):
-		return errors.New("Failed to kill hook after 30 seconds")
-	case err := <-c:
-		return err
+	_, err = proc.Wait()
+	if err != nil {
+		logger.Errorf("cucu %v", proc.Pid)
+		return errors.Trace(err)
 	}
 	return nil
 }
