@@ -149,10 +149,10 @@ def build_agent(jujud_cmd_dir, go_cmd, gopath):
         print('Built jujud.exe')
 
 
-def create_cloud_agent(version):
+def create_cloud_agent(version, jujud_cmd_dir, ci_dir):
     tarball_name = 'juju-{}-win2012-amd64.tgz'.format(version)
-    tarball_path = os.path.join(CI_DIR, tarball_name)
-    agent_path = os.path.join(JUJUD_CMD_DIR, 'jujud.exe')
+    tarball_path = os.path.join(ci_dir, tarball_name)
+    agent_path = os.path.join(jujud_cmd_dir, 'jujud.exe')
     with tarfile.open(name=tarball_path, mode='w:gz') as tar:
         tar.add(agent_path, arcname='jujud.exe')
 
@@ -177,7 +177,7 @@ def main():
         install(installer_name)
         test(version)
         build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
-        create_cloud_agent(version)
+        create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
         return 0
     except Exception as e:
         print(str(e))
