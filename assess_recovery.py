@@ -19,7 +19,6 @@ from deploy_stack import (
 from jujuconfig import translate_to_env
 from jujupy import (
     Environment,
-    format_listing,
     until_timeout,
 )
 from utility import (
@@ -158,23 +157,6 @@ def restore_missing_state_server(env, backup_file):
     print_now("PASS")
 
 
-def wait_for_ha(env):
-    desired_state = 'has-vote'
-    for remaining in until_timeout(1200):
-        status = env.get_status()
-        states = {}
-        for machine, info in status.iter_machines():
-            status = info.get('state-server-member-status')
-            if status is None:
-                continue
-            states.setdefault(status, []).append(machine)
-        if states.keys() == [desired_state]:
-            return
-        print_now(format_listing(states, desired_state))
-    else:
-        raise Exception('Timed out waiting for voting to be enabled.')
-
-
 def wait_for_state_server_to_shutdown(host, env, instance_id):
     print_now("Waiting for port to close on %s" % host)
     wait_for_port(host, 17070, closed=True)
@@ -227,7 +209,7 @@ def main():
             instance_id = deploy_stack(env, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
                 env.juju('ensure-availability', '-n', '3')
-                wait_for_ha(env)
+                env.client.get_env_client(env).wait_for_ha()
             if args.strategy in ('ha-backup', 'backup'):
                 backup_file = backup_state_server(env)
                 restore_present_state_server(env, backup_file)

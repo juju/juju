@@ -354,6 +354,52 @@ class TestEnvJujuClient(TestCase):
                         'Timed out waiting for agents to start in local'):
                     client.wait_for_started()
 
+    def test_wait_for_ha(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'state-server-member-status': 'has-vote'},
+                '1': {'state-server-member-status': 'has-vote'},
+                '2': {'state-server-member-status': 'has-vote'},
+                },
+            'services': {},
+            })
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch.object(client, 'get_juju_output', return_value=value):
+            client.wait_for_ha()
+
+    def test_wait_for_ha_no_has_vote(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'state-server-member-status': 'no-vote'},
+                '1': {'state-server-member-status': 'no-vote'},
+                '2': {'state-server-member-status': 'no-vote'},
+                },
+            'services': {},
+            })
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch('sys.stdout'):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for voting to be enabled.'):
+                    client.wait_for_ha(0.01)
+
+    def test_wait_for_ha_timeout(self):
+        value = yaml.safe_dump({
+            'machines': {
+                '0': {'state-server-member-status': 'has-vote'},
+                '1': {'state-server-member-status': 'has-vote'},
+                },
+            'services': {},
+            })
+        client = EnvJujuClient(SimpleEnvironment('local'), None, None)
+        with patch('jujupy.until_timeout', lambda x: range(0)):
+            with patch.object(client, 'get_juju_output', return_value=value):
+                with self.assertRaisesRegexp(
+                        Exception,
+                        'Timed out waiting for voting to be enabled.'):
+                    client.wait_for_ha()
+
     def test_wait_for_version(self):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)

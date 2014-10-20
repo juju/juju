@@ -210,6 +210,19 @@ class DestroyEnvironmentAttempt(StageAttempt):
         return True
 
 
+class EnsureAvailabilityAttempt(StageAttempt):
+    """Implementation of an ensure-availability stage."""
+
+    title = 'ensure-availability -n 3'
+
+    def _operation(self, client):
+        client.juju('ensure-availability', ('-n', '3'))
+
+    def _result(self, client):
+        client.wait_for_ha()
+        return True
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
@@ -221,7 +234,8 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
+    stages = [BootstrapAttempt, EnsureAvailabilityAttempt,
+              DestroyEnvironmentAttempt]
     mit = MultiIndustrialTest(args.env, args.new_juju_path,
                               stages, args.attempts)
     results = mit.run_tests()
