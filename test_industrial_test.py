@@ -12,6 +12,7 @@ import yaml
 from industrial_test import (
     BootstrapAttempt,
     DestroyEnvironmentAttempt,
+    EnsureAvailabilityAttempt,
     IndustrialTest,
     MultiIndustrialTest,
     parse_args,
@@ -303,6 +304,10 @@ class FakeEnvJujuClient(EnvJujuClient):
         with patch('sys.stdout'):
             super(FakeEnvJujuClient, self).wait_for_started(0.01)
 
+    def wait_for_ha(self):
+        with patch('sys.stdout'):
+            super(FakeEnvJujuClient, self).wait_for_ha(0.01)
+
     def juju(self, *args, **kwargs):
         # Suppress stdout for juju commands.
         with patch('sys.stdout'):
@@ -380,3 +385,44 @@ class TestDestroyEnvironmentAttempt(TestCase):
             bootstrap.do_operation(client)
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
+
+
+class TestEnsureAvailabilityAttempt(TestCase):
+
+    def test__operation(self):
+        client = FakeEnvJujuClient()
+        ensure_av = EnsureAvailabilityAttempt()
+        with patch('subprocess.check_call') as mock_cc:
+            ensure_av._operation(client)
+        assert_juju_call(self, mock_cc, client, (
+            'juju', '--show-log', 'ensure-availability', '-e', 'steve', '-n',
+            '3'))
+
+    def test__result_true(self):
+        ensure_av = EnsureAvailabilityAttempt()
+        client = FakeEnvJujuClient()
+        output = yaml.safe_dump({
+            'machines': {
+                '0': {'state-server-member-status': 'has-vote'},
+                '1': {'state-server-member-status': 'has-vote'},
+                '2': {'state-server-member-status': 'has-vote'},
+                },
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output):
+            self.assertTrue(ensure_av.get_result(client))
+
+    def test__result_false(self):
+        ensure_av = EnsureAvailabilityAttempt()
+        client = FakeEnvJujuClient()
+        output = yaml.safe_dump({
+            'machines': {
+                '0': {'state-server-member-status': 'has-vote'},
+                '1': {'state-server-member-status': 'has-vote'},
+                },
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output):
+            with self.assertRaisesRegexp(
+                Exception, 'Timed out waiting for voting to be enabled.'):
+                    ensure_av._result(client)

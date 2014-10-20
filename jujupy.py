@@ -21,6 +21,7 @@ from jujuconfig import (
     )
 from utility import (
     check_free_disk_space,
+    print_now,
     scoped_environ,
     temp_dir,
     until_timeout,
@@ -267,6 +268,23 @@ class EnvJujuClient:
             sys.stdout.flush()
         else:
             raise Exception('Some versions did not update.')
+
+    def wait_for_ha(self, timeout=1200):
+        desired_state = 'has-vote'
+        for remaining in until_timeout(timeout):
+            status = self.get_status()
+            states = {}
+            for machine, info in status.iter_machines():
+                status = info.get('state-server-member-status')
+                if status is None:
+                    continue
+                states.setdefault(status, []).append(machine)
+            if states.keys() == [desired_state]:
+                if len(states.get(desired_state, [])) >= 3:
+                    return
+            print_now(format_listing(states, desired_state))
+        else:
+            raise Exception('Timed out waiting for voting to be enabled.')
 
     def get_matching_agent_version(self, no_build=False):
         # strip the series and srch from the built version.
