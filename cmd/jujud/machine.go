@@ -257,12 +257,15 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	return nil
 }
 
-func (a *MachineAgent) newRestoreStateWatcher() (worker.Worker, error){
-	return worker.NewSimpleWorker(a.restoreStateWatcher), nil
+func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error){
+	rWorker := func (stopch <- chan struct{}) error {
+			return a.restoreStateWatcher(st, stopch)
+			}
+	return worker.NewSimpleWorker(rWorker), nil
 }
 
-func (a *MachineAgent) restoreChanged() error{
-	rinfo, err := a.st.EnsureRestoreInfo()
+func (a *MachineAgent) restoreChanged(st *state.State) error{
+	rinfo, err := st.EnsureRestoreInfo()
 	if err != nil {
 		return errors.Annotate(err, "cannot read restore state")
 	}
@@ -275,11 +278,8 @@ func (a *MachineAgent) restoreChanged() error{
 	return nil	
 }
 
-func (a *MachineAgent) restoreStateWatcher(stopch <-chan struct{}) error {
-	if a.st == nil {
-		return nil 
-	}
-	restoreWatch := a.st.WatchRestoreInfoChanges()
+func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
+	restoreWatch := st.WatchRestoreInfoChanges()
 	defer func() {
 		restoreWatch.Kill()
 		restoreWatch.Wait()
@@ -288,7 +288,7 @@ func (a *MachineAgent) restoreStateWatcher(stopch <-chan struct{}) error {
 	for {
 		select {
 			case <-restoreWatch.Changes():
-				if err := a.restoreChanged(); err != nil {
+				if err := a.restoreChanged(st); err != nil {
 					return err
 				}
 			case <-stopch:
@@ -476,7 +476,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
 		case params.JobManageEnviron:
-			a.startWorkerAfterUpgrade(runner, "restore", a.newRestoreStateWatcher)
 			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
@@ -634,6 +633,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
+			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
+				return a.newRestoreStateWatcher(st)
+			})
+
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
