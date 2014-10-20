@@ -6,7 +6,6 @@ import tarfile
 from tempfile import mkdtemp
 from unittest import TestCase
 
-
 import winbuildtest
 from winbuildtest import (
     build_agent,
@@ -35,6 +34,15 @@ def temp_path(module, attr):
         shutil.rmtree(dir_name)
 
 
+@contextmanager
+def temp_dir():
+    dirname = mkdtemp()
+    try:
+        yield dirname
+    finally:
+        shutil.rmtree(dirname)
+
+
 class WinBuildTestTestCase(TestCase):
 
     def test_build_client(self):
@@ -54,9 +62,9 @@ class WinBuildTestTestCase(TestCase):
                     self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
 
     def test_build_agent(self):
-        with temp_path(winbuildtest, 'JUJUD_CMD_DIR'):
+        with temp_dir() as jujud_cmd_dir:
             with patch('winbuildtest.run', return_value='') as run_mock:
-                build_agent()
+                build_agent(jujud_cmd_dir, GO_CMD, GOPATH)
                 args, kwargs = run_mock.call_args
                 self.assertEqual((GO_CMD, 'build'), args)
                 self.assertEqual('amd64', kwargs['env'].get('GOARCH'))

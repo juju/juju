@@ -139,12 +139,12 @@ def test(version):
         raise Exception("Juju did not install")
 
 
-def build_agent():
+def build_agent(jujud_cmd_dir, go_cmd, gopath):
     env = dict(os.environ)
-    env['GOPATH'] = GOPATH
+    env['GOPATH'] = gopath
     env['GOARCH'] = 'amd64'
-    with WorkingDirectory(JUJUD_CMD_DIR):
-        output = run(GO_CMD, 'build', env=env)
+    with WorkingDirectory(jujud_cmd_dir):
+        output = run(go_cmd, 'build', env=env)
         print(output)
         print('Built jujud.exe')
 
@@ -176,7 +176,7 @@ def main():
         installer_name = create_installer(version)
         install(installer_name)
         test(version)
-        build_agent()
+        build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
         create_cloud_agent(version)
         return 0
     except Exception as e:
