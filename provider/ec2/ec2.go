@@ -297,6 +297,18 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+func (e *environ) defaultVpc() (network.Id, bool, error) {
+	ec2 := e.ec2()
+	resp, err := ec2.AccountAttributes("default-vpc")
+	if err != nil {
+		return "", false, errors.Trace(err)
+	}
+	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
+		return "", false, nil
+	}
+	return network.Id(resp.Attributes[0].Values[0]), true, nil
+}
+
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
 	ecfg := e.ecfgUnlocked
