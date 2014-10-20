@@ -364,6 +364,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 var unsupportedConstraints = []string{
 	constraints.Tags,
 }
