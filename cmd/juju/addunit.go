@@ -44,6 +44,10 @@ func (c *UnitCommandBase) Init(args []string) error {
 	return nil
 }
 
+// TODO(anastasiamac) 2014-10-20 Bug#1383116
+// This exists to provide more context to the user about
+// why they cannot allocate units to machine 0. Remove
+// this when the local provider's machine 0 is a container.
 func (c *UnitCommandBase) checkProvider(conf *config.Config) error {
 	if conf.Type() == provider.Local && c.ToMachineSpec == "0" {
 		return errors.New("machine 0 is the state server for a local environment and cannot host units")
