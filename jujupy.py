@@ -306,6 +306,24 @@ def bootstrap_from_env(juju_home, client):
         client.bootstrap()
 
 
+def uniquify_local(env):
+    """Ensure that local environments have unique port settings.
+
+    This allows local environments to be duplicated despite
+    https://bugs.launchpad.net/bugs/1382131
+    """
+    if not env.local:
+        return
+    port_defaults = {
+        'api-port': 17070,
+        'state-port': 37017,
+        'storage-port': 8040,
+        'syslog-port': 6514,
+    }
+    for key, default in port_defaults.items():
+        env.config[key] = env.config.get(key, default) + 1
+
+
 @contextmanager
 def temp_bootstrap_env(juju_home, client):
     # Always bootstrap a matching environment.

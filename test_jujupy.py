@@ -34,6 +34,7 @@ from jujupy import (
     Status,
     stop_libvirt_domain,
     temp_bootstrap_env,
+    uniquify_local,
     verify_libvirt_domain_running,
     verify_libvirt_domain_shut_off,
 )
@@ -467,6 +468,55 @@ class TestEnvJujuClient(TestCase):
             client.juju('foo', ('bar', 'baz'), check=False)
         self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
+
+
+class TestUniquifyLocal(TestCase):
+
+    def test_uniquify_local_empty(self):
+        env = SimpleEnvironment('foo', {'type': 'local'})
+        uniquify_local(env)
+        self.assertEqual(env.config, {
+            'type': 'local',
+            'api-port': 17071,
+            'state-port': 37018,
+            'storage-port': 8041,
+            'syslog-port': 6515,
+        })
+
+    def test_uniquify_local_preset(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'local',
+            'api-port': 17071,
+            'state-port': 37018,
+            'storage-port': 8041,
+            'syslog-port': 6515,
+        })
+        uniquify_local(env)
+        self.assertEqual(env.config, {
+            'type': 'local',
+            'api-port': 17072,
+            'state-port': 37019,
+            'storage-port': 8042,
+            'syslog-port': 6516,
+        })
+
+    def test_uniquify_nonlocal(self):
+        env = SimpleEnvironment('foo', {
+            'type': 'nonlocal',
+            'api-port': 17071,
+            'state-port': 37018,
+            'storage-port': 8041,
+            'syslog-port': 6515,
+        })
+        uniquify_local(env)
+        self.assertEqual(env.config, {
+            'type': 'nonlocal',
+            'api-port': 17071,
+            'state-port': 37018,
+            'storage-port': 8041,
+            'syslog-port': 6515,
+        })
+
 
 @contextmanager
 def bootstrap_context(client):
