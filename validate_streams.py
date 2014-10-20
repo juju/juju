@@ -46,11 +46,18 @@ def check_devel_not_stable(old_tools, new_tools, purpose):
             purpose, devel_versions)
 
 
-def check_expected_tools(old_tools, new_tools, added=None, retracted=None):
+def check_expected_tools(old_tools, new_tools, added=None, removed=None):
     """Return a 4-tuple of new_expected, new_errors, old_expected, old_errors
 
     The new and old expected dicts are the tools common to old and new streams.
-    The new and old errors are strings of missing ot extra versions.
+    The new and old errors are strings of missing or extra versions.
+
+    :param old_tools: the dict of all the products/versions/*/items
+                      in the old json.
+    :param new_tools: the dict of all the products/versions/*/items
+                      in the new json.
+    :param added: the version added to the new json, eg '1.20.9'
+    :param retracted: the version removed to the new json, eg '1.20.8'
     """
     # Remove the expected difference between the two collections of tools.
     old_expected = dict(old_tools)
@@ -58,12 +65,10 @@ def check_expected_tools(old_tools, new_tools, added=None, retracted=None):
     missing_errors = None
     extra_errors = None
     expected_differences = {}
-    if retracted:
-        # Retracted domiates version because streams.canonical.com always
-        # needs a version to install to make streams, even when it
-        # intends to remove something.
+    missing = []
+    if removed:
         for n, t in old_expected.items():
-            if t['version'] == retracted:
+            if t['version'] == removed:
                 expected_differences.update([(n, t)])
                 del old_expected[n]
     if added:
@@ -71,13 +76,13 @@ def check_expected_tools(old_tools, new_tools, added=None, retracted=None):
             if t['version'] == added:
                 expected_differences.update([(n, t)])
                 del new_expected[n]
-        if added != 'IGNORE' and not expected_differences:
-            missing_errors = 'Missing versions: {}'.format(added)
+        if added != IGNORE and not expected_differences:
+            missing.append(added)
     # The old and new should be identical. but if there is a problem,
     # we want to explain what problems are in each set of versions.
     old_versions = set(old_expected.keys())
     new_versions = set(new_expected.keys())
-    missing = list(old_versions - new_versions)
+    missing.extend(old_versions - new_versions)
     if missing:
         missing_errors = 'Missing versions: {}'.format(missing)
     extras = list(new_versions - old_versions)

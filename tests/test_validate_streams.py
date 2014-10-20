@@ -203,7 +203,7 @@ class ValidateStreams(TestCase):
         self.assertIs(None, extra_errors)
         self.assertEqual(['1.20.8-trusty-amd64'], old_expected.keys())
         self.assertEqual(
-            "Missing versions: 1.20.9", missing_errors)
+            "Missing versions: ['1.20.9']", missing_errors)
 
     def test_check_expected_tools_extra_new(self):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7'])
