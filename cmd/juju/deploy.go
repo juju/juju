@@ -156,12 +156,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	attrs, err := client.EnvironmentGet()
+	conf, err := getClientConfig(client)
 	if err != nil {
 		return err
 	}
-	conf, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
+
+	if err := c.checkProvider(conf); err != nil {
 		return err
 	}
 

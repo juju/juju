@@ -10,7 +10,10 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -36,8 +39,30 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if !cmd.IsMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}
+
 	}
 	return nil
+}
+
+// TODO(anastasiamac) 2014-10-20 Bug#1383116
+// This exists to provide more context to the user about
+// why they cannot allocate units to machine 0. Remove
+// this when the local provider's machine 0 is a container.
+func (c *UnitCommandBase) checkProvider(conf *config.Config) error {
+	if conf.Type() == provider.Local && c.ToMachineSpec == "0" {
+		return errors.New("machine 0 is the state server for a local environment and cannot host units")
+	}
+	return nil
+}
+
+var getClientConfig = func(client *api.Client) (*config.Config, error) {
+	// Separated into a variable for easy overrides
+	attrs, err := client.EnvironmentGet()
+	if err != nil {
+		return nil, err
+	}
+
+	return config.New(config.NoDefaults, attrs)
 }
 
 // AddUnitCommand is responsible adding additional units to a service.
@@ -98,6 +123,15 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer apiclient.Close()
+
+	conf, err := getClientConfig(apiclient)
+	if err != nil {
+		return err
+	}
+
+	if err := c.checkProvider(conf); err != nil {
+		return err
+	}
 
 	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
 	return err
