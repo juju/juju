@@ -49,6 +49,8 @@ class WinBuildTestTestCase(TestCase):
                     self.assertTrue(os.path.isfile(client_path))
 
     def test_create_installer(self):
+        # create_installer() creates an iss-style installer and copies it
+        # to the ci dir.
         with temp_dir() as iss_dir:
             with temp_dir() as ci_dir:
                 installer_name = 'juju-setup-1.20.1.exe'
@@ -71,6 +73,7 @@ class WinBuildTestTestCase(TestCase):
                     self.assertTrue(os.path.isfile(installer_path))
 
     def test_build_agent(self):
+        # build_agent creates a win amd64 jujud.
         with temp_dir() as jujud_cmd_dir:
             with patch('winbuildtest.run', return_value='') as run_mock:
                 build_agent(jujud_cmd_dir, GO_CMD, GOPATH)
@@ -80,6 +83,8 @@ class WinBuildTestTestCase(TestCase):
                 self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
 
     def test_create_cloud_agent(self):
+        # create_cloud_agent() creates an agent tgz from the jujud and
+        # copies it to the ci dir.
         with temp_dir() as cmd_dir:
             with temp_dir() as ci_dir:
                 with open('%s/jujud.exe' % cmd_dir, 'w') as fake_jujud:
