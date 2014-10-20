@@ -19,7 +19,6 @@ from deploy_stack import (
 from jujuconfig import translate_to_env
 from jujupy import (
     Environment,
-    format_listing,
     until_timeout,
 )
 from utility import (

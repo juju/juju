@@ -377,7 +377,7 @@ class TestEnvJujuClient(TestCase):
             'services': {},
             })
         client = EnvJujuClient(SimpleEnvironment('local'), None, None)
-        with patch('sys.stdout') as stdout_mock:
+        with patch('sys.stdout'):
             with patch.object(client, 'get_juju_output', return_value=value):
                 with self.assertRaisesRegexp(
                         Exception,
