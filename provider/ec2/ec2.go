@@ -382,7 +382,11 @@ func (e *environ) SupportNetworks() bool {
 
 // SupportAddressAllocation is specified on the EnvironCapability interface.
 func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
+	_, hasDefaultVpc, err := e.defaultVpc()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return hasDefaultVpc, nil
 }
 
 var unsupportedConstraints = []string{
