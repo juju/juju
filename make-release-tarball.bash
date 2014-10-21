@@ -92,8 +92,13 @@ if [[ ! -f $GODEPS ]]; then
 fi
 GOPATH=$WORK $GODEPS -u "$WORKPACKAGE/dependencies.tsv"
 
+# Run juju's fmt and vet script on the source after finding the right version
 if [[ $(lsb_release -sc) == "trusty" ]]; then
-    (cd $WORKPACKAGE && GOPATH=$WORK ./scripts/pre-push.bash)
+    CHECKSCRIPT=./scripts/verify.bash
+    if [[ ! -f $WORKPACKAGE/scripts/verify.bash ]]; then
+        CHECKSCRIPT=./scripts/pre-push.bash
+    fi
+    (cd $WORKPACKAGE && GOPATH=$WORK $CHECKSCRIPT)
 fi
 
 # Remove godeps, non-free data, and any binaries.
