@@ -63,19 +63,19 @@ def check_expected_tools(old_tools, new_tools, added=None, removed=None):
     new_expected = dict(new_tools)
     missing_errors = None
     extra_errors = None
-    expected_differences = {}
     missing = []
+    extras = []
+    found = []
     if removed:
         for n, t in old_expected.items():
             if t['version'] == removed:
-                expected_differences.update([(n, t)])
                 del old_expected[n]
     if added:
         for n, t in new_expected.items():
             if t['version'] == added:
-                expected_differences.update([(n, t)])
                 del new_expected[n]
-        if not expected_differences:
+                found.append(n)
+        if not found:
             missing.append(added)
     # The old and new should be identical. but if there is a problem,
     # we want to explain what problems are in each set of versions.
@@ -84,7 +84,7 @@ def check_expected_tools(old_tools, new_tools, added=None, removed=None):
     missing.extend(old_versions - new_versions)
     if missing:
         missing_errors = 'Missing versions: {}'.format(missing)
-    extras = list(new_versions - old_versions)
+    extras.extend(new_versions - old_versions)
     if extras:
         extra_errors = 'Extra versions: {}'.format(extras)
     return new_expected, extra_errors, old_expected, missing_errors
