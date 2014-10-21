@@ -328,7 +328,7 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
 	c.Assert(string(config), jc.Contains, mountLine)
-	mountLine = "lxc.mount.entry=/mount/tools var/lib/juju/storage/tools none defaults,bind 0 0"
+	mountLine = "lxc.mount.entry=/mount/tools tmp/juju/tools none defaults,bind 0 0"
 	c.Assert(string(config), jc.Contains, mountLine)
 	c.Assert(autostartLink, jc.IsSymlink)
 }
@@ -469,7 +469,7 @@ lxc.network.link = nic42
 lxc.network.flags = up
 lxc.start.auto = 1
 lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
-lxc.mount.entry=/mount/tools var/lib/juju/storage/tools none defaults,bind 0 0
+lxc.mount.entry=/mount/tools tmp/juju/tools none defaults,bind 0 0
 `
 	c.Assert(string(config), gc.Equals, expected)
 }

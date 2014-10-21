@@ -308,11 +308,11 @@ func mountHostToolsDir(name, toolsDir string) error {
 	// Make sure that the mount dir has been created.
 	logger.Tracef("make the mount dir for the tools")
 	if err := os.MkdirAll(internalToolsDir(name), 0755); err != nil {
-		logger.Errorf("failed to create internal /var/lib/juju/storage/tools mount dir: %v", err)
+		logger.Errorf("failed to create internal /tmp/juju/tools mount dir: %v", err)
 		return err
 	}
 	line := fmt.Sprintf(
-		"lxc.mount.entry=%s var/lib/juju/storage/tools none defaults,bind 0 0\n",
+		"lxc.mount.entry=%s tmp/juju/tools none defaults,bind 0 0\n",
 		toolsDir)
 	return appendToContainerConfig(name, line)
 }
@@ -368,7 +368,7 @@ func internalLogDir(containerName string) string {
 	return fmt.Sprintf(internalLogDirTemplate, LxcContainerDir, containerName)
 }
 
-const internalToolsDirTemplate = "%s/%s/rootfs/var/lib/juju/storage/tools"
+const internalToolsDirTemplate = "%s/%s/rootfs/tmp/juju/tools"
 
 func internalToolsDir(containerName string) string {
 	return fmt.Sprintf(internalToolsDirTemplate, LxcContainerDir, containerName)
