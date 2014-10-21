@@ -23,7 +23,7 @@ GOPATH = os.path.join(CI_DIR, 'gogo')
 JUJU_CMD_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
 JUJUD_CMD_DIR = os.path.join(
-    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
+    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'jujud')
 ISS_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
 
@@ -176,10 +176,8 @@ def main():
         installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
         test(version)
-        # XXX sinzui 2014-10-21: these commands are failing, and blocking
-        # other tests.
-        #build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
-        #create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
+        build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
+        create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
         return 0
     except Exception as e:
         print(str(e))
