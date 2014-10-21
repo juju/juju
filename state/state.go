@@ -658,6 +658,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 			URL:          curl,
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
+			Metrics:      ch.Metrics(),
 			Actions:      ch.Actions(),
 			BundleSha256: bundleSha256,
 			StoragePath:  storagePath,

@@ -117,3 +117,9 @@ func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision 
 func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revsion)
 }
+
+// AddMetricsCharm clones a testing charm, replaces its metrics declaration with the
+// given YAML string and adds it to the state, using the given revision.
+func (s *ConnSuite) AddMetricsCharm(c *gc.C, name, metricsYaml string, revsion int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "metrics.yaml", metricsYaml, "quantal", revsion)
+}
