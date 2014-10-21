@@ -1442,6 +1442,88 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
 }
 
+func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az3 will be valid to host an instance.
+		nova.AvailabilityZone{
+			Name: "az3",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			serverDetail := args[0].(*nova.ServerDetail)
+			if serverDetail.AvailabilityZone == "az2" {
+				return fmt.Errorf("No valid host was found")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
+}
+
+func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an unknown error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			serverDetail := args[0].(*nova.ServerDetail)
+			if serverDetail.AvailabilityZone == "az2" {
+				return fmt.Errorf("Some unknown error")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	_, _, _, err = testing.StartInstance(env, "1")
+	errString := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(errString, gc.Matches, ".*Some unknown error.*")
+}
+
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
