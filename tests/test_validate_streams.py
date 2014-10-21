@@ -123,7 +123,7 @@ class ValidateStreams(TestCase):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         message = compare_tools(
-            old_tools, new_tools, 'proposed', 'IGNORE', retracted=None)
+            old_tools, new_tools, 'proposed', added=None, retracted=None)
         self.assertIs(None, message)
 
     def test_check_expected_tools_no_added_no_retraced(self):

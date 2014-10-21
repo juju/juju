@@ -14,7 +14,6 @@ PROPOSED = 'proposed'
 DEVEL = 'devel'
 TESTING = 'testing'
 PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
-IGNORE = 'IGNORE'
 
 
 def find_tools(file_path):
@@ -76,7 +75,7 @@ def check_expected_tools(old_tools, new_tools, added=None, removed=None):
             if t['version'] == added:
                 expected_differences.update([(n, t)])
                 del new_expected[n]
-        if added != IGNORE and not expected_differences:
+        if not expected_differences:
             missing.append(added)
     # The old and new should be identical. but if there is a problem,
     # we want to explain what problems are in each set of versions.

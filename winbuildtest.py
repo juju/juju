@@ -23,7 +23,7 @@ GOPATH = os.path.join(CI_DIR, 'gogo')
 JUJU_CMD_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
 JUJUD_CMD_DIR = os.path.join(
-    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
+    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'jujud')
 ISS_DIR = os.path.join(
     GOPATH, 'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
 
