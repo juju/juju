@@ -122,7 +122,7 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Only need to look for errors if users were explicitly specfied, because
+	// Only need to look for errors if users were explicitly specified, because
 	// if we didn't ask for any, we should get all, and we shouldn't get any
 	// errors for listing all.  We care here because we index into the users
 	// slice.
