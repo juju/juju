@@ -34,6 +34,8 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
+const none = "none"
+
 // Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
@@ -307,7 +309,7 @@ func (e *environ) defaultVpc() (network.Id, bool, error) {
 		return "", false, nil
 	}
 	defaultVpc := resp.Attributes[0].Values[0]
-	if defaultVpc == "none" {
+	if defaultVpc == none {
 		return "", false, nil
 	}
 	return network.Id(defaultVpc), true, nil
