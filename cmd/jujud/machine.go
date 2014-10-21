@@ -667,7 +667,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					Key:       key,
 					DataDir:   dataDir,
 					LogDir:    logDir,
-					Validator: a.limitLoginsDuringUpgrade,
+					Validator: a.limitLogins,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
