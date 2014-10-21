@@ -105,49 +105,14 @@ var (
 	getMetricAPI = metricAPI
 )
 
-// PrepareRestore will flag the agent to allow only one command:
-// Restore, this will ensure that we can do all the file movements
-// required for restore and no one will do changes while we do that.
-// it will return error if the machine is already in this state.
-func (a *MachineAgent) PrepareRestore() error {
-	if a.restoreMode {
-		return fmt.Errorf("already in restore mode")
-	}
-	a.restoreMode = true
-	return nil
-}
-
-// BeginRestore will flag the agent to disallow all commands since
-// restore should be running and therefore making changes that
-// would override anything done.
-func (a *MachineAgent) BeginRestore() error {
-	switch {
-	case !a.restoreMode:
-		return fmt.Errorf("not in restore mode, cannot begin restoration")
-	case a.restoring:
-		return fmt.Errorf("already restoring")
-	}
-	a.restoring = true
-	return nil
-}
-
-// FinishRestore will restart jujud and err if restore flag is not true
-func (a *MachineAgent) FinishRestore() error {
-	if !a.restoring {
-		return fmt.Errorf("restore is not in progress")
-	}
-	a.tomb.Kill(worker.ErrTerminateAgent)
-	return nil
-}
-
 // IsRestorePreparing returns bool representing if we are in restore mode
 // but not running restore
 func (a *MachineAgent) IsRestorePreparing() bool {
-	return a.restoreMode && !a.restoring
+	return a.restoreContext.restorePreparing()
 }
 
 func (a *MachineAgent) IsRestoreRunning() bool {
-	return a.restoring
+	return a.restoreContext.restoreRunning()
 }
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
@@ -160,6 +125,7 @@ type MachineAgent struct {
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
+	restoreContext       *restoreContext
 	restoreMode          bool
 	restoring            bool
 	workersStarted       chan struct{}
@@ -193,7 +159,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
-
+	a.restoreContext = NewRestoreContext(&a.tomb)
 	return nil
 }
 
@@ -628,11 +594,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return nil, err
 				}
 				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-					Cert:      cert,
-					Key:       key,
-					DataDir:   dataDir,
-					LogDir:    logDir,
-					Validator: a.limitLoginsDuringUpgrade,
+					Cert:           cert,
+					Key:            key,
+					DataDir:        dataDir,
+					LogDir:         logDir,
+					Validator:      a.limitLogins,
+					RestoreContext: a.restoreContext,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {

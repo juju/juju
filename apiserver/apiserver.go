@@ -52,13 +52,22 @@ type Server struct {
 // checked.
 type LoginValidator func(params.LoginRequest) error
 
+// RestoreContext is intended to be passed as a control mechanism
+// for stopping and starting agent Logins when restoring.
+type RestoreContext interface {
+	PrepareRestore() error
+	BeginRestore() error
+	FinishRestore() error
+}
+
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Cert      []byte
-	Key       []byte
-	DataDir   string
-	LogDir    string
-	Validator LoginValidator
+	Cert           []byte
+	Key            []byte
+	DataDir        string
+	LogDir         string
+	Validator      LoginValidator
+	RestoreContext RestoreContext
 }
 
 // NewServer serves the given state by accepting requests on the given
