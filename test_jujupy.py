@@ -1056,6 +1056,21 @@ class TestStatus(TestCase):
             'unknown': {'jenkins/1'},
         }, status.get_agent_versions())
 
+    def test_iter_new_machines(self):
+        old_status = Status({
+            'machines': {
+                'bar': 'bar_info',
+                }
+            })
+        new_status = Status({
+            'machines': {
+                'foo': 'foo_info',
+                'bar': 'bar_info',
+                }
+            })
+        self.assertItemsEqual(new_status.iter_new_machines(old_status),
+                              [('foo', 'foo_info')])
+
 
 def fast_timeout(count):
     if False:

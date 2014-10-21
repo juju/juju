@@ -401,6 +401,12 @@ class Status:
         for machine_name, machine in sorted(self.status['machines'].items()):
             yield machine_name, machine
 
+    def iter_new_machines(self, old_status):
+        for machine, data in self.iter_machines():
+            if machine in old_status.status['machines']:
+                continue
+            yield machine, data
+
     def agent_items(self):
         for machine_name, machine in self.iter_machines():
             yield machine_name, machine

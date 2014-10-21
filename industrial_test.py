@@ -126,6 +126,7 @@ class IndustrialTest:
             result = attempt.do_stage(self.old_client, self.new_client)
             yield result
             if False in result:
+                import pdb; pdb.set_trace()
                 try:
                     self.old_client.destroy_environment()
                 finally:
@@ -223,6 +224,27 @@ class EnsureAvailabilityAttempt(StageAttempt):
         return True
 
 
+class DeployManyAttempt(StageAttempt):
+
+    title = 'deploy-many'
+
+    def _operation(self, client):
+        old_status = client.get_status()
+        for machine in range(10):
+            client.juju('add-machine', ())
+        new_status = client.wait_for_started()
+        new_machines = dict(new_status.iter_new_machines(old_status))
+        if len(new_machines) != 10:
+            raise AssertionError('Got {} machines, not 10'.format(
+                len(new_machines)))
+        for machine_name in new_machines:
+            target = 'lxc:{}'.format(machine_name)
+            service = 'ubuntu-{}'.format(machine_name)
+            client.juju('deploy', ('-n', '10', '--to', target, 'ubuntu',
+                                   service))
+        client.wait_for_started()
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
@@ -234,7 +256,7 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    stages = [BootstrapAttempt, EnsureAvailabilityAttempt,
+    stages = [BootstrapAttempt, DeployManyAttempt,
               DestroyEnvironmentAttempt]
     mit = MultiIndustrialTest(args.env, args.new_juju_path,
                               stages, args.attempts)
