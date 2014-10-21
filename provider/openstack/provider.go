@@ -890,7 +890,7 @@ var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	var availabilityZone string
+	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
@@ -899,13 +899,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if !placement.availabilityZone.State.Available {
 			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
-		availabilityZone = placement.availabilityZone.Name
+		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
 
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
-	if availabilityZone == "" {
+	if len(availabilityZones) == 0 {
 		var group []instance.Id
 		var err error
 		if args.DistributionGroup != nil {
@@ -920,8 +920,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			// not implemented error; ignore these.
 		} else if err != nil {
 			return nil, nil, nil, err
-		} else if len(zoneInstances) > 0 {
-			availabilityZone = zoneInstances[0].ZoneName
+		} else {
+			for _, zone := range zoneInstances {
+				availabilityZones = append(availabilityZones, zone.ZoneName)
+			}
+		}
+		if len(availabilityZones) == 0 {
+			// No explicitly selectable zones available, so use an unspecified zone.
+			availabilityZones = []string{""}
 		}
 	}
 
@@ -985,19 +991,26 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
-	var opts = nova.RunServerOpts{
-		Name:               e.machineFullName(args.MachineConfig.MachineId),
-		FlavorId:           spec.InstanceType.Id,
-		ImageId:            spec.Image.Id,
-		UserData:           userData,
-		SecurityGroupNames: groupNames,
-		Networks:           networks,
-		AvailabilityZone:   availabilityZone,
-	}
 	var server *nova.Entity
-	for a := shortAttempt.Start(); a.Next(); {
-		server, err = e.nova().RunServer(opts)
-		if err == nil || !gooseerrors.IsNotFound(err) {
+	for _, availZone := range availabilityZones {
+		var opts = nova.RunServerOpts{
+			Name:               e.machineFullName(args.MachineConfig.MachineId),
+			FlavorId:           spec.InstanceType.Id,
+			ImageId:            spec.Image.Id,
+			UserData:           userData,
+			SecurityGroupNames: groupNames,
+			Networks:           networks,
+			AvailabilityZone:   availZone,
+		}
+		for a := shortAttempt.Start(); a.Next(); {
+			server, err = e.nova().RunServer(opts)
+			if err == nil || !gooseerrors.IsNotFound(err) {
+				break
+			}
+		}
+		if isNoValidHostsError(err) {
+			logger.Infof("no valid hosts available in zone %q, trying another availability zone", availZone)
+		} else {
 			break
 		}
 	}
@@ -1027,6 +1040,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
+}
+
+func isNoValidHostsError(err error) bool {
+	gooseErr, ok := err.(gooseerrors.Error)
+	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
