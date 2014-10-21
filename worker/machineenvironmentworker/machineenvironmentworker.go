@@ -68,6 +68,9 @@ var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
 // NewMachineEnvironmentWorker returns a worker.Worker that uses the notify
 // watcher returned from the setup.
 func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Config) worker.Worker {
+	// TODO(fwereade): find who did this and induce them to hang their head in
+	// shame for the egregious layer-breaking. This is *even worse* than doing
+	// it in jujud.
 	// We don't write out system files for the local provider on machine zero
 	// as that is the host machine.
 	writeSystemFiles := (agentConfig.Tag() != names.NewMachineTag("0") ||
@@ -119,10 +122,10 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 func (w *MachineEnvironmentWorker) writeEnvironmentToRegistry() error {
 	// On windows we write the proxy settings to the registry.
 	setProxyScript := `$value_path = "%s"
-	$new_proxy = "%s"
-	$proxy_val = Get-ItemProperty -Path $value_path -Name ProxySettings
-	if ($? -eq $false){ New-ItemProperty -Path $value_path -Name ProxySettings -PropertyType String -Value $new_proxy }else{ Set-ItemProperty -Path $value_path -Name ProxySettings -Value $new_proxy }
-	`
+    $new_proxy = "%s"
+    $proxy_val = Get-ItemProperty -Path $value_path -Name ProxySettings
+    if ($? -eq $false){ New-ItemProperty -Path $value_path -Name ProxySettings -PropertyType String -Value $new_proxy }else{ Set-ItemProperty -Path $value_path -Name ProxySettings -Value $new_proxy }
+    `
 	result, err := exec.RunCommands(exec.RunParams{
 		Commands: fmt.Sprintf(
 			setProxyScript,

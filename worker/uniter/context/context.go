@@ -160,11 +160,9 @@ func NewHookContext(
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
 	}
-	if statusCode != "" {
-		ctx.meterStatus = &meterStatus{
-			code: statusCode,
-			info: statusInfo,
-		}
+	ctx.meterStatus = &meterStatus{
+		code: statusCode,
+		info: statusInfo,
 	}
 
 	return ctx, nil
