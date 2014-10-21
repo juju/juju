@@ -306,7 +306,11 @@ func (e *environ) defaultVpc() (network.Id, bool, error) {
 	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
 		return "", false, nil
 	}
-	return network.Id(resp.Attributes[0].Values[0]), true, nil
+	defaultVpc := resp.Attributes[0].Values[0]
+	if defaultVpc == "none" {
+		return "", false, nil
+	}
+	return network.Id(defaultVpc), true, nil
 }
 
 func (e *environ) ecfg() *environConfig {
