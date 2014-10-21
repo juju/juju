@@ -13,6 +13,7 @@ Quick links
 
 * issue tracker: https://launchpad.net/juju-core
 * continuous integration: http://juju-ci.vapour.ws:8080/
+* code review: http://reviews.vapour.ws/
 
 Documentation:
 * https://juju.ubuntu.com/docs/
@@ -353,16 +354,40 @@ https://help.github.com/articles/using-pull-requests
 Code review
 -----------
 
-A branch needs at least one approval review in order to land. By
-convention, this is signaled by `LGTM` in a review comment. In the rare
-case where a proposal has an issue that means it should not land,
-`NOT LGTM` can be used as a veto. Often several rounds of suggestions are
-made without either marker, and `LGTM` is added when the comments are
-addressed.
+The juju project uses peer review of pull requests prior to merging to
+facilitate improvements both in code quality and in design.  The code
+review tool is ReviewBoard, hosted at http://reviews.vapour.ws/.  In the
+event that the site is down, the project will temporarily fall back to
+github for reviews of critical pull requests.
 
-After a proposal has received an `LGTM`, the landing must be notified to
-test and merge the code into master. This is done by a member of the
-juju project adding the magic string `$$merge$$` in a comment.
+A review request is automatically created for every pull request.  A
+link to that review request is added as a comment to the pull request.
+Whenever the pull request is updated, the review request is likewise
+updated.  Thus for the normal workflow of contribution, there should
+be no need to worry about creating or updating review requests.
+
+Once you have created your pull request, it will be reviewed.  Make sure
+to address the feedback.  Your request might go through several rounds
+of feedback before the patch is approved or rejected.  Once you get a
+"ship it" from a member of the juju project, and there are not any
+"NOT LGTM" comments in ReviewBoard or github, you are ready to have your
+patch merged by a member of the juju team.  Congratulations!
+
+The site uses github OAuth for authentication.  To log in simply go to
+login page and click the "github" button.  The first time you do this,
+it will redirect you to github to approve access and then redirect you
+back.  This first time is the only one where you will be redirected to
+github.  Furthermore, ReviewBoard will keep you logged in between visits
+via session cookies.
+
+That first time you log in, a ReviewBoard account will be created for
+you using your github username.  However, your email address is not
+added.  If you want to receive review-related email, be sure to add your
+email address to your ReviewBoard profile.
+
+For more information on ReviewBoard see:
+
+ doc/contributions/reviewboard.md
 
 Continuous integration
 ----------------------
