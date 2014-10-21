@@ -358,7 +358,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 			return nil, nil, nil, err
 		}
 		args.MachineConfig.Tools.URL = strings.Replace(
-			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
+			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///tmp/juju/tools", -1)
 	}
 
 	args.MachineConfig.MachineContainerType = env.config.container()

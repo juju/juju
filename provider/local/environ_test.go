@@ -341,7 +341,7 @@ func (s *localJujuTestSuite) TestToolsURLPatchedForLxc(c *gc.C) {
 		MachineConfig: machineConfig,
 	}
 
-	local.PatchCreateContainer(&s.CleanupSuite, c, "file:///var/lib/juju/storage/tools/juju-5.4.5-precise-amd64.tgz")
+	local.PatchCreateContainer(&s.CleanupSuite, c, "file:///tmp/juju/tools/juju-5.4.5-precise-amd64.tgz")
 	inst, _, _, err := env.StartInstance(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.Id(), gc.Equals, instance.Id("mock"))
