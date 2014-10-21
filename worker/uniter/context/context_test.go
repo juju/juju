@@ -22,8 +22,9 @@ type InterfaceSuite struct {
 
 var _ = gc.Suite(&InterfaceSuite{})
 
-func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
-	remoteName string) jujuc.Context {
+func (s *InterfaceSuite) GetContext(
+	c *gc.C, relId int, remoteName string,
+) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies, false)
