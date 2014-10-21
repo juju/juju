@@ -70,9 +70,9 @@ class ValidateStreams(TestCase):
         self.assertEqual('old/json', args.old_json)
         self.assertEqual('new/json', args.new_json)
         self.assertEqual('1.20.9', args.added)
-        # A bad release version can be retracted.
-        args = parse_args(['--retracted', 'bad'] + required)
-        self.assertEqual('bad', args.retracted)
+        # A bad release version can be removed.
+        args = parse_args(['--removed', 'bad'] + required)
+        self.assertEqual('bad', args.removed)
 
     def test_find_tools(self):
         products = make_products_data(['1.20.7', '1.20.8'])
@@ -123,7 +123,7 @@ class ValidateStreams(TestCase):
         old_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
         message = compare_tools(
-            old_tools, new_tools, 'proposed', added=None, retracted=None)
+            old_tools, new_tools, 'proposed', added=None, removed=None)
         self.assertIs(None, message)
 
     def test_check_expected_tools_no_added_no_retraced(self):
@@ -155,7 +155,7 @@ class ValidateStreams(TestCase):
             old_expected.keys())
         self.assertIs(None, missing_errors)
 
-    def test_check_expected_tools_retracted_old(self):
+    def test_check_expected_tools_removed_old(self):
         old_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
@@ -171,7 +171,7 @@ class ValidateStreams(TestCase):
             old_expected.keys())
         self.assertIs(None, missing_errors)
 
-    def test_check_expected_tools_retracted_old_and_added_new(self):
+    def test_check_expected_tools_removed_old_and_added_new(self):
         old_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8'])
         new_tools = make_tools_data('trusty', 'amd64', ['1.20.7', '1.20.9'])
@@ -219,7 +219,7 @@ class ValidateStreams(TestCase):
         self.assertEqual(['1.20.7-trusty-amd64'], old_expected.keys())
         self.assertIs(None, missing_errors)
 
-    def test_check_expected_tools_failed_retracted_old(self):
+    def test_check_expected_tools_failed_removed_old(self):
         old_tools = make_tools_data(
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools = make_tools_data(
@@ -244,7 +244,7 @@ class ValidateStreams(TestCase):
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.20.9'])
         new_tools['1.20.7-trusty-amd64']['sha256'] = 'bad_sum'
         message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+            old_tools, new_tools, 'proposed', '1.20.9', removed=None)
         self.assertEqual(
             ['Tool 1.20.7-trusty-amd64 sha256 changed from '
              'valid_sum to bad_sum'],
@@ -256,7 +256,7 @@ class ValidateStreams(TestCase):
         with patch("validate_streams.check_expected_tools",
                    return_value=(new_tools, 'foo', old_tools, None)) as mock:
             message = compare_tools(
-                old_tools, new_tools, 'proposed', '1.20.9', retracted=None)
+                old_tools, new_tools, 'proposed', '1.20.9', removed=None)
             mock.assert_called_with(old_tools, new_tools, '1.20.9', None)
         self.assertEqual(['foo'], message)
 
@@ -267,17 +267,17 @@ class ValidateStreams(TestCase):
             'trusty', 'amd64', ['1.20.7', '1.20.8', '1.21-alpha1'])
         # Devel versions can go to devel
         message = compare_tools(
-            old_tools, new_tools, 'devel', '1.21-alpha1', retracted=None)
+            old_tools, new_tools, 'devel', '1.21-alpha1', removed=None)
         self.assertIs(None, message)
         # Devel versions cannot be proposed.
         message = compare_tools(
-            old_tools, new_tools, 'proposed', '1.21-alpha1', retracted=None)
+            old_tools, new_tools, 'proposed', '1.21-alpha1', removed=None)
         expected = (
             "Devel versions in proposed stream: ['1.21-alpha1-trusty-amd64']")
         self.assertEqual([expected], message)
         # Devel versions cannot be release.
         message = compare_tools(
-            old_tools, new_tools, 'release', '1.21-alpha1', retracted=None)
+            old_tools, new_tools, 'release', '1.21-alpha1', removed=None)
         expected = (
             "Devel versions in release stream: ['1.21-alpha1-trusty-amd64']")
         self.assertEqual([expected], message)

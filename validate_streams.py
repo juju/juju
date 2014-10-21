@@ -111,7 +111,7 @@ def check_tools_content(old_tools, new_tools):
                     name, old_key, old_val, new_val)
 
 
-def compare_tools(old_tools, new_tools, purpose, added=None, retracted=None):
+def compare_tools(old_tools, new_tools, purpose, added=None, removed=None):
     """Return a tuple of an exit code and an explanation.
 
     An exit code of 1 will have a list of strings explaining the problems.
@@ -121,7 +121,7 @@ def compare_tools(old_tools, new_tools, purpose, added=None, retracted=None):
     devel_versions = check_devel_not_stable(old_tools, new_tools, purpose)
     if devel_versions:
         errors.append(devel_versions)
-    tools = check_expected_tools(old_tools, new_tools, added, retracted)
+    tools = check_expected_tools(old_tools, new_tools, added, removed)
     new_expected, extra_errors, old_expected, missing_errors = tools
     if missing_errors:
         errors.append(missing_errors)
@@ -140,7 +140,7 @@ def parse_args(args=None):
         '-v', '--verbose', action="store_true", default=False,
         help='Increse verbosity.')
     parser.add_argument(
-        '-r', '--retracted', default=None, help='The release version removed')
+        '-r', '--removed', default=None, help='The release version removed')
     parser.add_argument(
         '-a', '--added', default=None, help="The release version added")
     parser.add_argument('purpose', help="<{}>".format(' | '.join(PURPOSES)))
