@@ -166,8 +166,12 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 }
 
 // SupportAddressAllocation is specified on the EnvironCapability interface.
-func (e *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
+func (env *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	caps, err := env.getCapabilities()
+	if err != nil {
+		return false, errors.Annotatef(err, "getCapabilities failed")
+	}
+	return caps.Contains(capStaticIPAddresses), nil
 }
 
 // allBootImages queries MAAS for all of the boot-images across
@@ -403,7 +407,10 @@ func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, 
 	return err
 }
 
-const capNetworksManagement = "networks-management"
+const (
+	capNetworksManagement = "networks-management"
+	capStaticIPAddresses  = "static-ipaddresses"
+)
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
