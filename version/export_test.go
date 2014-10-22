@@ -21,3 +21,9 @@ func SetSeriesVersions(value map[string]string) func() {
 		updatedseriesVersions = origUpdated
 	}
 }
+
+func SetDistroInfo(s string) func() {
+	origDistro := distroInfo
+	distroInfo = s
+	return func() { distroInfo = origDistro }
+}

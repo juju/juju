@@ -71,6 +71,8 @@ var windowsVersions = map[string]string{
 	"Windows 8.1":                    "win81",
 }
 
+var distroInfo = "/usr/share/distro-info/ubuntu.csv"
+
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
 func GetOSFromSeries(series string) (OSType, error) {
@@ -155,7 +157,7 @@ func updateSeriesVersions() {
 func updateDistroInfo() error {
 	// We need to find the series version eg 12.04 from the series eg precise. Use the information found in
 	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
-	f, err := os.Open("/usr/share/distro-info/ubuntu.csv")
+	f, err := os.Open(distroInfo)
 	if err != nil {
 		// On non-Ubuntu systems this file won't exist but that's expected.
 		return nil
