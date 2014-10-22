@@ -204,9 +204,9 @@ func (s *UserSuite) TestAllUsers(c *gc.C) {
 	// Create in non-alphabetical order.
 	s.factory.MakeUser(c, &factory.UserParams{Name: "conrad"})
 	s.factory.MakeUser(c, &factory.UserParams{Name: "adam"})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "debbie", Deactivated: true})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "debbie", Disabled: true})
 	s.factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
-	s.factory.MakeUser(c, &factory.UserParams{Name: "fred", Deactivated: true})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
 	s.factory.MakeUser(c, &factory.UserParams{Name: "erica"})
 	// There is the existing state server owner called "test-admin"
 
