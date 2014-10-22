@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -396,7 +397,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (hctx *context.HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
@@ -405,7 +406,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	if err != nil {
 		return nil, err
 	}
-	ctxRelations := map[int]*ContextRelation{}
+	ctxRelations := map[int]*context.ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
@@ -419,12 +420,12 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 
-	var actionData *actionData
+	var actionData *context.ActionData
 	if actionTag != nil {
-		actionData = newActionData(actionTag, actionParams)
+		actionData = context.NewActionData(actionTag, actionParams)
 	}
 
-	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
+	return context.NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
 		canAddMetrics, actionData, u.assignedMachineTag)
 }
@@ -447,13 +448,13 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 	return nil
 }
 
-func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, error) {
+func (u *Uniter) startJujucServer(context *context.HookContext) (*jujuc.Server, string, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		// TODO: switch to long-running server with single context;
 		// use nonce in place of context id.
-		if ctxId != context.id {
-			return nil, fmt.Errorf("expected context id %q, got %q", context.id, ctxId)
+		if ctxId != context.Id() {
+			return nil, fmt.Errorf("expected context id %q, got %q", context.Id(), ctxId)
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
@@ -494,7 +495,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	return result, err
 }
 
-func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {
+func (u *Uniter) notifyHookInternal(hook string, hctx *context.HookContext, method func(string)) {
 	if r, ok := hctx.HookRelation(); ok {
 		remote, _ := hctx.RemoteUnitName()
 		if remote != "" {
@@ -505,13 +506,13 @@ func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(
 	method(hook)
 }
 
-func (u *Uniter) notifyHookCompleted(hook string, hctx *HookContext) {
+func (u *Uniter) notifyHookCompleted(hook string, hctx *context.HookContext) {
 	if u.observer != nil {
 		u.notifyHookInternal(hook, hctx, u.observer.HookCompleted)
 	}
 }
 
-func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
+func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 	if u.observer != nil {
 		u.notifyHookInternal(hook, hctx, u.observer.HookFailed)
 	}
@@ -601,7 +602,11 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
-	logger.Infof(hctx.actionData.ResultsMessage)
+	message, err := hctx.ActionMessage()
+	if err != nil {
+		return err
+	}
+	logger.Infof(message)
 	u.notifyHookCompleted(actionName, hctx)
 	return u.commitHook(hi)
 }
@@ -655,7 +660,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	ranHook := true
 	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 
-	if IsMissingHookError(err) {
+	if context.IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
