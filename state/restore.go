@@ -77,7 +77,7 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 		return errors.Errorf("cannot set restore status to %q: Another "+
 			"status change occurred concurrently", status)
 	}
-	return errors.Annotate(err, "cannot set restore status to %q", status)
+	return errors.Annotatef(err, "cannot set restore status to %q", status)
 }
 
 // EnsureRestoreInfo returns the current info doc, if it does not exists
