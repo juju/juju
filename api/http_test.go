@@ -4,75 +4,41 @@
 package api_test
 
 import (
-	"bytes"
-	"encoding/base64"
-	"io/ioutil"
 	"net/http"
 
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/base"
+	apihttp "github.com/juju/juju/api/http"
+	apihttptesting "github.com/juju/juju/api/http/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 )
 
-type fakeHTTPClient struct {
-	calls []string
-
-	response *http.Response
-	err      error
-
-	reqArg *http.Request
-}
-
-func (d *fakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	d.calls = append(d.calls, "Do")
-	d.reqArg = req
-	return d.response, d.err
-}
-
 type httpSuite struct {
+	apihttptesting.BaseSuite
 	jujutesting.JujuConnSuite
-	fake *fakeHTTPClient
 }
 
 var _ = gc.Suite(&httpSuite{})
 
 func (s *httpSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 
-	resp := http.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(&bytes.Buffer{}),
-	}
-
-	fake := fakeHTTPClient{
-		response: &resp,
-	}
-	s.fake = &fake
-
+	// This determines the client used in SendHTTPRequest().
 	s.PatchValue(api.NewHTTPClient,
-		func(*api.State) api.HTTPClient {
-			return s.fake
+		func(*api.State) apihttp.HTTPClient {
+			return s.Fake
 		},
 	)
 }
 
-func (s *httpSuite) checkRequest(c *gc.C, req *base.HTTPRequest, method, path string) {
-	// Only check API-related request fields.
-
-	c.Check(req.Method, gc.Equals, method)
-
-	url := `https://localhost:\d+/environment/[-0-9a-f]+/` + path
-	c.Check(req.URL.String(), gc.Matches, url)
-
-	c.Assert(req.Header, gc.HasLen, 1)
+func (s *httpSuite) checkRequest(c *gc.C, req *apihttp.Request, method, pth string) {
 	username := dummy.AdminUserTag().String()
 	password := jujutesting.AdminSecret
-	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + password))
-	c.Check(req.Header.Get("Authorization"), gc.Equals, "Basic "+auth)
+	hostname := "localhost"
+	s.CheckRequest(c, req, method, username, password, hostname, pth)
 }
 
 func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
@@ -83,10 +49,7 @@ func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
 }
 
 func (s *httpSuite) TestNewHTTPClientCorrectTransport(c *gc.C) {
-	apiHTTPClient := s.APIState.NewHTTPClient()
-
-	c.Assert(apiHTTPClient, gc.FitsTypeOf, (*http.Client)(nil))
-	httpClient := apiHTTPClient.(*http.Client)
+	httpClient := s.APIState.NewHTTPClient()
 
 	c.Assert(httpClient.Transport, gc.NotNil)
 	c.Assert(httpClient.Transport, gc.FitsTypeOf, (*http.Transport)(nil))
@@ -110,7 +73,5 @@ func (s *httpSuite) TestSendHTTPRequestSuccess(c *gc.C) {
 	resp, err := s.APIState.SendHTTPRequest(req)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(s.fake.calls, gc.DeepEquals, []string{"Do"})
-	c.Check(s.fake.reqArg, gc.Equals, &req.Request)
-	c.Check(resp, gc.Equals, s.fake.response)
+	s.Fake.CheckCalled(c, &req.Request, resp)
 }
