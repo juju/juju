@@ -334,15 +334,12 @@ func fetchAgentConfigFromBackup(agentConf io.Reader) (agentConfig, error) {
 	}, nil
 }
 
-// updateAllMachines finds all machines and resets the stored state address
-// in each of them. The address does not include the port.
-func updateAllMachines(privateAddress string, agentConf agentConfig) error {
-	privateHostPorts := fmt.Sprintf("%s:%s", privateAddress, agentConf.statePort)
+func newStateConnection(agentConf agentConfig) (*state.State, error){
 	caCert := agentConf.cACert
 	// TODO(dfc) agenConf.credentials should supply a Tag
 	tag, err := names.ParseTag(agentConf.credentials.tag)
 	if err != nil {
-		return err
+		return nil, errors.Annotate(err, "cannot obtain tag from agent config")
 	}
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
@@ -363,9 +360,15 @@ func updateAllMachines(privateAddress string, agentConf agentConfig) error {
 		}
 		logger.Errorf("cannot open state, retrying: %v", err)
 	}
-	if err != nil {
-		return errors.Annotate(err, "cannot open state")
-	}
+
+	return st, errors.Annotate(err, "cannot open state")
+
+}
+
+// updateAllMachines finds all machines and resets the stored state address
+// in each of them. The address does not include the port.
+func updateAllMachines(privateAddress string, agentConf agentConfig,  st *state.State) error {
+	privateHostPorts := fmt.Sprintf("%s:%s", privateAddress, agentConf.statePort)
 
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -538,9 +541,24 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 	if err != nil {
 		return errors.Annotate(err, "cannot update mongo entries")
 	}
-	err = updateAllMachines(privateAddress, agentConf)
+
+	st, err := newStateConnection(agentConf) 
 	if err != nil {
-		return fmt.Errorf("cannot update agents: %v", err)
+		return errors.Trace(err)
 	}
-	return nil
+	defer st.Close()
+
+	err = updateAllMachines(privateAddress, agentConf, st)
+	if err != nil {
+		return errors.Annotate(err, "cannot update agents")
+	}
+
+	rInfo, err := st.EnsureRestoreInfo()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = rInfo.SetStatus(state.RestoreFinished)
+
+	return errors.Annotate(err, "failed to set status to finished")
 }

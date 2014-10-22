@@ -78,12 +78,6 @@ const restoreAPIIncompatibility = "server version not compatible for " +
 func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 
 	fileName := filepath.Base(c.filename)
-	if err := client.PrepareRestore(); err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.Errorf(restoreAPIIncompatibility)
-		}
-		return errors.Trace(err)
-	}
 	if err := client.Restore(fileName, c.backupId); err != nil {
 
 		if params.IsCodeNotImplemented(err) {
@@ -179,6 +173,14 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := client.PrepareRestore(); err != nil {
+		if params.IsCodeNotImplemented(err) {
+			return errors.Errorf(restoreAPIIncompatibility)
+		}
+		return errors.Trace(err)
+	}
+
 	defer client.Close()
 	if c.filename != "" {
 		if err := c.doUpload(client); err != nil {

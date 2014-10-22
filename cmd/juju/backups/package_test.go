@@ -172,3 +172,19 @@ func (c *fakeAPIClient) Remove(id string) error {
 func (c *fakeAPIClient) Close() error {
 	return nil
 }
+
+func (c *fakeAPIClient) PrepareRestore() error {
+	return nil
+}
+
+func (c *fakeAPIClient) FinishRestore() error {
+	return nil
+}
+
+func (c *fakeAPIClient) Restore(string, string) error {
+	return nil
+}
+
+func (c *fakeAPIClient) PublicAddress(string) (string, error) {
+	return "", nil
+}

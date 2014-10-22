@@ -41,7 +41,6 @@ type Server struct {
 	logDir            string
 	limiter           utils.Limiter
 	validator         LoginValidator
-	restoreContext    RestoreContext
 	adminApiFactories map[int]adminApiFactory
 
 	mu          sync.Mutex // protects the fields that follow
@@ -53,14 +52,6 @@ type Server struct {
 // checked.
 type LoginValidator func(params.LoginRequest) error
 
-// RestoreContext is intended to be passed as a control mechanism
-// for stopping and starting agent Logins when restoring.
-type RestoreContext interface {
-	PrepareRestore() error
-	BeginRestore() error
-	FinishRestore() error
-	HandleCall(string, string) error
-}
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
@@ -69,7 +60,6 @@ type ServerConfig struct {
 	DataDir        string
 	LogDir         string
 	Validator      LoginValidator
-	RestoreContext RestoreContext
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -92,7 +82,6 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		logDir:         cfg.LogDir,
 		limiter:        utils.NewLimiter(loginRateLimit),
 		validator:      cfg.Validator,
-		restoreContext: cfg.RestoreContext,
 		adminApiFactories: map[int]adminApiFactory{
 			0: newAdminApiV0,
 			1: newAdminApiV1,
