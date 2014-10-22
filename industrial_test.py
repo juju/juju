@@ -264,7 +264,7 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    stages = [BootstrapAttempt, DeployManyAttempt,
+    stages = [BootstrapAttempt, DeployManyAttempt, EnsureAvailabilityAttempt,
               DestroyEnvironmentAttempt]
     mit = MultiIndustrialTest(args.env, args.new_juju_path,
                               stages, args.attempts)
