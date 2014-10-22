@@ -34,7 +34,7 @@ func (s *DisableUserSuite) enableUserCommand() cmd.Command {
 
 func (s *DisableUserSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(user.GetDisableUserAPI, func(*user.DisableUserBase) (user.DisenableUserAPI, error) {
+	s.PatchValue(user.GetDisableUserAPI, func(*user.DisenableUserBase) (user.DisenableUserAPI, error) {
 		return &s.mock, nil
 	})
 }
