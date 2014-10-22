@@ -797,10 +797,8 @@ func (s *NoneModeSuite) TearDownTest(c *gc.C) {
 	s.firewallerBaseSuite.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *NoneModeSuite) TestStopsAfterGettingMode(c *gc.C) {
+func (s *NoneModeSuite) TestDoesNotStartAtAll(c *gc.C) {
 	fw, err := firewaller.NewFirewaller(s.firewaller)
-	c.Assert(err, gc.IsNil)
-	c.Assert(fw, gc.NotNil)
-	fw.Kill()
-	c.Assert(fw.Wait(), gc.ErrorMatches, `firewaller is disabled when firewall-mode is "none"`)
+	c.Assert(err, gc.ErrorMatches, `firewaller is disabled when firewall-mode is "none"`)
+	c.Assert(fw, gc.IsNil)
 }

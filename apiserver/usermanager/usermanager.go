@@ -4,8 +4,6 @@
 package usermanager
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -23,45 +21,11 @@ func init() {
 
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
-	AddUser(arg ModifyUsers) (params.ErrorResults, error)
-	RemoveUser(arg params.Entities) (params.ErrorResults, error)
-	SetPassword(args ModifyUsers) (params.ErrorResults, error)
-}
-
-// UserInfo holds information on a user.
-type UserInfo struct {
-	Username       string     `json:username`
-	DisplayName    string     `json:display-name`
-	CreatedBy      string     `json:created-by`
-	DateCreated    time.Time  `json:date-created`
-	LastConnection *time.Time `json:last-connection`
-}
-
-// UserInfoResult holds the result of a UserInfo call.
-type UserInfoResult struct {
-	Result *UserInfo     `json:result,omitempty`
-	Error  *params.Error `json:error,omitempty`
-}
-
-// UserInfoResults holds the result of a bulk UserInfo API call.
-type UserInfoResults struct {
-	Results []UserInfoResult
-}
-
-// ModifyUsers holds the parameters for making a UserManager Add or Modify calls.
-type ModifyUsers struct {
-	Changes []ModifyUser
-}
-
-// ModifyUser stores the parameters used for a UserManager.Add|Remove call.
-type ModifyUser struct {
-	// Tag is here purely for backwards compatability. Older clients will
-	// attempt to use the EntityPassword structure, so we need a Tag here
-	// (which will be treated as Username)
-	Tag         string
-	Username    string
-	DisplayName string
-	Password    string
+	AddUser(args params.AddUsers) (params.AddUserResults, error)
+	DisableUser(args params.Entities) (params.ErrorResults, error)
+	EnableUser(args params.Entities) (params.ErrorResults, error)
+	SetPassword(args params.EntityPasswords) (params.ErrorResults, error)
+	UserInfo(args params.UserInfoRequest) (params.UserInfoResults, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -88,135 +52,171 @@ func NewUserManagerAPI(
 	}, nil
 }
 
-// AddUser adds a user.
-func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Changes)),
+func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
+	// TODO(thumper): PERMISSIONS Change this permission check when we have
+	// real permissions. For now, only the owner of the initial environment is
+	// able to add users.
+	initialEnv, err := api.state.InitialEnvironment()
+	if err != nil {
+		return errors.Trace(err)
 	}
-	if len(args.Changes) == 0 {
+	if user != initialEnv.Owner() {
+		return errors.Trace(common.ErrPerm)
+	}
+	return nil
+}
+
+// AddUser adds a user.
+func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults, error) {
+	result := params.AddUserResults{
+		Results: make([]params.AddUserResult, len(args.Users)),
+	}
+	if len(args.Users) == 0 {
 		return result, nil
 	}
-	user, err := api.getLoggedInUser()
+	loggedInUser, err := api.getLoggedInUser()
 	if err != nil {
 		return result, errors.Wrap(err, common.ErrPerm)
 	}
-	for i, arg := range args.Changes {
-		username := arg.Username
-		if username == "" {
-			username = arg.Tag
-		}
-		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password, user.Id())
+	// TODO(thumper): PERMISSIONS Change this permission check when we have
+	// real permissions. For now, only the owner of the initial environment is
+	// able to add users.
+	if err := api.permissionCheck(loggedInUser); err != nil {
+		return result, errors.Trace(err)
+	}
+	for i, arg := range args.Users {
+		user, err := api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, loggedInUser.Id())
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
-			continue
+		} else {
+			result.Results[i].Tag = user.Tag().String()
 		}
 	}
 	return result, nil
 }
 
-// RemoveUser removes a user.
-func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults, error) {
+func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
+	userTag, err := names.ParseUserTag(tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	user, err := api.state.User(userTag)
+	if err != nil {
+		return nil, errors.Wrap(err, common.ErrPerm)
+	}
+	return user, nil
+}
+
+// EnableUser enables one or more users.  If the user is already enabled,
+// the action is consided a success.
+func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
+	return api.enableUserImpl(users, "enable", (*state.User).Enable)
+}
+
+// DisableUser disables one or more users.  If the user is already disabled,
+// the action is consided a success.
+func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
+	return api.enableUserImpl(users, "disable", (*state.User).Disable)
+}
+
+func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
+	loggedInUser, err := api.getLoggedInUser()
+	if err != nil {
+		return result, errors.Wrap(err, common.ErrPerm)
+	}
+	// TODO(thumper): PERMISSIONS Change this permission check when we have
+	// real permissions. For now, only the owner of the initial environment is
+	// able to add users.
+	if err := api.permissionCheck(loggedInUser); err != nil {
+		return result, errors.Trace(err)
+	}
+
 	for i, arg := range args.Entities {
-		if !names.IsValidUserName(arg.Tag) {
-			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
+		user, err := api.getUser(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		user, err := api.state.User(names.NewLocalUserTag(arg.Tag))
+		err = method(user)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		err = user.Deactivate()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Errorf("Failed to remove user: %s", err))
-			continue
+			result.Results[i].Error = common.ServerError(errors.Errorf("failed to %s user: %s", action, err))
 		}
 	}
 	return result, nil
 }
 
 // UserInfo returns information on a user.
-func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, error) {
-	results := UserInfoResults{
-		Results: make([]UserInfoResult, len(args.Entities)),
+func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
+	// TODO(thumper): If no specific users are specified
+	// we need to return all the users in the database,
+	// just showing the enabled ones unless specified.
+	results := params.UserInfoResults{
+		Results: make([]params.UserInfoResult, len(request.Entities)),
 	}
 
-	for i, userArg := range args.Entities {
-		tag, err := names.ParseUserTag(userArg.Tag)
+	for i, arg := range request.Entities {
+		user, err := api.getUser(arg.Tag)
 		if err != nil {
-			results.Results[0].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		user, err := api.state.User(tag)
-		var result UserInfoResult
-		if err != nil {
-			if errors.IsNotFound(err) {
-				result.Error = common.ServerError(common.ErrPerm)
-			} else {
-				result.Error = common.ServerError(err)
-			}
-		} else {
-			info := UserInfo{
-				Username:       tag.Name(),
+		results.Results[i] = params.UserInfoResult{
+			Result: &params.UserInfo{
+				Username:       user.Name(),
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
 				LastConnection: user.LastLogin(),
-			}
-			result.Result = &info
+				Disabled:       user.IsDisabled(),
+			},
 		}
-		results.Results[i] = result
 	}
 
 	return results, nil
 }
 
-func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, error) {
+func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.EntityPassword, adminUser bool) error {
+	user, err := api.getUser(arg.Tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if loggedInUser != user.UserTag() && !adminUser {
+		return errors.Trace(common.ErrPerm)
+	}
+	if arg.Password == "" {
+		return errors.New("can not use an empty password")
+	}
+	err = user.SetPassword(arg.Password)
+	if err != nil {
+		return errors.Annotate(err, "failed to set password")
+	}
+	return nil
+}
+
+// SetPassword changes the stored password for the specified users.
+func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
+	loggedInUser, err := api.getLoggedInUser()
+	if err != nil {
+		return result, common.ErrPerm
+	}
+	permErr := api.permissionCheck(loggedInUser)
+	adminUser := permErr == nil
 	for i, arg := range args.Changes {
-		loggedInUser, err := api.getLoggedInUser()
-		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		username := arg.Username
-		if username == "" {
-			username = arg.Tag
-		}
-
-		if !names.IsValidUserName(username) {
-			result.Results[i].Error = common.ServerError(errors.Errorf("%q is not a valid username", arg.Tag))
-			continue
-		}
-		searchTag := names.NewLocalUserTag(username)
-		if loggedInUser != searchTag {
-			result.Results[i].Error = common.ServerError(errors.Errorf("can only change the password of the current user (%s)", loggedInUser.Id()))
-			continue
-		}
-
-		argUser, err := api.state.User(searchTag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "failed to find user"))
-			continue
-		}
-
-		err = argUser.SetPassword(arg.Password)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Annotate(err, "failed to set password"))
-			continue
+		if err := api.setPassword(loggedInUser, arg, adminUser); err != nil {
+			result.Results[i].Error = common.ServerError(err)
 		}
 	}
 	return result, nil

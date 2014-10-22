@@ -662,8 +662,12 @@ func (suite *environSuite) TestGetNetworkMACs(c *gc.C) {
 
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_1"}`)
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node_2"}`)
-	suite.testMAASObject.TestServer.NewNetwork(`{"name": "net_1"}`)
-	suite.testMAASObject.TestServer.NewNetwork(`{"name": "net_2"}`)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_1","ip":"0.1.2.0","netmask":"255.255.255.0"}`,
+	)
+	suite.testMAASObject.TestServer.NewNetwork(
+		`{"name": "net_2","ip":"0.2.2.0","netmask":"255.255.255.0"}`,
+	)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_2", "aa:bb:cc:dd:ee:22")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_1", "net_1", "aa:bb:cc:dd:ee:11")
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node_2", "net_1", "aa:bb:cc:dd:ee:21")
@@ -864,6 +868,13 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	env := suite.makeEnviron()
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
+}
+
+func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := suite.makeEnviron()
+	supported, err := env.SupportAddressAllocation("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(supported, jc.IsTrue)
 }
 
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {

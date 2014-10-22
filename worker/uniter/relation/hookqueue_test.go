@@ -1,12 +1,12 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package relation_test
 
 import (
-	stdtesting "testing"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
@@ -15,8 +15,6 @@ import (
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
-
-func Test(t *stdtesting.T) { coretesting.MgoTestPackage(t) }
 
 type HookQueueSuite struct{}
 
@@ -236,6 +234,7 @@ func (w *RUW) Err() error {
 
 type checker interface {
 	check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info)
+	checkDirect(c *gc.C, q relation.HookSource)
 }
 
 type send struct {
@@ -243,7 +242,7 @@ type send struct {
 	departed []string
 }
 
-func (d send) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
+func (d send) event() params.RelationUnitsChange {
 	ruc := params.RelationUnitsChange{Changed: map[string]params.UnitSettings{}}
 	for name, version := range d.changed {
 		ruc.Changed[name] = params.UnitSettings{Version: version}
@@ -251,7 +250,15 @@ func (d send) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.I
 	for _, name := range d.departed {
 		ruc.Departed = append(ruc.Departed, name)
 	}
-	in <- ruc
+	return ruc
+}
+
+func (d send) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
+	in <- d.event()
+}
+
+func (d send) checkDirect(c *gc.C, q relation.HookSource) {
+	q.Update(d.event())
 }
 
 type advance struct {
@@ -268,10 +275,26 @@ func (d advance) check(c *gc.C, in chan params.RelationUnitsChange, out chan hoo
 	}
 }
 
+func (d advance) checkDirect(c *gc.C, q relation.HookSource) {
+	for i := 0; i < d.count; i++ {
+		c.Assert(q.Empty(), jc.IsFalse)
+		q.Pop()
+	}
+}
+
 type expect struct {
 	hook    hooks.Kind
 	unit    string
 	version int64
+}
+
+func (d expect) info() hook.Info {
+	return hook.Info{
+		Kind:          d.hook,
+		RelationId:    21345,
+		RemoteUnit:    d.unit,
+		ChangeVersion: d.version,
+	}
 }
 
 func (d expect) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
@@ -283,16 +306,20 @@ func (d expect) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook
 		}
 		return
 	}
-	expect := hook.Info{
-		Kind:          d.hook,
-		RelationId:    21345,
-		RemoteUnit:    d.unit,
-		ChangeVersion: d.version,
-	}
 	select {
 	case actual := <-out:
-		c.Assert(actual, gc.DeepEquals, expect)
+		c.Assert(actual, jc.DeepEquals, d.info())
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for %#v", expect)
+		c.Fatalf("timed out waiting for %#v", d.info())
+	}
+}
+
+func (d expect) checkDirect(c *gc.C, q relation.HookSource) {
+	if d.hook == "" {
+		c.Check(q.Empty(), jc.IsTrue)
+	} else {
+		c.Check(q.Empty(), jc.IsFalse)
+		c.Check(q.Next(), jc.DeepEquals, d.info())
+		q.Pop()
 	}
 }

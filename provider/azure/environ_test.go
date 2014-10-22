@@ -219,6 +219,12 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
+func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
+}
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)

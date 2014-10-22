@@ -34,8 +34,10 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
+	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
 )
 
@@ -87,17 +89,17 @@ type Uniter struct {
 	uuid               string
 	envName            string
 
-	dataDir      string
-	baseDir      string
-	toolsDir     string
-	relationsDir string
-	charmPath    string
-	deployer     charm.Deployer
-	s            *State
-	sf           *StateFile
-	rand         *rand.Rand
-	hookLock     *fslock.Lock
-	runListener  *RunListener
+	dataDir            string
+	baseDir            string
+	toolsDir           string
+	relationsDir       string
+	charmPath          string
+	deployer           charm.Deployer
+	operationState     *operation.State
+	operationStateFile *operation.StateFile
+	rand               *rand.Rand
+	hookLock           *fslock.Lock
+	runListener        *RunListener
 
 	proxy      proxyutils.Settings
 	proxyMutex sync.Mutex
@@ -244,7 +246,8 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
-	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
+	operationStateFilePath := filepath.Join(u.baseDir, "state", "uniter")
+	u.operationStateFile = operation.NewStateFile(operationStateFilePath)
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 
 	// If we start trying to listen for juju-run commands before we have valid
@@ -282,49 +285,65 @@ func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
 }
 
-// writeState saves uniter state with the supplied values, and infers the appropriate
-// value of Started.
-func (u *Uniter) writeState(op Op, step OpStep, hi *hook.Info, url *corecharm.URL) error {
+// writeOperationState saves uniter state with the supplied values, inferring
+// the appropriate values of Started and CollectMetricsTime.
+func (u *Uniter) writeOperationState(kind operation.Kind, step operation.Step, hi *hook.Info, url *corecharm.URL) error {
 	var collectMetricsTime int64 = 0
-	if hi != nil && hi.Kind == hooks.CollectMetrics && step == Done {
+	if hi != nil && hi.Kind == hooks.CollectMetrics && step == operation.Done {
 		// update collectMetricsTime if the collect-metrics hook was run
 		collectMetricsTime = time.Now().Unix()
-	} else if u.s != nil {
+	} else if u.operationState != nil {
 		// or preserve existing value
-		collectMetricsTime = u.s.CollectMetricsTime
+		collectMetricsTime = u.operationState.CollectMetricsTime
 	}
 
-	s := State{
-		Started:            op == RunHook && hi.Kind == hooks.Start || u.s != nil && u.s.Started,
-		Op:                 op,
-		OpStep:             step,
+	reachedStartHook := false
+	if kind == operation.RunHook && hi.Kind == hooks.Start {
+		reachedStartHook = true
+	} else if u.operationState != nil && u.operationState.Started {
+		reachedStartHook = true
+	}
+	operationState := operation.State{
+		Started:            reachedStartHook,
+		Kind:               kind,
+		Step:               step,
 		Hook:               hi,
 		CharmURL:           url,
 		CollectMetricsTime: collectMetricsTime,
 	}
-	if err := u.sf.Write(s.Started, s.Op, s.OpStep, s.Hook, s.CharmURL, s.CollectMetricsTime); err != nil {
+	if err := u.operationStateFile.Write(
+		operationState.Started,
+		operationState.Kind,
+		operationState.Step,
+		operationState.Hook,
+		operationState.CharmURL,
+		operationState.CollectMetricsTime,
+	); err != nil {
 		return err
 	}
-	u.s = &s
+	u.operationState = &operationState
 	return nil
 }
 
 // deploy deploys the supplied charm URL, and sets follow-up hook operation state
 // as indicated by reason.
-func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
-	if reason != Install && reason != Upgrade {
+func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
+	if reason != operation.Install && reason != operation.Upgrade {
 		panic(fmt.Errorf("%q is not a deploy operation", reason))
 	}
 	var hi *hook.Info
-	if u.s != nil && (u.s.Op == RunHook || u.s.Op == Upgrade) {
+	if u.operationState != nil {
 		// If this upgrade interrupts a RunHook, we need to preserve the hook
 		// info so that we can return to the appropriate error state. However,
 		// if we're resuming (or have force-interrupted) an Upgrade, we also
 		// need to preserve whatever hook info was preserved when we initially
 		// started upgrading, to ensure we still return to the correct state.
-		hi = u.s.Hook
+		kind := u.operationState.Kind
+		if kind == operation.RunHook || kind == operation.Upgrade {
+			hi = u.operationState.Hook
+		}
 	}
-	if u.s == nil || u.s.OpStep != Done {
+	if u.operationState == nil || u.operationState.Step != operation.Done {
 		// Get the new charm bundle before announcing intention to use it.
 		logger.Infof("fetching charm %q", curl)
 		sch, err := u.st.Charm(curl)
@@ -346,39 +365,39 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 			return err
 		}
 		logger.Infof("deploying charm %q", curl)
-		if err = u.writeState(reason, Pending, hi, curl); err != nil {
+		if err = u.writeOperationState(reason, operation.Pending, hi, curl); err != nil {
 			return err
 		}
 		if err = u.deployer.Deploy(); err != nil {
 			return err
 		}
-		if err = u.writeState(reason, Done, hi, curl); err != nil {
+		if err = u.writeOperationState(reason, operation.Done, hi, curl); err != nil {
 			return err
 		}
 	}
 	logger.Infof("charm %q is deployed", curl)
-	status := Queued
+	status := operation.Queued
 	if hi != nil {
 		// If a hook operation was interrupted, restore it.
-		status = Pending
+		status = operation.Pending
 	} else {
 		// Otherwise, queue the relevant post-deploy hook.
 		hi = &hook.Info{}
 		switch reason {
-		case Install:
+		case operation.Install:
 			hi.Kind = hooks.Install
-		case Upgrade:
+		case operation.Upgrade:
 			hi.Kind = hooks.UpgradeCharm
 		}
 	}
-	return u.writeState(RunHook, status, hi, nil)
+	return u.writeOperationState(operation.RunHook, status, hi, nil)
 }
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (hctx *context.HookContext, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
@@ -387,7 +406,7 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	if err != nil {
 		return nil, err
 	}
-	ctxRelations := map[int]*ContextRelation{}
+	ctxRelations := map[int]*context.ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
@@ -401,12 +420,12 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 
-	var actionData *actionData
+	var actionData *context.ActionData
 	if actionTag != nil {
-		actionData = newActionData(actionTag, actionParams)
+		actionData = context.NewActionData(actionTag, actionParams)
 	}
 
-	return NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
+	return context.NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
 		canAddMetrics, actionData, u.assignedMachineTag)
 }
@@ -429,13 +448,13 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 	return nil
 }
 
-func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, error) {
+func (u *Uniter) startJujucServer(context *context.HookContext) (*jujuc.Server, string, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		// TODO: switch to long-running server with single context;
 		// use nonce in place of context id.
-		if ctxId != context.id {
-			return nil, fmt.Errorf("expected context id %q, got %q", context.id, ctxId)
+		if ctxId != context.Id() {
+			return nil, fmt.Errorf("expected context id %q, got %q", context.Id(), ctxId)
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
@@ -476,7 +495,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	return result, err
 }
 
-func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(string)) {
+func (u *Uniter) notifyHookInternal(hook string, hctx *context.HookContext, method func(string)) {
 	if r, ok := hctx.HookRelation(); ok {
 		remote, _ := hctx.RemoteUnitName()
 		if remote != "" {
@@ -487,13 +506,13 @@ func (u *Uniter) notifyHookInternal(hook string, hctx *HookContext, method func(
 	method(hook)
 }
 
-func (u *Uniter) notifyHookCompleted(hook string, hctx *HookContext) {
+func (u *Uniter) notifyHookCompleted(hook string, hctx *context.HookContext) {
 	if u.observer != nil {
 		u.notifyHookInternal(hook, hctx, u.observer.HookCompleted)
 	}
 }
 
-func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
+func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 	if u.observer != nil {
 		u.notifyHookInternal(hook, hctx, u.observer.HookFailed)
 	}
@@ -580,10 +599,14 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
-	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
-	logger.Infof(hctx.actionData.ResultsMessage)
+	message, err := hctx.ActionMessage()
+	if err != nil {
+		return err
+	}
+	logger.Infof(message)
 	u.notifyHookCompleted(actionName, hctx)
 	return u.commitHook(hi)
 }
@@ -629,7 +652,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	defer srv.Close()
 
 	// Run the hook.
-	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.RunHook, operation.Pending, &hi, nil); err != nil {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
@@ -637,14 +660,14 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	ranHook := true
 	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 
-	if IsMissingHookError(err) {
+	if context.IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
-	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
 	if ranHook {
@@ -671,7 +694,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 	if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
-	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
+	if err := u.writeOperationState(operation.Continue, operation.Pending, &hi, nil); err != nil {
 		return err
 	}
 	logger.Infof("committed %q hook", hi.Kind)
@@ -680,7 +703,7 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 
 // currentHookName returns the current full hook name.
 func (u *Uniter) currentHookName() string {
-	hookInfo := u.s.Hook
+	hookInfo := u.operationState.Hook
 	hookName := string(hookInfo.Kind)
 	if hookInfo.Kind.IsRelation() {
 		relationer := u.relationers[hookInfo.RelationId]

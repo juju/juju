@@ -74,7 +74,7 @@ func (s *factorySuite) TearDownTest(c *gc.C) {
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	user := s.Factory.MakeUser(c, nil)
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
 
 	saved, err := s.State.User(user.UserTag())
 	c.Assert(err, gc.IsNil)
@@ -84,7 +84,7 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
-	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
+	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
 }
 
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
@@ -98,7 +98,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 		Creator:     creator.Tag(),
 		Password:    password,
 	})
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.Name(), gc.Equals, username)
 	c.Assert(user.DisplayName(), gc.Equals, displayName)
 	c.Assert(user.CreatedBy(), gc.Equals, creator.UserTag().Name())
@@ -112,7 +112,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
-	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
+	c.Assert(saved.IsDisabled(), gc.Equals, user.IsDisabled())
 
 	_, err = s.State.EnvironmentUser(user.UserTag())
 	c.Assert(err, gc.IsNil)

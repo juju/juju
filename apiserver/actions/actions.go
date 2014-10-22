@@ -44,7 +44,6 @@ func NewActionsAPI(st *state.State, resources *common.Resources, authorizer comm
 // Action.
 func (a *ActionsAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
-	// TODO(jcw4) authorization checks
 	for i, action := range arg.Actions {
 		current := &response.Results[i]
 
@@ -99,7 +98,6 @@ func (a *ActionsAPI) ListCompleted(arg params.Tags) (params.ActionsByReceivers, 
 // Cancel attempts to cancel queued up Actions from running.
 func (a *ActionsAPI) Cancel(arg params.ActionTags) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
-	// TODO(jcw4) authorization checks
 	for i, tag := range arg.Actions {
 		current := &response.Results[i]
 		receiver, err := tagToActionReceiver(a.state, tag.PrefixTag())
@@ -163,7 +161,6 @@ func (a *ActionsAPI) ServicesCharmActions(args params.ServiceTags) (params.Servi
 // ActionReceiver.
 func (a *ActionsAPI) internalList(arg params.Tags, fn extractorFn) (params.ActionsByReceivers, error) {
 	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Tags))}
-	// TODO(jcw4) authorization checks
 	for i, tag := range arg.Tags {
 		current := &response.Actions[i]
 		receiver, err := tagToActionReceiver(a.state, tag)

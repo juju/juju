@@ -140,6 +140,12 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
 }
 
+func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
+	result, err := s.env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)

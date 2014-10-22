@@ -124,7 +124,7 @@ func (s *actionsSuite) TestEnqueue(c *gc.C) {
 			{Receiver: s.wordpressUnit.Tag(), Name: expectedName, Parameters: expectedParameters},
 			// Service tag instead of Unit tag.
 			{Receiver: s.wordpress.Tag(), Name: "baz"},
-			// TODO(jcw4) notice no Name.
+			// TODO(jcw4) notice no Name. Shouldn't Action Names be required?
 			{Receiver: s.mysqlUnit.Tag(), Parameters: expectedParameters},
 		},
 	}
@@ -163,7 +163,7 @@ func (s *actionsSuite) TestEnqueue(c *gc.C) {
 	actions, err = s.mysqlUnit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(actions, gc.HasLen, 1)
-	// TODO(jcw4) notice Action Name empty.
+	// TODO(jcw4) notice Action Name empty. Shouldn't Action Names be required?
 	c.Assert(actions[0].Name(), gc.Equals, "")
 	c.Assert(actions[0].Parameters(), gc.DeepEquals, expectedParameters)
 	c.Assert(actions[0].Receiver(), gc.Equals, s.mysqlUnit.Name())
