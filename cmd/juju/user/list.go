@@ -72,12 +72,14 @@ func (c *ListCommand) formatTabular(value interface{}) ([]byte, error) {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
 	}
 	var out bytes.Buffer
-	// To format things into columns.
-	minwidth := 0
-	tabwidth := 1
-	padding := 2
-	padchar := byte(' ')
-	flags := uint(0)
+	const (
+		// To format things into columns.
+		minwidth      = 0
+		tabwidth      = 1
+		padding       = 2
+		padchar  byte = ' '
+		flags    uint = 0
+	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	fmt.Fprintf(tw, "NAME\tDISPLAY NAME\tDATE CREATED\tLAST CONNECTION\n")
 	for _, user := range users {

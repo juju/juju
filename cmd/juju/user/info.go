@@ -136,10 +136,7 @@ func (c *InfoCommand) Run(ctx *cmd.Context) (err error) {
 	if len(output) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(output))
 	}
-	if err = c.out.Write(ctx, output[0]); err != nil {
-		return err
-	}
-	return nil
+	return c.out.Write(ctx, output[0])
 }
 
 func (c *InfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {

@@ -122,7 +122,7 @@ func (st *State) AllUsers(includeDeactivated bool) ([]*User, error) {
 	users, closer := st.getCollection(usersC)
 	defer closer()
 
-	query := bson.D{}
+	var query bson.D
 	if !includeDeactivated {
 		query = append(query, bson.DocElem{"deactivated", false})
 	}
