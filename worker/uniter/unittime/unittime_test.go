@@ -83,3 +83,13 @@ func (u *unitTimeSuite) TestRunning(c *gc.C) {
 	counter.Stop()
 	c.Assert(counter.Running(), jc.IsFalse)
 }
+
+func (u *unitTimeSuite) TestConsecutiveStart(c *gc.C) {
+	counter := unittime.UnitTimeCounter{}
+	u.startTime()
+	counter.Start()
+	u.forward(2)
+	counter.Start()
+	u.forward(1)
+	c.Assert(counter.Value(), gc.Equals, 3*time.Second)
+}

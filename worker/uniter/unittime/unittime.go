@@ -11,7 +11,6 @@ var (
 	timeNow = time.Now
 )
 
-// TODO (mattyw) unexport UnitTimeCounter
 // UnitTimeCounter is used to count how long a unit has been running
 // for the sake of generating the unit time metric
 type UnitTimeCounter struct {
