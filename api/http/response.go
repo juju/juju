@@ -13,24 +13,24 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// CheckHTTPResponse returns the failure serialized in the response
+// ExtractAPIError returns the failure serialized in the response
 // body.  If there is no failure (an OK status code), it simply returns
 // nil.
-func CheckResponse(resp *http.Response) error {
+func ExtractAPIError(resp *http.Response) (*params.Error, error) {
 	if resp.StatusCode == http.StatusOK {
-		return nil
+		return nil, nil
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return errors.Annotate(err, "while reading HTTP response")
+		return nil, errors.Annotate(err, "while reading HTTP response")
 	}
 
 	var failure params.Error
 	if resp.Header.Get("Content-Type") == "application/json" {
 		if err := json.Unmarshal(body, &failure); err != nil {
-			return errors.Annotate(err, "while unserializing the error")
+			return nil, errors.Annotate(err, "while unserializing the error")
 		}
 	} else {
 		switch resp.StatusCode {
@@ -44,5 +44,5 @@ func CheckResponse(resp *http.Response) error {
 
 		failure.Message = string(body)
 	}
-	return &failure
+	return &failure, nil
 }
