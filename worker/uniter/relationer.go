@@ -16,7 +16,6 @@ import (
 
 // Relationer manages a unit's presence in a relation.
 type Relationer struct {
-	ctx   *context.ContextRelation
 	ru    *apiuniter.RelationUnit
 	dir   *relation.StateDir
 	queue relation.HookQueue
@@ -28,16 +27,15 @@ type Relationer struct {
 // relation until explicitly requested.
 func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir, hooks chan<- hook.Info) *Relationer {
 	return &Relationer{
-		ctx:   context.NewContextRelation(ru, dir.State().Members),
 		ru:    ru,
 		dir:   dir,
 		hooks: hooks,
 	}
 }
 
-// Context returns the ContextRelation associated with r.
+// Context returns a fresh ContextRelation representing r's current state.
 func (r *Relationer) Context() *context.ContextRelation {
-	return r.ctx
+	return context.NewContextRelation(r.ru, r.dir.State().Members)
 }
 
 // IsImplicit returns whether the local relation endpoint is implicit. Implicit
@@ -134,11 +132,6 @@ func (r *Relationer) PrepareHook(hi hook.Info) (hookName string, err error) {
 	}
 	if err = r.dir.State().Validate(hi); err != nil {
 		return
-	}
-	if hi.Kind == hooks.RelationDeparted {
-		r.ctx.DeleteMember(hi.RemoteUnit)
-	} else if hi.RemoteUnit != "" {
-		r.ctx.UpdateMembers(context.SettingsMap{hi.RemoteUnit: nil})
 	}
 	name := r.ru.Endpoint().Name
 	return fmt.Sprintf("%s-%s", name, hi.Kind), nil
