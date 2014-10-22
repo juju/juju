@@ -11,6 +11,11 @@ import (
 	"launchpad.net/gnuflag"
 )
 
+const (
+	notset           = "<not set>"
+	filenameTemplate = "juju-backup-%04d%02d%02d-%02d%%02d%%02d%"
+)
+
 const createDoc = `
 "create" requests that juju create a backup of its state and print the
 backup's unique ID.  You may provide a note to associate with the backup.
@@ -24,6 +29,8 @@ type CreateCommand struct {
 	CommandBase
 	// Quiet indicates that the full metadata should not be dumped.
 	Quiet bool
+	// Filename is where the backup should be downloaded.
+	Filename string
 	// Notes is the custom message to associated with the new backup.
 	Notes string
 }
@@ -41,6 +48,7 @@ func (c *CreateCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
+	f.StringVar(&c.Filename, "download", notset, "download the archive")
 }
 
 // Init implements Command.Init.
@@ -71,5 +79,39 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	}
 
 	fmt.Fprintln(ctx.Stdout, result.ID)
+
+	if c.Filename != notset {
+		filename := c.Filename
+		if filename == "" {
+			y, m, d := result.Started.Date()
+			H, M, S := result.Started.Clock()
+			filename = fmt.Sprintf(filenameTemplate, y, m, d, H, M, S)
+		}
+		c.download(ctx, filename)
+	}
+
+	return nil
+}
+
+func (c *CreateCommand) download(ctx *cmd.Context, filename string) error {
+	fmt.Fprintln(ctx.Stdout, "downloading to "+c.Filename)
+
+	archive, err := client.Download(result.ID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer archive.Close()
+
+	outfile, err := os.Create(c.Filename)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer outfile.Close()
+
+	_, err := io.Copy(outfile, archive)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
