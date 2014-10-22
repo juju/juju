@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	// this import exists to help godeps produce the correct output
+	_ "bitbucket.org/kardianos/service"
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
