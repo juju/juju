@@ -36,6 +36,10 @@ type FakeBackups struct {
 	OriginArg *metadata.Origin
 	// NotesArg holds the notes string that was passed in.
 	NotesArg string
+	// MetaArg holds the metadata that was passed in.
+	MetaArg *metadata.Metadata
+	// ArchiveArg holds the archive reader that was passed in.
+	ArchiveArg io.ReadCloser
 }
 
 var _ backups.Backups = (*FakeBackups)(nil)
@@ -51,6 +55,14 @@ func (b *FakeBackups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metad
 	b.NotesArg = notes
 
 	return b.Meta, b.Error
+}
+
+// Add stored the provided archive and metadata.
+func (b *FakeBackups) Add(archive io.ReadCloser, meta metadata.Metadata) (string, error) {
+	b.Calls = append(b.Calls, "Get")
+	b.ArchiveArg = archive
+	b.MetaArg = &meta
+	return b.Meta.ID(), b.Error
 }
 
 // Get returns the metadata and archive file associated with the ID.

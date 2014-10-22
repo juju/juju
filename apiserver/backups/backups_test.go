@@ -32,6 +32,13 @@ func (i *fakeBackups) Create(files.Paths, db.ConnInfo, metadata.Origin, string) 
 	return i.meta, nil
 }
 
+func (i *fakeBackups) Add(io.ReadCloser, metadata.Metadata) (string, error) {
+	if i.err != nil {
+		return "", errors.Trace(i.err)
+	}
+	return i.meta.ID(), nil
+}
+
 func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
 	if i.err != nil {
 		return nil, nil, errors.Trace(i.err)

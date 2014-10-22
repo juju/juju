@@ -6,6 +6,8 @@ package params
 import (
 	"time"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -24,6 +26,17 @@ type BackupsInfoArgs struct {
 type BackupsListArgs struct {
 }
 
+// BackupsDownloadArgs holds the args for the API Download method.
+type BackupsDownloadArgs struct {
+	ID string
+}
+
+// BackupsUploadArgs holds the args for the API Upload method.
+type BackupsUploadArgs struct {
+	Data     []byte
+	Metadata BackupsMetadataResult
+}
+
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
 	ID string
@@ -32,6 +45,11 @@ type BackupsRemoveArgs struct {
 // BackupsListResult holds the list of all stored backups.
 type BackupsListResult struct {
 	List []BackupsMetadataResult
+}
+
+// BackupsListResult holds the list of all stored backups.
+type BackupsUploadResult struct {
+	ID string
 }
 
 // BackupsMetadataResult holds the metadata for a backup as returned by
@@ -71,4 +89,17 @@ func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.Machine = origin.Machine()
 	r.Hostname = origin.Hostname()
 	r.Version = origin.Version()
+}
+
+// AsMetadata returns a new Metadata based on the result.  The ID of the
+// metadata is not set.  Call meta.SetID() if that is desired.  Likewise
+// with Stored and meta.SetStored().
+func (r *BackupsMetadataResult) AsMetadata() (*metadata.Metadata, error) {
+	origin := metadata.ExistingOrigin(r.Environment, r.Machine, r.Hostname, r.Version)
+	meta := metadata.NewMetadata(*origin, r.Notes, &r.Started)
+	err := meta.Finish(r.Size, r.Checksum, r.ChecksumFormat, &r.Finished)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return meta, nil
 }

@@ -127,3 +127,55 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 	}
 	return bytes.NewBuffer(data), nil
 }
+
+// UpdateFromJSON updates the metadata with the unmarshaled data.
+func (m *Metadata) UpdateFromJSON(data []byte) (*Metadata, error) {
+	var raw rawMetadata
+	err := json.Unmarshal(data, &raw)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// We don't set ID or Stored.
+
+	origin := m.Origin()
+	if raw.Environment == "" {
+		raw.Environment = origin.Environment()
+	}
+	if raw.Machine == "" {
+		raw.Environment = origin.Machine()
+	}
+	if raw.Hostname == "" {
+		raw.Environment = origin.Hostname()
+	}
+	var empty version.Number
+	if raw.Version == empty {
+		raw.Version = origin.Version()
+	}
+	neworigin := ExistingOrigin(raw.Environment, raw.Machine, raw.Hostname, raw.Version)
+
+	if !raw.Started.IsZero() {
+		raw.Started = m.Started()
+	}
+	if raw.Notes == "" {
+		raw.Notes = m.Notes()
+	}
+	meta := NewMetadata(*neworigin, raw.Notes, &raw.Started)
+
+	if raw.Size == 0 {
+		raw.Size = m.Size()
+	}
+	if raw.Checksum == "" && raw.ChecksumFormat == "" {
+		raw.Checksum = m.Checksum()
+		raw.ChecksumFormat = m.ChecksumFormat()
+	}
+	if raw.Finished.IsZero() {
+		finished := m.Finished()
+		if finished != nil {
+			raw.Finished = *finished
+		}
+	}
+	meta.Finish(raw.Size, raw.Checksum, raw.ChecksumFormat, &raw.Finished)
+
+	return meta, nil
+}
