@@ -238,7 +238,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	// If we're cloning, and the user hasn't specified otherwise,
 	// prefer to skip update logic.
 	if useClone, _ := localConfig.LXCUseClone(); useClone && containerType == instance.LXC {
-		defineIfNot("enable-os-refresh-update", false)
+		defineIfNot("enable-os-refresh-update", true)
 		defineIfNot("enable-os-upgrade", false)
 	}
 
