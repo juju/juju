@@ -166,7 +166,7 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
 
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
 	tag := s.AdminUserTag(c)
-	err := s.usermanager.SetPassword(tag, "new-password")
+	err := s.usermanager.SetPassword(tag.Name(), "new-password")
 	c.Assert(err, gc.IsNil)
 	user, err := s.State.User(tag)
 	c.Assert(err, gc.IsNil)

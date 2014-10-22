@@ -28,6 +28,7 @@ var expectedUserCommmandNames = []string{
 	"enable",
 	"help",
 	"info",
+	"list",
 }
 
 func (s *UserCommandSuite) TestHelp(c *gc.C) {
