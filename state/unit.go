@@ -184,7 +184,7 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
 func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.Maskf(&err, "cannot set agent version for unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "cannot set agent version for unit %q", u)
 	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
@@ -515,7 +515,7 @@ func (u *Unit) EnsureDead() (err error) {
 // the service is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove() (err error) {
-	defer errors.Maskf(&err, "cannot remove unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
@@ -738,7 +738,7 @@ func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.Contextf(&err, "cannot open ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
@@ -761,7 +761,7 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.Contextf(&err, "cannot close ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
@@ -911,7 +911,7 @@ func (u *Unit) UnitTag() names.UnitTag {
 
 // WaitAgentPresence blocks until the respective agent is alive.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
-	defer errors.Maskf(&err, "waiting for agent of unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	u.st.pwatcher.Watch(u.globalKey(), ch)
 	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
@@ -1608,7 +1608,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errors.Maskf(&err, "cannot set resolved mode for unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
 	case ResolvedRetryHooks, ResolvedNoHooks:
 	default:
