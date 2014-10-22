@@ -49,6 +49,7 @@ var ubuntuSeries = []string{
 	"saucy",
 	"trusty",
 	"utopic",
+	"vivid",
 }
 
 // windowsVersions is a mapping consisting of the output from
@@ -70,6 +71,8 @@ var windowsVersions = map[string]string{
 	"Windows 8":                      "win8",
 	"Windows 8.1":                    "win81",
 }
+
+var distroInfo = "/usr/share/distro-info/ubuntu.csv"
 
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
@@ -155,7 +158,7 @@ func updateSeriesVersions() {
 func updateDistroInfo() error {
 	// We need to find the series version eg 12.04 from the series eg precise. Use the information found in
 	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
-	f, err := os.Open("/usr/share/distro-info/ubuntu.csv")
+	f, err := os.Open(distroInfo)
 	if err != nil {
 		// On non-Ubuntu systems this file won't exist but that's expected.
 		return nil
@@ -163,6 +166,7 @@ func updateDistroInfo() error {
 	defer f.Close()
 	bufRdr := bufio.NewReader(f)
 	// Only find info for precise or later.
+	// TODO: only add in series that are supported (i.e. before end of life)
 	preciseOrLaterFound := false
 	for {
 		line, err := bufRdr.ReadString('\n')
