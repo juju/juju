@@ -18,8 +18,8 @@ var (
 	GetConnectionCredentials = &getConnectionCredentials
 	// disable and enable
 	GetDisableUserAPI = &getDisableUserAPI
-	// info
-	GetUserInfoAPI = &getUserInfoAPI
+
+	UserFriendlyDuration = userFriendlyDuration
 )
 
 // DisenableCommand is used for testing both Disable and Enable user commands.
@@ -40,3 +40,21 @@ var (
 	_ DisenableCommand = (*DisableCommand)(nil)
 	_ DisenableCommand = (*EnableCommand)(nil)
 )
+
+// NewInfoCommand returns an InfoCommand with the api provided as specified.
+func NewInfoCommand(api UserInfoAPI) *InfoCommand {
+	return &InfoCommand{
+		InfoCommandBase: InfoCommandBase{
+			api: api,
+		},
+	}
+}
+
+// NewListCommand returns a ListCommand with the api provided as specified.
+func NewListCommand(api UserInfoAPI) *ListCommand {
+	return &ListCommand{
+		InfoCommandBase: InfoCommandBase{
+			api: api,
+		},
+	}
+}

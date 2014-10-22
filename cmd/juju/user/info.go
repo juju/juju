@@ -48,15 +48,27 @@ Examples:
 	last-connection: 2014-01-01 00:00:00 +0000 UTC
 `
 
-// InfoCommand retrieves information about a single user.
-type InfoCommand struct {
+// UserInfoAPI defines the API methods that the info command uses.
+type UserInfoAPI interface {
+	UserInfo([]string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
+	Close() error
+}
+
+// InfoCommandBase is a common base for 'juju user info' and 'juju user list'.
+type InfoCommandBase struct {
 	UserCommandBase
+	api       UserInfoAPI
 	exactTime bool
 	out       cmd.Output
 }
 
-type UserInfoCommand struct {
-	UserInfoCommandBase
+func (c *InfoCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
+}
+
+// InfoCommand retrieves information about a single user.
+type InfoCommand struct {
+	InfoCommandBase
 	Username string
 }
 
@@ -81,6 +93,7 @@ func (c *InfoCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *InfoCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.InfoCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 }
 
@@ -90,21 +103,16 @@ func (c *InfoCommand) Init(args []string) (err error) {
 	return err
 }
 
-// UserInfoAPI defines the API methods that the info command uses.
-type UserInfoAPI interface {
-	UserInfo([]string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
-	Close() error
-}
-
-func (c *InfoCommand) getUserInfoAPI() (UserInfoAPI, error) {
+func (c *InfoCommandBase) getUserInfoAPI() (UserInfoAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	return c.NewUserManagerClient()
 }
 
-var getUserInfoAPI = (*InfoCommand).getUserInfoAPI
-
 // Run implements Command.Run.
 func (c *InfoCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := getUserInfoAPI(c)
+	client, err := c.getUserInfoAPI()
 	if err != nil {
 		return err
 	}
@@ -121,36 +129,27 @@ func (c *InfoCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	if len(result) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(result))
+	// Don't output the params type, be explicit. We convert before checking
+	// length because we want to reuse the conversion function, and we are
+	// pretty sure that there is one value there.
+	output := c.apiUsersToUserInfoSlice(result)
+	if len(output) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(output))
 	}
-	// Don't output the params type, be explicit.
-	info := result[0]
-	outInfo := UserInfo{
-		Username:    info.Username,
-		DisplayName: info.DisplayName,
-		DateCreated: info.DateCreated.String(),
-		Disabled:    info.Disabled,
-	}
-	if info.LastConnection != nil {
-		outInfo.LastConnection = info.LastConnection.String()
-	} else {
-		outInfo.LastConnection = "never connected"
-	}
-	if err = c.out.Write(ctx, outInfo); err != nil {
+	if err = c.out.Write(ctx, output[0]); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *UserInfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
+func (c *InfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) []UserInfo {
 	var output []UserInfo
 	var now = time.Now()
 	for _, info := range users {
 		outInfo := UserInfo{
 			Username:    info.Username,
 			DisplayName: info.DisplayName,
-			Disabled:    info.Deactivated,
+			Disabled:    info.Disabled,
 		}
 		if c.exactTime {
 			outInfo.DateCreated = info.DateCreated.String()
@@ -164,7 +163,7 @@ func (c *UserInfoCommandBase) apiUsersToUserInfoSlice(users []params.UserInfo) [
 				outInfo.LastConnection = userFriendlyDuration(*info.LastConnection, now)
 			}
 		} else {
-			outInfo.LastConnection = "not connected yet"
+			outInfo.LastConnection = "never connected"
 		}
 
 		output = append(output, outInfo)

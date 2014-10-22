@@ -1,38 +1,32 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for info.
 
-package main
+package user_test
 
 import (
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/testing"
 )
 
 // All of the functionality of the UserInfo api call is contained elsewhere.
 // This suite provides basic tests for the "user info" command
 type UserListCommandSuite struct {
-	testing.FakeJujuHomeSuite
+	BaseSuite
 }
 
 var _ = gc.Suite(&UserListCommandSuite{})
 
-func (s *UserListCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.PatchValue(&getUserInfoAPI, func(*UserCommandBase) (UserInfoAPI, error) {
-		return &fakeUserListAPI{}, nil
-	})
-}
-
 func newUserListCommand() cmd.Command {
-	return envcmd.Wrap(&UserListCommand{})
+	return envcmd.Wrap(user.NewListCommand(&fakeUserListAPI{}))
 }
 
 type fakeUserListAPI struct{}
@@ -41,9 +35,9 @@ func (*fakeUserListAPI) Close() error {
 	return nil
 }
 
-func (f *fakeUserListAPI) UserInfo(tags []names.UserTag, includeDeactivated bool) ([]params.UserInfo, error) {
-	if len(tags) > 0 {
-		return nil, errors.Errorf("expected no tags, got %d", len(tags))
+func (f *fakeUserListAPI) UserInfo(usernames []string, all usermanager.IncludeDisabled) ([]params.UserInfo, error) {
+	if len(usernames) > 0 {
+		return nil, errors.Errorf("expected no usernames, got %d", len(usernames))
 	}
 	now := time.Now().UTC().Round(time.Second)
 	last1 := time.Date(2014, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -69,13 +63,13 @@ func (f *fakeUserListAPI) UserInfo(tags []names.UserTag, includeDeactivated bool
 			DateCreated: now.Add(-6*time.Hour + -2*time.Minute),
 		},
 	}
-	if includeDeactivated {
+	if all {
 		result = append(result, params.UserInfo{
 			Username:       "davey",
 			DisplayName:    "Davey Willow",
 			DateCreated:    time.Date(2014, 10, 9, 0, 0, 0, 0, time.UTC),
 			LastConnection: &last2,
-			Deactivated:    true,
+			Disabled:       true,
 		})
 	}
 	return result, nil
@@ -88,18 +82,18 @@ func (s *UserListCommandSuite) TestUserInfo(c *gc.C) {
 		"NAME     DISPLAY NAME    DATE CREATED  LAST CONNECTION\n"+
 		"adam     Adam Zulu       2012-10-08    2014-01-01\n"+
 		"barbara  Barbara Yellow  2013-05-02    just now\n"+
-		"charlie  Charlie Xavier  6 hours ago   not connected yet\n"+
+		"charlie  Charlie Xavier  6 hours ago   never connected\n"+
 		"\n")
 }
 
 func (s *UserListCommandSuite) TestUserInfoWithDisabled(c *gc.C) {
-	context, err := testing.RunCommand(c, newUserListCommand(), "--show-disabled")
+	context, err := testing.RunCommand(c, newUserListCommand(), "--all")
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, ""+
 		"NAME     DISPLAY NAME    DATE CREATED  LAST CONNECTION\n"+
 		"adam     Adam Zulu       2012-10-08    2014-01-01\n"+
 		"barbara  Barbara Yellow  2013-05-02    just now\n"+
-		"charlie  Charlie Xavier  6 hours ago   not connected yet\n"+
+		"charlie  Charlie Xavier  6 hours ago   never connected\n"+
 		"davey    Davey Willow    2014-10-09    35 minutes ago (disabled)\n"+
 		"\n")
 }
@@ -112,7 +106,7 @@ func (s *UserListCommandSuite) TestUserInfoExactTime(c *gc.C) {
 		"NAME     DISPLAY NAME    DATE CREATED                   LAST CONNECTION\n"+
 		"adam     Adam Zulu       2012-10-08 00:00:00 \\+0000 UTC  2014-01-01 00:00:00 \\+0000 UTC\n"+
 		"barbara  Barbara Yellow  2013-05-02 00:00:00 \\+0000 UTC  "+dateRegex+"\n"+
-		"charlie  Charlie Xavier  "+dateRegex+"  not connected yet\n"+
+		"charlie  Charlie Xavier  "+dateRegex+"  never connected\n"+
 		"\n")
 }
 
@@ -122,7 +116,7 @@ func (*UserListCommandSuite) TestUserInfoFormatJson(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "["+
 		`{"user-name":"adam","display-name":"Adam Zulu","date-created":"2012-10-08","last-connection":"2014-01-01"},`+
 		`{"user-name":"barbara","display-name":"Barbara Yellow","date-created":"2013-05-02","last-connection":"just now"},`+
-		`{"user-name":"charlie","display-name":"Charlie Xavier","date-created":"6 hours ago","last-connection":"not connected yet"}`+
+		`{"user-name":"charlie","display-name":"Charlie Xavier","date-created":"6 hours ago","last-connection":"never connected"}`+
 		"]\n")
 }
 
@@ -141,7 +135,7 @@ func (*UserListCommandSuite) TestUserInfoFormatYaml(c *gc.C) {
 		"- user-name: charlie\n"+
 		"  display-name: Charlie Xavier\n"+
 		"  date-created: 6 hours ago\n"+
-		"  last-connection: not connected yet\n")
+		"  last-connection: never connected\n")
 }
 
 func (*UserListCommandSuite) TestTooManyArgs(c *gc.C) {

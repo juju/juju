@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for infos.
 
-package main
+package user
 
 import (
 	"bytes"
@@ -11,31 +11,36 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
+
+	"github.com/juju/juju/api/usermanager"
 )
 
-const userListCommandDoc = `
+const ListCommandDoc = `
 List all the current users in the Juju server.
 
 See Also:
    juju user info
 `
 
-type UserListCommand struct {
-	UserInfoCommandBase
-	disabled bool
+// ListCommand shows all the users in the Juju server.
+type ListCommand struct {
+	InfoCommandBase
+	all bool
 }
 
-func (c *UserListCommand) Info() *cmd.Info {
+// Info implements Command.Info.
+func (c *ListCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Purpose: "shows all users",
-		Doc:     userListCommandDoc,
+		Doc:     ListCommandDoc,
 	}
 }
 
-func (c *UserListCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.UserInfoCommandBase.SetFlags(f)
-	f.BoolVar(&c.disabled, "show-disabled", false, "include disabled users in the listing")
+// SetFlags implements Command.SetFlags.
+func (c *ListCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.InfoCommandBase.SetFlags(f)
+	f.BoolVar(&c.all, "all", false, "include disabled users in the listing")
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -43,16 +48,17 @@ func (c *UserListCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *UserListCommand) Run(ctx *cmd.Context) (err error) {
-	// Note: the getUserInfoAPI and the UserInfo struct are defined
-	// in user_info.go.
-	client, err := getUserInfoAPI(&c.UserCommandBase)
+// Run implements Command.Run.
+func (c *ListCommand) Run(ctx *cmd.Context) (err error) {
+	// Note: the InfoCommandBase and the UserInfo struct are defined
+	// in info.go.
+	client, err := c.getUserInfoAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	result, err := client.UserInfo(nil, c.disabled)
+	result, err := client.UserInfo(nil, usermanager.IncludeDisabled(c.all))
 	if err != nil {
 		return err
 	}
@@ -60,7 +66,7 @@ func (c *UserListCommand) Run(ctx *cmd.Context) (err error) {
 	return c.out.Write(ctx, c.apiUsersToUserInfoSlice(result))
 }
 
-func (c *UserListCommand) formatTabular(value interface{}) ([]byte, error) {
+func (c *ListCommand) formatTabular(value interface{}) ([]byte, error) {
 	users, valueConverted := value.([]UserInfo)
 	if !valueConverted {
 		return nil, errors.Errorf("expected value of type %T, got %T", users, value)
