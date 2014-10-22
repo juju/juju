@@ -141,7 +141,7 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             FakeAttemptClass('foo', True, True),
             FakeAttemptClass('bar', True, False),
-            ], 5)
+            ], 5, 10)
         class StubJujuClient:
 
             def destroy_environment(self):
