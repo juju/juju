@@ -13,9 +13,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"launchpad.net/tomb"
-	"github.com/juju/loggo"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/peergrouper"
 )
-
 
 var logger = loggo.GetLogger("juju.worker.peergrouper_test")
 

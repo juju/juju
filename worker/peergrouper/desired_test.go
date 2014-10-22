@@ -276,7 +276,6 @@ func mkMachines(description string, ipVersion testIPVersion) []*peergrouper.Mach
 				},
 				Port: mongoPort,
 			}},
-
 		)
 	}
 	return ms
