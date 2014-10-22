@@ -16,30 +16,37 @@ TESTING = 'testing'
 PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
 
 
-def find_tools(file_path):
+def find_agents(file_path):
     with open(file_path) as f:
         stream = json.load(f)
-    tools = {}
+    agents = {}
     for name, product in stream['products'].items():
         versions = product['versions']
         for version in versions.values():
             if isinstance(version, dict):
                 items = version['items']
-                tools.update(items)
-    return tools
+                agents.update(items)
+    return agents
 
 
-def check_devel_not_stable(old_tools, new_tools, purpose):
-    """Return an error message if the version can be included in the stream.
+def check_devel_not_stable(old_agents, new_agents, purpose):
+    """Return a list of errors if the version can be included in the stream.
 
     Devel versions cannot be proposed or release because the letters in
     the version break older jujus.
+
+    :param old_agents: the dict of all the products/versions/*/items
+                       in the old json.
+    :param new_agents: the dict of all the products/versions/*/items
+                       in the new json.
+    :param purpose: either release, proposed, devel, or testing.
+    :return: a list of errors, which will be empty when there are none.
     """
     if purpose in (TESTING, DEVEL):
         return []
     stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
     devel_versions = [
-        v for v in new_tools.keys() if not stable_pattern.match(v)]
+        v for v in new_agents.keys() if not stable_pattern.match(v)]
     errors = []
     if devel_versions:
         errors.append(
@@ -47,18 +54,18 @@ def check_devel_not_stable(old_tools, new_tools, purpose):
     return errors
 
 
-def check_expected_changes(new_tools, added=None, removed=None):
+def check_expected_changes(new_agents, added=None, removed=None):
     """Return an list of errors if the expected changes are not present.
 
-    :param new_tools: the dict of all the products/versions/*/items
-                      in the new json.
-    :param added: the version added to the new json, eg '1.20.9'
-    :param removed: the version removed from the new json, eg '1.20.8'
+    :param new_agents: the dict of all the products/versions/*/items
+                       in the new json.
+    :param added: the version added to the new json, eg '1.20.9'.
+    :param removed: the version removed from the new json, eg '1.20.8'.
     :return: a list of errors, which will be empty when there are none.
     """
     found = []
     seen = False
-    for n, t in new_tools.items():
+    for n, t in new_agents.items():
         if removed and t['version'] == removed:
             found.append(n)
         elif added and t['version'] == added:
@@ -71,20 +78,20 @@ def check_expected_changes(new_tools, added=None, removed=None):
     return errors
 
 
-def check_expected_unchanged(old_tools, new_tools, added=None, removed=None):
-    """Return an error tuple if the expected unchanged versions do not match.
+def check_expected_unchanged(old_agents, new_agents, added=None, removed=None):
+    """Return a list of errors if the expected unchanged versions do not match.
 
-    :param old_tools: the dict of all the products/versions/*/items
-                      in the old json.
-    :param new_tools: the dict of all the products/versions/*/items
-                      in the new json.
-    :param added: the version added to the new json, eg '1.20.9'
-    :param removed: the version removed from the new json, eg '1.20.8'
-    :return: a tuple of missing_errors and extra_errors, which might be None
+    :param old_agents: the dict of all the products/versions/*/items
+                       in the old json.
+    :param new_agents: the dict of all the products/versions/*/items
+                       in the new json.
+    :param added: the version added to the new json, eg '1.20.9'.
+    :param removed: the version removed from the new json, eg '1.20.8'.
+    :return: a list of errors, which will be empty when there are none.
     """
-    old_versions = set(k for (k, v) in old_tools.items()
+    old_versions = set(k for (k, v) in old_agents.items()
                        if v['version'] != removed)
-    new_versions = set(k for (k, v) in new_tools.items()
+    new_versions = set(k for (k, v) in new_agents.items()
                        if v['version'] != added)
     missing_errors = old_versions - new_versions
     errors = []
@@ -99,20 +106,26 @@ def check_expected_unchanged(old_tools, new_tools, added=None, removed=None):
     return errors
 
 
-def check_tools_content(old_tools, new_tools):
-    """Return the error messages if tools content changes.
+def check_agents_content(old_agents, new_agents):
+    """Return a list of error messages if agents content changes.
 
     Are the old versions identical to the new versions?
     We care about change values, not new keys in the new tool.
+
+    :param old_agents: the dict of all the products/versions/*/items
+                       in the old json.
+    :param new_agents: the dict of all the products/versions/*/items
+                       in the new json.
+    :return: a list of errors, which will be empty when there are none.
     """
-    if not new_tools:
+    if not new_agents:
         return None
     errors = []
-    for name, old_tool in old_tools.items():
+    for name, old_tool in old_agents.items():
         try:
-            new_tool = new_tools[name]
+            new_tool = new_agents[name]
         except KeyError:
-            # This is a missing version case reported by check_expected_tools.
+            # This is a missing version case reported by check_expected_agents.
             continue
         for old_key, old_val in old_tool.items():
             new_val = new_tool[old_key]
@@ -123,21 +136,24 @@ def check_tools_content(old_tools, new_tools):
     return errors
 
 
-def compare_tools(old_tools, new_tools, purpose, added=None, removed=None):
-    """Return a tuple of an exit code and an explanation.
+def compare_agents(old_agents, new_agents, purpose, added=None, removed=None):
+    """Return a list of error messages from all the validation checks.
 
-    An exit code of 1 will have a list of strings explaining the problems.
-    An exit code of 0 is a pass and the exlanation is None.
+    :param old_agents: the dict of all the products/versions/*/items
+                       in the old json.
+    :param new_agents: the dict of all the products/versions/*/items
+                       in the new json.
+    :return: a list of errors, which will be empty when there are none.
     """
     errors = []
     errors.extend(
-        check_devel_not_stable(old_tools, new_tools, purpose))
+        check_devel_not_stable(old_agents, new_agents, purpose))
     errors.extend(
-        check_expected_changes(new_tools, added, removed))
+        check_expected_changes(new_agents, added, removed))
     errors.extend(
-        check_expected_unchanged(old_tools, new_tools, added, removed))
+        check_expected_unchanged(old_agents, new_agents, added, removed))
     errors.extend(
-        check_tools_content(old_tools, new_tools))
+        check_agents_content(old_agents, new_agents))
     return errors or None
 
 
@@ -158,15 +174,20 @@ def parse_args(args=None):
 
 
 def main(argv):
+    """Verify that the new json has all the expected changes.
+
+    An exit code of 1 will have a list of strings explaining the problems.
+    An exit code of 0 is a pass and the explanation is None.
+    """
     args = parse_args(argv[1:])
     try:
-        old_tools = find_tools(args.old_json)
-        new_tools = find_tools(args.new_json)
-        messages = compare_tools(
-            old_tools, new_tools, args.purpose, args.version,
+        old_agents = find_agents(args.old_json)
+        new_agents = find_agents(args.new_json)
+        errors = compare_agents(
+            old_agents, new_agents, args.purpose, args.version,
             retracted=args.retracted)
-        if messages:
-            print('\n'.join(messages))
+        if errors:
+            print('\n'.join(errors))
             return 1
     except Exception as e:
         print(e)
