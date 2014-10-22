@@ -36,58 +36,67 @@ def check_devel_not_stable(old_tools, new_tools, purpose):
     the version break older jujus.
     """
     if purpose in (TESTING, DEVEL):
-        return None
+        return []
     stable_pattern = re.compile(r'\d+\.\d+\.\d+-*')
     devel_versions = [
         v for v in new_tools.keys() if not stable_pattern.match(v)]
+    errors = []
     if devel_versions:
-        return 'Devel versions in {} stream: {}'.format(
-            purpose, devel_versions)
+        errors.append(
+            'Devel versions in {} stream: {}'.format(purpose, devel_versions))
+    return errors
 
 
-def check_expected_tools(old_tools, new_tools, added=None, removed=None):
-    """Return a 4-tuple of new_expected, new_errors, old_expected, old_errors
+def check_expected_changes(new_tools, added=None, removed=None):
+    """Return an list of errors if the expected changes are not present.
 
-    The new and old expected dicts are the tools common to old and new streams.
-    The new and old errors are strings of missing or extra versions.
+    :param new_tools: the dict of all the products/versions/*/items
+                      in the new json.
+    :param added: the version added to the new json, eg '1.20.9'
+    :param removed: the version removed from the new json, eg '1.20.8'
+    :return: a list of errors, which will be empty when there are none.
+    """
+    found = []
+    seen = False
+    for n, t in new_tools.items():
+        if removed and t['version'] == removed:
+            found.append(n)
+        elif added and t['version'] == added:
+            seen = True
+    errors = []
+    if added and not seen:
+        errors.append('{} agents were not added'.format(added))
+    if found:
+        errors.append('{} agents were not removed: {}'.format(removed, found))
+    return errors
+
+
+def check_expected_unchanged(old_tools, new_tools, added=None, removed=None):
+    """Return an error tuple if the expected unchanged versions do not match.
 
     :param old_tools: the dict of all the products/versions/*/items
                       in the old json.
     :param new_tools: the dict of all the products/versions/*/items
                       in the new json.
     :param added: the version added to the new json, eg '1.20.9'
-    :param retracted: the version removed to the new json, eg '1.20.8'
+    :param removed: the version removed from the new json, eg '1.20.8'
+    :return: a tuple of missing_errors and extra_errors, which might be None
     """
-    # Remove the expected difference between the two collections of tools.
-    old_expected = dict(old_tools)
-    new_expected = dict(new_tools)
-    missing_errors = None
-    extra_errors = None
-    missing = []
-    extras = []
-    found = []
-    if removed:
-        for n, t in old_expected.items():
-            if t['version'] == removed:
-                del old_expected[n]
-    if added:
-        for n, t in new_expected.items():
-            if t['version'] == added:
-                del new_expected[n]
-                found.append(n)
-        if not found:
-            missing.append(added)
-    # The old and new should be identical. but if there is a problem,
-    # we want to explain what problems are in each set of versions.
-    old_versions = set(old_expected.keys())
-    new_versions = set(new_expected.keys())
-    missing.extend(old_versions - new_versions)
-    if missing:
-        missing_errors = 'Missing versions: {}'.format(missing)
-    extras.extend(new_versions - old_versions)
-    if extras:
-        extra_errors = 'Extra versions: {}'.format(extras)
-    return new_expected, extra_errors, old_expected, missing_errors
+    old_versions = set(k for (k, v) in old_tools.items()
+                       if v['version'] != removed)
+    new_versions = set(k for (k, v) in new_tools.items()
+                       if v['version'] != added)
+    missing_errors = old_versions - new_versions
+    errors = []
+    if missing_errors:
+        missing_errors = list(missing_errors)
+        errors.append('These agents are missing: {}'.format(missing_errors))
+    found_errors = new_versions - old_versions
+    if found_errors:
+        found_errors = list(found_errors)
+        errors.append('These unknown agents were found: {}'.format(
+            found_errors))
+    return errors
 
 
 def check_tools_content(old_tools, new_tools):
@@ -98,6 +107,7 @@ def check_tools_content(old_tools, new_tools):
     """
     if not new_tools:
         return None
+    errors = []
     for name, old_tool in old_tools.items():
         try:
             new_tool = new_tools[name]
@@ -107,8 +117,10 @@ def check_tools_content(old_tools, new_tools):
         for old_key, old_val in old_tool.items():
             new_val = new_tool[old_key]
             if old_val != new_val:
-                return 'Tool {} {} changed from {} to {}'.format(
-                    name, old_key, old_val, new_val)
+                errors.append(
+                    'Tool {} {} changed from {} to {}'.format(
+                        name, old_key, old_val, new_val))
+    return errors
 
 
 def compare_tools(old_tools, new_tools, purpose, added=None, removed=None):
@@ -118,18 +130,14 @@ def compare_tools(old_tools, new_tools, purpose, added=None, removed=None):
     An exit code of 0 is a pass and the exlanation is None.
     """
     errors = []
-    devel_versions = check_devel_not_stable(old_tools, new_tools, purpose)
-    if devel_versions:
-        errors.append(devel_versions)
-    tools = check_expected_tools(old_tools, new_tools, added, removed)
-    new_expected, extra_errors, old_expected, missing_errors = tools
-    if missing_errors:
-        errors.append(missing_errors)
-    if extra_errors:
-        errors.append(extra_errors)
-    content_changes = check_tools_content(old_expected, new_expected)
-    if content_changes:
-        errors.append(content_changes)
+    errors.extend(
+        check_devel_not_stable(old_tools, new_tools, purpose))
+    errors.extend(
+        check_expected_changes(new_tools, added, removed))
+    errors.extend(
+        check_expected_unchanged(old_tools, new_tools, added, removed))
+    errors.extend(
+        check_tools_content(old_tools, new_tools))
     return errors or None
 
 
