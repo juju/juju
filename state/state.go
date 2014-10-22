@@ -127,6 +127,19 @@ type StateServingInfo struct {
 	// this will be passed as the KeyFile argument to MongoDB
 	SharedSecret   string
 	SystemIdentity string
+
+	IdentityProvider *IdentityProvider `bson:"identity-provider"`
+}
+
+// IdentityProviderKeySize defines the public key byte length for trusted
+// identity providers.
+const IdentityProviderKeySize = 32
+
+// IdentityProvider holds information about a remote identity provider
+// that the Juju server trusts to make inbound API connections.
+type IdentityProvider struct {
+	PublicKey *[IdentityProviderKeySize]byte `bson:"public-key"`
+	Location  string                         `bson:"location"`
 }
 
 // ForEnviron returns a connection to mongo for the specified environment. The
