@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -200,15 +201,14 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 	ctx.proxySettings = environConfig.ProxySettings()
 
 	// Calling these last, because there's a potential race: they're not guaranteed
-	// to be set in time to be needed for a hook. If they're not, we just fail out
-	// and wait for the runner to restart the uniter; we can't reasonably continue
-	// without them, but it's not worth special-casing the waiting case.
+	// to be set in time to be needed for a hook. If they're not, we just leave them
+	// unset as we always have; this isn't great but it's about behaviour preservation.
 	ctx.publicAddress, err = f.unit.PublicAddress()
-	if err != nil {
+	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return err
 	}
 	ctx.privateAddress, err = f.unit.PrivateAddress()
-	if err != nil {
+	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return err
 	}
 	return nil

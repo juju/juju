@@ -90,7 +90,6 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	c.Assert(err, gc.IsNil)
 	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	// TODO(dfc) uniter.Relation should take a names.RelationTag
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
