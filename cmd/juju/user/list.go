@@ -74,11 +74,11 @@ func (c *ListCommand) formatTabular(value interface{}) ([]byte, error) {
 	var out bytes.Buffer
 	const (
 		// To format things into columns.
-		minwidth      = 0
-		tabwidth      = 1
-		padding       = 2
-		padchar  byte = ' '
-		flags    uint = 0
+		minwidth = 0
+		tabwidth = 1
+		padding  = 2
+		padchar  = ' '
+		flags    = 0
 	)
 	tw := tabwriter.NewWriter(&out, minwidth, tabwidth, padding, padchar, flags)
 	fmt.Fprintf(tw, "NAME\tDISPLAY NAME\tDATE CREATED\tLAST CONNECTION\n")
