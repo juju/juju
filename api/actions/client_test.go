@@ -43,6 +43,17 @@ func (s *actionsSuite) TestServiceCharmActions(c *gc.C) {
 		},
 		expectedErr: `action results received for wrong service "service-bar"`,
 	}, {
+		description: "some other error",
+		patchResults: []params.ServiceCharmActionsResult{
+			params.ServiceCharmActionsResult{
+				ServiceTag: names.NewServiceTag("foo"),
+				Error: &params.Error{
+					Message: "something bad",
+				},
+			},
+		},
+		expectedErr: `something bad`,
+	}, {
 		description: "more than one result",
 		patchResults: []params.ServiceCharmActionsResult{
 			params.ServiceCharmActionsResult{},

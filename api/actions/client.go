@@ -89,6 +89,9 @@ func (c *Client) ServiceCharmActions(arg names.ServiceTag) (*charm.Actions, erro
 		return none, errors.Errorf("%d results, expected 1", len(results.Results))
 	}
 	result := results.Results[0]
+	if result.Error != nil {
+		return none, result.Error
+	}
 	if result.ServiceTag != arg {
 		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
 	}
