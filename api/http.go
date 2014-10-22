@@ -27,7 +27,7 @@ var newHTTPClient = func(state *State) HTTPClient {
 	return state.NewHTTPClient()
 }
 
-// GetHTTPClient returns an HTTP client initialized based on State.
+// NewHTTPClient returns an HTTP client initialized based on State.
 func (s *State) NewHTTPClient() HTTPClient {
 	// For reference, call utils.GetNonValidatingHTTPClient() to get a
 	// non-validating client.
