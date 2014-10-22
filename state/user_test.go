@@ -121,18 +121,18 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
-func (s *UserSuite) TestDeactivate(c *gc.C) {
+func (s *UserSuite) TestDisable(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
 
-	err := user.Deactivate()
+	err := user.Disable()
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsDeactivated(), jc.IsTrue)
+	c.Assert(user.IsDisabled(), jc.IsTrue)
 	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
 
-	err = user.Activate()
+	err = user.Enable()
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
@@ -193,9 +193,9 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 	c.Assert(lastHash, gc.Equals, afterHash)
 }
 
-func (s *UserSuite) TestCantDeactivateAdmin(c *gc.C) {
+func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.owner)
 	c.Assert(err, gc.IsNil)
-	err = user.Deactivate()
-	c.Assert(err, gc.ErrorMatches, "cannot deactivate initial environment owner")
+	err = user.Disable()
+	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
 }
