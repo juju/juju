@@ -126,17 +126,15 @@ init_tools_maybe() {
     fi
     count=$(find $DEST_DIST/tools/releases -name '*.tgz' | wc -l)
     if [[ $PURPOSE == "proposed" && $((count)) == 0 ]]; then
-        echo "Seeding proposed with all release tools"
+        echo "Seeding proposed with all release agents"
         cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
-    elif [[ $PURPOSE == "devel" && $((count)) < 16 ]]; then
-        echo "Seeding devel with some release tools"
-        cp $DESTINATION/juju-dist/tools/releases/juju-1.20.5*.tgz \
-            $DEST_DIST/tools/releases
-        cp $DESTINATION/juju-dist/tools/releases/juju-1.20.7*.tgz \
+    elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
+        echo "Seeding devel with $INIT_VERSION release agents"
+        cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
-        echo "Seeding testing with all proposed tools"
+        echo "Seeding testing with all proposed agents"
         cp $DESTINATION/juju-dist/proposed/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
     fi
@@ -403,7 +401,8 @@ RETRACT_GLOB=""
 SIGNING_KEY=""
 IS_TESTING="false"
 GET_RELEASED_TOOL="true"
-while getopts "r:s:t:n" o; do
+INIT_VERSION="1.20"
+while getopts "r:s:t:i:n" o; do
     case "${o}" in
         r)
             RETRACT_GLOB=${OPTARG}
@@ -418,6 +417,10 @@ while getopts "r:s:t:n" o; do
             [[ -d $TEST_DEBS_DIR ]] || usage
             IS_TESTING="true"
             echo "Assembling testing tools from $TEST_DEBS_DIR"
+            ;;
+        i)
+            INIT_VERSION=${OPTARG}
+            echo "Will init the stream with $INIT_VERSION."
             ;;
         n)
             GET_RELEASED_TOOL="false"
