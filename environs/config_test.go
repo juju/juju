@@ -429,24 +429,36 @@ environments:
 	c.Check(stripped, gc.Matches, expectedMsg)
 }
 
+const (
+	// This is a standard configuration warning when old attribute was specified.
+	standardDeprecationWarning = `.*Your configuration should be updated to set .*`
+
+	// This is a standard deprecation warning when both old and new attributes were specified.
+	standardDeprecationWarningWithNew = `.*is deprecated and will be ignored since the new .*`
+)
+
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
 		"tools-url": "aknowndeprecatedfield",
 	}
-	expected := fmt.Sprintf(`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated\.` +
-		`The location to find tools is now specified using the "tools-metadata-url" attribute.*`)
+	expected := fmt.Sprintf(standardDeprecationWarning)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarning(c *gc.C) {
-
 	// Test that the warning is logged.
-	attrs := testing.Attrs{"provisioner-safe-mode": true}
-	expected := fmt.Sprintf(
-		`Config attribute "%s" has been deprecated. Please utilize the "%s" config attribute instead.`,
-		"provisioner-safe-mode",
-		"provisioner-harvest-mode",
-	)
+	attrs := testing.Attrs{config.ProvisionerSafeModeKey: true}
+	expected := fmt.Sprintf(standardDeprecationWarning)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarningWithHarvest(c *gc.C) {
+	attrs := testing.Attrs{
+		config.ProvisionerSafeModeKey:    true,
+		config.ProvisionerHarvestModeKey: "none",
+	}
+	// Test that the warning is logged.
+	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -455,9 +467,7 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 		"tools-url":          "aknowndeprecatedfield",
 		"tools-metadata-url": "newvalue",
 	}
-	expected := fmt.Sprintf(
-		`.*Config attribute "tools-url" \(aknowndeprecatedfield\) is deprecated and will be ignored since` +
-			`the new tools URL attribute "tools-metadata-url".*`)
+	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
@@ -469,6 +479,21 @@ func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 
 func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
 	attrs := testing.Attrs{"lxc-use-clone": true}
-	expected := `Config attribute "lxc-use-clone" has been renamed to "lxc-clone".Please update your environment configuration.`
+	expected := fmt.Sprintf(standardDeprecationWarning)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWarning(c *gc.C) {
+	attrs := testing.Attrs{config.ToolsStreamKey: "devel"}
+	expected := fmt.Sprintf(standardDeprecationWarning)
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWIthAgentWarning(c *gc.C) {
+	attrs := testing.Attrs{
+		config.ToolsStreamKey: "devel",
+		config.AgentStreamKey: "proposed",
+	}
+	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
 }

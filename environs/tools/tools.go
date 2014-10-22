@@ -103,7 +103,7 @@ func FindTools(env environs.Environ, majorVersion, minorVersion int,
 	if err != nil {
 		return nil, err
 	}
-	stream := env.Config().ToolsStream()
+	stream := env.Config().AgentStream()
 	// For backwards compatibility with the config "development" attribute.
 	if stream == "" || env.Config().Development() {
 		stream = TestingStream

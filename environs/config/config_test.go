@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
+	conf "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -74,6 +75,32 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type": "my-type",
 			"name": "my-name",
+		},
+	}, {
+		about:       "Agent Stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			conf.AgentStreamKey:  "agent-stream-value",
+		},
+	}, {
+		about:       "Deprecated tools-stream used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			conf.ToolsStreamKey: "tools-stream-value",
+		},
+	}, {
+		about:       "Deprecated tools-stream ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":              "my-type",
+			"name":              "my-name",
+			conf.AgentStreamKey: "agent-stream-value",
+			conf.ToolsStreamKey: "ignore-me",
 		},
 	}, {
 		about:       "Metadata URLs",
@@ -543,9 +570,9 @@ var configTests = []configTest{
 		about:       "explicit tools stream",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
-			"tools-stream": "proposed",
+			"type":              "my-type",
+			"name":              "my-name",
+			conf.AgentStreamKey: "proposed",
 		},
 	}, {
 		about:       "Explicit state port",
@@ -1128,12 +1155,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.ImageStream(), gc.Equals, "released")
 	}
 
-	if v, ok := test.attrs["tools-stream"]; ok {
-		c.Assert(cfg.ToolsStream(), gc.Equals, v)
-	} else {
-		c.Assert(cfg.ToolsStream(), gc.Equals, "released")
-	}
-
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -1159,6 +1180,21 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(oldURLAttrPresent, jc.IsFalse)
 		c.Assert(oldToolsURL, gc.Equals, "")
 	}
+
+	// assertions for deprecated tools-stream attribute used with new agent-stream
+	agentStreamValue := cfg.AgentStream()
+	oldTstToolsStreamAttr := test.attrs[conf.ToolsStreamKey]
+	expectedAgentStreamAttr := test.attrs[conf.AgentStreamKey]
+
+	// When no agent-stream provided, look for tools-stream
+	if expectedAgentStreamAttr == nil {
+		expectedAgentStreamAttr = oldTstToolsStreamAttr
+	}
+	// If it's still nil, then hard-coded default is used
+	if expectedAgentStreamAttr == nil {
+		expectedAgentStreamAttr = "released"
+	}
+	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
 	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
 	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]

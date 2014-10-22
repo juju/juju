@@ -83,6 +83,17 @@ const (
 
 	// ProvisionerSafeModeKey stores the key for this setting.
 	ProvisionerSafeModeKey = "provisioner-safe-mode"
+
+	// TOOL vs AGENT STREAM
+	// AgentStreamKey stores the key for this setting.
+	AgentStreamKey = "agent-stream"
+
+	//
+	// Deprecated Settings
+	//
+
+	// ToolsStreamKey stores the key for this setting.
+	ToolsStreamKey = "tools-stream"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -378,6 +389,21 @@ func (cfg *Config) processDeprecatedAttributes() {
 				ProvisionerSafeModeKey,
 				ProvisionerHarvestModeKey,
 				harvestModeDescr,
+			)
+		}
+	}
+
+	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
+	if _, ok := cfg.defined[AgentStreamKey]; !ok {
+		if toolsKey, ok := cfg.defined[ToolsStreamKey]; ok {
+
+			cfg.defined[AgentStreamKey] = toolsKey
+
+			logger.Infof(
+				`Based on your "%s" setting, configuring "%s" to "%s".`,
+				ToolsStreamKey,
+				AgentStreamKey,
+				toolsKey,
 			)
 		}
 	}
@@ -885,11 +911,11 @@ func (c *Config) ImageStream() string {
 	return "released"
 }
 
-// ToolsStream returns the simplestreams stream
+// AgentStream returns the simplestreams stream
 // used to identify which tools to use when
 // when bootstrapping or upgrading an environment.
-func (c *Config) ToolsStream() string {
-	v, _ := c.defined["tools-stream"].(string)
+func (c *Config) AgentStream() string {
+	v, _ := c.defined[AgentStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -971,7 +997,7 @@ var fields = schema.Fields{
 	"tools-metadata-url":         schema.String(),
 	"image-metadata-url":         schema.String(),
 	"image-stream":               schema.String(),
-	"tools-stream":               schema.String(),
+	AgentStreamKey:               schema.String(),
 	"authorized-keys":            schema.String(),
 	"authorized-keys-path":       schema.String(),
 	"firewall-mode":              schema.String(),
@@ -1014,6 +1040,7 @@ var fields = schema.Fields{
 	"tools-url":            schema.String(),
 	"lxc-use-clone":        schema.Bool(),
 	ProvisionerSafeModeKey: schema.Bool(),
+	ToolsStreamKey:         schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -1047,12 +1074,13 @@ var alwaysOptional = schema.Defaults{
 	"apt-mirror":                 schema.Omit,
 	"lxc-clone":                  schema.Omit,
 	"disable-network-management": schema.Omit,
-	"tools-stream":               schema.Omit,
+	AgentStreamKey:               schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url":            "",
 	"lxc-use-clone":        schema.Omit,
 	ProvisionerSafeModeKey: schema.Omit,
+	ToolsStreamKey:         schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being

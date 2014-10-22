@@ -126,7 +126,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		"tools-stream": "proposed"})
+		config.AgentStreamKey: "proposed"})
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
