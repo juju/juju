@@ -14,7 +14,7 @@ type UserInfo struct {
 	CreatedBy      string     `json:"created-by"`
 	DateCreated    time.Time  `json:"date-created"`
 	LastConnection *time.Time `json:"last-connection,omitempty"`
-	Deactivated    bool       `json:"deactivated"`
+	Disabled       bool       `json:"disabled"`
 }
 
 // UserInfoResult holds the result of a UserInfo call.
@@ -31,8 +31,8 @@ type UserInfoResults struct {
 // UserInfoRequest defines the users to return.  An empty
 // Entities list indicates that all matching users should be returned.
 type UserInfoRequest struct {
-	Entities           []Entity `json:"tags"`
-	IncludeDeactivated bool     `json:"include-deactivated"`
+	Entities        []Entity `json:"entities"`
+	IncludeDisabled bool     `json:"include-disabled"`
 }
 
 // AddUsers holds the parameters for adding new users.
@@ -47,23 +47,13 @@ type AddUser struct {
 	Password    string `json:"password"`
 }
 
+// AddUserResults holds the results of the bulk AddUser API call.
 type AddUserResults struct {
-	Results []AddUserResult `json:"result"`
+	Results []AddUserResult `json:"results"`
 }
 
+// AddUserResult returns the tag of the newly created user, or an error.
 type AddUserResult struct {
 	Tag   string `json:"tag,omitempty"`
 	Error *Error `json:"error,omitempty"`
-}
-
-// DeactivateUsers holds the parameters for deactivating (or activating)
-// users.
-type DeactivateUsers struct {
-	Users []DeactivateUser `json:"users"`
-}
-
-// DeactivateUser stores the parameters to deactivate or activate a single user.
-type DeactivateUser struct {
-	Tag        string `json:"tag"`
-	Deactivate bool   `json:"deactivate"`
 }

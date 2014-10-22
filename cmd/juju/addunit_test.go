@@ -8,7 +8,9 @@ import (
 	"gopkg.in/juju/charm.v4"
 	charmtesting "gopkg.in/juju/charm.v4/testing"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -130,4 +132,34 @@ func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	s.assertForceMachine(c, svc, 3, 1, machine.Id()+"/lxc/0")
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
+}
+
+func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
+	err := runAddUnit(c, "some-service-name", "--to", "0")
+	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
+}
+
+type AddUnitLocalSuite struct {
+	jujutesting.RepoSuite
+}
+
+var _ = gc.Suite(&AddUnitLocalSuite{})
+
+func (s *AddUnitLocalSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+
+	// override provider type
+	s.PatchValue(&getClientConfig, func(client *api.Client) (*config.Config, error) {
+		attrs, err := client.EnvironmentGet()
+		if err != nil {
+			return nil, err
+		}
+		attrs["type"] = "local"
+		return config.New(config.NoDefaults, attrs)
+	})
+}
+
+func (s *AddUnitLocalSuite) TestLocalCannotHostUnits(c *gc.C) {
+	err := runAddUnit(c, "some-service-name", "--to", "0")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
 }

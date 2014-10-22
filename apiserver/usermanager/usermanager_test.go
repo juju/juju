@@ -90,77 +90,85 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *userManagerSuite) TestDeactivateUser(c *gc.C) {
+func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
-	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
-	err := barb.Deactivate()
-	c.Assert(err, gc.IsNil)
-	charlie := s.Factory.MakeUser(c, &factory.UserParams{Name: "charlie"})
-	dilbert := s.Factory.MakeUser(c, &factory.UserParams{Name: "dilbert"})
-	err = dilbert.Deactivate()
-	c.Assert(err, gc.IsNil)
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
-	args := params.DeactivateUsers{
-		Users: []params.DeactivateUser{
-			{
-				Tag:        alex.Tag().String(),
-				Deactivate: true,
-			}, {
-				Tag:        barb.Tag().String(),
-				Deactivate: true,
-			}, {
-				Tag: charlie.Tag().String(),
-			}, {
-				Tag: dilbert.Tag().String(),
-			}, {
-				Tag:        names.NewLocalUserTag("ellie").String(),
-				Deactivate: true,
-			}, {
-				Tag:        names.NewUserTag("fred@remote").String(),
-				Deactivate: true,
-			}, {
-				Tag:        "not-a-tag",
-				Deactivate: true,
-			},
+	args := params.Entities{
+		Entities: []params.Entity{
+			{alex.Tag().String()},
+			{barb.Tag().String()},
+			{names.NewLocalUserTag("ellie").String()},
+			{names.NewUserTag("fred@remote").String()},
+			{"not-a-tag"},
 		}}
-	result, err := s.usermanager.DeactivateUser(args)
+	result, err := s.usermanager.DisableUser(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			params.ErrorResult{Error: nil},
-			params.ErrorResult{Error: nil},
-			params.ErrorResult{Error: nil},
-			params.ErrorResult{Error: nil},
-			params.ErrorResult{Error: &params.Error{
+			{Error: nil},
+			{Error: nil},
+			{Error: &params.Error{
 				Message: "permission denied",
 				Code:    params.CodeUnauthorized,
 			}},
-			params.ErrorResult{Error: &params.Error{
+			{Error: &params.Error{
 				Message: "permission denied",
 				Code:    params.CodeUnauthorized,
 			}},
-			params.ErrorResult{Error: &params.Error{
+			{Error: &params.Error{
 				Message: `"not-a-tag" is not a valid tag`,
 			}},
 		}})
 	err = alex.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(alex.IsDeactivated(), jc.IsTrue)
+	c.Assert(alex.IsDisabled(), jc.IsTrue)
 
 	err = barb.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(barb.IsDeactivated(), jc.IsTrue)
-
-	err = charlie.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(charlie.IsDeactivated(), jc.IsFalse)
-
-	err = dilbert.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(dilbert.IsDeactivated(), jc.IsFalse)
+	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
-func (s *userManagerSuite) TestDeactivateUserAsNormalUser(c *gc.C) {
+func (s *userManagerSuite) TestEnableUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{alex.Tag().String()},
+			{barb.Tag().String()},
+			{names.NewLocalUserTag("ellie").String()},
+			{names.NewUserTag("fred@remote").String()},
+			{"not-a-tag"},
+		}}
+	result, err := s.usermanager.EnableUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+			{Error: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			}},
+			{Error: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			}},
+			{Error: &params.Error{
+				Message: `"not-a-tag" is not a valid tag`,
+			}},
+		}})
+	err = alex.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(alex.IsDisabled(), jc.IsFalse)
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(barb.IsDisabled(), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 	usermanager, err := usermanager.NewUserManagerAPI(
 		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
@@ -168,26 +176,39 @@ func (s *userManagerSuite) TestDeactivateUserAsNormalUser(c *gc.C) {
 
 	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
 
-	args := params.DeactivateUsers{
-		Users: []params.DeactivateUser{
-			{
-				Tag:        barb.Tag().String(),
-				Deactivate: true,
-			},
-		}}
-	_, err = usermanager.DeactivateUser(args)
+	args := params.Entities{
+		[]params.Entity{{barb.Tag().String()}},
+	}
+	_, err = usermanager.DisableUser(args)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 
 	err = barb.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(barb.IsDeactivated(), jc.IsFalse)
+	c.Assert(barb.IsDisabled(), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	c.Assert(err, gc.IsNil)
+
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+
+	args := params.Entities{
+		[]params.Entity{{barb.Tag().String()}},
+	}
+	_, err = usermanager.EnableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(barb.IsDisabled(), jc.IsTrue)
 }
 
 func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo"})
-	err := userBar.Deactivate()
-	c.Assert(err, gc.IsNil)
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
@@ -223,7 +244,7 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 					CreatedBy:      s.adminName,
 					DateCreated:    userBar.DateCreated(),
 					LastConnection: userBar.LastLogin(),
-					Deactivated:    true,
+					Disabled:       true,
 				},
 			}, {
 				Error: &params.Error{
@@ -249,11 +270,9 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	admin, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, gc.IsNil)
 	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo"})
-	err = userBar.Deactivate()
-	c.Assert(err, gc.IsNil)
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 
-	args := params.UserInfoRequest{IncludeDeactivated: true}
+	args := params.UserInfoRequest{IncludeDisabled: true}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
 	expected := params.UserInfoResults{
@@ -265,7 +284,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 					CreatedBy:      s.adminName,
 					DateCreated:    userBar.DateCreated(),
 					LastConnection: userBar.LastLogin(),
-					Deactivated:    true,
+					Disabled:       true,
 				},
 			}, {
 				Result: &params.UserInfo{

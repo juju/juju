@@ -425,7 +425,7 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 
 func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+		"firewall-mode": config.FwInstance}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -456,7 +456,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	)
 	defer cleanup()
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+		"firewall-mode": config.FwInstance}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -472,7 +472,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInstance(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "instance"}))
+		"firewall-mode": config.FwInstance}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -488,7 +488,7 @@ func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeInst
 
 func (s *localServerSuite) TestDestroyEnvironmentDeletesSecurityGroupsFWModeGlobal(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, s.TestConfig.Merge(coretesting.Attrs{
-		"firewall-mode": "global"}))
+		"firewall-mode": config.FwGlobal}))
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
@@ -797,6 +797,13 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := s.Open(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (s *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := s.Open(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
@@ -1433,6 +1440,88 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	// is guaranteed to return that.
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az3 will be valid to host an instance.
+		nova.AvailabilityZone{
+			Name: "az3",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			serverDetail := args[0].(*nova.ServerDetail)
+			if serverDetail.AvailabilityZone == "az2" {
+				return fmt.Errorf("No valid host was found")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
+}
+
+func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an unknown error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			serverDetail := args[0].(*nova.ServerDetail)
+			if serverDetail.AvailabilityZone == "az2" {
+				return fmt.Errorf("Some unknown error")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	_, _, _, err = testing.StartInstance(env, "1")
+	errString := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(errString, gc.Matches, ".*Some unknown error.*")
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {

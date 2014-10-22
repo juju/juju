@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -65,6 +66,9 @@ type maasEnviron struct {
 	ecfgUnlocked       *maasEnvironConfig
 	maasClientUnlocked *gomaasapi.MAASObject
 	storageUnlocked    storage.Storage
+
+	availabilityZonesMutex sync.Mutex
+	availabilityZones      []common.AvailabilityZone
 }
 
 var _ environs.Environ = (*maasEnviron)(nil)
@@ -159,6 +163,15 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		env.supportedArchitectures = architectures.SortedValues()
 	}
 	return env.supportedArchitectures, nil
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (env *maasEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	caps, err := env.getCapabilities()
+	if err != nil {
+		return false, errors.Annotatef(err, "getCapabilities failed")
+	}
+	return caps.Contains(capStaticIPAddresses), nil
 }
 
 // allBootImages queries MAAS for all of the boot-images across
@@ -281,6 +294,73 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	return architectures.SortedValues(), nil
 }
 
+type maasAvailabilityZone struct {
+	name string
+}
+
+func (z maasAvailabilityZone) Name() string {
+	return z.name
+}
+
+func (z maasAvailabilityZone) Available() bool {
+	// MAAS' physical zone attributes only include name and description;
+	// there is no concept of availability.
+	return true
+}
+
+// AvailabilityZones returns a slice of availability zones
+// for the configured region.
+func (e *maasEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	e.availabilityZonesMutex.Lock()
+	defer e.availabilityZonesMutex.Unlock()
+	if e.availabilityZones == nil {
+		zonesObject := e.getMAASClient().GetSubObject("zones")
+		result, err := zonesObject.CallGet("", nil)
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusNotFound {
+			return nil, errors.NewNotImplemented(nil, "the MAAS server does not support zones")
+		}
+		if err != nil {
+			return nil, errors.Annotate(err, "cannot query ")
+		}
+		list, err := result.GetArray()
+		if err != nil {
+			return nil, err
+		}
+		logger.Debugf("availability zones: %+v", list)
+		availabilityZones := make([]common.AvailabilityZone, len(list))
+		for i, obj := range list {
+			zone, err := obj.GetMap()
+			if err != nil {
+				return nil, err
+			}
+			name, err := zone["name"].GetString()
+			if err != nil {
+				return nil, err
+			}
+			availabilityZones[i] = maasAvailabilityZone{name}
+		}
+		e.availabilityZones = availabilityZones
+	}
+	return e.availabilityZones, nil
+}
+
+// InstanceAvailabilityZoneNames returns the availability zone names for each
+// of the specified instances.
+func (e *maasEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	instances, err := e.Instances(ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+	zones := make([]string, len(instances))
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
+		zones[i] = inst.(*maasInstance).zone()
+	}
+	return zones, nil
+}
+
 // SupportNetworks is specified on the EnvironCapability interface.
 func (env *maasEnviron) SupportNetworks() bool {
 	caps, err := env.getCapabilities()
@@ -291,12 +371,46 @@ func (env *maasEnviron) SupportNetworks() bool {
 	return caps.Contains(capNetworksManagement)
 }
 
-func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
-	// We treat all placement directives as maas-name.
-	return nil
+type maasPlacement struct {
+	nodeName string
+	zoneName string
 }
 
-const capNetworksManagement = "networks-management"
+func (e *maasEnviron) parsePlacement(placement string) (*maasPlacement, error) {
+	pos := strings.IndexRune(placement, '=')
+	if pos == -1 {
+		// If there's no '=' delimiter, assume it's a node name.
+		return &maasPlacement{nodeName: placement}, nil
+	}
+	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "zone":
+		availabilityZone := value
+		zones, err := e.AvailabilityZones()
+		if err != nil {
+			return nil, err
+		}
+		for _, z := range zones {
+			if z.Name() == availabilityZone {
+				return &maasPlacement{zoneName: availabilityZone}, nil
+			}
+		}
+		return nil, errors.Errorf("invalid availability zone %q", availabilityZone)
+	}
+	return nil, errors.Errorf("unknown placement directive: %v", placement)
+}
+
+func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement == "" {
+		return nil
+	}
+	_, err := env.parsePlacement(placement)
+	return err
+}
+
+const (
+	capNetworksManagement = "networks-management"
+	capStaticIPAddresses  = "static-ipaddresses"
+)
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
@@ -308,7 +422,7 @@ func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
 		client := env.getMAASClient().GetSubObject("version/")
 		result, err = client.CallGet("", nil)
 		if err != nil {
-			if err, ok := err.(*gomaasapi.ServerError); ok && err.StatusCode == 404 {
+			if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				return caps, fmt.Errorf("MAAS does not support version info")
 			}
 			return caps, err
@@ -421,10 +535,13 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string) (gomaasapi.MAASObject, error) {
+func (environ *maasEnviron) acquireNode(nodeName, zoneName string, cons constraints.Value, includeNetworks, excludeNetworks []string) (gomaasapi.MAASObject, error) {
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
+	if zoneName != "" {
+		acquireParams.Add("zone", zoneName)
+	}
 	if nodeName != "" {
 		acquireParams.Add("name", nodeName)
 	} else if cons.Arch == nil {
@@ -591,24 +708,85 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToEnab
 	return networkInfo, nil
 }
 
+// DistributeInstances implements the state.InstanceDistributor policy.
+func (e *maasEnviron) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+	return common.DistributeInstances(e, candidates, distributionGroup)
+}
+
+var availabilityZoneAllocations = common.AvailabilityZoneAllocations
+
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
-	var err error
-	nodeName := args.Placement
+	var availabilityZones []string
+	var nodeName string
+	if args.Placement != "" {
+		placement, err := environ.parsePlacement(args.Placement)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		switch {
+		case placement.zoneName != "":
+			availabilityZones = append(availabilityZones, placement.zoneName)
+		default:
+			nodeName = placement.nodeName
+		}
+	}
+
+	// If no placement is specified, then automatically spread across
+	// the known zones for optimal spread across the instance distribution
+	// group.
+	if args.Placement == "" {
+		var group []instance.Id
+		var err error
+		if args.DistributionGroup != nil {
+			group, err = args.DistributionGroup()
+			if err != nil {
+				return nil, nil, nil, errors.Annotate(err, "cannot get distribution group")
+			}
+		}
+		zoneInstances, err := availabilityZoneAllocations(environ, group)
+		if errors.IsNotImplemented(err) {
+			// Availability zones are an extension, so we may get a
+			// not implemented error; ignore these.
+		} else if err != nil {
+			return nil, nil, nil, errors.Annotate(err, "cannot get availability zone allocations")
+		} else if len(zoneInstances) > 0 {
+			for _, z := range zoneInstances {
+				availabilityZones = append(availabilityZones, z.ZoneName)
+			}
+		}
+	}
+	if len(availabilityZones) == 0 {
+		availabilityZones = []string{""}
+	}
+
 	requestedNetworks := args.MachineConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
-	node, err := environ.acquireNode(
-		nodeName,
-		args.Constraints,
-		includeNetworks,
-		excludeNetworks,
-	)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
+
+	var err error
+	var node gomaasapi.MAASObject
+	for i, zoneName := range availabilityZones {
+		node, err = environ.acquireNode(
+			nodeName,
+			zoneName,
+			args.Constraints,
+			includeNetworks,
+			excludeNetworks,
+		)
+		if err, ok := err.(gomaasapi.ServerError); ok && err.StatusCode == http.StatusConflict {
+			if i+1 < len(availabilityZones) {
+				logger.Infof("could not acquire a node in zone %q, trying another zone", zoneName)
+				continue
+			}
+		}
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		}
 	}
+
 	inst := &maasInstance{maasObject: &node, environ: environ}
 	defer func() {
 		if err != nil {

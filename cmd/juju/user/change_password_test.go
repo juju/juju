@@ -1,114 +1,108 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package user_test
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/juju/cmd"
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
 
-type UserChangePasswordCommandSuite struct {
-	testing.FakeJujuHomeSuite
+type ChangePasswordCommandSuite struct {
+	BaseSuite
 	mockAPI         *mockChangePasswordAPI
 	mockEnvironInfo *mockEnvironInfo
 }
 
-var _ = gc.Suite(&UserChangePasswordCommandSuite{})
+var _ = gc.Suite(&ChangePasswordCommandSuite{})
 
-func (s *UserChangePasswordCommandSuite) SetUpTest(c *gc.C) {
-	s.FakeJujuHomeSuite.SetUpTest(c)
+func (s *ChangePasswordCommandSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.mockAPI = &mockChangePasswordAPI{}
 	s.mockEnvironInfo = &mockEnvironInfo{
 		creds: configstore.APICredentials{"user-name", "password"},
 	}
-	s.PatchValue(&getChangePasswordAPI, func(c *UserChangePasswordCommand) (ChangePasswordAPI, error) {
+	s.PatchValue(user.GetChangePasswordAPI, func(c *user.ChangePasswordCommand) (user.ChangePasswordAPI, error) {
 		return s.mockAPI, nil
 	})
-	s.PatchValue(&getEnvironInfoWriter, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
+	s.PatchValue(user.GetEnvironInfoWriter, func(c *user.ChangePasswordCommand) (user.EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, nil
 	})
-	s.PatchValue(&getConnectionCredentials, func(c *UserChangePasswordCommand) (configstore.APICredentials, error) {
+	s.PatchValue(user.GetConnectionCredentials, func(c *user.ChangePasswordCommand) (configstore.APICredentials, error) {
 		return s.mockEnvironInfo.creds, nil
 	})
 }
 
 func newUserChangePassword() cmd.Command {
-	return envcmd.Wrap(&UserChangePasswordCommand{})
+	return envcmd.Wrap(&user.ChangePasswordCommand{})
 }
 
-func newUserSetPassword(password string) cmd.Command {
-	return envcmd.Wrap(&UserChangePasswordCommand{Password: password})
-}
-
-func (s *UserChangePasswordCommandSuite) TestExtraArgs(c *gc.C) {
+func (s *ChangePasswordCommandSuite) TestExtraArgs(c *gc.C) {
 	_, err := testing.RunCommand(c, newUserChangePassword(), "--foobar")
 	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --foobar")
 }
 
-func (s *UserChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
-	s.PatchValue(&getEnvironInfoWriter, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
+func (s *ChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
+	s.PatchValue(user.GetEnvironInfoWriter, func(c *user.ChangePasswordCommand) (user.EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, errors.New("something failed")
 	})
 	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
 	c.Assert(err, gc.ErrorMatches, "something failed")
 }
 
-func (s *UserChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
+func (s *ChangePasswordCommandSuite) TestChangePassword(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserChangePassword())
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
+	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+	expected := `
+password:
+type password again:
+`[1:]
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "Your password has been updated.\n")
+}
+
+func (s *ChangePasswordCommandSuite) TestChangePasswordGenerate(c *gc.C) {
 	context, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.mockAPI.username, gc.Equals, "user-name")
-	c.Assert(len(s.mockAPI.password) > 0, gc.Equals, true)
-	expected := fmt.Sprintf("your password has been updated")
-	c.Assert(testing.Stdout(context), gc.Equals, expected+"\n")
+	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "sekrit")
+	c.Assert(s.mockAPI.password, gc.HasLen, 24)
+	c.Assert(testing.Stderr(context), gc.Equals, "Your password has been updated.\n")
 }
 
-func (s *UserChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
+func (s *ChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 	s.mockAPI.failMessage = "failed to do something"
 	s.mockAPI.failOps = []bool{true, false}
-	context, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
 	c.Assert(s.mockAPI.username, gc.Equals, "")
-	c.Assert(testing.Stdout(context), gc.Equals, "")
 }
 
 // The first write fails, so we try to revert the password which succeeds
-func (s *UserChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C) {
-	s.PatchValue(&getEnvironInfoWriter, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
-		return s.mockEnvironInfo, nil
-	})
-	// Set the password to something known
-	context, err := testing.RunCommand(c, newUserSetPassword("password"))
-	c.Assert(err, gc.IsNil)
-
+func (s *ChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C) {
 	// Fail to Write the new jenv file
 	s.mockEnvironInfo.failMessage = "failed to write"
-	context, err = testing.RunCommand(c, newUserChangePassword(), "--generate")
-	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(context), gc.Equals, `Updating the jenv file failed, reverting to original password
-your password has not changed
-`)
+	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	c.Assert(err, gc.ErrorMatches, "failed to write new password to environments file: failed to write")
+	// Last api call was to set the password back to the original.
 	c.Assert(s.mockAPI.password, gc.Equals, "password")
 }
 
 // SetPassword api works the first time, but the write fails, our second call to set password fails
-func (s *UserChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
+func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 	s.mockAPI.failMessage = "failed to do something"
 	s.mockEnvironInfo.failMessage = "failed to write"
 	s.mockAPI.failOps = []bool{false, true}
-	context, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
-	c.Assert(testing.Stderr(context), gc.Equals, `Updating the jenv file failed, reverting to original password
-Updating the jenv file failed, reverting failed, you will need to edit your environments file by hand (location)
-`)
-	c.Assert(err, gc.ErrorMatches, "failed to do something")
+	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
+	c.Assert(err, gc.ErrorMatches, "failed to set password back: failed to do something")
 }
 
 type mockEnvironInfo struct {
@@ -143,13 +137,13 @@ type mockChangePasswordAPI struct {
 	password    string
 }
 
-func (m *mockChangePasswordAPI) SetPassword(tag names.UserTag, password string) error {
+func (m *mockChangePasswordAPI) SetPassword(username, password string) error {
 	if len(m.failOps) > 0 && m.failOps[m.currentOp] {
 		m.currentOp++
 		return errors.New(m.failMessage)
 	}
 	m.currentOp++
-	m.username = tag.Name()
+	m.username = username
 	m.password = password
 	return nil
 }

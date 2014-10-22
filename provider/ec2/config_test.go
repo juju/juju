@@ -212,6 +212,11 @@ var configTests = []configTest{
 		firewallMode: config.FwGlobal,
 	}, {
 		config: attrs{
+			"firewall-mode": "none",
+		},
+		firewallMode: config.FwNone,
+	}, {
+		config: attrs{
 			"ssl-hostname-verification": false,
 		},
 		err: "disabling ssh-hostname-verification is not supported",

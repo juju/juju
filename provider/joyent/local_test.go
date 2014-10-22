@@ -410,3 +410,10 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }
+
+func (t *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
+}

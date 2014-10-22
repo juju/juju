@@ -1,7 +1,7 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for infos.
 
-package main
+package user
 
 import (
 	"fmt"
@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
 )
 
-const userInfoCommandDoc = `
+const InfoCommandDoc = `
 Display infomation on a user.
 
 Examples:
@@ -48,7 +48,8 @@ Examples:
 	last-connection: 2014-01-01 00:00:00 +0000 UTC
 `
 
-type UserInfoCommandBase struct {
+// InfoCommand retrieves information about a single user.
+type InfoCommand struct {
 	UserCommandBase
 	exactTime bool
 	out       cmd.Output
@@ -59,6 +60,7 @@ type UserInfoCommand struct {
 	Username string
 }
 
+// UserInfo defines the serialization behaviour of the user information.
 type UserInfo struct {
 	Username       string `yaml:"user-name" json:"user-name"`
 	DisplayName    string `yaml:"display-name" json:"display-name"`
@@ -67,40 +69,42 @@ type UserInfo struct {
 	Disabled       bool   `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 }
 
-func (c *UserInfoCommand) Info() *cmd.Info {
+// Info implements Command.Info.
+func (c *InfoCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "info",
 		Args:    "<username>",
 		Purpose: "shows information on a user",
-		Doc:     userInfoCommandDoc,
+		Doc:     InfoCommandDoc,
 	}
 }
 
-func (c *UserInfoCommandBase) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.exactTime, "exact-time", false, "use full timestamp precision")
-}
-
-func (c *UserInfoCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.UserInfoCommandBase.SetFlags(f)
+// SetFlags implements Command.SetFlags.
+func (c *InfoCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
 }
 
-func (c *UserInfoCommand) Init(args []string) (err error) {
+// Init implements Command.Init.
+func (c *InfoCommand) Init(args []string) (err error) {
 	c.Username, err = cmd.ZeroOrOneArgs(args)
 	return err
 }
 
+// UserInfoAPI defines the API methods that the info command uses.
 type UserInfoAPI interface {
-	UserInfo(tags []names.UserTag, includeDeactivated bool) ([]params.UserInfo, error)
+	UserInfo([]string, usermanager.IncludeDisabled) ([]params.UserInfo, error)
 	Close() error
 }
 
-var getUserInfoAPI = func(c *UserCommandBase) (UserInfoAPI, error) {
+func (c *InfoCommand) getUserInfoAPI() (UserInfoAPI, error) {
 	return c.NewUserManagerClient()
 }
 
-func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := getUserInfoAPI(&c.UserCommandBase)
+var getUserInfoAPI = (*InfoCommand).getUserInfoAPI
+
+// Run implements Command.Run.
+func (c *InfoCommand) Run(ctx *cmd.Context) (err error) {
+	client, err := getUserInfoAPI(c)
 	if err != nil {
 		return err
 	}
@@ -113,19 +117,27 @@ func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
 		}
 		username = info.User
 	}
-	userTag := names.NewLocalUserTag(username)
-	result, err := client.UserInfo([]names.UserTag{userTag}, false)
+	result, err := client.UserInfo([]string{username}, false)
 	if err != nil {
 		return err
 	}
-	// Don't output the params type, but be explicit. We convert before
-	// checking length because we want to reuse the conversion function, and
-	// we are pretty sure that there is one value there.
-	output := c.apiUsersToUserInfoSlice(result)
-	if len(output) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(output))
+	if len(result) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if err = c.out.Write(ctx, output[0]); err != nil {
+	// Don't output the params type, be explicit.
+	info := result[0]
+	outInfo := UserInfo{
+		Username:    info.Username,
+		DisplayName: info.DisplayName,
+		DateCreated: info.DateCreated.String(),
+		Disabled:    info.Disabled,
+	}
+	if info.LastConnection != nil {
+		outInfo.LastConnection = info.LastConnection.String()
+	} else {
+		outInfo.LastConnection = "never connected"
+	}
+	if err = c.out.Write(ctx, outInfo); err != nil {
 		return err
 	}
 	return nil

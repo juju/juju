@@ -364,6 +364,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 var unsupportedConstraints = []string{
 	constraints.Tags,
 }
@@ -538,7 +543,10 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
-const ebsStorage = "ebs"
+const (
+	ebsStorage = "ebs"
+	ssdStorage = "ssd"
+)
 
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
@@ -589,7 +597,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	arches := args.Tools.Arches()
-	stor := ebsStorage
 	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, nil, nil, err
@@ -601,7 +608,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-		Storage:     &stor,
+		Storage:     []string{ssdStorage, ebsStorage},
 	})
 	if err != nil {
 		return nil, nil, nil, err

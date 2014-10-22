@@ -1621,7 +1621,7 @@ func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, erro
 
 }
 
-// ActionByTag returns an Action given an ActionTag
+// ActionByTag returns an Action given an ActionTag.
 func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
 	return st.Action(actionIdFromTag(tag))
 }
@@ -1642,7 +1642,9 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	return newActionResult(st, doc), nil
 }
 
-// ActionResultByTag returns an ActionResult given an ActionTag
+// ActionResultByTag returns an ActionResult given an ActionTag. We
+// intentionally use the ActionTag rather than an ActionResultTag
+// because conceptually they're the same Action.
 func (st *State) ActionResultByTag(tag names.ActionTag) (*ActionResult, error) {
 	return st.ActionResult(actionResultIdFromTag(tag))
 }

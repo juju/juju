@@ -262,7 +262,7 @@ func (u *User) PasswordValid(password string) bool {
 	// from the database, there is a very small timeframe where an user
 	// could be disabled after it has been read but prior to being checked,
 	// but in practice, this isn't a problem.
-	if u.IsDeactivated() {
+	if u.IsDisabled() {
 		return false
 	}
 	if u.doc.PasswordSalt != "" {
@@ -295,21 +295,21 @@ func (u *User) Refresh() error {
 	return nil
 }
 
-// Deactivate deactivates the user.  Deactivated identities cannot log in.
-func (u *User) Deactivate() error {
+// Disable deactivates the user.  Disabled identities cannot log in.
+func (u *User) Disable() error {
 	initialEnv, err := u.st.InitialEnvironment()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if u.doc.Name == initialEnv.Owner().Name() {
-		return errors.Unauthorizedf("cannot deactivate initial environment owner")
+		return errors.Unauthorizedf("cannot disable state server environment owner")
 	}
-	return errors.Annotatef(u.setDeactivated(true), "cannot deactivate user %q", u.Name())
+	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
 }
 
-// Activate reactivates the user, setting disabled to false.
-func (u *User) Activate() error {
-	return errors.Annotatef(u.setDeactivated(false), "cannot activate user %q", u.Name())
+// Enable reactivates the user, setting disabled to false.
+func (u *User) Enable() error {
+	return errors.Annotatef(u.setDeactivated(false), "cannot enable user %q", u.Name())
 }
 
 func (u *User) setDeactivated(value bool) error {
@@ -329,8 +329,8 @@ func (u *User) setDeactivated(value bool) error {
 	return nil
 }
 
-// IsDeactivated returns whether the user is currently deactiviated.
-func (u *User) IsDeactivated() bool {
+// IsDisabled returns whether the user is currently enabled.
+func (u *User) IsDisabled() bool {
 	// Yes, this is a cached value, but in practice the user object is
 	// never held around for a long time.
 	return u.doc.Deactivated

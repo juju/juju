@@ -22,7 +22,8 @@ func init() {
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
 	AddUser(args params.AddUsers) (params.AddUserResults, error)
-	DeactivateUser(args params.DeactivateUsers) (params.ErrorResults, error)
+	DisableUser(args params.Entities) (params.ErrorResults, error)
+	EnableUser(args params.Entities) (params.ErrorResults, error)
 	SetPassword(args params.EntityPasswords) (params.ErrorResults, error)
 	UserInfo(args params.UserInfoRequest) (params.UserInfoResults, error)
 }
@@ -52,9 +53,9 @@ func NewUserManagerAPI(
 }
 
 func (api *UserManagerAPI) permissionCheck(user names.UserTag) error {
-	// TODO(thumper): Change this permission check when we have real
-	// permissions. For now, only the owner of the initial environment is able
-	// to add users.
+	// TODO(thumper): PERMISSIONS Change this permission check when we have
+	// real permissions. For now, only the owner of the initial environment is
+	// able to add users.
 	initialEnv, err := api.state.InitialEnvironment()
 	if err != nil {
 		return errors.Trace(err)
@@ -77,9 +78,9 @@ func (api *UserManagerAPI) AddUser(args params.AddUsers) (params.AddUserResults,
 	if err != nil {
 		return result, errors.Wrap(err, common.ErrPerm)
 	}
-	// TODO(thumper): Change this permission check when we have real
-	// permissions. For now, only the owner of the initial environment is able
-	// to add users.
+	// TODO(thumper): PERMISSIONS Change this permission check when we have
+	// real permissions. For now, only the owner of the initial environment is
+	// able to add users.
 	if err := api.permissionCheck(loggedInUser); err != nil {
 		return result, errors.Trace(err)
 	}
@@ -107,41 +108,44 @@ func (api *UserManagerAPI) getUser(tag string) (*state.User, error) {
 	return user, nil
 }
 
-// DeactivateUser either disables or enables a user based on the params.
-func (api *UserManagerAPI) DeactivateUser(args params.DeactivateUsers) (params.ErrorResults, error) {
+// EnableUser enables one or more users.  If the user is already enabled,
+// the action is consided a success.
+func (api *UserManagerAPI) EnableUser(users params.Entities) (params.ErrorResults, error) {
+	return api.enableUserImpl(users, "enable", (*state.User).Enable)
+}
+
+// DisableUser disables one or more users.  If the user is already disabled,
+// the action is consided a success.
+func (api *UserManagerAPI) DisableUser(users params.Entities) (params.ErrorResults, error) {
+	return api.enableUserImpl(users, "disable", (*state.User).Disable)
+}
+
+func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, method func(*state.User) error) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Users)),
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	if len(args.Users) == 0 {
+	if len(args.Entities) == 0 {
 		return result, nil
 	}
 	loggedInUser, err := api.getLoggedInUser()
 	if err != nil {
 		return result, errors.Wrap(err, common.ErrPerm)
 	}
-	// TODO(thumper): Change this permission check when we have real
-	// permissions. For now, only the owner of the initial environment is able
-	// to add users.
+	// TODO(thumper): PERMISSIONS Change this permission check when we have
+	// real permissions. For now, only the owner of the initial environment is
+	// able to add users.
 	if err := api.permissionCheck(loggedInUser); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	for i, arg := range args.Users {
+	for i, arg := range args.Entities {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if arg.Deactivate {
-			err = user.Deactivate()
-		} else {
-			err = user.Activate()
-		}
+		err = method(user)
 		if err != nil {
-			action := "activate"
-			if arg.Deactivate {
-				action = "deactivate"
-			}
 			result.Results[i].Error = common.ServerError(errors.Errorf("failed to %s user: %s", action, err))
 		}
 	}
@@ -149,8 +153,7 @@ func (api *UserManagerAPI) DeactivateUser(args params.DeactivateUsers) (params.E
 }
 
 // UserInfo returns information on a user.
-func (api *UserManagerAPI) UserInfo(args params.UserInfoRequest) (params.UserInfoResults, error) {
-
+func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
 	var infoForUser = func(user *state.User) params.UserInfoResult {
 		return params.UserInfoResult{
 			Result: &params.UserInfo{
@@ -159,15 +162,15 @@ func (api *UserManagerAPI) UserInfo(args params.UserInfoRequest) (params.UserInf
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
 				LastConnection: user.LastLogin(),
-				Deactivated:    user.IsDeactivated(),
+				Disabled:       user.IsDisabled(),
 			},
 		}
 	}
 
 	var results params.UserInfoResults
-	argCount := len(args.Entities)
+	argCount := len(request.Entities)
 	if argCount == 0 {
-		users, err := api.state.AllUsers(args.IncludeDeactivated)
+		users, err := api.state.AllUsers(request.IncludeDisabled)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
@@ -178,7 +181,7 @@ func (api *UserManagerAPI) UserInfo(args params.UserInfoRequest) (params.UserInf
 	}
 
 	results.Results = make([]params.UserInfoResult, argCount)
-	for i, arg := range args.Entities {
+	for i, arg := range request.Entities {
 		user, err := api.getUser(arg.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
@@ -190,16 +193,13 @@ func (api *UserManagerAPI) UserInfo(args params.UserInfoRequest) (params.UserInf
 	return results, nil
 }
 
-func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.EntityPassword, permErr error) error {
+func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.EntityPassword, adminUser bool) error {
 	user, err := api.getUser(arg.Tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if loggedInUser != user.UserTag() {
-		// Look to see if the logged in user is admin.
-		if permErr != nil {
-			return permErr
-		}
+	if loggedInUser != user.UserTag() && !adminUser {
+		return errors.Trace(common.ErrPerm)
 	}
 	if arg.Password == "" {
 		return errors.New("can not use an empty password")
@@ -211,6 +211,7 @@ func (api *UserManagerAPI) setPassword(loggedInUser names.UserTag, arg params.En
 	return nil
 }
 
+// SetPassword changes the stored password for the specified users.
 func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
@@ -223,8 +224,9 @@ func (api *UserManagerAPI) SetPassword(args params.EntityPasswords) (params.Erro
 		return result, common.ErrPerm
 	}
 	permErr := api.permissionCheck(loggedInUser)
+	adminUser := permErr == nil
 	for i, arg := range args.Changes {
-		if err := api.setPassword(loggedInUser, arg, permErr); err != nil {
+		if err := api.setPassword(loggedInUser, arg, adminUser); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}

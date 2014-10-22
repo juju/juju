@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -91,6 +92,7 @@ var (
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
+	newFirewaller            = firewaller.NewFirewaller
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -325,6 +327,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
 	}
+	// Check if firewall-mode is "none" to disable the firewaller.
+	firewallMode := envConfig.FirewallMode()
+	disableFirewaller := firewallMode == config.FwNone
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
@@ -447,9 +452,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// Make another job to enable the firewaller. Not all
 			// environments are capable of managing ports
 			// centrally.
-			a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st.Firewaller())
-			})
+			if !disableFirewaller {
+				a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
+					return newFirewaller(st.Firewaller())
+				})
+			} else {
+				logger.Debugf("not starting firewaller worker - firewall-mode is %q", config.FwNone)
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
