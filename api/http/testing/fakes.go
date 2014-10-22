@@ -4,8 +4,6 @@
 package testing
 
 import (
-	"bytes"
-	"io/ioutil"
 	"net/http"
 
 	gc "gopkg.in/check.v1"
@@ -27,14 +25,9 @@ type FakeHTTPClient struct {
 // NewFakeHTTPClient returns a fake with Response set to an OK status,
 // no headers, and no body.
 func NewFakeHTTPClient() *FakeHTTPClient {
-	resp := http.Response{
-		StatusCode: http.StatusOK,
-		Header:     make(http.Header),
-		Body:       ioutil.NopCloser(&bytes.Buffer{}),
-	}
-
+	resp := NewHTTPResponse()
 	fake := FakeHTTPClient{
-		Response: &resp,
+		Response: &resp.Response,
 	}
 	return &fake
 }

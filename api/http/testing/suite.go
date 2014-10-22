@@ -25,6 +25,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.Fake = NewFakeHTTPClient()
 }
 
+// CheckRequest verifies that the HTTP request matches the args
+// as an API request should.
 func (s *BaseSuite) CheckRequest(c *gc.C, req *apihttp.Request, method, user, pw, host, pth string) {
 	// Only check API-related request fields.
 
