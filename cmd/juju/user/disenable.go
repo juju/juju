@@ -8,9 +8,10 @@ import (
 	"github.com/juju/errors"
 )
 
-const disableUserDoc = ` Disabling a user stops that user from being able to
-log in. The user still exists and can be reenabled using the "juju enable"
-command.  If the user is already disabled, this command succeeds silently.
+const disableUserDoc = `
+Disabling a user stops that user from being able to log in. The user still
+exists and can be reenabled using the "juju enable" command.  If the user is
+already disabled, this command succeeds silently.
 
 Examples:
   juju user disable foobar
@@ -20,7 +21,6 @@ See Also:
 `
 
 const enableUserDoc = `
-
 Enabling a user that is disabled allows that user to log in again. The user
 still exists and can be reenabled using the "juju enable" command.  If the
 user is already enabled, this command succeeds silently.
@@ -32,20 +32,20 @@ See Also:
   juju disable
 `
 
-// DisableUserBase common code for enable/disable user commands
-type DisableUserBase struct {
+// DisenableUserBase common code for enable/disable user commands
+type DisenableUserBase struct {
 	UserCommandBase
 	user string
 }
 
 // DisableCommand disables users.
 type DisableCommand struct {
-	DisableUserBase
+	DisenableUserBase
 }
 
 // EnableCommand enables users.
 type EnableCommand struct {
-	DisableUserBase
+	DisenableUserBase
 }
 
 // Info implements Command.Info.
@@ -69,7 +69,7 @@ func (c *EnableCommand) Info() *cmd.Info {
 }
 
 // Init implements Command.Init.
-func (c *DisableUserBase) Init(args []string) error {
+func (c *DisenableUserBase) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.New("no username supplied")
 	}
@@ -85,15 +85,15 @@ type DisenableUserAPI interface {
 	Close() error
 }
 
-func (c *DisableUserBase) getDisableUserAPI() (DisenableUserAPI, error) {
+func (c *DisenableUserBase) getDisableUserAPI() (DisenableUserAPI, error) {
 	return c.NewUserManagerClient()
 }
 
-var getDisableUserAPI = (*DisableUserBase).getDisableUserAPI
+var getDisableUserAPI = (*DisenableUserBase).getDisableUserAPI
 
 // Info implements Command.Run.
 func (c *DisableCommand) Run(ctx *cmd.Context) error {
-	client, err := getDisableUserAPI(&c.DisableUserBase)
+	client, err := getDisableUserAPI(&c.DisenableUserBase)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (c *DisableCommand) Run(ctx *cmd.Context) error {
 
 // Info implements Command.Run.
 func (c *EnableCommand) Run(ctx *cmd.Context) error {
-	client, err := getDisableUserAPI(&c.DisableUserBase)
+	client, err := getDisableUserAPI(&c.DisenableUserBase)
 	if err != nil {
 		return err
 	}

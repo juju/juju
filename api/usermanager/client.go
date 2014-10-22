@@ -94,16 +94,16 @@ func (c *Client) EnableUser(username string) error {
 type IncludeDisabled bool
 
 var (
-	// OnlyActive indicates to only return active users.
-	OnlyActive IncludeDisabled = false
+	// ActiveUsers indicates to only return active users.
+	ActiveUsers IncludeDisabled = false
 	// AllUsers indicates that both enabled and disabled users should be
 	// returned.
 	AllUsers IncludeDisabled = true
 )
 
 // UserInfo returns information about the specified users.  If no users are
-// specified, the call should return all users.  If includeDisabled is false,
-// only enabled users are returned.
+// specified, the call should return all users.  If includeDisabled is set to
+// ActiveUsers, only enabled users are returned.
 func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.UserInfo, error) {
 	var results params.UserInfoResults
 	var entities []params.Entity
@@ -126,7 +126,7 @@ func (c *Client) UserInfo(usernames []string, all IncludeDisabled) ([]params.Use
 	// if we didn't ask for any, we should get all, and we shouldn't get any
 	// errors for listing all.  We care here because we index into the users
 	// slice.
-	if len(usernames) > 0 {
+	if len(results.Results) == len(usernames) {
 		var errorStrings []string
 		for i, result := range results.Results {
 			if result.Error != nil {
