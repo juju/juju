@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package peergrouper
+package peergrouper_test
 
 import (
 	"errors"
@@ -18,6 +18,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 type testIPVersion struct {
@@ -67,7 +68,7 @@ type workerJujuConnSuite struct {
 var _ = gc.Suite(&workerJujuConnSuite{})
 
 func (s *workerJujuConnSuite) TestStartStop(c *gc.C) {
-	w, err := New(s.State)
+	w, err := peergrouper.New(s.State)
 	c.Assert(err, gc.IsNil)
 	err = worker.Stop(w)
 	c.Assert(err, gc.IsNil)
@@ -82,17 +83,17 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 		cwatch := statetesting.NewNotifyWatcherC(c, s.State, watcher)
 		cwatch.AssertOneChange()
 
-		statePublish := newPublisher(s.State, false)
+		statePublish := peergrouper.NewPublisher(s.State, false)
 
 		// Wrap the publisher so that we can call StartSync immediately
-		// after the publishAPIServers method is called.
+		// after the PublishAPIServers method is called.
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
-			err := statePublish.publishAPIServers(apiServers, instanceIds)
+			err := statePublish.PublishAPIServers(apiServers, instanceIds)
 			s.State.StartSync()
 			return err
 		}
 
-		w := newWorker(st, publisherFunc(publish))
+		w := peergrouper.NewWorker(st, publisherFunc(publish))
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -108,8 +109,8 @@ func (s *workerJujuConnSuite) TestPublisherRejectsNoServers(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
-		statePublish := newPublisher(s.State, false)
-		err := statePublish.publishAPIServers(nil, nil)
+		statePublish := peergrouper.NewPublisher(s.State, false)
+		err := statePublish.PublishAPIServers(nil, nil)
 		c.Assert(err, gc.ErrorMatches, "no api servers specified")
 	})
 }
@@ -166,7 +167,7 @@ func addressesWithPort(port int, addrs ...string) []network.HostPort {
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&pollInterval, 5*time.Millisecond)
+		s.PatchValue(&peergrouper.PollInterval, 5*time.Millisecond)
 
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
@@ -176,7 +177,7 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w := newWorker(st, noPublisher{})
+		w := peergrouper.NewWorker(st, noPublisher{})
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -267,7 +268,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		mustNext(c, memberWatcher)
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
-		w := newWorker(st, noPublisher{})
+		w := peergrouper.NewWorker(st, noPublisher{})
 		done := make(chan error)
 		go func() {
 			done <- w.Wait()
@@ -289,7 +290,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		// Start the worker again - although the membership should
 		// not change, the HasVote status should be updated correctly.
 		resetErrors()
-		w = newWorker(st, noPublisher{})
+		w = peergrouper.NewWorker(st, noPublisher{})
 
 		// Watch all the machines for changes, so we can check
 		// their has-vote status without polling.
@@ -339,7 +340,7 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
-		w := newWorker(st, noPublisher{})
+		w := peergrouper.NewWorker(st, noPublisher{})
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -386,7 +387,7 @@ var fatalErrorsTests = []struct {
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&pollInterval, 5*time.Millisecond)
+		s.PatchValue(&peergrouper.PollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
 			c.Logf("test %d: %s -> %s", i, testCase.errPattern, testCase.expectErr)
 			resetErrors()
@@ -394,7 +395,7 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 			st.session.InstantlyReady = true
 			initState(c, st, 3, ipVersion)
 			setErrorFor(testCase.errPattern, errors.New("sample"))
-			w := newWorker(st, noPublisher{})
+			w := peergrouper.NewWorker(st, noPublisher{})
 			done := make(chan error)
 			go func() {
 				done <- w.Wait()
@@ -421,22 +422,22 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 			count++
 			return errors.New("sample")
 		})
-		s.PatchValue(&initialRetryInterval, 10*time.Microsecond)
-		s.PatchValue(&maxRetryInterval, coretesting.ShortWait/4)
+		s.PatchValue(&peergrouper.InitialRetryInterval, 10*time.Microsecond)
+		s.PatchValue(&peergrouper.MaxRetryInterval, coretesting.ShortWait/4)
 
 		expectedIterations := 0
-		for d := initialRetryInterval; d < maxRetryInterval*2; d *= 2 {
+		for d := peergrouper.InitialRetryInterval; d < peergrouper.MaxRetryInterval*2; d *= 2 {
 			expectedIterations++
 		}
 
-		w := newWorker(st, noPublisher{})
+		w := peergrouper.NewWorker(st, noPublisher{})
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
 		isSetWatcher := isSet.Watch()
 
 		n0 := mustNext(c, isSetWatcher).(int)
-		time.Sleep(maxRetryInterval * 2)
+		time.Sleep(peergrouper.MaxRetryInterval * 2)
 		n1 := mustNext(c, isSetWatcher).(int)
 
 		// The worker should have backed off exponentially...
@@ -445,7 +446,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 		// ... but only up to the maximum retry interval
 		n0 = mustNext(c, isSetWatcher).(int)
-		time.Sleep(maxRetryInterval * 2)
+		time.Sleep(peergrouper.MaxRetryInterval * 2)
 		n1 = mustNext(c, isSetWatcher).(int)
 
 		c.Assert(n1-n0, jc.LessThan, 3)
@@ -455,9 +456,13 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 type publisherFunc func(apiServers [][]network.HostPort, instanceIds []instance.Id) error
 
-func (f publisherFunc) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+func (f publisherFunc) PublishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	return f(apiServers, instanceIds)
 }
+
+//func (f publisherFunc) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+//	return f(apiServers, instanceIds)
+//}
 
 func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
@@ -469,7 +474,7 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
-		w := newWorker(st, publisherFunc(publish))
+		w := peergrouper.NewWorker(st, publisherFunc(publish))
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -497,9 +502,9 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
-		s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
-		s.PatchValue(&maxRetryInterval, initialRetryInterval)
+		s.PatchValue(&peergrouper.PollInterval, coretesting.LongWait+time.Second)
+		s.PatchValue(&peergrouper.InitialRetryInterval, 5*time.Millisecond)
+		s.PatchValue(&peergrouper.MaxRetryInterval, peergrouper.InitialRetryInterval)
 
 		publishCh := make(chan [][]network.HostPort, 100)
 
@@ -515,7 +520,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
 
-		w := newWorker(st, publisherFunc(publish))
+		w := peergrouper.NewWorker(st, publisherFunc(publish))
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -538,9 +543,9 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 
 func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
-		s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
-		s.PatchValue(&maxRetryInterval, initialRetryInterval)
+		s.PatchValue(&peergrouper.PollInterval, coretesting.LongWait+time.Second)
+		s.PatchValue(&peergrouper.InitialRetryInterval, 5*time.Millisecond)
+		s.PatchValue(&peergrouper.MaxRetryInterval, peergrouper.InitialRetryInterval)
 
 		publishCh := make(chan []instance.Id, 100)
 
@@ -551,7 +556,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
 
-		w := newWorker(st, publisherFunc(publish))
+		w := peergrouper.NewWorker(st, publisherFunc(publish))
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
@@ -587,6 +592,6 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
 
 type noPublisher struct{}
 
-func (noPublisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+func (noPublisher) PublishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	return nil
 }

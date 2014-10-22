@@ -31,7 +31,9 @@ func newPublisher(st apiHostPortsSetter, preferIPv6 bool) *publisher {
 	}
 }
 
-func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
+// PublishAPIServers is public to satisfy publisherInterface where its public
+// only for testing purposes
+func (pub *publisher) PublishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	if len(apiServers) == 0 {
 		return errors.Errorf("no api servers specified")
 	}

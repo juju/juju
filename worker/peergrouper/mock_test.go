@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package peergrouper
+package peergrouper_test
 
 import (
 	"encoding/json"
@@ -15,13 +15,18 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/voyeur"
 	"launchpad.net/tomb"
+	"github.com/juju/loggo"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/peergrouper"
 )
+
+
+var logger = loggo.GetLogger("juju.worker.peergrouper_test")
 
 // This file holds helper functions for mocking pieces of State and replicaset
 // that we don't want to directly depend on in unit tests.
@@ -35,9 +40,9 @@ type fakeState struct {
 }
 
 var (
-	_ stateInterface = (*fakeState)(nil)
-	_ stateMachine   = (*fakeMachine)(nil)
-	_ mongoSession   = (*fakeMongoSession)(nil)
+	_ peergrouper.StateInterface = (*fakeState)(nil)
+	_ peergrouper.StateMachine   = (*fakeMachine)(nil)
+	_ peergrouper.MongoSession   = (*fakeMongoSession)(nil)
 )
 
 type errorPattern struct {
@@ -114,7 +119,7 @@ func newFakeState() *fakeState {
 	return st
 }
 
-func (st *fakeState) MongoSession() mongoSession {
+func (st *fakeState) MongoSession() peergrouper.MongoSession {
 	return st.session
 }
 
@@ -143,7 +148,7 @@ func checkInvariants(st *fakeState) error {
 			votes = *m.Votes
 		}
 		voteCount += votes
-		if id, ok := m.Tags[jujuMachineTag]; ok {
+		if id, ok := m.Tags[peergrouper.JujuMachineTag]; ok {
 			if votes > 0 {
 				m := st.machine(id)
 				if m == nil {
@@ -175,7 +180,7 @@ func (st *fakeState) machine(id string) *fakeMachine {
 	return st.machines[id]
 }
 
-func (st *fakeState) Machine(id string) (stateMachine, error) {
+func (st *fakeState) Machine(id string) (peergrouper.StateMachine, error) {
 	if err := errorFor("State.Machine", id); err != nil {
 		return nil, err
 	}
