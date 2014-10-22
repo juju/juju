@@ -34,7 +34,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	attrs := dummy.SampleConfig()
 	if toolsMetadataURL != "" {
 		attrs = attrs.Merge(testing.Attrs{
-			"tools-metadata-url": toolsMetadataURL,
+			config.AgentMetadataURLKey: toolsMetadataURL,
 		})
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)

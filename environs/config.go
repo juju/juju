@@ -72,7 +72,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 
 	// If deprecated config attributes are used, log warnings so the user can know
 	// that they need to be fixed.
-	envs.logDeprecatedWarnings(attrs, "tools-url", "tools-metadata-url")
+	envs.logDeprecatedWarnings(attrs, config.ToolsMetadataURLKey, config.AgentMetadataURLKey)
 
 	// null has been renamed to manual (with an alias for existing config).
 	if oldType, _ := attrs["type"].(string); oldType == "null" {

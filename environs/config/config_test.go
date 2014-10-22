@@ -106,27 +106,27 @@ var configTests = []configTest{
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"image-metadata-url": "image-url",
-			"tools-metadata-url": "tools-metadata-url-value",
+			"type":                   "my-type",
+			"name":                   "my-name",
+			"image-metadata-url":     "image-url",
+			conf.AgentMetadataURLKey: "agent-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL used",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":      "my-type",
-			"name":      "my-name",
-			"tools-url": "tools-metadata-url-value",
+			"type": "my-type",
+			"name": "my-name",
+			conf.ToolsMetadataURLKey: "tools-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL ignored",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":               "my-type",
-			"name":               "my-name",
-			"tools-metadata-url": "tools-metadata-url-value",
-			"tools-url":          "ignore-me",
+			"type": "my-type",
+			"name": "my-name",
+			conf.AgentMetadataURLKey: "agent-metadata-url-value",
+			conf.ToolsMetadataURLKey: "ignore-me",
 		},
 	}, {
 		about:       "Explicit series",
@@ -727,7 +727,7 @@ var configTests = []configTest{
 			"image-metadata-url":        "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
-			"tools-metadata-url":        "",
+			conf.AgentMetadataURLKey:    "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
@@ -1162,37 +1162,36 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
-	toolsURL, urlPresent := cfg.ToolsURL()
-	oldToolsURL, oldURLPresent := cfg.AllAttrs()["tools-url"]
-	oldToolsURLAttrValue, oldURLAttrPresent := test.attrs["tools-url"]
-	expectedToolsURLValue := test.attrs["tools-metadata-url"]
-	if expectedToolsURLValue == nil {
-		expectedToolsURLValue = oldToolsURLAttrValue
+
+	toolsURL, urlPresent := cfg.AgentMetadataURL()
+	oldToolsURL := cfg.AllAttrs()[conf.ToolsMetadataURLKey]
+	oldToolsURLAttrValue, oldTSTPresent := test.attrs[conf.ToolsMetadataURLKey]
+	expectedToolsURLValue := test.attrs[conf.AgentMetadataURLKey]
+	expectedToolsURLPresent := true
+	if expectedToolsURLValue == nil || expectedToolsURLValue == "" {
+		if oldTSTPresent {
+			expectedToolsURLValue = oldToolsURLAttrValue
+		} else {
+			expectedToolsURLValue = oldToolsURL
+			expectedToolsURLPresent = false
+		}
 	}
-	if expectedToolsURLValue != nil && expectedToolsURLValue != "" {
-		c.Assert(expectedToolsURLValue, gc.Equals, "tools-metadata-url-value")
-		c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
-		c.Assert(urlPresent, jc.IsTrue)
-		c.Assert(oldToolsURL, gc.Equals, expectedToolsURLValue)
-		c.Assert(oldURLPresent, jc.IsTrue)
-	} else {
-		c.Assert(urlPresent, jc.IsFalse)
-		c.Assert(oldURLAttrPresent, jc.IsFalse)
-		c.Assert(oldToolsURL, gc.Equals, "")
-	}
+	c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
+	c.Assert(urlPresent, gc.Equals, expectedToolsURLPresent)
 
 	// assertions for deprecated tools-stream attribute used with new agent-stream
 	agentStreamValue := cfg.AgentStream()
-	oldTstToolsStreamAttr := test.attrs[conf.ToolsStreamKey]
+	oldTstToolsStreamAttr, oldTstOk := test.attrs[conf.ToolsStreamKey]
 	expectedAgentStreamAttr := test.attrs[conf.AgentStreamKey]
 
 	// When no agent-stream provided, look for tools-stream
 	if expectedAgentStreamAttr == nil {
-		expectedAgentStreamAttr = oldTstToolsStreamAttr
-	}
-	// If it's still nil, then hard-coded default is used
-	if expectedAgentStreamAttr == nil {
-		expectedAgentStreamAttr = "released"
+		if oldTstOk {
+			expectedAgentStreamAttr = oldTstToolsStreamAttr
+		} else {
+			// If it's still nil, then hard-coded default is used
+			expectedAgentStreamAttr = "released"
+		}
 	}
 	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
@@ -1259,8 +1258,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
-	attrs["tools-metadata-url"] = ""
-	attrs["tools-url"] = ""
+	attrs[conf.AgentMetadataURLKey] = ""
+	attrs[conf.ToolsMetadataURLKey] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false

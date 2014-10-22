@@ -91,11 +91,11 @@ openstack:
     #
     # network: <your network label or uuid>
 
-    # tools-metadata-url specifies the location of the Juju tools and
+    # agent-metadata-url specifies the location of the Juju tools and
     # metadata. It defaults to the global public tools metadata
     # location https://streams.canonical.com/tools.
     #
-    # tools-metadata-url:  https://your-tools-metadata-url
+    # agent-metadata-url:  https://your-agent-metadata-url
 
     # image-metadata-url specifies the location of Ubuntu cloud image
     # metadata. It defaults to the global public image metadata

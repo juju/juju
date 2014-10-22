@@ -104,7 +104,7 @@ environments:
     deprecated:
         type: dummy
         state-server: false
-        tools-url: aknowndeprecatedfield
+        tools-metadata-url: aknowndeprecatedfield
         lxc-use-clone: true
 `
 	var tw loggo.TestWriter
@@ -439,7 +439,7 @@ const (
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
-		"tools-url": "aknowndeprecatedfield",
+		config.ToolsMetadataURLKey: "aknowndeprecatedfield",
 	}
 	expected := fmt.Sprintf(standardDeprecationWarning)
 	s.checkDeprecationWarning(c, attrs, expected)
@@ -464,8 +464,8 @@ func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarningWithHarvest(c *gc.
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
-		"tools-url":          "aknowndeprecatedfield",
-		"tools-metadata-url": "newvalue",
+		config.ToolsMetadataURLKey: "aknowndeprecatedfield",
+		config.AgentMetadataURLKey: "newvalue",
 	}
 	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
