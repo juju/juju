@@ -23,11 +23,13 @@ class MultiIndustrialTest:
     :ivar attempt_count: The number of attempts needed for each stage.
     """
 
-    def __init__(self, env, new_juju_path, stages, attempt_count=2):
+    def __init__(self, env, new_juju_path, stages, attempt_count=2,
+                 max_attempts=1):
         self.env = env
         self.new_juju_path = new_juju_path
         self.stages = stages
         self.attempt_count = attempt_count
+        self.max_attempts = max_attempts
 
     def make_results(self):
         """Return a results list for use in run_tests."""
@@ -44,7 +46,8 @@ class MultiIndustrialTest:
         :return: a list of dicts describing output.
         """
         results = self.make_results()
-        while results[-1]['attempts'] < self.attempt_count:
+        while (results[-1]['attempts'] < self.attempt_count and
+               results[0]['attempts'] < self.max_attempts):
             industrial = self.make_industrial_test()
             self.update_results(industrial.run_attempt(), results)
         return results
@@ -126,7 +129,6 @@ class IndustrialTest:
             result = attempt.do_stage(self.old_client, self.new_client)
             yield result
             if False in result:
-                import pdb; pdb.set_trace()
                 try:
                     self.old_client.destroy_environment()
                 finally:
@@ -180,7 +182,8 @@ class StageAttempt:
             return False
         try:
             return self._result(client)
-        except Exception:
+        except Exception as e:
+            logging.exception(e)
             return False
 
 
@@ -226,23 +229,28 @@ class EnsureAvailabilityAttempt(StageAttempt):
 
 class DeployManyAttempt(StageAttempt):
 
-    title = 'deploy-many'
+    title = 'deploy many'
 
     def _operation(self, client):
         old_status = client.get_status()
-        for machine in range(10):
+        host_count = 2
+        container_count = 2
+        for machine in range(host_count):
             client.juju('add-machine', ())
         new_status = client.wait_for_started()
         new_machines = dict(new_status.iter_new_machines(old_status))
-        if len(new_machines) != 10:
-            raise AssertionError('Got {} machines, not 10'.format(
-                len(new_machines)))
+        if len(new_machines) != host_count:
+            raise AssertionError('Got {} machines, not {}'.format(
+                len(new_machines), host_count))
         for machine_name in new_machines:
             target = 'lxc:{}'.format(machine_name)
-            service = 'ubuntu-{}'.format(machine_name)
-            client.juju('deploy', ('-n', '10', '--to', target, 'ubuntu',
-                                   service))
+            for container in range(container_count):
+                service = 'ubuntu{}x{}'.format(machine_name, container)
+                client.juju('deploy', ('--to', target, 'ubuntu', service))
+
+    def _result(self, client):
         client.wait_for_started()
+        return True
 
 
 def parse_args(args=None):
