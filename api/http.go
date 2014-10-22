@@ -25,7 +25,11 @@ func (s *State) NewHTTPClient() *http.Client {
 	// for reference:
 	// Call utils.GetNonValidatingHTTPClient() to get a non-validating client.
 	httpclient := utils.GetValidatingHTTPClient()
-	tlsconfig := tls.Config{RootCAs: s.certPool, ServerName: "anything"}
+	tlsconfig := tls.Config{
+		RootCAs: s.certPool,
+		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
+		ServerName: "juju-apiserver",
+	}
 	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
 	return httpclient
 }
