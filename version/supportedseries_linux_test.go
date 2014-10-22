@@ -24,10 +24,10 @@ func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
 
 func (s *supportedSeriesSuite) TestSupportedSeries(c *gc.C) {
 	d := c.MkDir()
-	fn := filepath.Join(d, "ubuntu.csv")
-	err := ioutil.WriteFile(fn, []byte(distInfoData), 0644)
+	filename := filepath.Join(d, "ubuntu.csv")
+	err := ioutil.WriteFile(filename, []byte(distInfoData), 0644)
 	c.Assert(err, gc.IsNil)
-	defer version.SetDistroInfo(fn)()
+	s.PatchValue(version.DistroInfo, filename)
 
 	expectedSeries := []string{"precise", "quantal", "raring", "saucy"}
 	series := version.SupportedSeries()

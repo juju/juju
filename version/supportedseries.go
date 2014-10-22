@@ -49,6 +49,7 @@ var ubuntuSeries = []string{
 	"saucy",
 	"trusty",
 	"utopic",
+	"vivid",
 }
 
 // windowsVersions is a mapping consisting of the output from
@@ -165,6 +166,7 @@ func updateDistroInfo() error {
 	defer f.Close()
 	bufRdr := bufio.NewReader(f)
 	// Only find info for precise or later.
+	// TODO: only add in series that are supported (i.e. before end of life)
 	preciseOrLaterFound := false
 	for {
 		line, err := bufRdr.ReadString('\n')

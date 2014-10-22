@@ -4,6 +4,7 @@
 package version
 
 var (
+	DistroInfo                    = &distroInfo
 	ReadSeries                    = readSeries
 	KernelToMajor                 = kernelToMajor
 	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion
@@ -20,10 +21,4 @@ func SetSeriesVersions(value map[string]string) func() {
 		seriesVersions = origVersions
 		updatedseriesVersions = origUpdated
 	}
-}
-
-func SetDistroInfo(s string) func() {
-	origDistro := distroInfo
-	distroInfo = s
-	return func() { distroInfo = origDistro }
 }
