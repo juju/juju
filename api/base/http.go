@@ -13,17 +13,27 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// HTTPRequest is a wrapper around an HTTP request that has been
+// prepared for use in API HTTP calls.
+type HTTPRequest struct {
+	http.Request
+}
+
+// HTTPRequestBuilder facilitates creating HTTP requests suitable for
+// use with API HTTP calls (see HTTPCaller).
+type HTTPRequestBuilder interface {
+	// NewHTTPRequest returns a new API-specific HTTP request.  Callers
+	// should finish the request (setting headers, body) before sending.
+	NewHTTPRequest(method, path string) (*HTTPRequest, error)
+}
+
 // HTTPCaller exposes direct HTTP request functionality for the API.
 // This is significant for upload and download of files, which the
 // websockets-based RPC does not support.
 type HTTPCaller interface {
-	// NewHTTPRequest returns a new API-relative HTTP request.  Callers
-	// should finish the request (setting headers, body) before passing
-	// the request to SendHTTPRequest.
-	NewHTTPRequest(method, path string) (*http.Request, error)
 	// SendHTTPRequest returns the HTTP response from the API server.
 	// The caller is then responsible for handling the response.
-	SendHTTPRequest(req *http.Request) (*http.Response, error)
+	SendHTTPRequest(req *HTTPRequest) (*http.Response, error)
 }
 
 // CheckHTTPResponse returns the failure serialized in the response

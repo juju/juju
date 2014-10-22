@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 )
@@ -59,7 +60,7 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *httpSuite) checkRequest(c *gc.C, req *http.Request, method, path string) {
+func (s *httpSuite) checkRequest(c *gc.C, req *base.HTTPRequest, method, path string) {
 	// Only check API-related request fields.
 
 	c.Check(req.Method, gc.Equals, method)
@@ -82,10 +83,10 @@ func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
 }
 
 func (s *httpSuite) TestNewHTTPClientCorrectTransport(c *gc.C) {
-	doer := s.APIState.NewHTTPClient()
+	apiHTTPClient := s.APIState.NewHTTPClient()
 
-	c.Assert(doer, gc.FitsTypeOf, (*http.Client)(nil))
-	httpClient := doer.(*http.Client)
+	c.Assert(apiHTTPClient, gc.FitsTypeOf, (*http.Client)(nil))
+	httpClient := apiHTTPClient.(*http.Client)
 
 	c.Assert(httpClient.Transport, gc.NotNil)
 	c.Assert(httpClient.Transport, gc.FitsTypeOf, (*http.Transport)(nil))
@@ -96,8 +97,8 @@ func (s *httpSuite) TestNewHTTPClientCorrectTransport(c *gc.C) {
 
 func (s *httpSuite) TestNewHTTPClientValidatesCert(c *gc.C) {
 	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
-	doer := s.APIState.NewHTTPClient()
-	resp, err := doer.Do(req)
+	httpClient := s.APIState.NewHTTPClient()
+	resp, err := httpClient.Do(&req.Request)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusNotFound)
@@ -110,6 +111,6 @@ func (s *httpSuite) TestSendHTTPRequestSuccess(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Check(s.fake.calls, gc.DeepEquals, []string{"Do"})
-	c.Check(s.fake.reqArg, gc.Equals, req)
+	c.Check(s.fake.reqArg, gc.Equals, &req.Request)
 	c.Check(resp, gc.Equals, s.fake.response)
 }

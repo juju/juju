@@ -11,7 +11,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/api/base"
 )
+
+var _ base.HTTPRequestBuilder = (*State)(nil)
+var _ base.HTTPCaller = (*State)(nil)
 
 // HTTPClient sends an HTTP request, returning the subsequent response.
 type HTTPClient interface {
@@ -22,8 +27,18 @@ var newHTTPClient = func(state *State) HTTPClient {
 	return state.NewHTTPClient()
 }
 
+// GetHTTPClient returns an HTTP client initialized based on State.
+func (s *State) NewHTTPClient() HTTPClient {
+	// For reference, call utils.GetNonValidatingHTTPClient() to get a
+	// non-validating client.
+	httpclient := utils.GetValidatingHTTPClient()
+	tlsconfig := tls.Config{RootCAs: s.certPool, ServerName: "anything"}
+	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
+	return httpclient
+}
+
 // NewHTTPRequest returns a new API-supporting HTTP request based on State.
-func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
+func (s *State) NewHTTPRequest(method, path string) (*base.HTTPRequest, error) {
 	baseURL, err := url.Parse(s.serverRoot)
 	if err != nil {
 		return nil, errors.Annotatef(err, "while parsing base URL (%s)", s.serverRoot)
@@ -40,7 +55,7 @@ func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return req, nil
+	return &base.HTTPRequest{*req}, nil
 }
 
 func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*http.Request, error) {
@@ -53,21 +68,11 @@ func newHTTPRequest(method string, URL *url.URL, pth, uuid, tag, pw string) (*ht
 	return req, nil
 }
 
-// GetHTTPClient returns an HTTP client initialized based on State.
-func (s *State) NewHTTPClient() HTTPClient {
-	// For reference, call utils.GetNonValidatingHTTPClient() to get a
-	// non-validating client.
-	httpclient := utils.GetValidatingHTTPClient()
-	tlsconfig := tls.Config{RootCAs: s.certPool, ServerName: "anything"}
-	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
-	return httpclient
-}
-
 // SendHTTPRequest sends the request using the HTTP client derived from
 // State.
-func (s *State) SendHTTPRequest(req *http.Request) (*http.Response, error) {
+func (s *State) SendHTTPRequest(req *base.HTTPRequest) (*http.Response, error) {
 	httpclient := newHTTPClient(s)
-	resp, err := httpclient.Do(req)
+	resp, err := httpclient.Do(&req.Request)
 	if err != nil {
 		return nil, errors.Annotate(err, "error when sending HTTP request")
 	}
