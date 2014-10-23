@@ -195,9 +195,9 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		config.AgentMetadataURLKey: containerURL + "/juju-dist-test/tools",
-		"image-metadata-url":       containerURL + "/juju-dist-test",
-		"auth-url":                 s.cred.URL,
+		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
+		"image-metadata-url": containerURL + "/juju-dist-test",
+		"auth-url":           s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
 	// For testing, we create a storage instance to which is uploaded tools and image metadata.
@@ -1031,8 +1031,8 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(containerURL[:8], gc.Equals, "https://")
-	attrs[config.AgentMetadataURLKey] = containerURL + "/juju-dist-test/tools"
-	c.Logf("Set agent-metadata-url=%q", attrs[config.AgentMetadataURLKey])
+	attrs["agent-metadata-url"] = containerURL + "/juju-dist-test/tools"
+	c.Logf("Set agent-metadata-url=%q", attrs["agent-metadata-url"])
 	attrs["image-metadata-url"] = containerURL + "/juju-dist-test"
 	c.Logf("Set image-metadata-url=%q", attrs["image-metadata-url"])
 	return attrs
@@ -1170,7 +1170,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Check(customURL[:8], gc.Equals, "https://")
 
 	config, err := s.env.Config().Apply(
-		map[string]interface{}{config.AgentMetadataURLKey: customURL},
+		map[string]interface{}{"agent-metadata-url": customURL},
 	)
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)

@@ -74,35 +74,32 @@ const (
 // Centralized place to store values of config keys. This transitions
 // mistakes in referencing key-values to a compile-time error.
 const (
+	//
+	// Settings Attributes
+	//
+
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
-	//
-	// Deprecated Settings
-	//
-
-	// ProvisionerSafeModeKey stores the key for this setting.
-	ProvisionerSafeModeKey = "provisioner-safe-mode"
-
-	// TOOL vs AGENT STREAM
 	// AgentStreamKey stores the key for this setting.
 	AgentStreamKey = "agent-stream"
 
-	//
-	// Deprecated Settings
-	//
-
-	// ToolsStreamKey stores the key for this setting.
-	ToolsStreamKey = "tools-stream"
-
-	// TOOL-METADATA- vs AGENT-METADATA- URL
 	// AgentMetadataURLKey stores the key for this setting.
 	AgentMetadataURLKey = "agent-metadata-url"
 
 	//
-	// Deprecated Settings
+	// Deprecated Settings Attributes
 	//
 
+	// Deprecated by provisioner-harvest-mode
+	// ProvisionerSafeModeKey stores the key for this setting.
+	ProvisionerSafeModeKey = "provisioner-safe-mode"
+
+	// Deprecated by agent-stream
+	// ToolsStreamKey stores the key for this setting.
+	ToolsStreamKey = "tools-stream"
+
+	// Deprecated by agent-metadata-url
 	// ToolsMetadataURLKey stores the key for this setting.
 	ToolsMetadataURLKey = "tools-metadata-url"
 )

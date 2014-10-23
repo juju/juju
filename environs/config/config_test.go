@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
-	conf "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -83,50 +82,50 @@ var configTests = []configTest{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			conf.AgentStreamKey:  "agent-stream-value",
+			"agent-stream":       "agent-stream-value",
 		},
 	}, {
 		about:       "Deprecated tools-stream used",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":              "my-type",
-			"name":              "my-name",
-			conf.ToolsStreamKey: "tools-stream-value",
+			"type":         "my-type",
+			"name":         "my-name",
+			"tools-stream": "tools-stream-value",
 		},
 	}, {
 		about:       "Deprecated tools-stream ignored",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":              "my-type",
-			"name":              "my-name",
-			conf.AgentStreamKey: "agent-stream-value",
-			conf.ToolsStreamKey: "ignore-me",
+			"type":         "my-type",
+			"name":         "my-name",
+			"agent-stream": "agent-stream-value",
+			"tools-stream": "ignore-me",
 		},
 	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":                   "my-type",
-			"name":                   "my-name",
-			"image-metadata-url":     "image-url",
-			conf.AgentMetadataURLKey: "agent-metadata-url-value",
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			"agent-metadata-url": "agent-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL used",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			conf.ToolsMetadataURLKey: "tools-metadata-url-value",
+			"type":               "my-type",
+			"name":               "my-name",
+			"tools-metadata-url": "tools-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL ignored",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type": "my-type",
-			"name": "my-name",
-			conf.AgentMetadataURLKey: "agent-metadata-url-value",
-			conf.ToolsMetadataURLKey: "ignore-me",
+			"type":               "my-type",
+			"name":               "my-name",
+			"agent-metadata-url": "agent-metadata-url-value",
+			"tools-metadata-url": "ignore-me",
 		},
 	}, {
 		about:       "Explicit series",
@@ -570,9 +569,9 @@ var configTests = []configTest{
 		about:       "explicit tools stream",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":              "my-type",
-			"name":              "my-name",
-			conf.AgentStreamKey: "proposed",
+			"type":         "my-type",
+			"name":         "my-name",
+			"agent-stream": "proposed",
 		},
 	}, {
 		about:       "Explicit state port",
@@ -727,7 +726,7 @@ var configTests = []configTest{
 			"image-metadata-url":        "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
-			conf.AgentMetadataURLKey:    "",
+			"agent-metadata-url":        "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
@@ -1164,9 +1163,9 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 
 	toolsURL, urlPresent := cfg.AgentMetadataURL()
-	oldToolsURL := cfg.AllAttrs()[conf.ToolsMetadataURLKey]
-	oldToolsURLAttrValue, oldTSTPresent := test.attrs[conf.ToolsMetadataURLKey]
-	expectedToolsURLValue := test.attrs[conf.AgentMetadataURLKey]
+	oldToolsURL := cfg.AllAttrs()["tools-metadata-url"]
+	oldToolsURLAttrValue, oldTSTPresent := test.attrs["tools-metadata-url"]
+	expectedToolsURLValue := test.attrs["agent-metadata-url"]
 	expectedToolsURLPresent := true
 	if expectedToolsURLValue == nil || expectedToolsURLValue == "" {
 		if oldTSTPresent {
@@ -1181,8 +1180,8 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 
 	// assertions for deprecated tools-stream attribute used with new agent-stream
 	agentStreamValue := cfg.AgentStream()
-	oldTstToolsStreamAttr, oldTstOk := test.attrs[conf.ToolsStreamKey]
-	expectedAgentStreamAttr := test.attrs[conf.AgentStreamKey]
+	oldTstToolsStreamAttr, oldTstOk := test.attrs["tools-stream"]
+	expectedAgentStreamAttr := test.attrs["agent-stream"]
 
 	// When no agent-stream provided, look for tools-stream
 	if expectedAgentStreamAttr == nil {
@@ -1258,8 +1257,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
-	attrs[conf.AgentMetadataURLKey] = ""
-	attrs[conf.ToolsMetadataURLKey] = ""
+	attrs["agent-metadata-url"] = ""
+	attrs["tools-metadata-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false

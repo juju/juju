@@ -5,13 +5,13 @@ package environs
 
 import (
 	"fmt"
-	goyaml "gopkg.in/yaml.v1"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"

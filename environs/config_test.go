@@ -439,7 +439,7 @@ const (
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
-		config.ToolsMetadataURLKey: "aknowndeprecatedfield",
+		"tools-metadata-url": "aknowndeprecatedfield",
 	}
 	expected := fmt.Sprintf(standardDeprecationWarning)
 	s.checkDeprecationWarning(c, attrs, expected)
@@ -447,15 +447,15 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWarning(c *gc.C) {
 
 func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarning(c *gc.C) {
 	// Test that the warning is logged.
-	attrs := testing.Attrs{config.ProvisionerSafeModeKey: true}
+	attrs := testing.Attrs{"provisioner-safe-mode": true}
 	expected := fmt.Sprintf(standardDeprecationWarning)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarningWithHarvest(c *gc.C) {
 	attrs := testing.Attrs{
-		config.ProvisionerSafeModeKey:    true,
-		config.ProvisionerHarvestModeKey: "none",
+		"provisioner-safe-mode":    true,
+		"provisioner-harvest-mode": "none",
 	}
 	// Test that the warning is logged.
 	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
@@ -464,8 +464,8 @@ func (s *ConfigDeprecationSuite) TestDeprecatedSafeModeWarningWithHarvest(c *gc.
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C) {
 	attrs := testing.Attrs{
-		config.ToolsMetadataURLKey: "aknowndeprecatedfield",
-		config.AgentMetadataURLKey: "newvalue",
+		"tools-metadata-url": "aknowndeprecatedfield",
+		"agent-metadata-url": "newvalue",
 	}
 	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)
@@ -484,15 +484,15 @@ func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWarning(c *gc.C) {
-	attrs := testing.Attrs{config.ToolsStreamKey: "devel"}
+	attrs := testing.Attrs{"tools-stream": "devel"}
 	expected := fmt.Sprintf(standardDeprecationWarning)
 	s.checkDeprecationWarning(c, attrs, expected)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecatedToolsStreamWIthAgentWarning(c *gc.C) {
 	attrs := testing.Attrs{
-		config.ToolsStreamKey: "devel",
-		config.AgentStreamKey: "proposed",
+		"tools-stream": "devel",
+		"agent-stream": "proposed",
 	}
 	expected := fmt.Sprintf(standardDeprecationWarningWithNew)
 	s.checkDeprecationWarning(c, attrs, expected)

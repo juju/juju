@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -182,7 +181,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 		return tools.List{trustyTools}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		config.AgentStreamKey: "proposed"})
+		"agent-stream": "proposed"})
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)

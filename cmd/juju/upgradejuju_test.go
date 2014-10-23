@@ -305,8 +305,8 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		// Set up state and environ, and run the command.
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
-			"agent-version":            test.agentVersion,
-			config.AgentMetadataURLKey: "file://" + toolsDir + "/tools",
+			"agent-version":      test.agentVersion,
+			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
 		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 		c.Assert(err, gc.IsNil)
@@ -482,8 +482,8 @@ upgrade to this version by running
 		c.Assert(err, gc.IsNil)
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
-			"agent-version":            test.agentVersion,
-			config.AgentMetadataURLKey: "file://" + toolsDir + "/tools",
+			"agent-version":      test.agentVersion,
+			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
 
 		err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
