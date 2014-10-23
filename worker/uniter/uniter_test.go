@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	"github.com/juju/errors"
@@ -50,10 +49,6 @@ import (
 // not affect the overall running time of the tests
 // unless they fail.
 const worstCase = coretesting.LongWait
-
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 type UniterSuite struct {
 	coretesting.GitSuite
@@ -1328,6 +1323,7 @@ var collectMetricsEventTests = []uniterTest{
 		metricsTick{},
 		waitHooks{"collect-metrics"},
 	),
+
 	ut(
 		"collect-metrics resumed after hook error",
 		startupError{"config-changed"},
@@ -1338,13 +1334,13 @@ var collectMetricsEventTests = []uniterTest{
 		waitUnit{
 			status: params.StatusStarted,
 		},
-		waitHooks{"config-changed", "start", "collect-metrics"},
+		waitHooks{"config-changed", "start", "collect-metrics", "config-changed"},
 		verifyRunning{},
 	),
 }
 
 func (s *UniterSuite) TestUniterCollectMetrics(c *gc.C) {
-	s.runUniterTests(c, meterStatusEventTests)
+	s.runUniterTests(c, collectMetricsEventTests)
 }
 
 var actionEventTests = []uniterTest{
@@ -1369,7 +1365,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1396,7 +1392,7 @@ var actionEventTests = []uniterTest{
 				"foo": "still works",
 			},
 			message: "I'm afraid I can't let you do that, Dave.",
-			status:  "fail",
+			status:  params.ActionFailed,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1423,7 +1419,7 @@ var actionEventTests = []uniterTest{
 				"foo": "still works",
 			},
 			message: "A real message",
-			status:  "fail",
+			status:  params.ActionFailed,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1459,7 +1455,7 @@ var actionEventTests = []uniterTest{
 				},
 				"completion": "yes",
 			},
-			status: "complete",
+			status: params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1486,7 +1482,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1510,7 +1506,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1541,15 +1537,15 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}, {
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}, {
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1572,7 +1568,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "fail",
+			status:  params.ActionFailed,
 			message: `action not implemented on unit "u/0"`,
 		}}},
 		waitUnit{status: params.StatusStarted},
@@ -1601,7 +1597,7 @@ var actionEventTests = []uniterTest{
 		verifyActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
-			status:  "complete",
+			status:  params.ActionCompleted,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	),
@@ -1898,8 +1894,10 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	locksDir := filepath.Join(ctx.dataDir, "locks")
 	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
 	c.Assert(err, gc.IsNil)
-	ctx.ticker = uniter.NewManualTicker()
-	uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
+	if ctx.ticker == nil {
+		ctx.ticker = uniter.NewManualTicker()
+		uniter.PatchMetricsTimer(ctx.ticker.ReturnTimer)
+	}
 	ctx.uniter = uniter.NewUniter(ctx.s.uniter, tag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }

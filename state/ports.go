@@ -207,7 +207,7 @@ func (p *Ports) NetworkName() (string, error) {
 // OpenPorts adds the specified port range to the list of ports
 // maintained by this document.
 func (p *Ports) OpenPorts(portRange PortRange) (err error) {
-	defer errors.Maskf(&err, "cannot open ports %s", portRange)
+	defer errors.DeferredAnnotatef(&err, "cannot open ports %s", portRange)
 
 	if err = portRange.Validate(); err != nil {
 		return errors.Trace(err)
@@ -271,7 +271,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 // ClosePorts removes the specified port range from the list of ports
 // maintained by this document.
 func (p *Ports) ClosePorts(portRange PortRange) (err error) {
-	defer errors.Maskf(&err, "cannot close ports %s", portRange)
+	defer errors.DeferredAnnotatef(&err, "cannot close ports %s", portRange)
 
 	if err = portRange.Validate(); err != nil {
 		return errors.Trace(err)

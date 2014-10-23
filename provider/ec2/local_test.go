@@ -638,7 +638,7 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035", "ami-00000039"})
 }
 
 func (t *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -660,6 +660,26 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"none"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.IsFalse)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

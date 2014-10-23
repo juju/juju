@@ -5,16 +5,17 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2/txn"
 )
 
-// ActionReceiver describes Entities that can have Actions queued for them, and
-// that can get ActionRelated information about those actions.
-// TODO(jcw4) consider implementing separate Actor classes for this interface;
-// for example UnitActor that implements this interface, and takes a Unit and
-// performs all these actions.
+// ActionReceiver describes Entities that can have Actions queued for
+// them, and that can get ActionRelated information about those actions.
+// TODO(jcw4) consider implementing separate Actor classes for this
+// interface; for example UnitActor that implements this interface, and
+// takes a Unit and performs all these actions.
 type ActionReceiver interface {
 	Entity
 
@@ -22,12 +23,16 @@ type ActionReceiver interface {
 	// ActionReceiver.
 	AddAction(name string, payload map[string]interface{}) (*Action, error)
 
-	// WatchActions returns a StringsWatcher that will notify on changes to the
-	// queued actions for this ActionReceiver.
+	// CancelAction removes a pending Action from the queue for this
+	// ActionReceiver and marks it as cancelled.
+	CancelAction(action *Action) (*ActionResult, error)
+
+	// WatchActions returns a StringsWatcher that will notify on changes
+	// to the queued actions for this ActionReceiver.
 	WatchActions() StringsWatcher
 
-	// WatchActionResults returns a StringsWatcher that will notify on changes to
-	// the action results for this ActionReceiver.
+	// WatchActionResults returns a StringsWatcher that will notify on
+	// changes to the action results for this ActionReceiver.
 	WatchActionResults() StringsWatcher
 
 	// Actions returns the list of Actions queued for this ActionReceiver.
@@ -74,6 +79,9 @@ type actionDoc struct {
 	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm.
 	Parameters map[string]interface{} `bson:"parameters"`
+
+	// Enqueued is the time the action was added.
+	Enqueued time.Time `bson:"enqueued"`
 }
 
 // Action represents an instruction to do some "action" and is expected
@@ -111,6 +119,12 @@ func (a *Action) Parameters() map[string]interface{} {
 	return a.doc.Parameters
 }
 
+// Enqueued returns the time the action was added to state as a pending
+// Action.
+func (a *Action) Enqueued() time.Time {
+	return a.doc.Enqueued
+}
+
 // Tag implements the Entity interface and returns a names.Tag that
 // is a names.ActionTag.
 func (a *Action) Tag() names.Tag {
@@ -133,15 +147,15 @@ type ActionResults struct {
 
 // Finish removes action from the pending queue and creates an
 // ActionResult to capture the output and end state of the action.
-func (a *Action) Finish(results ActionResults) error {
+func (a *Action) Finish(results ActionResults) (*ActionResult, error) {
 	return a.removeAndLog(results.Status, results.Results, results.Message)
 }
 
 // removeAndLog takes the action off of the pending queue, and creates
 // an actionresult to capture the outcome of the action.
-func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, err string) error {
-	doc := newActionResultDoc(a, finalStatus, results, err)
-	return a.st.runTransaction([]txn.Op{
+func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]interface{}, message string) (*ActionResult, error) {
+	doc := newActionResultDoc(a, finalStatus, results, message)
+	err := a.st.runTransaction([]txn.Op{
 		addActionResultOp(a.st, &doc),
 		{
 			C:      actionsC,
@@ -149,6 +163,10 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 			Remove: true,
 		},
 	})
+	if err != nil {
+		return nil, err
+	}
+	return a.st.ActionResultByTag(a.ActionTag())
 }
 
 // newAction builds an Action for the given State and actionDoc.
@@ -175,6 +193,7 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 		Sequence:   sequence,
 		Name:       actionName,
 		Parameters: parameters,
+		Enqueued:   time.Now(),
 	}, nil
 }
 

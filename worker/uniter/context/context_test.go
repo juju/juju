@@ -1,7 +1,7 @@
-// Copyright 2012, 2013, 2014 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter_test
+package context_test
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
@@ -57,7 +57,7 @@ func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
 	os.Setenv("DUMMYVAR2", "ChangeMe")
 	os.Setenv("DUMMYVAR", "foo")
 
-	newEnv := uniter.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	newEnv := context.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
 	c.Assert(expectEnv, jc.SameContents, newEnv)
 }
 
@@ -270,7 +270,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		if t.err == "" && hookExists {
 			c.Assert(err, gc.IsNil)
 		} else if !hookExists {
-			c.Assert(uniter.IsMissingHookError(err), jc.IsTrue)
+			c.Assert(context.IsMissingHookError(err), jc.IsTrue)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -573,11 +573,11 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
-	ctx := uniter.NewContextRelation(s.apiRelUnit, nil)
+	ctx := context.NewContextRelation(s.apiRelUnit, nil)
 	c.Assert(ctx.UnitNames(), gc.HasLen, 0)
 
 	// Check the units and settings after a simple update.
-	ctx.UpdateMembers(uniter.SettingsMap{
+	ctx.UpdateMembers(context.SettingsMap{
 		"u/2": {"baz": "2"},
 		"u/4": {"qux": "4"},
 	})
@@ -591,7 +591,7 @@ func (s *ContextRelationSuite) TestChangeMembers(c *gc.C) {
 	assertSettings("u/4", params.RelationSettings{"qux": "4"})
 
 	// Send a second update; check that members are only added, not removed.
-	ctx.UpdateMembers(uniter.SettingsMap{
+	ctx.UpdateMembers(context.SettingsMap{
 		"u/1": {"foo": "1"},
 		"u/2": {"abc": "2"},
 		"u/3": {"bar": "3"},
@@ -625,7 +625,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 	settings.Set("ping", "pong")
 	_, err = settings.Write()
 	c.Assert(err, gc.IsNil)
-	ctx := uniter.NewContextRelation(s.apiRelUnit, map[string]int64{"u/1": 0})
+	ctx := context.NewContextRelation(s.apiRelUnit, map[string]int64{"u/1": 0})
 
 	// Check that uncached settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
@@ -650,7 +650,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 
 	// Check that updating the context overwrites the cached settings, and
 	// that the contents of state are ignored.
-	ctx.UpdateMembers(uniter.SettingsMap{"u/1": {"entirely": "different"}})
+	ctx.UpdateMembers(context.SettingsMap{"u/1": {"entirely": "different"}})
 	m, err = ctx.ReadSettings("u/1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m, gc.DeepEquals, params.RelationSettings{"entirely": "different"})
@@ -668,7 +668,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 	settings.Set("ping", "pong")
 	_, err = settings.Write()
 	c.Assert(err, gc.IsNil)
-	ctx := uniter.NewContextRelation(s.apiRelUnit, nil)
+	ctx := context.NewContextRelation(s.apiRelUnit, nil)
 
 	// Check that settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
@@ -694,7 +694,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestSettings(c *gc.C) {
-	ctx := uniter.NewContextRelation(s.apiRelUnit, nil)
+	ctx := context.NewContextRelation(s.apiRelUnit, nil)
 
 	// Change Settings, then clear cache without writing.
 	node, err := ctx.Settings()
@@ -877,7 +877,7 @@ func (s *InterfaceSuite) TestValidatePortRange(c *gc.C) {
 	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
-		portRange, err := uniter.ValidatePortRange(
+		portRange, err := context.ValidatePortRange(
 			test.proto,
 			test.ports[0],
 			test.ports[1],
@@ -915,18 +915,18 @@ func makeMachinePorts(
 
 func makePendingPorts(
 	proto string, fromPort, toPort int, shouldOpen bool,
-) map[uniter.PortRange]uniter.PortRangeInfo {
-	result := make(map[uniter.PortRange]uniter.PortRangeInfo)
+) map[context.PortRange]context.PortRangeInfo {
+	result := make(map[context.PortRange]context.PortRangeInfo)
 	portRange := network.PortRange{
 		FromPort: fromPort,
 		ToPort:   toPort,
 		Protocol: proto,
 	}
-	key := uniter.PortRange{
+	key := context.PortRange{
 		Ports:      portRange,
 		RelationId: -1,
 	}
-	result[key] = uniter.PortRangeInfo{
+	result[key] = context.PortRangeInfo{
 		ShouldOpen: shouldOpen,
 	}
 	return result
@@ -937,9 +937,9 @@ type portsTest struct {
 	proto         string
 	ports         []int
 	machinePorts  map[network.PortRange]params.RelationUnit
-	pendingPorts  map[uniter.PortRange]uniter.PortRangeInfo
+	pendingPorts  map[context.PortRange]context.PortRangeInfo
 	expectErr     string
-	expectPending map[uniter.PortRange]uniter.PortRangeInfo
+	expectPending map[context.PortRange]context.PortRangeInfo
 }
 
 func (p portsTest) withDefaults(proto string, fromPort, toPort int) portsTest {
@@ -950,7 +950,7 @@ func (p portsTest) withDefaults(proto string, fromPort, toPort int) portsTest {
 		p.ports = []int{fromPort, toPort}
 	}
 	if p.pendingPorts == nil {
-		p.pendingPorts = make(map[uniter.PortRange]uniter.PortRangeInfo)
+		p.pendingPorts = make(map[context.PortRange]context.PortRangeInfo)
 	}
 	return p
 }
@@ -970,7 +970,7 @@ func (s *InterfaceSuite) TestTryOpenPorts(c *gc.C) {
 	}, {
 		about:         "open an existing range (ignored)",
 		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: map[uniter.PortRange]uniter.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:         "open a range pending to be closed already",
 		pendingPorts:  makePendingPorts("tcp", 10, 20, false),
@@ -990,7 +990,7 @@ func (s *InterfaceSuite) TestTryOpenPorts(c *gc.C) {
 	}, {
 		about:         "open a range conflicting with the same unit (ignored)",
 		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
-		expectPending: map[uniter.PortRange]uniter.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:        "try opening a range conflicting with another pending range",
 		pendingPorts: makePendingPorts("tcp", 5, 25, true),
@@ -1000,7 +1000,7 @@ func (s *InterfaceSuite) TestTryOpenPorts(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 
 		test = test.withDefaults("tcp", 10, 20)
-		err := uniter.TryOpenPorts(
+		err := context.TryOpenPorts(
 			test.proto,
 			test.ports[0],
 			test.ports[1],
@@ -1028,7 +1028,7 @@ func (s *InterfaceSuite) TestTryClosePorts(c *gc.C) {
 		expectErr: `invalid protocol "foo", expected "tcp" or "udp"`,
 	}, {
 		about:         "close a new range (no machine ports yet; ignored)",
-		expectPending: map[uniter.PortRange]uniter.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:         "close an existing range",
 		machinePorts:  makeMachinePorts("u/0", "tcp", 10, 20),
@@ -1036,7 +1036,7 @@ func (s *InterfaceSuite) TestTryClosePorts(c *gc.C) {
 	}, {
 		about:         "close a range pending to be opened already (removed from pending)",
 		pendingPorts:  makePendingPorts("tcp", 10, 20, true),
-		expectPending: map[uniter.PortRange]uniter.PortRangeInfo{},
+		expectPending: map[context.PortRange]context.PortRangeInfo{},
 	}, {
 		about:         "close a range pending to be closed already (ignored)",
 		pendingPorts:  makePendingPorts("tcp", 10, 20, false),
@@ -1054,7 +1054,7 @@ func (s *InterfaceSuite) TestTryClosePorts(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 
 		test = test.withDefaults("tcp", 10, 20)
-		err := uniter.TryClosePorts(
+		err := context.TryClosePorts(
 			test.proto,
 			test.ports[0],
 			test.ports[1],
@@ -1078,7 +1078,7 @@ type HookContextSuite struct {
 	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
-	relctxs  map[int]*uniter.ContextRelation
+	relctxs  map[int]*context.ContextRelation
 
 	st      *api.State
 	uniter  *apiuniter.State
@@ -1107,7 +1107,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
-	s.relctxs = map[int]*uniter.ContextRelation{}
+	s.relctxs = map[int]*context.ContextRelation{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
 }
@@ -1144,18 +1144,18 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
 	c.Assert(err, gc.IsNil)
-	s.relctxs[rel.Id()] = uniter.NewContextRelation(apiRelUnit, nil)
+	s.relctxs[rel.Id()] = context.NewContextRelation(apiRelUnit, nil)
 }
 
 func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, addMetrics bool) *uniter.HookContext {
+	remote string, proxies proxy.Settings, addMetrics bool) *context.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
 	facade, err := s.st.Uniter()
 	c.Assert(err, gc.IsNil)
-	context, err := uniter.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
+	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, addMetrics, nil, s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
@@ -1166,7 +1166,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 // it simply makes sure that Action-related calls to HookContexts with a nil
 // actionData member error out correctly.
 func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
-	ctx := uniter.HookContext{}
+	ctx := context.HookContext{}
 	_, err := ctx.ActionParams()
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionFailed()
@@ -1220,7 +1220,7 @@ func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
-		hctx := uniter.GetStubActionContext(t.initial)
+		hctx := context.GetStubActionContext(t.initial)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, gc.IsNil)
 		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
@@ -1229,7 +1229,7 @@ func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
 
 // TestSetActionFailed ensures SetActionFailed works properly.
 func (s *HookContextSuite) TestSetActionFailed(c *gc.C) {
-	hctx := uniter.GetStubActionContext(nil)
+	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, gc.IsNil)
 	c.Check(hctx.ActionFailed(), jc.IsTrue)
@@ -1237,10 +1237,12 @@ func (s *HookContextSuite) TestSetActionFailed(c *gc.C) {
 
 // TestSetActionMessage ensures SetActionMessage works properly.
 func (s *HookContextSuite) TestSetActionMessage(c *gc.C) {
-	hctx := uniter.GetStubActionContext(nil)
+	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, gc.IsNil)
-	c.Check(hctx.ActionMessage(), gc.Equals, "because reasons")
+	message, err := hctx.ActionMessage()
+	c.Check(err, gc.IsNil)
+	c.Check(message, gc.Equals, "because reasons")
 }
 
 func convertSettings(settings params.RelationSettings) map[string]interface{} {
@@ -1265,7 +1267,7 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C, addMetrics bool) *uniter.HookContext {
+func (s *RunCommandSuite) getHookContext(c *gc.C, addMetrics bool) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies, addMetrics)
@@ -1355,7 +1357,7 @@ func (s *WindowsHookSuite) TestHookCommandPowerShellScript(c *gc.C) {
 		hookname,
 	}
 
-	c.Assert(uniter.HookCommand(hookname), gc.DeepEquals, expected)
+	c.Assert(context.HookCommand(hookname), gc.DeepEquals, expected)
 	restorer()
 }
 
@@ -1363,10 +1365,10 @@ func (s *WindowsHookSuite) TestHookCommandNotPowerShellScripts(c *gc.C) {
 	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
 
 	cmdhook := "somehook.cmd"
-	c.Assert(uniter.HookCommand(cmdhook), gc.DeepEquals, []string{cmdhook})
+	c.Assert(context.HookCommand(cmdhook), gc.DeepEquals, []string{cmdhook})
 
 	bathook := "somehook.bat"
-	c.Assert(uniter.HookCommand(bathook), gc.DeepEquals, []string{bathook})
+	c.Assert(context.HookCommand(bathook), gc.DeepEquals, []string{bathook})
 
 	restorer()
 }
@@ -1380,9 +1382,9 @@ func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
 		perm: 0755,
 	})
 
-	expected, err := uniter.LookPath(filepath.Join(charmDir, "hooks", "something-happened"))
+	expected, err := context.LookPath(filepath.Join(charmDir, "hooks", "something-happened"))
 	c.Assert(err, gc.IsNil)
-	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	obtained, err := context.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.Equals, expected)
 }
@@ -1396,7 +1398,7 @@ func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
 	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
 
 	defer restorer()
-	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	obtained, err := context.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.Equals, filepath.Join(charmDir, "hooks", "something-happened.ps1"))
 }
@@ -1409,7 +1411,7 @@ func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
 
 	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
 	defer restorer()
-	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	obtained, err := context.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
 	c.Assert(err, gc.ErrorMatches, "hooks/something-happened does not exist")
 	c.Assert(obtained, gc.Equals, "")
 }

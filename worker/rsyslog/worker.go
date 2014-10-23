@@ -148,6 +148,10 @@ func (h *RsyslogConfigHandler) TearDown() error {
 	return nil
 }
 
+// composeTLS generates a new client certificate for connecting to the rsyslog server.
+// We explicitly set the ServerName field, this ensures that even if we are connecting
+// via an IP address and are using an old certificate (pre 1.20.9), we can still
+// successfully connect.
 func (h *RsyslogConfigHandler) composeTLS(caCert string) (*tls.Config, error) {
 	cert := x509.NewCertPool()
 	ok := cert.AppendCertsFromPEM([]byte(caCert))
@@ -155,7 +159,8 @@ func (h *RsyslogConfigHandler) composeTLS(caCert string) (*tls.Config, error) {
 		return nil, errors.Errorf("Failed to parse rsyslog root certificate")
 	}
 	return &tls.Config{
-		RootCAs: cert,
+		RootCAs:    cert,
+		ServerName: "juju-rsyslog",
 	}, nil
 }
 

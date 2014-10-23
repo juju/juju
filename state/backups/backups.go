@@ -65,7 +65,12 @@ func (b *backups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.
 
 	// Prep the metadata.
 	meta := metadata.NewMetadata(origin, notes, nil)
-	metadataFile, err := meta.AsJSONBuffer() // ...unfinished.
+	// The metadata file will not contain the ID or the "finished" data.
+	// However, that information is not as critical.  The alternatives
+	// are either adding the metadata file to the archive after the fact
+	// or adding placeholders here for the finished data and filling
+	// them in afterward.  Neither is particularly trivial.
+	metadataFile, err := meta.AsJSONBuffer()
 	if err != nil {
 		return nil, errors.Annotate(err, "while preparing the metadata")
 	}

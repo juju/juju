@@ -41,14 +41,14 @@ environments:
         broken: Bootstrap Destroy
         state-server: false
         authorized-keys: i-am-a-key
-        tools-stream: proposed
+        agent-stream: proposed
     devenv:
         type: dummy
         state-server: false
         admin-secret: arble
         authorized-keys: i-am-a-key
         default-series: raring
-        tools-stream: proposed
+        agent-stream: proposed
 `
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {

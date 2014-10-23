@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
+
+	"github.com/juju/juju/version"
 )
 
 // ChecksumFormat identifies how to interpret the checksum for a backup
@@ -82,9 +84,44 @@ func (m *Metadata) Finish(size int64, checksum, format string, finished *time.Ti
 	return nil
 }
 
+type rawMetadata struct {
+	ID             string
+	Started        time.Time
+	Finished       time.Time
+	Checksum       string
+	ChecksumFormat string
+	Size           int64
+	Stored         bool
+	Notes          string
+	Environment    string
+	Machine        string
+	Hostname       string
+	Version        version.Number
+}
+
+// TODO(ericsnow) Move AsJSONBuffer to filestorage.Metadata.
+
 // AsJSONBuffer returns a bytes.Buffer containing the JSON-ified metadata.
 func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
-	data, err := json.Marshal(m)
+	origin := m.Origin()
+	raw := rawMetadata{
+		ID:             m.ID(),
+		Started:        m.Started(),
+		Checksum:       m.Checksum(),
+		ChecksumFormat: m.ChecksumFormat(),
+		Size:           m.Size(),
+		Stored:         m.Stored(),
+		Notes:          m.Notes(),
+		Environment:    origin.Environment(),
+		Machine:        origin.Machine(),
+		Hostname:       origin.Hostname(),
+		Version:        origin.Version(),
+	}
+	finished := m.Finished()
+	if finished != nil {
+		raw.Finished = *finished
+	}
+	data, err := json.Marshal(raw)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
