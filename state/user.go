@@ -297,11 +297,11 @@ func (u *User) Refresh() error {
 
 // Disable deactivates the user.  Disabled identities cannot log in.
 func (u *User) Disable() error {
-	initialEnv, err := u.st.InitialEnvironment()
+	environment, err := u.st.StateServerEnvironment()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if u.doc.Name == initialEnv.Owner().Name() {
+	if u.doc.Name == environment.Owner().Name() {
 		return errors.Unauthorizedf("cannot disable state server environment owner")
 	}
 	return errors.Annotatef(u.setDeactivated(true), "cannot disable user %q", u.Name())
