@@ -11,6 +11,7 @@ import yaml
 
 from industrial_test import (
     BootstrapAttempt,
+    DeployManyAttempt,
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
     IndustrialTest,
@@ -71,6 +72,12 @@ class FakeAttemptClass:
 
     def __call__(self):
         return FakeAttempt(*self.result)
+
+
+class StubJujuClient:
+
+    def destroy_environment(self):
+        pass
 
 
 class TestMultiIndustrialTest(TestCase):
@@ -141,11 +148,7 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             FakeAttemptClass('foo', True, True),
             FakeAttemptClass('bar', True, False),
-            ], 5)
-        class StubJujuClient:
-
-            def destroy_environment(self):
-                pass
+            ], 5, 10)
         side_effect = lambda x, y=None: StubJujuClient()
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
@@ -158,6 +161,40 @@ class TestMultiIndustrialTest(TestCase):
              'new_failures': 5},
             ])
 
+    def test_run_tests_max_attempts(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            FakeAttemptClass('foo', True, False),
+            FakeAttemptClass('bar', True, False),
+            ], 5, 6)
+        side_effect = lambda x, y=None: StubJujuClient()
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                results = mit.run_tests()
+        self.assertEqual(results, [
+            {'title': 'foo', 'attempts': 5, 'old_failures': 0,
+             'new_failures': 5},
+            {'title': 'bar', 'attempts': 0, 'old_failures': 0,
+             'new_failures': 0},
+            ])
+
+    def test_run_tests_max_attempts_less_than_attempt_count(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            FakeAttemptClass('foo', True, False),
+            FakeAttemptClass('bar', True, False),
+            ], 5, 4)
+        side_effect = lambda x, y=None: StubJujuClient()
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                results = mit.run_tests()
+        self.assertEqual(results, [
+            {'title': 'foo', 'attempts': 4, 'old_failures': 0,
+             'new_failures': 4},
+            {'title': 'bar', 'attempts': 0, 'old_failures': 0,
+             'new_failures': 0},
+            ])
+
     def test_results_table(self):
         results = [
             {'title': 'foo', 'attempts': 5, 'old_failures': 1,
@@ -165,12 +202,14 @@ class TestMultiIndustrialTest(TestCase):
             {'title': 'bar', 'attempts': 5, 'old_failures': 3,
              'new_failures': 4},
             ]
-        self.assertEqual(''.join(MultiIndustrialTest.results_table(results)),
+        self.assertEqual(
+            ''.join(MultiIndustrialTest.results_table(results)),
             dedent("""\
                 old failure | new failure | attempt | title
                           1 |           2 |       5 | foo
                           3 |           4 |       5 | bar
             """))
+
 
 class TestIndustrialTest(TestCase):
 
@@ -201,8 +240,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(True, True), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(True, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(True, True), (True, True)])
@@ -211,8 +250,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages_old_fail(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(False, True), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(False, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(False, True)])
@@ -226,8 +265,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages_new_fail(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(True, False), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(True, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(True, False)])
@@ -241,8 +280,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages_both_fail(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(False, False), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(False, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(False, False)])
@@ -256,8 +295,8 @@ class TestIndustrialTest(TestCase):
     def test_destroy_both_even_with_exception(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(False, False), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(False, False), FakeAttempt(True, True)])
         attempt = industrial.run_stages()
         with patch.object(old_client, 'destroy_environment',
                           side_effect=Exception) as oc_mock:
@@ -285,7 +324,6 @@ class TestStageAttempt(TestCase):
             def get_result(self, client):
                 return self.did_op.index(client)
 
-
         attempt = StubSA()
         old = object()
         new = object()
@@ -302,17 +340,16 @@ class FakeEnvJujuClient(EnvJujuClient):
 
     def wait_for_started(self):
         with patch('sys.stdout'):
-            super(FakeEnvJujuClient, self).wait_for_started(0.01)
+            return super(FakeEnvJujuClient, self).wait_for_started(0.01)
 
     def wait_for_ha(self):
         with patch('sys.stdout'):
-            super(FakeEnvJujuClient, self).wait_for_ha(0.01)
+            return super(FakeEnvJujuClient, self).wait_for_ha(0.01)
 
     def juju(self, *args, **kwargs):
         # Suppress stdout for juju commands.
         with patch('sys.stdout'):
             return super(FakeEnvJujuClient, self).juju(*args, **kwargs)
-
 
 
 def assert_juju_call(test_case, mock_method, client, expected_args,
@@ -325,7 +362,7 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     test_case.assertEqual(kwargs.keys(), ['env'])
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
-    r'^{}\:'.format(bin_dir))
+                                  r'^{}\:'.format(bin_dir))
 
 
 class TestBootstrapAttempt(TestCase):
@@ -343,8 +380,10 @@ class TestBootstrapAttempt(TestCase):
         client = FakeEnvJujuClient()
         bootstrap = BootstrapAttempt()
         with patch('subprocess.check_call', side_effect=Exception
-                ) as mock_cc:
-            bootstrap.do_operation(client)
+                   ) as mock_cc:
+            with patch('logging.exception') as le_mock:
+                bootstrap.do_operation(client)
+        le_mock.assert_called_once()
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
             '--constraints', 'mem=2G'))
@@ -353,7 +392,9 @@ class TestBootstrapAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=output):
-            self.assertFalse(bootstrap.get_result(client))
+            with patch('logging.exception') as le_mock:
+                self.assertFalse(bootstrap.get_result(client))
+        le_mock.assert_called_once()
 
     def test_get_result_true(self):
         bootstrap = BootstrapAttempt()
@@ -373,16 +414,18 @@ class TestBootstrapAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=output):
-            self.assertFalse(bootstrap.get_result(client))
+            with patch('logging.exception') as le_mock:
+                self.assertFalse(bootstrap.get_result(client))
+        le_mock.assert_called_once()
 
 
 class TestDestroyEnvironmentAttempt(TestCase):
 
     def test_do_operation(self):
         client = FakeEnvJujuClient()
-        bootstrap = DestroyEnvironmentAttempt()
+        destroy_env = DestroyEnvironmentAttempt()
         with patch('subprocess.check_call') as mock_cc:
-            bootstrap.do_operation(client)
+            destroy_env.do_operation(client)
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
 
@@ -424,5 +467,57 @@ class TestEnsureAvailabilityAttempt(TestCase):
             })
         with patch('subprocess.check_output', return_value=output):
             with self.assertRaisesRegexp(
-                Exception, 'Timed out waiting for voting to be enabled.'):
-                    ensure_av._result(client)
+                    Exception, 'Timed out waiting for voting to be enabled.'):
+                ensure_av._result(client)
+
+
+class TestDeployManyAttempt(TestCase):
+
+    def test__operation(self):
+        client = FakeEnvJujuClient()
+        deploy_many = DeployManyAttempt(9, 11)
+        outputs = (yaml.safe_dump(x) for x in [
+            # Before adding 10 machines
+            {
+                'machines': {'0': {'agent-state': 'started'}},
+                'services': {},
+            },
+            # After adding 10 machines
+            {
+                'machines': dict((str(x), {'agent-state': 'started'})
+                                 for x in range(deploy_many.host_count + 1)),
+                'services': {},
+            },
+            ])
+
+        with patch('subprocess.check_output', side_effect=lambda *x, **y:
+                   outputs.next()):
+            with patch('subprocess.check_call') as mock_cc:
+                deploy_many.do_operation(client)
+        for index in range(deploy_many.host_count):
+            assert_juju_call(self, mock_cc, client, (
+                'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+        for host in range(1, deploy_many.host_count + 1):
+            for container in range(deploy_many.container_count):
+                index = ((host-1) * deploy_many.container_count +
+                         deploy_many.host_count + container)
+                target = 'lxc:{}'.format(host)
+                service = 'ubuntu{}x{}'.format(host, container)
+                assert_juju_call(self, mock_cc, client, (
+                    'juju', '--show-log', 'deploy', '-e', 'steve', '--to',
+                    target, 'ubuntu', service), index)
+
+    def test__result_false(self):
+        deploy_many = DeployManyAttempt()
+        client = FakeEnvJujuClient()
+        output = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'pending'},
+                },
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Timed out waiting for agents to start in steve.'):
+                deploy_many._result(client)

@@ -23,11 +23,13 @@ class MultiIndustrialTest:
     :ivar attempt_count: The number of attempts needed for each stage.
     """
 
-    def __init__(self, env, new_juju_path, stages, attempt_count=2):
+    def __init__(self, env, new_juju_path, stages, attempt_count=2,
+                 max_attempts=1):
         self.env = env
         self.new_juju_path = new_juju_path
         self.stages = stages
         self.attempt_count = attempt_count
+        self.max_attempts = max_attempts
 
     def make_results(self):
         """Return a results list for use in run_tests."""
@@ -44,7 +46,9 @@ class MultiIndustrialTest:
         :return: a list of dicts describing output.
         """
         results = self.make_results()
-        while results[-1]['attempts'] < self.attempt_count:
+        for unused_ in range(self.max_attempts):
+            if results[-1]['attempts'] >= self.attempt_count:
+                break
             industrial = self.make_industrial_test()
             self.update_results(industrial.run_attempt(), results)
         return results
@@ -77,7 +81,6 @@ class MultiIndustrialTest:
         for stage in results:
             yield (' {old_failures:10d} | {new_failures:11d} | {attempts:7d}'
                    ' | {title}\n').format(**stage)
-
 
 
 class IndustrialTest:
@@ -179,7 +182,8 @@ class StageAttempt:
             return False
         try:
             return self._result(client)
-        except Exception:
+        except Exception as e:
+            logging.exception(e)
             return False
 
 
@@ -223,6 +227,35 @@ class EnsureAvailabilityAttempt(StageAttempt):
         return True
 
 
+class DeployManyAttempt(StageAttempt):
+
+    title = 'deploy many'
+
+    def __init__(self, host_count=10, container_count=10):
+        super(DeployManyAttempt, self).__init__()
+        self.host_count = host_count
+        self.container_count = container_count
+
+    def _operation(self, client):
+        old_status = client.get_status()
+        for machine in range(self.host_count):
+            client.juju('add-machine', ())
+        new_status = client.wait_for_started()
+        new_machines = dict(new_status.iter_new_machines(old_status))
+        if len(new_machines) != self.host_count:
+            raise AssertionError('Got {} machines, not {}'.format(
+                len(new_machines), self.host_count))
+        for machine_name in sorted(new_machines, key=int):
+            target = 'lxc:{}'.format(machine_name)
+            for container in range(self.container_count):
+                service = 'ubuntu{}x{}'.format(machine_name, container)
+                client.juju('deploy', ('--to', target, 'ubuntu', service))
+
+    def _result(self, client):
+        client.wait_for_started()
+        return True
+
+
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
@@ -234,10 +267,10 @@ def parse_args(args=None):
 
 def main():
     args = parse_args()
-    stages = [BootstrapAttempt, EnsureAvailabilityAttempt,
+    stages = [BootstrapAttempt, DeployManyAttempt, EnsureAvailabilityAttempt,
               DestroyEnvironmentAttempt]
     mit = MultiIndustrialTest(args.env, args.new_juju_path,
-                              stages, args.attempts)
+                              stages, args.attempts, args.attempts * 2)
     results = mit.run_tests()
     sys.stdout.writelines(mit.results_table(results))
 
