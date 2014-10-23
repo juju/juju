@@ -27,7 +27,9 @@ func (s *InterfaceSuite) GetContext(
 ) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies, false)
+	return s.HookContextSuite.getHookContext(
+		c, uuid.String(), relId, remoteName, noProxies, false,
+	)
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {

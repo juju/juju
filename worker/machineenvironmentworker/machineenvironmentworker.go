@@ -68,9 +68,9 @@ var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
 // NewMachineEnvironmentWorker returns a worker.Worker that uses the notify
 // watcher returned from the setup.
 func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Config) worker.Worker {
-	// TODO(fwereade): find who did this and induce them to hang their head in
-	// shame for the egregious layer-breaking. This is *even worse* than doing
-	// it in jujud.
+	// TODO(fwereade) 23-10-2014 bug 1384565
+	// This is a hideous layering violation. MEW ought to be parameterised with a
+	// writeSystemFiles bool.
 	// We don't write out system files for the local provider on machine zero
 	// as that is the host machine.
 	writeSystemFiles := (agentConfig.Tag() != names.NewMachineTag("0") ||
