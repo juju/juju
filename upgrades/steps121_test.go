@@ -42,6 +42,7 @@ func (s *steps121a2Suite) TestUpgradeOperationsContent(c *gc.C) {
 		"migrate charm archives into environment storage",
 		"migrate custom image metadata into environment storage",
 		"migrate tools into environment storage",
+		"migrate machine jobs into ones with JobManageNetworking based on rules",
 		"migrate individual unit ports to openedPorts collection",
 		"create entries in meter status collection for existing units",
 	}

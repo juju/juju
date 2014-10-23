@@ -555,7 +555,7 @@ func addEnvUUIDToEntityCollection(st *State, collName string) error {
 	return st.runTransaction(ops)
 }
 
-// migrateJobManageNetworking adds the JobManageNetworking according
+// MigrateJobManageNetworking adds the JobManageNetworking according
 // to all machines but
 //
 // - machines in a MAAS environment,
