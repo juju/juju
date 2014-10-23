@@ -231,20 +231,23 @@ class DeployManyAttempt(StageAttempt):
 
     title = 'deploy many'
 
+    def __init__(self, host_count=10, container_count=10):
+        super(DeployManyAttempt, self).__init__()
+        self.host_count = host_count
+        self.container_count = container_count
+
     def _operation(self, client):
         old_status = client.get_status()
-        host_count = 2
-        container_count = 2
-        for machine in range(host_count):
+        for machine in range(self.host_count):
             client.juju('add-machine', ())
         new_status = client.wait_for_started()
         new_machines = dict(new_status.iter_new_machines(old_status))
-        if len(new_machines) != host_count:
+        if len(new_machines) != self.host_count:
             raise AssertionError('Got {} machines, not {}'.format(
-                len(new_machines), host_count))
-        for machine_name in new_machines:
+                len(new_machines), self.host_count))
+        for machine_name in sorted(new_machines, key=int):
             target = 'lxc:{}'.format(machine_name)
-            for container in range(container_count):
+            for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
 

@@ -11,6 +11,7 @@ import yaml
 
 from industrial_test import (
     BootstrapAttempt,
+    DeployManyAttempt,
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
     IndustrialTest,
@@ -339,11 +340,11 @@ class FakeEnvJujuClient(EnvJujuClient):
 
     def wait_for_started(self):
         with patch('sys.stdout'):
-            super(FakeEnvJujuClient, self).wait_for_started(0.01)
+            return super(FakeEnvJujuClient, self).wait_for_started(0.01)
 
     def wait_for_ha(self):
         with patch('sys.stdout'):
-            super(FakeEnvJujuClient, self).wait_for_ha(0.01)
+            return super(FakeEnvJujuClient, self).wait_for_ha(0.01)
 
     def juju(self, *args, **kwargs):
         # Suppress stdout for juju commands.
@@ -416,9 +417,9 @@ class TestDestroyEnvironmentAttempt(TestCase):
 
     def test_do_operation(self):
         client = FakeEnvJujuClient()
-        bootstrap = DestroyEnvironmentAttempt()
+        destroy_env = DestroyEnvironmentAttempt()
         with patch('subprocess.check_call') as mock_cc:
-            bootstrap.do_operation(client)
+            destroy_env.do_operation(client)
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'destroy-environment', '-y', 'steve'))
 
@@ -462,3 +463,58 @@ class TestEnsureAvailabilityAttempt(TestCase):
             with self.assertRaisesRegexp(
                     Exception, 'Timed out waiting for voting to be enabled.'):
                 ensure_av._result(client)
+
+
+class TestDeployManyAttempt(TestCase):
+
+    def test__operation(self):
+        client = FakeEnvJujuClient()
+        deploy_many = DeployManyAttempt()
+        outputs = (yaml.safe_dump(x) for x in [
+            # Before adding 10 machines
+            {
+                'machines': {'0': {'agent-state': 'started'}},
+                'services': {},
+            },
+            # After adding 10 machines
+            {
+                'machines': dict((str(x), {'agent-state': 'started'})
+                                 for x in range(11)),
+                'services': {},
+            },
+            ])
+
+        with patch('subprocess.check_output', side_effect=lambda *x, **y:
+                   outputs.next()):
+            with patch('subprocess.check_call') as mock_cc:
+                deploy_many.do_operation(client)
+        for index in range(10):
+            assert_juju_call(self, mock_cc, client, (
+                'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
+
+        for host in range(1, 11):
+            for container in range(10):
+                index = (host-1) * 10 + 10 + container
+                target = 'lxc:{}'.format(host)
+                service = 'ubuntu{}x{}'.format(host, container)
+                try:
+                    assert_juju_call(self, mock_cc, client, (
+                        'juju', '--show-log', 'deploy', '-e', 'steve', '--to',
+                        target, 'ubuntu', service), index)
+                except:
+                    print 'foo'
+
+    def test__result_false(self):
+        deploy_many = DeployManyAttempt()
+        client = FakeEnvJujuClient()
+        output = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'pending'},
+                },
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output):
+            with self.assertRaisesRegexp(
+                    Exception,
+                    'Timed out waiting for agents to start in steve.'):
+                deploy_many._result(client)
