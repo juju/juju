@@ -31,12 +31,12 @@ type environmentDoc struct {
 	ServerUUID string `bson:"server-uuid"`
 }
 
-// InitialEnvironment returns the environment that was bootstrapped.
+// StateServerEnvironment returns the environment that was bootstrapped.
 // This is the only environment that can have state server machines.
 // The owner of this environment is also considered "special", in that
 // they are the only user that is able to create other users (until we
 // have more fine grained permissions), and they cannot be disabled.
-func (st *State) InitialEnvironment() (*Environment, error) {
+func (st *State) StateServerEnvironment() (*Environment, error) {
 	ssinfo, err := st.StateServerInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get state server info")

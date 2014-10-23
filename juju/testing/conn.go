@@ -117,7 +117,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	env, err := s.State.InitialEnvironment()
+	env, err := s.State.StateServerEnvironment()
 	c.Assert(err, gc.IsNil)
 	return env.Owner()
 }
