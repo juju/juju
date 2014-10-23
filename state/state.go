@@ -1658,7 +1658,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 	defer closer()
 
 	envuuid := st.EnvironTag().Id()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", ar.Name()}}
+	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
 	iter := actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))

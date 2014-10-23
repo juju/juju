@@ -40,20 +40,8 @@ type actionResultDoc struct {
 	// EnvUUID is the environment identifier.
 	EnvUUID string `bson:"env-uuid"`
 
-	// Receiver is the Name of the Unit or any other ActionReceiver for
-	// which this Action is queued.
-	Receiver string `bson:"receiver"`
-
-	// Sequence is the unique identifier for this instance of this Action,
-	// and is encoded in the DocId too.
-	Sequence int `bson:"sequence"`
-
-	// Name identifies the action that was run.
-	Name string `bson:"name"`
-
-	// Parameters describes the parameters passed in for the action
-	// when it was run.
-	Parameters map[string]interface{} `bson:"parameters"`
+	// Action describes the action that was queued.
+	Action actionDoc `bson:"action"`
 
 	// Status represents the end state of the Action; ActionFailed for an
 	// action that was removed prematurely, or that failed, and
@@ -82,23 +70,23 @@ func (a *ActionResult) Id() string {
 // Receiver  returns the Name of the ActionReceiver for which this action
 // is enqueued.  Usually this is a Unit Name().
 func (a *ActionResult) Receiver() string {
-	return a.doc.Receiver
+	return a.doc.Action.Receiver
 }
 
 // Sequence returns the unique suffix of the ActionResult _id.
 func (a *ActionResult) Sequence() int {
-	return a.doc.Sequence
+	return a.doc.Action.Sequence
 }
 
 // Name returns the name of the Action.
 func (a *ActionResult) Name() string {
-	return a.doc.Name
+	return a.doc.Action.Name
 }
 
 // Parameters will contain a structure representing arguments or parameters
 // that were passed to the action.
 func (a *ActionResult) Parameters() map[string]interface{} {
-	return a.doc.Parameters
+	return a.doc.Action.Parameters
 }
 
 // Status returns the final state of the action.
@@ -148,15 +136,12 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", actionId))
 	}
 	return actionResultDoc{
-		DocId:      a.st.docID(id),
-		EnvUUID:    a.doc.EnvUUID,
-		Receiver:   a.doc.Receiver,
-		Sequence:   a.doc.Sequence,
-		Name:       a.doc.Name,
-		Parameters: a.doc.Parameters,
-		Status:     finalStatus,
-		Results:    results,
-		Message:    message,
+		DocId:   a.st.docID(id),
+		EnvUUID: a.doc.EnvUUID,
+		Action:  a.doc,
+		Status:  finalStatus,
+		Results: results,
+		Message: message,
 	}
 }
 
