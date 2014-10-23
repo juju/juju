@@ -1,6 +1,6 @@
 # Reviewing Checklist
 
-A list of common (not exhaustive) mistakes to check for when reviewing. For further details please consult the [Style Guide](doc/contributions/style-guide.md).
+A list of common (not exhaustive) mistakes to check for when reviewing. For further details please consult the [Style Guide](/doc/contributions/style-guide.md).
 
 
 ## General
@@ -17,12 +17,12 @@ A list of common (not exhaustive) mistakes to check for when reviewing. For furt
 
 ## Errors:
 
-- Error messages are lowercase with no full stop (see 'Errors' in the [Style Guide](doc/contributions/style-guide.md))
+- Error messages are lowercase with no full stop (see 'Errors' in the [Style Guide](/doc/contributions/style-guide.md))
 - All errors should be handled:
     + If not, a reason should be given in a comment
     + Search for `_`
     + Check signature of function calls that do not assign the result to a var.
-- is juju/errors being used appropriately (see 'Errors' in the [Style Guide](doc/contributions/style-guide.md))?
+- is juju/errors being used appropriately (see 'Errors' in the [Style Guide](/doc/contributions/style-guide.md))?
 
 
 ## Functions:
@@ -51,7 +51,7 @@ A list of common (not exhaustive) mistakes to check for when reviewing. For furt
 - Each suite is set up directly before tests for that suite.
 - Correct use of c.Check vs c.Assert.
 - Temporary files must be created inside a path provided by c.Mkdir
-- Variables from external modules should not be patched directly, (see 'Tests' in [Style Guide](doc/contributions/style-guide.md)).
+- Variables from external modules should not be patched directly, (see 'Tests' in [Style Guide](/doc/contributions/style-guide.md)).
 - Are test entities being created in the most efficient way? (e.g. using the test factory)?
 - `doc/how-to-write-tests.txt` covers some basics of writing good tests.
 
@@ -102,7 +102,7 @@ func someFunc() string {
 
 
 ## Layout:
-- Imports are grouped into 3 sections (see 'Layout' in [Style Guide](doc/contributions/style-guide.md))
+- Imports are grouped into 3 sections (see 'Layout' in [Style Guide](/doc/contributions/style-guide.md))
 - Helper functions go below the functions they are helping
 
 
