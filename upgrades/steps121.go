@@ -43,34 +43,6 @@ func stepsFor121a1() []Step {
 func stepsFor121a2() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "prepend the environment UUID to the ID of all machine docs",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return state.AddEnvUUIDToMachines(context.State())
-			},
-		},
-		&upgradeStep{
-			description: "prepend the environment UUID to the ID of all reboot docs",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return state.AddEnvUUIDToReboots(context.State())
-			},
-		},
-		&upgradeStep{
-			description: "prepend the environment UUID to the ID of all containerRef docs",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return state.AddEnvUUIDToContainerRefs(context.State())
-			},
-		},
-		&upgradeStep{
-			description: "prepend the environment UUID to the ID of all instanceData docs",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return state.AddEnvUUIDToInstanceData(context.State())
-			},
-		},
-		&upgradeStep{
 			description: "prepend the environment UUID to the ID of all service docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -117,6 +89,40 @@ func stepsFor121a2() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.CreateUnitMeterStatus(context.State())
+			},
+		},
+	}
+}
+
+// stepsFor121a3 returns upgrade steps to upgrade to a Juju 1.21alpha3 deployment.
+func stepsFor121a3() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all machine docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToMachines(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all instanceData docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToInstanceData(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all containerRef docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToContainerRefs(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all reboot docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToReboots(context.State())
 			},
 		},
 	}
