@@ -1036,6 +1036,20 @@ func (s *StateSuite) TestReadMachine(c *gc.C) {
 	c.Assert(machine.Id(), gc.Equals, expectedId)
 }
 
+func (s *StateSuite) TestReadPreEnvUUIDMachine(c *gc.C) {
+	type oldMachineDoc struct {
+		Id     string `bson:"_id"`
+		Series string
+	}
+	s.machines.Insert(&oldMachineDoc{"99", "quantal"})
+
+	machine, err := s.State.Machine("99")
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "99")
+	c.Assert(machine.Tag(), gc.Equals, names.NewMachineTag("99"))
+	c.Assert(machine.Series(), gc.Equals, "quantal") // Sanity check.
+}
+
 func (s *StateSuite) TestMachineNotFound(c *gc.C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")

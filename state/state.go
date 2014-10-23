@@ -540,15 +540,29 @@ func (st *State) Machine(id string) (*Machine, error) {
 	machinesCollection, closer := st.getCollection(machinesC)
 	defer closer()
 
+	var err error
 	mdoc := &machineDoc{}
-	err := machinesCollection.FindId(st.docID(id)).One(mdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine %s", id)
+	for _, tryId := range []string{st.docID(id), id} {
+		err = machinesCollection.FindId(tryId).One(mdoc)
+		if err != mgo.ErrNotFound {
+			break
+		}
 	}
-	if err != nil {
+	switch err {
+	case nil:
+		// This is required to allow loading of machines before the
+		// environment UUID migration has been applied to the machines
+		// collection. Without this, a machine agent can't come up to
+		// run the database migration..
+		if mdoc.Id == "" {
+			mdoc.Id = mdoc.DocID
+		}
+		return newMachine(st, mdoc), nil
+	case mgo.ErrNotFound:
+		return nil, errors.NotFoundf("machine %s", id)
+	default:
 		return nil, errors.Annotatef(err, "cannot get machine %s", id)
 	}
-	return newMachine(st, mdoc), nil
 }
 
 // FindEntity returns the entity with the given tag.
