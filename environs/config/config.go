@@ -404,9 +404,7 @@ func (cfg *Config) processDeprecatedAttributes() {
 	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
 	if _, ok := cfg.defined[AgentStreamKey]; !ok {
 		if toolsKey, ok := cfg.defined[ToolsStreamKey]; ok {
-
 			cfg.defined[AgentStreamKey] = toolsKey
-
 			logger.Infof(
 				`Based on your "%s" setting, configuring "%s" to "%s".`,
 				ToolsStreamKey,
