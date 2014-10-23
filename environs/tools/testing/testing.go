@@ -256,7 +256,7 @@ func UploadToDirectory(c *gc.C, stream, dir string, versions ...version.Binary) 
 	}
 	for _, vers := range versions {
 		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
-		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
+		uploaded[vers] = utils.MakeFileURL(fmt.Sprintf("%s/%s", dir, basePath))
 	}
 	objects := generateMetadata(c, stream, versions...)
 	for _, object := range objects {

@@ -49,7 +49,7 @@ var expectedIndex = `{
             "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
-            "path": "streams/v1/com.ubuntu.juju:proposed:tools.json",
+            "path": "streams/v1/com.ubuntu.juju-proposed-tools.json",
             "products": [
                 "com.ubuntu.juju:14.04:arm64",
                 "com.ubuntu.juju:14.10:ppc64el"
@@ -59,7 +59,7 @@ var expectedIndex = `{
             "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
             "format": "products:1.0",
             "datatype": "content-download",
-            "path": "streams/v1/com.ubuntu.juju:released:tools.json",
+            "path": "streams/v1/com.ubuntu.juju-released-tools.json",
             "products": [
                 "com.ubuntu.juju:12.04:amd64",
                 "com.ubuntu.juju:12.04:arm",

@@ -485,7 +485,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 		inexactMatch: true,
 		expectScripts: `
 printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/index\.json'
-printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud:released:imagemetadata\.json'
+printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.cloud-released-imagemetadata\.json'
 `,
 	},
 }
