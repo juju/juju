@@ -201,12 +201,14 @@ class TestMultiIndustrialTest(TestCase):
             {'title': 'bar', 'attempts': 5, 'old_failures': 3,
              'new_failures': 4},
             ]
-        self.assertEqual(''.join(MultiIndustrialTest.results_table(results)),
+        self.assertEqual(
+            ''.join(MultiIndustrialTest.results_table(results)),
             dedent("""\
                 old failure | new failure | attempt | title
                           1 |           2 |       5 | foo
                           3 |           4 |       5 | bar
             """))
+
 
 class TestIndustrialTest(TestCase):
 
@@ -237,8 +239,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(True, True), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(True, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(True, True), (True, True)])
@@ -247,8 +249,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages_old_fail(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(False, True), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(False, True), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(False, True)])
@@ -262,8 +264,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages_new_fail(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(True, False), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(True, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(True, False)])
@@ -277,8 +279,8 @@ class TestIndustrialTest(TestCase):
     def test_run_stages_both_fail(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(False, False), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(False, False), FakeAttempt(True, True)])
         with patch('subprocess.call') as cc_mock:
             result = industrial.run_stages()
             self.assertItemsEqual(result, [(False, False)])
@@ -292,8 +294,8 @@ class TestIndustrialTest(TestCase):
     def test_destroy_both_even_with_exception(self):
         old_client = FakeEnvJujuClient('old')
         new_client = FakeEnvJujuClient('new')
-        industrial = IndustrialTest(old_client, new_client,
-                       [FakeAttempt(False, False), FakeAttempt(True, True)])
+        industrial = IndustrialTest(old_client, new_client, [
+            FakeAttempt(False, False), FakeAttempt(True, True)])
         attempt = industrial.run_stages()
         with patch.object(old_client, 'destroy_environment',
                           side_effect=Exception) as oc_mock:
@@ -320,7 +322,6 @@ class TestStageAttempt(TestCase):
 
             def get_result(self, client):
                 return self.did_op.index(client)
-
 
         attempt = StubSA()
         old = object()
@@ -350,7 +351,6 @@ class FakeEnvJujuClient(EnvJujuClient):
             return super(FakeEnvJujuClient, self).juju(*args, **kwargs)
 
 
-
 def assert_juju_call(test_case, mock_method, client, expected_args,
                      call_index=None):
     if call_index is None:
@@ -361,7 +361,7 @@ def assert_juju_call(test_case, mock_method, client, expected_args,
     test_case.assertEqual(kwargs.keys(), ['env'])
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
-    r'^{}\:'.format(bin_dir))
+                                  r'^{}\:'.format(bin_dir))
 
 
 class TestBootstrapAttempt(TestCase):
@@ -379,7 +379,7 @@ class TestBootstrapAttempt(TestCase):
         client = FakeEnvJujuClient()
         bootstrap = BootstrapAttempt()
         with patch('subprocess.check_call', side_effect=Exception
-                ) as mock_cc:
+                   ) as mock_cc:
             bootstrap.do_operation(client)
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
@@ -460,5 +460,5 @@ class TestEnsureAvailabilityAttempt(TestCase):
             })
         with patch('subprocess.check_output', return_value=output):
             with self.assertRaisesRegexp(
-                Exception, 'Timed out waiting for voting to be enabled.'):
-                    ensure_av._result(client)
+                    Exception, 'Timed out waiting for voting to be enabled.'):
+                ensure_av._result(client)

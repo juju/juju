@@ -83,7 +83,6 @@ class MultiIndustrialTest:
                    ' | {title}\n').format(**stage)
 
 
-
 class IndustrialTest:
     """Class for running one attempt at an industrial test."""
 
