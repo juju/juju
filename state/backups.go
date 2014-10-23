@@ -325,9 +325,6 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 	return origin
 }
 
-// Ensure we satisfy the interface.
-var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-
 type backupsDocStorage struct {
 	state *State
 }
@@ -404,6 +401,9 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 // raw file storage
 
 const backupStorageRoot = "backups"
+
+// Ensure we satisfy the interface.
+var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 
 // Ensure we satisfy the interface.
 var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
