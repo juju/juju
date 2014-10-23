@@ -62,6 +62,9 @@ func (c *AddMetricCommand) Init(args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid value type: expected float, got %q", parts[1])
 		}
+		if parts[0] == "unit-time" { //TODO (mattyw, domas) Should be builtin
+			return fmt.Errorf(`cannot record metric with builtin name "unit-time"`)
+		}
 		c.Metrics = append(c.Metrics, Metric{parts[0], parts[1], now})
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/juju/worker/uniter/unittime"
 	"github.com/juju/utils/proxy"
 )
 
@@ -18,6 +19,10 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 	u.proxyMutex.Lock()
 	defer u.proxyMutex.Unlock()
 	return u.proxy
+}
+
+func (u *Uniter) UnitTime() *unittime.UnitTimeCounter {
+	return u.unitTime
 }
 
 func PatchMetricsTimer(newTimer func(now, lastRun time.Time, interval time.Duration) <-chan time.Time) {

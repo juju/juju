@@ -45,6 +45,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		}
 	}
 
+	if u.operationState.Started {
+		u.unitTime.Start()
+	}
+
 	// Filter out states not related to charm deployment.
 	switch u.operationState.Kind {
 	case operation.Continue:
@@ -151,6 +155,7 @@ func ModeStarting(u *Uniter) (next Mode, err error) {
 
 // ModeStopping runs the "stop" hook.
 func ModeStopping(u *Uniter) (next Mode, err error) {
+	u.unitTime.Stop()
 	defer modeContext("ModeStopping", &err)()
 	if err := u.runHook(hook.Info{Kind: hooks.Stop}); err == errHookFailed {
 		return ModeHookError, nil
@@ -325,6 +330,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 // * user resolution of hook errors
 // * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
+	u.unitTime.Stop()
 	// TODO(binary132): In case of a crashed Action, simply set it to
 	// failed and return to ModeContinue.
 	defer modeContext("ModeHookError", &err)()
