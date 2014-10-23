@@ -36,6 +36,7 @@ type Factory interface {
 	NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error)
 }
 
+// RelationsFunc is used to get snapshots of relation state at context creation time.
 type RelationsFunc func() map[int]*ContextRelation
 
 // NewFactory returns a Factory capable of creating execution contexts backed
@@ -200,7 +201,8 @@ func (f *factory) updateContext(ctx *HookContext) (err error) {
 		info: statusInfo,
 	}
 
-	// GAAAAAAAH. Nothing here should ever be getting the environ config directly.
+	// TODO(fwereade) 23-10-2014 bug 1384572
+	// Nothing here should ever be getting the environ config directly.
 	environConfig, err := f.state.EnvironConfig()
 	if err != nil {
 		return err

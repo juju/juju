@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	proxyutils "github.com/juju/utils/proxy"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
@@ -28,7 +26,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -96,9 +93,6 @@ type Uniter struct {
 	contextFactory     context.Factory
 	hookLock           *fslock.Lock
 	runListener        *RunListener
-
-	proxy      proxyutils.Settings
-	proxyMutex sync.Mutex
 
 	ranConfigChanged bool
 
@@ -871,24 +865,13 @@ func (u *Uniter) fixDeployer() error {
 	return nil
 }
 
-// updatePackageProxy updates the package proxy settings from the
-// environment.
-func (u *Uniter) updatePackageProxy(cfg *config.Config) {
-	u.proxyMutex.Lock()
-	defer u.proxyMutex.Unlock()
-
-	newSettings := cfg.ProxySettings()
-	if u.proxy != newSettings {
-		u.proxy = newSettings
-		logger.Debugf("Updated proxy settings: %#v", u.proxy)
-		// Update the environment values used by the process.
-		u.proxy.SetEnvironmentValues()
-	}
-}
-
 // watchForProxyChanges kicks off a go routine to listen to the watcher and
 // update the proxy settings.
 func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
+	// TODO(fwereade) 23-10-2014 bug 1384565
+	// Uniter shouldn't be responsible for this at all: we should rename
+	// MachineEnvironmentWorker and run one of those (that eschews rewriting
+	// system files).
 	go func() {
 		for {
 			select {
@@ -903,7 +886,9 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 				if err != nil {
 					logger.Errorf("cannot load environment configuration: %v", err)
 				} else {
-					u.updatePackageProxy(environConfig)
+					proxySettings := environConfig.ProxySettings()
+					logger.Debugf("Updating proxy settings: %#v", proxySettings)
+					proxySettings.SetEnvironmentValues()
 				}
 			}
 		}
