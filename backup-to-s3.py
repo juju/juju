@@ -32,7 +32,8 @@ def current_backups():
     # "         DIR   s3://juju-qa-data/juju-ci/backups/2014-07-25/"
     result = []
     for line in s3_cmd(['ls', BACKUP_URL]).split('\n'):
-        mo = re.search(r'^\s+DIR\s+(%s\d\d\d\d-\d\d-\d\d/)$' % BACKUP_URL, line)
+        mo = re.search(r'^\s+DIR\s+(%s\d\d\d\d-\d\d-\d\d/)$' % BACKUP_URL,
+                       line)
         if mo is None:
             continue
         url = mo.group(1)

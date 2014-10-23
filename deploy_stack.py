@@ -123,14 +123,12 @@ def deploy_dummy_stack(env, charm_prefix):
     check_token(env, token)
 
 
-
-
 def check_token(env, token):
     # Wait up to 120 seconds for token to be created.
     # Utopic is slower, maybe because the devel series gets more
     # package updates.
     logging.info('Retrieving token.')
-    get_token="""
+    get_token = """
         for x in $(seq 120); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
@@ -158,6 +156,7 @@ def check_token(env, token):
     result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
         raise ValueError('Token is %r' % result)
+
 
 def get_random_string():
     allowed_chars = string.ascii_uppercase + string.digits
@@ -275,7 +274,7 @@ def upgrade_juju(environment):
     environment.set_testing_tools_metadata_url()
     print(
         'The tools-metadata-url is %s' % environment.client.get_env_option(
-        environment, 'tools-metadata-url'))
+            environment, 'tools-metadata-url'))
     environment.upgrade_juju()
 
 
@@ -315,8 +314,8 @@ def deploy_job():
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.')
     parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.', action='append',
-                        default=[])
+                        'KVM based MaaS, a KVM image to start.',
+                        action='append', default=[])
     args = parser.parse_args()
     if not args.run_startup:
         juju_path = args.new_juju_bin
@@ -474,8 +473,8 @@ def main():
                         help='The environment is already bootstrapped.',
                         action='store_true')
     parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.', action='append',
-                        default=[])
+                        'KVM based MaaS, a KVM image to start.',
+                        action='append', default=[])
     parser.add_argument('--dummy', help='Use dummy charms.',
                         action='store_true')
     parser.add_argument('env', help='The environment to deploy on.')

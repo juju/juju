@@ -538,7 +538,8 @@ class Environment(SimpleEnvironment):
         url = self.client.get_env_option(self, 'tools-metadata-url')
         if 'testing' not in url:
             testing_url = url.replace('/tools', '/testing/tools')
-            self.client.set_env_option(self, 'tools-metadata-url',  testing_url)
+            self.client.set_env_option(self, 'tools-metadata-url',
+                                       testing_url)
 
 
 def format_listing(listing, expected):
@@ -572,7 +573,7 @@ def start_libvirt_domain(URI, domain):
 
 
 def verify_libvirt_domain_running(URI, domain):
-    """Check if the domain is running and return a bool accordingly 
+    """Check if the domain is running and return a bool accordingly
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
@@ -598,13 +599,13 @@ def stop_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(60)
     if verify_libvirt_domain_shut_off(URI, domain):
-        return ('%s has been stopped' %domain)
+        return ('%s has been stopped' % domain)
     else:
         raise Exception('libvirt domain %s is not shut off.' % domain)
 
 
 def verify_libvirt_domain_shut_off(URI, domain):
-    """Check if the domain is shut off and return a bool accordingly 
+    """Check if the domain is shut off and return a bool accordingly
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
@@ -612,6 +613,7 @@ def verify_libvirt_domain_shut_off(URI, domain):
 
     dom_status = get_libvirt_domstate(URI, domain)
     return True if 'shut off' in dom_status else False
+
 
 def get_libvirt_domstate(URI, domain):
     """Call virsh to get the state of the given domain.

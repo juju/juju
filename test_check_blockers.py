@@ -134,5 +134,5 @@ class CheckBlockers(TestCase):
             request = urlopen.call_args[0][0]
             self.assertEqual(request.get_full_url(), "http://api.testing/")
             self.assertEqual(request.get_header("Cache-control"),
-                "max-age=0, must-revalidate")
+                             "max-age=0, must-revalidate")
             self.assertEqual(json, {"result": []})

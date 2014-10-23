@@ -36,6 +36,7 @@ def get_juju_home():
         home = os.path.join(os.environ.get('HOME'), '.juju')
     return home
 
+
 def get_environments_path(juju_home):
     return os.path.join(juju_home, 'environments.yaml')
 

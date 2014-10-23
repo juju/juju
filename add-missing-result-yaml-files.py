@@ -72,6 +72,7 @@ def get_s3_revision_info():
             result_file_name = revision_data['result'][newer]
         yield revision_number, result_file_name, result_file_time
 
+
 def main(args):
     ci_director_state = get_ci_director_state()
     for revision_number, result_file, artifact_time in get_s3_revision_info():

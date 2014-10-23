@@ -250,7 +250,8 @@ class TestEnvJujuClient(TestCase):
         client = EnvJujuClient(env, None, None)
         with patch('subprocess.check_output') as sco_mock:
             client.get_juju_output('bar', timeout=5)
-        self.assertEqual(sco_mock.call_args[0][0],
+        self.assertEqual(
+            sco_mock.call_args[0][0],
             ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
 
     def test_juju_output_supplies_path(self):
@@ -279,6 +280,7 @@ class TestEnvJujuClient(TestCase):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
         client.attempt = 0
+
         def get_juju_output(command, *args):
             if client.attempt == 1:
                 return '"hello"'
@@ -291,6 +293,7 @@ class TestEnvJujuClient(TestCase):
     def test_get_status_raises_on_timeout_1(self):
         env = Environment('foo', '')
         client = EnvJujuClient(env, None, None)
+
         def get_juju_output(command):
             raise subprocess.CalledProcessError(1, command)
 
@@ -795,7 +798,8 @@ class TestJujuClientDevel(TestCase):
         client = JujuClientDevel(None, None)
         with patch('subprocess.check_output') as sco_mock:
             client.get_juju_output(env, 'bar', timeout=5)
-        self.assertEqual(sco_mock.call_args[0][0],
+        self.assertEqual(
+            sco_mock.call_args[0][0],
             ('timeout', '5.00s', 'juju', '--show-log', 'bar', '-e', 'foo'))
 
     def test_juju_output_supplies_path(self):
@@ -823,6 +827,7 @@ class TestJujuClientDevel(TestCase):
     def test_get_status_retries_on_error(self):
         client = JujuClientDevel(None, None)
         client.attempt = 0
+
         def get_juju_output(command, *args):
             if client.attempt == 1:
                 return '"hello"'
@@ -835,6 +840,7 @@ class TestJujuClientDevel(TestCase):
 
     def test_get_status_raises_on_timeout_1(self):
         client = JujuClientDevel(None, None)
+
         def get_juju_output(command):
             raise subprocess.CalledProcessError(1, command)
 
@@ -915,6 +921,7 @@ class TestJujuClientDevel(TestCase):
         self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
 
+
 class TestStatus(TestCase):
 
     def test_agent_items_empty(self):
@@ -948,8 +955,8 @@ class TestStatus(TestCase):
             'services': {}
         })
         expected = [
-                ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
-                ('2', {'qux': 'baz'})
+            ('1', {'foo': 'bar', 'containers': {'2': {'qux': 'baz'}}}),
+            ('2', {'qux': 'baz'})
         ]
         self.assertItemsEqual(expected, status.agent_items())
 
@@ -1076,6 +1083,7 @@ def fast_timeout(count):
     if False:
         yield
 
+
 @contextmanager
 def temp_config():
     home = tempfile.mkdtemp()
@@ -1163,7 +1171,7 @@ class TestEnvironment(TestCase):
         value = self.make_status_yaml('agent-version', '1.17.2', '1.17.2')
         env = Environment('local', JujuClientDevel(None, None))
         with patch.object(
-            EnvJujuClient, 'get_juju_output', return_value=value):
+                EnvJujuClient, 'get_juju_output', return_value=value):
             env.wait_for_version('1.17.2')
 
     def test_wait_for_version_timeout(self):
@@ -1275,7 +1283,8 @@ class TestEnvironment(TestCase):
                 env.set_testing_tools_metadata_url()
         mock_get.assert_called_with(env, 'tools-metadata-url')
         mock_set.assert_called_with(
-            env, 'tools-metadata-url', 'https://example.org/juju/testing/tools')
+            env, 'tools-metadata-url',
+            'https://example.org/juju/testing/tools')
 
     def test_set_testing_tools_metadata_url_noop(self):
         client = JujuClientDevel(None, None)

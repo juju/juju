@@ -112,7 +112,7 @@ def builds_for_revision(job, revision_build, jenkins):
     for build in job_info['builds']:
         build_info = jenkins.get_build_info(job, build['number'])
         if (get_revision_build(build_info) == revision_build and
-            build_info['result'] == 'SUCCESS'):
+                build_info['result'] == 'SUCCESS'):
             result.append(build_info)
     return result
 
