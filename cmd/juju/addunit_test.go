@@ -171,6 +171,7 @@ var _ = gc.Suite(&namesSuite{})
 
 func (*namesSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer := func(s string, expect bool) {
+		c.Logf("%s -> %v", s, expect)
 		c.Assert(isMachineOrNewContainer(s), gc.Equals, expect)
 	}
 	assertMachineOrNewContainer("0", true)
