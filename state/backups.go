@@ -441,7 +441,7 @@ func (s *envFileStorage) RemoveFile(id string) error {
 	return s.envStor.Remove(s.path(id))
 }
 
-// Close implements io.Closer.Close.
+// Close closes the storage.
 func (s *envFileStorage) Close() error {
 	return nil
 }
