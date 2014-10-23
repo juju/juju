@@ -381,7 +381,9 @@ class TestBootstrapAttempt(TestCase):
         bootstrap = BootstrapAttempt()
         with patch('subprocess.check_call', side_effect=Exception
                    ) as mock_cc:
-            bootstrap.do_operation(client)
+            with patch('logging.exception') as le_mock:
+                bootstrap.do_operation(client)
+        le_mock.assert_called_once()
         assert_juju_call(self, mock_cc, client, (
             'juju', '--show-log', 'bootstrap', '-e', 'steve',
             '--constraints', 'mem=2G'))
@@ -390,7 +392,9 @@ class TestBootstrapAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=output):
-            self.assertFalse(bootstrap.get_result(client))
+            with patch('logging.exception') as le_mock:
+                self.assertFalse(bootstrap.get_result(client))
+        le_mock.assert_called_once()
 
     def test_get_result_true(self):
         bootstrap = BootstrapAttempt()
@@ -410,7 +414,9 @@ class TestBootstrapAttempt(TestCase):
             'services': {},
             })
         with patch('subprocess.check_output', return_value=output):
-            self.assertFalse(bootstrap.get_result(client))
+            with patch('logging.exception') as le_mock:
+                self.assertFalse(bootstrap.get_result(client))
+        le_mock.assert_called_once()
 
 
 class TestDestroyEnvironmentAttempt(TestCase):

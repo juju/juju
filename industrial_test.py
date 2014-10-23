@@ -270,7 +270,7 @@ def main():
     stages = [BootstrapAttempt, DeployManyAttempt, EnsureAvailabilityAttempt,
               DestroyEnvironmentAttempt]
     mit = MultiIndustrialTest(args.env, args.new_juju_path,
-                              stages, args.attempts)
+                              stages, args.attempts, args.attempts * 2)
     results = mit.run_tests()
     sys.stdout.writelines(mit.results_table(results))
 
