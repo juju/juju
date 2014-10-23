@@ -18,6 +18,56 @@ import (
 
 var InvalidFormatErr = errors.Errorf("the given filter did not match any known patterns.")
 
+// UnitChainPredicateFn builds a function which runs the given
+// predicate over a unit and all of its subordinates. If one unit in
+// the chain matches, the entire chain matches.
+func UnitChainPredicateFn(
+	predicate Predicate,
+	getUnit func(string) *state.Unit,
+) func(*state.Unit) (bool, error) {
+	considered := make(map[string]bool)
+	var f func(unit *state.Unit) (bool, error)
+	f = func(unit *state.Unit) (bool, error) {
+		// Don't try and filter the same unit 2x.
+		if matches, ok := considered[unit.Name()]; ok {
+			logger.Infof("%s has already been examined and found to be: %t", unit.Name(), matches)
+			return matches, nil
+		}
+
+		// Check the current unit.
+		matches, err := predicate(unit)
+		if err != nil {
+			return false, errors.Annotate(err, "could not filter units")
+		}
+		considered[unit.Name()] = matches
+
+		// Now check all of this unit's subordinates.
+		for _, subName := range unit.SubordinateNames() {
+			// A master match supercedes any subordinate match.
+			if matches {
+				logger.Infof("%s is a subordinate to a match.", subName)
+				considered[subName] = true
+				continue
+			}
+
+			subUnit := getUnit(subName)
+			if subUnit == nil {
+				// We have already deleted this unit
+				matches = false
+				continue
+			}
+			matches, err = f(subUnit)
+			if err != nil {
+				return false, err
+			}
+			considered[subName] = matches
+		}
+
+		return matches, nil
+	}
+	return f
+}
+
 // BuildPredicate returns a Predicate which will evaluate a machine,
 // service, or unit against the given patterns.
 func BuildPredicateFor(patterns []string) Predicate {
@@ -56,6 +106,12 @@ func BuildPredicateFor(patterns []string) Predicate {
 			return or(shims...)
 		case *state.Unit:
 			return or(buildUnitMatcherShims(i.(*state.Unit), patterns)...)
+		case *state.Service:
+			shims, err := buildServiceMatcherShims(i.(*state.Service), patterns...)
+			if err != nil {
+				return false, err
+			}
+			return or(shims...)
 		}
 	}
 }
@@ -113,6 +169,55 @@ func unitMatchPort(u *state.Unit, patterns []string) (bool, bool, error) {
 	return matchPorts(patterns, network.PortRangesToPorts(ports)...)
 }
 
+func buildServiceMatcherShims(s *state.Service, patterns ...string) (shims []closurePredicate, _ error) {
+	// Match on name.
+	shims = append(shims, func() (bool, bool, error) {
+		for _, p := range patterns {
+			if strings.ToLower(s.Name()) == strings.ToLower(p) {
+				return true, true, nil
+			}
+		}
+		return false, false, nil
+	})
+
+	// Match on exposure.
+	shims = append(shims, func() (bool, bool, error) { return matchExposure(patterns, s) })
+
+	// Match on network addresses.
+	networks, err := s.Networks()
+	if err != nil {
+		return nil, err
+	}
+	shims = append(shims, func() (bool, bool, error) { return matchSubnet(patterns, networks...) })
+
+	// If the service has an unit instance that matches any of the
+	// given criteria, consider the service a match as well.
+	unitShims, err := buildShimsForUnit(s.AllUnits, patterns...)
+	if err != nil {
+		return nil, err
+	}
+	shims = append(shims, unitShims...)
+
+	// Units may be able to match the pattern. Ultimately defer to
+	// that logic, and guard against breaking the predicate-chain.
+	if len(unitShims) <= 0 {
+		shims = append(shims, func() (bool, bool, error) { return false, true, nil })
+	}
+
+	return shims, nil
+}
+
+func buildShimsForUnit(unitsFn func() ([]*state.Unit, error), patterns ...string) (shims []closurePredicate, _ error) {
+	units, err := unitsFn()
+	if err != nil {
+		return nil, err
+	}
+	for _, u := range units {
+		shims = append(shims, buildUnitMatcherShims(u, patterns)...)
+	}
+	return shims, nil
+}
+
 func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []closurePredicate, _ error) {
 	// Look at machine status.
 	status, _, _, err := m.Status()
@@ -133,17 +238,15 @@ func buildMachineMatcherShims(m *state.Machine, patterns []string) (shims []clos
 
 	// If the machine hosts a unit that matches any of the given
 	// criteria, consider the machine a match as well.
-	units, err := m.Units()
+	unitShims, err := buildShimsForUnit(m.Units, patterns...)
 	if err != nil {
 		return nil, err
 	}
-	for _, u := range units {
-		shims = append(shims, buildUnitMatcherShims(u, patterns)...)
-	}
+	shims = append(shims, unitShims...)
 
 	// Units may be able to match the pattern. Ultimately defer to
 	// that logic, and guard against breaking the predicate-chain.
-	if len(units) <= 0 {
+	if len(unitShims) <= 0 {
 		shims = append(shims, func() (bool, bool, error) { return false, true, nil })
 	}
 
@@ -197,8 +300,6 @@ func matchSubnet(patterns []string, addresses ...string) (bool, bool, error) {
 				if ipNet.Contains(ip.IP) {
 					return true, true, nil
 				}
-			} else {
-				return false, oneValidPattern, nil
 			}
 		}
 	}
@@ -217,17 +318,15 @@ func matchExposure(patterns []string, s *state.Service) (bool, bool, error) {
 func matchAgentStatus(patterns []string, status state.Status) (bool, bool, error) {
 	oneValidStatus := false
 	for _, p := range patterns {
-		// Verify that we're using a valid status.
+		// If the pattern isn't a valid status, ignore it.
 		ps := state.Status(p)
 		if !ps.Valid() {
-			return false, false, nil
-		} else {
-			oneValidStatus = true
-			if ps == status { // TOOD(katco-): append/*
-				logger.Debugf("Matched: (%v,%v)", ps, status)
-				return true, true, nil
-			}
-			logger.Debugf("Didn't match: (%v,%v)", ps, status)
+			continue
+		}
+
+		oneValidStatus = true
+		if ps == status {
+			return true, true, nil
 		}
 	}
 	return false, oneValidStatus, nil

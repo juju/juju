@@ -17,3 +17,11 @@ var (
 	MatchPorts  = matchPorts
 	MatchSubnet = matchSubnet
 )
+
+// Status exports
+var (
+	ProcessMachines   = processMachines
+	MakeMachineStatus = makeMachineStatus
+)
+
+type MachineAndContainers machineAndContainers

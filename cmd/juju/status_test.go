@@ -61,6 +61,24 @@ type stepper interface {
 	step(c *gc.C, ctx *context)
 }
 
+//
+// context
+//
+
+func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag string) *context {
+	//st := s.Environ.(testing.GetStater).GetStateInAPIServer()
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
+	return &context{
+		st:           st,
+		env:          env,
+		charms:       make(map[string]*state.Charm),
+		pingers:      make(map[string]*presence.Pinger),
+		adminUserTag: adminUserTag,
+	}
+}
+
 type context struct {
 	st           *state.State
 	env          environs.Environ
@@ -69,26 +87,11 @@ type context struct {
 	adminUserTag string // A string repr of the tag.
 }
 
-func (s *StatusSuite) newContext(c *gc.C) *context {
-	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
-	// We make changes in the API server's state so that
-	// our changes to presence are immediately noticed
-	// in the status.
-	return &context{
-		st:           st,
-		env:          s.Environ,
-		charms:       make(map[string]*state.Charm),
-		pingers:      make(map[string]*presence.Pinger),
-		adminUserTag: s.AdminUserTag(c).String(),
-	}
-}
-
-func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
+func (ctx *context) reset(c *gc.C) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
 		c.Check(err, gc.IsNil)
 	}
-	s.JujuConnSuite.Reset(c)
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -109,6 +112,19 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pi
 	c.Assert(err, gc.IsNil)
 	c.Assert(agentPresence, gc.Equals, true)
 	return pinger
+}
+
+func (s *StatusSuite) newContext(c *gc.C) *context {
+	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
+	return newContext(c, st, s.Environ, s.AdminUserTag(c).String())
+}
+
+func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
+	ctx.reset(c)
+	s.JujuConnSuite.Reset(c)
 }
 
 // shortcuts for expected output.
@@ -219,17 +235,6 @@ var statusTests = []testCase{
 	// Status tests
 	test(
 		"bootstrap and starting a single instance",
-
-		// unlikely, as you can't run juju status in real life without
-		// machine/0 bootstrapped.
-		expect{
-			"empty state",
-			M{
-				"environment": "dummyenv",
-				"machines":    M{},
-				"services":    M{},
-			},
-		},
 
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
@@ -1367,84 +1372,87 @@ var statusTests = []testCase{
 				},
 			},
 		},
-	), test(
-		"one service with two subordinate services",
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		startAliveMachine{"0"},
-		setMachineStatus{"0", state.StatusStarted, ""},
-		addCharm{"wordpress"},
-		addCharm{"logging"},
-		addCharm{"monitoring"},
+	),
+	// TODO(katco-): Delete; we now want subordinates to show up per status.
+	//  test(
+	// 	"one service with two subordinate services",
+	// 	addMachine{machineId: "0", job: state.JobManageEnviron},
+	// 	startAliveMachine{"0"},
+	// 	setMachineStatus{"0", state.StatusStarted, ""},
+	// 	addCharm{"wordpress"},
+	// 	addCharm{"logging"},
+	// 	addCharm{"monitoring"},
 
-		addService{name: "wordpress", charm: "wordpress"},
-		setServiceExposed{"wordpress", true},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
-		startAliveMachine{"1"},
-		setMachineStatus{"1", state.StatusStarted, ""},
-		addAliveUnit{"wordpress", "1"},
-		setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
+	// 	addService{name: "wordpress", charm: "wordpress"},
+	// 	setServiceExposed{"wordpress", true},
+	// 	addMachine{machineId: "1", job: state.JobHostUnits},
+	// 	setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+	// 	startAliveMachine{"1"},
+	// 	setMachineStatus{"1", state.StatusStarted, ""},
+	// 	addAliveUnit{"wordpress", "1"},
+	// 	setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
 
-		addService{name: "logging", charm: "logging"},
-		setServiceExposed{"logging", true},
-		addService{name: "monitoring", charm: "monitoring"},
-		setServiceExposed{"monitoring", true},
+	// 	addService{name: "logging", charm: "logging"},
+	// 	setServiceExposed{"logging", true},
+	// 	addService{name: "monitoring", charm: "monitoring"},
+	// 	setServiceExposed{"monitoring", true},
 
-		relateServices{"wordpress", "logging"},
-		relateServices{"wordpress", "monitoring"},
+	// 	relateServices{"wordpress", "logging"},
+	// 	relateServices{"wordpress", "monitoring"},
 
-		addSubordinate{"wordpress/0", "logging"},
-		addSubordinate{"wordpress/0", "monitoring"},
+	// 	addSubordinate{"wordpress/0", "logging"},
+	// 	addSubordinate{"wordpress/0", "monitoring"},
 
-		setUnitsAlive{"logging"},
-		setUnitStatus{"logging/0", state.StatusStarted, "", nil},
+	// 	setUnitsAlive{"logging"},
+	// 	setUnitStatus{"logging/0", state.StatusStarted, "", nil},
 
-		setUnitsAlive{"monitoring"},
-		setUnitStatus{"monitoring/0", state.StatusStarted, "", nil},
+	// 	setUnitsAlive{"monitoring"},
+	// 	setUnitStatus{"monitoring/0", state.StatusStarted, "", nil},
 
-		// scoped on monitoring; make sure logging doesn't show up.
-		scopedExpect{
-			"subordinates scoped on:",
-			[]string{"monitoring"},
-			M{
-				"environment": "dummyenv",
-				"machines": M{
-					"1": machine1,
-				},
-				"services": M{
-					"wordpress": M{
-						"charm":   "cs:quantal/wordpress-3",
-						"exposed": true,
-						"units": M{
-							"wordpress/0": M{
-								"machine":     "1",
-								"agent-state": "started",
-								"subordinates": M{
-									"monitoring/0": M{
-										"agent-state":    "started",
-										"public-address": "dummyenv-1.dns",
-									},
-								},
-								"public-address": "dummyenv-1.dns",
-							},
-						},
-						"relations": M{
-							"logging-dir":     L{"logging"},
-							"monitoring-port": L{"monitoring"},
-						},
-					},
-					"monitoring": M{
-						"charm":   "cs:quantal/monitoring-0",
-						"exposed": true,
-						"relations": M{
-							"monitoring-port": L{"wordpress"},
-						},
-						"subordinate-to": L{"wordpress"},
-					},
-				},
-			},
-		},
-	), test(
+	// 	// scoped on monitoring; make sure logging doesn't show up.
+	// 	scopedExpect{
+	// 		"subordinates scoped on:",
+	// 		[]string{"monitoring"},
+	// 		M{
+	// 			"environment": "dummyenv",
+	// 			"machines": M{
+	// 				"1": machine1,
+	// 			},
+	// 			"services": M{
+	// 				"wordpress": M{
+	// 					"charm":   "cs:quantal/wordpress-3",
+	// 					"exposed": true,
+	// 					"units": M{
+	// 						"wordpress/0": M{
+	// 							"machine":     "1",
+	// 							"agent-state": "started",
+	// 							"subordinates": M{
+	// 								"monitoring/0": M{
+	// 									"agent-state":    "started",
+	// 									"public-address": "dummyenv-1.dns",
+	// 								},
+	// 							},
+	// 							"public-address": "dummyenv-1.dns",
+	// 						},
+	// 					},
+	// 					"relations": M{
+	// 						"logging-dir":     L{"logging"},
+	// 						"monitoring-port": L{"monitoring"},
+	// 					},
+	// 				},
+	// 				"monitoring": M{
+	// 					"charm":   "cs:quantal/monitoring-0",
+	// 					"exposed": true,
+	// 					"relations": M{
+	// 						"monitoring-port": L{"wordpress"},
+	// 					},
+	// 					"subordinate-to": L{"wordpress"},
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// ),
+	test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
@@ -2130,43 +2138,45 @@ func (e expect) step(c *gc.C, ctx *context) {
 func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
-		func() {
+		func(t testCase) {
 			// Prepare context and run all steps to setup.
 			ctx := s.newContext(c)
 			defer s.resetContext(c, ctx)
 			ctx.run(c, t.steps)
-		}()
+		}(t)
 	}
 }
 
-func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
-	steps := []stepper{
-		addMachine{machineId: "0", job: state.JobManageEnviron},
-		addMachine{machineId: "1", job: state.JobHostUnits},
-		addCharm{"mysql"},
-		addService{name: "mysql", charm: "mysql"},
-		addAliveUnit{"mysql", "1"},
-	}
-	ctx := s.newContext(c)
-	defer s.resetContext(c, ctx)
-	ctx.run(c, steps)
+// TODO(katco-): Delete; we no longer eagerly check for errors as this
+// would break multiple patterns & predicates.
+// func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
+// 	steps := []stepper{
+// 		addMachine{machineId: "0", job: state.JobManageEnviron},
+// 		addMachine{machineId: "1", job: state.JobHostUnits},
+// 		addCharm{"mysql"},
+// 		addService{name: "mysql", charm: "mysql"},
+// 		addAliveUnit{"mysql", "1"},
+// 	}
+// 	ctx := s.newContext(c)
+// 	defer s.resetContext(c, ctx)
+// 	ctx.run(c, steps)
 
-	// Status filters can only fail if the patterns are invalid.
-	code, _, stderr := runStatus(c, "[*")
-	c.Assert(code, gc.Not(gc.Equals), 0)
-	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
+// 	// Status filters can only fail if the patterns are invalid.
+// 	code, _, stderr := runStatus(c, "[*")
+// 	c.Assert(code, gc.Not(gc.Equals), 0)
+// 	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
 
-	code, _, stderr = runStatus(c, "//")
-	c.Assert(code, gc.Not(gc.Equals), 0)
-	c.Assert(string(stderr), gc.Equals, `error: pattern "//" contains too many '/' characters`+"\n")
+// 	code, _, stderr = runStatus(c, "//")
+// 	c.Assert(code, gc.Not(gc.Equals), 0)
+// 	c.Assert(string(stderr), gc.Equals, `error: pattern "//" contains too many '/' characters`+"\n")
 
-	// Pattern validity is checked eagerly; if a bad pattern
-	// proceeds a valid, matching pattern, then the bad pattern
-	// will still cause an error.
-	code, _, stderr = runStatus(c, "*", "[*")
-	c.Assert(code, gc.Not(gc.Equals), 0)
-	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
-}
+// 	// Pattern validity is checked eagerly; if a bad pattern
+// 	// proceeds a valid, matching pattern, then the bad pattern
+// 	// will still cause an error.
+// 	code, _, stderr = runStatus(c, "*", "[*")
+// 	c.Assert(code, gc.Not(gc.Equals), 0)
+// 	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
+// }
 
 type fakeApiClient struct {
 	statusReturn *api.Status
@@ -2514,20 +2524,8 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 // Filtering Feature
 //
 
-type filteringFeature struct {
-	logSvc *state.Service
-	StatusSuite
-	ctx chan *context
-}
-
-var _ = gc.Suite(&filteringFeature{ctx: make(chan *context, 1)})
-
-func (f *filteringFeature) SetUpSuite(c *gc.C) {
-	f.StatusSuite.SetUpSuite(c)
-}
-
-func (f *filteringFeature) SetUpTest(c *gc.C) {
-	f.JujuConnSuite.SetUpTest(c)
+func (s *StatusSuite) FilteringTestSetup(c *gc.C) *context {
+	ctx := s.newContext(c)
 
 	steps := []stepper{
 		// Given a machine is started
@@ -2590,27 +2588,15 @@ func (f *filteringFeature) SetUpTest(c *gc.C) {
 		setUnitsAlive{"logging"},
 	}
 
-	ctx := f.newContext(c)
-	for _, s := range steps {
-		s.step(c, ctx)
-	}
-
-	f.ctx <- ctx
-}
-
-func (f *filteringFeature) TearDownTest(c *gc.C) {
-	//f.resetContext(c, <-f.ctx)
-	f.StatusSuite.TearDownTest(c)
-}
-
-func (f *filteringFeature) TearDownSuite(c *gc.C) {
-	f.StatusSuite.TearDownSuite(c)
+	ctx.run(c, steps)
+	return ctx
 }
 
 // Scenario: One unit is in an errored state and user filters to started
-func (f *filteringFeature) TestFilterToStarted(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterToStarted(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// Given unit 1 of the "logging" service has an error
 	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
 	// And unit 0 of the "mysql" service has an error
@@ -2629,9 +2615,10 @@ func (f *filteringFeature) TestFilterToStarted(c *gc.C) {
 }
 
 // Scenario: One unit is in an errored state and user filters to errored
-func (f *filteringFeature) TestFilterToErrored(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterToErrored(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// Given unit 1 of the "logging" service has an error
 	setUnitStatus{"logging/1", state.StatusError, "mock error", nil}.step(c, ctx)
 	// When I run juju status --format oneline error
@@ -2648,9 +2635,10 @@ func (f *filteringFeature) TestFilterToErrored(c *gc.C) {
 }
 
 // Scenario: User filters to mysql service
-func (f *filteringFeature) TestFilterToService(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterToService(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// When I run juju status --format oneline error
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "mysql")
 	c.Assert(stderr, gc.IsNil)
@@ -2665,9 +2653,10 @@ func (f *filteringFeature) TestFilterToService(c *gc.C) {
 }
 
 // Scenario: User filters to exposed services
-func (f *filteringFeature) TestFilterToExposedService(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterToExposedService(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// Given unit 1 of the "mysql" service is exposed
 	setServiceExposed{"mysql", true}.step(c, ctx)
 	// And the logging service is not exposed
@@ -2688,10 +2677,10 @@ func (f *filteringFeature) TestFilterToExposedService(c *gc.C) {
 }
 
 // Scenario: User filters to non-exposed services
-func (f *filteringFeature) TestFilterToNotExposedService(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
-	// Given unit 1 of the "mysql" service is exposed
+func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	setServiceExposed{"mysql", true}.step(c, ctx)
 	// When I run juju status --format oneline exposed
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
@@ -2707,9 +2696,10 @@ func (f *filteringFeature) TestFilterToNotExposedService(c *gc.C) {
 }
 
 // Scenario: Filtering on Subnets
-func (f *filteringFeature) TestFilterOnSubnet(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
 	// And the address for machine "2" is "10.0.0.1"
@@ -2728,9 +2718,10 @@ func (f *filteringFeature) TestFilterOnSubnet(c *gc.C) {
 }
 
 // Scenario: Filtering on Ports
-func (f *filteringFeature) TestFilterOnPorts(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// Given the address for machine "1" is "localhost"
 	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
 	// And the address for machine "2" is "10.0.0.1"
@@ -2750,9 +2741,10 @@ func (f *filteringFeature) TestFilterOnPorts(c *gc.C) {
 }
 
 // Scenario: User filters out a parent, but not its subordinate
-func (f *filteringFeature) TestFilterParentButNotSubordinate(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterParentButNotSubordinate(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// When I run juju status --format oneline 80/tcp
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "logging")
 	c.Assert(stderr, gc.IsNil)
@@ -2769,9 +2761,10 @@ func (f *filteringFeature) TestFilterParentButNotSubordinate(c *gc.C) {
 }
 
 // Scenario: User filters out a subordinate, but not its parent
-func (f *filteringFeature) TestFilterSubordinateButNotParent(c *gc.C) {
-	ctx := <-f.ctx
-	defer func() { f.ctx <- ctx }()
+func (s *StatusSuite) TestFilterSubordinateButNotParent(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
 	// Given the wordpress service is exposed
 	setServiceExposed{"wordpress", true}.step(c, ctx)
 	// When I run juju status --format oneline not exposed
@@ -2782,6 +2775,42 @@ func (f *filteringFeature) TestFilterSubordinateButNotParent(c *gc.C) {
 
 - mysql/0: dummyenv-2.dns (started)
   - logging/1: dummyenv-2.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+func (s *StatusSuite) TestFilterMultipleHomogenousPatterns(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "mysql/0")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
+
+	c.Assert(string(stdout), gc.Equals, expected[1:])
+}
+
+func (s *StatusSuite) TestFilterMultipleHeterogenousPatterns(c *gc.C) {
+	ctx := s.FilteringTestSetup(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format", "oneline", "wordpress/0", "started")
+	c.Assert(stderr, gc.IsNil)
+	// Then I should receive output prefixed with:
+	const expected = `
+
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (started)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
 `
 
 	c.Assert(string(stdout), gc.Equals, expected[1:])

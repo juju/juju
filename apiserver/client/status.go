@@ -28,7 +28,7 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	var noStatus api.Status
 	var context statusContext
 	if context.services, context.units, context.latestCharms, err =
-		fetchAllServicesAndUnits(c.api.state); err != nil {
+		fetchAllServicesAndUnits(c.api.state, len(args.Patterns) <= 0); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch services and units")
 	} else if context.machines, err = fetchMachines(c.api.state, nil); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
@@ -37,6 +37,8 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	} else if context.networks, err = fetchNetworks(c.api.state); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
+
+	logger.Debugf("Services: %v", context.services)
 
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
@@ -53,8 +55,22 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 			}
 		}
 
+		// TODO(katco-): Uncomment to begin service functionality.
+		// WARNING: There is a bug in which filtering will fail on if
+		// the service would not otherwise be filtered because of a
+		// parent or child unit not being filtered. It is because it
+		// only considers units of its own type
+		// // Filter services
+		// for svcName, svc := range context.services {
+		// 	if matches, err := predicate(svc); err != nil {
+		// 		return noStatus, errors.Annotate(err, "could not filter services")
+		// 	} else if !matches {
+		// 		delete(context.services, svcName)
+		// 	}
+		// }
+
 		// Filter units
-		unitChainPredicate := unitChainPredicateFn(predicate, context.unitByName)
+		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
 		for _, unitMap := range context.units {
 			for name, unit := range unitMap {
 				// Always start examining at the top-level. This
@@ -74,61 +90,11 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 
 	return api.Status{
 		EnvironmentName: cfg.Name(),
-		Machines:        context.processMachines(),
+		Machines:        processMachines(context.machines),
 		Services:        context.processServices(),
 		Networks:        context.processNetworks(),
 		Relations:       context.processRelations(),
 	}, nil
-}
-
-// unitChainPredicateFn builds a function which runs the given
-// predicate over a unit and all of its subordinates. If one unit in
-// the chain matches, the entire chain matches.
-func unitChainPredicateFn(
-	predicate Predicate,
-	getUnit func(string) *state.Unit,
-) func(*state.Unit) (bool, error) {
-	considered := make(map[string]bool)
-	var f func(unit *state.Unit) (bool, error)
-	f = func(unit *state.Unit) (bool, error) {
-		// Don't try and filter the same unit 2x.
-		if matches, ok := considered[unit.Name()]; ok {
-			logger.Debugf("%s has already been examined and found to be: %t", unit.Name(), matches)
-			return matches, nil
-		}
-
-		// Check the current unit.
-		matches, err := predicate(unit)
-		if err != nil {
-			return false, errors.Annotate(err, "could not filter units")
-		}
-		considered[unit.Name()] = matches
-
-		// Now check all of this unit's subordinates.
-		for _, subName := range unit.SubordinateNames() {
-			// A master match supercedes any subordinate match.
-			if matches {
-				logger.Debugf("%s is a subordinate to a match.", subName)
-				considered[subName] = true
-				continue
-			}
-
-			subUnit := getUnit(subName)
-			if subUnit == nil {
-				// We have already deleted this unit
-				matches = false
-				continue
-			}
-			matches, err = f(subUnit)
-			if err != nil {
-				return false, err
-			}
-			considered[subName] = matches
-		}
-
-		return matches, nil
-	}
-	return f
 }
 
 // Status is a stub version of FullStatus that was introduced in 1.16
@@ -149,7 +115,10 @@ func (c *Client) Status() (api.LegacyStatus, error) {
 }
 
 type statusContext struct {
-	machines     map[string][]*state.Machine
+	// machines: top-level machine id -> list of machines nested in
+	// this machine.
+	machines map[string][]*state.Machine
+	// services: service name -> service
 	services     map[string]*state.Service
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
@@ -193,6 +162,7 @@ func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*stat
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllServicesAndUnits(
 	st *state.State,
+	matchAny bool,
 ) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
 
 	svcMap := make(map[string]*state.Service)
@@ -211,7 +181,7 @@ func fetchAllServicesAndUnits(
 		for _, u := range units {
 			svcUnitMap[u.Name()] = u
 		}
-		if len(svcUnitMap) > 0 {
+		if matchAny || len(svcUnitMap) > 0 {
 			unitMap[s.Name()] = svcUnitMap
 			svcMap[s.Name()] = s
 			// Record the base URL for the service's charm so that
@@ -290,41 +260,46 @@ func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
 	return out, nil
 }
 
-func (context *statusContext) processMachines() map[string]api.MachineStatus {
+type machineAndContainers map[string][]*state.Machine
+
+func (m machineAndContainers) HostForMachineId(id string) *state.Machine {
+	// Element 0 is assumed to be the top-level machine.
+	return m[id][0]
+}
+
+func (m machineAndContainers) Containers(id string) []*state.Machine {
+	return m[id][1:]
+}
+
+func processMachines(idToMachines map[string][]*state.Machine) map[string]api.MachineStatus {
 	machinesMap := make(map[string]api.MachineStatus)
-	for id, machines := range context.machines {
-		for mn, m := range machines {
-			hostStatus := context.makeMachineStatus(m)
-			context.processMachine(machines, &hostStatus, mn)
-			machinesMap[id] = hostStatus
+	cache := make(map[string]api.MachineStatus)
+	for id, machines := range idToMachines {
+
+		if len(machines) <= 0 {
+			continue
+		}
+
+		// Element 0 is assumed to be the top-level machine.
+		hostStatus := makeMachineStatus(machines[0])
+		machinesMap[id] = hostStatus
+		cache[id] = hostStatus
+
+		for _, machine := range machines[1:] {
+			parent, ok := cache[state.ParentId(machine.Id())]
+			if !ok {
+				panic("We've broken an assumpution.")
+			}
+
+			status := makeMachineStatus(machine)
+			parent.Containers[machine.Id()] = status
+			cache[machine.Id()] = status
 		}
 	}
 	return machinesMap
 }
 
-func (context *statusContext) processMachine(machines []*state.Machine, host *api.MachineStatus, startIndex int) (nextIndex int) {
-	nextIndex = startIndex + 1
-	currentHost := host
-	var previousContainer *api.MachineStatus
-	for nextIndex < len(machines) {
-		machine := machines[nextIndex]
-		container := context.makeMachineStatus(machine)
-		if currentHost.Id == state.ParentId(machine.Id()) {
-			currentHost.Containers[machine.Id()] = container
-			previousContainer = &container
-			nextIndex++
-		} else {
-			if state.NestingLevel(machine.Id()) > state.NestingLevel(previousContainer.Id) {
-				nextIndex = context.processMachine(machines, previousContainer, nextIndex-1)
-			} else {
-				break
-			}
-		}
-	}
-	return
-}
-
-func (context *statusContext) makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
+func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	status.Id = machine.Id()
 	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(machine)
 	status.AgentVersion = status.Agent.Version
