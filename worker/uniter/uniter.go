@@ -101,6 +101,10 @@ type Uniter struct {
 	hookLock           *fslock.Lock
 	runListener        *RunListener
 
+	// metrics holds the metrics definitions from the unit's charm.
+	metrics      *corecharm.Metrics
+	metricsKnown bool
+
 	proxy      proxyutils.Settings
 	proxyMutex sync.Mutex
 
@@ -414,9 +418,6 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 	u.proxyMutex.Lock()
 	defer u.proxyMutex.Unlock()
 
-	// Metrics can only be added in collect-metrics hooks.
-	canAddMetrics := hookKind == hooks.CollectMetrics
-
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 
@@ -425,9 +426,26 @@ func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId i
 		actionData = context.NewActionData(actionTag, actionParams)
 	}
 
+	metrics, err := u.metricsDefinitions()
+	if err != nil {
+		return nil, err
+	}
+
 	return context.NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
 		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		canAddMetrics, actionData, u.assignedMachineTag)
+		metrics, actionData, u.assignedMachineTag)
+}
+
+func (u *Uniter) metricsDefinitions() (*corecharm.Metrics, error) {
+	if !u.metricsKnown {
+		ch, err := corecharm.ReadCharm(u.charmPath)
+		if err != nil {
+			return nil, err
+		}
+		u.metrics = ch.Metrics()
+		u.metricsKnown = true
+	}
+	return u.metrics, nil
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

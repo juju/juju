@@ -60,14 +60,6 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"error: no metrics specified\n",
 			nil,
 		}, {
-			"invalid metric value",
-			[]string{"add-metric", "key=invalidvalue"},
-			true,
-			2,
-			"",
-			"error: invalid value type: expected float, got \"invalidvalue\"\n",
-			nil,
-		}, {
 			"invalid argument format",
 			[]string{"add-metric", "key"},
 			true,
@@ -106,6 +98,14 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			1,
 			"",
 			"error: cannot record metric: metrics disabled\n",
+			nil,
+		}, {
+			"can't add built-in metric",
+			[]string{"add-metric", "juju-key=60"},
+			true,
+			2,
+			"",
+			"error: cannot use add-metric to set a built-in metric \"juju-key\"\n",
 			nil,
 		}}
 	for i, t := range testCases {
