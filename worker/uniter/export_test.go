@@ -6,18 +6,10 @@ package uniter
 import (
 	"fmt"
 	"time"
-
-	"github.com/juju/utils/proxy"
 )
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 	u.observer = observer
-}
-
-func (u *Uniter) GetProxyValues() proxy.Settings {
-	u.proxyMutex.Lock()
-	defer u.proxyMutex.Unlock()
-	return u.proxy
 }
 
 func PatchMetricsTimer(newTimer func(now, lastRun time.Time, interval time.Duration) <-chan time.Time) {

@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	proxyutils "github.com/juju/utils/proxy"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
@@ -28,7 +26,6 @@ import (
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
