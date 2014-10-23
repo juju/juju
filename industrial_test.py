@@ -113,9 +113,20 @@ class IndustrialTest:
 
     def run_attempt(self):
         """Perform this attempt, with initial cleanup."""
-        self.old_client.destroy_environment()
-        self.new_client.destroy_environment()
-        return self.run_stages()
+        self.destroy_both()
+        try:
+            return list(self.run_stages())
+        except Exception as e:
+            logging.exception(e)
+            self.destroy_both()
+            sys.exit(1)
+
+    def destroy_both(self):
+        """Destroy the environments of the old and new client."""
+        try:
+            self.old_client.destroy_environment()
+        finally:
+            self.new_client.destroy_environment()
 
     def run_stages(self):
         """Iterator of (boolean, boolean) for stage results.
@@ -126,10 +137,7 @@ class IndustrialTest:
             result = attempt.do_stage(self.old_client, self.new_client)
             yield result
             if False in result:
-                try:
-                    self.old_client.destroy_environment()
-                finally:
-                    self.new_client.destroy_environment()
+                self.destroy_both()
                 break
 
 
