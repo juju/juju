@@ -102,13 +102,16 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 		return fmt.Errorf("no key, value pairs specified")
 	}
 
+	var envAttrs map[string]interface{}
+
 	client, err := c.NewAPIClient()
 	if err != nil {
-		logger.Debugf("failed to create an api client: keys could not be verified")
-	}
-	envAttrs, err := client.EnvironmentGet()
-	if err != nil {
-		logger.Debugf("failed to retrieve existing environment settings: key could not be verified")
+		logger.Debugf("failed to create an api client: keys will not be verified")
+	} else {
+		envAttrs, err = client.EnvironmentGet()
+		if err != nil {
+			logger.Debugf("failed to retrieve existing environment settings: keys will not be verified")
+		}
 	}
 
 	// TODO(thumper) look to have a common library of functions for dealing
@@ -129,11 +132,10 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 		// check if the key exists in the existing env config
 		// and warn the user if the key is not defined in
 		// the existing config
-		if envAttrs != nil {
-			if _, exists := envAttrs[key]; !exists {
-				logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
-			}
+		if _, exists := envAttrs[key]; !exists {
+			logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
 		}
+
 		c.values[key] = bits[1]
 	}
 
