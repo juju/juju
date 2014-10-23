@@ -75,17 +75,35 @@ func NewRebootActionGetter(st state.EntityFinder, auth GetAuthFunc) *RebootActio
 func (r *RebootActionGetter) getOneAction(tag names.Tag) (params.RebootAction, error) {
 	entity0, err := r.st.FindEntity(tag)
 	if err != nil {
-		return "", err
+		return params.RebootAction{}, err
 	}
 	entity, ok := entity0.(state.RebootActionGetter)
 	if !ok {
-		return "", NotSupportedError(tag, "request reboot")
+		return params.RebootAction{}, NotSupportedError(tag, "request reboot")
 	}
 	rAction, err := entity.ShouldRebootOrShutdown()
 	if err != nil {
-		return params.ShouldDoNothing, err
+		return params.RebootAction{Action: params.ShouldDoNothing}, err
 	}
-	return params.RebootAction(rAction), nil
+
+	switch rAction.Action {
+	case state.ShouldReboot:
+		return params.RebootAction{
+			Action: params.ShouldReboot,
+			UUID:   rAction.UUID,
+		}, nil
+	case state.ShouldShutdown:
+		return params.RebootAction{
+			Action: params.ShouldShutdown,
+			UUID:   rAction.UUID,
+		}, nil
+	case state.ShouldDoNothing:
+		return params.RebootAction{
+			Action: params.ShouldDoNothing,
+		}, nil
+	default:
+		return params.RebootAction{}, errors.Errorf("Unknown reboot action: %v", rAction.Action)
+	}
 }
 
 // GetRebootAction returns the action a machine agent should take.

@@ -106,6 +106,28 @@ func (s *RebootSuite) TearDownSuit(c *gc.C) {
 	}
 }
 
+func (s *RebootSuite) TestSetRebootFlagMultipleTimes(c *gc.C) {
+	err := s.machine.SetRebootFlag(true)
+	c.Assert(err, gc.IsNil)
+
+	rAction, err := s.machine.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldReboot)
+	c.Assert(rAction.UUID, gc.Not(gc.Equals), "")
+
+	// Setting the reboot flag twice without unsetting it
+	// should not change the UUID
+	uuid := rAction.UUID
+
+	err = s.machine.SetRebootFlag(true)
+	rAction, err = s.machine.ShouldRebootOrShutdown()
+	c.Assert(err, gc.IsNil)
+	c.Assert(rAction.Action, gc.Equals, state.ShouldReboot)
+	c.Assert(rAction.UUID, gc.Equals, uuid)
+
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *RebootSuite) TestWatchForRebootEvent(c *gc.C) {
 	err := s.machine.SetRebootFlag(true)
 	c.Assert(err, gc.IsNil)
