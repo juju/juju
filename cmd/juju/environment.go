@@ -102,18 +102,6 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 		return fmt.Errorf("no key, value pairs specified")
 	}
 
-	var envAttrs map[string]interface{}
-
-	client, err := c.NewAPIClient()
-	if err != nil {
-		logger.Debugf("failed to create an api client: keys will not be verified")
-	} else {
-		envAttrs, err = client.EnvironmentGet()
-		if err != nil {
-			logger.Debugf("failed to retrieve existing environment settings: keys will not be verified")
-		}
-	}
-
 	// TODO(thumper) look to have a common library of functions for dealing
 	// with key=value pairs.
 	c.values = make(attributes)
@@ -129,12 +117,6 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 		if _, exists := c.values[key]; exists {
 			return fmt.Errorf(`key %q specified more than once`, key)
 		}
-		// check if the key exists in the existing env config
-		// and warn the user if the key is not defined in
-		// the existing config
-		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
-		}
 
 		c.values[key] = bits[1]
 	}
@@ -148,6 +130,22 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
+	// extra call to the API to retrieve env config
+	envAttrs, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	for key, _ := range c.values {
+		// check if the key exists in the existing env config
+		// and warn the user if the key is not defined in
+		// the existing config
+		if _, exists := envAttrs[key]; !exists {
+			logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
+		}
+
+	}
+
 	return client.EnvironmentSet(c.values)
 }
 
@@ -190,5 +188,21 @@ func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
+	// extra call to the API to retrieve env config
+	envAttrs, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	for _, key := range c.keys {
+		// check if the key exists in the existing env config
+		// and warn the user if the key is not defined in
+		// the existing config
+		if _, exists := envAttrs[key]; !exists {
+			logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
+		}
+
+	}
+
 	return client.EnvironmentUnset(c.keys...)
 }
