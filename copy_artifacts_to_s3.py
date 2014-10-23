@@ -75,4 +75,5 @@ if __name__ == '__main__':
         job_builds = yaml.load(StringIO(os.getenv('job_builds')))
         for job_name, job_build_number in job_builds:
             copy_job_artifacts(
-                juju_ci, main_build_number, job_name, job_build_number, work_dir)
+                juju_ci, main_build_number, job_name, job_build_number,
+                work_dir)

@@ -26,6 +26,7 @@ class TestUntilTimeout(TestCase):
     @contextmanager
     def patched_until(self, timeout, deltas):
         iterator = until_timeout(timeout)
+
         def now_iter():
             for d in deltas:
                 yield iterator.start + d
@@ -35,7 +36,7 @@ class TestUntilTimeout(TestCase):
 
     def test_timeout(self):
         with self.patched_until(
-            5, [timedelta(), timedelta(0, 4), timedelta(0, 5)]) as until:
+                5, [timedelta(), timedelta(0, 4), timedelta(0, 5)]) as until:
             results = list(until)
         self.assertEqual([5, 1], results)
 

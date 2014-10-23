@@ -29,6 +29,7 @@ SERIES_TO_NUMBERS = {
 JENKINS_KVM = 'JENKINS_KVM'
 WORKSPACE = 'WORKSPACE'
 
+
 def package_regexes(series, arch):
     series_number = SERIES_TO_NUMBERS[series].replace('.', r'\.')
     regex_core = re.compile(
@@ -164,7 +165,7 @@ def main():
             logging.error('Could not find juju-local package')
             sys.exit(1)
     else:
-        package_info=None
+        package_info = None
     try:
         build_vagrant_box(
             args.series, args.arch, args.jenkins_kvm, args.workspace,
