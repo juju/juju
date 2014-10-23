@@ -163,3 +163,29 @@ func (s *AddUnitLocalSuite) TestLocalCannotHostUnits(c *gc.C) {
 	err := runAddUnit(c, "some-service-name", "--to", "0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
 }
+
+type namesSuite struct {
+}
+
+var _ = gc.Suite(&namesSuite{})
+
+func (*namesSuite) TestNameChecks(c *gc.C) {
+	assertMachineOrNewContainer := func(s string, expect bool) {
+		c.Assert(isMachineOrNewContainer(s), gc.Equals, expect)
+	}
+	assertMachineOrNewContainer("0", true)
+	assertMachineOrNewContainer("00", false)
+	assertMachineOrNewContainer("1", true)
+	assertMachineOrNewContainer("0/lxc/0", true)
+	assertMachineOrNewContainer("lxc:0", true)
+	assertMachineOrNewContainer("lxc:lxc:0", false)
+	assertMachineOrNewContainer("kvm:0/lxc/1", true)
+	assertMachineOrNewContainer("lxc:", false)
+	assertMachineOrNewContainer(":lxc", false)
+	assertMachineOrNewContainer("0/lxc/", false)
+	assertMachineOrNewContainer("0/lxc", false)
+	assertMachineOrNewContainer("kvm:0/lxc", false)
+	assertMachineOrNewContainer("0/lxc/01", false)
+	assertMachineOrNewContainer("0/lxc/10", true)
+	assertMachineOrNewContainer("0/kvm/4", true)
+}
