@@ -6,7 +6,10 @@ from StringIO import StringIO
 from textwrap import dedent
 from unittest import TestCase
 
-from mock import patch
+from mock import (
+    patch,
+    call,
+    )
 import yaml
 
 from industrial_test import (
@@ -297,15 +300,27 @@ class TestIndustrialTest(TestCase):
         new_client = FakeEnvJujuClient('new')
         industrial = IndustrialTest(old_client, new_client, [
             FakeAttempt(False, False), FakeAttempt(True, True)])
-        attempt = industrial.run_stages()
         with patch.object(old_client, 'destroy_environment',
                           side_effect=Exception) as oc_mock:
             with patch.object(new_client, 'destroy_environment',
                               side_effect=Exception) as nc_mock:
                 with self.assertRaises(Exception):
-                    list(attempt)
+                    industrial.destroy_both()
         oc_mock.assert_called_once_with()
         nc_mock.assert_called_once_with()
+
+    def test_run_attempt(self):
+        old_client = FakeEnvJujuClient('old')
+        new_client = FakeEnvJujuClient('new')
+        attempt = FakeAttempt(True, True)
+        industrial = IndustrialTest(old_client, new_client, [attempt])
+        with patch.object(attempt, 'do_stage', side_effect=Exception('Foo')):
+            with patch('logging.exception') as le_mock:
+                with patch.object(industrial, 'destroy_both') as db_mock:
+                    with self.assertRaises(SystemExit):
+                        industrial.run_attempt()
+        le_mock.assert_called_once()
+        self.assertEqual(db_mock.mock_calls, [call(), call()])
 
 
 class TestStageAttempt(TestCase):
