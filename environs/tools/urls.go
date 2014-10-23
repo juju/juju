@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
+	conf "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 )
@@ -72,12 +73,12 @@ func GetMetadataSources(env environs.Environ) ([]simplestreams.DataSource, error
 
 	// Add configured and environment-specific datasources.
 	var sources []simplestreams.DataSource
-	if userURL, ok := config.ToolsURL(); ok {
+	if userURL, ok := config.AgentMetadataURL(); ok {
 		verify := utils.VerifySSLHostnames
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLDataSource("tools-metadata-url", userURL, verify))
+		sources = append(sources, simplestreams.NewURLDataSource(conf.AgentMetadataURLKey, userURL, verify))
 	}
 
 	envDataSources, err := environmentDataSources(env)

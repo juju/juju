@@ -193,11 +193,11 @@ amazon:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in
