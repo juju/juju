@@ -154,20 +154,8 @@ func (api *UserManagerAPI) enableUserImpl(args params.Entities, action string, m
 
 // UserInfo returns information on a user.
 func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.UserInfoResults, error) {
-	// TODO(thumper): If no specific users are specified
-	// we need to return all the users in the database,
-	// just showing the enabled ones unless specified.
-	results := params.UserInfoResults{
-		Results: make([]params.UserInfoResult, len(request.Entities)),
-	}
-
-	for i, arg := range request.Entities {
-		user, err := api.getUser(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i] = params.UserInfoResult{
+	var infoForUser = func(user *state.User) params.UserInfoResult {
+		return params.UserInfoResult{
 			Result: &params.UserInfo{
 				Username:       user.Name(),
 				DisplayName:    user.DisplayName(),
@@ -177,6 +165,29 @@ func (api *UserManagerAPI) UserInfo(request params.UserInfoRequest) (params.User
 				Disabled:       user.IsDisabled(),
 			},
 		}
+	}
+
+	var results params.UserInfoResults
+	argCount := len(request.Entities)
+	if argCount == 0 {
+		users, err := api.state.AllUsers(request.IncludeDisabled)
+		if err != nil {
+			return results, errors.Trace(err)
+		}
+		for _, user := range users {
+			results.Results = append(results.Results, infoForUser(user))
+		}
+		return results, nil
+	}
+
+	results.Results = make([]params.UserInfoResult, argCount)
+	for i, arg := range request.Entities {
+		user, err := api.getUser(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i] = infoForUser(user)
 	}
 
 	return results, nil

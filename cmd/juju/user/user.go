@@ -47,6 +47,7 @@ func NewSuperCommand() cmd.Command {
 	usercmd.Register(envcmd.Wrap(&InfoCommand{}))
 	usercmd.Register(envcmd.Wrap(&DisableCommand{}))
 	usercmd.Register(envcmd.Wrap(&EnableCommand{}))
+	usercmd.Register(envcmd.Wrap(&ListCommand{}))
 	return usercmd
 }
 

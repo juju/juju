@@ -81,3 +81,14 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.IsDisabled(), jc.IsFalse)
 }
+
+func (s *UserSuite) TestUserList(c *gc.C) {
+	ctx, err := s.RunUserCommand(c, "list")
+	c.Assert(err, gc.IsNil)
+	expected := `
+NAME         DISPLAY NAME  DATE CREATED  LAST CONNECTION
+dummy-admin  dummy-admin   just now      just now
+
+`[1:]
+	c.Assert(testing.Stdout(ctx), gc.Equals, expected)
+}
