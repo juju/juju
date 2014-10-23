@@ -335,9 +335,9 @@ type backupsMetadataStorage struct {
 }
 
 func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
-	docStor := &backupsDocStorage{state: st}
+	docStor := backupsDocStorage{state: st}
 	stor := backupsMetadataStorage{
-		MetadataDocStorage: filestorage.MetadataDocStorage{docStor},
+		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
 		state:              st,
 	}
 	return &stor
