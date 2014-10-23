@@ -469,7 +469,7 @@ class TestDeployManyAttempt(TestCase):
 
     def test__operation(self):
         client = FakeEnvJujuClient()
-        deploy_many = DeployManyAttempt()
+        deploy_many = DeployManyAttempt(9, 11)
         outputs = (yaml.safe_dump(x) for x in [
             # Before adding 10 machines
             {
@@ -479,7 +479,7 @@ class TestDeployManyAttempt(TestCase):
             # After adding 10 machines
             {
                 'machines': dict((str(x), {'agent-state': 'started'})
-                                 for x in range(11)),
+                                 for x in range(deploy_many.host_count + 1)),
                 'services': {},
             },
             ])
@@ -488,21 +488,18 @@ class TestDeployManyAttempt(TestCase):
                    outputs.next()):
             with patch('subprocess.check_call') as mock_cc:
                 deploy_many.do_operation(client)
-        for index in range(10):
+        for index in range(deploy_many.host_count):
             assert_juju_call(self, mock_cc, client, (
                 'juju', '--show-log', 'add-machine', '-e', 'steve'), index)
-
-        for host in range(1, 11):
-            for container in range(10):
-                index = (host-1) * 10 + 10 + container
+        for host in range(1, deploy_many.host_count + 1):
+            for container in range(deploy_many.container_count):
+                index = ((host-1) * deploy_many.container_count +
+                         deploy_many.host_count + container)
                 target = 'lxc:{}'.format(host)
                 service = 'ubuntu{}x{}'.format(host, container)
-                try:
-                    assert_juju_call(self, mock_cc, client, (
-                        'juju', '--show-log', 'deploy', '-e', 'steve', '--to',
-                        target, 'ubuntu', service), index)
-                except:
-                    print 'foo'
+                assert_juju_call(self, mock_cc, client, (
+                    'juju', '--show-log', 'deploy', '-e', 'steve', '--to',
+                    target, 'ubuntu', service), index)
 
     def test__result_false(self):
         deploy_many = DeployManyAttempt()
