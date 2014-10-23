@@ -346,7 +346,7 @@ func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
 func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	metadata, ok := doc.(*metadata.Metadata)
 	if !ok {
-		return "", errors.Errorf("doc must be of type state.backups.metadata.Metadata")
+		return "", errors.Errorf("doc must be of type *metadata.Metadata")
 	}
 	return addBackupMetadata(s.state, metadata)
 }
