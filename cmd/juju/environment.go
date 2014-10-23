@@ -68,7 +68,7 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		if value, found := attrs[c.key]; found {
 			return c.out.Write(ctx, value)
 		}
-		return fmt.Errorf("Key %q not found in %q environment.", c.key, attrs["name"])
+		return fmt.Errorf("key %q not found in %q environment.", c.key, attrs["name"])
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
@@ -99,7 +99,7 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No key, value pairs specified")
+		return fmt.Errorf("no key, value pairs specified")
 	}
 
 	client, err := c.NewAPIClient()
@@ -117,7 +117,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	for i, arg := range args {
 		bits := strings.SplitN(arg, "=", 2)
 		if len(bits) < 2 {
-			return fmt.Errorf(`Missing "=" in arg %d: %q`, i+1, arg)
+			return fmt.Errorf(`missing "=" in arg %d: %q`, i+1, arg)
 		}
 		key := bits[0]
 		if key == "agent-version" {
@@ -176,7 +176,7 @@ func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
 
 func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No keys specified")
+		return fmt.Errorf("no keys specified")
 	}
 	c.keys = args
 	return nil

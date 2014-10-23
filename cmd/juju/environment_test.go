@@ -40,7 +40,7 @@ var singleValueTests = []struct {
 		output: dummy.SampleConfig()["authorized-keys"].(string),
 	}, {
 		key: "unknown",
-		err: `Key "unknown" not found in "dummyenv" environment.`,
+		err: `key "unknown" not found in "dummyenv" environment.`,
 	},
 }
 
@@ -90,13 +90,13 @@ var setEnvInitTests = []struct {
 }{
 	{
 		args: []string{},
-		err:  "No key, value pairs specified",
+		err:  "no key, value pairs specified",
 	}, {
 		args: []string{"agent-version=1.2.3"},
 		err:  `agent-version must be set via upgrade-juju`,
 	}, {
 		args: []string{"missing"},
-		err:  `Missing "=" in arg 1: "missing"`,
+		err:  `missing "=" in arg 1: "missing"`,
 	}, {
 		args: []string{"key=value"},
 		expected: attributes{
@@ -104,7 +104,7 @@ var setEnvInitTests = []struct {
 		},
 	}, {
 		args: []string{"key=value", "key=other"},
-		err:  `Key "key" specified more than once`,
+		err:  `key "key" specified more than once`,
 	}, {
 		args: []string{"key=value", "other=embedded=equal"},
 		expected: attributes{
@@ -206,7 +206,7 @@ var unsetEnvTests = []struct {
 }{
 	{
 		args: []string{},
-		err:  "No keys specified",
+		err:  "no keys specified",
 	}, {
 		args:       []string{"xyz", "xyz"},
 		unexpected: []string{"xyz"},
