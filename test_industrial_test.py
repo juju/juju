@@ -73,6 +73,12 @@ class FakeAttemptClass:
         return FakeAttempt(*self.result)
 
 
+class StubJujuClient:
+
+    def destroy_environment(self):
+        pass
+
+
 class TestMultiIndustrialTest(TestCase):
 
     def test_init(self):
@@ -142,10 +148,6 @@ class TestMultiIndustrialTest(TestCase):
             FakeAttemptClass('foo', True, True),
             FakeAttemptClass('bar', True, False),
             ], 5, 10)
-        class StubJujuClient:
-
-            def destroy_environment(self):
-                pass
         side_effect = lambda x, y=None: StubJujuClient()
         with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
             with patch('jujupy.SimpleEnvironment.from_config',
@@ -156,6 +158,40 @@ class TestMultiIndustrialTest(TestCase):
              'new_failures': 0},
             {'title': 'bar', 'attempts': 5, 'old_failures': 0,
              'new_failures': 5},
+            ])
+
+    def test_run_tests_max_attempts(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            FakeAttemptClass('foo', True, False),
+            FakeAttemptClass('bar', True, False),
+            ], 5, 6)
+        side_effect = lambda x, y=None: StubJujuClient()
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                results = mit.run_tests()
+        self.assertEqual(results, [
+            {'title': 'foo', 'attempts': 5, 'old_failures': 0,
+             'new_failures': 5},
+            {'title': 'bar', 'attempts': 0, 'old_failures': 0,
+             'new_failures': 0},
+            ])
+
+    def test_run_tests_max_attempts_less_than_attempt_count(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [
+            FakeAttemptClass('foo', True, False),
+            FakeAttemptClass('bar', True, False),
+            ], 5, 4)
+        side_effect = lambda x, y=None: StubJujuClient()
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                results = mit.run_tests()
+        self.assertEqual(results, [
+            {'title': 'foo', 'attempts': 4, 'old_failures': 0,
+             'new_failures': 4},
+            {'title': 'bar', 'attempts': 0, 'old_failures': 0,
+             'new_failures': 0},
             ])
 
     def test_results_table(self):

@@ -46,8 +46,9 @@ class MultiIndustrialTest:
         :return: a list of dicts describing output.
         """
         results = self.make_results()
-        while (results[-1]['attempts'] < self.attempt_count and
-               results[0]['attempts'] < self.max_attempts):
+        for unused_ in range(self.max_attempts):
+            if results[-1]['attempts'] >= self.attempt_count:
+                break
             industrial = self.make_industrial_test()
             self.update_results(industrial.run_attempt(), results)
         return results
