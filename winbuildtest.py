@@ -176,8 +176,8 @@ def main():
         installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
         test(version)
-        build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
-        create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
+        #build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
+        #create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
         return 0
     except Exception as e:
         print(str(e))
