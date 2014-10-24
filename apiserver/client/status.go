@@ -55,11 +55,14 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 			}
 		}
 
-		// TODO(katco-): Uncomment to begin service functionality.
-		// WARNING: There is a bug in which filtering will fail on if
-		// the service would not otherwise be filtered because of a
-		// parent or child unit not being filtered. It is because it
-		// only considers units of its own type
+		// TODO(katco-): BUG:1385456
+		//
+		// Uncomment to begin service functionality. WARNING: There is
+		// a bug in which filtering will fail on if the service would
+		// not otherwise be filtered because of a parent or child unit
+		// not being filtered. It is because it only considers units
+		// of its own type
+
 		// // Filter services
 		// for svcName, svc := range context.services {
 		// 	if matches, err := predicate(svc); err != nil {
