@@ -73,7 +73,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}, {
 		message:  "all and defined relation",
 		args:     []string{"--all", "--relation=mysql", "sudo reboot"},
-		errMatch: `You cannot specify --all and individual relations`,
+		errMatch: `You cannot specify --all and a relation`,
 	}, {
 		message:  "all and defined remote-unit",
 		args:     []string{"--all", "--remote-unit=mysql/0", "sudo reboot"},
@@ -116,7 +116,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}, {
 		message:  "relation to machine target",
 		args:     []string{"--machine=0", "--relation=mysql", "sudo reboot"},
-		errMatch: `You cannot specify --machine and individual relations`,
+		errMatch: `You cannot specify --machine and a relation`,
 	}, {
 		message: "bad remote-unit name",
 		args:    []string{"--unit=mysql/0", "--relation=mysql", "--remote-unit=2", "sudo reboot"},
@@ -261,6 +261,7 @@ func (s *RunSuite) TestConvertRunResults(c *gc.C) {
 
 func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	mock := s.setupMockAPI()
+	mock.setMachinesAlive("0", "1")
 	machineResponse := mockResponse{
 		stdout:    "megatron\n",
 		machineId: "0",
@@ -270,8 +271,8 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 		machineId: "1",
 		unitId:    "unit/0",
 	}
-	mock.setResponse("0", machineResponse)
-	mock.setResponse("unit/0", unitResponse)
+	mock.setResponse("machine-0", machineResponse)
+	mock.setResponse("unit-unit-0", unitResponse)
 
 	unformatted := ConvertRunResults([]params.RunResult{
 		makeRunResult(machineResponse),
@@ -281,9 +282,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, gc.IsNil)
 
-	context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
-		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
-	)
+	context, err := testing.RunCommand(c, &RunCommand{}, "--format=json", "--machine=0", "--unit=unit/0", "hostname")
 	c.Assert(err, gc.IsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
@@ -372,7 +371,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
 	mock := &mockRunAPI{}
-	s.PatchValue(&getRunAPIClient, func(_ *RunCommand) (RunClient, error) {
+	s.PatchValue(&getRunAPIClientV1, func(_ *RunCommand) (RunClientV1, error) {
 		return mock, nil
 	})
 	return mock
@@ -396,7 +395,7 @@ type mockResponse struct {
 	unitId    string
 }
 
-var _ RunClient = (*mockRunAPI)(nil)
+var _ RunClientV1 = (*mockRunAPI)(nil)
 
 func (m *mockRunAPI) setMachinesAlive(ids ...string) {
 	if m.machines == nil {
@@ -431,7 +430,7 @@ func (*mockRunAPI) Close() error {
 	return nil
 }
 
-func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
+func (m *mockRunAPI) RunOnAllMachines(runParams params.RunParamsV1) ([]params.RunResult, error) {
 
 	sortedMachineIds := make([]string, 0, len(m.machines))
 	for machineId := range m.machines {
@@ -452,22 +451,15 @@ func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([
 	return result, nil
 }
 
-func (m *mockRunAPI) Run(runParams params.RunParams) ([]params.RunResult, error) {
+func (m *mockRunAPI) Run(runParams params.RunParamsV1) ([]params.RunResult, error) {
 	var result []params.RunResult
-	// Just add in ids that match in order.
-	for _, id := range runParams.Machines {
+	for _, id := range runParams.Targets {
+		fmt.Println(id)
+		fmt.Println(m.responses)
 		response, found := m.responses[id]
 		if found {
 			result = append(result, response)
 		}
 	}
-	// mock ignores services
-	for _, id := range runParams.Units {
-		response, found := m.responses[id]
-		if found {
-			result = append(result, response)
-		}
-	}
-
 	return result, nil
 }

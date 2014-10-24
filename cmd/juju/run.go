@@ -116,14 +116,14 @@ func (c *RunCommand) Init(args []string) error {
 		if len(c.machines) == 0 && len(c.services) == 0 && len(c.units) == 0 {
 			return errors.Errorf("You must specify a target, either through --all, --machine, --service or --unit")
 		}
-		if len(c.relation) == 0 && len(c.remoteUnit) != 0 {
-			return errors.Errorf("You must specify a relation through --relation")
+		if len(c.machines) == 0 && len(c.relation) == 0 && len(c.remoteUnit) != 0 {
+			return errors.Errorf("You must specify --relation with remote-unit")
 		}
 	}
 
 	if len(c.machines) != 0 {
 		if len(c.relation) != 0 {
-			return errors.Errorf("You cannot specify --machine and a relations")
+			return errors.Errorf("You cannot specify --machine and a relation")
 		}
 		if len(c.remoteUnit) != 0 {
 			return errors.Errorf("You cannot specify --machine and a remote-unit")
@@ -134,20 +134,23 @@ func (c *RunCommand) Init(args []string) error {
 	for _, machineId := range c.machines {
 		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
+		} else {
+			c.targets = append(c.targets, names.NewMachineTag(machineId).String())
 		}
-		c.targets = append(c.targets, names.NewMachineTag(machineId).String())
 	}
 	for _, service := range c.services {
 		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
+		} else {
+			c.targets = append(c.targets, names.NewServiceTag(service).String())
 		}
-		c.targets = append(c.targets, names.NewServiceTag(service).String())
 	}
 	for _, unit := range c.units {
 		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
+		} else {
+			c.targets = append(c.targets, names.NewUnitTag(unit).String())
 		}
-		c.targets = append(c.targets, names.NewUnitTag(unit).String())
 	}
 
 	if len(c.remoteUnit) > 0 && !names.IsValidUnit(c.remoteUnit) {
@@ -212,13 +215,11 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
-	root, err := c.NewAPIRoot()
+	newClient, err := getRunAPIClientV1(c)
 	if err != nil {
-		return errors.Annotate(err, "cannot get API connection")
+		return errors.Trace(err)
 	}
-
-	runClient := runcmd.NewClient(root)
-	defer runClient.Close()
+	defer newClient.Close()
 
 	runContext := &params.RunContext{Relation: c.relation, RemoteUnit: c.remoteUnit}
 
@@ -231,9 +232,9 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 
 	var runResults []params.RunResult
 	if c.all {
-		runResults, err = runClient.RunOnAllMachines(runParams)
+		runResults, err = newClient.RunOnAllMachines(runParams)
 	} else {
-		runResults, err = runClient.Run(runParams)
+		runResults, err = newClient.Run(runParams)
 	}
 
 	if params.IsCodeNotImplemented(err) {
@@ -290,6 +291,20 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 
 // In order to be able to easily mock out the API side for testing,
 // the API client is got using a function.
+
+type RunClientV1 interface {
+	Close() error
+	RunOnAllMachines(run params.RunParamsV1) ([]params.RunResult, error)
+	Run(run params.RunParamsV1) ([]params.RunResult, error)
+}
+
+var getRunAPIClientV1 = func(c *RunCommand) (RunClientV1, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get API connection")
+	}
+	return runcmd.NewClient(root), nil
+}
 
 type RunClient interface {
 	Close() error
