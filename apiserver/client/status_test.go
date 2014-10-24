@@ -6,8 +6,10 @@ package client_test
 import (
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type statusSuite struct {
@@ -56,4 +58,52 @@ func (s *statusSuite) TestLegacyStatus(c *gc.C) {
 		c.Fatalf("Missing machine with id %q", machine.Id())
 	}
 	c.Check(resultMachine.InstanceId, gc.Equals, instanceId)
+}
+
+var _ = gc.Suite(&statusUnitTestSuite{})
+
+type statusUnitTestSuite struct {
+	baseSuite
+	*factory.Factory
+}
+
+func (s *statusUnitTestSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	// State gets reset per test, so must the factory.
+	s.Factory = factory.NewFactory(s.State)
+}
+
+func (s *statusUnitTestSuite) TestProcessMachinesWithOneMachineAndOneContainer(c *gc.C) {
+	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("0")})
+	container := s.MakeMachineNested(c, host.Id(), nil)
+	machines := map[string][]*state.Machine{
+		host.Id(): []*state.Machine{host, container},
+	}
+
+	statuses := client.ProcessMachines(machines)
+	c.Assert(statuses, gc.Not(gc.IsNil))
+
+	containerStatus := client.MakeMachineStatus(container)
+	c.Check(statuses[host.Id()].Containers[container.Id()].Id, gc.Equals, containerStatus.Id)
+}
+
+func (s *statusUnitTestSuite) TestProcessMachinesWithEmbeddedContainers(c *gc.C) {
+
+	host := s.MakeMachine(c, &factory.MachineParams{InstanceId: instance.Id("1")})
+	lxcHost := s.MakeMachineNested(c, host.Id(), nil)
+	machines := map[string][]*state.Machine{
+		host.Id(): []*state.Machine{
+			host,
+			lxcHost,
+			s.MakeMachineNested(c, lxcHost.Id(), nil),
+			s.MakeMachineNested(c, host.Id(), nil),
+		},
+	}
+
+	statuses := client.ProcessMachines(machines)
+	c.Assert(statuses, gc.Not(gc.IsNil))
+
+	hostContainer := statuses[host.Id()].Containers
+	c.Check(hostContainer, gc.HasLen, 2)
+	c.Check(hostContainer[lxcHost.Id()].Containers, gc.HasLen, 1)
 }
