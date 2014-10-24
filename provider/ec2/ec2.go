@@ -859,10 +859,29 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 }
 
 // AllocateAddress requests a new address to be allocated for the
-// given instance on the given network. This is not implemented by the
-// EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	// TODO(dimitern) This will be implemented in a follow-up.
+// given instance on the given network.
+func (e *environ) AllocateAddress(_ instance.Id, netId network.Id) (network.Address, error) {
+	// XXX is it ok to assume that this method is only called when
+	// SupportAddressAllocation returns true?
+	defaultVpc, _, err := e.defaultVpc()
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+	ec2 := e.ec2()
+	interfaceResp, err := e.NetworkInterfaces([]string{}, nil)
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+
+	iFace := interfaceResp.Interfaces[0]
+
+	resp, err := e.AssignPrivateIPAddresses(iFace.Id, []string{}, 1, false)
+	if err != nil {
+		return network.Address{}, errors.Trace(err)
+	}
+
+	iResp, err = e.NetworkInterfaces([]string{}, nil)
+
 	return network.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
