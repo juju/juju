@@ -28,12 +28,15 @@ var seriesVersions = map[string]string{
 	"saucy":   "13.10",
 	"trusty":  "14.04",
 	"utopic":  "14.10",
+	"vivid":   "15.04",
 }
 
 var (
 	seriesVersionsMutex   sync.Mutex
 	updatedseriesVersions bool
 )
+
+var distroInfo = "/usr/share/distro-info/ubuntu.csv"
 
 // SeriesVersion returns the version number for the specified Ubuntu series.
 func SeriesVersion(series string) (string, error) {
@@ -78,7 +81,7 @@ func updateSeriesVersions() {
 func updateDistroInfo() error {
 	// We need to find the series version eg 12.04 from the series eg precise. Use the information found in
 	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
-	f, err := os.Open("/usr/share/distro-info/ubuntu.csv")
+	f, err := os.Open(distroInfo)
 	if err != nil {
 		// On non-Ubuntu systems this file won't exist but that's expected.
 		return nil
@@ -86,6 +89,7 @@ func updateDistroInfo() error {
 	defer f.Close()
 	bufRdr := bufio.NewReader(f)
 	// Only find info for precise or later.
+	// TODO: only add in series that are supported (i.e. before end of life)
 	preciseOrLaterFound := false
 	for {
 		line, err := bufRdr.ReadString('\n')

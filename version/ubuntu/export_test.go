@@ -3,6 +3,8 @@
 
 package ubuntu
 
+var DistroInfo = &distroInfo
+
 func SetSeriesVersions(value map[string]string) func() {
 	origVersions := seriesVersions
 	origUpdated := updatedseriesVersions
