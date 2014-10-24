@@ -151,7 +151,8 @@ func (env *azureEnviron) getSnapshot() *azureEnviron {
 }
 
 // getAffinityGroupName returns the name of the affinity group used by all
-// the Services in this environment.
+// the Services in this environment. The affinity group name is immutable,
+// so there is no need to use a configuration snapshot.
 func (env *azureEnviron) getAffinityGroupName() string {
 	return env.getEnvPrefix() + "ag"
 }
@@ -175,7 +176,8 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 }
 
 // getVirtualNetworkName returns the name of the virtual network used by all
-// the VMs in this environment.
+// the VMs in this environment. The virtual network name is immutable,
+// so there is no need to use a configuration snapshot.
 func (env *azureEnviron) getVirtualNetworkName() string {
 	return env.getEnvPrefix() + "vnet"
 }
@@ -232,7 +234,8 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 }
 
 // getContainerName returns the name of the private storage account container
-// that this environment is using.
+// that this environment is using. The container name is immutable,
+// so there is no need to use a configuration snapshot.
 func (env *azureEnviron) getContainerName() string {
 	return env.getEnvPrefix() + "private"
 }
@@ -973,7 +976,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 			continue
 		}
 		hostedService := hostedServices[id.serviceName]
-		instance, err := env.getInstance(hostedService, id.roleName)
+		instance, err := snap.getInstance(hostedService, id.roleName)
 		if err == nil {
 			instances[i] = instance
 		} else {
@@ -1026,7 +1029,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 		}
 		deployment := &hostedService.Deployments[0]
 		for _, role := range deployment.RoleList {
-			instance, err := env.getInstance(hostedService, role.RoleName)
+			instance, err := snap.getInstance(hostedService, role.RoleName)
 			if err != nil {
 				return nil, err
 			}
@@ -1037,7 +1040,8 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 // getEnvPrefix returns the prefix used to name the objects specific to this
-// environment.
+// environment. The environment prefix name is immutable, so there is no need
+// to use a configuration snapshot.
 func (env *azureEnviron) getEnvPrefix() string {
 	return fmt.Sprintf("juju-%s-", env.Config().Name())
 }
