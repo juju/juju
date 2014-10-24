@@ -33,7 +33,6 @@ func (s *steps121Suite) TestStepsFor121a2(c *gc.C) {
 		"migrate charm archives into environment storage",
 		"migrate custom image metadata into environment storage",
 		"migrate tools into environment storage",
-		"migrate machine jobs into ones with JobManageNetworking based on rules",
 		"migrate individual unit ports to openedPorts collection",
 		"create entries in meter status collection for existing units",
 	}
@@ -46,6 +45,7 @@ func (s *steps121Suite) TestStepsFor121a3(c *gc.C) {
 		"prepend the environment UUID to the ID of all instanceData docs",
 		"prepend the environment UUID to the ID of all containerRef docs",
 		"prepend the environment UUID to the ID of all reboot docs",
+		"migrate machine jobs into ones with JobManageNetworking based on rules",
 	}
 	assertSteps(c, version.MustParse("1.21-alpha3"), expectedSteps)
 }
