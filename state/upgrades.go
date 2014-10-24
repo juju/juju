@@ -536,6 +536,12 @@ func AddEnvUUIDToInstanceData(st *State) error {
 	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
 }
 
+// AddEnvUUIDToRelations prepends the environment UUID to the ID of
+// all instanceData docs and adds new "env-uuid" field.
+func AddEnvUUIDToRelations(st *State) error {
+	return addEnvUUIDToEntityCollection(st, relationsC, "key")
+}
+
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {
 	env, err := st.Environment()
 	if err != nil {

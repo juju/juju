@@ -249,12 +249,12 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 func (r *backingRelation) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	store.Remove(params.EntityId{
 		Kind: "relation",
-		Id:   id,
+		Id:   st.localID(id.(string)),
 	})
 }
 
 func (r *backingRelation) mongoId() interface{} {
-	return r.Key
+	return r.DocID
 }
 
 type backingAnnotation annotatorDoc

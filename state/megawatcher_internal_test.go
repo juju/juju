@@ -600,7 +600,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			change: func(st *State) watcher.Change {
 				return watcher.Change{
 					C:  "relations",
-					Id: "logging:logging-directory wordpress:logging-dir",
+					Id: st.docID("logging:logging-directory wordpress:logging-dir"),
 				}
 			},
 		}, {
@@ -610,7 +610,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			change: func(st *State) watcher.Change {
 				return watcher.Change{
 					C:  "relations",
-					Id: "logging:logging-directory wordpress:logging-dir",
+					Id: st.docID("logging:logging-directory wordpress:logging-dir"),
 				}
 			},
 		}, {
@@ -627,7 +627,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			change: func(st *State) watcher.Change {
 				return watcher.Change{
 					C:  "relations",
-					Id: "logging:logging-directory wordpress:logging-dir",
+					Id: st.docID("logging:logging-directory wordpress:logging-dir"),
 				}
 			},
 			expectContents: []multiwatcher.EntityInfo{
@@ -645,7 +645,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 			setUp: func(c *gc.C, st *State) {},
 			change: func(st *State) watcher.Change {
 				return watcher.Change{
-					C:  "relations",
+					C:  "annotations",
 					Id: "m#0",
 				}
 			},

@@ -379,6 +379,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToContainerRefsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToContainerRefs, containerRefsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToRelations(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRelations, relationsC,
+		bson.M{
+			"_id": "foo:db bar:db",
+			"id":  1,
+		},
+		bson.M{
+			"_id": "foo:http bar:http",
+			"id":  3,
+		},
+	)
+	defer closer()
+
+	var newDoc relationDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "foo:db bar:db")
+	c.Assert(newDoc.Id, gc.Equals, 1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "foo:http bar:http")
+	c.Assert(newDoc.Id, gc.Equals, 3)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelations, relationsC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,

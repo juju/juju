@@ -90,14 +90,14 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// * TODO(fwereade): check unit status == params.StatusStarted (this
 	//   breaks a bunch of tests in a boring but noisy-to-fix way, and is
 	//   being saved for a followup).
-	unitDocID, relationKey := ru.unit.doc.DocID, ru.relation.doc.Key
+	unitDocID, relationDocID := ru.unit.doc.DocID, ru.relation.doc.DocID
 	ops := []txn.Op{{
 		C:      unitsC,
 		Id:     unitDocID,
 		Assert: isAliveDoc,
 	}, {
 		C:      relationsC,
-		Id:     relationKey,
+		Id:     relationDocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 	}}
@@ -158,7 +158,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if alive, err := isAliveWithSession(db.C(relationsC), relationKey); err != nil {
+	if alive, err := isAliveWithSession(db.C(relationsC), relationDocID); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
@@ -313,14 +313,14 @@ func (ru *RelationUnit) LeaveScope() error {
 		if ru.relation.doc.Life == Alive {
 			ops = append(ops, txn.Op{
 				C:      relationsC,
-				Id:     ru.relation.doc.Key,
+				Id:     ru.relation.doc.DocID,
 				Assert: bson.D{{"life", Alive}},
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
 				C:      relationsC,
-				Id:     ru.relation.doc.Key,
+				Id:     ru.relation.doc.DocID,
 				Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
