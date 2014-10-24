@@ -184,8 +184,8 @@ def main(argv):
         old_agents = find_agents(args.old_json)
         new_agents = find_agents(args.new_json)
         errors = compare_agents(
-            old_agents, new_agents, args.purpose, args.version,
-            retracted=args.retracted)
+            old_agents, new_agents, args.purpose, args.added,
+            args.removed)
         if errors:
             print('\n'.join(errors))
             return 1
