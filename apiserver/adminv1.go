@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"github.com/juju/errors"
 	"github.com/rogpeppe/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/common"
@@ -52,13 +53,13 @@ func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
 	info, err := a.srv.state.StateServingInfo()
-	if err != nil {
+	if errors.IsNotFound(err) {
+	} else if err != nil {
+		logger.Errorf("Admin Login (v1): %v", err)
 		return fail, err
+	} else if info.IdentityProvider != nil {
+		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, a.Service))
 	}
 
-	if info.IdentityProvider != nil {
-		return a.doLogin(req, NewRemoteCredentialChecker(a.srv.state, a.Service))
-	}
-
-	return a.doLogin(req, NewLocalCredentialChecker(a.srv.state))
+	return a.doLogin(req, newLocalCredentialChecker(a.srv.state))
 }

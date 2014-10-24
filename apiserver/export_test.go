@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/juju/names"
+	"github.com/rogpeppe/macaroon/bakery"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 var (
@@ -26,22 +28,40 @@ var (
 
 const LoginRateLimit = loginRateLimit
 
+type delayedCredentialChecker struct {
+	nextChan chan struct{}
+	CredentialChecker
+}
+
+func (d *delayedCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
+	<-d.nextChan
+	return d.CredentialChecker.Check(req)
+}
+
 // DelayLogins changes how the Login code works so that logins won't proceed
 // until they get a message on the returned channel.
 // After calling this function, the caller is responsible for sending messages
 // on the nextChan in order for Logins to succeed. The original behavior can be
 // restored by calling the cleanup function.
-func DelayLogins() (nextChan chan struct{}, cleanup func()) {
-	nextChan = make(chan struct{}, 10)
-	cleanup = func() {
-		doCheckCreds = checkCreds
+func DelayLogins() (chan struct{}, func()) {
+	nextChan := make(chan struct{}, 10)
+	cleanup := func() {
+		newLocalCredentialChecker = NewLocalCredentialChecker
+		newRemoteCredentialChecker = NewRemoteCredentialChecker
 	}
-	delayedCheckCreds := func(st *state.State, c params.LoginRequest) (state.Entity, error) {
-		<-nextChan
-		return checkCreds(st, c)
+	newLocalCredentialChecker = func(st *state.State) CredentialChecker {
+		return &delayedCredentialChecker{
+			nextChan:          nextChan,
+			CredentialChecker: NewLocalCredentialChecker(st),
+		}
 	}
-	doCheckCreds = delayedCheckCreds
-	return
+	newRemoteCredentialChecker = func(st *state.State, srv *bakery.Service) CredentialChecker {
+		return &delayedCredentialChecker{
+			nextChan:          nextChan,
+			CredentialChecker: NewRemoteCredentialChecker(st, srv),
+		}
+	}
+	return nextChan, cleanup
 }
 
 func NewErrRoot(err error) *errRoot {

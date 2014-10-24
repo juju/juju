@@ -80,7 +80,7 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 		AuthTag:     c.AuthTag,
 		Credentials: c.Password,
 		Nonce:       c.Nonce,
-	}, NewLocalCredentialChecker(a.srv.state))
+	}, newLocalCredentialChecker(a.srv.state))
 	if err != nil {
 		return fail, err
 	}
@@ -240,7 +240,9 @@ type LocalCredentialChecker struct {
 
 var _ CredentialChecker = (*LocalCredentialChecker)(nil)
 
-func NewLocalCredentialChecker(st *state.State) *LocalCredentialChecker {
+var newLocalCredentialChecker = NewLocalCredentialChecker
+
+func NewLocalCredentialChecker(st *state.State) CredentialChecker {
 	return &LocalCredentialChecker{st: st}
 }
 
@@ -289,7 +291,9 @@ type RemoteCredentialChecker struct {
 
 var _ CredentialChecker = (*RemoteCredentialChecker)(nil)
 
-func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) *RemoteCredentialChecker {
+var newRemoteCredentialChecker = NewRemoteCredentialChecker
+
+func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) CredentialChecker {
 	return &RemoteCredentialChecker{st: st, srv: srv}
 }
 
@@ -333,10 +337,11 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	}
 
 	info, err := c.st.StateServingInfo()
-	if err != nil {
+	if errors.IsNotFound(err) {
 		return fail, err
-	}
-	if info.IdentityProvider == nil {
+	} else if err != nil {
+		return fail, err
+	} else if info.IdentityProvider == nil {
 		logger.Debugf("empty credentials, remote identity provider not configured")
 		return fail, common.ErrBadCreds
 	}
