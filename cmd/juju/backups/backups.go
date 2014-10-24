@@ -80,12 +80,13 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 // dumpMetadata writes the formatted backup metadata to stdout.
 func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
 	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
-	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
-	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "checksum:        %q\n", result.Checksum)
 	fmt.Fprintf(ctx.Stdout, "checksum format: %q\n", result.ChecksumFormat)
 	fmt.Fprintf(ctx.Stdout, "size (B):        %d\n", result.Size)
-	fmt.Fprintf(ctx.Stdout, "stored:          %t\n", result.Stored)
+	fmt.Fprintf(ctx.Stdout, "stored:          %v\n", result.Stored)
+
+	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
+	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
 
 	fmt.Fprintf(ctx.Stdout, "environment ID:  %q\n", result.Environment)

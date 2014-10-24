@@ -24,7 +24,7 @@ var (
 	getDBDumper      = db.NewDumper
 	runCreate        = create
 	finishMeta       = func(meta *metadata.Metadata, result *createResult) error {
-		return meta.Finish(result.size, result.checksum, "", nil)
+		return meta.Finish(result.size, result.checksum)
 	}
 	storeArchive = func(stor filestorage.FileStorage, meta *metadata.Metadata, file io.Reader) error {
 		_, err := stor.Add(meta, file)

@@ -92,12 +92,11 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(meta, gc.Equals, s.storage.metaArg)
 	c.Check(meta.Size(), gc.Equals, int64(10))
 	c.Check(meta.Checksum(), gc.Equals, "<checksum>")
-	c.Check(meta.Stored(), gc.Equals, true)
-	metaOrigin := meta.Origin()
-	c.Check(metaOrigin.Environment(), gc.Equals, "<env ID>")
-	c.Check(metaOrigin.Machine(), gc.Equals, "<machine ID>")
-	c.Check(metaOrigin.Hostname(), gc.Equals, "<hostname>")
-	c.Check(meta.Notes(), gc.Equals, "some notes")
+	c.Check(meta.Stored(), gc.NotNil)
+	c.Check(meta.Origin.Environment, gc.Equals, "<env ID>")
+	c.Check(meta.Origin.Machine, gc.Equals, "<machine ID>")
+	c.Check(meta.Origin.Hostname, gc.Equals, "<hostname>")
+	c.Check(meta.Notes, gc.Equals, "some notes")
 
 	// Check the file storage.
 	s.storage.meta = meta

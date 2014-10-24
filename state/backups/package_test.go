@@ -70,7 +70,7 @@ func (s *fakeStorage) Add(meta filestorage.Metadata, archive io.Reader) (string,
 	s.calls = append(s.calls, "Add")
 	s.metaArg = meta
 	s.fileArg = archive
-	meta.SetStored()
+	meta.SetStored(nil)
 
 	return s.id, s.err
 }
