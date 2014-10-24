@@ -3,7 +3,7 @@ import os
 from StringIO import StringIO
 from unittest import TestCase
 
-
+from utils import temp_dir
 from make_release_notes import (
     DEVEL,
     get_bugs,
