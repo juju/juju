@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -120,9 +121,15 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsRelation() {
 		ctx.relationId = hookInfo.RelationId
 		ctx.remoteUnitName = hookInfo.RemoteUnit
-		relation, found := ctx.Relation(hookInfo.RelationId)
+		relation, found := ctx.relations[hookInfo.RelationId]
 		if !found {
 			return nil, fmt.Errorf("unknown relation id: %v", hookInfo.RelationId)
+		}
+		if hookInfo.Kind == hooks.RelationDeparted {
+			relation.DeleteMember(hookInfo.RemoteUnit)
+		} else if hookInfo.RemoteUnit != "" {
+			// Clear remote settings cache for changing remote unit.
+			relation.UpdateMembers(SettingsMap{hookInfo.RemoteUnit: nil})
 		}
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}

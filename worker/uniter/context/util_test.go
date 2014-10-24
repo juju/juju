@@ -50,6 +50,8 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	s.uniter, err = s.st.Uniter()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
+	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
+	c.Assert(err, gc.IsNil)
 
 	// Note: The unit must always have a charm URL set, because this
 	// happens as part of the installation process (that happens
@@ -87,8 +89,6 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	c.Assert(err, gc.IsNil)
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
-	c.Assert(err, gc.IsNil)
-	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)

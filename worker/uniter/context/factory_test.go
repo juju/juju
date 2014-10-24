@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
 )
@@ -70,10 +71,11 @@ func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext)
 	c.Assert(ctx.ActionData(), gc.IsNil)
 }
 
-func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int) {
+func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int) *context.ContextRelation {
 	rel, found := ctx.HookRelation()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(rel.Id(), gc.Equals, relId)
+	return rel.(*context.ContextRelation)
 }
 
 func (s *FactorySuite) AssertNotRelationContext(c *gc.C, ctx *context.HookContext) {
@@ -113,6 +115,75 @@ func (s *FactorySuite) TestNewHookContextWithRelation(c *gc.C) {
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertRelationContext(c, ctx, 1)
+}
+
+func (s *FactorySuite) TestNewHookContextUpdatesRelationContext(c *gc.C) {
+	// Note: this test makes use of the persistent .relctxs field, which
+	// means that the backing contexts' members are updated directly and
+	// can be inspected to verify the factory's behaviour. A normal uniter
+	// will not act like this: it recreates a fresh set of ContextRelations
+	// every time a new hook context is created, so the factory's actions
+	// do not end up writing to uniter state.
+
+	// We start off writing some cached settings for r/0, so we can verify
+	// the cache gets cleared.
+	s.relctxs[1].UpdateMembers(context.SettingsMap{
+		"r/0": params.RelationSettings{"foo": "bar"},
+	})
+
+	ctx, err := s.factory.NewHookContext(hook.Info{
+		Kind:       hooks.RelationJoined,
+		RelationId: 1,
+		RemoteUnit: "r/0",
+	})
+	c.Assert(err, gc.IsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	rel := s.AssertRelationContext(c, ctx, 1)
+	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
+	c.Assert(rel.StoredMemberSettings("r/0"), gc.IsNil)
+
+	// Reupdate member settings to have actual values, so we can check that
+	// the change for r/4 clears its cache but leaves r/0's alone.
+	s.relctxs[1].UpdateMembers(context.SettingsMap{
+		"r/0": params.RelationSettings{"foo": "bar"},
+		"r/4": params.RelationSettings{"baz": "qux"},
+	})
+
+	ctx, err = s.factory.NewHookContext(hook.Info{
+		Kind:       hooks.RelationChanged,
+		RelationId: 1,
+		RemoteUnit: "r/4",
+	})
+	c.Assert(err, gc.IsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	rel = s.AssertRelationContext(c, ctx, 1)
+	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
+	c.Assert(rel.StoredMemberSettings("r/0"), jc.DeepEquals, params.RelationSettings{
+		"foo": "bar",
+	})
+	c.Assert(rel.StoredMemberSettings("r/4"), gc.IsNil)
+
+	// Reupdate member settings to have actual values, so we can check that
+	// the change for r/0 leaves r/4's cache alone.
+	s.relctxs[1].UpdateMembers(context.SettingsMap{
+		"r/4": params.RelationSettings{"baz": "qux"},
+	})
+
+	ctx, err = s.factory.NewHookContext(hook.Info{
+		Kind:       hooks.RelationDeparted,
+		RelationId: 1,
+		RemoteUnit: "r/0",
+	})
+	c.Assert(err, gc.IsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	rel = s.AssertRelationContext(c, ctx, 1)
+	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
+	c.Assert(rel.StoredMemberSettings("r/4"), jc.DeepEquals, params.RelationSettings{
+		"baz": "qux",
+	})
 }
 
 func (s *FactorySuite) TestNewHookContextWithBadRelation(c *gc.C) {
