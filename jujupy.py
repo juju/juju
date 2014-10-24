@@ -347,6 +347,9 @@ def temp_bootstrap_env(juju_home, client):
     # Always bootstrap a matching environment.
     config = dict(client.env.config)
     config['agent-version'] = client.get_matching_agent_version()
+    # AFAICT, we *always* want to set test-mode to True.  If we ever find a
+    # use-case where we don't, we can make this optional.
+    config['test-mode'] = True
     if config['type'] == 'local':
         config.setdefault('root-dir', get_local_root(juju_home, client.env))
         # MongoDB requires a lot of free disk space, and the only
