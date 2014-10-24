@@ -1,5 +1,6 @@
 __metaclass__ = type
 
+from argparse import Namespace
 from contextlib import contextmanager
 import os.path
 from StringIO import StringIO
@@ -71,6 +72,13 @@ class TestParseArgs(TestCase):
         args = parse_args(['rai', 'new-juju', '--quick'])
         self.assertEqual(args.quick, True)
 
+    def test_parse_args_agent_url(self):
+        args = parse_args(['rai', 'new-juju'])
+        self.assertEqual(args.new_agent_url, None)
+        args = parse_args(['rai', 'new-juju', '--new-agent-url',
+                           'http://example.org'])
+        self.assertEqual(args.new_agent_url, 'http://example.org')
+
 
 class FakeAttempt:
 
@@ -98,6 +106,33 @@ class StubJujuClient:
 
 
 class TestMultiIndustrialTest(TestCase):
+
+    def test_from_args(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         quick=True, new_agent_url=None)
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(mit.env, 'foo')
+        self.assertEqual(mit.new_juju_path, 'new-path')
+        self.assertEqual(mit.attempt_count, 7)
+        self.assertEqual(mit.max_attempts, 14)
+        self.assertEqual(
+            mit.stages, [BootstrapAttempt, DestroyEnvironmentAttempt])
+        args = Namespace(env='bar', new_juju_path='new-path2', attempts=6,
+                         quick=False, new_agent_url=None)
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(mit.env, 'bar')
+        self.assertEqual(mit.new_juju_path, 'new-path2')
+        self.assertEqual(mit.attempt_count, 6)
+        self.assertEqual(mit.max_attempts, 12)
+        self.assertEqual(
+            mit.stages, [BootstrapAttempt, DeployManyAttempt,
+                         EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+
+    def test_from_args_new_agent_url(self):
+        args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
+                         quick=True, new_agent_url='http://example.net')
+        mit = MultiIndustrialTest.from_args(args)
+        self.assertEqual(mit.new_agent_url, 'http://example.net')
 
     def test_init(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -134,6 +169,21 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(len(industrial.stage_attempts), 2)
         for stage, attempt in zip(mit.stages, industrial.stage_attempts):
             self.assertIs(type(attempt), stage)
+
+    def test_make_industrial_test_new_agent_url(self):
+        mit = MultiIndustrialTest('foo-env', 'bar-path', [],
+                                  new_agent_url='http://example.com')
+        side_effect = lambda x, y=None: (x, y)
+        with patch('jujupy.EnvJujuClient.by_version', side_effect=side_effect):
+            with patch('jujupy.SimpleEnvironment.from_config',
+                       side_effect=lambda x: SimpleEnvironment(x, {})):
+                industrial = mit.make_industrial_test()
+        self.assertEqual(
+            industrial.new_client, (
+                SimpleEnvironment('foo-env-new', {
+                    'tools-metadata-url': 'http://example.com'}),
+                'bar-path')
+            )
 
     def test_update_results(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
