@@ -394,7 +394,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
-	defer errors.Maskf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	defer errors.DeferredAnnotatef(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	if !names.IsValidUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}

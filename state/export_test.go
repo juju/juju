@@ -155,7 +155,7 @@ func ClearInstanceDocId(c *gc.C, m *Machine) {
 	ops := []txn.Op{
 		{
 			C:      instanceDataC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 		},

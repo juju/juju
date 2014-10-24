@@ -195,7 +195,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
-		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
+		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           s.cred.URL,
 	})
@@ -780,7 +780,7 @@ func (s *localServerSuite) TestGetToolsMetadataSources(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		urls[i] = url
 	}
-	// The tools-metadata-url ends with "/juju-dist-test/tools/".
+	// The agent-metadata-url ends with "/juju-dist-test/tools/".
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist-test/tools/"), jc.IsTrue)
 	// Check that the URL from keystone parses.
 	_, err = url.Parse(urls[1])
@@ -1038,8 +1038,8 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	c.Check(containerURL[:8], gc.Equals, "https://")
-	attrs["tools-metadata-url"] = containerURL + "/juju-dist-test/tools"
-	c.Logf("Set tools-metadata-url=%q", attrs["tools-metadata-url"])
+	attrs["agent-metadata-url"] = containerURL + "/juju-dist-test/tools"
+	c.Logf("Set agent-metadata-url=%q", attrs["agent-metadata-url"])
 	attrs["image-metadata-url"] = containerURL + "/juju-dist-test"
 	c.Logf("Set image-metadata-url=%q", attrs["image-metadata-url"])
 	return attrs
@@ -1177,7 +1177,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	c.Check(customURL[:8], gc.Equals, "https://")
 
 	config, err := s.env.Config().Apply(
-		map[string]interface{}{"tools-metadata-url": customURL},
+		map[string]interface{}{"agent-metadata-url": customURL},
 	)
 	c.Assert(err, gc.IsNil)
 	err = s.env.SetConfig(config)
@@ -1201,7 +1201,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
 	c.Assert(err, gc.IsNil)
 
-	// Read from the Config entry's tools-metadata-url
+	// Read from the Config entry's agent-metadata-url
 	contentReader, url, err := sources[0].Fetch(custom)
 	c.Assert(err, gc.IsNil)
 	defer contentReader.Close()
@@ -1440,6 +1440,88 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	// is guaranteed to return that.
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstancePicksValidZoneForHost(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az3 will be valid to host an instance.
+		nova.AvailabilityZone{
+			Name: "az3",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			serverDetail := args[0].(*nova.ServerDetail)
+			if serverDetail.AvailabilityZone == "az2" {
+				return fmt.Errorf("No valid host was found")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "az3")
+}
+
+func (t *localServerSuite) TestStartInstanceWithUnknownAZError(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones(
+		// bootstrap node will be on az1.
+		nova.AvailabilityZone{
+			Name: "az1",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+		// az2 will be made to return an unknown error.
+		nova.AvailabilityZone{
+			Name: "az2",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	cleanup := t.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			serverDetail := args[0].(*nova.ServerDetail)
+			if serverDetail.AvailabilityZone == "az2" {
+				return fmt.Errorf("Some unknown error")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	_, _, _, err = testing.StartInstance(env, "1")
+	errString := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(errString, gc.Matches, ".*Some unknown error.*")
 }
 
 func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {

@@ -8,12 +8,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	stdtesting "testing"
 	"time"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/symlink"
 	gc "gopkg.in/check.v1"
@@ -43,6 +45,33 @@ type LxcSuite struct {
 }
 
 var _ = gc.Suite(&LxcSuite{})
+
+var lxcCgroupContents = `11:hugetlb:/lxc/juju-machine-1-lxc-0
+10:perf_event:/lxc/juju-machine-1-lxc-0
+9:blkio:/lxc/juju-machine-1-lxc-0
+8:freezer:/lxc/juju-machine-1-lxc-0
+7:devices:/lxc/juju-machine-1-lxc-0
+6:memory:/lxc/juju-machine-1-lxc-0
+5:cpuacct:/lxc/juju-machine-1-lxc-0
+4:cpu:/lxc/juju-machine-1-lxc-0
+3:cpuset:/lxc/juju-machine-1-lxc-0
+2:name=systemd:/lxc/juju-machine-1-lxc-0
+`
+
+var hostCgroupContents = `11:hugetlb:/
+10:perf_event:/
+9:blkio:/
+8:freezer:/
+7:devices:/
+6:memory:/
+5:cpuacct:/
+4:cpu:/
+3:cpuset:/
+2:name=systemd:/
+`
+
+var malformedCgroupFile = `some bogus content
+more bogus content`
 
 func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
@@ -515,4 +544,58 @@ func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
 		"lxc.network.flags = up",
 	}
 	c.Assert(obtained, gc.DeepEquals, expected)
+}
+
+func (s *LxcSuite) TestIsLXCSupportedOnHost(c *gc.C) {
+	baseDir := c.MkDir()
+	cgroup := filepath.Join(baseDir, "cgroup")
+
+	ft.File{"cgroup", hostCgroupContents, 0400}.Create(c, baseDir)
+
+	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
+	supports, err := lxc.IsLXCSupported()
+	c.Assert(err, gc.IsNil)
+	c.Assert(supports, jc.IsTrue)
+
+}
+
+func (s *LxcSuite) TestIsLXCSupportedOnLXCContainer(c *gc.C) {
+	baseDir := c.MkDir()
+	cgroup := filepath.Join(baseDir, "cgroup")
+
+	ft.File{"cgroup", lxcCgroupContents, 0400}.Create(c, baseDir)
+
+	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
+	supports, err := lxc.IsLXCSupported()
+	c.Assert(err, gc.IsNil)
+	c.Assert(supports, jc.IsFalse)
+
+}
+
+func (s *LxcSuite) TestIsLXCSupportedMissingCgroupFile(c *gc.C) {
+	s.PatchValue(lxc.InitProcessCgroupFile, "")
+	supports, err := lxc.IsLXCSupported()
+	c.Assert(err.Error(), gc.Matches, "open : no such file or directory")
+	c.Assert(supports, jc.IsFalse)
+}
+
+func (s *LxcSuite) TestIsLXCSupportedMalformedCgroupFile(c *gc.C) {
+	baseDir := c.MkDir()
+	cgroup := filepath.Join(baseDir, "cgroup")
+
+	ft.File{"cgroup", malformedCgroupFile, 0400}.Create(c, baseDir)
+
+	s.PatchValue(lxc.InitProcessCgroupFile, cgroup)
+	supports, err := lxc.IsLXCSupported()
+	c.Assert(err.Error(), gc.Equals, "Malformed cgroup file")
+	c.Assert(supports, jc.IsFalse)
+}
+
+func (s *LxcSuite) TestIsLXCSupportedNonLinuxSystem(c *gc.C) {
+	if runtime.GOOS == "linux" {
+		s.PatchValue(lxc.RuntimeGOOS, "windows")
+	}
+	supports, err := lxc.IsLXCSupported()
+	c.Assert(err, gc.IsNil)
+	c.Assert(supports, jc.IsFalse)
 }

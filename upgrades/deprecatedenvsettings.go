@@ -13,7 +13,6 @@ func processDeprecatedEnvSettings(context Context) error {
 		"default-instance-type",
 		"shared-storage-port",
 	}
-	// TODO (wallyworld) - delete tools-url in 1.20
 	// TODO (wallyworld) - delete lxc-use-clone in 1.22
 	return st.UpdateEnvironConfig(map[string]interface{}{}, removeAttrs, nil)
 }

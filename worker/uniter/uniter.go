@@ -584,7 +584,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if context.IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
-		logger.Errorf("hook failed: %s", err)
+		logger.Errorf("hook %q failed: %s", hookName, err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}

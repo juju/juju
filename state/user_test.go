@@ -121,18 +121,18 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
-func (s *UserSuite) TestDeactivate(c *gc.C) {
+func (s *UserSuite) TestDisable(c *gc.C) {
 	user := s.factory.MakeUser(c, &factory.UserParams{Password: "a-password"})
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
 
-	err := user.Deactivate()
+	err := user.Disable()
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsDeactivated(), jc.IsTrue)
+	c.Assert(user.IsDisabled(), jc.IsTrue)
 	c.Assert(user.PasswordValid("a-password"), jc.IsFalse)
 
-	err = user.Activate()
+	err = user.Enable()
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.IsDeactivated(), jc.IsFalse)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
 	c.Assert(user.PasswordValid("a-password"), jc.IsTrue)
 }
 
@@ -193,9 +193,42 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 	c.Assert(lastHash, gc.Equals, afterHash)
 }
 
-func (s *UserSuite) TestCantDeactivateAdmin(c *gc.C) {
+func (s *UserSuite) TestCantDisableAdmin(c *gc.C) {
 	user, err := s.State.User(s.owner)
 	c.Assert(err, gc.IsNil)
-	err = user.Deactivate()
-	c.Assert(err, gc.ErrorMatches, "cannot deactivate initial environment owner")
+	err = user.Disable()
+	c.Assert(err, gc.ErrorMatches, "cannot disable state server environment owner")
+}
+
+func (s *UserSuite) TestAllUsers(c *gc.C) {
+	// Create in non-alphabetical order.
+	s.factory.MakeUser(c, &factory.UserParams{Name: "conrad"})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "adam"})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "debbie", Disabled: true})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "barbara"})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "fred", Disabled: true})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "erica"})
+	// There is the existing state server owner called "test-admin"
+
+	includeDeactivated := false
+	users, err := s.State.AllUsers(includeDeactivated)
+	c.Assert(err, gc.IsNil)
+	c.Assert(users, gc.HasLen, 5)
+	c.Check(users[0].Name(), gc.Equals, "adam")
+	c.Check(users[1].Name(), gc.Equals, "barbara")
+	c.Check(users[2].Name(), gc.Equals, "conrad")
+	c.Check(users[3].Name(), gc.Equals, "erica")
+	c.Check(users[4].Name(), gc.Equals, "test-admin")
+
+	includeDeactivated = true
+	users, err = s.State.AllUsers(includeDeactivated)
+	c.Assert(err, gc.IsNil)
+	c.Assert(users, gc.HasLen, 7)
+	c.Check(users[0].Name(), gc.Equals, "adam")
+	c.Check(users[1].Name(), gc.Equals, "barbara")
+	c.Check(users[2].Name(), gc.Equals, "conrad")
+	c.Check(users[3].Name(), gc.Equals, "debbie")
+	c.Check(users[4].Name(), gc.Equals, "erica")
+	c.Check(users[5].Name(), gc.Equals, "fred")
+	c.Check(users[6].Name(), gc.Equals, "test-admin")
 }

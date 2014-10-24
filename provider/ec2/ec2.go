@@ -34,6 +34,8 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
+const none = "none"
+
 // Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
@@ -193,11 +195,11 @@ amazon:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in
@@ -297,6 +299,22 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+func (e *environ) defaultVpc() (network.Id, bool, error) {
+	ec2 := e.ec2()
+	resp, err := ec2.AccountAttributes("default-vpc")
+	if err != nil {
+		return "", false, errors.Trace(err)
+	}
+	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
+		return "", false, nil
+	}
+	defaultVpc := resp.Attributes[0].Values[0]
+	if defaultVpc == none {
+		return "", false, nil
+	}
+	return network.Id(defaultVpc), true, nil
+}
+
 func (e *environ) ecfg() *environConfig {
 	e.ecfgMutex.Lock()
 	ecfg := e.ecfgUnlocked
@@ -366,7 +384,11 @@ func (e *environ) SupportNetworks() bool {
 
 // SupportAddressAllocation is specified on the EnvironCapability interface.
 func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
-	return false, nil
+	_, hasDefaultVpc, err := e.defaultVpc()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return hasDefaultVpc, nil
 }
 
 var unsupportedConstraints = []string{

@@ -62,8 +62,8 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 	final := map[string]interface{}{
-		"tools-metadata-url": "file://" + s.customToolsDir,
-		"tools-stream":       "proposed",
+		"agent-metadata-url": "file://" + s.customToolsDir,
+		"agent-stream":       "proposed",
 	}
 	for k, v := range attrs {
 		final[k] = v

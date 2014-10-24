@@ -207,7 +207,7 @@ func (p *Ports) NetworkName() (string, error) {
 // OpenPorts adds the specified port range to the list of ports
 // maintained by this document.
 func (p *Ports) OpenPorts(portRange PortRange) (err error) {
-	defer errors.Maskf(&err, "cannot open ports %s", portRange)
+	defer errors.DeferredAnnotatef(&err, "cannot open ports %s", portRange)
 
 	if err = portRange.Validate(); err != nil {
 		return errors.Trace(err)
@@ -271,7 +271,7 @@ func (p *Ports) OpenPorts(portRange PortRange) (err error) {
 // ClosePorts removes the specified port range from the list of ports
 // maintained by this document.
 func (p *Ports) ClosePorts(portRange PortRange) (err error) {
-	defer errors.Maskf(&err, "cannot close ports %s", portRange)
+	defer errors.DeferredAnnotatef(&err, "cannot close ports %s", portRange)
 
 	if err = portRange.Validate(); err != nil {
 		return errors.Trace(err)
@@ -453,7 +453,7 @@ func addPortsDocOps(st *State, machineId, portsId string, portsAssert interface{
 	}
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
@@ -469,7 +469,7 @@ func addPortsDocOps(st *State, machineId, portsId string, portsAssert interface{
 func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, portRange PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
@@ -489,7 +489,7 @@ func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interfa
 func setPortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
