@@ -44,13 +44,13 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		predicate := BuildPredicateFor(args.Patterns)
 
 		// Filter machines
-		for status, machList := range context.machines {
-			for idx, mach := range machList {
-				if matches, err := predicate(mach); err != nil {
+		for status, machineList := range context.machines {
+			for idx, m := range machineList {
+				if matches, err := predicate(m); err != nil {
 					return noStatus, errors.Annotate(err, "could not filter machines")
 				} else if !matches {
 					// TODO(katco-): Check for index errors.
-					context.machines[status] = append(machList[:idx], machList[idx+1:]...)
+					context.machines[status] = append(machineList[:idx], machineList[idx+1:]...)
 				}
 			}
 		}
@@ -75,7 +75,7 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 			for name, unit := range unitMap {
 				// Always start examining at the top-level. This
 				// prevents a situation where we filter a subordinate
-				// before we discover it's parent is a match.
+				// before we discover its parent is a match.
 				if !unit.IsPrincipal() {
 					continue
 				}

@@ -4,10 +4,10 @@
 package client_test
 
 import (
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/network"
-
-	gc "gopkg.in/check.v1"
 )
 
 type filteringUnitTests struct {

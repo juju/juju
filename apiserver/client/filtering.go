@@ -30,7 +30,7 @@ func UnitChainPredicateFn(
 	f = func(unit *state.Unit) (bool, error) {
 		// Don't try and filter the same unit 2x.
 		if matches, ok := considered[unit.Name()]; ok {
-			logger.Infof("%s has already been examined and found to be: %t", unit.Name(), matches)
+			logger.Debugf("%s has already been examined and found to be: %t", unit.Name(), matches)
 			return matches, nil
 		}
 
@@ -97,7 +97,7 @@ func BuildPredicateFor(patterns []string) Predicate {
 	return func(i interface{}) (bool, error) {
 		switch i.(type) {
 		default:
-			return false, errors.Errorf("Programming error. We should only ever pass in machines, services, or units. Received %T.", i)
+			panic(errors.Errorf("Programming error. We should only ever pass in machines, services, or units. Received %T.", i))
 		case *state.Machine:
 			shims, err := buildMachineMatcherShims(i.(*state.Machine), patterns)
 			if err != nil {
@@ -116,8 +116,8 @@ func BuildPredicateFor(patterns []string) Predicate {
 	}
 }
 
-// Predicate is a function that when given a machine, will determine
-// whether the unit meets some criteria.
+// Predicate is a function that when given a unit, machine, or
+// service, will determine whether the unit meets some criteria.
 type Predicate func(interface{}) (matches bool, _ error)
 
 // closurePredicate is a function which has at some point been closed
@@ -131,7 +131,7 @@ func unitMatchUnitName(u *state.Unit, patterns []string) (bool, bool, error) {
 		// Currently, the only error possible here is a matching
 		// error. We don't want this error to hold up further
 		// matching.
-		logger.Infof("ignoring matching error: %v", err)
+		logger.Debugf("ignoring matching error: %v", err)
 		return false, false, nil
 	}
 	return um.matchUnit(u), true, nil
@@ -154,10 +154,11 @@ func unitMatchExposure(u *state.Unit, patterns []string) (bool, bool, error) {
 }
 
 func unitMatchSubnet(u *state.Unit, patterns []string) (bool, bool, error) {
-	// If the addresses are not OK, we expect the value to be set
-	// to something reasonable useless.
-	pub, _ := u.PublicAddress()
-	priv, _ := u.PrivateAddress()
+	pub, pubOK := u.PublicAddress()
+	priv, privOK := u.PrivateAddress()
+	if !pubOK && !privOK {
+		return true, false, nil
+	}
 	return matchSubnet(patterns, pub, priv)
 }
 

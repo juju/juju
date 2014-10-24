@@ -66,7 +66,6 @@ type stepper interface {
 //
 
 func newContext(c *gc.C, st *state.State, env environs.Environ, adminUserTag string) *context {
-	//st := s.Environ.(testing.GetStater).GetStateInAPIServer()
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
@@ -1373,85 +1372,6 @@ var statusTests = []testCase{
 			},
 		},
 	),
-	// TODO(katco-): Delete; we now want subordinates to show up per status.
-	//  test(
-	// 	"one service with two subordinate services",
-	// 	addMachine{machineId: "0", job: state.JobManageEnviron},
-	// 	startAliveMachine{"0"},
-	// 	setMachineStatus{"0", state.StatusStarted, ""},
-	// 	addCharm{"wordpress"},
-	// 	addCharm{"logging"},
-	// 	addCharm{"monitoring"},
-
-	// 	addService{name: "wordpress", charm: "wordpress"},
-	// 	setServiceExposed{"wordpress", true},
-	// 	addMachine{machineId: "1", job: state.JobHostUnits},
-	// 	setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
-	// 	startAliveMachine{"1"},
-	// 	setMachineStatus{"1", state.StatusStarted, ""},
-	// 	addAliveUnit{"wordpress", "1"},
-	// 	setUnitStatus{"wordpress/0", state.StatusStarted, "", nil},
-
-	// 	addService{name: "logging", charm: "logging"},
-	// 	setServiceExposed{"logging", true},
-	// 	addService{name: "monitoring", charm: "monitoring"},
-	// 	setServiceExposed{"monitoring", true},
-
-	// 	relateServices{"wordpress", "logging"},
-	// 	relateServices{"wordpress", "monitoring"},
-
-	// 	addSubordinate{"wordpress/0", "logging"},
-	// 	addSubordinate{"wordpress/0", "monitoring"},
-
-	// 	setUnitsAlive{"logging"},
-	// 	setUnitStatus{"logging/0", state.StatusStarted, "", nil},
-
-	// 	setUnitsAlive{"monitoring"},
-	// 	setUnitStatus{"monitoring/0", state.StatusStarted, "", nil},
-
-	// 	// scoped on monitoring; make sure logging doesn't show up.
-	// 	scopedExpect{
-	// 		"subordinates scoped on:",
-	// 		[]string{"monitoring"},
-	// 		M{
-	// 			"environment": "dummyenv",
-	// 			"machines": M{
-	// 				"1": machine1,
-	// 			},
-	// 			"services": M{
-	// 				"wordpress": M{
-	// 					"charm":   "cs:quantal/wordpress-3",
-	// 					"exposed": true,
-	// 					"units": M{
-	// 						"wordpress/0": M{
-	// 							"machine":     "1",
-	// 							"agent-state": "started",
-	// 							"subordinates": M{
-	// 								"monitoring/0": M{
-	// 									"agent-state":    "started",
-	// 									"public-address": "dummyenv-1.dns",
-	// 								},
-	// 							},
-	// 							"public-address": "dummyenv-1.dns",
-	// 						},
-	// 					},
-	// 					"relations": M{
-	// 						"logging-dir":     L{"logging"},
-	// 						"monitoring-port": L{"monitoring"},
-	// 					},
-	// 				},
-	// 				"monitoring": M{
-	// 					"charm":   "cs:quantal/monitoring-0",
-	// 					"exposed": true,
-	// 					"relations": M{
-	// 						"monitoring-port": L{"wordpress"},
-	// 					},
-	// 					"subordinate-to": L{"wordpress"},
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// ),
 	test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
@@ -2147,37 +2067,6 @@ func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	}
 }
 
-// TODO(katco-): Delete; we no longer eagerly check for errors as this
-// would break multiple patterns & predicates.
-// func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
-// 	steps := []stepper{
-// 		addMachine{machineId: "0", job: state.JobManageEnviron},
-// 		addMachine{machineId: "1", job: state.JobHostUnits},
-// 		addCharm{"mysql"},
-// 		addService{name: "mysql", charm: "mysql"},
-// 		addAliveUnit{"mysql", "1"},
-// 	}
-// 	ctx := s.newContext(c)
-// 	defer s.resetContext(c, ctx)
-// 	ctx.run(c, steps)
-
-// 	// Status filters can only fail if the patterns are invalid.
-// 	code, _, stderr := runStatus(c, "[*")
-// 	c.Assert(code, gc.Not(gc.Equals), 0)
-// 	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
-
-// 	code, _, stderr = runStatus(c, "//")
-// 	c.Assert(code, gc.Not(gc.Equals), 0)
-// 	c.Assert(string(stderr), gc.Equals, `error: pattern "//" contains too many '/' characters`+"\n")
-
-// 	// Pattern validity is checked eagerly; if a bad pattern
-// 	// proceeds a valid, matching pattern, then the bad pattern
-// 	// will still cause an error.
-// 	code, _, stderr = runStatus(c, "*", "[*")
-// 	c.Assert(code, gc.Not(gc.Equals), 0)
-// 	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
-// }
-
 type fakeApiClient struct {
 	statusReturn *api.Status
 	patternsUsed []string
@@ -2682,7 +2571,7 @@ func (s *StatusSuite) TestFilterToNotExposedService(c *gc.C) {
 	defer s.resetContext(c, ctx)
 
 	setServiceExposed{"mysql", true}.step(c, ctx)
-	// When I run juju status --format oneline exposed
+	// When I run juju status --format oneline not exposed
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "not", "exposed")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
@@ -2704,7 +2593,7 @@ func (s *StatusSuite) TestFilterOnSubnet(c *gc.C) {
 	setAddresses{"1", []network.Address{network.NewAddress("localhost", network.ScopeUnknown)}}.step(c, ctx)
 	// And the address for machine "2" is "10.0.0.1"
 	setAddresses{"2", []network.Address{network.NewAddress("10.0.0.1", network.ScopeUnknown)}}.step(c, ctx)
-	// When I run juju status --format oneline exposed
+	// When I run juju status --format oneline 127.0.0.1
 	_, stdout, stderr := runStatus(c, "--format", "oneline", "127.0.0.1")
 	c.Assert(stderr, gc.IsNil)
 	// Then I should receive output prefixed with:
