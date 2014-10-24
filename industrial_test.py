@@ -24,10 +24,23 @@ class MultiIndustrialTest:
     :ivar attempt_count: The number of attempts needed for each stage.
     """
 
+    @classmethod
+    def from_args(cls, args):
+        if args.quick:
+            stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
+        else:
+            stages = [BootstrapAttempt, DeployManyAttempt,
+                      EnsureAvailabilityAttempt,
+                      DestroyEnvironmentAttempt]
+        return cls(args.env, args.new_juju_path,
+                   stages, args.attempts, args.attempts * 2,
+                   args.new_agent_url)
+
     def __init__(self, env, new_juju_path, stages, attempt_count=2,
-                 max_attempts=1):
+                 max_attempts=1, new_agent_url=None):
         self.env = env
         self.new_juju_path = new_juju_path
+        self.new_agent_url = new_agent_url
         self.stages = stages
         self.attempt_count = attempt_count
         self.max_attempts = max_attempts
@@ -58,7 +71,7 @@ class MultiIndustrialTest:
         """Create an IndustrialTest for this MultiIndustrialTest."""
         stage_attempts = [stage() for stage in self.stages]
         return IndustrialTest.from_args(self.env, self.new_juju_path,
-                                        stage_attempts)
+                                        stage_attempts, self.new_agent_url)
 
     def update_results(self, run_attempt, results):
         """Update results with data from run_attempt.
@@ -88,11 +101,12 @@ class IndustrialTest:
     """Class for running one attempt at an industrial test."""
 
     @classmethod
-    def from_args(cls, env, new_juju_path, stage_attempts):
+    def from_args(cls, env, new_juju_path, stage_attempts, new_agent_url=None):
         """Return an IndustrialTest from commandline arguments.
 
         :param env: The name of the environment to base environments on.
         :param new_juju_path: Path to the "new" (non-system) juju.
+        :param new_agent_url: Agent stream url for new client.
         :param stage_attemps: List of stages to attempt.
         """
         old_env = SimpleEnvironment.from_config(env)
@@ -100,6 +114,8 @@ class IndustrialTest:
         old_client = EnvJujuClient.by_version(old_env)
         new_env = SimpleEnvironment.from_config(env)
         new_env.environment = env + '-new'
+        if new_agent_url is not None:
+            new_env.config['tools-metadata-url'] = new_agent_url
         uniquify_local(new_env)
         new_client = EnvJujuClient.by_version(new_env, new_juju_path)
         return cls(old_client, new_client, stage_attempts)
@@ -273,6 +289,7 @@ def parse_args(args=None):
     parser.add_argument('--attempts', type=int, default=2)
     parser.add_argument('--json-file')
     parser.add_argument('--quick', action='store_true')
+    parser.add_argument('--new-agent-url')
     return parser.parse_args(args)
 
 
@@ -285,14 +302,7 @@ def maybe_write_json(filename, results):
 
 def main():
     args = parse_args()
-    if args.quick:
-        stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
-    else:
-        stages = [BootstrapAttempt, DeployManyAttempt,
-                  EnsureAvailabilityAttempt,
-                  DestroyEnvironmentAttempt]
-    mit = MultiIndustrialTest(args.env, args.new_juju_path,
-                              stages, args.attempts, args.attempts * 2)
+    mit = MultiIndustrialTest.from_args(args)
     results = mit.run_tests()
     maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results))
