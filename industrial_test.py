@@ -2,6 +2,7 @@
 __metaclass__ = type
 
 from argparse import ArgumentParser
+import json
 import logging
 import sys
 
@@ -270,16 +271,30 @@ def parse_args(args=None):
     parser.add_argument('env')
     parser.add_argument('new_juju_path')
     parser.add_argument('--attempts', type=int, default=2)
+    parser.add_argument('--json-file')
+    parser.add_argument('--quick', action='store_true')
     return parser.parse_args(args)
+
+
+def maybe_write_json(filename, results):
+    if filename is None:
+        return
+    with open(filename, 'w') as json_file:
+        json.dump(results, json_file, indent=2)
 
 
 def main():
     args = parse_args()
-    stages = [BootstrapAttempt, DeployManyAttempt, EnsureAvailabilityAttempt,
-              DestroyEnvironmentAttempt]
+    if args.quick:
+        stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
+    else:
+        stages = [BootstrapAttempt, DeployManyAttempt,
+                  EnsureAvailabilityAttempt,
+                  DestroyEnvironmentAttempt]
     mit = MultiIndustrialTest(args.env, args.new_juju_path,
                               stages, args.attempts, args.attempts * 2)
     results = mit.run_tests()
+    maybe_write_json(args.json_file, results)
     sys.stdout.writelines(mit.results_table(results))
 
 

@@ -3,6 +3,7 @@ __metaclass__ = type
 from contextlib import contextmanager
 import os.path
 from StringIO import StringIO
+from tempfile import NamedTemporaryFile
 from textwrap import dedent
 from unittest import TestCase
 
@@ -18,6 +19,7 @@ from industrial_test import (
     DestroyEnvironmentAttempt,
     EnsureAvailabilityAttempt,
     IndustrialTest,
+    maybe_write_json,
     MultiIndustrialTest,
     parse_args,
     StageAttempt,
@@ -56,6 +58,18 @@ class TestParseArgs(TestCase):
         self.assertEqual(args.attempts, 2)
         args = parse_args(['rai', 'new-juju', '--attempts', '3'])
         self.assertEqual(args.attempts, 3)
+
+    def test_parse_args_json_file(self):
+        args = parse_args(['rai', 'new-juju'])
+        self.assertIs(args.json_file, None)
+        args = parse_args(['rai', 'new-juju', '--json-file', 'foobar'])
+        self.assertEqual(args.json_file, 'foobar')
+
+    def test_parse_args_quick(self):
+        args = parse_args(['rai', 'new-juju'])
+        self.assertEqual(args.quick, False)
+        args = parse_args(['rai', 'new-juju', '--quick'])
+        self.assertEqual(args.quick, True)
 
 
 class FakeAttempt:
@@ -536,3 +550,26 @@ class TestDeployManyAttempt(TestCase):
                     Exception,
                     'Timed out waiting for agents to start in steve.'):
                 deploy_many._result(client)
+
+
+class TestMaybeWriteJson(TestCase):
+
+    def test_maybe_write_json(self):
+        with NamedTemporaryFile() as temp_file:
+            maybe_write_json(temp_file.name, {})
+            self.assertEqual('{}', temp_file.read())
+
+    def test_maybe_write_json_none(self):
+        maybe_write_json(None, {})
+
+    def test_maybe_write_json_pretty(self):
+        with NamedTemporaryFile() as temp_file:
+            maybe_write_json(temp_file.name, {'a': ['b'], 'b': 'c'})
+            expected = dedent("""\
+                {
+                  "a": [
+                    "b"
+                  ],\x20
+                  "b": "c"
+                }""")
+            self.assertEqual(temp_file.read(), expected)
