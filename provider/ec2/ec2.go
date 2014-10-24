@@ -895,9 +895,9 @@ func (e *environ) AllocateAddress(_ instance.Id, netId network.Id) (network.Addr
 		return network.Address{}, errors.Trace(err)
 	}
 
-	interfaces := interfaceResp.Interfaces[0]
+	//iFace := interfaceResp.Interfaces[0]
 
-	resp, err := ec2.AssignPrivateIPAddresses(iFace.Id, []string{}, 1, false)
+	resp, err := ec2.AssignPrivateIPAddresses(string(defaultVpc), []string{}, 1, false)
 	if err != nil {
 		return network.Address{}, errors.Trace(err)
 	}
@@ -908,7 +908,7 @@ func (e *environ) AllocateAddress(_ instance.Id, netId network.Id) (network.Addr
 	}
 
 	// XXX temp: so I can push
-	fmt.Printf("%v %v %v", interfaceResp, interfaces, resp)
+	fmt.Printf("%v %v", interfaceResp, resp)
 
 	return network.Address{}, errors.NotImplementedf("AllocateAddress")
 }
