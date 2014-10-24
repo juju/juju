@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -114,6 +115,24 @@ var setEnvInitTests = []struct {
 	},
 }
 
+var setUnknownKeyTests = []struct {
+	args   []string
+	output string
+}{
+	{
+		args:   []string{"authoXized-keys=abc"},
+		output: `WARNING juju.cmd.juju key "authoXized-keys" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"states-port=123"},
+		output: `WARNING juju.cmd.juju key "states-port" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"loggging-config=<root>=INFO;juju.provider=DEBUG"},
+		output: `WARNING juju.cmd.juju key "loggging-config" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+}
+
 func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
 	for _, t := range setEnvInitTests {
 		command := &SetEnvironmentCommand{}
@@ -121,6 +140,15 @@ func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
 		if t.expected != nil {
 			c.Assert(command.values, gc.DeepEquals, t.expected)
 		}
+	}
+}
+
+func (s *SetEnvironmentSuite) TestSetUnknownKey(c *gc.C) {
+	for _, t := range setUnknownKeyTests {
+		ctx := testing.ContextForDir(c, s.DataDir())
+		code := cmd.Main(envcmd.Wrap(&SetEnvironmentCommand{}), ctx, t.args)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(c.GetTestLog(), jc.Contains, t.output)
 	}
 }
 
@@ -221,6 +249,33 @@ var unsetEnvTests = []struct {
 		args:       []string{"xyz2", "xyz"},
 		unexpected: []string{"xyz"},
 	},
+}
+
+var unsetUnknownKeyTests = []struct {
+	args   []string
+	output string
+}{
+	{
+		args:   []string{"authorixed-keys"},
+		output: `WARNING juju.cmd.juju key "authorixed-keys" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"statez-port"},
+		output: `WARNING juju.cmd.juju key "statez-port" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+	{
+		args:   []string{"loggin-config"},
+		output: `WARNING juju.cmd.juju key "loggin-config" is not defined in the current environemnt configuration: possible misspelling`,
+	},
+}
+
+func (s *UnsetEnvironmentSuite) TestUnsetUnknownKey(c *gc.C) {
+	for _, t := range unsetUnknownKeyTests {
+		ctx := testing.ContextForDir(c, s.DataDir())
+		code := cmd.Main(envcmd.Wrap(&UnsetEnvironmentCommand{}), ctx, t.args)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(c.GetTestLog(), jc.Contains, t.output)
+	}
 }
 
 func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {

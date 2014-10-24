@@ -141,7 +141,7 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		// and warn the user if the key is not defined in
 		// the existing config
 		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
+			logger.Warningf("key %q is not defined in the current environemnt configuration: possible misspelling", key)
 		}
 
 	}
@@ -199,7 +199,7 @@ func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		// and warn the user if the key is not defined in
 		// the existing config
 		if _, exists := envAttrs[key]; !exists {
-			logger.Warningf("key %v is not defined in the current environemnt configuration: possible misspelling", key)
+			logger.Warningf("key %q is not defined in the current environemnt configuration: possible misspelling", key)
 		}
 
 	}
