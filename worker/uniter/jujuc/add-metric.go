@@ -12,8 +12,8 @@ import (
 	"github.com/juju/errors"
 )
 
-// BuiltinMetricPrefix is used to mark built-in metrics.
-const BuiltinMetricPrefix string = "juju-"
+// builtinMetricPrefix is used to mark built-in metrics.
+const builtinMetricPrefix string = "juju-"
 
 // Metric represents a single metric set by the charm.
 type Metric struct {
@@ -57,7 +57,7 @@ func (c *AddMetricCommand) Init(args []string) error {
 		}
 		key := parts[0]
 		value := parts[1]
-		if strings.HasPrefix(key, BuiltinMetricPrefix) {
+		if strings.HasPrefix(key, builtinMetricPrefix) {
 			return fmt.Errorf("cannot use add-metric to set a built-in metric %q", key)
 		}
 		if _, ok := keys[key]; ok {
