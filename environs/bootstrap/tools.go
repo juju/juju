@@ -76,7 +76,7 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 		return nil, findToolsErr
 	}
 
-	isDev := env.Config().ToolsStream() != envtools.ReleasedStream || env.Config().Development()
+	isDev := env.Config().AgentStream() != envtools.ReleasedStream || env.Config().Development()
 	if !isDev || vers != nil {
 		// We are not running a development build, or agent-version
 		// was specified; the only tools available are the ones we've

@@ -206,14 +206,14 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 // WatchContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of containers of the specified type on a machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
-	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, names.NumberSnippet)
+	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, ctype, names.NumberSnippet)
 	return m.containersWatcher(isChild)
 }
 
 // WatchAllContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of all containers on a machine.
 func (m *Machine) WatchAllContainers() StringsWatcher {
-	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, names.ContainerTypeSnippet, names.NumberSnippet)
+	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, names.ContainerTypeSnippet, names.NumberSnippet)
 	return m.containersWatcher(isChild)
 }
 
@@ -859,7 +859,7 @@ func (m *Machine) WatchPrincipalUnits() StringsWatcher {
 		}
 		return m.doc.Principals, nil
 	}
-	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id)
+	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.DocID)
 }
 
 func newUnitsWatcher(st *State, tag names.Tag, getUnits func() ([]string, error), coll, id string) StringsWatcher {
@@ -1174,7 +1174,7 @@ var _ Watcher = (*entityWatcher)(nil)
 
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
 func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
-	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
+	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
 // WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
@@ -1184,7 +1184,7 @@ func (st *State) WatchStateServerInfo() NotifyWatcher {
 
 // Watch returns a watcher for observing changes to a machine.
 func (m *Machine) Watch() NotifyWatcher {
-	return newEntityWatcher(m.st, machinesC, m.doc.Id)
+	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to a service.
@@ -1421,14 +1421,14 @@ func (w *machineUnitsWatcher) loop() error {
 	}()
 
 	machines, closer := w.st.getCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.Id)
+	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
 	closer()
 	if err != nil {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(machinesC, w.machine.doc.Id, revno, machineCh)
-	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.Id, machineCh)
+	w.st.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	changes, err := w.updateMachine([]string(nil))
 	if err != nil {
 		return err
@@ -1502,14 +1502,14 @@ func (w *machineAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *machineAddressesWatcher) loop() error {
 	machines, closer := w.st.getCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.Id)
+	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
 	closer()
 	if err != nil {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(machinesC, w.machine.doc.Id, revno, machineCh)
-	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.Id, machineCh)
+	w.st.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
 	for {

@@ -108,68 +108,6 @@ type HookContext struct {
 	assignedMachineTag names.MachineTag
 }
 
-func NewHookContext(
-	unit *uniter.Unit,
-	state *uniter.State,
-	id,
-	uuid,
-	envName string,
-	relationId int,
-	remoteUnitName string,
-	relations map[int]*ContextRelation,
-	apiAddrs []string,
-	serviceOwner names.UserTag,
-	proxySettings proxy.Settings,
-	canAddMetrics bool,
-	actionData *ActionData,
-	assignedMachineTag names.MachineTag,
-) (*HookContext, error) {
-	ctx := &HookContext{
-		unit:               unit,
-		state:              state,
-		id:                 id,
-		uuid:               uuid,
-		envName:            envName,
-		relationId:         relationId,
-		remoteUnitName:     remoteUnitName,
-		relations:          relations,
-		apiAddrs:           apiAddrs,
-		serviceOwner:       serviceOwner,
-		proxySettings:      proxySettings,
-		canAddMetrics:      canAddMetrics,
-		actionData:         actionData,
-		pendingPorts:       make(map[PortRange]PortRangeInfo),
-		assignedMachineTag: assignedMachineTag,
-	}
-	// Get and cache the addresses.
-	var err error
-	ctx.publicAddress, err = unit.PublicAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return nil, err
-	}
-	ctx.privateAddress, err = unit.PrivateAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return nil, err
-	}
-	ctx.machinePorts, err = state.AllMachinePorts(ctx.assignedMachineTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	statusCode, statusInfo, err := unit.MeterStatus()
-	if err != nil {
-		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
-	}
-	if statusCode != "" {
-		ctx.meterStatus = &meterStatus{
-			code: statusCode,
-			info: statusInfo,
-		}
-	}
-
-	return ctx, nil
-}
-
 func (ctx *HookContext) Id() string {
 	return ctx.id
 }

@@ -233,11 +233,11 @@ A generic Windows Azure environment looks like this:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
 This is the environments.yaml configuration file needed to run on Windows Azure.
 You will need to set the management-subscription-id, management-certificate-

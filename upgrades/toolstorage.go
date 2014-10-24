@@ -68,7 +68,7 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 	toolsList, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{datasource},
 		simplestreams.CloudSpec{},
-		config.ToolsStream(),
+		config.AgentStream(),
 		-1, -1, tools.Filter{})
 	if err == tools.ErrNoMatches {
 		// No tools in provider storage: nothing to do.

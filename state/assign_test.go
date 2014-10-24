@@ -293,13 +293,17 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	subUnit := s.addSubordinate(c, unit)
 
-	doc := make(map[string][]string)
-	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
-	principals, ok := doc["principals"]
-	if !ok {
-		c.Errorf(`machine document does not have a "principals" field`)
+	checkPrincipals := func() []string {
+		docID := state.DocID(s.State, machine.Id())
+		doc := make(map[string][]string)
+		s.machines.FindId(docID).One(&doc)
+		principals, ok := doc["principals"]
+		if !ok {
+			c.Errorf(`machine document does not have a "principals" field`)
+		}
+		return principals
 	}
-	c.Assert(principals, gc.DeepEquals, []string{"wordpress/0", "wordpress/1"})
+	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0", "wordpress/1"})
 
 	err = subUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -309,13 +313,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.Remove()
 	c.Assert(err, gc.IsNil)
-	doc = make(map[string][]string)
-	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
-	principals, ok = doc["principals"]
-	if !ok {
-		c.Errorf(`machine document does not have a "principals" field`)
-	}
-	c.Assert(principals, gc.DeepEquals, []string{"wordpress/0"})
+	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0"})
 }
 
 func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {

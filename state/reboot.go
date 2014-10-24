@@ -32,37 +32,25 @@ const (
 
 // rebootDoc will hold the reboot flag for a machine.
 type rebootDoc struct {
-	Id string `bson:"_id"`
-}
-
-func addRebootDocOps(machineId string) []txn.Op {
-	ops := []txn.Op{{
-		C:      machinesC,
-		Id:     machineId,
-		Assert: notDeadDoc,
-	}, {
-		C:      rebootC,
-		Id:     machineId,
-		Insert: rebootDoc{Id: machineId},
-	}}
-	return ops
-}
-
-func removeRebootDocOps(machineId string) txn.Op {
-	ops := txn.Op{
-		C:      rebootC,
-		Id:     machineId,
-		Remove: true,
-	}
-	return ops
+	DocID   string `bson:"_id"`
+	Id      string `bson:"machineid"`
+	EnvUUID string `bson:"env-uuid"`
 }
 
 func (m *Machine) setFlag() error {
 	if m.Life() == Dead {
 		return mgo.ErrNotFound
 	}
-	t := addRebootDocOps(m.Id())
-	err := m.st.runTransaction(t)
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: notDeadDoc,
+	}, {
+		C:      rebootC,
+		Id:     m.doc.DocID,
+		Insert: rebootDoc{Id: m.Id()},
+	}}
+	err := m.st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		return mgo.ErrNotFound
 	} else if err != nil {
@@ -71,19 +59,26 @@ func (m *Machine) setFlag() error {
 	return nil
 }
 
+func removeRebootDocOp(st *State, machineId string) txn.Op {
+	op := txn.Op{
+		C:      rebootC,
+		Id:     st.docID(machineId),
+		Remove: true,
+	}
+	return op
+}
+
 func (m *Machine) clearFlag() error {
 	reboot, closer := m.st.getCollection(rebootC)
 	defer closer()
 
-	t := []txn.Op{
-		removeRebootDocOps(m.Id()),
-	}
-	count, err := reboot.FindId(m.Id()).Count()
+	docID := m.doc.DocID
+	count, err := reboot.FindId(docID).Count()
 	if count == 0 {
 		return nil
 	}
-
-	err = m.st.runTransaction(t)
+	ops := []txn.Op{removeRebootDocOp(m.st, m.Id())}
+	err = m.st.runTransaction(ops)
 	if err != nil {
 		return errors.Errorf("failed to clear reboot flag: %v", err)
 	}
@@ -105,7 +100,7 @@ func (m *Machine) GetRebootFlag() (bool, error) {
 	rebootCol, closer := m.st.getCollection(rebootC)
 	defer closer()
 
-	count, err := rebootCol.FindId(m.Id()).Count()
+	count, err := rebootCol.FindId(m.doc.DocID).Count()
 	if err != nil {
 		return false, fmt.Errorf("failed to get reboot flag: %v", err)
 	}
@@ -132,9 +127,13 @@ func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
 	defer closer()
 
 	machines := m.machinesToCareAboutRebootsFor()
+	var docIDs []string
+	for _, id := range machines {
+		docIDs = append(docIDs, m.st.docID(id))
+	}
 
 	docs := []rebootDoc{}
-	sel := bson.D{{"_id", bson.D{{"$in", machines}}}}
+	sel := bson.D{{"_id", bson.D{{"$in", docIDs}}}}
 	if err := rebootCol.Find(sel).All(&docs); err != nil {
 		return ShouldDoNothing, errors.Trace(err)
 	}

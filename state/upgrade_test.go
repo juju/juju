@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -374,6 +375,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
+
 func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 	serverIdB, serverIdC := s.addStateServers(c)
 	s.provision(c, serverIdB)
@@ -395,6 +397,56 @@ func (s *UpgradeSuite) TestAllProvisionedStateServersReady(c *gc.C) {
 	assertReady(true)
 
 	s.provision(c, serverIdC)
+	assertReady(false)
+
+	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
+	c.Assert(err, gc.IsNil)
+	assertReady(true)
+}
+
+func (s *UpgradeSuite) TestAllProvisionedStateServersReadyWithPreEnvUUIDSchema(c *gc.C) {
+	serverIdB, serverIdC := s.addStateServers(c)
+
+	// Add minimal machine and instanceData docs for the state servers
+	// that look how these documents did before the environment UUID
+	// migration.
+	_, err := s.instanceData.RemoveAll(nil)
+	c.Assert(err, gc.IsNil)
+	_, err = s.machines.RemoveAll(nil)
+	c.Assert(err, gc.IsNil)
+
+	addLegacyMachine := func(machineId string) {
+		err := s.machines.Insert(bson.M{"_id": machineId})
+		c.Assert(err, gc.IsNil)
+	}
+	addLegacyMachine(s.serverIdA)
+	addLegacyMachine(serverIdB)
+	addLegacyMachine(serverIdC)
+
+	legacyProvision := func(machineId string) {
+		err := s.instanceData.Insert(bson.M{"_id": machineId})
+		c.Assert(err, gc.IsNil)
+	}
+	legacyProvision(s.serverIdA)
+	legacyProvision(serverIdB)
+
+	v111 := vers("1.1.1")
+	v123 := vers("1.2.3")
+	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, v111, v123)
+	c.Assert(err, gc.IsNil)
+
+	assertReady := func(expect bool) {
+		ok, err := info.AllProvisionedStateServersReady()
+		c.Assert(err, gc.IsNil)
+		c.Assert(ok, gc.Equals, expect)
+	}
+	assertReady(false)
+
+	info, err = s.State.EnsureUpgradeInfo(serverIdB, v111, v123)
+	c.Assert(err, gc.IsNil)
+	assertReady(true)
+
+	legacyProvision(serverIdC)
 	assertReady(false)
 
 	info, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)

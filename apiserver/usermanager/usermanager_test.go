@@ -266,6 +266,53 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
+func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
+	admin, err := s.State.User(s.AdminUserTag(c))
+	c.Assert(err, gc.IsNil)
+	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+
+	args := params.UserInfoRequest{IncludeDisabled: true}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, gc.IsNil)
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: &params.UserInfo{
+					Username:       "barfoo",
+					DisplayName:    "Bar Foo",
+					CreatedBy:      s.adminName,
+					DateCreated:    userBar.DateCreated(),
+					LastConnection: userBar.LastLogin(),
+					Disabled:       true,
+				},
+			}, {
+				Result: &params.UserInfo{
+					Username:       s.adminName,
+					DisplayName:    admin.DisplayName(),
+					CreatedBy:      s.adminName,
+					DateCreated:    admin.DateCreated(),
+					LastConnection: admin.LastLogin(),
+				},
+			}, {
+				Result: &params.UserInfo{
+					Username:       "foobar",
+					DisplayName:    "Foo Bar",
+					CreatedBy:      s.adminName,
+					DateCreated:    userFoo.DateCreated(),
+					LastConnection: userFoo.LastLogin(),
+				},
+			}},
+	}
+	c.Assert(results, jc.DeepEquals, expected)
+
+	results, err = s.usermanager.UserInfo(params.UserInfoRequest{})
+	c.Assert(err, gc.IsNil)
+	// Same results as before, but without the deactivated barfoo user
+	expected.Results = expected.Results[1:]
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
 

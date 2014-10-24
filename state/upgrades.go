@@ -163,7 +163,7 @@ func beginUnitMigrationOps(st *State, unit *Unit, machineId string) (
 	// not dead.
 	ops = []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
@@ -316,8 +316,6 @@ func MigrateUnitPortsToOpenedPorts(st *State) error {
 	defer closer()
 
 	// Get all units ordered by their service and name.
-	// (Ignoring env-uuid becauuse this is steps happens during the
-	// upgrade where we know there's just one environment UUID)
 	err = units.Find(nil).Sort("service", "name").All(&unitSlice)
 	if err != nil {
 		return errors.Trace(err)
@@ -502,18 +500,42 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 }
 
 // AddEnvUUIDToServices prepends the environment UUID to the ID of
-// all service docs and adds new "name" and "env-uuid" fields.
+// all service docs and adds new "env-uuid" field.
 func AddEnvUUIDToServices(st *State) error {
-	return addEnvUUIDToEntityCollection(st, servicesC)
+	return addEnvUUIDToEntityCollection(st, servicesC, "name")
 }
 
 // AddEnvUUIDToUnits prepends the environment UUID to the ID of all
-// unit docs and adds new "name" and "env-uuid" fields.
+// unit docs and adds new "env-uuid" field.
 func AddEnvUUIDToUnits(st *State) error {
-	return addEnvUUIDToEntityCollection(st, unitsC)
+	return addEnvUUIDToEntityCollection(st, unitsC, "name")
 }
 
-func addEnvUUIDToEntityCollection(st *State, collName string) error {
+// AddEnvUUIDToMachines prepends the environment UUID to the ID of
+// all machine docs and adds new "env-uuid" field.
+func AddEnvUUIDToMachines(st *State) error {
+	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
+}
+
+// AddEnvUUIDToReboots prepends the environment UUID to the ID of
+// all reboot docs and adds new "env-uuid" field.
+func AddEnvUUIDToReboots(st *State) error {
+	return addEnvUUIDToEntityCollection(st, rebootC, "machineid")
+}
+
+// AddEnvUUIDToContainerRefs prepends the environment UUID to the ID of all
+// containerRef docs and adds new "env-uuid" field.
+func AddEnvUUIDToContainerRefs(st *State) error {
+	return addEnvUUIDToEntityCollection(st, containerRefsC, "machineid")
+}
+
+// AddEnvUUIDToInstanceData prepends the environment UUID to the ID of
+// all instanceData docs and adds new "env-uuid" field.
+func AddEnvUUIDToInstanceData(st *State) error {
+	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
+}
+
+func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {
 	env, err := st.Environment()
 	if err != nil {
 		return errors.Annotate(err, "failed to load environment")
@@ -530,15 +552,15 @@ func addEnvUUIDToEntityCollection(st *State, collName string) error {
 	var doc bson.M
 	for iter.Next(&doc) {
 		// The "_id" field becomes the new "name" field.
-		name := doc["_id"].(string)
-		id := st.docID(name)
-		doc["name"] = name
+		oldID := doc["_id"].(string)
+		id := st.docID(oldID)
+		doc[fieldForOldID] = oldID
 		doc["_id"] = id
 		doc["env-uuid"] = uuid
 		ops = append(ops,
 			[]txn.Op{{
 				C:      collName,
-				Id:     name,
+				Id:     oldID,
 				Assert: txn.DocExists,
 				Remove: true,
 			}, {

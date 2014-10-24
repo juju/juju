@@ -288,18 +288,17 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
 		collection := db.C(name)
-
 		var doc struct {
-			Id string `bson:"_id"`
+			DocID string `bson:"_id"`
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
+			localID := st.localID(doc.DocID)
 			switch name {
 			case machinesC:
-				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
+				agentTags = append(agentTags, names.NewMachineTag(localID).String())
 			case unitsC:
-				unitName := st.localID(doc.Id)
-				agentTags = append(agentTags, names.NewUnitTag(unitName).String())
+				agentTags = append(agentTags, names.NewUnitTag(localID).String())
 			}
 		}
 		if err := iter.Close(); err != nil {
@@ -541,16 +540,29 @@ func (st *State) Machine(id string) (*Machine, error) {
 	machinesCollection, closer := st.getCollection(machinesC)
 	defer closer()
 
+	var err error
 	mdoc := &machineDoc{}
-	sel := bson.D{{"_id", id}}
-	err := machinesCollection.Find(sel).One(mdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine %s", id)
+	for _, tryId := range []string{st.docID(id), id} {
+		err = machinesCollection.FindId(tryId).One(mdoc)
+		if err != mgo.ErrNotFound {
+			break
+		}
 	}
-	if err != nil {
+	switch err {
+	case nil:
+		// This is required to allow loading of machines before the
+		// environment UUID migration has been applied to the machines
+		// collection. Without this, a machine agent can't come up to
+		// run the database migration..
+		if mdoc.Id == "" {
+			mdoc.Id = mdoc.DocID
+		}
+		return newMachine(st, mdoc), nil
+	case mgo.ErrNotFound:
+		return nil, errors.NotFoundf("machine %s", id)
+	default:
 		return nil, errors.Annotatef(err, "cannot get machine %s", id)
 	}
-	return newMachine(st, mdoc), nil
 }
 
 // FindEntity returns the entity with the given tag.
@@ -615,6 +627,7 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 	switch tag := tag.(type) {
 	case names.MachineTag:
 		coll = machinesC
+		id = st.docID(id)
 	case names.ServiceTag:
 		coll = servicesC
 		id = st.docID(id)
@@ -1658,7 +1671,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 	defer closer()
 
 	envuuid := st.EnvironTag().Id()
-	sel := bson.D{{"env-uuid", envuuid}, {"receiver", ar.Name()}}
+	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
 	iter := actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))

@@ -91,11 +91,11 @@ openstack:
     #
     # network: <your network label or uuid>
 
-    # tools-metadata-url specifies the location of the Juju tools and
+    # agent-metadata-url specifies the location of the Juju tools and
     # metadata. It defaults to the global public tools metadata
     # location https://streams.canonical.com/tools.
     #
-    # tools-metadata-url:  https://your-tools-metadata-url
+    # agent-metadata-url:  https://your-agent-metadata-url
 
     # image-metadata-url specifies the location of Ubuntu cloud image
     # metadata. It defaults to the global public image metadata
@@ -109,11 +109,11 @@ openstack:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # auth-url defaults to the value of the environment variable
     # OS_AUTH_URL, but can be specified here.
@@ -193,11 +193,11 @@ hpcloud:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # auth-url holds the keystone url for authentication. It defaults
     # to the value of the environment variable OS_AUTH_URL.

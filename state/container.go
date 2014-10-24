@@ -15,14 +15,16 @@ import (
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.
 // All machines have an associated container ref doc, regardless of whether they host any containers.
 type machineContainers struct {
-	Id       string   `bson:"_id"`
+	DocID    string   `bson:"_id"`
+	Id       string   `bson:"machineid"`
+	EnvUUID  string   `bson:"env-uuid"`
 	Children []string `bson:",omitempty"`
 }
 
 func (st *State) addChildToContainerRefOp(parentId string, childId string) txn.Op {
 	return txn.Op{
 		C:      containerRefsC,
-		Id:     parentId,
+		Id:     st.docID(parentId),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$addToSet", bson.D{{"children", childId}}}},
 	}
@@ -31,7 +33,7 @@ func (st *State) addChildToContainerRefOp(parentId string, childId string) txn.O
 func (st *State) insertNewContainerRefOp(machineId string, children ...string) txn.Op {
 	return txn.Op{
 		C:      containerRefsC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: txn.DocMissing,
 		Insert: &machineContainers{
 			Id:       machineId,
@@ -45,7 +47,7 @@ func (st *State) insertNewContainerRefOp(machineId string, children ...string) t
 func removeContainerRefOps(st *State, machineId string) []txn.Op {
 	removeRefOp := txn.Op{
 		C:      containerRefsC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: txn.DocExists,
 		Remove: true,
 	}
@@ -56,7 +58,7 @@ func removeContainerRefOps(st *State, machineId string) []txn.Op {
 	}
 	removeParentRefOp := txn.Op{
 		C:      containerRefsC,
-		Id:     parentId,
+		Id:     st.docID(parentId),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$pull", bson.D{{"children", machineId}}}},
 	}

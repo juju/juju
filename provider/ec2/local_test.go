@@ -662,11 +662,24 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
-func (t *localServerSuite) TestSupportAddressAllocation(c *gc.C) {
+func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
 	env := t.Prepare(c)
 	result, err := env.SupportAddressAllocation("")
-	c.Assert(result, jc.IsFalse)
 	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.IsTrue)
+}
+
+func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"none"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.IsFalse)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

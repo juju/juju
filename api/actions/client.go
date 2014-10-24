@@ -4,6 +4,10 @@
 package actions
 
 import (
+	"github.com/juju/errors"
+	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -62,4 +66,34 @@ func (c *Client) Cancel(arg params.Actions) (params.ActionResults, error) {
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Cancel", arg, &results)
 	return results, err
+}
+
+// servicesCharmActions is a batched query for the charm.Actions for a slice
+// of services by tag.
+func (c *Client) servicesCharmActions(arg params.ServiceTags) (params.ServicesCharmActionsResults, error) {
+	results := params.ServicesCharmActionsResults{}
+	err := c.facade.FacadeCall("ServicesCharmActions", arg, &results)
+	return results, err
+}
+
+// ServiceCharmActions is a single query which uses ServicesCharmActions to
+// get the charm.Actions for a single Service by tag.
+func (c *Client) ServiceCharmActions(arg names.ServiceTag) (*charm.Actions, error) {
+	none := &charm.Actions{}
+	tags := params.ServiceTags{ServiceTags: []names.ServiceTag{arg}}
+	results, err := c.servicesCharmActions(tags)
+	if err != nil {
+		return none, err
+	}
+	if len(results.Results) != 1 {
+		return none, errors.Errorf("%d results, expected 1", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return none, result.Error
+	}
+	if result.ServiceTag != arg {
+		return none, errors.Errorf("action results received for wrong service %q", result.ServiceTag)
+	}
+	return result.Actions, nil
 }
