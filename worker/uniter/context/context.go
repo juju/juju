@@ -88,8 +88,8 @@ type HookContext struct {
 	// metrics are the metrics recorded by calls to add-metric.
 	metrics []jujuc.Metric
 
-	// canAddMetrics specifies whether the hook allows recording metrics.
-	canAddMetrics bool
+	// definedMetrics contains the metrics defined by the unit's charm.
+	definedMetrics *charm.Metrics
 
 	// meterStatus is the status of the unit's metering.
 	meterStatus *meterStatus
@@ -120,7 +120,7 @@ func NewHookContext(
 	apiAddrs []string,
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
-	canAddMetrics bool,
+	metricsDefinitions *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
@@ -136,7 +136,7 @@ func NewHookContext(
 		apiAddrs:           apiAddrs,
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
-		canAddMetrics:      canAddMetrics,
+		definedMetrics:     metricsDefinitions,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
@@ -302,8 +302,11 @@ func (ctx *HookContext) RelationIds() []int {
 
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
-	if !ctx.canAddMetrics {
+	if ctx.definedMetrics == nil {
 		return fmt.Errorf("metrics disabled")
+	}
+	if err := ctx.definedMetrics.ValidateMetric(key, value); err != nil {
+		return errors.Annotatef(err, "invalid metrics %q", key)
 	}
 	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
 	return nil
@@ -376,7 +379,7 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk
 	//                             of partial failures.
-	if ctx.canAddMetrics && len(ctx.metrics) > 0 {
+	if len(ctx.metrics) > 0 {
 		if writeChanges {
 			metrics := make([]params.Metric, len(ctx.metrics))
 			for i, metric := range ctx.metrics {

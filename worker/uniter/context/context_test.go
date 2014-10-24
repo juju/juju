@@ -4,6 +4,7 @@
 package context_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -252,7 +253,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, t.proxySettings, false)
+		ctx := s.getHookContext(c, uuid, t.relid, t.remote, t.proxySettings, nil)
 		var charmDir, outPath string
 		var hookExists bool
 		if t.spec.perm == 0 {
@@ -304,7 +305,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid, -1, "", noProxies, nil)
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -381,7 +382,8 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, true)
+
+	ctx := s.getHookContext(c, uuid, -1, "", noProxies, s.metricsDefinition(c, "key"))
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "collect-metrics",
 		perm: 0700,
@@ -406,7 +408,7 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid, -1, "", noProxies, nil)
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "some-hook",
 		perm: 0700,
@@ -455,7 +457,7 @@ func (s *RunHookSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	// Get the context.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid, -1, "", noProxies, nil)
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "some-hook",
 		perm: 0700,
@@ -743,7 +745,7 @@ func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
 	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies, false)
+	return s.HookContextSuite.getHookContext(c, uuid, relId, remoteName, noProxies, nil)
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
@@ -1147,17 +1149,30 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relctxs[rel.Id()] = context.NewContextRelation(apiRelUnit, nil)
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, addMetrics bool) *context.HookContext {
+func (s *HookContextSuite) metricsDefinition(c *gc.C, name string) *charm.Metrics {
+	metricsYaml := `
+metrics:
+  %s:
+    type: gauge
+    description: A metric.
+`
+	metrics, err := charm.ReadMetrics(bytes.NewBuffer([]byte(fmt.Sprintf(metricsYaml, name))))
+	c.Assert(err, gc.IsNil)
+	return metrics
+}
+
+func (s *HookContextSuite) getHookContext(c *gc.C, uuid utils.UUID, relid int,
+	remote string, proxies proxy.Settings, metrics *charm.Metrics) *context.HookContext {
+
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)
 	}
 	facade, err := s.st.Uniter()
 	c.Assert(err, gc.IsNil)
-	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
+	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid.String(),
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, addMetrics, nil, s.machine.Tag().(names.MachineTag))
+		proxies, metrics, nil, s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	return context
 }
@@ -1267,14 +1282,52 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C, addMetrics bool) *context.HookContext {
+func (s *RunCommandSuite) getHookContext(c *gc.C, metrics *charm.Metrics) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies, addMetrics)
+	return s.HookContextSuite.getHookContext(c, uuid, -1, "", noProxies, metrics)
+}
+
+// TestAddMetricsNoDefinition tests that adding metrics to a hook context without a metrics definition fails.
+func (s *RunCommandSuite) TestAddMetricsNoDefinition(c *gc.C) {
+	ctx := s.getHookContext(c, nil)
+	err := ctx.AddMetrics("key", "5", time.Now())
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+}
+
+// TestAddMetricsEmptyDefinition tests that adding metrics to a hook context with an empty metrics definition fails.
+func (s *RunCommandSuite) TestAddMetricsEmptyDefinition(c *gc.C) {
+	ctx := s.getHookContext(c, &charm.Metrics{})
+	err := ctx.AddMetrics("key", "5", time.Now())
+	c.Assert(err, gc.ErrorMatches, "invalid metrics \"key\": metric \"key\" not defined")
+}
+
+// TestAddMetricsWrongDefinition tests that adding metrics to a hook context with different metric defined fails.
+func (s *RunCommandSuite) TestAddMetricsWrongDefinition(c *gc.C) {
+	ctx := s.getHookContext(c, s.metricsDefinition(c, "other-key"))
+	err := ctx.AddMetrics("key", "5", time.Now())
+	c.Assert(err, gc.ErrorMatches, "invalid metrics \"key\": metric \"key\" not defined")
+}
+
+// TestAddMetricsCorrectDefinition tests that adding metrics to a hook context works.
+func (s *RunCommandSuite) TestAddMetricsCorrectDefinition(c *gc.C) {
+	ctx := s.getHookContext(c, s.metricsDefinition(c, "key"))
+	err := ctx.AddMetrics("key", "5", time.Now())
+	c.Assert(err, gc.IsNil)
+}
+
+// TestAddMetricsBadFormat tests that incorrectly formatted metrics values cause an error.
+func (s *RunCommandSuite) TestAddMetricsBadFormat(c *gc.C) {
+	ctx := s.getHookContext(c, s.metricsDefinition(c, "key"))
+	values := []string{"abc", "false", "{", "5.2df"}
+	for _, value := range values {
+		err := ctx.AddMetrics("key", value, time.Now())
+		c.Check(err, gc.ErrorMatches, "invalid metrics \"key\": invalid value type: expected float, got .*")
+	}
 }
 
 func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
-	context := s.getHookContext(c, false)
+	context := s.getHookContext(c, nil)
 	charmDir := c.MkDir()
 	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
 	c.Assert(err, gc.IsNil)
@@ -1301,7 +1354,7 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 }
 
 func (s *RunCommandSuite) TestRunCommandsHasEnvironSetWithMeterStatus(c *gc.C) {
-	context := s.getHookContext(c, false)
+	context := s.getHookContext(c, nil)
 	defer context.PatchMeterStatus("GREEN", "Operating normally.")()
 
 	charmDir := c.MkDir()
@@ -1325,7 +1378,7 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSetWithMeterStatus(c *gc.C) {
 }
 
 func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
-	context := s.getHookContext(c, false)
+	context := s.getHookContext(c, nil)
 	charmDir := c.MkDir()
 	commands := `
 echo this is standard out

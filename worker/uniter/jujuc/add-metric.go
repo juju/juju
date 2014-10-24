@@ -5,13 +5,15 @@ package jujuc
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 )
+
+// builtinMetricPrefix is used to mark built-in metrics.
+const builtinMetricPrefix string = "juju-"
 
 // Metric represents a single metric set by the charm.
 type Metric struct {
@@ -53,16 +55,16 @@ func (c *AddMetricCommand) Init(args []string) error {
 		if len(parts) != 2 || len(parts[0]) == 0 {
 			return fmt.Errorf(`expected "key=value", got %q`, kv)
 		}
-		if _, ok := keys[parts[0]]; ok {
-			return fmt.Errorf("duplicate metric key given: %q",
-				parts[0])
+		key := parts[0]
+		value := parts[1]
+		if strings.HasPrefix(key, builtinMetricPrefix) {
+			return fmt.Errorf("cannot use add-metric to set a built-in metric %q", key)
 		}
-		keys[parts[0]] = struct{}{}
-		_, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return fmt.Errorf("invalid value type: expected float, got %q", parts[1])
+		if _, ok := keys[key]; ok {
+			return fmt.Errorf("duplicate metric key given: %q", key)
 		}
-		c.Metrics = append(c.Metrics, Metric{parts[0], parts[1], now})
+		keys[key] = struct{}{}
+		c.Metrics = append(c.Metrics, Metric{key, value, now})
 	}
 	return nil
 }
