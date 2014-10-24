@@ -6,8 +6,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
@@ -36,7 +38,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units > 1 with --to")
 		}
-		if !cmd.IsMachineOrNewContainer(c.ToMachineSpec) {
+		if !isMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}
 
@@ -135,4 +137,18 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 
 	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
 	return err
+}
+
+const (
+	deployTarget = "^(" + names.ContainerTypeSnippet + ":)?" + names.MachineSnippet + "$"
+)
+
+var (
+	validMachineOrNewContainer = regexp.MustCompile(deployTarget)
+)
+
+// isMachineOrNewContainer returns whether spec is a valid machine id
+// or new container definition.
+func isMachineOrNewContainer(spec string) bool {
+	return validMachineOrNewContainer.MatchString(spec)
 }

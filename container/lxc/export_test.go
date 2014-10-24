@@ -13,6 +13,8 @@ var (
 	RestartSymlink          = restartSymlink
 	ReleaseVersion          = &releaseVersion
 	PreferFastLXC           = preferFastLXC
+	InitProcessCgroupFile   = &initProcessCgroupFile
+	RuntimeGOOS             = &runtimeGOOS
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {

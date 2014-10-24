@@ -150,37 +150,65 @@ func (info *UpgradeInfo) Watch() NotifyWatcher {
 // When this returns true the master state state server can begin it's
 // own upgrade.
 func (info *UpgradeInfo) AllProvisionedStateServersReady() (bool, error) {
-	// Get current state servers.
+	provisioned, err := info.getProvisionedStateServers()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ready := set.NewStrings(info.doc.StateServersReady...)
+	missing := set.NewStrings(provisioned...).Difference(ready)
+	return missing.IsEmpty(), nil
+}
+
+func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
+	var provisioned []string
+
 	stateServerInfo, err := info.st.StateServerInfo()
 	if err != nil {
-		return false, errors.Annotate(err, "cannot read state servers")
+		return provisioned, errors.Annotate(err, "cannot read state servers")
+	}
+
+	upgradeDone, err := info.isEnvUUIDUpgradeDone()
+	if err != nil {
+		return provisioned, errors.Trace(err)
 	}
 
 	// Extract current and provisioned state servers.
-	sel := bson.D{{
-		"_id", bson.D{{"$in", stateServerInfo.MachineIds}},
-	}}
-
 	instanceData, closer := info.st.getCollection(instanceDataC)
 	defer closer()
-	iter := instanceData.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 
-	var doc struct {
-		Id string `bson:"_id"`
+	// If instanceData has the env UUID upgrade query using the
+	// machineid field, otherwise check using _id.
+	var sel bson.D
+	var field string
+	if upgradeDone {
+		sel = bson.D{{"env-uuid", info.st.EnvironTag().Id()}}
+		field = "machineid"
+	} else {
+		field = "_id"
 	}
-	provisionedMachineIds := set.NewStrings()
+	sel = append(sel, bson.DocElem{field, bson.D{{"$in", stateServerInfo.MachineIds}}})
+	iter := instanceData.Find(sel).Select(bson.D{{field, true}}).Iter()
+
+	var doc bson.M
 	for iter.Next(&doc) {
-		provisionedMachineIds.Add(doc.Id)
+		provisioned = append(provisioned, doc[field].(string))
 	}
 	if err := iter.Close(); err != nil {
-		return false, errors.Annotate(err, "cannot read provisioned machines")
+		return provisioned, errors.Annotate(err, "cannot read provisioned machines")
 	}
-	// Find provisioned state machines that haven't indicated
-	// themselves as ready for upgrade.
-	missingMachineIds := provisionedMachineIds.Difference(
-		set.NewStrings(info.doc.StateServersReady...),
-	)
-	return missingMachineIds.IsEmpty(), nil
+	return provisioned, nil
+}
+
+func (info *UpgradeInfo) isEnvUUIDUpgradeDone() (bool, error) {
+	instanceData, closer := info.st.getCollection(instanceDataC)
+	defer closer()
+
+	query := instanceData.Find(bson.D{{"env-uuid", bson.D{{"$exists", true}}}})
+	n, err := query.Count()
+	if err != nil {
+		return false, errors.Annotatef(err, "couldn't query instance upgrade status")
+	}
+	return n > 0, nil
 }
 
 // SetStatus sets the status of the current upgrade. Checks are made
@@ -242,6 +270,12 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Started:           time.Now().UTC(),
 		StateServersReady: []string{machineId},
 	}
+
+	machine, err := st.Machine(machineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ops := []txn.Op{{
 		C:      upgradeInfoC,
 		Id:     currentUpgradeId,
@@ -249,7 +283,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Insert: doc,
 	}, {
 		C:      instanceDataC,
-		Id:     machineId,
+		Id:     machine.doc.DocID,
 		Assert: txn.DocExists,
 	}}
 	if err := st.runTransaction(ops); err == nil {
@@ -292,11 +326,17 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
 	instanceData, closer := st.getCollection(instanceDataC)
 	defer closer()
-	count, err := instanceData.FindId(machineId).Count()
-	if err != nil {
-		return false, errors.Annotate(err, "cannot read instance data")
+
+	for _, id := range []string{st.docID(machineId), machineId} {
+		count, err := instanceData.FindId(id).Count()
+		if err != nil {
+			return false, errors.Annotate(err, "cannot read instance data")
+		}
+		if count > 0 {
+			return true, nil
+		}
 	}
-	return count > 0, nil
+	return false, nil
 }
 
 var errUpgradeInfoNotUpdated = errors.New("upgrade info not updated")
