@@ -672,6 +672,25 @@ func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
 	c.Assert(result, jc.IsTrue)
 }
 
+func (t *localServerSuite) TestSupportAddressAllocationCaches(c *gc.C) {
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"none"},
+	})
+	env := t.Prepare(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.IsFalse)
+
+	// this value won't change normally, the change here is to
+	// ensure that subsequent calls use the cached value
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	result, err = env.SupportAddressAllocation("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, jc.IsFalse)
+}
+
 func (t *localServerSuite) TestSupportAddressAllocationFalse(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"none"},
