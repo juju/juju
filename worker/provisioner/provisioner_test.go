@@ -891,56 +891,30 @@ func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
-	// create a machine
-	m0, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i0 := s.checkStartInstance(c, m0)
-
-	// create a second machine
-	m1, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i1 := s.checkStartInstance(c, m1)
-
-	// mark the first machine as dead
-	c.Assert(m0.EnsureDead(), gc.IsNil)
-
-	// remove the second machine entirely from state
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-	c.Assert(m1.Remove(), gc.IsNil)
-
-	// We default to the destroyed method. Only the one we know is
-	// dead should be stopped; not the unknown instance.
-	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
-	s.waitRemoved(c, m0)
-
-	// insert our observer
+	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config, 1)
 	provisioner.SetObserver(p, cfgObserver)
 
-	// Switch to reaping on Destroyed machines.
+	// Switch to reaping on All machines.
 	attrs := map[string]interface{}{
-		"provisioner-harvest-mode": config.HarvestDestroyed.String(),
+		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	s.BackingState.StartSync()
 
-	// wait for the PA to load the new configuration
+	// Wait for the PA to load the new configuration.
 	select {
 	case newCfg := <-cfgObserver:
 		c.Assert(
 			newCfg.ProvisionerHarvestMode().String(),
 			gc.Equals,
-			config.HarvestDestroyed.String(),
+			config.HarvestAll.String(),
 		)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("PA did not action config change")
 	}
-
-	m3, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	s.checkStartInstance(c, m3)
 }
 
 func (s *ProvisionerSuite) newProvisionerTask(
@@ -989,6 +963,7 @@ func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 	// Ensure we're doing nothing.
 	s.checkNoOperations(c)
 }
+
 func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 
 	task := s.newProvisionerTask(c,
