@@ -453,7 +453,7 @@ func addPortsDocOps(st *State, machineId, portsId string, portsAssert interface{
 	}
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
@@ -469,7 +469,7 @@ func addPortsDocOps(st *State, machineId, portsId string, portsAssert interface{
 func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, portRange PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      unitsC,
@@ -489,7 +489,7 @@ func updatePortsDocOps(st *State, machineId, portsId string, portsAssert interfa
 func setPortsDocOps(st *State, machineId, portsId string, portsAssert interface{}, ports ...PortRange) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     machineId,
+		Id:     st.docID(machineId),
 		Assert: notDeadDoc,
 	}, {
 		C:      openedPortsC,
