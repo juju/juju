@@ -4,11 +4,13 @@
 package apiserver
 
 import (
+	"encoding/base64"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/rogpeppe/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -78,7 +80,7 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 		AuthTag:     c.AuthTag,
 		Credentials: c.Password,
 		Nonce:       c.Nonce,
-	})
+	}, NewLocalCredentialChecker(a.srv.state))
 	if err != nil {
 		return fail, err
 	}
@@ -94,7 +96,7 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 	return resultV0, nil
 }
 
-func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
+func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
 	a.mu.Lock()
@@ -124,19 +126,32 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 		}
 	}
 
-	var isUser bool
-	if kind, err := names.TagKind(req.AuthTag); err != nil || kind != names.UserTagKind {
-		// Users are not rate limited, all other entities are
+	authKind, err := names.TagKind(req.AuthTag)
+	if err != nil {
+		return fail, err
+	}
+
+	// Users are not rate limited, all other entities are
+	if authKind != names.UserTagKind {
 		if !a.srv.limiter.Acquire() {
 			logger.Debugf("rate limiting, try again later")
 			return fail, common.ErrTryAgain
 		}
 		defer a.srv.limiter.Release()
-	} else {
-		isUser = true
 	}
 
-	entity, err := doCheckCreds(a.srv.state, req)
+	// Issue a macaroon for the client to discharge and come back with,
+	// for an empty (initial) remote login request.
+	if req.Method == params.LoginMethodRemote && req.Credentials == "" {
+		if remoteChecker, ok := checker.(*RemoteCredentialChecker); ok {
+			return remoteChecker.ReauthRequest(req)
+		}
+		logger.Errorf("remote method used with invalid checker")
+		return fail, common.ErrBadRequest
+	}
+
+	entity, err := checker.Check(req)
+	// TODO (cmars): fix this -- can a remote login succeed w/maintenance in progress?
 	if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
@@ -166,7 +181,7 @@ func (a *admin) doLogin(req params.LoginRequest) (params.LoginResultV1, error) {
 
 	var maybeUserInfo *params.AuthUserInfo
 	// Send back user info if user
-	if isUser {
+	if authKind == names.UserTagKind {
 		lastConnection := getAndUpdateLastLoginForEntity(entity)
 		maybeUserInfo = &params.AuthUserInfo{
 			Identity:       entity.Tag().String(),
@@ -215,14 +230,26 @@ func (a *admin) maintenanceInProgress() bool {
 	return a.srv.validator(req) != nil
 }
 
-var doCheckCreds = checkCreds
+type CredentialChecker interface {
+	Check(params.LoginRequest) (state.Entity, error)
+}
 
-func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) {
+type LocalCredentialChecker struct {
+	st *state.State
+}
+
+var _ CredentialChecker = (*LocalCredentialChecker)(nil)
+
+func NewLocalCredentialChecker(st *state.State) *LocalCredentialChecker {
+	return &LocalCredentialChecker{st: st}
+}
+
+func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
 	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
 		return nil, err
 	}
-	entity, err := st.FindEntity(tag)
+	entity, err := c.st.FindEntity(tag)
 	if errors.IsNotFound(err) {
 		// We return the same error when an entity does not exist as for a bad
 		// password, so that we don't allow unauthenticated users to find
@@ -246,13 +273,93 @@ func checkCreds(st *state.State, req params.LoginRequest) (state.Entity, error) 
 
 	// For user logins, ensure the user is allowed to access the environment.
 	if user, ok := entity.Tag().(names.UserTag); ok {
-		_, err := st.EnvironmentUser(user)
+		_, err := c.st.EnvironmentUser(user)
 		if err != nil {
 			return nil, errors.Wrap(err, common.ErrBadCreds)
 		}
 	}
 
 	return entity, nil
+}
+
+type RemoteCredentialChecker struct {
+	st  *state.State
+	srv *bakery.Service
+}
+
+var _ CredentialChecker = (*RemoteCredentialChecker)(nil)
+
+func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) *RemoteCredentialChecker {
+	return &RemoteCredentialChecker{st: st, srv: srv}
+}
+
+func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
+	entity, err := authentication.NewRemoteUser(req.AuthTag, req.Nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	authenticator := authentication.NewRemoteAuthenticator(c.srv)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
+		logger.Debugf("bad credentials")
+		return nil, err
+	}
+
+	// For user logins, ensure the user is allowed to access the environment.
+	if user, ok := entity.Tag().(names.UserTag); ok {
+		_, err := c.st.EnvironmentUser(user)
+		if err != nil {
+			return nil, errors.Wrap(err, common.ErrBadCreds)
+		}
+	}
+
+	return entity, nil
+}
+
+func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params.LoginResultV1, error) {
+	var fail params.LoginResultV1
+
+	authKind, err := names.TagKind(req.AuthTag)
+	if err != nil {
+		return fail, err
+	}
+	if authKind != names.UserTagKind {
+		logger.Debugf("remote login must be a user, got: %q", req.AuthTag)
+		return fail, common.ErrBadCreds
+	}
+
+	info, err := c.st.StateServingInfo()
+	if err != nil {
+		return fail, err
+	}
+	if info.IdentityProvider == nil {
+		logger.Debugf("empty credentials, remote identity provider not configured")
+		return fail, common.ErrBadCreds
+	}
+
+	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
+		bakery.Caveat{
+			Location:  info.IdentityProvider.Location,
+			Condition: "logged-in-user",
+		},
+		// TODO (cmars): implement a time limit & scheme for refreshing the macaroon
+	})
+
+	mBytes, err := m.MarshalBinary()
+	if err != nil {
+		return fail, err
+	}
+
+	return params.LoginResultV1{
+		ReauthRequest: &params.ReauthRequest{
+			Prompt: base64.URLEncoding.EncodeToString(mBytes),
+			Nonce:  m.Id(),
+		},
+	}, nil
 }
 
 func getAndUpdateLastLoginForEntity(entity state.Entity) *time.Time {

@@ -1,6 +1,11 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package apiserver
 
 import (
+	"github.com/rogpeppe/macaroon/bakery"
+
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -13,16 +18,20 @@ type adminApiV1 struct {
 // methods that are needed to log in.
 type adminV1 struct {
 	*admin
+	*bakery.Service
 }
 
 func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
 	return &adminApiV1{
 		admin: &adminV1{
-			&admin{
+			admin: &admin{
 				srv:         srv,
 				root:        root,
 				reqNotifier: reqNotifier,
 			},
+			Service: bakery.NewService(bakery.NewServiceParams{
+				Location: srv.getEnvironUUID(),
+			}),
 		},
 	}
 }
@@ -40,5 +49,16 @@ func (r *adminApiV1) Admin(id string) (*adminV1, error) {
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	return a.doLogin(req)
+	var fail params.LoginResultV1
+
+	info, err := a.srv.state.StateServingInfo()
+	if err != nil {
+		return fail, err
+	}
+
+	if info.IdentityProvider != nil {
+		return a.doLogin(req, NewRemoteCredentialChecker(a.srv.state, a.Service))
+	}
+
+	return a.doLogin(req, NewLocalCredentialChecker(a.srv.state))
 }
