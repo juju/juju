@@ -41,18 +41,18 @@ var getMongodumpPath = func() (string, error) {
 }
 
 type mongoDumper struct {
-	ConnInfo
+	Info
 }
 
 // NewDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDumper(info ConnInfo) Dumper {
+func NewDumper(info Info) Dumper {
 	return &mongoDumper{info}
 }
 
 // Dump dumps the juju state database.
 func (md *mongoDumper) Dump(dumpDir string) error {
-	err := md.ConnInfo.Validate()
+	err := md.Info.Validate()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -62,6 +62,8 @@ func (md *mongoDumper) Dump(dumpDir string) error {
 	if err != nil {
 		return errors.Annotate(err, "mongodump not available")
 	}
+
+	// XXX Dump each database separately.
 
 	err = runCommand(
 		mongodumpPath,

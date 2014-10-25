@@ -60,3 +60,11 @@ func NewMongoConnInfo(mgoInfo *mongo.MongoInfo) *ConnInfo {
 
 	return &info
 }
+
+// Info wraps all the DB-specific information backups needs to dump
+// and restore the database.
+type Info struct {
+	ConnInfo
+	// Targets is a list of databases to dump.
+	Targets []string
+}

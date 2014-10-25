@@ -18,14 +18,17 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	defer closer.Close()
 
 	mgoInfo := a.st.MongoConnectionInfo()
-	dbInfo := db.NewMongoConnInfo(mgoInfo)
+	connInfo := db.NewMongoConnInfo(mgoInfo)
+	dbInfo := db.Info{
+		ConnInfo: *connInfo,
+	}
 
 	// TODO(ericsnow) The machine ID needs to be introspected from the
 	// API server, likely through a Resource.
 	machine := "0"
 	origin := state.NewBackupsOrigin(a.st, machine)
 
-	meta, err := backups.Create(a.paths, *dbInfo, *origin, args.Notes)
+	meta, err := backups.Create(a.paths, dbInfo, *origin, args.Notes)
 	if err != nil {
 		return p, errors.Trace(err)
 	}

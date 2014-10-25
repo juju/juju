@@ -43,7 +43,8 @@ func (s *backupsSuite) setStored(id string) *time.Time {
 
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	paths := files.Paths{DataDir: "/var/lib/juju"}
-	dbInfo := db.ConnInfo{"a", "b", "c"}
+	connInfo := db.ConnInfo{"a", "b", "c"}
+	dbInfo := db.Info{connInfo, []string{"juju", "admin"}}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	_, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
@@ -70,8 +71,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 		return []string{"<some file>"}, nil
 	})
 
-	var receivedDBInfo *db.ConnInfo
-	s.PatchValue(backups.GetDBDumper, func(info db.ConnInfo) db.Dumper {
+	var receivedDBInfo *db.Info
+	s.PatchValue(backups.GetDBDumper, func(info db.Info) db.Dumper {
 		receivedDBInfo = &info
 		return nil
 	})
@@ -80,7 +81,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 
 	// Run the backup.
 	paths := files.Paths{DataDir: "/var/lib/juju"}
-	dbInfo := db.ConnInfo{"a", "b", "c"}
+	connInfo := db.ConnInfo{"a", "b", "c"}
+	dbInfo := db.Info{connInfo, []string{"juju", "admin"}}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
@@ -94,6 +96,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(receivedDBInfo.Address, gc.Equals, "a")
 	c.Check(receivedDBInfo.Username, gc.Equals, "b")
 	c.Check(receivedDBInfo.Password, gc.Equals, "c")
+	c.Check(receivedDBInfo.Targets, gc.DeepEquals, []string{"juju", "admin"})
 
 	c.Check(rootDir, gc.Equals, "")
 
