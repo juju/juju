@@ -519,7 +519,7 @@ type backupBlobStorage struct {
 func newBackupFileStorage(dbWrap *backupDBWrapper, root string) filestorage.RawFileStorage {
 	dbWrap = dbWrap.Copy()
 
-	managed := dbWrap.blobStorage(blobstoreDB)
+	managed := dbWrap.blobStorage(dbWrap.db.Name)
 	stor := backupBlobStorage{
 		dbWrap:    dbWrap,
 		envUUID:   dbWrap.envUUID,
@@ -565,7 +565,7 @@ const backupDB = "juju"
 // archives (and metadata).
 func NewBackupStorage(st *State) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
-	db := st.db
+	db := st.MongoSession().DB(backupDB)
 	dbWrap := newBackupDBWrapper(db, backupsMetaC, envUUID)
 	defer dbWrap.Close()
 
