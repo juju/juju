@@ -77,7 +77,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	if err != nil {
 		return nil, err
 	}
-	runner.context.setProcess(command.Process())
+	runner.context.SetProcess(command.Process())
 
 	// Block and wait for process to finish
 	result, err := command.Wait()
@@ -162,10 +162,8 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	err = ps.Start()
 	outWriter.Close()
 	if err == nil {
-		// Record the Pid of the hook
-		if ps.Process != nil {
-			runner.context.setProcess(ps.Process)
-		}
+		// Record the *os.Process of the hook
+		runner.context.SetProcess(ps.Process)
 		// Block until execution finishes
 		err = ps.Wait()
 	}
