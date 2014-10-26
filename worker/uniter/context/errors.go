@@ -3,6 +3,13 @@
 
 package context
 
+import (
+	"github.com/juju/errors"
+)
+
+var ErrRequeueAndReboot = errors.New("reboot now")
+var ErrReboot = errors.New("reboot now")
+
 type missingHookError struct {
 	hookName string
 }

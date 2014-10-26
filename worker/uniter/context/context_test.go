@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	"os"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
+	"github.com/juju/utils/exec"
 )
 
 type InterfaceSuite struct {
@@ -182,4 +185,46 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	message, err := hctx.ActionMessage()
 	c.Check(err, gc.IsNil)
 	c.Check(message, gc.Equals, "because reasons")
+}
+
+func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
+	command := exec.RunParams{
+		Commands: "sleep 10",
+	}
+	err := command.Run()
+	c.Assert(err, gc.IsNil)
+	p := command.Process()
+	return p
+}
+
+func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
+	ctx := context.HookContext{}
+	p := s.startProcess(c)
+	s.AddCleanup(func(c *gc.C) { c.Assert(p.Kill(), gc.IsNil) })
+	ctx.SetProcess(p)
+	err := ctx.RequestReboot(jujuc.RebootAfterHook)
+	c.Assert(err, gc.IsNil)
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
+	c.Assert(processExists(p.Pid), jc.IsTrue)
+}
+
+func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
+	ctx := context.HookContext{}
+	p := s.startProcess(c)
+	s.AddCleanup(func(c *gc.C) { p.Kill() })
+	ctx.SetProcess(p)
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, gc.IsNil)
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootNow)
+	c.Assert(processExists(p.Pid), jc.IsFalse)
+}
+
+func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
+	ctx := context.HookContext{}
+	err := ctx.RequestReboot(jujuc.RebootNow)
+	c.Assert(err, gc.ErrorMatches, "no process to kill")
+	priority := ctx.GetRebootPriority()
+	c.Assert(priority, gc.Equals, jujuc.RebootNow)
 }
