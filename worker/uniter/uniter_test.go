@@ -2806,7 +2806,7 @@ type asyncRunCommands []string
 
 func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	socketPath := filepath.Join(ctx.path, uniter.RunListenerFile)
+	socketPath := filepath.Join(ctx.path, "run.socket")
 
 	go func() {
 		// make sure the socket exists
