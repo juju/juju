@@ -110,9 +110,9 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
-func (c *RunCommand) sockPath() (string, error) {
+func (c *RunCommand) socketPath() string {
 	paths := uniter.NewPaths(DataDir, c.unit)
-	return paths.Runtime.JujuRunSocket, nil
+	return paths.Runtime.JujuRunSocket
 }
 
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
@@ -125,12 +125,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	} else if err != nil {
 		return nil, err
 	}
-	// make sure the socket exists
-	socketPath, err := c.sockPath()
-	if err != nil {
-		return nil, err
-	}
-	client, err := sockets.Dial(socketPath)
+	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
 		return nil, err
 	}

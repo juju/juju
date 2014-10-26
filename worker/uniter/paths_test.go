@@ -36,7 +36,7 @@ func (s *PathsSuite) TestWindows(c *gc.C) {
 	paths := uniter.NewPaths(dataDir, unitTag)
 
 	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(filepath.Join(dataDir, "agents", "unit-some-service-323"))
+	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-service-323"),
 		Runtime: uniter.RuntimePaths{
@@ -61,7 +61,7 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 	paths := uniter.NewPaths(dataDir, unitTag)
 
 	relData := relPathFunc(dataDir)
-	relAgent := relPathFunc(filepath.Join(dataDir, "agents", "unit-some-service-323"))
+	relAgent := relPathFunc(relData("agents", "unit-some-service-323"))
 	c.Assert(paths, jc.DeepEquals, uniter.Paths{
 		ToolsDir: relData("tools/unit-some-service-323"),
 		Runtime: uniter.RuntimePaths{
