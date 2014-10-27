@@ -14,6 +14,7 @@ import (
 
 var (
 	MergeEnvironment  = mergeEnvironment
+	HookVars          = hookVars
 	SearchHook        = searchHook
 	HookCommand       = hookCommand
 	LookPath          = lookPath
@@ -90,6 +91,7 @@ func NewHookContext(
 		id:                 id,
 		uuid:               uuid,
 		envName:            envName,
+		unitName:           unit.Name(),
 		relationId:         relationId,
 		remoteUnitName:     remoteUnitName,
 		relations:          relations,
@@ -126,4 +128,41 @@ func NewHookContext(
 	}
 
 	return ctx, nil
+}
+
+// NewEnvironmentHookContext exists purely to set the fields used in hookVars.
+// The returned value is not otherwise valid.
+func NewEnvironmentHookContext(
+	id, envUUID, envName, unitName, meterCode, meterInfo string,
+	apiAddresses []string, proxySettings proxy.Settings,
+) *HookContext {
+	return &HookContext{
+		id:            id,
+		unitName:      unitName,
+		uuid:          envUUID,
+		envName:       envName,
+		apiAddrs:      apiAddresses,
+		proxySettings: proxySettings,
+		meterStatus: &meterStatus{
+			code: meterCode,
+			info: meterInfo,
+		},
+		relationId: -1,
+	}
+}
+
+// SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextRelation(
+	context *HookContext,
+	relationId int, endpointName, remoteUnitName string,
+) {
+	context.relationId = relationId
+	context.remoteUnitName = remoteUnitName
+	context.relations = map[int]*ContextRelation{
+		relationId: &ContextRelation{
+			endpointName: endpointName,
+			relationId:   relationId,
+		},
+	}
 }

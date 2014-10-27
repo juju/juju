@@ -17,7 +17,9 @@ type SettingsMap map[string]params.RelationSettings
 
 // ContextRelation is the implementation of jujuc.ContextRelation.
 type ContextRelation struct {
-	ru *uniter.RelationUnit
+	ru           *uniter.RelationUnit
+	relationId   int
+	endpointName string
 
 	// members contains settings for known relation members. Nil values
 	// indicate members whose settings have not yet been cached.
@@ -35,7 +37,12 @@ type ContextRelation struct {
 // NewContextRelation creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
 func NewContextRelation(ru *uniter.RelationUnit, members map[string]int64) *ContextRelation {
-	ctx := &ContextRelation{ru: ru, members: SettingsMap{}}
+	ctx := &ContextRelation{
+		ru:           ru,
+		relationId:   ru.Relation().Id(),
+		endpointName: ru.Endpoint().Name,
+		members:      SettingsMap{},
+	}
 	for unit := range members {
 		ctx.members[unit] = nil
 	}
@@ -75,15 +82,15 @@ func (ctx *ContextRelation) DeleteMember(unitName string) {
 }
 
 func (ctx *ContextRelation) Id() int {
-	return ctx.ru.Relation().Id()
+	return ctx.relationId
 }
 
 func (ctx *ContextRelation) Name() string {
-	return ctx.ru.Endpoint().Name
+	return ctx.endpointName
 }
 
 func (ctx *ContextRelation) FakeId() string {
-	return fmt.Sprintf("%s:%d", ctx.Name(), ctx.ru.Relation().Id())
+	return fmt.Sprintf("%s:%d", ctx.endpointName, ctx.relationId)
 }
 
 func (ctx *ContextRelation) UnitNames() (units []string) {

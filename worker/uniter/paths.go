@@ -33,6 +33,21 @@ type Paths struct {
 	State StatePaths
 }
 
+// GetToolsDir exists to satisfy the context.Paths interface.
+func (paths Paths) GetToolsDir() string {
+	return paths.ToolsDir
+}
+
+// GetCharmDir exists to satisfy the context.Paths interface.
+func (paths Paths) GetCharmDir() string {
+	return paths.State.CharmDir
+}
+
+// GetJujucSocket exists to satisfy the context.Paths interface.
+func (paths Paths) GetJujucSocket() string {
+	return paths.Runtime.JujucServerSocket
+}
+
 // RuntimePaths represents the set of paths that are relevant at runtime.
 type RuntimePaths struct {
 

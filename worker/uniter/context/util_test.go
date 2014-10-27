@@ -21,6 +21,8 @@ import (
 )
 
 var noProxies = proxy.Settings{}
+var apiAddrs = []string{"a1:123", "a2:123"}
+var expectedApiAddrs = strings.Join(apiAddrs, " ")
 
 type HookContextSuite struct {
 	testing.JujuConnSuite

@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -30,7 +29,6 @@ import (
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
 	"github.com/juju/juju/worker/uniter/hook"
-	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
 )
@@ -378,22 +376,6 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 	return nil
 }
 
-func (u *Uniter) startJujucServer(context *context.HookContext) (*jujuc.Server, error) {
-	// Prepare server.
-	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
-		if ctxId != context.Id() {
-			return nil, fmt.Errorf("expected context id %q, got %q", context.Id(), ctxId)
-		}
-		return jujuc.NewCommand(context, cmdName)
-	}
-	srv, err := jujuc.NewServer(getCmd, u.paths.Runtime.JujucServerSocket)
-	if err != nil {
-		return nil, err
-	}
-	go srv.Run()
-	return srv, nil
-}
-
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
@@ -407,13 +389,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	if err != nil {
 		return nil, err
 	}
-	srv, err := u.startJujucServer(hctx)
-	if err != nil {
-		return nil, err
-	}
-	defer srv.Close()
-
-	result, err := hctx.RunCommands(commands, u.paths.State.CharmDir, u.paths.ToolsDir, u.paths.Runtime.JujucServerSocket)
+	result, err := context.NewRunner(hctx, u.paths).RunCommands(commands)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -492,12 +468,6 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		return err
 	}
 
-	srv, err := u.startJujucServer(hctx)
-	if err != nil {
-		return err
-	}
-	defer srv.Close()
-
 	if actionParamsErr != nil {
 		// If errors come back here, we have a problem; this should
 		// never happen, since errors will only occur if the context
@@ -514,8 +484,7 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 
 	// err will be any unhandled error from finalizeContext.
-	err = hctx.RunAction(actionName, u.paths.State.CharmDir, u.paths.ToolsDir, u.paths.Runtime.JujucServerSocket)
-
+	err = context.NewRunner(hctx, u.paths).RunAction(actionName)
 	if err != nil {
 		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
 		logger.Errorf("action failed: %s", err.Error())
@@ -566,12 +535,6 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return err
 	}
 
-	srv, err := u.startJujucServer(hctx)
-	if err != nil {
-		return err
-	}
-	defer srv.Close()
-
 	// Run the hook.
 	if err := u.writeOperationState(operation.RunHook, operation.Pending, &hi, nil); err != nil {
 		return err
@@ -579,8 +542,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookName)
 
 	ranHook := true
-	err = hctx.RunHook(hookName, u.paths.State.CharmDir, u.paths.ToolsDir, u.paths.Runtime.JujucServerSocket)
-
+	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
 	if context.IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
