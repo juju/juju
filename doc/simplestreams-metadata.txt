@@ -20,8 +20,8 @@ Basic Workflow
 Whether images or tools, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
-1. User supplied location (specified by agent-metadata-url or image-metadata-url config settings)
-2. The environment's cloud storage
+1. For a running environment, the Juju state server database.
+2. User supplied location (specified by agent-metadata-url or image-metadata-url config settings)
 3. Provider specific locations (eg keystone endpoint if on Openstack)
 4. A web location with metadata for supported public clouds (https://streams.canonical.com/juju)
 
@@ -70,7 +70,8 @@ eg
 
 The metadata index and product files are required to be in the following directory tree
 (relative to the URL associated with each path component). In addition, tools tarballs
-which Juju needs to download are also expected.
+which Juju needs to download are also expected. The tarballs reside in a directory named
+after the stream to which they belong.
 
 <path_url>
   |-streams
@@ -79,7 +80,7 @@ which Juju needs to download are also expected.
   |      |-product-foo.(s)json
   |      |-product-bar.(s)json
   |
-  |-releases
+  |-<stream>
       |-tools-abc.tar.gz
       |-tools-def.tar.gz
       |-tools-xyz.tar.gz
@@ -96,7 +97,31 @@ where to find the tools and which image to run. Even for supported public clouds
 required metadata is available, the user can put their own metadata in the search path to
 override what is provided by the cloud.
 
-1. User specified URLs
+1. Bootstrap metadata
+
+The first location in the tools search path is the Juju state server database. When Juju bootstraps,
+it can optionally read tools and image metadata from a local directory and upload those to the database so
+that the tools are cached and available when needed.
+
+The --metadata-source bootstrap argument specifies a top level directory, the structure of which is as follows:
+
+<metadata-source-directory>
+  |-tools
+  |   |-streams
+  |       |-v1
+  |   |-released
+  |   |-proposed
+  |   |-testing
+  |   |-devel
+  |
+  |-images
+      |-streams
+          |-v1
+
+Of course, if only custom image metadata is required, the tools directory will not be required,
+and vice versa.
+
+2. User specified URLs
 
 These are initially specified in the environments.yaml file (and then subsequently copied to the
 jenv file when the environment is bootstrapped). For images, use "image-metadata-url"; for tools,
@@ -113,32 +138,6 @@ image-metadata-url: https://juju-metadata/images
 
 The required files in each location is as per the directory layout described earlier.
 For a shared directory, use a URL of the form "file:///sharedpath".
-
-2. Cloud storage
-
-If no matching metadata is found in the user specified URL, environment's cloud storage is searched.
-No user configuration is required here - all Juju environments are set up with cloud storage which is
-used to store state information, charms etc. Cloud storage setup is provider dependent; for Amazon
-and Openstack clouds, the storage is defined by the "control-bucket" value, for Azure, the
-"storage-account-name" value is relevant.
-
-The (optional) directory structure inside the cloud storage is as follows:
-
-<cloud storage top level>
-  |-tools
-  |   |-streams
-  |       |-v1
-  |   |-releases
-  |
-  |-images
-      |-streams
-          |-v1
-
-Of course, if only custom image metadata is required, the tools directory will not be required,
-and vice versa.
-
-As a sidebar, note that if juju bootstrap is run with the --upload-tools option, the tools and metadata
-are placed according to the above structure. That's why the tools are then available for Juju to use.
 
 3. Provider specific storage
 
@@ -225,9 +224,10 @@ in the environment config.
 
 Generally, tools and related metadata is mirrored from https://streams.canonical.com/juju/tools. However,
 it is possible to manually generate metadata for a custom built tools tarball using:
-  juju generate-tools -d <metadata_dir>
+  juju generate-tools -d <metadata_dir> --stream <stream>
 
-where the required tools tarballs are first placed in a directory <metadata_dir>/tools/releases.
+where the required tools tarballs are first placed in a directory <metadata_dir>/tools/<stream>.
+If unspecified, <stream> defaults to "released".
 Then, the contents of <metadata_dir> can be uploaded to a location in the Juju metadata search path or the
 bootstrap --metadata-source option may be used.
 

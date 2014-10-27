@@ -576,7 +576,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
-	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
+	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage, s.envcfg.AgentStream())
 
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
@@ -688,7 +688,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	env, err := provider.Prepare(nullContext(), cfg)
 	c.Assert(err, gc.IsNil)
 
-	envtesting.MustUploadFakeTools(s.toolsStorage)
+	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()

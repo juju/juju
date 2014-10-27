@@ -156,7 +156,7 @@ type syncToolsAPIAdapter struct {
 	syncToolsAPI
 }
 
-func (s syncToolsAPIAdapter) FindTools(majorVersion int) (coretools.List, error) {
+func (s syncToolsAPIAdapter) FindTools(majorVersion int, stream string) (coretools.List, error) {
 	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "")
 	if err != nil {
 		return nil, err
