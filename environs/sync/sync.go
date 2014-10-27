@@ -105,14 +105,6 @@ func SyncTools(syncContext *SyncContext) error {
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			envtools.ReleasedStream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	}
-	// For backwards compatibility with old tools storage, if there are no tools in the specified stream,
-	// double check the releases storage directory.
-	// TODO - remove this when we no longer need to support tools in the releases directory.
-	if err == envtools.ErrNoTools {
-		sourceTools, err = envtools.FindToolsForCloud(
-			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
-			"releases", syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
-	}
 	if err != nil {
 		return err
 	}
