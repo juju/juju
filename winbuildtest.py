@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import tarfile
+import traceback
 
 
 GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
@@ -17,6 +18,8 @@ ISS_CMD = os.path.join('\\', 'Progra~2', 'InnoSe~1', 'iscc.exe')
 JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 JUJU_UNINSTALL = os.path.join('\\', 'Progra~2', 'Juju', 'unins000.exe')
 
+GO_SRC_DIR = os.path.join('\\', 'go', 'src')
+GCC_BIN_DIR = os.path.join('\\', 'MinGW', 'bin')
 CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
 TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
 GOPATH = os.path.join(CI_DIR, 'gogo')
@@ -42,6 +45,7 @@ class WorkingDirectory:
 
 
 def run(*command, **kwargs):
+    kwargs['stderr'] = subprocess.STDOUT
     output = subprocess.check_output(command, **kwargs)
     return output
 
@@ -100,6 +104,19 @@ def move_source_to_gopath(tarball_name):
     dir_path = os.path.join(TMP_DIR, dir_name)
     shutil.move(dir_path, GOPATH)
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
+
+
+def enable_cross_compile(gcc_bin_dir, go_src_dir, gopath):
+    env = dict(os.environ)
+    env['GOPATH'] = gopath
+    env['PATH'] = '{};{}'.format(env['PATH'], gcc_bin_dir)
+    with WorkingDirectory(go_src_dir):
+        env['GOARCH'] = 'amd64'
+        output = run('make.bat', '--no-clean', env=env)
+        print(output)
+        env['GOARCH'] = '386'
+        output = run('make.bat', '--no-clean', env=env)
+        print(output)
 
 
 def build_client(juju_cmd_dir, go_cmd, gopath, iss_dir):
@@ -172,6 +189,7 @@ def main():
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
+        enable_cross_compile(GCC_BIN_DIR, GO_SRC_DIR, GOPATH)
         build_client(JUJU_CMD_DIR, GO_CMD, GOPATH, ISS_DIR)
         installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
@@ -181,7 +199,10 @@ def main():
         return 0
     except Exception as e:
         print(str(e))
-        print(sys.exc_info()[0])
+        if isinstance(e, subprocess.CalledProcessError):
+            print("COMMAND OUTPUT:")
+            print(e.output)
+        print(traceback.print_tb(sys.exc_info()[2]))
         return 3
     return 0
 
