@@ -18,7 +18,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
+	backupsdb "github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -59,6 +61,9 @@ through functions that take State, rather than as methods on State.
 Furthermore, the bulk of the backup-related code, which does not need
 direct interaction with State, lives in the state/backups package.
 */
+
+//---------------------------
+// Backup metadata document
 
 // backupMetaDoc is a mirror of metadata.Metadata, used just for DB storage.
 type backupMetaDoc struct {
@@ -391,26 +396,6 @@ func setBackupStored(dbWrap *backupDBWrapper, id string, stored time.Time) error
 //---------------------------
 // metadata storage
 
-// NewBackupsOrigin returns a snapshot of where backup was run.  That
-// snapshot is a new backup Origin value, for use in a backup's
-// metadata.  Every value except for the machine name is populated
-// either from juju state or some other implicit mechanism.
-func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
-	// hostname could be derived from the environment...
-	hostname, err := os.Hostname()
-	if err != nil {
-		// If os.Hostname() is not working, something is woefully wrong.
-		// Run for the hills.
-		panic(fmt.Sprintf("could not get hostname (system unstable?): %v", err))
-	}
-	origin := metadata.NewOrigin(
-		st.EnvironUUID(),
-		machine,
-		hostname,
-	)
-	return origin
-}
-
 type backupsDocStorage struct {
 	dbWrap *backupDBWrapper
 }
@@ -580,4 +565,96 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 
 	backups := backups.NewBackups(stor)
 	return backups, stor
+}
+
+//---------------------------
+// utilities
+
+var (
+	// databases simply identifies the databases we expect to be
+	// backed up.  The actual list is composed dynamically using the
+	// session and IgnoredDatabases.
+	databases = []string{
+		"juju",
+		"admin",
+		"blobstore",
+		"local", // XXX from replicaset
+	}
+
+	// IgnoredDatabases is the list of databases that should not be
+	// backed up.
+	IgnoredDatabases = []string{
+		"backups",
+		"presence",
+	}
+)
+
+// NewDBBackupInfo returns the information needed by backups to dump
+// the database.
+func NewDBBackupInfo(st *State) *backupsdb.Info {
+	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
+	targets := getBackupTargetDatabases(st)
+	info := backupsdb.Info{
+		ConnInfo: *connInfo,
+		Targets:  targets,
+	}
+	return &info
+}
+
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
+	info := backupsdb.ConnInfo{
+		Address:  mgoInfo.Addrs[0],
+		Password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		info.Username = mgoInfo.Tag.String()
+	}
+
+	return &info
+}
+
+func getBackupTargetDatabases(st *State) []string {
+	contains := func(list []string, value string) bool {
+		for _, str := range list {
+			if value == str {
+				return true
+			}
+		}
+		return false
+	}
+
+	dbNames, err := st.MongoSession().DatabaseNames()
+	if err != nil {
+		panic(fmt.Sprintf("unexpectedly unable to get DB names: %v", err))
+	}
+
+	var targets []string
+	for _, dbName := range dbNames {
+		if !contains(IgnoredDatabases, dbName) {
+			targets = append(targets, dbName)
+		}
+	}
+	return targets
+}
+
+// NewBackupsOrigin returns a snapshot of where backup was run.  That
+// snapshot is a new backup Origin value, for use in a backup's
+// metadata.  Every value except for the machine name is populated
+// either from juju state or some other implicit mechanism.
+func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
+	// hostname could be derived from the environment...
+	hostname, err := os.Hostname()
+	if err != nil {
+		// If os.Hostname() is not working, something is woefully wrong.
+		// Run for the hills.
+		panic(fmt.Sprintf("could not get hostname (system unstable?): %v", err))
+	}
+	origin := metadata.NewOrigin(
+		st.EnvironTag().Id(),
+		machine,
+		hostname,
+	)
+	return origin
 }

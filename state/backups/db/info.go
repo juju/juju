@@ -5,8 +5,6 @@ package db
 
 import (
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/mongo"
 )
 
 // ConnInfo is a simplification of authentication.MongoInfo, focused
@@ -43,22 +41,6 @@ func (ci *ConnInfo) Validate() error {
 	}
 
 	return err
-}
-
-// NewMongoConnInfo returns a new DB connection info value based on the
-// mongo info.
-func NewMongoConnInfo(mgoInfo *mongo.MongoInfo) *ConnInfo {
-	info := ConnInfo{
-		Address:  mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		info.Username = mgoInfo.Tag.String()
-	}
-
-	return &info
 }
 
 // Info wraps all the DB-specific information backups needs to dump
