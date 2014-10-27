@@ -316,6 +316,8 @@ def deploy_job():
     parser.add_argument('--machine', help='A machine to add or when used with '
                         'KVM based MaaS, a KVM image to start.',
                         action='append', default=[])
+    parser.add_argument('--agent-url', default=None,
+                        help='URL to use for retrieving agent binaries.')
     args = parser.parse_args()
     if not args.run_startup:
         juju_path = args.new_juju_bin
@@ -343,20 +345,24 @@ def deploy_job():
     charm_prefix = 'local:{}/'.format(series)
     return _deploy_job(args.job_name, args.env, args.upgrade,
                        charm_prefix, new_path, args.bootstrap_host,
-                       args.machine, args.series, log_dir, args.debug)
+                       args.machine, args.series, log_dir, args.debug,
+                       args.agent_url)
 
 
-def update_env(env, new_env_name, series=None, bootstrap_host=None):
+def update_env(env, new_env_name, series=None, bootstrap_host=None,
+               agent_url=None):
     # Rename to the new name.
     env.environment = new_env_name
     if series is not None:
         env.config['default-series'] = series
     if bootstrap_host is not None:
         env.config['bootstrap-host'] = bootstrap_host
+    if agent_url is not None:
+        env.config['tools-metadata-url'] = agent_url
 
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                bootstrap_host, machines, series, log_dir, debug):
+                bootstrap_host, machines, series, log_dir, debug, agent_url):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -393,7 +399,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             # No further handling of machines down the line is required.
             machines = []
 
-        update_env(env, job_name, series=series, bootstrap_host=bootstrap_host)
+        update_env(env, job_name, series=series,
+                   bootstrap_host=bootstrap_host, agent_url=agent_url)
         try:
             host = bootstrap_host
             ssh_machines = [] + machines
