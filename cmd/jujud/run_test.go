@@ -11,12 +11,14 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -24,14 +26,19 @@ type RunTestSuite struct {
 	testing.BaseSuite
 }
 
+func (s *RunTestSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.PatchValue(&DataDir, c.MkDir())
+}
+
 var _ = gc.Suite(&RunTestSuite{})
 
-func (*RunTestSuite) TestWrongArgs(c *gc.C) {
+func (*RunTestSuite) TestArgParsing(c *gc.C) {
 	for i, test := range []struct {
 		title        string
 		args         []string
 		errMatch     string
-		unit         string
+		unit         names.UnitTag
 		commands     string
 		avoidContext bool
 	}{{
@@ -40,20 +47,24 @@ func (*RunTestSuite) TestWrongArgs(c *gc.C) {
 	}, {
 		title:    "one arg",
 		args:     []string{"foo"},
+		errMatch: `"foo" is not a valid tag`,
+	}, {
+		title:    "one arg",
+		args:     []string{"foo/2"},
 		errMatch: "missing commands",
 	}, {
 		title:    "more than two arg",
-		args:     []string{"foo", "bar", "baz"},
+		args:     []string{"foo/2", "bar", "baz"},
 		errMatch: `unrecognized args: \["baz"\]`,
 	}, {
 		title:    "unit and command assignment",
-		args:     []string{"unit-name", "command"},
-		unit:     "unit-name",
+		args:     []string{"unit-name-2", "command"},
+		unit:     names.NewUnitTag("name/2"),
 		commands: "command",
 	}, {
 		title:    "unit id converted to tag",
 		args:     []string{"foo/1", "command"},
-		unit:     "unit-foo-1",
+		unit:     names.NewUnitTag("foo/1"),
 		commands: "command",
 	}, {
 		title:        "execute not in a context",
@@ -83,11 +94,14 @@ func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "juju-run cannot be called from within a hook.*")
 }
 
-func (s *RunTestSuite) TestMissingAgent(c *gc.C) {
-	s.PatchValue(&AgentDir, c.MkDir())
+func (s *RunTestSuite) TestMissingAgentName(c *gc.C) {
+	_, err := testing.RunCommand(c, &RunCommand{}, "foo/2", "bar")
+	c.Assert(err, gc.ErrorMatches, `unit "foo/2" not found on this machine`)
+}
 
-	_, err := testing.RunCommand(c, &RunCommand{}, "foo", "bar")
-	c.Assert(err, gc.ErrorMatches, `unit "foo" not found on this machine`)
+func (s *RunTestSuite) TestMissingAgentTag(c *gc.C) {
+	_, err := testing.RunCommand(c, &RunCommand{}, "unit-foo-2", "bar")
+	c.Assert(err, gc.ErrorMatches, `unit "foo/2" not found on this machine`)
 }
 
 func waitForResult(running <-chan *cmd.Context, timeout time.Duration) (*cmd.Context, error) {
@@ -112,9 +126,6 @@ func startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
 }
 
 func (s *RunTestSuite) TestNoContext(c *gc.C) {
-	s.PatchValue(&LockDir, c.MkDir())
-	s.PatchValue(&AgentDir, c.MkDir())
-
 	ctx, err := testing.RunCommand(c, &RunCommand{}, "--no-context", "echo done")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
@@ -122,9 +133,6 @@ func (s *RunTestSuite) TestNoContext(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
-	s.PatchValue(&LockDir, c.MkDir())
-	s.PatchValue(&AgentDir, c.MkDir())
-
 	channel := startRunAsync(c, []string{"--no-context", "echo done"})
 	ctx, err := waitForResult(channel, testing.LongWait)
 	c.Assert(err, gc.IsNil)
@@ -132,8 +140,6 @@ func (s *RunTestSuite) TestNoContextAsync(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
-	s.PatchValue(&LockDir, c.MkDir())
-	s.PatchValue(&AgentDir, c.MkDir())
 	s.PatchValue(&fslock.LockWaitDelay, 10*time.Millisecond)
 
 	lock, err := getLock()
@@ -153,20 +159,19 @@ func (s *RunTestSuite) TestNoContextWithLock(c *gc.C) {
 }
 
 func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
-	s.PatchValue(&AgentDir, c.MkDir())
-	testAgentDir := filepath.Join(AgentDir, "foo")
-	err := os.Mkdir(testAgentDir, 0755)
+	agentDir := filepath.Join(DataDir, "agents", "unit-foo-1")
+	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, &RunCommand{}, "foo", "bar")
+	_, err = testing.RunCommand(c, &RunCommand{}, "foo/1", "bar")
 	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket: no such file or directory`)
 }
 
 func (s *RunTestSuite) TestRunning(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
-	s.runListenerForAgent(c, "foo")
+	s.runListenerForAgent(c, "unit-foo-1")
 
-	ctx, err := testing.RunCommand(c, &RunCommand{}, "foo", "bar")
+	ctx, err := testing.RunCommand(c, &RunCommand{}, "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
@@ -174,13 +179,16 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 }
 
 func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {
-	s.PatchValue(&AgentDir, c.MkDir())
-
-	testAgentDir := filepath.Join(AgentDir, agent)
-	err := os.Mkdir(testAgentDir, 0755)
+	agentDir := filepath.Join(DataDir, "agents", agent)
+	err := os.MkdirAll(agentDir, 0755)
 	c.Assert(err, gc.IsNil)
-
-	socketPath := filepath.Join(testAgentDir, uniter.RunListenerFile)
+	var socketPath string
+	switch version.Current.OS {
+	case version.Windows:
+		socketPath = fmt.Sprintf(`\\.\pipe\%s-run`, agent)
+	default:
+		socketPath = fmt.Sprintf("%s/run.socket", agentDir)
+	}
 	listener, err := uniter.NewRunListener(&mockRunner{c}, socketPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(listener, gc.NotNil)

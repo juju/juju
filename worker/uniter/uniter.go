@@ -7,11 +7,8 @@ package uniter
 import (
 	stderrors "errors"
 	"fmt"
-	"math/rand"
 	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -20,16 +17,13 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
-	proxyutils "github.com/juju/utils/proxy"
 	corecharm "gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -44,11 +38,6 @@ import (
 var logger = loggo.GetLogger("juju.worker.uniter")
 
 const (
-	// These work fine for linux, but should we need to work with windows
-	// workloads in the future, we'll need to move these into a file that is
-	// compiled conditionally for different targets and use tcp (most likely).
-	RunListenerFile = "run.socket"
-
 	// interval at which the unit's metrics should be collected
 	metricsPollInterval = 5 * time.Minute
 )
@@ -78,31 +67,21 @@ var collectMetricsAt func(now, lastSignal time.Time, interval time.Duration) <-c
 // delegated to Mode values, which are expected to react to events and direct
 // the uniter's responses to them.
 type Uniter struct {
-	tomb               tomb.Tomb
-	st                 *uniter.State
-	f                  *filter
-	unit               *uniter.Unit
-	assignedMachineTag names.MachineTag
-	service            *uniter.Service
-	relationers        map[int]*Relationer
-	relationHooks      chan hook.Info
-	uuid               string
-	envName            string
+	tomb          tomb.Tomb
+	st            *uniter.State
+	f             *filter
+	unit          *uniter.Unit
+	service       *uniter.Service
+	relationers   map[int]*Relationer
+	relationHooks chan hook.Info
 
-	dataDir            string
-	baseDir            string
-	toolsDir           string
-	relationsDir       string
-	charmPath          string
+	paths              Paths
 	deployer           charm.Deployer
 	operationState     *operation.State
 	operationStateFile *operation.StateFile
-	rand               *rand.Rand
+	contextFactory     context.Factory
 	hookLock           *fslock.Lock
 	runListener        *RunListener
-
-	proxy      proxyutils.Settings
-	proxyMutex sync.Mutex
 
 	ranConfigChanged bool
 
@@ -117,7 +96,7 @@ type Uniter struct {
 func NewUniter(st *uniter.State, unitTag names.UnitTag, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
 		st:       st,
-		dataDir:  dataDir,
+		paths:    NewPaths(dataDir, unitTag),
 		hookLock: hookLock,
 	}
 	go func() {
@@ -183,20 +162,6 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
-func (u *Uniter) sockPath(name, prefix string) string {
-	switch version.Current.OS {
-	case version.Windows:
-		sockName := fmt.Sprintf("%s-%s", u.unit.Tag(), strings.Split(name, ".")[0])
-		return fmt.Sprintf(`\\.\pipe\%s`, sockName)
-	default:
-		sock := filepath.Join(u.baseDir, name)
-		if prefix != "" {
-			sock = prefix + sock
-		}
-		return sock
-	}
-}
-
 func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	u.unit, err = u.st.Unit(unitTag)
 	if err != nil {
@@ -209,61 +174,51 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		// and inescapable, whereas this one is not.
 		return worker.ErrTerminateAgent
 	}
-	u.assignedMachineTag, err = u.unit.AssignedMachine()
-	if err != nil {
-		return err
-	}
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	u.toolsDir = tools.ToolsDir(u.dataDir, unitTag.String())
-	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
+	if err := EnsureJujucSymlinks(u.paths.ToolsDir); err != nil {
 		return err
 	}
-	u.baseDir = filepath.Join(u.dataDir, "agents", unitTag.String())
-	u.relationsDir = filepath.Join(u.baseDir, "state", "relations")
-	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
+	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
 		return err
 	}
 	u.service, err = u.st.Service(u.unit.ServiceTag())
 	if err != nil {
 		return err
 	}
-	var env *uniter.Environment
-	env, err = u.st.Environment()
-	if err != nil {
-		return err
-	}
-	u.uuid = env.UUID()
-	u.envName = env.Name()
 
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
-	u.charmPath = filepath.Join(u.baseDir, "charm")
-	deployerPath := filepath.Join(u.baseDir, "state", "deployer")
-	bundles := charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
-	u.deployer, err = charm.NewDeployer(u.charmPath, deployerPath, bundles)
+	u.deployer, err = charm.NewDeployer(
+		u.paths.State.CharmDir,
+		u.paths.State.DeployerDir,
+		charm.NewBundlesDir(u.paths.State.BundlesDir),
+	)
 	if err != nil {
 		return fmt.Errorf("cannot create deployer: %v", err)
 	}
-	operationStateFilePath := filepath.Join(u.baseDir, "state", "uniter")
-	u.operationStateFile = operation.NewStateFile(operationStateFilePath)
-	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
+	u.operationStateFile = operation.NewStateFile(u.paths.State.OperationsFile)
 
 	// If we start trying to listen for juju-run commands before we have valid
 	// relation state, surprising things will come to pass.
 	if err := u.restoreRelations(); err != nil {
 		return err
 	}
-	runListenerSocketPath := u.sockPath(RunListenerFile, "")
-	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
-	u.runListener, err = NewRunListener(u, runListenerSocketPath)
+
+	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationContexts)
+	if err != nil {
+		return err
+	}
+
+	logger.Debugf("starting juju-run listener on unix:%s", u.paths.Runtime.JujuRunSocket)
+	u.runListener, err = NewRunListener(u, u.paths.Runtime.JujuRunSocket)
 	if err != nil {
 		return err
 	}
 	// The socket needs to have permissions 777 in order for other users to use it.
 	if version.Current.OS != version.Windows {
-		return os.Chmod(runListenerSocketPath, 0777)
+		return os.Chmod(u.paths.Runtime.JujuRunSocket, 0777)
 	}
 	return nil
 }
@@ -397,37 +352,12 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, hookKind hooks.Kind, relationId int, remoteUnitName string, actionParams map[string]interface{}, actionTag *names.ActionTag) (hctx *context.HookContext, err error) {
-	apiAddrs, err := u.st.APIAddresses()
-	if err != nil {
-		return nil, err
-	}
-	ownerTag, err := u.service.OwnerTag()
-	if err != nil {
-		return nil, err
-	}
+func (u *Uniter) getRelationContexts() map[int]*context.ContextRelation {
 	ctxRelations := map[int]*context.ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
-
-	u.proxyMutex.Lock()
-	defer u.proxyMutex.Unlock()
-
-	// Metrics can only be added in collect-metrics hooks.
-	canAddMetrics := hookKind == hooks.CollectMetrics
-
-	// Make a copy of the proxy settings.
-	proxySettings := u.proxy
-
-	var actionData *context.ActionData
-	if actionTag != nil {
-		actionData = context.NewActionData(actionTag, actionParams)
-	}
-
-	return context.NewHookContext(u.unit, u.st, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		canAddMetrics, actionData, u.assignedMachineTag)
+	return ctxRelations
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -448,47 +378,42 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 	return nil
 }
 
-func (u *Uniter) startJujucServer(context *context.HookContext) (*jujuc.Server, string, error) {
+func (u *Uniter) startJujucServer(context *context.HookContext) (*jujuc.Server, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
-		// TODO: switch to long-running server with single context;
-		// use nonce in place of context id.
 		if ctxId != context.Id() {
 			return nil, fmt.Errorf("expected context id %q, got %q", context.Id(), ctxId)
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
-	socketPath := u.sockPath("agent.socket", "@")
-	srv, err := jujuc.NewServer(getCmd, socketPath)
+	srv, err := jujuc.NewServer(getCmd, u.paths.Runtime.JujucServerSocket)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	go srv.Run()
-	return srv, socketPath, nil
+	return srv, nil
 }
 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
-	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return nil, err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hooks.Kind(""), -1, "", nil, nil)
-
+	hctx, err := u.contextFactory.NewRunContext()
 	if err != nil {
 		return nil, err
 	}
-	srv, socketPath, err := u.startJujucServer(hctx)
+	srv, err := u.startJujucServer(hctx)
 	if err != nil {
 		return nil, err
 	}
 	defer srv.Close()
 
-	result, err := hctx.RunCommands(commands, u.charmPath, u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(commands, u.paths.State.CharmDir, u.paths.ToolsDir, u.paths.Runtime.JujucServerSocket)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -521,7 +446,7 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 // validateAction validates the given Action params against the spec defined
 // for the charm.
 func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
-	ch, err := corecharm.ReadCharm(u.charmPath)
+	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
 	if err != nil {
 		return false, err
 	}
@@ -556,20 +481,18 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		actionParamsErr = errors.Annotatef(actionParamsErr, "action %q param validation failed", actionName)
 	}
 
-	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), actionName, u.rand.Int63())
-
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), actionName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, -1, "", actionParams, &tag)
+	hctx, err := u.contextFactory.NewActionContext(tag, actionName, actionParams)
 	if err != nil {
 		return err
 	}
 
-	srv, socketPath, err := u.startJujucServer(hctx)
+	srv, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
 	}
@@ -591,7 +514,7 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	}
 
 	// err will be any unhandled error from finalizeContext.
-	err = hctx.RunAction(actionName, u.charmPath, u.toolsDir, socketPath)
+	err = hctx.RunAction(actionName, u.paths.State.CharmDir, u.paths.ToolsDir, u.paths.Runtime.JujucServerSocket)
 
 	if err != nil {
 		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
@@ -632,20 +555,18 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 			return err
 		}
 	}
-	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, hi.Kind, relationId, hi.RemoteUnit, nil, nil)
+	hctx, err := u.contextFactory.NewHookContext(hi)
 	if err != nil {
 		return err
 	}
 
-	srv, socketPath, err := u.startJujucServer(hctx)
+	srv, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
 	}
@@ -658,7 +579,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookName)
 
 	ranHook := true
-	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
+	err = hctx.RunHook(hookName, u.paths.State.CharmDir, u.paths.ToolsDir, u.paths.Runtime.JujucServerSocket)
 
 	if context.IsMissingHookError(err) {
 		ranHook = false
@@ -755,7 +676,7 @@ func (u *Uniter) restoreRelations() error {
 	if err != nil {
 		return err
 	}
-	knownDirs, err := relation.ReadAllStateDirs(u.relationsDir)
+	knownDirs, err := relation.ReadAllStateDirs(u.paths.State.RelationsDir)
 	if err != nil {
 		return err
 	}
@@ -772,7 +693,7 @@ func (u *Uniter) restoreRelations() error {
 		if _, ok := knownDirs[id]; ok {
 			continue
 		}
-		dir, err := relation.ReadStateDir(u.relationsDir, id)
+		dir, err := relation.ReadStateDir(u.paths.State.RelationsDir, id)
 		if err != nil {
 			return err
 		}
@@ -816,7 +737,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm.
-		ch, err := corecharm.ReadCharmDir(u.charmPath)
+		ch, err := corecharm.ReadCharmDir(u.paths.State.CharmDir)
 		if err != nil {
 			return nil, err
 		}
@@ -826,7 +747,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			logger.Warningf("skipping relation with unknown endpoint %q", ep.Name)
 			continue
 		}
-		dir, err := relation.ReadStateDir(u.relationsDir, id)
+		dir, err := relation.ReadStateDir(u.paths.State.RelationsDir, id)
 		if err != nil {
 			return nil, err
 		}
@@ -912,24 +833,13 @@ func (u *Uniter) fixDeployer() error {
 	return nil
 }
 
-// updatePackageProxy updates the package proxy settings from the
-// environment.
-func (u *Uniter) updatePackageProxy(cfg *config.Config) {
-	u.proxyMutex.Lock()
-	defer u.proxyMutex.Unlock()
-
-	newSettings := cfg.ProxySettings()
-	if u.proxy != newSettings {
-		u.proxy = newSettings
-		logger.Debugf("Updated proxy settings: %#v", u.proxy)
-		// Update the environment values used by the process.
-		u.proxy.SetEnvironmentValues()
-	}
-}
-
 // watchForProxyChanges kicks off a go routine to listen to the watcher and
 // update the proxy settings.
 func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
+	// TODO(fwereade) 23-10-2014 bug 1384565
+	// Uniter shouldn't be responsible for this at all: we should rename
+	// MachineEnvironmentWorker and run one of those (that eschews rewriting
+	// system files).
 	go func() {
 		for {
 			select {
@@ -944,7 +854,9 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 				if err != nil {
 					logger.Errorf("cannot load environment configuration: %v", err)
 				} else {
-					u.updatePackageProxy(environConfig)
+					proxySettings := environConfig.ProxySettings()
+					logger.Debugf("Updating proxy settings: %#v", proxySettings)
+					proxySettings.SetEnvironmentValues()
 				}
 			}
 		}

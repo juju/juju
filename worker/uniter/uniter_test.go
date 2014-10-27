@@ -2762,19 +2762,29 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 	}
 	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
+
+	isExpectedEnvironment := func() bool {
+		for name, expect := range map[string]string{
+			"http_proxy":  s.Http,
+			"HTTP_PROXY":  s.Http,
+			"https_proxy": s.Https,
+			"HTTPS_PROXY": s.Https,
+			"ftp_proxy":   s.Ftp,
+			"FTP_PROXY":   s.Ftp,
+			"no_proxy":    s.NoProxy,
+			"NO_PROXY":    s.NoProxy,
+		} {
+			if actual := os.Getenv(name); actual != expect {
+				c.Logf("%s not yet set to %s (got %s)", name, expect, actual)
+				return false
+			}
+		}
+		return true
+	}
+
 	// wait for the new values...
-	expected := (proxy.Settings)(s)
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		if ctx.uniter.GetProxyValues() == expected {
-			// Also confirm that the values were specified for the environment.
-			c.Assert(os.Getenv("http_proxy"), gc.Equals, expected.Http)
-			c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, expected.Http)
-			c.Assert(os.Getenv("https_proxy"), gc.Equals, expected.Https)
-			c.Assert(os.Getenv("HTTPS_PROXY"), gc.Equals, expected.Https)
-			c.Assert(os.Getenv("ftp_proxy"), gc.Equals, expected.Ftp)
-			c.Assert(os.Getenv("FTP_PROXY"), gc.Equals, expected.Ftp)
-			c.Assert(os.Getenv("no_proxy"), gc.Equals, expected.NoProxy)
-			c.Assert(os.Getenv("NO_PROXY"), gc.Equals, expected.NoProxy)
+		if isExpectedEnvironment() {
 			return
 		}
 	}
@@ -2796,7 +2806,7 @@ type asyncRunCommands []string
 
 func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	socketPath := filepath.Join(ctx.path, uniter.RunListenerFile)
+	socketPath := filepath.Join(ctx.path, "run.socket")
 
 	go func() {
 		// make sure the socket exists
