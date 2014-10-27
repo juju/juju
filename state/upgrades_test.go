@@ -325,6 +325,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToRebootsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToReboots, rebootC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToSequences(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToSequences, sequenceC,
+		bson.M{
+			"_id":     "0",
+			"counter": 10,
+		},
+		bson.M{
+			"_id":     "1",
+			"counter": 15,
+		},
+	)
+	defer closer()
+
+	var newDoc sequenceDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "0")
+	c.Assert(newDoc.Counter, gc.Equals, 10)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Name, gc.Equals, "1")
+	c.Assert(newDoc.Counter, gc.Equals, 15)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSequenceIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToSequences, sequenceC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToInstanceData(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToInstanceData, instanceDataC,
 		bson.M{

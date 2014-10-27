@@ -68,6 +68,9 @@ const (
 	upgradeInfoC       = "upgradeInfo"
 	rebootC            = "reboot"
 
+	// sequenceC is used to generate unique identifiers.
+	sequenceC = "sequence"
+
 	// meterStatusC is the collection used to store meter status information.
 	meterStatusC = "meterStatus"
 
