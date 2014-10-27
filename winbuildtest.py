@@ -109,14 +109,13 @@ def move_source_to_gopath(tarball_name):
 def enable_cross_compile(gcc_bin_dir, go_src_dir, gopath):
     env = dict(os.environ)
     env['GOPATH'] = gopath
-    env['PATH'] = '{};{}'.format(env['PATH'], gcc_bin_dir)
+    env['PATH'] = '{}{}{}'.format(env['PATH'], os.pathsep, gcc_bin_dir)
     with WorkingDirectory(go_src_dir):
-        env['GOARCH'] = 'amd64'
-        output = run('make.bat', '--no-clean', env=env)
-        print(output)
-        env['GOARCH'] = '386'
-        output = run('make.bat', '--no-clean', env=env)
-        print(output)
+        for arch in ('amd64', '386'):
+            env = dict(env)
+            env['GOARCH'] = arch
+            output = run('make.bat', '--no-clean', env=env)
+            print(output)
 
 
 def build_client(juju_cmd_dir, go_cmd, gopath, iss_dir):
