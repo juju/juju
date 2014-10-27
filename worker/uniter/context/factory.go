@@ -161,6 +161,7 @@ func (f *factory) coreContext() (*HookContext, error) {
 		state:         f.state,
 		uuid:          f.envUUID,
 		envName:       f.envName,
+		unitName:      f.unit.Name(),
 		serviceOwner:  f.ownerTag,
 		relations:     f.getRelations(),
 		relationId:    -1,

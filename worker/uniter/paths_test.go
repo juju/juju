@@ -77,3 +77,18 @@ func (s *PathsSuite) TestOther(c *gc.C) {
 		},
 	})
 }
+
+func (s *PathsSuite) TestContextInterface(c *gc.C) {
+	paths := uniter.Paths{
+		ToolsDir: "/path/to/tools",
+		Runtime: uniter.RuntimePaths{
+			JujucServerSocket: "/path/to/socket",
+		},
+		State: uniter.StatePaths{
+			CharmDir: "/path/to/charm",
+		},
+	}
+	c.Assert(paths.GetToolsDir(), gc.Equals, "/path/to/tools")
+	c.Assert(paths.GetCharmDir(), gc.Equals, "/path/to/charm")
+	c.Assert(paths.GetJujucSocket(), gc.Equals, "/path/to/socket")
+}
