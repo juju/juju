@@ -69,6 +69,7 @@ func (md *mongoDumper) Dump(dumpDir string) error {
 		mongodumpPath,
 		"--oplog",
 		"--ssl",
+		"--authenticationDatabase", "admin",
 		"--host", address,
 		"--username", username,
 		"--password", password,
