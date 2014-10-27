@@ -26,7 +26,7 @@ type Factory interface {
 
 	// NewRunContext returns an execution context suitable for running an
 	// arbitrary script.
-	NewRunContext() (*HookContext, error)
+	NewRunContext(relationId int, remoteUnitName string) (*HookContext, error)
 
 	// NewHookContext returns an execution context suitable for running the
 	// supplied hook definition (which must be valid).
@@ -108,11 +108,22 @@ type factory struct {
 }
 
 // NewRunContext exists to satisfy the Factory interface.
-func (f *factory) NewRunContext() (*HookContext, error) {
+func (f *factory) NewRunContext(relationId int, remoteUnitName string) (*HookContext, error) {
 	ctx, err := f.coreContext()
+
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	if relationId >= 0 {
+		ctx.relationId = relationId
+		ctx.remoteUnitName = remoteUnitName
+		_, found := ctx.relations[relationId]
+		if !found {
+			return nil, fmt.Errorf("unknown relation id: %v", ctx.relationId)
+		}
+	}
+
 	ctx.id = f.newId("run-commands")
 	return ctx, nil
 }

@@ -423,19 +423,25 @@ func (u *Uniter) acquireHookLock(message string) (err error) {
 }
 
 // RunCommands executes the supplied commands in a hook context.
-func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
-	logger.Tracef("run commands: %s", commands)
-	hctx, err := u.contextFactory.NewRunContext()
-	if err != nil {
-		return nil, err
-	}
+func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	logger.Tracef("run commands: %s", args.Commands)
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return nil, err
 	}
 	defer u.hookLock.Unlock()
 
-	result, err := context.NewRunner(hctx, u.paths).RunCommands(commands)
+	remoteUnitName, err := parseRemoteUnit(u.relationers, args.RelationId, args)
+	if err != nil {
+		return nil, err
+	}
+
+	hctx, err := u.contextFactory.NewRunContext(args.RelationId, remoteUnitName)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := context.NewRunner(hctx, u.paths).RunCommands(args.Commands)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -854,4 +860,36 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 			}
 		}
 	}()
+}
+
+// parseRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
+// remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
+// the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
+// a given relationId an error is returned for display to the user.
+func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCommandsArgs) (string, error) {
+	remoteUnit := args.RemoteUnitName
+	if relationId != -1 && len(remoteUnit) == 0 {
+		relationer, found := relationers[relationId]
+		if !found {
+			return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
+		}
+
+		var err error
+		remoteUnits := relationer.Context().UnitNames()
+		numRemoteUnits := len(remoteUnits)
+
+		switch numRemoteUnits {
+		case 0:
+			err = errors.Errorf("no remote unit found for relation id: %d", args.RelationId)
+		case 1:
+			remoteUnit = remoteUnits[0]
+		default:
+			err = errors.Errorf("unable to determine remote-unit, please disambiguate: %+v", remoteUnits)
+		}
+
+		if err != nil {
+			return "", err
+		}
+	}
+	return remoteUnit, nil
 }
