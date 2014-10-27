@@ -611,7 +611,8 @@ func MigrateJobManageNetworking(st *State) error {
 
 	for iter.Next(&mdoc) {
 		// Check possible exceptions.
-		if mdoc.Id == "0" && envType == provider.Manual {
+		localID := st.localID(mdoc.Id)
+		if localID == "0" && envType == provider.Local {
 			// Skip machine 0 in local environment.
 			continue
 		}
@@ -627,8 +628,7 @@ func MigrateJobManageNetworking(st *State) error {
 		// Everything fine, now add job.
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     mdoc.Id,
-			Assert: txn.DocExists,
+			Id:     mdoc.DocID,
 			Update: bson.D{{"$addToSet", bson.D{{"jobs", JobManageNetworking}}}},
 		})
 	}

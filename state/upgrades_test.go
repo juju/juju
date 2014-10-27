@@ -987,8 +987,7 @@ func (s *upgradesSuite) setUpJobManageNetworking(c *gc.C, provider string, manua
 		mdoc := machines[2].doc
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     mdoc.Id,
-			Assert: txn.DocExists,
+			Id:     mdoc.DocID,
 			Update: bson.D{{"$set", bson.D{{"nonce", "manual:" + mdoc.Nonce}}}},
 		})
 	}
@@ -1110,11 +1109,6 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 
 		err := MigrateJobManageNetworking(s.state)
 		c.Assert(err, gc.IsNil)
-
-		machines, err := s.state.AllMachines()
-		c.Assert(err, gc.IsNil)
-
-		c.Logf("having %d machines", len(machines))
 
 		s.checkJobManageNetworking(c, "0", test.hasJob[0])
 		s.checkJobManageNetworking(c, "1", test.hasJob[1])
