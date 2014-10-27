@@ -93,7 +93,10 @@ func (b *backups) Create(paths files.Paths, dbInfo db.Info, origin metadata.Orig
 	if err != nil {
 		return nil, errors.Annotate(err, "while listing files to back up")
 	}
-	dumper := getDBDumper(dbInfo)
+	dumper, err := getDBDumper(dbInfo)
+	if err != nil {
+		return nil, errors.Annotate(err, "while preparing for DB dump")
+	}
 	args := createArgs{filesToBackUp, dumper, metadataFile}
 	result, err := runCreate(&args)
 	if err != nil {

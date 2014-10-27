@@ -72,9 +72,9 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	})
 
 	var receivedDBInfo *db.Info
-	s.PatchValue(backups.GetDBDumper, func(info db.Info) db.Dumper {
+	s.PatchValue(backups.GetDBDumper, func(info db.Info) (db.Dumper, error) {
 		receivedDBInfo = &info
-		return nil
+		return nil, nil
 	})
 
 	stored := s.setStored("spam")

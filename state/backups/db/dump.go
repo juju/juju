@@ -42,42 +42,68 @@ var getMongodumpPath = func() (string, error) {
 
 type mongoDumper struct {
 	Info
+	// binPath is the path to the dump executable.
+	binPath string
 }
 
 // NewDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDumper(info Info) Dumper {
-	return &mongoDumper{info}
-}
-
-// Dump dumps the juju state database.
-func (md *mongoDumper) Dump(dumpDir string) error {
-	err := md.Info.Validate()
+func NewDumper(info Info) (Dumper, error) {
+	err := info.Validate()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	address, username, password := md.Address, md.Username, md.Password
 
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
-		return errors.Annotate(err, "mongodump not available")
+		return nil, errors.Annotate(err, "mongodump not available")
 	}
 
-	// XXX Dump each database separately.
+	dumper := mongoDumper{
+		Info:    info,
+		binPath: mongodumpPath,
+	}
+	return &dumper, nil
+}
 
-	err = runCommand(
-		mongodumpPath,
-		"--oplog",
+func (md *mongoDumper) options(dumpDir string, dbName string) []string {
+	if dbName != "" {
+		dumpDir = filepath.Join(dumpDir, dbName)
+	}
+
+	options := []string{
 		"--ssl",
 		"--authenticationDatabase", "admin",
-		"--host", address,
-		"--username", username,
-		"--password", password,
+		"--host", md.Address,
+		"--username", md.Username,
+		"--password", md.Password,
 		"--out", dumpDir,
-	)
-	if err != nil {
-		return errors.Annotate(err, "error dumping database")
 	}
 
+	if dbName == "" {
+		options = append(options, "--oplog")
+	} else {
+		options = append(options, "--db", dbName)
+	}
+
+	return options
+}
+
+func (md *mongoDumper) dump(dumpDir, dbName string) error {
+	options := md.options(dumpDir, dbName)
+	if err := runCommand(md.binPath, options...); err != nil {
+		suffix := " (" + dbName + ")"
+		if dbName == "" {
+			suffix = "s"
+		}
+		return errors.Annotatef(err, "error dumping database%s", suffix)
+	}
 	return nil
+}
+
+// Dump dumps the juju state database.
+func (md *mongoDumper) Dump(baseDumpDir string) error {
+	// XXX Do not dump the ignored databases.
+	err := md.dump(baseDumpDir, "")
+	return errors.Trace(err)
 }

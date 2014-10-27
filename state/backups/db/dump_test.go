@@ -34,8 +34,10 @@ func (s *dumpSuite) TestDump(c *gc.C) {
 
 	connInfo := db.ConnInfo{"a", "b", "c"}
 	dbInfo := db.Info{connInfo, []string{"juju", "admin"}}
-	dumper := db.NewDumper(dbInfo)
-	err := dumper.Dump("spam")
+	dumper, err := db.NewDumper(dbInfo)
+	c.Assert(err, gc.IsNil)
+
+	err = dumper.Dump("spam")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.ranCommand, gc.Equals, true)
