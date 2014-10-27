@@ -83,14 +83,14 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
-		if err == rpc.ErrShutdown {
-			client, err = c.NewAPIClient()
-			if err != nil {
-				return errors.Trace(err)
-			}
-		} else {
+		if err != rpc.ErrShutdown {
 			return errors.Trace(err)
 		}
+		client, err = c.NewAPIClient()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 	}
 	if err := client.FinishRestore(); err != nil {
 		if params.IsCodeNotImplemented(err) {

@@ -334,7 +334,7 @@ func fetchAgentConfigFromBackup(agentConf io.Reader) (agentConfig, error) {
 	}, nil
 }
 
-func newStateConnection(agentConf agentConfig) (*state.State, error){
+func newStateConnection(agentConf agentConfig) (*state.State, error) {
 	caCert := agentConf.cACert
 	// TODO(dfc) agenConf.credentials should supply a Tag
 	tag, err := names.ParseTag(agentConf.credentials.tag)
@@ -367,7 +367,7 @@ func newStateConnection(agentConf agentConfig) (*state.State, error){
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(privateAddress string, agentConf agentConfig,  st *state.State) error {
+func updateAllMachines(privateAddress string, agentConf agentConfig, st *state.State) error {
 	privateHostPorts := fmt.Sprintf("%s:%s", privateAddress, agentConf.statePort)
 
 	machines, err := st.AllMachines()
@@ -542,7 +542,7 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 		return errors.Annotate(err, "cannot update mongo entries")
 	}
 
-	st, err := newStateConnection(agentConf) 
+	st, err := newStateConnection(agentConf)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -554,6 +554,7 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 	}
 
 	rInfo, err := st.EnsureRestoreInfo()
+
 	if err != nil {
 		return errors.Trace(err)
 	}

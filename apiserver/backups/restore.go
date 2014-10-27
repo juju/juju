@@ -37,11 +37,10 @@ func (a *API) Restore(p params.Restore) error {
 	}
 	err = rInfo.SetStatus(state.RestoreInProgress)
 
-
 	if err := restore.Restore(filename, addr, a.st); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
-	
+
 	os.Exit(1)
 	return nil
 
@@ -62,8 +61,9 @@ func (a *API) FinishRestore() error {
 		return errors.Trace(err)
 	}
 	currentStatus := rInfo.Status()
-	if currentStatus != state.RestoreFinished{
+	if currentStatus != state.RestoreFinished {
 		return errors.Errorf("Restore did not finish succesfuly")
 	}
-	return nil
+	err = rInfo.SetStatus(state.RestoreChecked)
+	return errors.Annotate(err, "could not mark restore as completed")
 }
