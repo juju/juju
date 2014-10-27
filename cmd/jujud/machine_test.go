@@ -1170,52 +1170,51 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSetsPrepareRestore(c *gc.C) {
-       // Start the machine agent.
-       m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-       a := s.newAgent(c, m)
-       go func() { c.Check(a.Run(nil), gc.IsNil) }()
-       defer func() { c.Check(a.Stop(), gc.IsNil) }()
-       c.Check(a.IsRestorePreparing(), gc.Equals, false)
-       c.Check(a.IsRestoreRunning(), gc.Equals, false)
-       err := a.PrepareRestore()
-       c.Assert(err, gc.IsNil)
-       c.Assert(a.IsRestorePreparing(), gc.Equals, true)
-       c.Assert(a.IsRestoreRunning(), gc.Equals, false)
-       err = a.PrepareRestore()
-       c.Assert(err, gc.ErrorMatches, "already in restore mode")
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Check(a.IsRestorePreparing(), gc.Equals, false)
+	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	err := a.PrepareRestore()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a.IsRestorePreparing(), gc.Equals, true)
+	c.Assert(a.IsRestoreRunning(), gc.Equals, false)
+	err = a.PrepareRestore()
+	c.Assert(err, gc.ErrorMatches, "already in restore mode")
 }
 
 func (s *MachineSuite) TestMachineAgentSetsRestoreInProgress(c *gc.C) {
-       // Start the machine agent.
-       m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-       a := s.newAgent(c, m)
-       go func() { c.Check(a.Run(nil), gc.IsNil) }()
-       defer func() { c.Check(a.Stop(), gc.IsNil) }()
-       c.Check(a.IsRestorePreparing(), gc.Equals, false)
-       c.Check(a.IsRestoreRunning(), gc.Equals, false)
-       err := a.PrepareRestore()
-       c.Assert(err, gc.IsNil)
-       c.Assert(a.IsRestorePreparing(), gc.Equals, true)
-       err = a.BeginRestore()
-       c.Assert(err, gc.IsNil)
-       c.Assert(a.IsRestoreRunning(), gc.Equals, true)
-       err = a.BeginRestore()
-       c.Assert(err, gc.ErrorMatches, "already restoring")
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Check(a.IsRestorePreparing(), gc.Equals, false)
+	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	err := a.PrepareRestore()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a.IsRestorePreparing(), gc.Equals, true)
+	err = a.BeginRestore()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a.IsRestoreRunning(), gc.Equals, true)
+	err = a.BeginRestore()
+	c.Assert(err, gc.ErrorMatches, "already restoring")
 }
 
 func (s *MachineSuite) TestMachineAgentRestoreRequiresPrepare(c *gc.C) {
-       // Start the machine agent.
-       m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
-       a := s.newAgent(c, m)
-       go func() { c.Check(a.Run(nil), gc.IsNil) }()
-       defer func() { c.Check(a.Stop(), gc.IsNil) }()
-       c.Check(a.IsRestorePreparing(), gc.Equals, false)
-       c.Check(a.IsRestoreRunning(), gc.Equals, false)
-       err := a.BeginRestore()
-       c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
-       c.Assert(a.IsRestoreRunning(), gc.Equals, false)
+	// Start the machine agent.
+	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
+	a := s.newAgent(c, m)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	c.Check(a.IsRestorePreparing(), gc.Equals, false)
+	c.Check(a.IsRestoreRunning(), gc.Equals, false)
+	err := a.BeginRestore()
+	c.Assert(err, gc.ErrorMatches, "not in restore mode, cannot begin restoration")
+	c.Assert(a.IsRestoreRunning(), gc.Equals, false)
 }
-
 
 // MachineWithCharmsSuite provides infrastructure for tests which need to
 // work with charms.

@@ -52,14 +52,13 @@ type Server struct {
 // checked.
 type LoginValidator func(params.LoginRequest) error
 
-
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Cert           []byte
-	Key            []byte
-	DataDir        string
-	LogDir         string
-	Validator      LoginValidator
+	Cert      []byte
+	Key       []byte
+	DataDir   string
+	LogDir    string
+	Validator LoginValidator
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -76,12 +75,12 @@ func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, err
 		return nil, err
 	}
 	srv := &Server{
-		state:          s,
-		addr:           net.JoinHostPort("localhost", listeningPort),
-		dataDir:        cfg.DataDir,
-		logDir:         cfg.LogDir,
-		limiter:        utils.NewLimiter(loginRateLimit),
-		validator:      cfg.Validator,
+		state:     s,
+		addr:      net.JoinHostPort("localhost", listeningPort),
+		dataDir:   cfg.DataDir,
+		logDir:    cfg.LogDir,
+		limiter:   utils.NewLimiter(loginRateLimit),
+		validator: cfg.Validator,
 		adminApiFactories: map[int]adminApiFactory{
 			0: newAdminApiV0,
 			1: newAdminApiV1,

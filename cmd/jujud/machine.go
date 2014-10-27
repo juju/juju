@@ -236,27 +236,26 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 // required for restore and no one will do changes while we do that.
 // it will return error if the machine is already in this state.
 func (a *MachineAgent) PrepareRestore() error {
-       if a.restoreMode {
-               return fmt.Errorf("already in restore mode")
-       }
-       a.restoreMode = true
-       return nil
+	if a.restoreMode {
+		return fmt.Errorf("already in restore mode")
+	}
+	a.restoreMode = true
+	return nil
 }
 
 // BeginRestore will flag the agent to disallow all commands since
 // restore should be running and therefore making changes that
 // would override anything done.
 func (a *MachineAgent) BeginRestore() error {
-       switch {
-       case !a.restoreMode:
-               return fmt.Errorf("not in restore mode, cannot begin restoration")
-       case a.restoring:
-               return fmt.Errorf("already restoring")
-       }
-       a.restoring = true
-       return nil
+	switch {
+	case !a.restoreMode:
+		return fmt.Errorf("not in restore mode, cannot begin restoration")
+	case a.restoring:
+		return fmt.Errorf("already restoring")
+	}
+	a.restoring = true
+	return nil
 }
-
 
 func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
@@ -670,11 +669,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					return nil, err
 				}
 				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
-					Cert:           cert,
-					Key:            key,
-					DataDir:        dataDir,
-					LogDir:         logDir,
-					Validator:      a.limitLogins,
+					Cert:      cert,
+					Key:       key,
+					DataDir:   dataDir,
+					LogDir:    logDir,
+					Validator: a.limitLogins,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {

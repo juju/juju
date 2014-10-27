@@ -114,20 +114,20 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 
 // apiRoot implements basic method dispatching to the facade registry.
 type apiRoot struct {
-	state          *state.State
-	resources      *common.Resources
-	authorizer     common.Authorizer
-	objectMutex    sync.RWMutex
-	objectCache    map[objectKey]reflect.Value
+	state       *state.State
+	resources   *common.Resources
+	authorizer  common.Authorizer
+	objectMutex sync.RWMutex
+	objectCache map[objectKey]reflect.Value
 }
 
 // newApiRoot returns a new apiRoot.
 func newApiRoot(srv *Server, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
 	r := &apiRoot{
-		state:          srv.state,
-		resources:      resources,
-		authorizer:     authorizer,
-		objectCache:    make(map[objectKey]reflect.Value),
+		state:       srv.state,
+		resources:   resources,
+		authorizer:  authorizer,
+		objectCache: make(map[objectKey]reflect.Value),
 	}
 	return r
 }

@@ -19,8 +19,8 @@ import (
 	stdtesting "testing"
 
 	gitjujutesting "github.com/juju/testing"
-	"gopkg.in/mgo.v2"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
