@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -85,10 +85,10 @@ func (s *SetSuite) TestSetSameValue(c *gc.C) {
 	})
 	assertSetWarning(c, s.dir, []string{
 		"username=hello",
-	}, `WARNING juju.cmd.juju the key "username" already has the value "hello"`)
+	}, "the configuration setting \"username\" already has the value \"hello\"")
 	assertSetWarning(c, s.dir, []string{
 		"outlook=hello@world.tld",
-	}, `WARNING juju.cmd.juju the key "outlook" already has the value "hello@world.tld"`)
+	}, "the configuration setting \"outlook\" already has the value \"hello@world.tld\"")
 
 }
 
@@ -143,7 +143,8 @@ func assertSetWarning(c *gc.C, dir string, args []string, w string) {
 	ctx := coretesting.ContextForDir(c, dir)
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
-	c.Assert(c.GetTestLog(), jc.Contains, w)
+
+	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")
 }
 
 // setupValueFile creates a file containing one value for testing

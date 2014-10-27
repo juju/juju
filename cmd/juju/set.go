@@ -123,7 +123,7 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		if ok {
 			// convert the value to string and compare
 			if fmt.Sprintf("%v", configValueMap["value"]) == v {
-				logger.Warningf("the key %q already has the value %q", k, v)
+				logger.Warningf("the configuration setting %q already has the value %q", k, v)
 			}
 		}
 	}
