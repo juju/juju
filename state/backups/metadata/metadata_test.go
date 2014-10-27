@@ -5,12 +5,14 @@ package metadata_test
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type metadataSuite struct {
@@ -31,6 +33,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	buf, err := meta.AsJSONBuffer()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(buf.(*bytes.Buffer).String(), gc.Equals,
-		`{"ID":"20140909-115934.asdf-zxcv-qwe","Started":"2014-09-09T11:59:34Z","Finished":"2014-09-09T12:00:34Z","Checksum":"123af2cef","ChecksumFormat":"my hash","Size":10,"Stored":false,"Notes":"","Environment":"asdf-zxcv-qwe","Machine":"0","Hostname":"myhost","Version":"1.21-alpha2"}`)
+	metadata_raw := `{"ID":"20140909-115934.asdf-zxcv-qwe","Started":"2014-09-09T11:59:34Z","Finished":"2014-09-09T12:00:34Z","Checksum":"123af2cef","ChecksumFormat":"my hash","Size":10,"Stored":false,"Notes":"","Environment":"asdf-zxcv-qwe","Machine":"0","Hostname":"myhost","Version":"%v"}`
+	metadata := fmt.Sprintf(metadata_raw, version.Current.Number)
+	c.Check(buf.(*bytes.Buffer).String(), gc.Equals, metadata)
 }
