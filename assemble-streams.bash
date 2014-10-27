@@ -97,16 +97,19 @@ sync_released_tools() {
 retract_tools() {
     echo "Phase 3: Reseting streams as needed."
     if [[ $PURPOSE == "testing" ]]; then
-        echo "Removing all testing tools and metadata to reset for testing."
+        echo "Removing all testing agents to reset for testing."
         local RETRACT_GLOB="juju-*.tgz"
-    elif [[ -z "$RETRACT_GLOB" ]]; then
+    elif [[ -n "$REMOVE_RELEASE" ]]; then
+        local RETRACT_GLOB="juju-$REMOVE_RELEASE*.tgz"
+    elif [[ -z "$REMOVE_RELEASE" ]]; then
         echo "Nothing to reset"
         return
     fi
-    find ${DEST_DIST}/tools/releases -name "$RETRACT_GLOB" -delete
-    # juju metadata generate-tools appends to existing metadata; delete
-    # the current data to force a reset of all data, minus the deleted tools.
-    find ${DEST_DIST}/tools/streams/v1/ -type f -delete
+    count=$(find $DEST_DIST/tools/releases -name "$RETRACT_GLOB" | wc -l)
+    if [[ $((count)) > 0  ]]; then
+        find $DEST_DIST/tools/releases -name "$RETRACT_GLOB" -delete
+        REMOVED="--removed $REMOVE_RELEASE"
+    fi
 }
 
 
@@ -277,7 +280,9 @@ archive_tools() {
     # The extracted files are no longer needed. Clean them up now.
     rm -r $WORK
     # Exit early when debs were searched, but no new tools were found.
-    if [[ -z "${added_tools[@]:-}" ]]; then
+    if [[ -n "${added_tools[@]:-}" ]]; then
+        ADDED="--added $RELEASE"
+    else
         echo "No tools were added from the built debs."
         cleanup
         if [[ $IS_TESTING == "true" ]]; then
@@ -330,6 +335,7 @@ generate_streams() {
     echo "Phase 7: Generating streams data."
     cd $DEST_DIST
     JUJU_PATH=$(mktemp -d)
+    # Prefer the juju that matches the version being released.
     if [[ $RELEASE != "IGNORE" ]]; then
         extract_new_juju
     else
@@ -338,11 +344,30 @@ generate_streams() {
     fi
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
+
+    # Backup the current json to old json if it exists for later validation.
+    local can_validate="false"
+    OLD_JSON="$DESTINATION/old-$PURPOSE.json"
+    NEW_JSON="$DEST_DIST/tools/streams/v1/com.ubuntu.juju:released:tools.json"
+    if [[ -f $NEW_JSON ]]; then
+        cp  $NEW_JSON $OLD_JSON
+        local can_validate="true"
+    fi
+
+    # Alway delete the json because juju wont validate checksums if the
+    # json exists.
     set -x
     find ${DEST_DIST}/tools/streams/v1/ -type f -delete
+    # Generate the json metadata.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
     rm -r $JUJU_PATH
+
+    # Ensure the new json metadata matches the expected removed and added.
+    if [[ $can_validate == "true" && $PURPOSE =~ ^(release|proposed)$ ]]; then
+        $SCRIPT_DIR/validate_streams.py \
+            $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
+    fi
     set +x
     echo "The tools are in ${DEST_DIST}."
 }
@@ -397,7 +422,7 @@ cleanup() {
 
 
 # Parse options and args.
-RETRACT_GLOB=""
+REMOVE_RELEASE=""
 SIGNING_KEY=""
 IS_TESTING="false"
 GET_RELEASED_TOOL="true"
@@ -405,8 +430,8 @@ INIT_VERSION="1.20"
 while getopts "r:s:t:i:n" o; do
     case "${o}" in
         r)
-            RETRACT_GLOB=${OPTARG}
-            echo "Tools matching $RETRACT_GLOB will be removed from the data."
+            REMOVE_RELEASE=${OPTARG}
+            echo "$REMOVE_RELEASE agents will be removed from the data."
             ;;
         s)
             SIGNING_KEY=${OPTARG}
@@ -459,6 +484,8 @@ else
 fi
 declare -a added_tools
 added_tools=()
+ADDED=""
+REMOVED=""
 
 
 # Main.
