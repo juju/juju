@@ -34,9 +34,7 @@ func ExtractAPIError(resp *http.Response) (*params.Error, error) {
 		}
 	} else {
 		switch resp.StatusCode {
-		case http.StatusNotFound:
-			fallthrough
-		case http.StatusMethodNotAllowed:
+		case http.StatusNotFound, http.StatusMethodNotAllowed:
 			failure.Code = params.CodeNotImplemented
 		default:
 			// Leave Code empty.
