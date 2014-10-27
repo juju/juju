@@ -114,7 +114,7 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		return
 	}
 	if t.metadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage, t.Env.Config().AgentStream())
+		envtesting.RemoveFakeToolsMetadata(c, t.metadataStorage)
 	}
 	t.LiveTests.TearDownSuite(c)
 	t.BaseSuite.TearDownSuite(c)

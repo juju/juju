@@ -105,6 +105,14 @@ func SyncTools(syncContext *SyncContext) error {
 			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
 			envtools.ReleasedStream, syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
 	}
+	// For backwards compatibility with old tools storage, if there are no tools in the specified stream,
+	// double check the releases storage directory.
+	// TODO - remove this when we no longer need to support tools in the releases directory.
+	if err == envtools.ErrNoTools {
+		sourceTools, err = envtools.FindToolsForCloud(
+			[]simplestreams.DataSource{sourceDataSource}, simplestreams.CloudSpec{},
+			"releases", syncContext.MajorVersion, syncContext.MinorVersion, coretools.Filter{})
+	}
 	if err != nil {
 		return err
 	}
@@ -218,7 +226,7 @@ func upload(stor storage.Storage, stream string, forceVersion *version.Number, f
 	}
 	defer os.RemoveAll(builtTools.Dir)
 	logger.Debugf("Uploading tools for %v", fakeSeries)
-	return SyncBuiltTools(stor, stream, builtTools, fakeSeries...)
+	return syncBuiltTools(stor, stream, builtTools, fakeSeries...)
 }
 
 // cloneToolsForSeries copies the built tools tarball into a tarball for the specified
@@ -235,8 +243,11 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, stream string, series ...string)
 		name := envtools.StorageName(vers, stream)
 		src := filepath.Join(toolsInfo.Dir, toolsInfo.StorageName)
 		dest := filepath.Join(toolsInfo.Dir, name)
-		err := utils.CopyFile(dest, src)
-		if err != nil {
+		destDir := filepath.Dir(dest)
+		if err := os.MkdirAll(destDir, 0755); err != nil {
+			return "", err
+		}
+		if err := utils.CopyFile(dest, src); err != nil {
 			return "", err
 		}
 		// Append to targetTools the attributes required to write out tools metadata.
@@ -343,8 +354,8 @@ func buildToolsTarball(forceVersion *version.Number, stream string) (builtTools 
 	}, nil
 }
 
-// SyncBuiltTools copies to storage a tools tarball and cloned copies for each series.
-func SyncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltTools, fakeSeries ...string) (*coretools.Tools, error) {
+// syncBuiltTools copies to storage a tools tarball and cloned copies for each series.
+func syncBuiltTools(stor storage.Storage, stream string, builtTools *BuiltTools, fakeSeries ...string) (*coretools.Tools, error) {
 	if err := cloneToolsForSeries(builtTools, stream, fakeSeries...); err != nil {
 		return nil, err
 	}

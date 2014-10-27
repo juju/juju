@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 
 	"github.com/juju/utils"
@@ -16,7 +15,6 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state"
@@ -79,11 +77,11 @@ func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage, stream str
 }
 
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
-func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage, stream string) {
-	files := []string{simplestreams.UnsignedIndex("v1"), envtools.ProductMetadataPath(stream)}
+func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
+	files, err := stor.List("tools/streams")
+	c.Assert(err, gc.IsNil)
 	for _, file := range files {
-		toolspath := path.Join("tools", file)
-		err := stor.Remove(toolspath)
+		err = stor.Remove(file)
 		c.Check(err, gc.IsNil)
 	}
 }
@@ -259,7 +257,7 @@ func RemoveFakeTools(c *gc.C, stor storage.Storage, stream string) {
 		err := stor.Remove(name)
 		c.Check(err, gc.IsNil)
 	}
-	RemoveFakeToolsMetadata(c, stor, stream)
+	RemoveFakeToolsMetadata(c, stor)
 }
 
 // RemoveTools deletes all tools from the supplied storage.
@@ -271,7 +269,7 @@ func RemoveTools(c *gc.C, stor storage.Storage, stream string) {
 		err = stor.Remove(name)
 		c.Check(err, gc.IsNil)
 	}
-	RemoveFakeToolsMetadata(c, stor, stream)
+	RemoveFakeToolsMetadata(c, stor)
 }
 
 var (

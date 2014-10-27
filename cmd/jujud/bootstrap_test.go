@@ -576,7 +576,7 @@ func (s *BootstrapSuite) TestUploadedToolsMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) testToolsMetadata(c *gc.C, exploded bool) {
-	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage, s.envcfg.AgentStream())
+	envtesting.RemoveFakeToolsMetadata(c, s.toolsStorage)
 
 	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)

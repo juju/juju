@@ -217,7 +217,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 		openstack.RemoveTestImageData(s.imageMetadataStorage)
 	}
 	if s.toolsMetadataStorage != nil {
-		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage, s.env.Config().AgentStream())
+		envtesting.RemoveFakeToolsMetadata(c, s.toolsMetadataStorage)
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
