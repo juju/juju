@@ -14,8 +14,6 @@ import (
 	apihttp "github.com/juju/juju/api/http"
 )
 
-var _ apihttp.Client = (*State)(nil)
-
 var newHTTPClient = func(s *State) apihttp.HTTPClient {
 	return s.NewHTTPClient()
 }
@@ -35,7 +33,7 @@ func (s *State) NewHTTPClient() *http.Client {
 }
 
 // NewHTTPRequest returns a new API-supporting HTTP request based on State.
-func (s *State) NewHTTPRequest(method, path string) (*apihttp.Request, error) {
+func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	baseURL, err := url.Parse(s.serverRoot)
 	if err != nil {
 		return nil, errors.Annotatef(err, "while parsing base URL (%s)", s.serverRoot)
@@ -51,12 +49,22 @@ func (s *State) NewHTTPRequest(method, path string) (*apihttp.Request, error) {
 	return req, errors.Trace(err)
 }
 
-// SendHTTPRequest sends the request using the HTTP client derived from State.
-func (s *State) SendHTTPRequest(req *apihttp.Request) (*http.Response, error) {
-	httpclient := newHTTPClient(s)
-	resp, err := httpclient.Do(&req.Request)
+// SendHTTPRequest sends a request using the HTTP client derived from State.
+func (s *State) SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error) {
+	req, err := s.NewHTTPRequest(method, path)
 	if err != nil {
-		return nil, errors.Annotate(err, "while sending HTTP request")
+		return nil, nil, errors.Trace(err)
 	}
-	return resp, nil
+
+	err = apihttp.SetRequestArgs(req, args)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while setting request body")
+	}
+
+	httpclient := newHTTPClient(s)
+	resp, err := httpclient.Do(req)
+	if err != nil {
+		return nil, nil, errors.Annotate(err, "while sending HTTP request")
+	}
+	return req, resp, nil
 }

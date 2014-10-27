@@ -5,10 +5,10 @@ package testing
 
 import (
 	"encoding/base64"
+	"net/http"
 
 	gc "gopkg.in/check.v1"
 
-	apihttp "github.com/juju/juju/api/http"
 	"github.com/juju/juju/testing"
 )
 
@@ -27,7 +27,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 
 // CheckRequest verifies that the HTTP request matches the args
 // as an API request should.
-func (s *BaseSuite) CheckRequest(c *gc.C, req *apihttp.Request, method, user, pw, host, pth string) {
+func (s *BaseSuite) CheckRequest(c *gc.C, req *http.Request, method, user, pw, host, pth string) {
 	// Only check API-related request fields.
 
 	c.Check(req.Method, gc.Equals, method)

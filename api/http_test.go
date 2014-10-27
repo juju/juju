@@ -34,7 +34,7 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *httpSuite) checkRequest(c *gc.C, req *apihttp.Request, method, pth string) {
+func (s *httpSuite) checkRequest(c *gc.C, req *http.Request, method, pth string) {
 	username := dummy.AdminUserTag().String()
 	password := jujutesting.AdminSecret
 	hostname := "localhost"
@@ -61,17 +61,15 @@ func (s *httpSuite) TestNewHTTPClientCorrectTransport(c *gc.C) {
 func (s *httpSuite) TestNewHTTPClientValidatesCert(c *gc.C) {
 	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
 	httpClient := s.APIState.NewHTTPClient()
-	resp, err := httpClient.Do(&req.Request)
+	resp, err := httpClient.Do(req)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(resp.StatusCode, gc.Equals, http.StatusNotFound)
 }
 
 func (s *httpSuite) TestSendHTTPRequestSuccess(c *gc.C) {
-	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
-	c.Assert(err, gc.IsNil)
-	resp, err := s.APIState.SendHTTPRequest(req)
+	req, resp, err := s.APIState.SendHTTPRequest("GET", "somefacade", nil)
 	c.Assert(err, gc.IsNil)
 
-	s.Fake.CheckCalled(c, &req.Request, resp)
+	s.Fake.CheckCalled(c, req, resp)
 }
