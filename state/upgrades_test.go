@@ -1090,7 +1090,7 @@ func (s *upgradesSuite) TestJobManageNetworking(c *gc.C) {
 		hasJob:      []bool{false, false, false},
 	}, {
 		description: "manual provider, only manual provisioned machines",
-		provider:    "maas",
+		provider:    "manual",
 		manual:      false,
 		hasJob:      []bool{false, false, false},
 	}, {

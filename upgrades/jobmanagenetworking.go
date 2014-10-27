@@ -7,8 +7,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// migrateJobManageNetworking adds the JobManageNetworking according
-// to all machines but
+// migrateJobManageNetworking adds the job JobManageNetworking to all
+// machines except for:
 //
 // - machines in a MAAS environment,
 // - machines in a manual environment,

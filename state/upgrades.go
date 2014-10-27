@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -577,8 +578,8 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	return st.runTransaction(ops)
 }
 
-// MigrateJobManageNetworking adds the JobManageNetworking according
-// to all machines but
+// migrateJobManageNetworking adds the job JobManageNetworking to all
+// machines except for:
 //
 // - machines in a MAAS environment,
 // - machines in a manual environment,
@@ -593,7 +594,7 @@ func MigrateJobManageNetworking(st *State) error {
 	envType := envConfig.Type()
 
 	// Check for MAAS or manual (aka null) provider.
-	if envType == "maas" || envType == "manual" || envType == "null" {
+	if envType == provider.MAAS || provider.IsManual(envType) {
 		// No job adding for these environment types.
 		return nil
 	}
@@ -610,11 +611,11 @@ func MigrateJobManageNetworking(st *State) error {
 
 	for iter.Next(&mdoc) {
 		// Check possible exceptions.
-		if mdoc.Id == "0" && envType == "local" {
+		if mdoc.Id == "0" && envType == provider.Manual {
 			// Skip machine 0 in local environment.
 			continue
 		}
-		if strings.HasPrefix(mdoc.Nonce, "manual:") {
+		if strings.HasPrefix(mdoc.Nonce, manualMachinePrefix) {
 			// Skip manually provisioned machine in non-manual environments.
 			continue
 		}
@@ -624,12 +625,11 @@ func MigrateJobManageNetworking(st *State) error {
 			continue
 		}
 		// Everything fine, now add job.
-		jobs := append(mdoc.Jobs, JobManageNetworking)
 		ops = append(ops, txn.Op{
 			C:      machinesC,
 			Id:     mdoc.Id,
 			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"jobs", jobs}}}},
+			Update: bson.D{{"$addToSet", bson.D{{"jobs", JobManageNetworking}}}},
 		})
 	}
 
