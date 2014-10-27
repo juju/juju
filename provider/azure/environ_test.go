@@ -133,33 +133,6 @@ func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
 	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
-func (*environSuite) TestGetManagementAPI(c *gc.C) {
-	env := makeEnviron(c)
-	context, err := env.getManagementAPI()
-	c.Assert(err, gc.IsNil)
-	defer env.releaseManagementAPI(context)
-	c.Check(context, gc.NotNil)
-	c.Check(context.ManagementAPI, gc.NotNil)
-	c.Check(context.certFile, gc.NotNil)
-	c.Check(context.GetRetryPolicy(), gc.DeepEquals, retryPolicy)
-}
-
-func (*environSuite) TestReleaseManagementAPIAcceptsNil(c *gc.C) {
-	env := makeEnviron(c)
-	env.releaseManagementAPI(nil)
-	// The real test is that this does not panic.
-}
-
-func (*environSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *gc.C) {
-	env := makeEnviron(c)
-	context := azureManagementContext{
-		ManagementAPI: nil,
-		certFile:      nil,
-	}
-	env.releaseManagementAPI(&context)
-	// The real test is that this does not panic.
-}
-
 func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
