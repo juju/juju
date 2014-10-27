@@ -37,6 +37,7 @@ type UserParams struct {
 	Password    string
 	Creator     names.Tag
 	NoEnvUser   bool
+	Disabled    bool
 }
 
 // EnvUserParams defines the parameters for creating an environment user.
@@ -142,6 +143,10 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		_, err := factory.st.AddEnvironmentUser(user.UserTag(), names.NewUserTag(user.CreatedBy()))
 		c.Assert(err, gc.IsNil)
 	}
+	if params.Disabled {
+		err := user.Disable()
+		c.Assert(err, gc.IsNil)
+	}
 	return user
 }
 
@@ -167,12 +172,7 @@ func (factory *Factory) MakeEnvUser(c *gc.C, params *EnvUserParams) *state.Envir
 	return envUser
 }
 
-// MakeMachine will add a machine with values defined in params. For some
-// values in params, if they are missing, some meaningful empty values will be
-// set.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
-func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+func (factory *Factory) paramsFillDefaults(c *gc.C, params *MachineParams) *MachineParams {
 	if params == nil {
 		params = &MachineParams{}
 	}
@@ -193,6 +193,43 @@ func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machi
 		params.Password, err = utils.RandomPassword()
 		c.Assert(err, gc.IsNil)
 	}
+	return params
+}
+
+func machineParamsToTemplate(p *MachineParams) state.MachineTemplate {
+	return state.MachineTemplate{
+		Series:     p.Series,
+		Nonce:      p.Nonce,
+		Jobs:       p.Jobs,
+		InstanceId: p.InstanceId,
+	}
+}
+
+// MakeMachineNested will make a machine nested in the machine with ID given.
+func (factory *Factory) MakeMachineNested(c *gc.C, parentId string, params *MachineParams) *state.Machine {
+	params = factory.paramsFillDefaults(c, params)
+	mTmpl := machineParamsToTemplate(params)
+	// Cannot specify an instance id for a new container.
+	mTmpl.InstanceId = ""
+	// Cannot specify a nonce without an instance ID.
+	mTmpl.Nonce = ""
+
+	m, err := factory.st.AddMachineInsideMachine(
+		mTmpl,
+		parentId,
+		instance.LXC,
+	)
+	c.Assert(err, gc.IsNil)
+	return m
+}
+
+// MakeMachine will add a machine with values defined in params. For some
+// values in params, if they are missing, some meaningful empty values will be
+// set.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
+func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+	params = factory.paramsFillDefaults(c, params)
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)

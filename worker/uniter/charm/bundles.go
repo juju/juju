@@ -46,7 +46,7 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download will be stopped.
 func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error) {
 	archiveURL := info.ArchiveURL()
-	defer errors.Maskf(&err, "failed to download charm %q from %q", info.URL(), archiveURL)
+	defer errors.DeferredAnnotatef(&err, "failed to download charm %q from %q", info.URL(), archiveURL)
 	dir := d.downloadsPath()
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err

@@ -392,7 +392,7 @@ func (e requiresError) Error() string {
 }
 
 func verifyConfig(cfg *MachineConfig) (err error) {
-	defer errors.Maskf(&err, "invalid machine configuration")
+	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}

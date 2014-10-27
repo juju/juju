@@ -174,9 +174,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	password := "password"
-	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
-	err = u.Deactivate()
-	c.Assert(err, gc.IsNil)
+	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
 	_, err = st.Client().Status([]string{})
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)

@@ -745,7 +745,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		bson.D{{"_id", machine.Id()}},
+		bson.D{{"_id", state.DocID(s.State, machine.Id())}},
 		bson.D{{"$set", bson.D{{"instanceid", bson.D{{"foo", "bar"}}}}}},
 	)
 	c.Assert(err, gc.IsNil)
@@ -767,7 +767,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		bson.D{{"_id", machine.Id()}},
+		bson.D{{"_id", state.DocID(s.State, machine.Id())}},
 		bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 	)
 	c.Assert(err, gc.IsNil)
@@ -1716,7 +1716,8 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
-	revno0, err := state.TxnRevno(s.State, "machines", machine.Id())
+	machineDocID := state.DocID(s.State, machine.Id())
+	revno0, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, gc.IsNil)
 
 	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
@@ -1728,7 +1729,7 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		err = machine.SetAddresses(addr0, addr1)
 		c.Assert(err, gc.IsNil)
-		revno1, err = state.TxnRevno(s.State, "machines", machine.Id())
+		revno1, err = state.TxnRevno(s.State, "machines", machineDocID)
 		c.Assert(err, gc.IsNil)
 		c.Assert(revno1, gc.Equals, revno0+1)
 	}).Check()
@@ -1737,7 +1738,7 @@ func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Doc should not have been updated, but Machine object's view should be.
-	revno2, err := state.TxnRevno(s.State, "machines", machine.Id())
+	revno2, err := state.TxnRevno(s.State, "machines", machineDocID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(revno2, gc.Equals, revno1)
 	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})

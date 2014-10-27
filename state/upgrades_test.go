@@ -272,6 +272,114 @@ func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMachines, machinesC,
+		bson.M{
+			"_id":    "0",
+			"series": "trusty",
+			"life":   Alive,
+		},
+		bson.M{
+			"_id":    "1",
+			"series": "utopic",
+			"life":   Dead,
+		},
+	)
+	defer closer()
+
+	var newDoc machineDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "0")
+	c.Assert(newDoc.Series, gc.Equals, "trusty")
+	c.Assert(newDoc.Life, gc.Equals, Alive)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "1")
+	c.Assert(newDoc.Series, gc.Equals, "utopic")
+	c.Assert(newDoc.Life, gc.Equals, Dead)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToReboots, rebootC,
+		bson.M{
+			"_id": "0",
+		},
+		bson.M{
+			"_id": "1",
+		},
+	)
+	defer closer()
+
+	var newDoc rebootDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "0")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "1")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRebootsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToReboots, rebootC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToInstanceData(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToInstanceData, instanceDataC,
+		bson.M{
+			"_id":    "0",
+			"status": "alive",
+		},
+		bson.M{
+			"_id":    "1",
+			"status": "dead",
+		},
+	)
+	defer closer()
+
+	var newDoc instanceData
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.MachineId, gc.Equals, "0")
+	c.Assert(newDoc.Status, gc.Equals, "alive")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.MachineId, gc.Equals, "1")
+	c.Assert(newDoc.Status, gc.Equals, "dead")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToInstanceDatasIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToInstanceData, instanceDataC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToContainerRef(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToContainerRefs, containerRefsC,
+		bson.M{
+			"_id":      "0",
+			"children": []string{"1", "2"},
+		},
+		bson.M{
+			"_id":      "1",
+			"children": []string{"3", "4"},
+		},
+	)
+	defer closer()
+
+	var newDoc machineContainers
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "0")
+	c.Assert(newDoc.Children, gc.DeepEquals, []string{"1", "2"})
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "1")
+	c.Assert(newDoc.Children, gc.DeepEquals, []string{"3", "4"})
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToContainerRefsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToContainerRefs, containerRefsC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,
@@ -884,13 +992,13 @@ func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceDataIdempotent(c *
 	s.instanceIdAssertMigration(c, machineID, instID)
 }
 
-func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceDataNoIdFails(c *gc.C) {
+func (s *upgradesSuite) TestMigrateMachineInstanceIdNoIdLogsWarning(c *gc.C) {
 	machineID := "0"
 	var instID instance.Id = ""
 	s.instanceIdSetUp(c, machineID, instID)
 
-	err := MigrateMachineInstanceIdToInstanceData(s.state)
-	c.Assert(err, gc.ErrorMatches, "machine doc has no instanceid")
+	MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.state.upgrade machine "0" doc has no instanceid`)
 }
 
 func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instance.Id) {
@@ -912,18 +1020,18 @@ func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instan
 
 func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, instID instance.Id) {
 	// check to see if instanceid is in instance
-	instanceMap := map[string]interface{}{}
+	var instanceMap bson.M
 	insts, closer := s.state.getCollection(instanceDataC)
 	defer closer()
-	err := insts.Find(bson.D{{"_id", machineID}}).One(&instanceMap)
+	err := insts.FindId(machineID).One(&instanceMap)
 	c.Assert(err, gc.IsNil)
 	c.Assert(instanceMap["instanceid"], gc.Equals, string(instID))
 
 	// check to see if instanceid field is removed
-	machineMap := map[string]interface{}{}
+	var machineMap bson.M
 	machines, closer := s.state.getCollection(machinesC)
 	defer closer()
-	err = machines.Find(bson.D{{"_id", machineID}}).One(&machineMap)
+	err = machines.FindId(machineID).One(&machineMap)
 	c.Assert(err, gc.IsNil)
 	_, keyExists := machineMap["instanceid"]
 	c.Assert(keyExists, jc.IsFalse)

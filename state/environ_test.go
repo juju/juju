@@ -74,8 +74,8 @@ func (s *EnvironSuite) TestNewEnvironment(c *gc.C) {
 	assertMatches(env)
 }
 
-func (s *EnvironSuite) TestInitialEnvironment(c *gc.C) {
-	env, err := s.State.InitialEnvironment()
+func (s *EnvironSuite) TestStateServerEnvironment(c *gc.C) {
+	env, err := s.State.StateServerEnvironment()
 	c.Assert(err, gc.IsNil)
 
 	expectedTag := names.NewEnvironTag(env.UUID())
@@ -90,7 +90,7 @@ func (s *EnvironSuite) TestInitialEnvironment(c *gc.C) {
 	})
 }
 
-func (s *EnvironSuite) TestInitialEnvironmentAccessibleFromOtherEnvironments(c *gc.C) {
+func (s *EnvironSuite) TestStateServerEnvironmentAccessibleFromOtherEnvironments(c *gc.C) {
 	owner := names.NewUserTag("test@remote")
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
@@ -102,7 +102,7 @@ func (s *EnvironSuite) TestInitialEnvironmentAccessibleFromOtherEnvironments(c *
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	env, err := s.State.InitialEnvironment()
+	env, err := s.State.StateServerEnvironment()
 	c.Assert(err, gc.IsNil)
 
 	expectedTag := names.NewEnvironTag(env.UUID())

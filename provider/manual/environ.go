@@ -101,6 +101,11 @@ func (e *manualEnviron) SupportNetworks() bool {
 	return false
 }
 
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})

@@ -1033,6 +1033,20 @@ func (s *StateSuite) TestReadMachine(c *gc.C) {
 	c.Assert(machine.Id(), gc.Equals, expectedId)
 }
 
+func (s *StateSuite) TestReadPreEnvUUIDMachine(c *gc.C) {
+	type oldMachineDoc struct {
+		Id     string `bson:"_id"`
+		Series string
+	}
+	s.machines.Insert(&oldMachineDoc{"99", "quantal"})
+
+	machine, err := s.State.Machine("99")
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "99")
+	c.Assert(machine.Tag(), gc.Equals, names.NewMachineTag("99"))
+	c.Assert(machine.Series(), gc.Equals, "quantal") // Sanity check.
+}
+
 func (s *StateSuite) TestMachineNotFound(c *gc.C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
@@ -1733,7 +1747,7 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
-		bson.D{{"_id", machine.Id()}},
+		bson.D{{"_id", state.DocID(s.State, machine.Id())}},
 		bson.D{{"$unset", bson.D{{"containertype", 1}}}},
 	)
 	c.Assert(err, gc.IsNil)
@@ -2426,7 +2440,7 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, m.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "machines")
-	c.Assert(id, gc.Equals, m.Id())
+	c.Assert(id, gc.Equals, state.DocID(s.State, m.Id()))
 }
 
 func (s *StateSuite) TestParseServiceTag(c *gc.C) {

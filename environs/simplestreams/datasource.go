@@ -16,7 +16,7 @@ import (
 // A DataSource retrieves simplestreams metadata.
 type DataSource interface {
 	// Description describes the origin of this datasource.
-	// eg tools-metadata-url, cloud storage, keystone catalog etc.
+	// eg agent-metadata-url, cloud storage, keystone catalog etc.
 	Description() string
 	// Fetch loads the data at the specified relative path. It returns a reader from which
 	// the data can be retrieved as well as the full URL of the file. The full URL is typically

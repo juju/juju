@@ -844,7 +844,7 @@ next:
 // network tags from its components (in the last example "machine-42"
 // and "network-juju-public").
 func parsePortsKey(change string) (machineTag names.MachineTag, networkTag names.NetworkTag, err error) {
-	defer errors.Maskf(&err, "invalid ports change %q", change)
+	defer errors.DeferredAnnotatef(&err, "invalid ports change %q", change)
 
 	parts := strings.SplitN(change, ":", 2)
 	if len(parts) != 2 {

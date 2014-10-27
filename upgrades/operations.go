@@ -23,6 +23,10 @@ var upgradeOperations = func() []Operation {
 			version.MustParse("1.21-alpha2"),
 			stepsFor121a2(),
 		},
+		upgradeToVersion{
+			version.MustParse("1.21-alpha3"),
+			stepsFor121a3(),
+		},
 	}
 	return steps
 }

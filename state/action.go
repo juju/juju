@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2/txn"
@@ -78,6 +79,9 @@ type actionDoc struct {
 	// Parameters holds the action's parameters, if any; it should validate
 	// against the schema defined by the named action in the unit's charm.
 	Parameters map[string]interface{} `bson:"parameters"`
+
+	// Enqueued is the time the action was added.
+	Enqueued time.Time `bson:"enqueued"`
 }
 
 // Action represents an instruction to do some "action" and is expected
@@ -113,6 +117,12 @@ func (a *Action) Name() string {
 // definition of the Action.
 func (a *Action) Parameters() map[string]interface{} {
 	return a.doc.Parameters
+}
+
+// Enqueued returns the time the action was added to state as a pending
+// Action.
+func (a *Action) Enqueued() time.Time {
+	return a.doc.Enqueued
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
@@ -183,6 +193,7 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 		Sequence:   sequence,
 		Name:       actionName,
 		Parameters: parameters,
+		Enqueued:   time.Now(),
 	}, nil
 }
 

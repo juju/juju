@@ -254,7 +254,7 @@ func (st *State) CACert() string {
 }
 
 func (st *State) Close() (err error) {
-	defer errors.Contextf(&err, "closing state failed")
+	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()

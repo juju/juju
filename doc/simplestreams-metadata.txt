@@ -20,7 +20,7 @@ Basic Workflow
 Whether images or tools, Juju uses a search path to try and find suitable metadata.
 The path components (in order of lookup) are:
 
-1. User supplied location (specified by tools-metadata-url or image-metadata-url config settings)
+1. User supplied location (specified by agent-metadata-url or image-metadata-url config settings)
 2. The environment's cloud storage
 3. Provider specific locations (eg keystone endpoint if on Openstack)
 4. A web location with metadata for supported public clouds (https://streams.canonical.com/juju)
@@ -100,7 +100,7 @@ override what is provided by the cloud.
 
 These are initially specified in the environments.yaml file (and then subsequently copied to the
 jenv file when the environment is bootstrapped). For images, use "image-metadata-url"; for tools,
-use "tools-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
+use "agent-metadata-url". The URLs can point to a world readable container/bucket in the cloud,
 an address served by a http server, or even a shared directory accessible by all node instances
 running in the cloud.
 
@@ -108,7 +108,7 @@ eg assume an Apache http server with base URL https://juju-metadata, providing a
 information at <base>/images and <base>/tools. The Juju environment yaml file could have
 the following entries (one or both):
 
-tools-metadata-url: https://juju-metadata/tools
+agent-metadata-url: https://juju-metadata/tools
 image-metadata-url: https://juju-metadata/images
 
 The required files in each location is as per the directory layout described earlier.
@@ -181,14 +181,14 @@ Then either
 or
 - optionally, copy image metadata to somewhere in the metadata search path
 - optionally, mirror tools to somewhere in the metadata search path
-- optionally, configure tools-metadata-url and/or image-metadata-url
+- optionally, configure agent-metadata-url and/or image-metadata-url
 
 If the bootstrap --metadata-source directory option is used, any image metadata and tools found
 in the specified directory will be uploaded automatically to the cloud storage for that deployment.
 This is useful for situations where image and tools metadata do not need to be shared amongst several
 users, since each Juju environment will upload its own separate copy of the required files.
 
-Using the image-metadata-url and tools-metadata-url to point to publicly accessible locations is useful
+Using the image-metadata-url and agent-metadata-url to point to publicly accessible locations is useful
 when several Juju environments are to be deployed on a private cloud and the metadata should be shared.
 
 1. Image metadata
@@ -232,9 +232,9 @@ Then, the contents of <metadata_dir> can be uploaded to a location in the Juju m
 bootstrap --metadata-source option may be used.
 
 Examples:
-1. tools-metadata-url
+1. agent-metadata-url
  - upload contents of <metadata_dir> to http://somelocation
- - set tools-metadata-url to http://somelocation/tools
+ - set agent-metadata-url to http://somelocation/tools
 2. bootstrap option
  - juju bootstrap --metadata-source <tools_dir>
 

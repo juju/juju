@@ -35,11 +35,12 @@ func (s *specSuite) TearDownSuite(c *gc.C) {
 }
 
 var findInstanceSpecTests = []struct {
-	series string
-	arches []string
-	cons   string
-	itype  string
-	image  string
+	series  string
+	arches  []string
+	cons    string
+	itype   string
+	image   string
+	storage []string
 }{
 	{
 		series: testing.FakeDefaultSeries,
@@ -123,13 +124,37 @@ var findInstanceSpecTests = []struct {
 		cons:   "mem=4G root-disk=16384M",
 		itype:  "m1.large",
 		image:  "ami-00000033",
+	}, {
+		series:  testing.FakeDefaultSeries,
+		arches:  both,
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m1.large",
+		storage: []string{"ssd", "ebs"},
+		image:   "ami-00000033",
+	}, {
+		series:  testing.FakeDefaultSeries,
+		arches:  both,
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m1.large",
+		storage: []string{"ebs", "ssd"},
+		image:   "ami-00000039",
+	}, {
+		series:  testing.FakeDefaultSeries,
+		arches:  both,
+		cons:    "mem=4G root-disk=16384M",
+		itype:   "m1.large",
+		storage: []string{"ebs"},
+		image:   "ami-00000039",
 	},
 }
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, test := range findInstanceSpecTests {
-		c.Logf("\ntest %d: %q; %q; %q", i, test.series, test.arches, test.cons)
-		stor := ebsStorage
+		c.Logf("\ntest %d: %q; %q; %q; %v", i, test.series, test.arches, test.cons, test.storage)
+		stor := test.storage
+		if len(stor) == 0 {
+			stor = []string{ssdStorage, ebsStorage}
+		}
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
 				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
@@ -139,7 +164,7 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 				Series:      test.series,
 				Arches:      test.arches,
 				Constraints: constraints.MustParse(test.cons),
-				Storage:     &stor,
+				Storage:     stor,
 			})
 		c.Assert(err, gc.IsNil)
 		c.Check(spec.InstanceType.Name, gc.Equals, test.itype)
@@ -187,17 +212,7 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 }
 
 func (*specSuite) TestFilterImagesAcceptsNil(c *gc.C) {
-	c.Check(filterImages(nil), gc.HasLen, 0)
-}
-
-func (*specSuite) TestFilterImagesAcceptsImageWithEBSStorage(c *gc.C) {
-	input := []*imagemetadata.ImageMetadata{{Id: "yay", Storage: "ebs"}}
-	c.Check(filterImages(input), gc.DeepEquals, input)
-}
-
-func (*specSuite) TestFilterImagesRejectsImageWithoutEBSStorage(c *gc.C) {
-	input := []*imagemetadata.ImageMetadata{{Id: "boo", Storage: "ftp"}}
-	c.Check(filterImages(input), gc.HasLen, 0)
+	c.Check(filterImages(nil, nil), gc.HasLen, 0)
 }
 
 func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
@@ -205,7 +220,9 @@ func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
 	bad := imagemetadata.ImageMetadata{Id: "bad", Storage: "ftp"}
 	input := []*imagemetadata.ImageMetadata{&good, &bad}
 	expectation := []*imagemetadata.ImageMetadata{&good}
-	c.Check(filterImages(input), gc.DeepEquals, expectation)
+
+	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
+	c.Check(filterImages(input, ic), gc.DeepEquals, expectation)
 }
 
 func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
@@ -214,5 +231,6 @@ func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 		{Id: "two", Storage: "ebs"},
 		{Id: "three", Storage: "ebs"},
 	}
-	c.Check(filterImages(input), gc.DeepEquals, input)
+	ic := &instances.InstanceConstraint{Storage: []string{"ebs"}}
+	c.Check(filterImages(input, ic), gc.DeepEquals, input)
 }

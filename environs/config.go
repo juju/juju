@@ -72,24 +72,8 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 
 	// If deprecated config attributes are used, log warnings so the user can know
 	// that they need to be fixed.
-	if oldToolsURL := attrs["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
-		_, newToolsSpecified := attrs["tools-metadata-url"]
-		var msg string
-		if newToolsSpecified {
-			msg = fmt.Sprintf(
-				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
-					"the new tools URL attribute %q has also been used.\n"+
-					"The attribute %q should be removed from your configuration.",
-				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
-		} else {
-			msg = fmt.Sprintf(
-				"Config attribute %q (%v) is deprecated.\n"+
-					"The location to find tools is now specified using the %q attribute.\n"+
-					"Your configuration should be updated to set %q as follows\n%v: %v.",
-				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
-		}
-		logger.Warningf(msg)
-	}
+	envs.logDeprecatedWarnings(attrs, config.ToolsMetadataURLKey, config.AgentMetadataURLKey)
+
 	// null has been renamed to manual (with an alias for existing config).
 	if oldType, _ := attrs["type"].(string); oldType == "null" {
 		logger.Warningf(
@@ -97,29 +81,49 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 				"Please update your environment configuration.",
 		)
 	}
-
 	// lxc-use-clone has been renamed to lxc-clone
-	if _, ok := attrs["lxc-use-clone"]; ok {
-		logger.Warningf(
-			"Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".\n" +
-				"Please update your environment configuration.",
-		)
-	}
+	envs.logDeprecatedWarnings(attrs, "lxc-use-clone", "lxc-clone")
 
-	if _, ok := attrs[config.ProvisionerSafeModeKey].(bool); ok {
+	// provisioner-safe-mode has been renamed to provisioner-harvest-mode, so log warnings to the user
+	envs.logDeprecatedWarnings(attrs, config.ProvisionerSafeModeKey, config.ProvisionerHarvestModeKey)
 
-		logger.Warningf(
-			`Config attribute "%s" has been deprecated. Please utilize the "%s" config attribute instead.`,
-			config.ProvisionerSafeModeKey,
-			config.ProvisionerHarvestModeKey,
-		)
-	}
+	// tools-stream has been renamed to agent-stream, so log warnings to the user
+	envs.logDeprecatedWarnings(attrs, config.ToolsStreamKey, config.AgentStreamKey)
 
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// logDeprecatedWarnings constructs log warning messages for deprecated attributes names.
+// It checks if both old and new attribute names are provided.
+// When both are provided, the message warns to remove old attribute from configuration.
+// When only old attribute name is used, the message advises to replace it with the new name.
+func (envs *Environs) logDeprecatedWarnings(attrs map[string]interface{}, oldKey, newKey string) {
+	if oldValue := attrs[oldKey]; oldValue != nil {
+		// no need to warn if attribute is unused
+		if oldStr, ok := oldValue.(string); ok && oldStr == "" {
+			return
+		}
+		newValue, newValueSpecified := attrs[newKey]
+		var msg string
+		if newValueSpecified {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated and will be ignored since \n"+
+					"the new %q (%v) attribute has also been used. \n"+
+					"The attribute %q should be removed from your configuration.",
+				oldKey, oldValue, newKey, newValue, oldKey)
+		} else {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated. \n"+
+					"It is replaced by %q attribute. \n"+
+					"Your configuration should be updated to set %q as follows \n%v: %v.",
+				oldKey, oldValue, newKey, newKey, newKey, oldValue)
+		}
+		logger.Warningf(msg)
+	}
 }
 
 // providers maps from provider type to EnvironProvider for
