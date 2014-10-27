@@ -70,6 +70,9 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+
+	// cachedDefaultVpc caches the id of the ec2 default vpc
+	cachedDefaultVpc *defaultVpc
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -82,6 +85,11 @@ type ec2Instance struct {
 
 	mu sync.Mutex
 	*ec2.Instance
+}
+
+type defaultVpc struct {
+	hasDefaultVpc bool
+	id            network.Id
 }
 
 func (inst *ec2Instance) String() string {
@@ -340,19 +348,35 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) defaultVpc() (network.Id, bool, error) {
+	if e.cachedDefaultVpc != nil {
+		defaultVpc := e.cachedDefaultVpc
+		return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
+	}
 	ec2 := e.ec2()
 	resp, err := ec2.AccountAttributes("default-vpc")
 	if err != nil {
 		return "", false, errors.Trace(err)
 	}
+
+	hasDefault := true
+	defaultVpcId := ""
+
 	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
-		return "", false, nil
+		hasDefault = false
+		defaultVpcId = ""
+	} else {
+
+		defaultVpcId := resp.Attributes[0].Values[0]
+		if defaultVpcId == none {
+			hasDefault = false
+			defaultVpcId = ""
+		}
 	}
-	defaultVpc := resp.Attributes[0].Values[0]
-	if defaultVpc == none {
-		return "", false, nil
-	}
-	return network.Id(defaultVpc), true, nil
+	defaultVpc := &defaultVpc{
+		id:            network.Id(defaultVpcId),
+		hasDefaultVpc: hasDefault}
+	e.cachedDefaultVpc = defaultVpc
+	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
 
 func (e *environ) ecfg() *environConfig {
