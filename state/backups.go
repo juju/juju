@@ -307,20 +307,16 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 		return errors.Trace(err)
 	}
 
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
-
-		op := txn.Op{
-			C:      dbOp.Target.Name,
-			Id:     id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}
-		ops = append(ops, op)
-
-		return ops, nil
+	var ops []txn.Op
+	op := txn.Op{
+		C:      dbOp.Target.Name,
+		Id:     id,
+		Assert: txn.DocMissing,
+		Insert: doc,
 	}
-	if err := dbOp.TXNRunner.Run(buildTxn); err != nil {
+	ops = append(ops, op)
+
+	if err := dbOp.TXNRunner.RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
@@ -335,22 +331,18 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
 func setBackupStored(dbOp *DBOperator, id string, stored time.Time) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var ops []txn.Op
-
-		op := txn.Op{
-			C:      dbOp.Target.Name,
-			Id:     id,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{
-				{"stored", stored.UTC().Unix()},
-			}}},
-		}
-		ops = append(ops, op)
-
-		return ops, nil
+	var ops []txn.Op
+	op := txn.Op{
+		C:      dbOp.Target.Name,
+		Id:     id,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{
+			{"stored", stored.UTC().Unix()},
+		}}},
 	}
-	if err := dbOp.TXNRunner.Run(buildTxn); err != nil {
+	ops = append(ops, op)
+
+	if err := dbOp.TXNRunner.RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			return errors.NotFoundf(id)
 		}
