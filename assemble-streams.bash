@@ -134,6 +134,11 @@ init_tools_maybe() {
         cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
+        if [[ $IS_DEVEL_VERSION == "true" ]]; then
+            echo "Seeding testing with all devel agents"
+            cp $DESTINATION/juju-dist/devel/tools/releases/juju-*.tgz \
+                $DEST_DIST/tools/releases
+        fi
         echo "Seeding testing with all proposed agents"
         cp $DESTINATION/juju-dist/proposed/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
@@ -440,7 +445,19 @@ if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
+
 RELEASE=$2
+if [[ $RELEASE =~ ^.*[a-z]+.*$ ]]; then
+    IS_DEVEL_VERSION="true"
+else
+    IS_DEVEL_VERSION="false"
+fi
+if [[ $IS_DEVEL_VERSION == "true" && $PURPOSE =~ ^(release|proposed)$ ]]; then
+    echo "$RELEASE looks like a devel version."
+    echo "$RELEASE cannot be proposed or released."
+    exit 1
+fi
+
 DESTINATION=$3
 if [[ ! -d "$3" ]]; then
     echo "$3 is not a directory. Create it if you really mean to use it."
