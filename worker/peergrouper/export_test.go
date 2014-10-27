@@ -8,12 +8,13 @@ import (
 	"github.com/juju/juju/replicaset"
 )
 
-const JujuMachineTag = jujuMachineTag
-
 var (
-	DesiredPeerGroup = desiredPeerGroup
-	NewPublisher     = newPublisher
-	NewWorker        = newWorker
+	DesiredPeerGroup     = desiredPeerGroup
+	NewPublisher         = newPublisher
+	NewWorker            = newWorker
+	PollInterval         = &pollInterval
+	MaxRetryInterval     = &maxRetryInterval
+	InitialRetryInterval = &initialRetryInterval
 )
 
 func NewMachine(id string, wantsVote bool, mongoHostPorts []network.HostPort) *Machine {

@@ -67,17 +67,17 @@ var (
 	// we start retrying with the following interval,
 	// before exponentially backing off with each further
 	// attempt.
-	InitialRetryInterval = 2 * time.Second
+	initialRetryInterval = 2 * time.Second
 
-	// MaxRetryInterval holds the maximum interval
+	// maxRetryInterval holds the maximum interval
 	// between retry attempts.
-	MaxRetryInterval = 5 * time.Minute
+	maxRetryInterval = 5 * time.Minute
 
-	// PollInterval holds the interval at which the replica set
+	// pollInterval holds the interval at which the replica set
 	// members will be updated even in the absence of changes
 	// to State. This enables us to make changes to members
 	// that are triggered by changes to member status.
-	PollInterval = 1 * time.Minute
+	pollInterval = 1 * time.Minute
 )
 
 // pgWorker holds all the mutable state that we are watching.
@@ -165,7 +165,7 @@ func (w *pgWorker) loop() error {
 
 	retry := time.NewTimer(0)
 	retry.Stop()
-	retryInterval := InitialRetryInterval
+	retryInterval := initialRetryInterval
 	for {
 		select {
 		case f := <-w.notifyCh:
@@ -200,13 +200,13 @@ func (w *pgWorker) loop() error {
 				// Update the replica set members occasionally
 				// to keep them up to date with the current
 				// replica set member statuses.
-				retry.Reset(PollInterval)
-				retryInterval = InitialRetryInterval
+				retry.Reset(pollInterval)
+				retryInterval = initialRetryInterval
 			} else {
 				retry.Reset(retryInterval)
 				retryInterval *= 2
-				if retryInterval > MaxRetryInterval {
-					retryInterval = MaxRetryInterval
+				if retryInterval > maxRetryInterval {
+					retryInterval = maxRetryInterval
 				}
 			}
 

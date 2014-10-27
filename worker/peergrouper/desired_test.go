@@ -282,7 +282,7 @@ func mkMachines(description string, ipVersion testIPVersion) []*peergrouper.Mach
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{peergrouper.JujuMachineTag: id}
+	return map[string]string{jujuMachineTagKey: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member

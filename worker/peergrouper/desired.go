@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/replicaset"
 )
 
-// jujuMachineTag is the key for the tag where we save the member's juju machine id.
-const jujuMachineTag = "juju-machine-id"
+// jujuMachineTagKey is the key for the tag where we save the member's juju machine id.
+const jujuMachineTagKey = "juju-machine-id"
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
@@ -219,7 +219,7 @@ func addNewMembers(
 			maxId++
 			member := &replicaset.Member{
 				Tags: map[string]string{
-					jujuMachineTag: m.id,
+					jujuMachineTagKey: m.id,
 				},
 				Id: maxId,
 			}
@@ -263,7 +263,7 @@ func (info *PeerGroupInfo) membersMap() (members map[*Machine]*replicaset.Member
 	members = make(map[*Machine]*replicaset.Member)
 	for _, member := range info.members {
 		member := member
-		mid, ok := member.Tags[jujuMachineTag]
+		mid, ok := member.Tags[jujuMachineTagKey]
 		var found *Machine
 		if ok {
 			found = info.machines[mid]

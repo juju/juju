@@ -167,7 +167,7 @@ func addressesWithPort(port int, addrs ...string) []network.HostPort {
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&peergrouper.PollInterval, 5*time.Millisecond)
+		s.PatchValue(peergrouper.PollInterval, 5*time.Millisecond)
 
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
@@ -387,7 +387,7 @@ var fatalErrorsTests = []struct {
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&peergrouper.PollInterval, 5*time.Millisecond)
+		s.PatchValue(peergrouper.PollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
 			c.Logf("test %d: %s -> %s", i, testCase.errPattern, testCase.expectErr)
 			resetErrors()
@@ -422,11 +422,11 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 			count++
 			return errors.New("sample")
 		})
-		s.PatchValue(&peergrouper.InitialRetryInterval, 10*time.Microsecond)
-		s.PatchValue(&peergrouper.MaxRetryInterval, coretesting.ShortWait/4)
+		s.PatchValue(peergrouper.InitialRetryInterval, 10*time.Microsecond)
+		s.PatchValue(peergrouper.MaxRetryInterval, coretesting.ShortWait/4)
 
 		expectedIterations := 0
-		for d := peergrouper.InitialRetryInterval; d < peergrouper.MaxRetryInterval*2; d *= 2 {
+		for d := *peergrouper.InitialRetryInterval; d < *peergrouper.MaxRetryInterval*2; d *= 2 {
 			expectedIterations++
 		}
 
@@ -437,7 +437,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 		isSetWatcher := isSet.Watch()
 
 		n0 := mustNext(c, isSetWatcher).(int)
-		time.Sleep(peergrouper.MaxRetryInterval * 2)
+		time.Sleep(*peergrouper.MaxRetryInterval * 2)
 		n1 := mustNext(c, isSetWatcher).(int)
 
 		// The worker should have backed off exponentially...
@@ -446,7 +446,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 		// ... but only up to the maximum retry interval
 		n0 = mustNext(c, isSetWatcher).(int)
-		time.Sleep(peergrouper.MaxRetryInterval * 2)
+		time.Sleep(*peergrouper.MaxRetryInterval * 2)
 		n1 = mustNext(c, isSetWatcher).(int)
 
 		c.Assert(n1-n0, jc.LessThan, 3)
@@ -502,9 +502,9 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&peergrouper.PollInterval, coretesting.LongWait+time.Second)
-		s.PatchValue(&peergrouper.InitialRetryInterval, 5*time.Millisecond)
-		s.PatchValue(&peergrouper.MaxRetryInterval, peergrouper.InitialRetryInterval)
+		s.PatchValue(peergrouper.PollInterval, coretesting.LongWait+time.Second)
+		s.PatchValue(peergrouper.InitialRetryInterval, 5*time.Millisecond)
+		s.PatchValue(peergrouper.MaxRetryInterval, 5*time.Millisecond)
 
 		publishCh := make(chan [][]network.HostPort, 100)
 
@@ -543,9 +543,9 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 
 func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
-		s.PatchValue(&peergrouper.PollInterval, coretesting.LongWait+time.Second)
-		s.PatchValue(&peergrouper.InitialRetryInterval, 5*time.Millisecond)
-		s.PatchValue(&peergrouper.MaxRetryInterval, peergrouper.InitialRetryInterval)
+		s.PatchValue(peergrouper.PollInterval, coretesting.LongWait+time.Second)
+		s.PatchValue(peergrouper.InitialRetryInterval, 5*time.Millisecond)
+		s.PatchValue(peergrouper.MaxRetryInterval, 5*time.Millisecond)
 
 		publishCh := make(chan []instance.Id, 100)
 

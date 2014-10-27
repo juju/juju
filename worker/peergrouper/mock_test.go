@@ -38,6 +38,8 @@ type fakeState struct {
 	check        func(st *fakeState) error
 }
 
+const jujuMachineTagKey = "juju-machine-id"
+
 var (
 	_ peergrouper.StateInterface = (*fakeState)(nil)
 	_ peergrouper.StateMachine   = (*fakeMachine)(nil)
@@ -147,7 +149,7 @@ func checkInvariants(st *fakeState) error {
 			votes = *m.Votes
 		}
 		voteCount += votes
-		if id, ok := m.Tags[peergrouper.JujuMachineTag]; ok {
+		if id, ok := m.Tags[jujuMachineTagKey]; ok {
 			if votes > 0 {
 				m := st.machine(id)
 				if m == nil {
