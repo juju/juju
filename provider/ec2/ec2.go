@@ -1,4 +1,4 @@
-// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Copyright 2011-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package ec2
@@ -242,7 +242,14 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyCredentials(e.(*environ)); err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -271,6 +278,39 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	m["access-key"] = ecfg.accessKey()
 	m["secret-key"] = ecfg.secretKey()
 	return m, nil
+}
+
+const badAccessKey = `
+Please ensure the Access Key ID you have specified is correct.
+You can obtain the Access Key ID via the "Security Credentials"
+page in the AWS console.`
+
+const badSecretKey = `
+Please ensure the Secret Access Key you have specified is correct.
+You can obtain the Secret Access Key via the "Security Credentials"
+page in the AWS console.`
+
+// verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
+// verify the configured credentials. If verification fails, a user-friendly
+// error will be returned, and the original error will be logged at debug
+// level.
+var verifyCredentials = func(e *environ) error {
+	_, err := e.ec2().AccountAttributes()
+	if err != nil {
+		logger.Debugf("ec2 request failed: %v", err)
+		if err, ok := err.(*ec2.Error); ok {
+			switch err.Code {
+			case "AuthFailure":
+				return errors.New("authentication failed.\n" + badAccessKey)
+			case "SignatureDoesNotMatch":
+				return errors.New("authentication failed.\n" + badSecretKey)
+			default:
+				return err
+			}
+		}
+		return err
+	}
+	return nil
 }
 
 func (e *environ) Config() *config.Config {

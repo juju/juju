@@ -292,6 +292,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
@@ -313,6 +314,7 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "ec2",
 		"control-bucket": "burblefoo",
