@@ -531,9 +531,9 @@ func (s *envFileStorage) Close() error {
 
 const BackupsDB = "juju"
 
-// NewBackupsStorage returns a new FileStorage to use for storing backup
+// NewBackupStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
-func NewBackupsStorage(st *State) filestorage.FileStorage {
+func NewBackupStorage(st *State) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
 	db := st.db
 	dbOp := NewDBOperator(db, backupsMetaC, envUUID)
@@ -546,7 +546,7 @@ func NewBackupsStorage(st *State) filestorage.FileStorage {
 
 // NewBackups returns a new backups based on the state.
 func NewBackups(st *State) (backups.Backups, io.Closer) {
-	stor := NewBackupsStorage(st)
+	stor := NewBackupStorage(st)
 
 	backups := backups.NewBackups(stor)
 	return backups, stor
