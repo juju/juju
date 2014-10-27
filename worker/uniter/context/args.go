@@ -42,8 +42,8 @@ func searchHook(charmDir, hook string) (string, error) {
 		// there is no need to look for suffixed hooks
 		return lookPath(hookFile)
 	}
-	for _, val := range windowsSuffixOrder {
-		file := fmt.Sprintf("%s%s", hookFile, val)
+	for _, suffix := range windowsSuffixOrder {
+		file := fmt.Sprintf("%s%s", hookFile, suffix)
 		foundHook, err := lookPath(file)
 		if err != nil {
 			if IsMissingHookError(err) {
@@ -58,10 +58,11 @@ func searchHook(charmDir, hook string) (string, error) {
 }
 
 // hookCommand constructs an appropriate command to be passed to
-// exec.Command(). The exec package uses cmd.exe as default on windows
+// exec.Command(). The exec package uses cmd.exe as default on windows.
 // cmd.exe does not know how to execute ps1 files by default, and
 // powershell needs a few flags to allow execution (-ExecutionPolicy)
-// and propagate error levels (-File). .cmd and .bat files can be run directly
+// and propagate error levels (-File). .cmd and .bat files can be run
+// directly.
 func hookCommand(hook string) []string {
 	if version.Current.OS != version.Windows {
 		// we are not running on windows,

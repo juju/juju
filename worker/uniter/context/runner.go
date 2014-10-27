@@ -20,15 +20,31 @@ import (
 
 // Runner is reponsible for invoking commands in a context.
 type Runner interface {
+
+	// RunHook executes the hook with the supplied name.
 	RunHook(name string) error
+
+	// RunAction executes the action with the supplied name.
 	RunAction(name string) error
+
+	// RunCommands executes the supplied script.
 	RunCommands(commands string) (*utilexec.ExecResponse, error)
 }
 
-// Paths exposes the filesystem paths needed by Runner.
+// Paths exposes the paths needed by Runner.
 type Paths interface {
+
+	// GetToolsDir returns the filesystem path to the dirctory containing
+	// the hook tool symlinks.
 	GetToolsDir() string
+
+	// GetCharmDir returns the filesystem path to the directory in which
+	// the charm is installed.
 	GetCharmDir() string
+
+	// GetJujucSocket returns the path to the socket used by the hook tools
+	// to communicate back to the executing uniter process. It might be a
+	// filesystem path, or it might be abstract.
 	GetJujucSocket() string
 }
 
@@ -43,8 +59,7 @@ type runner struct {
 	paths   Paths
 }
 
-// RunCommands executes the commands in an environment which allows it to to
-// call back into the hook context to execute jujuc tools.
+// RunCommands exists to satisfy the Runner interface.
 func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
 	srv, err := runner.startJujucServer()
 	if err != nil {
@@ -61,12 +76,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	return result, runner.context.finalizeContext("run commands", err)
 }
 
-func (runner *runner) getLogger(hookName string) loggo.Logger {
-	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
-}
-
-// RunAction executes a hook from the charm's actions in an environment which
-// allows it to to call back into the hook context to execute jujuc tools.
+// RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
 	if runner.context.actionData == nil {
 		return fmt.Errorf("not running an action")
@@ -79,8 +89,7 @@ func (runner *runner) RunAction(actionName string) error {
 	return runner.runCharmHookWithLocation(actionName, "actions")
 }
 
-// RunHook executes a built-in hook in an environment which allows it to to
-// call back into the hook context to execute jujuc tools.
+// RunHook exists to satisfy the Runner interface.
 func (runner *runner) RunHook(hookName string) error {
 	return runner.runCharmHookWithLocation(hookName, "hooks")
 }
@@ -159,4 +168,8 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	}
 	go srv.Run()
 	return srv, nil
+}
+
+func (runner *runner) getLogger(hookName string) loggo.Logger {
+	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
 }
