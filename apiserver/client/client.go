@@ -470,6 +470,13 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
+
+	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
+		_, err = state.Machine(args.ToMachineSpec)
+		if err != nil {
+			return nil, fmt.Errorf(`cannot add units for service "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+		}
+	}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
 

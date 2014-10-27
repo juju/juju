@@ -139,6 +139,12 @@ func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
 }
 
+func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
+	s.setupService(c)
+	err := runAddUnit(c, "some-service-name", "--to", "42")
+	c.Assert(err, gc.ErrorMatches, `cannot add units for service "some-service-name" to machine 42: machine 42 not found`)
+}
+
 type AddUnitLocalSuite struct {
 	jujutesting.RepoSuite
 }
