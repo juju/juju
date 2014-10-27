@@ -4,14 +4,9 @@
 package backups_test
 
 import (
-	"bytes"
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 	"testing"
 	"time"
 
-	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/backups"
@@ -68,47 +63,4 @@ func (s *baseSuite) checkMetadataResult(
 	c.Check(result.Machine, gc.Equals, meta.Origin.Machine)
 	c.Check(result.Hostname, gc.Equals, meta.Origin.Hostname)
 	c.Check(result.Version, gc.Equals, meta.Origin.Version)
-}
-
-type fakeHTTPCaller struct {
-	StatusCode int
-	Result     interface{}
-	Data       string
-	Error      error
-}
-
-func (*fakeHTTPCaller) NewHTTPRequest(string, string) (*http.Request, error) {
-	req := http.Request{
-		Header: make(http.Header),
-	}
-	return &req, nil
-}
-
-func (c *fakeHTTPCaller) SendHTTPRequest(*http.Request) (*http.Response, error) {
-	if c.Error != nil {
-		return nil, c.Error
-	}
-	statusCode := c.StatusCode
-	if statusCode == 0 {
-		statusCode = http.StatusOK
-	}
-
-	resp := http.Response{
-		StatusCode: statusCode,
-		Header:     make(http.Header),
-	}
-
-	if c.Result != nil {
-		resp.Header.Set("Content-Type", "application/json")
-		data, err := json.Marshal(c.Result)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		resp.Body = ioutil.NopCloser(bytes.NewBuffer(data))
-	} else {
-		resp.Header.Set("Content-Type", "application/octet-stream")
-		resp.Body = ioutil.NopCloser(bytes.NewBufferString(c.Data))
-	}
-
-	return &resp, nil
 }

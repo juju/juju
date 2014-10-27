@@ -13,7 +13,7 @@ func ExposeFacade(c *Client) base.FacadeCaller {
 }
 
 // SetHTTP sets the HTTP caller on the client.
-func SetHTTP(c *Client, http base.HTTPCaller) {
+func SetHTTP(c *Client, http httpClient) {
 	c.http = http
 }
 

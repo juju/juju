@@ -4,19 +4,25 @@
 package backups
 
 import (
+	"net/http"
+
 	"github.com/juju/juju/api/base"
 )
+
+type httpClient interface {
+	SendHTTPRequest(method, path string, args interface{}) (*http.Request, *http.Response, error)
+}
 
 // Client wraps the backups API for the client.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
-	http   base.HTTPCaller
+	http   httpClient
 }
 
 type httpAPICallCloser interface {
 	base.APICallCloser
-	base.HTTPCaller
+	httpClient
 }
 
 // NewClient returns a new backups API client.
