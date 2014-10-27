@@ -14,7 +14,7 @@ import (
 type RestoreStatus string
 
 const (
-	currentRestoreId = "curent"
+	currentRestoreId = "current"
 
 	// UnknownRestoreStatus is the initial status for restoreInfoDoc
 	UnknownRestoreStatus RestoreStatus = "UNKNOWN"
@@ -25,11 +25,12 @@ const (
 	RestoreInProgress RestoreStatus = "RESTORING"
 	// RestoreFinished it is set by restore upon a succesful run
 	RestoreFinished RestoreStatus = "RESTORED"
+	RestoreChecked  RestoreStatus = "CHECKED"
 )
 
 type restoreInfoDoc struct {
 	Id     string        `bson:"_id"`
-	status RestoreStatus `bson:"status"`
+	Status RestoreStatus `bson:"status"`
 }
 
 // RestoreInfo its used to syncronize Restore and machine agent
@@ -38,23 +39,9 @@ type RestoreInfo struct {
 	doc restoreInfoDoc
 }
 
-func currentRestoreInfoDoc(st *State) (*restoreInfoDoc, error) {
-	var doc restoreInfoDoc
-	restoreInfo, closer := st.getCollection(restoreInfoC)
-	defer closer()
-	err := restoreInfo.FindId(currentRestoreId).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot read restore info")
-	}
-	return &doc, nil
-}
-
-// Status returns the current Restore doc
+// Status returns the current Restore doc status
 func (info *RestoreInfo) Status() RestoreStatus {
-	return info.doc.status
+	return info.doc.Status
 }
 
 // SetStatus sets the status of the current restore. Checks are made
@@ -64,6 +51,9 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 
 	if status == RestoreInProgress {
 		assertSane = bson.D{{"status", RestorePending}}
+	}
+	if status == RestoreChecked {
+		assertSane = bson.D{{"status", RestoreFinished}}
 	}
 
 	ops := []txn.Op{{
@@ -83,18 +73,20 @@ func (info *RestoreInfo) SetStatus(status RestoreStatus) error {
 // EnsureRestoreInfo returns the current info doc, if it does not exists
 // it creates it with UnknownRestoreStatus status
 func (st *State) EnsureRestoreInfo() (*RestoreInfo, error) {
-	cdoc, err := currentRestoreInfoDoc(st)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot ensure restore info")
+	doc := restoreInfoDoc{}
+	restoreInfo, closer := st.getCollection(restoreInfoC)
+	defer closer()
+	err := restoreInfo.Find(bson.M{"_id": currentRestoreId}).One(&doc)
+	if err == nil {
+		return &RestoreInfo{st: st, doc: doc}, nil
 	}
 
-	if cdoc != nil {
-		return &RestoreInfo{st: st, doc: *cdoc}, nil
+	if err != mgo.ErrNotFound {
+		return nil, errors.Annotate(err, "cannot read restore info")
 	}
-
-	doc := restoreInfoDoc{
+	doc = restoreInfoDoc{
 		Id:     currentRestoreId,
-		status: UnknownRestoreStatus,
+		Status: UnknownRestoreStatus,
 	}
 	ops := []txn.Op{{
 		C:      restoreInfoC,
