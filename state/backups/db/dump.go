@@ -103,7 +103,11 @@ func (md *mongoDumper) dump(dumpDir, dbName string) error {
 
 // Dump dumps the juju state database.
 func (md *mongoDumper) Dump(baseDumpDir string) error {
-	// XXX Do not dump the ignored databases.
-	err := md.dump(baseDumpDir, "")
-	return errors.Trace(err)
+	// Only dump the target databases.
+	for _, dbName := range md.Info.Targets {
+		if err := md.dump(baseDumpDir, dbName); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
