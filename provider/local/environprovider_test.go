@@ -6,6 +6,7 @@ package local_test
 import (
 	"errors"
 	"os/user"
+	"strings"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -313,4 +314,52 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// local provider sets proxy-ssh to false
 	c.Assert(env.Config().ProxySSH(), gc.Equals, false)
+}
+
+func (s *prepareSuite) TestPrepareProxyLocalhostFix(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (proxy.Settings, error) {
+		return proxy.Settings{
+				Http:  "http://localhost:8080",
+				Https: "https://localhost",
+				Ftp:   "ftp://127.2.0.1",
+			},
+			nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Prepare(coretesting.Context(c), basecfg)
+	c.Assert(err, gc.IsNil)
+
+	// all reference to localhost should have been replaced
+	c.Assert(strings.Contains(env.Config().AptHttpProxy(), "localhost"), gc.Equals, false)
+	c.Assert(strings.Contains(env.Config().AptHttpsProxy(), "localhost"), gc.Equals, false)
+	c.Assert(strings.Contains(env.Config().AptFtpProxy(), "127.2.0.1"), gc.Equals, false)
+}
+
+func (s *prepareSuite) TestPrepareProxyLocalhostFixOtherVersions(c *gc.C) {
+	s.PatchValue(local.DetectAptProxies, func() (proxy.Settings, error) {
+		return proxy.Settings{
+				Http:  "http://127.3.0.1:8080",
+				Https: "https://[::1]:8080",
+				Ftp:   "ftp://::1",
+			},
+			nil
+	})
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	provider, err := environs.Provider("local")
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Prepare(coretesting.Context(c), basecfg)
+	c.Assert(err, gc.IsNil)
+
+	// all reference to localhost should have been replaced
+	c.Assert(strings.Contains(env.Config().AptHttpProxy(), "127.3.0.1:8080"), gc.Equals, false)
+	c.Assert(strings.Contains(env.Config().AptHttpsProxy(), "[::1]:8080"), gc.Equals, false)
+	c.Assert(strings.Contains(env.Config().AptFtpProxy(), "::1"), gc.Equals, false)
 }
