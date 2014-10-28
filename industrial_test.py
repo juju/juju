@@ -47,12 +47,12 @@ class MultiIndustrialTest:
 
     def make_results(self):
         """Return a results list for use in run_tests."""
-        return [{
+        return {'results': [{
             'title': stage.title,
             'attempts': 0,
             'old_failures': 0,
             'new_failures': 0,
-        } for stage in self.stages]
+        } for stage in self.stages]}
 
     def run_tests(self):
         """Run all stages until required number of attempts are achieved.
@@ -61,7 +61,7 @@ class MultiIndustrialTest:
         """
         results = self.make_results()
         for unused_ in range(self.max_attempts):
-            if results[-1]['attempts'] >= self.attempt_count:
+            if results['results'][-1]['attempts'] >= self.attempt_count:
                 break
             industrial = self.make_industrial_test()
             self.update_results(industrial.run_attempt(), results)
@@ -79,7 +79,7 @@ class MultiIndustrialTest:
         Results for stages that have already reached self.attempts are
         ignored.
         """
-        for result, cur_result in zip(results, run_attempt):
+        for result, cur_result in zip(results['results'], run_attempt):
             if result['attempts'] >= self.attempt_count:
                 continue
             result['attempts'] += 1
@@ -304,7 +304,7 @@ def main():
     args = parse_args()
     mit = MultiIndustrialTest.from_args(args)
     results = mit.run_tests()
-    maybe_write_json(args.json_file, results)
+    maybe_write_json(args.json_file, {'results': results})
     sys.stdout.writelines(mit.results_table(results))
 
 

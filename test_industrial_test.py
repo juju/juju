@@ -147,12 +147,12 @@ class TestMultiIndustrialTest(TestCase):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
             DestroyEnvironmentAttempt, BootstrapAttempt], 5)
         results = mit.make_results()
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
              'title': 'destroy environment'},
             {'attempts': 0, 'old_failures': 0, 'new_failures': 0,
              'title': 'bootstrap'},
-        ])
+        ]})
 
     def test_make_industrial_test(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -190,26 +190,26 @@ class TestMultiIndustrialTest(TestCase):
             DestroyEnvironmentAttempt, BootstrapAttempt], 2)
         results = mit.make_results()
         mit.update_results([(True, False)], results)
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'attempts': 1, 'new_failures': 1,
              'old_failures': 0},
             {'title': 'bootstrap', 'attempts': 0, 'new_failures': 0,
              'old_failures': 0},
-            ])
+            ]})
         mit.update_results([(True, True), (False, True)], results)
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'attempts': 2, 'new_failures': 1,
              'old_failures': 0},
             {'title': 'bootstrap', 'attempts': 1, 'new_failures': 0,
              'old_failures': 1},
-            ])
+            ]})
         mit.update_results([(False, False), (False, False)], results)
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'title': 'destroy environment', 'attempts': 2, 'new_failures': 1,
              'old_failures': 0},
             {'title': 'bootstrap', 'attempts': 2, 'new_failures': 1,
              'old_failures': 2},
-            ])
+            ]})
 
     def test_run_tests(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -221,12 +221,12 @@ class TestMultiIndustrialTest(TestCase):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 results = mit.run_tests()
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'title': 'foo', 'attempts': 5, 'old_failures': 0,
              'new_failures': 0},
             {'title': 'bar', 'attempts': 5, 'old_failures': 0,
              'new_failures': 5},
-            ])
+            ]})
 
     def test_run_tests_max_attempts(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -238,12 +238,12 @@ class TestMultiIndustrialTest(TestCase):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 results = mit.run_tests()
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'title': 'foo', 'attempts': 5, 'old_failures': 0,
              'new_failures': 5},
             {'title': 'bar', 'attempts': 0, 'old_failures': 0,
              'new_failures': 0},
-            ])
+            ]})
 
     def test_run_tests_max_attempts_less_than_attempt_count(self):
         mit = MultiIndustrialTest('foo-env', 'bar-path', [
@@ -255,12 +255,12 @@ class TestMultiIndustrialTest(TestCase):
             with patch('jujupy.SimpleEnvironment.from_config',
                        side_effect=lambda x: SimpleEnvironment(x, {})):
                 results = mit.run_tests()
-        self.assertEqual(results, [
+        self.assertEqual(results, {'results': [
             {'title': 'foo', 'attempts': 4, 'old_failures': 0,
              'new_failures': 4},
             {'title': 'bar', 'attempts': 0, 'old_failures': 0,
              'new_failures': 0},
-            ])
+            ]})
 
     def test_results_table(self):
         results = [
