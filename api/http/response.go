@@ -20,6 +20,8 @@ func ExtractAPIError(resp *http.Response) (*params.Error, error) {
 	if resp.StatusCode == http.StatusOK {
 		return nil, nil
 	}
+	// We defer closing the body here because we want it closed whether
+	// or not the subsequent read fails.
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
