@@ -72,14 +72,17 @@ func (s *backupsSuite) TestRequiresAuth(c *gc.C) {
 	s.checkErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
 
-func (s *backupsSuite) TestRequiresGET(c *gc.C) {
-	resp, err := s.authRequest(c, "PUT", s.backupURL(c), "", nil)
+func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
+	resp, err := s.authRequest(c, method, url, "", nil)
 	c.Assert(err, gc.IsNil)
-	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
+	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "`+method+`"`)
+}
 
-	resp, err = s.authRequest(c, "POST", s.backupURL(c), "", nil)
-	c.Assert(err, gc.IsNil)
-	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
+func (s *backupsSuite) TestRequiresGET(c *gc.C) {
+	url := s.backupURL(c)
+	for _, method := range []string{"POST", "PUT", "DELETE", "OPTIONS"} {
+		s.checkInvalidMethod(c, method, url)
+	}
 }
 
 func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
