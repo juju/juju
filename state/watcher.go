@@ -612,7 +612,7 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			if exists {
 				existIds = append(existIds, id)
 			} else {
-				doc := &relationScopeDoc{Key: id}
+				doc := &relationScopeDoc{Key: w.st.localID(id)}
 				info.remove(doc.unitName())
 			}
 		default:
@@ -637,8 +637,9 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 
 func (w *RelationScopeWatcher) loop() error {
 	in := make(chan watcher.Change)
-	filter := func(key interface{}) bool {
-		return strings.HasPrefix(key.(string), w.prefix)
+	fullPrefix := w.st.docID(w.prefix)
+	filter := func(id interface{}) bool {
+		return strings.HasPrefix(id.(string), fullPrefix)
 	}
 	w.st.watcher.WatchCollectionWithFilter(relationScopesC, in, filter)
 	defer w.st.watcher.UnwatchCollection(relationScopesC, in)

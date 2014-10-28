@@ -537,9 +537,15 @@ func AddEnvUUIDToInstanceData(st *State) error {
 }
 
 // AddEnvUUIDToRelations prepends the environment UUID to the ID of
-// all instanceData docs and adds new "env-uuid" field.
+// all relations docs and adds new "env-uuid" and "key" fields.
 func AddEnvUUIDToRelations(st *State) error {
 	return addEnvUUIDToEntityCollection(st, relationsC, "key")
+}
+
+// AddEnvUUIDToRelationScopes prepends the environment UUID to the ID of
+// all relationscopes docs and adds new "env-uuid" field and "key" fields.
+func AddEnvUUIDToRelationScopes(st *State) error {
+	return addEnvUUIDToEntityCollection(st, relationScopesC, "key")
 }
 
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {

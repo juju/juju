@@ -650,6 +650,7 @@ func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = pr.ru2.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
+
 	s.assertScopeChange(c, w0, []string{"riak/1", "riak/2"}, nil)
 	s.assertNoScopeChange(c, w0)
 

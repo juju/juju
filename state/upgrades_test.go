@@ -406,6 +406,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToRelationsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelations, relationsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToRelationScopes(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRelationScopes, relationScopesC,
+		bson.M{
+			"_id":       "r#0#peer#foo/0",
+			"departing": false,
+		},
+		bson.M{
+			"_id":       "r#1#provider#bar/0",
+			"departing": true,
+		},
+	)
+	defer closer()
+
+	var newDoc relationScopeDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "r#0#peer#foo/0")
+	c.Assert(newDoc.Departing, gc.Equals, false)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "r#1#provider#bar/0")
+	c.Assert(newDoc.Departing, gc.Equals, true)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,
