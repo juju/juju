@@ -52,11 +52,32 @@ type Metric struct {
 	Credentials []byte    `bson:"credentials"`
 }
 
+// ValidateMetrics checks that the metrics provided are valid for the corresponding charm url.
+func (st *State) ValidateMetrics(charmUrl *charm.URL, metrics []Metric) error {
+	chrm, err := st.Charm(charmUrl)
+	if err != nil {
+		return err
+	}
+	chrmMetrics := chrm.Metrics()
+	if chrmMetrics == nil {
+		return errors.Errorf("charm doesn't implement metrics")
+	}
+	for _, m := range metrics {
+		if err := chrmMetrics.ValidateMetric(m.Key, m.Value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
 func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
 	if len(metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
+	}
+	if err := st.ValidateMetrics(charmUrl, metrics); err != nil {
+		return nil, err
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
