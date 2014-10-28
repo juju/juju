@@ -17,7 +17,7 @@ type SettingsMap map[string]params.RelationSettings
 
 // RelationCache stores a relation's remote unit membership and settings.
 // Member settings are stored until invalidated or removed by name; settings
-// of other units are stored only until the cache is pruned.
+// of non-member units are stored only until the cache is pruned.
 type RelationCache struct {
 	readSettings SettingsFunc
 	members      SettingsMap
@@ -30,13 +30,20 @@ type RelationCache struct {
 func NewRelationCache(readSettings SettingsFunc, memberNames []string) *RelationCache {
 	cache := &RelationCache{
 		readSettings: readSettings,
-		members:      SettingsMap{},
 	}
-	for _, memberName := range memberNames {
-		cache.InvalidateMember(memberName)
-	}
-	cache.Prune()
+	cache.Prune(memberNames)
 	return cache
+}
+
+// Prune resets the membership to the supplied list, and discards the settings
+// of all non-member units.
+func (cache *RelationCache) Prune(memberNames []string) {
+	newMembers := SettingsMap{}
+	for _, memberName := range memberNames {
+		newMembers[memberName] = cache.members[memberName]
+	}
+	cache.members = newMembers
+	cache.others = SettingsMap{}
 }
 
 // MemberNames returns the names of the remote units present in the relation.
@@ -79,9 +86,4 @@ func (cache *RelationCache) InvalidateMember(memberName string) {
 // member of the relation,
 func (cache *RelationCache) RemoveMember(memberName string) {
 	delete(cache.members, memberName)
-}
-
-// Prune discards the settings of all non-member units.
-func (cache *RelationCache) Prune() {
-	cache.others = SettingsMap{}
 }
