@@ -399,7 +399,7 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	stor, err := environs.LegacyStorage(s.State)
 	if !errors.IsNotSupported(err) {
 		c.Assert(err, gc.IsNil)
-		envtesting.AssertUploadFakeToolsVersions(c, stor, s.Environ.Config().AgentStream(), s.oldVersion)
+		envtesting.AssertUploadFakeToolsVersions(c, stor, s.oldVersion)
 	}
 
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
@@ -519,7 +519,7 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.oldVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.oldVersion)
 
 	// Only the first machine is going to be ready for upgrade.
 	machineIdA, machineIdB, _ := s.createUpgradingStateServers(c)

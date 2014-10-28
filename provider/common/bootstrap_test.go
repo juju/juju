@@ -53,7 +53,7 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 func newStorage(suite cleaner, c *gc.C) storage.Storage {
 	closer, stor, _ := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
-	envtesting.UploadFakeTools(c, stor, "released")
+	envtesting.UploadFakeTools(c, stor)
 	return stor
 }
 

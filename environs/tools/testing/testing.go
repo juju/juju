@@ -45,7 +45,7 @@ func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 // GetMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
 // a fake tools tarball.
 func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	return func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
+	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
 		vers := version.Current
 		if forceVersion != nil {
 			vers.Number = *forceVersion
@@ -70,17 +70,20 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 }
 
 // MakeTools creates some fake tools with the given version strings.
-func MakeTools(c *gc.C, metadataDir, stream string, versionStrings []string) coretools.List {
-	return makeTools(c, metadataDir, stream, versionStrings, false)
+func MakeTools(c *gc.C, metadataDir, subdir, stream string, versionStrings []string) coretools.List {
+	return makeTools(c, metadataDir, subdir, stream, versionStrings, false)
 }
 
 // MakeToolsWithCheckSum creates some fake tools (including checksums) with the given version strings.
-func MakeToolsWithCheckSum(c *gc.C, metadataDir, stream string, versionStrings []string) coretools.List {
-	return makeTools(c, metadataDir, stream, versionStrings, true)
+func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir, stream string, versionStrings []string) coretools.List {
+	return makeTools(c, metadataDir, subdir, stream, versionStrings, true)
 }
 
-func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, withCheckSum bool) coretools.List {
-	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath, stream)
+func makeTools(c *gc.C, metadataDir, subdir, stream string, versionStrings []string, withCheckSum bool) coretools.List {
+	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath)
+	if subdir != "" {
+		toolsDir = filepath.Join(toolsDir, subdir)
+	}
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	var toolsList coretools.List
 	for _, versionString := range versionStrings {
@@ -200,7 +203,7 @@ type metadataFile struct {
 func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []metadataFile {
 	var metadata = make([]*tools.ToolsMetadata, len(versions))
 	for i, vers := range versions {
-		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
 		metadata[i] = &tools.ToolsMetadata{
 			Release: vers.Series,
 			Version: vers.Number.String(),
@@ -225,7 +228,7 @@ func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...v
 	}
 	var err error
 	for _, vers := range versions {
-		filename := fmt.Sprintf("tools/%s/tools-%s.tar.gz", stream, vers.String())
+		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
 		// Put a file in images since the dummy storage provider requires a
 		// file to exist before the URL can be found. This is to ensure it behaves
 		// the same way as MAAS.
@@ -250,7 +253,7 @@ func UploadToDirectory(c *gc.C, stream, dir string, versions ...version.Binary) 
 		return uploaded
 	}
 	for _, vers := range versions {
-		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
+		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
 		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
 	}
 	objects := generateMetadata(c, stream, versions...)
