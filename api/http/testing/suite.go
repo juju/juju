@@ -26,10 +26,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 }
 
 // CheckRequest verifies that the HTTP request matches the args
-// as an API request should.
+// as an API request should.  We only check API-related request fields.
 func (s *BaseSuite) CheckRequest(c *gc.C, req *http.Request, method, user, pw, host, pth string) {
-	// Only check API-related request fields.
-
 	c.Check(req.Method, gc.Equals, method)
 
 	url := `https://` + host + `:\d+/environment/[-0-9a-f]+/` + pth
