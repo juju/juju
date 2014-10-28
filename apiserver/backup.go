@@ -62,7 +62,7 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		}
 		defer archive.Close()
 
-		err = h.sendFile(archive, meta.Checksum(), "SHA", resp)
+		err = h.sendFile(archive, meta.Checksum(), apihttp.DIGEST_SHA, resp)
 		if err != nil {
 			h.sendError(resp, http.StatusInternalServerError, err.Error())
 			return
@@ -102,7 +102,7 @@ func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownload
 	return &args, nil
 }
 
-func (h *backupHandler) sendFile(file io.Reader, checksum, algorithm string, resp http.ResponseWriter) error {
+func (h *backupHandler) sendFile(file io.Reader, checksum string, algorithm apihttp.DigestAlgorithm, resp http.ResponseWriter) error {
 	// We don't set the Content-Length header, leaving it at -1.
 	resp.Header().Set("Content-Type", apihttp.CTYPE_RAW)
 	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", algorithm, checksum))
