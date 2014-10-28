@@ -20,8 +20,6 @@ var newHTTPClient = func(s *State) apihttp.HTTPClient {
 
 // NewHTTPClient returns an HTTP client initialized based on State.
 func (s *State) NewHTTPClient() *http.Client {
-	// for reference:
-	// Call utils.GetNonValidatingHTTPClient() to get a non-validating client.
 	httpclient := utils.GetValidatingHTTPClient()
 	tlsconfig := tls.Config{
 		RootCAs: s.certPool,
