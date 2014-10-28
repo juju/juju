@@ -6,8 +6,10 @@ package local
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"os/user"
+	"regexp"
 	"strconv"
 	"syscall"
 
@@ -77,11 +79,46 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err := VerifyPrerequisites(localConfig.container()); err != nil {
 		return nil, fmt.Errorf("failed verification of local provider prerequisites: %v", err)
 	}
+	if cfg, err = providerInstance.correctLocalhostURLs(cfg, localConfig); err != nil {
+		return nil, fmt.Errorf("failed to translate proxy config settings: %v", err)
+	}
 	environ := &localEnviron{name: cfg.Name()}
 	if err := environ.SetConfig(cfg); err != nil {
 		return nil, fmt.Errorf("failure setting config: %v", err)
 	}
 	return environ, nil
+}
+
+// correctLocalhostURLs exams proxy attributes and changes URL values pointing to localhost to use bridge IP.
+func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *environConfig) (*config.Config, error) {
+	// Attribute names that could contain references to localhost in their values
+	proxyAttrs := []string{
+		"http-proxy",
+		"https-proxy",
+		"ftp-proxy",
+		"no-proxy",
+		"apt-http-proxy",
+		"apt-https-proxy",
+		"apt-ftp-proxy",
+	}
+	// Current configuration attributes
+	attrs := cfg.AllAttrs()
+
+	newAttrs := make(map[string]interface{})
+	for _, key := range proxyAttrs {
+		anAttr := attrs[key]
+		if anAttr == nil {
+			continue
+		}
+		newValue, err := p.swapLocalhostForBridgeIP(anAttr.(string), providerCfg)
+		if err != nil {
+			return cfg, err
+		}
+		newAttrs[key] = newValue
+		logger.Infof("\nAttribute %q is set to (%v)\n", key, newValue)
+	}
+	// Update desired attributes on current configuration
+	return cfg.Apply(newAttrs)
 }
 
 var detectAptProxies = apt.DetectProxies
@@ -147,6 +184,35 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	}
 
 	return p.Open(cfg)
+}
+
+// swapLocalhostForBridgeIP substitutes bridge ip for localhost. Non-localhost values are not modified.
+func (p environProvider) swapLocalhostForBridgeIP(u string, providerConfig *environConfig) (string, error) {
+	if u == "" {
+		return u, nil
+	}
+	// TODO {anastasia} Parse method does not cater for malformed URL, eg. localhost:8080
+	parsedUrl, err := url.Parse(u)
+	if err != nil {
+		return "", err
+	}
+	// Localhost url can be specified in 3 ways: localhost, 127.0.0.1 or ::1
+	// This regular expression does not cater for a. subnets, eg. 127.0.0.1/8 nor b. digits preceding :: in ipv6 url, eg. 0::0:1.
+	localHostRegexp := regexp.MustCompile("localhost|127\\.[\\d.]+|[0:]+1|\\[?::1]?")
+	// Host and post specification is host:port
+	hostPortRegexp := regexp.MustCompile("(?P<host>(\\[?[::]*[^:]+))(?P<port>($|:[^:]+$))")
+	hostPort := parsedUrl.Host //parse url
+	if !localHostRegexp.MatchString(hostPort) {
+		// If not localhost, return current attribute value
+		return u, nil
+	}
+	//If localhost is specified, use its network bridge ip
+	bridgeAddress, nwerr := getAddressForInterface(providerConfig.networkBridge())
+	if nwerr != nil {
+		return u, nwerr
+	}
+	parsedUrl.Host = hostPortRegexp.ReplaceAllString(hostPort, fmt.Sprintf("%s$port", bridgeAddress))
+	return parsedUrl.String(), nil
 }
 
 // checkLocalPort checks that the passed port is not used so far.
