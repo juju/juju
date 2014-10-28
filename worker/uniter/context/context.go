@@ -6,6 +6,7 @@ package context
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -17,11 +18,11 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
+var mutex = sync.Mutex{}
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -125,28 +126,41 @@ type HookContext struct {
 }
 
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
-	ctx.SetRebootPriority(priority)
-
+	var err error
 	if priority == jujuc.RebootNow {
 		// At this point, the hook should be running
-		return ctx.killCharmHook()
+		err = ctx.killCharmHook()
 	}
-	return nil
+
+	switch err {
+	case nil, ErrNoProcess:
+		// ErrNoProcess almost certainly means we are running in debug hooks
+		ctx.SetRebootPriority(priority)
+	}
+	return err
 }
 
 func (ctx *HookContext) GetRebootPriority() jujuc.RebootPriority {
+	mutex.Lock()
+	defer mutex.Unlock()
 	return ctx.rebootPriority
 }
 
 func (ctx *HookContext) SetRebootPriority(priority jujuc.RebootPriority) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	ctx.rebootPriority = priority
 }
 
 func (ctx *HookContext) GetProcess() *os.Process {
+	mutex.Lock()
+	defer mutex.Unlock()
 	return ctx.process
 }
 
 func (ctx *HookContext) SetProcess(process *os.Process) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	ctx.process = process
 }
 
@@ -294,23 +308,28 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 }
 
 func (ctx *HookContext) handleReboot(err *error) {
-	if *err != nil {
-		return
-	}
+	logger.Infof("handling reboot")
 	rebootPriority := ctx.GetRebootPriority()
-	if rebootPriority == jujuc.RebootSkip {
+	switch rebootPriority {
+	case jujuc.RebootSkip:
 		return
+	case jujuc.RebootAfterHook:
+		// Reboot should happen only after hook has finished.
+		if *err != nil {
+			return
+		}
+		*err = ErrReboot
+	case jujuc.RebootNow:
+		*err = ErrRequeueAndReboot
 	}
 	reqErr := ctx.unit.RequestReboot()
 	if reqErr != nil {
 		*err = reqErr
 	}
-	*err = worker.ErrRebootMachine
 }
 
 func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
 	writeChanges := ctxErr == nil
-	defer ctx.handleReboot(&err)
 
 	// In the case of Actions, handle any errors using finalizeAction.
 	if ctx.actionData != nil {
@@ -323,6 +342,9 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 			err = ctx.finalizeAction(ctxErr, err)
 		}(ctxErr)
 		ctxErr = nil
+	} else {
+		// TODO(gsamfira): Just for now, reboot will not be supported in actions.
+		defer ctx.handleReboot(&err)
 	}
 
 	for id, rctx := range ctx.relations {
@@ -429,19 +451,30 @@ func (ctx *HookContext) killCharmHook() error {
 	proc := ctx.GetProcess()
 	if proc == nil {
 		// nothing to kill
-		return errors.New("no process to kill")
+		return ErrNoProcess
 	}
-	logger.Infof("Trying to kill: %v", proc.Pid)
+	logger.Infof("trying to kill context process %d", proc.Pid)
 
-	err := proc.Kill()
-	if err != nil {
-		logger.Errorf("Failed to kill process %v: %v", proc.Pid, err)
-		return err
+	tick := time.After(0)
+	timeout := time.After(30 * time.Second)
+	for {
+		// We repeatedly try to kill the process until we fail; this is
+		// because we don't control the *Process, and our clients expect
+		// to be able to Wait(); so we can't Wait. We could do better,
+		//   but not with a single implementation across all platforms.
+		// TODO(gsamfira): come up with a better cross-platform approach.
+		select {
+		case <-tick:
+			err := proc.Kill()
+			if err != nil {
+				logger.Infof("kill returned: %s", err)
+				logger.Infof("assuming already killed")
+				return nil
+			}
+		case <-timeout:
+			return errors.Errorf("failed to kill context process %d", proc.Pid)
+		}
+		logger.Infof("waiting for context process %s to die", proc.Pid)
+		tick = time.After(100 * time.Millisecond)
 	}
-
-	_, err = proc.Wait()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }

@@ -2,6 +2,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -33,6 +34,10 @@ func (c *JujuRebootCommand) Init(args []string) error {
 }
 
 func (c *JujuRebootCommand) Run(ctx *cmd.Context) error {
+	if _, err := c.ctx.ActionParams(); err == nil {
+		return errors.New("juju-reboot is not supported when running an action.")
+	}
+
 	logger.Debugf("Running juju-reboot for: %v", c.ctx.UnitName())
 
 	rebootPriority := RebootAfterHook

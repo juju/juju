@@ -10,10 +10,12 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/version"
+//	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/context/debug"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
@@ -81,12 +83,6 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 
 	// Block and wait for process to finish
 	result, err := command.Wait()
-
-	if runner.context.GetRebootPriority() == jujuc.RebootNow {
-		// command was killed due to juju-reboot --now
-		// clear the error
-		err = nil
-	}
 	return result, runner.context.finalizeContext("run commands", err)
 }
 
@@ -168,7 +164,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 		err = ps.Wait()
 	}
 	hookLogger.stop()
-	return err
+	return errors.Trace(err)
 }
 
 func (runner *runner) startJujucServer() (*jujuc.Server, error) {

@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 type JujuRebootSuite struct{}
@@ -54,31 +54,31 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		priority jujuc.RebootPriority
 	}{{
 		summary:  "test reboot priority defaulting to RebootAfterHook",
-		hctx:     &Context{shouldError: false, rebootPrio: jujuc.RebootSkip},
+		hctx:     &Context{shouldError: false, rebootPriority: jujuc.RebootSkip},
 		args:     []string{},
 		code:     0,
 		priority: jujuc.RebootAfterHook,
 	}, {
 		summary:  "test reboot priority being set to RebootNow",
-		hctx:     &Context{shouldError: false, rebootPrio: jujuc.RebootSkip},
+		hctx:     &Context{shouldError: false, rebootPriority: jujuc.RebootSkip},
 		args:     []string{"--now"},
 		code:     0,
 		priority: jujuc.RebootNow,
 	}, {
 		summary:  "test a failed running of juju-reboot",
-		hctx:     &Context{shouldError: true, rebootPrio: jujuc.RebootSkip},
+		hctx:     &Context{shouldError: true, rebootPriority: jujuc.RebootSkip},
 		args:     []string{},
 		code:     1,
 		priority: jujuc.RebootAfterHook,
 	}, {
 		summary:  "test a failed running with parameter provided",
-		hctx:     &Context{shouldError: true, rebootPrio: jujuc.RebootSkip},
+		hctx:     &Context{shouldError: true, rebootPriority: jujuc.RebootSkip},
 		args:     []string{"--now"},
 		code:     1,
 		priority: jujuc.RebootNow,
 	}, {
 		summary:  "test invalid args provided",
-		hctx:     &Context{shouldError: false, rebootPrio: jujuc.RebootSkip},
+		hctx:     &Context{shouldError: false, rebootPriority: jujuc.RebootSkip},
 		args:     []string{"--way", "--too", "--many", "--args"},
 		code:     2,
 		priority: jujuc.RebootSkip,
@@ -92,6 +92,16 @@ func (s *JujuRebootSuite) TestJujuRebootCommand(c *gc.C) {
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
-		c.Check(t.hctx.rebootPrio, gc.Equals, t.priority)
+		c.Check(t.hctx.rebootPriority, gc.Equals, t.priority)
 	}
+}
+
+func (s *JujuRebootSuite) TestRebootInActions(c *gc.C) {
+	jujucCtx := &actionGetContext{}
+	com, err := jujuc.NewCommand(jujucCtx, cmdString("juju-reboot"))
+	c.Assert(err, gc.IsNil)
+	cmdCtx := testing.Context(c)
+	code := cmd.Main(com, cmdCtx, nil)
+	c.Check(code, gc.Equals, 1)
+	c.Assert(testing.Stderr(cmdCtx), gc.Equals, "error: juju-reboot is not supported when running an action.\n")
 }

@@ -5,6 +5,7 @@ package context_test
 
 import (
 	"os"
+	"syscall"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -189,7 +190,7 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 
 func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 	command := exec.RunParams{
-		Commands: "sleep 10",
+		Commands: "trap 'exit 0' SIGTERM; sleep 10",
 	}
 	err := command.Run()
 	c.Assert(err, gc.IsNil)
@@ -200,13 +201,15 @@ func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 	ctx := context.HookContext{}
 	p := s.startProcess(c)
-	s.AddCleanup(func(c *gc.C) { c.Assert(p.Kill(), gc.IsNil) })
+	s.AddCleanup(func(c *gc.C) { p.Kill() })
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, gc.IsNil)
+	syscall.Kill(p.Pid, syscall.SIGTERM)
+	_, err = p.Wait()
+	c.Assert(err, gc.IsNil)
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootAfterHook)
-	c.Assert(processExists(p.Pid), jc.IsTrue)
 }
 
 func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
@@ -214,11 +217,14 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 	p := s.startProcess(c)
 	s.AddCleanup(func(c *gc.C) { p.Kill() })
 	ctx.SetProcess(p)
+	go func() {
+		_, err := p.Wait()
+    	c.Assert(err, gc.IsNil)
+	}()
 	err := ctx.RequestReboot(jujuc.RebootNow)
 	c.Assert(err, gc.IsNil)
 	priority := ctx.GetRebootPriority()
 	c.Assert(priority, gc.Equals, jujuc.RebootNow)
-	c.Assert(processExists(p.Pid), jc.IsFalse)
 }
 
 func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
