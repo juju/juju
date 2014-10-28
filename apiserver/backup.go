@@ -122,6 +122,7 @@ func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message
 
 	body, err := json.Marshal(&failure)
 	if err != nil {
+		logger.Errorf("failed to serialize the failure (%v): %v", failure, err)
 		return
 	}
 
