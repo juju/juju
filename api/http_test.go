@@ -12,18 +12,17 @@ import (
 	apihttp "github.com/juju/juju/api/http"
 	apihttptesting "github.com/juju/juju/api/http/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
 )
 
 type httpSuite struct {
-	apihttptesting.BaseSuite
+	apihttptesting.HTTPSuite
 	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&httpSuite{})
 
 func (s *httpSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.HTTPSuite.SetUpTest(c)
 	s.JujuConnSuite.SetUpTest(c)
 
 	// This determines the client used in SendHTTPRequest().
@@ -34,18 +33,11 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *httpSuite) checkRequest(c *gc.C, req *http.Request, method, path string) {
-	username := dummy.AdminUserTag().String()
-	password := jujutesting.AdminSecret
-	hostname := "localhost"
-	s.CheckRequest(c, req, method, username, password, hostname, path)
-}
-
 func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
 	req, err := s.APIState.NewHTTPRequest("GET", "somefacade")
 	c.Assert(err, gc.IsNil)
 
-	s.checkRequest(c, req, "GET", "somefacade")
+	s.CheckRequest(c, req, "GET", "somefacade")
 }
 
 func (s *httpSuite) TestNewHTTPClientCorrectTransport(c *gc.C) {

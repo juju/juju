@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	gc "gopkg.in/check.v1"
+
+	apihttptesting "github.com/juju/juju/apiserver/http/testing"
 )
 
 // FakeHTTPClient is used in testing in place of an actual http.Client.
@@ -27,7 +29,7 @@ type FakeHTTPClient struct {
 // NewFakeHTTPClient returns a fake with Response set to an OK status,
 // no headers, and no body.
 func NewFakeHTTPClient() *FakeHTTPClient {
-	resp := NewHTTPResponse()
+	resp := apihttptesting.NewHTTPResponse()
 	fake := FakeHTTPClient{
 		Response: &resp.Response,
 	}

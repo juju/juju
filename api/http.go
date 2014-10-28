@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 
 	apihttp "github.com/juju/juju/api/http"
+	apiserverhttp "github.com/juju/juju/apiserver/http"
 )
 
 var newHTTPClient = func(s *State) apihttp.HTTPClient {
@@ -44,7 +45,7 @@ func (s *State) NewHTTPRequest(method, path string) (*http.Request, error) {
 	}
 	uuid := tag.Id()
 
-	req, err := apihttp.NewRequest(method, baseURL, path, uuid, s.tag, s.password)
+	req, err := apiserverhttp.NewRequest(method, baseURL, path, uuid, s.tag, s.password)
 	return req, errors.Trace(err)
 }
 
@@ -55,7 +56,7 @@ func (s *State) SendHTTPRequest(method, path string, args interface{}) (*http.Re
 		return nil, nil, errors.Trace(err)
 	}
 
-	err = apihttp.SetRequestArgs(req, args)
+	err = apiserverhttp.SetRequestArgs(req, args)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "while setting request body")
 	}

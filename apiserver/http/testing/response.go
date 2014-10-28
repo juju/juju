@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	apihttp "github.com/juju/juju/api/http"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 )
 

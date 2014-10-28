@@ -8,13 +8,14 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	apihttp "github.com/juju/juju/api/http"
-	apihttptesting "github.com/juju/juju/api/http/testing"
+	apihttp "github.com/juju/juju/apiserver/http"
+	apihttptesting "github.com/juju/juju/apiserver/http/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/testing"
 )
 
 type responseSuite struct {
-	apihttptesting.BaseSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&responseSuite{})
