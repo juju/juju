@@ -68,7 +68,7 @@ func (c *GetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		if value, found := attrs[c.key]; found {
 			return c.out.Write(ctx, value)
 		}
-		return fmt.Errorf("Key %q not found in %q environment.", c.key, attrs["name"])
+		return fmt.Errorf("key %q not found in %q environment.", c.key, attrs["name"])
 	}
 	// If key is empty, write out the whole lot.
 	return c.out.Write(ctx, attrs)
@@ -99,25 +99,28 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No key, value pairs specified")
+		return fmt.Errorf("no key, value pairs specified")
 	}
+
 	// TODO(thumper) look to have a common library of functions for dealing
 	// with key=value pairs.
 	c.values = make(attributes)
 	for i, arg := range args {
 		bits := strings.SplitN(arg, "=", 2)
 		if len(bits) < 2 {
-			return fmt.Errorf(`Missing "=" in arg %d: %q`, i+1, arg)
+			return fmt.Errorf(`missing "=" in arg %d: %q`, i+1, arg)
 		}
 		key := bits[0]
 		if key == "agent-version" {
 			return fmt.Errorf("agent-version must be set via upgrade-juju")
 		}
 		if _, exists := c.values[key]; exists {
-			return fmt.Errorf(`Key %q specified more than once`, key)
+			return fmt.Errorf(`key %q specified more than once`, key)
 		}
+
 		c.values[key] = bits[1]
 	}
+
 	return nil
 }
 
@@ -127,6 +130,22 @@ func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
+	// extra call to the API to retrieve env config
+	envAttrs, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	for key, _ := range c.values {
+		// check if the key exists in the existing env config
+		// and warn the user if the key is not defined in
+		// the existing config
+		if _, exists := envAttrs[key]; !exists {
+			logger.Warningf("key %q is not defined in the current environemnt configuration: possible misspelling", key)
+		}
+
+	}
+
 	return client.EnvironmentSet(c.values)
 }
 
@@ -157,7 +176,7 @@ func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
 
 func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No keys specified")
+		return fmt.Errorf("no keys specified")
 	}
 	c.keys = args
 	return nil
@@ -169,5 +188,21 @@ func (c *UnsetEnvironmentCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
+
+	// extra call to the API to retrieve env config
+	envAttrs, err := client.EnvironmentGet()
+	if err != nil {
+		return err
+	}
+	for _, key := range c.keys {
+		// check if the key exists in the existing env config
+		// and warn the user if the key is not defined in
+		// the existing config
+		if _, exists := envAttrs[key]; !exists {
+			logger.Warningf("key %q is not defined in the current environemnt configuration: possible misspelling", key)
+		}
+
+	}
+
 	return client.EnvironmentUnset(c.keys...)
 }
