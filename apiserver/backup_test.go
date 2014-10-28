@@ -43,7 +43,7 @@ func (s *baseBackupsSuite) backupURL(c *gc.C) string {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	uri := s.baseURL(c)
-	uri.Path = fmt.Sprintf("/environment/%s/backup", environ.UUID())
+	uri.Path = fmt.Sprintf("/environment/%s/backups", environ.UUID())
 	return uri.String()
 }
 
@@ -81,6 +81,7 @@ func (s *backupsSuite) checkInvalidMethod(c *gc.C, method, url string) {
 func (s *backupsSuite) TestRequiresGET(c *gc.C) {
 	url := s.backupURL(c)
 	for _, method := range []string{"POST", "PUT", "DELETE", "OPTIONS"} {
+		c.Log("testing HTTP method: " + method)
 		s.checkInvalidMethod(c, method, url)
 	}
 }
