@@ -134,11 +134,8 @@ func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
 	)
 	defer cleanup()
 
-	result, err := client.ShareEnvironment([]names.UserTag{user.UserTag()})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.OneError().Error(), gc.Matches, "failed to create environment user: env user already exists")
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `failed to create environment user: env user already exists`)
+	err := client.ShareEnvironment([]names.UserTag{user.UserTag()})
+	c.Assert(err, gc.ErrorMatches, "failed to create environment user: env user already exists")
 }
 
 func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
@@ -161,7 +158,7 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 				c.Fail()
 			}
 			if result, ok := response.(*params.ErrorResults); ok {
-				err := &params.Error{Message: "failed to create environment user: env user already exists"}
+				err := &params.Error{Message: "existing user"}
 				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
 			} else {
 				c.Log("wrong output structure")
@@ -172,22 +169,15 @@ func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
 	)
 	defer cleanup()
 
-	result, err := client.ShareEnvironment([]names.UserTag{existingUser.UserTag(), localUser.UserTag(), newUserTag})
-	c.Assert(err, gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 3)
-	c.Assert(result.Results[0].Error, gc.ErrorMatches, `failed to create environment user: env user already exists`)
-	c.Assert(result.Results[1].Error, gc.IsNil)
-	c.Assert(result.Results[2].Error, gc.IsNil)
+	err := client.ShareEnvironment([]names.UserTag{existingUser.UserTag(), localUser.UserTag(), newUserTag})
+	c.Assert(err, gc.ErrorMatches, `existing user`)
 }
 
 func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
 	client := s.APIState.Client()
 	user := names.NewUserTag("foo@ubuntuone")
-	result, err := client.ShareEnvironment([]names.UserTag{user})
+	err := client.ShareEnvironment([]names.UserTag{user})
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, gc.IsNil)
@@ -199,18 +189,15 @@ func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
 func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
 	client := s.APIState.Client()
 	user := names.NewUserTag("foo@ubuntuone")
-	_, err := client.ShareEnvironment([]names.UserTag{user})
+	err := client.ShareEnvironment([]names.UserTag{user})
 	c.Assert(err, gc.IsNil)
 
 	envUser, err := s.State.EnvironmentUser(user)
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.UserName(), gc.Equals, user.Username())
 
-	result, err := client.UnshareEnvironment([]names.UserTag{user})
+	err = client.UnshareEnvironment([]names.UserTag{user})
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.OneError(), gc.IsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	_, err = s.State.EnvironmentUser(user)
 	c.Assert(errors.IsNotFound(err), jc.IsTrue)

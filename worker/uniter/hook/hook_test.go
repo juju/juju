@@ -4,17 +4,11 @@
 package hook_test
 
 import (
-	"testing"
-
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 )
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type InfoSuite struct{}
 
@@ -41,6 +35,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Start}, ""},
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
 	{hook.Info{Kind: hooks.CollectMetrics}, ""},
+	{hook.Info{Kind: hooks.MeterStatusChanged}, ""},
 	{
 		hook.Info{Kind: hooks.Action},
 		`action id "" cannot be parsed as an action tag`,

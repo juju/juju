@@ -155,7 +155,7 @@ func ClearInstanceDocId(c *gc.C, m *Machine) {
 	ops := []txn.Op{
 		{
 			C:      instanceDataC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
 		},
@@ -223,7 +223,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag names.Tag) (string, string, error) {
+func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
 	return st.parseTag(tag)
 }
 
@@ -250,16 +250,16 @@ func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
 
-func WatcherMergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
-	return mergeIds(changes, initial, updates)
+func WatcherMergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
+	return mergeIds(st, changes, initial, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
 	return ensureSuffixFn(marker)
 }
 
-func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) bool {
-	return makeIdFilter(marker, receivers...)
+func WatcherMakeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
+	return makeIdFilter(st, marker, receivers...)
 }
 
 var (
@@ -286,18 +286,6 @@ func GetAllUpgradeInfos(st *State) ([]*UpgradeInfo, error) {
 		return nil, err
 	}
 	return out, nil
-}
-
-func CountofSentMetrics(st *State) (int, error) {
-	return st.countofSentMetrics()
-}
-
-func CountofUnsentMetrics(st *State) (int, error) {
-	return st.countofUnsentMetrics()
-}
-
-func SetMetricBatchesSent(st *State, metrics []*MetricBatch) error {
-	return st.setMetricBatchesSent(metrics)
 }
 
 func DocID(st *State, id string) string {

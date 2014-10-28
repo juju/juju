@@ -42,7 +42,9 @@ var _ = gc.Suite(&cloudinitSuite{})
 var envConstraints = constraints.MustParse("mem=2G")
 
 var allMachineJobs = []params.MachineJob{
-	params.JobManageEnviron, params.JobHostUnits,
+	params.JobManageEnviron,
+	params.JobHostUnits,
+	params.JobManageNetworking,
 }
 var normalMachineJobs = []params.MachineJob{
 	params.JobHostUnits,
@@ -210,11 +212,11 @@ chown syslog:adm /var/log/juju
 bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
 echo 'Fetching tools.*
-curl .* -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz'
+curl .* -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-precise-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-precise-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-precise-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-precise-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-0/agent\.conf'
@@ -261,10 +263,10 @@ rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-precise-amd64\.sha256
 		inexactMatch: true,
 		expectScripts: `
 bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
-curl .* -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz'
+curl .* -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz'
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-raring-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-raring-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
-printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-raring-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-raring-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-raring-amd64\.sha256
@@ -318,7 +320,7 @@ curl .* --insecure -o \$bin/tools\.tar\.gz 'https://state-addr\.testing\.invalid
 sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
 grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/released/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
@@ -489,7 +491,7 @@ printf '%s\\n' '.*' > '/var/lib/juju/simplestreams/images/streams/v1/com.ubuntu.
 
 func newSimpleTools(vers string) *tools.Tools {
 	return &tools.Tools{
-		URL:     "http://foo.com/tools/releases/juju" + vers + ".tgz",
+		URL:     "http://foo.com/tools/released/juju" + vers + ".tgz",
 		Version: version.MustParseBinary(vers),
 		Size:    10,
 		SHA256:  "1234",
@@ -1045,6 +1047,32 @@ export NO_PROXY=localhost,10.0.3.1' > /home/ubuntu/.juju-proxy && chown ubuntu:u
 		}
 	}
 	c.Assert(found, jc.IsTrue)
+}
+
+func (s *cloudinitSuite) TestAptMirror(c *gc.C) {
+	environConfig := minimalConfig(c)
+	environConfig, err := environConfig.Apply(map[string]interface{}{
+		"apt-mirror": "http://my.archive.ubuntu.com/ubuntu",
+	})
+	c.Assert(err, gc.IsNil)
+	s.testAptMirror(c, environConfig, "http://my.archive.ubuntu.com/ubuntu")
+}
+
+func (s *cloudinitSuite) TestAptMirrorNotSet(c *gc.C) {
+	environConfig := minimalConfig(c)
+	s.testAptMirror(c, environConfig, "")
+}
+
+func (s *cloudinitSuite) testAptMirror(c *gc.C, cfg *config.Config, expect string) {
+	machineCfg := s.createMachineConfig(c, cfg)
+	cloudcfg := coreCloudinit.New()
+	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.Configure()
+	c.Assert(err, gc.IsNil)
+	mirror, ok := cloudcfg.AptMirror()
+	c.Assert(mirror, gc.Equals, expect)
+	c.Assert(ok, gc.Equals, expect != "")
 }
 
 var serverCert = []byte(`

@@ -89,7 +89,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	t.UploadFakeTools(c, stor)
+	t.UploadFakeTools(c, stor, "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
 }
@@ -141,7 +141,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, nil, coretesting.FakeDefaultSeries)
+		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
@@ -330,7 +330,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	}()
 
 	attrs := t.Env.Config().AllAttrs()
-	attrs["firewall-mode"] = "global"
+	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := t.Env.Config().Apply(attrs)
 	c.Assert(err, gc.IsNil)
 	err = t.Env.SetConfig(newConfig)
@@ -638,7 +638,7 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := sync.Upload(t.toolsStorage, &newVersion.Number, newVersion.Series)
+	upgradeTools, err := sync.Upload(t.toolsStorage, "released", &newVersion.Number, newVersion.Series)
 	c.Assert(err, gc.IsNil)
 	// sync.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
@@ -731,7 +731,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, version.MustParseBinary("5.4.5-trusty-amd64"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", version.MustParseBinary("5.4.5-trusty-amd64"))
 	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,

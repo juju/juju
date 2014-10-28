@@ -24,6 +24,7 @@ var facadeVersions = map[string]int{
 	"MetricsManager":       0,
 	"Pinger":               0,
 	"Provisioner":          0,
+	"Reboot":               1,
 	"RelationUnitsWatcher": 0,
 	"UserManager":          0,
 	"CharmRevisionUpdater": 0,
@@ -32,7 +33,7 @@ var facadeVersions = map[string]int{
 	"Upgrader":             0,
 	"Firewaller":           1,
 	"Rsyslog":              0,
-	"Uniter":               0,
+	"Uniter":               1,
 	"Actions":              0,
 }
 

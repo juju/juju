@@ -306,7 +306,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
 			"agent-version":      test.agentVersion,
-			"tools-metadata-url": "file://" + toolsDir + "/tools",
+			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
 		err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 		c.Assert(err, gc.IsNil)
@@ -317,7 +317,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		if len(versions) > 0 {
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
-			envtesting.MustUploadFakeToolsVersions(stor, versions...)
+			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
 		err = com.Run(coretesting.Context(c))
@@ -392,7 +392,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 // in the environment state.
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
-	envtesting.RemoveTools(c, s.DefaultToolsStorage)
+	envtesting.RemoveTools(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream())
 	updateAttrs := map[string]interface{}{
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
@@ -483,7 +483,7 @@ upgrade to this version by running
 		toolsDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
 			"agent-version":      test.agentVersion,
-			"tools-metadata-url": "file://" + toolsDir + "/tools",
+			"agent-metadata-url": "file://" + toolsDir + "/tools",
 		}
 
 		err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
@@ -495,7 +495,7 @@ upgrade to this version by running
 		if len(versions) > 0 {
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
-			envtesting.MustUploadFakeToolsVersions(stor, versions...)
+			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
 
 		ctx := coretesting.Context(c)
@@ -633,7 +633,7 @@ func (a *fakeUpgradeJujuAPI) EnvironmentGet() (map[string]interface{}, error) {
 func (a *fakeUpgradeJujuAPI) FindTools(majorVersion, minorVersion int, series, arch string) (
 	result params.FindToolsResult, err error,
 ) {
-	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "releases", "released", []string{a.nextVersion.String()})
+	tools := toolstesting.MakeTools(a.c, a.c.MkDir(), "released", []string{a.nextVersion.String()})
 	return params.FindToolsResult{
 		List:  tools,
 		Error: nil,

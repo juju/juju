@@ -271,6 +271,114 @@ func (s *upgradesSuite) TestAddEnvUUIDToUnitsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToUnits, unitsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMachines(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMachines, machinesC,
+		bson.M{
+			"_id":    "0",
+			"series": "trusty",
+			"life":   Alive,
+		},
+		bson.M{
+			"_id":    "1",
+			"series": "utopic",
+			"life":   Dead,
+		},
+	)
+	defer closer()
+
+	var newDoc machineDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "0")
+	c.Assert(newDoc.Series, gc.Equals, "trusty")
+	c.Assert(newDoc.Life, gc.Equals, Alive)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "1")
+	c.Assert(newDoc.Series, gc.Equals, "utopic")
+	c.Assert(newDoc.Life, gc.Equals, Dead)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToReboots, rebootC,
+		bson.M{
+			"_id": "0",
+		},
+		bson.M{
+			"_id": "1",
+		},
+	)
+	defer closer()
+
+	var newDoc rebootDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "0")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "1")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRebootsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToReboots, rebootC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToInstanceData(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToInstanceData, instanceDataC,
+		bson.M{
+			"_id":    "0",
+			"status": "alive",
+		},
+		bson.M{
+			"_id":    "1",
+			"status": "dead",
+		},
+	)
+	defer closer()
+
+	var newDoc instanceData
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.MachineId, gc.Equals, "0")
+	c.Assert(newDoc.Status, gc.Equals, "alive")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.MachineId, gc.Equals, "1")
+	c.Assert(newDoc.Status, gc.Equals, "dead")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToInstanceDatasIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToInstanceData, instanceDataC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToContainerRef(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToContainerRefs, containerRefsC,
+		bson.M{
+			"_id":      "0",
+			"children": []string{"1", "2"},
+		},
+		bson.M{
+			"_id":      "1",
+			"children": []string{"3", "4"},
+		},
+	)
+	defer closer()
+
+	var newDoc machineContainers
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "0")
+	c.Assert(newDoc.Children, gc.DeepEquals, []string{"1", "2"})
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Id, gc.Equals, "1")
+	c.Assert(newDoc.Children, gc.DeepEquals, []string{"3", "4"})
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToContainerRefsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToContainerRefs, containerRefsC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,
@@ -775,4 +883,86 @@ func (s *upgradesSuite) TestMigrateUnitPortsToOpenedPortsIdempotent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertUnitPortsPostMigration(c, units)
 	s.assertFinalMachinePorts(c, machines, units)
+}
+
+func (s *upgradesSuite) setUpMeterStatusCreation(c *gc.C) []*Unit {
+	// Set up the test scenario with several units that have no meter status docs
+	// associated with them.
+	units := make([]*Unit, 9)
+	charm := AddTestingCharm(c, s.state, "wordpress")
+	stateOwner, err := s.state.AddUser("bob", "notused", "notused", "bob")
+	c.Assert(err, gc.IsNil)
+	ownerTag := stateOwner.UserTag()
+	_, err = s.state.AddEnvironmentUser(ownerTag, ownerTag)
+	c.Assert(err, gc.IsNil)
+
+	for i := 0; i < 3; i++ {
+		svc := AddTestingService(c, s.state, fmt.Sprintf("service%d", i), charm, ownerTag)
+
+		for j := 0; j < 3; j++ {
+			name, err := svc.newUnitName()
+			c.Assert(err, gc.IsNil)
+			docID := s.state.docID(name)
+			udoc := &unitDoc{
+				DocID:     docID,
+				Name:      name,
+				EnvUUID:   svc.doc.EnvUUID,
+				Service:   svc.doc.Name,
+				Series:    svc.doc.Series,
+				Life:      Alive,
+				Principal: "",
+			}
+			ops := []txn.Op{
+				{
+					C:      unitsC,
+					Id:     docID,
+					Assert: txn.DocMissing,
+					Insert: udoc,
+				},
+				{
+					C:      servicesC,
+					Id:     svc.doc.DocID,
+					Assert: isAliveDoc,
+					Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
+				}}
+			err = s.state.runTransaction(ops)
+			c.Assert(err, gc.IsNil)
+			units[i*3+j], err = s.state.Unit(name)
+			c.Assert(err, gc.IsNil)
+		}
+	}
+	return units
+}
+
+func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
+	units := s.setUpMeterStatusCreation(c)
+
+	// assert the units do not have meter status documents
+	for _, unit := range units {
+		_, _, err := unit.GetMeterStatus()
+		c.Assert(err, gc.ErrorMatches, "cannot retrieve meter status for unit .*: not found")
+	}
+
+	// run meter status upgrade
+	err := CreateUnitMeterStatus(s.state)
+	c.Assert(err, gc.IsNil)
+
+	// assert the units do not have meter status documents
+	for _, unit := range units {
+		code, info, err := unit.GetMeterStatus()
+		c.Assert(err, gc.IsNil)
+		c.Assert(code, gc.Equals, "NOT SET")
+		c.Assert(info, gc.Equals, "")
+	}
+
+	// run migration again to make sure it's idempotent
+	err = CreateUnitMeterStatus(s.state)
+	c.Assert(err, gc.IsNil)
+	for _, unit := range units {
+		code, info, err := unit.GetMeterStatus()
+		c.Assert(err, gc.IsNil)
+		c.Assert(code, gc.Equals, "NOT SET")
+		c.Assert(info, gc.Equals, "")
+	}
+
 }

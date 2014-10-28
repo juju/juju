@@ -94,7 +94,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	containerURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
 	t.TestConfig = t.TestConfig.Merge(coretesting.Attrs{
-		"tools-metadata-url": containerURL + "/juju-dist-test/tools",
+		"agent-metadata-url": containerURL + "/juju-dist-test/tools",
 		"image-metadata-url": containerURL + "/juju-dist-test",
 		"auth-url":           t.cred.URL,
 	})
@@ -105,7 +105,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, t.metadataStorage)
+	envtesting.UploadFakeTools(c, t.metadataStorage, t.Env.Config().AgentStream())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {

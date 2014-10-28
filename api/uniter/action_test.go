@@ -23,16 +23,16 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	var actionTests = []struct {
 		description string
-		action      params.ActionItem
+		action      params.Action
 	}{{
 		description: "A simple Action.",
-		action: params.ActionItem{
+		action: params.Action{
 			Name:       "snapshot",
 			Parameters: basicParams,
 		},
 	}, {
 		description: "An Action with nested parameters.",
-		action: params.ActionItem{
+		action: params.Action{
 			Name: "backup",
 			Parameters: map[string]interface{}{
 				"outfile": "foo.bz2",
@@ -96,7 +96,7 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res, gc.DeepEquals, actionResult)
-	c.Assert(results[0].ActionName(), gc.Equals, "gabloxi")
+	c.Assert(results[0].Name(), gc.Equals, "gabloxi")
 }
 
 func (s *actionSuite) TestActionFail(c *gc.C) {
@@ -118,5 +118,5 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, errmsg)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
-	c.Assert(results[0].ActionName(), gc.Equals, "beebz")
+	c.Assert(results[0].Name(), gc.Equals, "beebz")
 }

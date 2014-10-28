@@ -133,33 +133,6 @@ func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
 	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
-func (*environSuite) TestGetManagementAPI(c *gc.C) {
-	env := makeEnviron(c)
-	context, err := env.getManagementAPI()
-	c.Assert(err, gc.IsNil)
-	defer env.releaseManagementAPI(context)
-	c.Check(context, gc.NotNil)
-	c.Check(context.ManagementAPI, gc.NotNil)
-	c.Check(context.certFile, gc.NotNil)
-	c.Check(context.GetRetryPolicy(), gc.DeepEquals, retryPolicy)
-}
-
-func (*environSuite) TestReleaseManagementAPIAcceptsNil(c *gc.C) {
-	env := makeEnviron(c)
-	env.releaseManagementAPI(nil)
-	// The real test is that this does not panic.
-}
-
-func (*environSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *gc.C) {
-	env := makeEnviron(c)
-	context := azureManagementContext{
-		ManagementAPI: nil,
-		certFile:      nil,
-	}
-	env.releaseManagementAPI(&context)
-	// The real test is that this does not panic.
-}
-
 func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
@@ -218,6 +191,12 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+func (s *environSuite) TestSupportAddressAllocation(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
@@ -1514,7 +1493,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
-			c, s.env.storage, envtesting.V120p...,
+			c, s.env.storage, s.env.Config().AgentStream(), envtesting.V120p...,
 		),
 		MachineConfig: mcfg,
 	}
@@ -1593,11 +1572,14 @@ func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// we should see stateServer==true.
 	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
 		apiparams.JobHostUnits,
+		apiparams.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
 	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits, apiparams.JobManageEnviron,
+		apiparams.JobHostUnits,
+		apiparams.JobManageEnviron,
+		apiparams.JobManageNetworking,
 	}
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)
@@ -1640,7 +1622,7 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	s.UploadFakeTools(c, stor)
+	s.UploadFakeTools(c, stor, "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 
 	env := s.setupEnvWithDummyMetadata(c)

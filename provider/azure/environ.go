@@ -79,6 +79,9 @@ type azureEnviron struct {
 	// private storage.  This is automatically queried from Azure on
 	// startup.
 	storageAccountKey string
+
+	// api is a management API for Microsoft Azure.
+	api *gwacl.ManagementAPI
 }
 
 // azureEnviron implements Environ and HasRegion.
@@ -112,21 +115,17 @@ func extractStorageKey(keys *gwacl.StorageAccountKeys) string {
 
 // queryStorageAccountKey retrieves the storage account's key from Azure.
 func (env *azureEnviron) queryStorageAccountKey() (string, error) {
-	azure, err := env.getManagementAPI()
-	if err != nil {
-		return "", err
-	}
-	defer env.releaseManagementAPI(azure)
+	snap := env.getSnapshot()
 
-	accountName := env.getSnapshot().ecfg.storageAccountName()
-	keys, err := azure.GetStorageAccountKeys(accountName)
+	accountName := snap.ecfg.storageAccountName()
+	keys, err := snap.api.GetStorageAccountKeys(accountName)
 	if err != nil {
-		return "", fmt.Errorf("cannot obtain storage account keys: %v", err)
+		return "", errors.Annotate(err, "cannot obtain storage account keys")
 	}
 
 	key := extractStorageKey(keys)
 	if key == "" {
-		return "", fmt.Errorf("no keys available for storage account")
+		return "", errors.New("no keys available for storage account")
 	}
 
 	return key, nil
@@ -152,38 +151,33 @@ func (env *azureEnviron) getSnapshot() *azureEnviron {
 }
 
 // getAffinityGroupName returns the name of the affinity group used by all
-// the Services in this environment.
+// the Services in this environment. The affinity group name is immutable,
+// so there is no need to use a configuration snapshot.
 func (env *azureEnviron) getAffinityGroupName() string {
 	return env.getEnvPrefix() + "ag"
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
-	affinityGroupName := env.getAffinityGroupName()
-	azure, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(azure)
 	snap := env.getSnapshot()
+	affinityGroupName := env.getAffinityGroupName()
 	location := snap.ecfg.location()
 	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, location)
-	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
-		CreateAffinityGroup: cag})
+	return snap.api.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
+		CreateAffinityGroup: cag,
+	})
 }
 
 func (env *azureEnviron) deleteAffinityGroup() error {
+	snap := env.getSnapshot()
 	affinityGroupName := env.getAffinityGroupName()
-	azure, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(azure)
-	return azure.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
-		Name: affinityGroupName})
+	return snap.api.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
+		Name: affinityGroupName,
+	})
 }
 
 // getVirtualNetworkName returns the name of the virtual network used by all
-// the VMs in this environment.
+// the VMs in this environment. The virtual network name is immutable,
+// so there is no need to use a configuration snapshot.
 func (env *azureEnviron) getVirtualNetworkName() string {
 	return env.getEnvPrefix() + "vnet"
 }
@@ -194,12 +188,8 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	// We have historically used Affinity Group, and
 	// have observed intermittent issues when switching.
 	// http://msdn.microsoft.com/en-us/library/azure/jj157100.aspx
+	snap := env.getSnapshot()
 	vnetName := env.getVirtualNetworkName()
-	azure, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
 		Name:          vnetName,
 		AffinityGroup: env.getAffinityGroupName(),
@@ -207,7 +197,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 			networkDefinition,
 		},
 	}
-	return azure.AddVirtualNetworkSite(&virtualNetwork)
+	return snap.api.AddVirtualNetworkSite(&virtualNetwork)
 }
 
 // deleteVnetAttempt is an AttemptyStrategy for use
@@ -223,14 +213,11 @@ var deleteVnetAttempt = utils.AttemptStrategy{
 var networkInUse = regexp.MustCompile(".*The virtual network .* is currently in use.*")
 
 func (env *azureEnviron) deleteVirtualNetwork() error {
-	azure, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(azure)
+	snap := env.getSnapshot()
+	vnetName := env.getVirtualNetworkName()
+	var err error
 	for a := deleteVnetAttempt.Start(); a.Next(); {
-		vnetName := env.getVirtualNetworkName()
-		err = azure.RemoveVirtualNetworkSite(vnetName)
+		err = snap.api.RemoveVirtualNetworkSite(vnetName)
 		if err == nil {
 			return nil
 		}
@@ -247,7 +234,8 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 }
 
 // getContainerName returns the name of the private storage account container
-// that this environment is using.
+// that this environment is using. The container name is immutable,
+// so there is no need to use a configuration snapshot.
 func (env *azureEnviron) getContainerName() string {
 	return env.getEnvPrefix() + "private"
 }
@@ -298,13 +286,9 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 // isLegacyInstance reports whether the instance is a
 // legacy instance (i.e. one-to-one cloud service to instance).
 func isLegacyInstance(inst *azureInstance) (bool, error) {
-	context, err := inst.environ.getManagementAPI()
-	if err != nil {
-		return false, err
-	}
-	defer inst.environ.releaseManagementAPI(context)
+	snap := inst.environ.getSnapshot()
 	serviceName := inst.hostedService.ServiceName
-	service, err := context.GetHostedServiceProperties(serviceName, true)
+	service, err := snap.api.GetHostedServiceProperties(serviceName, true)
 	if err != nil {
 		return false, err
 	} else if len(service.Deployments) != 1 {
@@ -386,6 +370,15 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	// be appropriate for the new config.
 	env.storageAccountKey = ""
 
+	subscription := ecfg.managementSubscriptionId()
+	certKeyPEM := []byte(ecfg.managementCertificate())
+	location := ecfg.location()
+	mgtAPI, err := gwacl.NewManagementAPICertDataWithRetryPolicy(subscription, certKeyPEM, certKeyPEM, location, retryPolicy)
+	if err != nil {
+		return errors.Annotate(err, "cannot acquire management API")
+	}
+	env.api = mgtAPI
+
 	return nil
 }
 
@@ -456,6 +449,11 @@ func (env *azureEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (env *azureEnviron) SupportNetworks() bool {
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *azureEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 // selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
@@ -647,12 +645,6 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		return nil, nil, nil, fmt.Errorf("custom data: %v", err)
 	}
 
-	azure, err := env.getManagementAPI()
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer env.releaseManagementAPI(azure)
-
 	snapshot := env.getSnapshot()
 	location := snapshot.ecfg.location()
 	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
@@ -693,7 +685,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 		}
 	}
 	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
-	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
+	inst, err := createInstance(env, snapshot.api, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -833,11 +825,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 
 // StopInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(context)
+	snap := env.getSnapshot()
 
 	// Map services to role names we want to delete.
 	serviceInstances := make(map[string]map[string]bool)
@@ -865,7 +853,7 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	// found to cause conflict responses, so we do everything serially.
 	for _, serviceName := range serviceNames {
 		deleteRoleNames := serviceInstances[serviceName]
-		service, err := context.GetHostedServiceProperties(serviceName, true)
+		service, err := snap.api.GetHostedServiceProperties(serviceName, true)
 		if err != nil {
 			return err
 		} else if len(service.Deployments) != 1 {
@@ -885,12 +873,12 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 		// entire cloud service or we'll get an error. deleteRoleNames
 		// is nil if we're dealing with a legacy deployment.
 		if deleteRoleNames == nil || len(deleteRoleNames) == roleNames.Size() {
-			if err := context.DeleteHostedService(serviceName); err != nil {
+			if err := snap.api.DeleteHostedService(serviceName); err != nil {
 				return err
 			}
 		} else {
 			for roleName := range deleteRoleNames {
-				if err := context.DeleteRole(&gwacl.DeleteRoleRequest{
+				if err := snap.api.DeleteRole(&gwacl.DeleteRoleRequest{
 					ServiceName:    serviceName,
 					DeploymentName: service.Deployments[0].Name,
 					RoleName:       roleName,
@@ -908,19 +896,14 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 // This is needed to clean up broken environments, in which there are cloud
 // services with no deployments.
 func (env *azureEnviron) destroyAllServices() error {
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(context)
-
+	snap := env.getSnapshot()
 	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
-	services, err := context.ListPrefixedHostedServices(request)
+	services, err := snap.api.ListPrefixedHostedServices(request)
 	if err != nil {
 		return err
 	}
 	for _, service := range services {
-		if err := context.DeleteHostedService(service.ServiceName); err != nil {
+		if err := snap.api.DeleteHostedService(service.ServiceName); err != nil {
 			return err
 		}
 	}
@@ -946,11 +929,7 @@ func (env *azureEnviron) splitInstanceId(id instance.Id) (service, role string) 
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return nil, err
-	}
-	defer env.releaseManagementAPI(context)
+	snap := env.getSnapshot()
 
 	type instanceId struct {
 		serviceName, roleName string
@@ -971,7 +950,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	}
 
 	// Map service names to gwacl.HostedServices.
-	services, err := context.ListSpecificHostedServices(&gwacl.ListSpecificHostedServicesRequest{
+	services, err := snap.api.ListSpecificHostedServices(&gwacl.ListSpecificHostedServicesRequest{
 		ServiceNames: serviceNames.Values(),
 	})
 	if err != nil {
@@ -982,7 +961,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	}
 	hostedServices := make(map[string]*gwacl.HostedService)
 	for _, s := range services {
-		hostedService, err := context.GetHostedServiceProperties(s.ServiceName, true)
+		hostedService, err := snap.api.GetHostedServiceProperties(s.ServiceName, true)
 		if err != nil {
 			return nil, err
 		}
@@ -997,7 +976,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 			continue
 		}
 		hostedService := hostedServices[id.serviceName]
-		instance, err := env.getInstance(hostedService, id.roleName)
+		instance, err := snap.getInstance(hostedService, id.roleName)
 		if err == nil {
 			instances[i] = instance
 		} else {
@@ -1032,21 +1011,17 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	// The instance list is built using the list of all the Azure
 	// Services (instance==service).
 	// Acquire management API object.
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return nil, err
-	}
-	defer env.releaseManagementAPI(context)
+	snap := env.getSnapshot()
 
 	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
-	serviceDescriptors, err := context.ListPrefixedHostedServices(request)
+	serviceDescriptors, err := snap.api.ListPrefixedHostedServices(request)
 	if err != nil {
 		return nil, err
 	}
 
 	var instances []instance.Instance
 	for _, sd := range serviceDescriptors {
-		hostedService, err := context.GetHostedServiceProperties(sd.ServiceName, true)
+		hostedService, err := snap.api.GetHostedServiceProperties(sd.ServiceName, true)
 		if err != nil {
 			return nil, err
 		} else if len(hostedService.Deployments) != 1 {
@@ -1054,7 +1029,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 		}
 		deployment := &hostedService.Deployments[0]
 		for _, role := range deployment.RoleList {
-			instance, err := env.getInstance(hostedService, role.RoleName)
+			instance, err := snap.getInstance(hostedService, role.RoleName)
 			if err != nil {
 				return nil, err
 			}
@@ -1065,7 +1040,8 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 }
 
 // getEnvPrefix returns the prefix used to name the objects specific to this
-// environment.
+// environment. The environment prefix name is immutable, so there is no need
+// to use a configuration snapshot.
 func (env *azureEnviron) getEnvPrefix() string {
 	return fmt.Sprintf("juju-%s-", env.Config().Name())
 }
@@ -1130,18 +1106,6 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 	return azureEnvironProvider{}
 }
 
-// azureManagementContext wraps two things: a gwacl.ManagementAPI (effectively
-// a session on the Azure management API) and a tempCertFile, which keeps track
-// of the temporary certificate file that needs to be deleted once we're done
-// with this particular session.
-// Since it embeds *gwacl.ManagementAPI, you can use it much as if it were a
-// pointer to a ManagementAPI object.  Just don't forget to release it after
-// use.
-type azureManagementContext struct {
-	*gwacl.ManagementAPI
-	certFile *tempCertFile
-}
-
 var (
 	retryPolicy = gwacl.RetryPolicy{
 		NbRetries: 6,
@@ -1153,48 +1117,6 @@ var (
 		},
 		Delay: 10 * time.Second}
 )
-
-// getManagementAPI obtains a context object for interfacing with Azure's
-// management API.
-// For now, each invocation just returns a separate object.  This is probably
-// wasteful (each context gets its own SSL connection) and may need optimizing
-// later.
-func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
-	snap := env.getSnapshot()
-	subscription := snap.ecfg.managementSubscriptionId()
-	certData := snap.ecfg.managementCertificate()
-	certFile, err := newTempCertFile([]byte(certData))
-	if err != nil {
-		return nil, err
-	}
-	// After this point, if we need to leave prematurely, we should clean
-	// up that certificate file.
-	location := snap.ecfg.location()
-	mgtAPI, err := gwacl.NewManagementAPIWithRetryPolicy(subscription, certFile.Path(), location, retryPolicy)
-	if err != nil {
-		certFile.Delete()
-		return nil, err
-	}
-	context := azureManagementContext{
-		ManagementAPI: mgtAPI,
-		certFile:      certFile,
-	}
-	return &context, nil
-}
-
-// releaseManagementAPI frees up a context object obtained through
-// getManagementAPI.
-func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
-	// Be tolerant to incomplete context objects, in case we ever get
-	// called during cleanup of a failed attempt to create one.
-	if context == nil || context.certFile == nil {
-		return
-	}
-	// For now, all that needs doing is to delete the temporary certificate
-	// file.  We may do cleverer things later, such as connection pooling
-	// where this method returns a context to the pool.
-	context.certFile.Delete()
-}
 
 // updateStorageAccountKey queries the storage account key, and updates the
 // version cached in env.storageAccountKey.

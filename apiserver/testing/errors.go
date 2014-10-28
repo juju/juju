@@ -5,6 +5,10 @@ package testing
 
 import (
 	"fmt"
+	"reflect"
+
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -51,4 +55,13 @@ func ServerError(message string) *params.Error {
 
 func PrefixedError(prefix, message string) *params.Error {
 	return ServerError(prefix + message)
+}
+
+func AssertNotImplemented(c *gc.C, apiFacade interface{}, methodName string) {
+	val := reflect.ValueOf(apiFacade)
+	c.Assert(val.IsValid(), jc.IsTrue)
+	indir := reflect.Indirect(val)
+	c.Assert(indir.IsValid(), jc.IsTrue)
+	method := indir.MethodByName(methodName)
+	c.Assert(method.IsValid(), jc.IsFalse)
 }

@@ -4,52 +4,45 @@
 package uniter
 
 import (
-	"github.com/juju/utils/proxy"
+	"fmt"
+	"time"
 )
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 	u.observer = observer
 }
 
-func (u *Uniter) GetProxyValues() proxy.Settings {
-	u.proxyMutex.Lock()
-	defer u.proxyMutex.Unlock()
-	return u.proxy
+func PatchMetricsTimer(newTimer func(now, lastRun time.Time, interval time.Duration) <-chan time.Time) {
+	collectMetricsAt = newTimer
 }
 
-func (c *HookContext) ActionResultsMap() map[string]interface{} {
-	if c.actionData == nil {
-		panic("context not running an action")
+var (
+	CollectMetricsTimer = collectMetricsTimer
+)
+
+// manualTicker will be used to generate collect-metrics events
+// in a time-independent manner for testing.
+type ManualTicker struct {
+	c chan time.Time
+}
+
+// Tick sends a signal on the ticker channel.
+func (t *ManualTicker) Tick() error {
+	select {
+	case t.c <- time.Now():
+	default:
+		return fmt.Errorf("ticker channel blocked")
 	}
-	return c.actionData.ResultsMap
+	return nil
 }
 
-func (c *HookContext) ActionFailed() bool {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ActionFailed
+// ReturnTimer can be used to replace the metrics signal generator.
+func (t *ManualTicker) ReturnTimer(now, lastRun time.Time, interval time.Duration) <-chan time.Time {
+	return t.c
 }
 
-func (c *HookContext) ActionMessage() string {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ResultsMessage
-}
-
-func GetStubActionContext(in map[string]interface{}) *HookContext {
-	return &HookContext{
-		actionData: &actionData{
-			ResultsMap: in,
-		},
+func NewManualTicker() *ManualTicker {
+	return &ManualTicker{
+		c: make(chan time.Time, 1),
 	}
 }
-
-var MergeEnvironment = mergeEnvironment
-
-var SearchHook = searchHook
-
-var HookCommand = hookCommand
-
-var LookPath = lookPath

@@ -26,7 +26,7 @@ import (
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.
-You may want to use the 'tools-metadata-url' configuration setting to specify the tools location.
+You may want to use the 'agent-metadata-url' configuration setting to specify the tools location.
 `
 
 var (
@@ -142,7 +142,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 			logger.Warningf("no prepackaged tools available")
 		}
 		ctx.Infof("Building tools to upload (%s)", selectedTools.Version)
-		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number)
+		builtTools, err := sync.BuildToolsTarball(&selectedTools.Version.Number, cfg.AgentStream())
 		if err != nil {
 			return errors.Annotate(err, "cannot upload bootstrap tools")
 		}

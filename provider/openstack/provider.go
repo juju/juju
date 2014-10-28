@@ -91,11 +91,11 @@ openstack:
     #
     # network: <your network label or uuid>
 
-    # tools-metadata-url specifies the location of the Juju tools and
+    # agent-metadata-url specifies the location of the Juju tools and
     # metadata. It defaults to the global public tools metadata
     # location https://streams.canonical.com/tools.
     #
-    # tools-metadata-url:  https://your-tools-metadata-url
+    # agent-metadata-url:  https://your-agent-metadata-url
 
     # image-metadata-url specifies the location of Ubuntu cloud image
     # metadata. It defaults to the global public image metadata
@@ -109,11 +109,11 @@ openstack:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # auth-url defaults to the value of the environment variable
     # OS_AUTH_URL, but can be specified here.
@@ -193,11 +193,11 @@ hpcloud:
     #
     # image-stream: "released"
 
-    # tools-stream chooses a simplestreams stream from which to select tools,
+    # agent-stream chooses a simplestreams stream from which to select tools,
     # for example released or proposed tools (or any other stream available
     # on simplestreams).
     #
-    # tools-stream: "released"
+    # agent-stream: "released"
 
     # auth-url holds the keystone url for authentication. It defaults
     # to the value of the environment variable OS_AUTH_URL.
@@ -268,7 +268,15 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	// Verify credentials.
+	if err := authenticateClient(e.(*environ)); err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -565,6 +573,11 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,
@@ -709,8 +722,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	err := e.client.Authenticate()
-	if err != nil {
+	if err := authenticateClient(e); err != nil {
 		return "", "", nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
@@ -751,6 +763,22 @@ func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.A
 	return newClient(cred, authMode, nil)
 }
 
+var authenticateClient = func(e *environ) error {
+	err := e.client.Authenticate()
+	if err != nil {
+		// Log the error in case there are any useful hints,
+		// but provide a readable and helpful error message
+		// to the user.
+		logger.Debugf("authentication failed: %v", err)
+		return jujuerrors.New(`authentication failed.
+
+Please ensure the credentials are correct. A common mistake is
+to specify the wrong tenant. Use the OpenStack "project" name
+for tenant-name in your environment configuration.`)
+	}
+	return nil
+}
+
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -765,6 +793,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	e.ecfgUnlocked = ecfg
 
 	e.client = e.authClient(ecfg, authModeCfg)
+
 	e.novaUnlocked = nova.New(e.client)
 
 	// create new control storage instance, existing instances continue
@@ -807,7 +836,7 @@ func (e *environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		return *datasource, nil
 	}
 	if !e.client.IsAuthenticated() {
-		if err := e.client.Authenticate(); err != nil {
+		if err := authenticateClient(e); err != nil {
 			return nil, err
 		}
 	}
@@ -916,7 +945,7 @@ var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	var availabilityZone string
+	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
@@ -925,13 +954,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if !placement.availabilityZone.State.Available {
 			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
-		availabilityZone = placement.availabilityZone.Name
+		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
 
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
-	if availabilityZone == "" {
+	if len(availabilityZones) == 0 {
 		var group []instance.Id
 		var err error
 		if args.DistributionGroup != nil {
@@ -946,8 +975,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			// not implemented error; ignore these.
 		} else if err != nil {
 			return nil, nil, nil, err
-		} else if len(zoneInstances) > 0 {
-			availabilityZone = zoneInstances[0].ZoneName
+		} else {
+			for _, zone := range zoneInstances {
+				availabilityZones = append(availabilityZones, zone.ZoneName)
+			}
+		}
+		if len(availabilityZones) == 0 {
+			// No explicitly selectable zones available, so use an unspecified zone.
+			availabilityZones = []string{""}
 		}
 	}
 
@@ -1011,19 +1046,26 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	for i, g := range groups {
 		groupNames[i] = nova.SecurityGroupName{g.Name}
 	}
-	var opts = nova.RunServerOpts{
-		Name:               e.machineFullName(args.MachineConfig.MachineId),
-		FlavorId:           spec.InstanceType.Id,
-		ImageId:            spec.Image.Id,
-		UserData:           userData,
-		SecurityGroupNames: groupNames,
-		Networks:           networks,
-		AvailabilityZone:   availabilityZone,
-	}
 	var server *nova.Entity
-	for a := shortAttempt.Start(); a.Next(); {
-		server, err = e.nova().RunServer(opts)
-		if err == nil || !gooseerrors.IsNotFound(err) {
+	for _, availZone := range availabilityZones {
+		var opts = nova.RunServerOpts{
+			Name:               e.machineFullName(args.MachineConfig.MachineId),
+			FlavorId:           spec.InstanceType.Id,
+			ImageId:            spec.Image.Id,
+			UserData:           userData,
+			SecurityGroupNames: groupNames,
+			Networks:           networks,
+			AvailabilityZone:   availZone,
+		}
+		for a := shortAttempt.Start(); a.Next(); {
+			server, err = e.nova().RunServer(opts)
+			if err == nil || !gooseerrors.IsNotFound(err) {
+				break
+			}
+		}
+		if isNoValidHostsError(err) {
+			logger.Infof("no valid hosts available in zone %q, trying another availability zone", availZone)
+		} else {
 			break
 		}
 	}
@@ -1058,6 +1100,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
+}
+
+func isNoValidHostsError(err error) bool {
+	gooseErr, ok := err.(gooseerrors.Error)
+	return ok && strings.Contains(gooseErr.Cause().Error(), "No valid host was found")
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {

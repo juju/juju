@@ -76,21 +76,47 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
+		about:       "Agent Stream",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			"agent-stream":       "agent-stream-value",
+		},
+	}, {
+		about:       "Deprecated tools-stream used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"tools-stream": "tools-stream-value",
+		},
+	}, {
+		about:       "Deprecated tools-stream ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":         "my-type",
+			"name":         "my-name",
+			"agent-stream": "agent-stream-value",
+			"tools-stream": "ignore-me",
+		},
+	}, {
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
 			"image-metadata-url": "image-url",
-			"tools-metadata-url": "tools-metadata-url-value",
+			"agent-metadata-url": "agent-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL used",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":      "my-type",
-			"name":      "my-name",
-			"tools-url": "tools-metadata-url-value",
+			"type":               "my-type",
+			"name":               "my-name",
+			"tools-metadata-url": "tools-metadata-url-value",
 		},
 	}, {
 		about:       "Deprecated tools metadata URL ignored",
@@ -98,8 +124,8 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":               "my-type",
 			"name":               "my-name",
-			"tools-metadata-url": "tools-metadata-url-value",
-			"tools-url":          "ignore-me",
+			"agent-metadata-url": "agent-metadata-url-value",
+			"tools-metadata-url": "ignore-me",
 		},
 	}, {
 		about:       "Explicit series",
@@ -430,6 +456,14 @@ var configTests = []configTest{
 			"firewall-mode": config.FwGlobal,
 		},
 	}, {
+		about:       "None firewall mode",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"firewall-mode": config.FwNone,
+		},
+	}, {
 		about:       "Illegal firewall mode",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -537,7 +571,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"tools-stream": "proposed",
+			"agent-stream": "proposed",
 		},
 	}, {
 		about:       "Explicit state port",
@@ -692,7 +726,7 @@ var configTests = []configTest{
 			"image-metadata-url":        "",
 			"ca-private-key":            "",
 			"default-series":            "precise",
-			"tools-metadata-url":        "",
+			"agent-metadata-url":        "",
 			"secret-key":                "a-secret-key",
 			"access-key":                "an-access-key",
 			"agent-version":             "1.13.2",
@@ -780,6 +814,15 @@ var configTests = []configTest{
 			"name":                     "my-name",
 			"provisioner-safe-mode":    true,
 			"provisioner-harvest-mode": config.HarvestNone.String(),
+		},
+	},
+	{
+		about:       "Explicit apt-mirror",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"apt-mirror": "http://my.archive.ubuntu.com",
 		},
 	},
 }
@@ -1111,12 +1154,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 		c.Assert(cfg.ImageStream(), gc.Equals, "released")
 	}
 
-	if v, ok := test.attrs["tools-stream"]; ok {
-		c.Assert(cfg.ToolsStream(), gc.Equals, v)
-	} else {
-		c.Assert(cfg.ToolsStream(), gc.Equals, "released")
-	}
-
 	url, urlPresent := cfg.ImageMetadataURL()
 	if v, _ := test.attrs["image-metadata-url"].(string); v != "" {
 		c.Assert(url, gc.Equals, v)
@@ -1124,24 +1161,38 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	} else {
 		c.Assert(urlPresent, jc.IsFalse)
 	}
-	toolsURL, urlPresent := cfg.ToolsURL()
-	oldToolsURL, oldURLPresent := cfg.AllAttrs()["tools-url"]
-	oldToolsURLAttrValue, oldURLAttrPresent := test.attrs["tools-url"]
-	expectedToolsURLValue := test.attrs["tools-metadata-url"]
-	if expectedToolsURLValue == nil {
-		expectedToolsURLValue = oldToolsURLAttrValue
+
+	toolsURL, urlPresent := cfg.AgentMetadataURL()
+	oldToolsURL := cfg.AllAttrs()["tools-metadata-url"]
+	oldToolsURLAttrValue, oldTSTPresent := test.attrs["tools-metadata-url"]
+	expectedToolsURLValue := test.attrs["agent-metadata-url"]
+	expectedToolsURLPresent := true
+	if expectedToolsURLValue == nil || expectedToolsURLValue == "" {
+		if oldTSTPresent {
+			expectedToolsURLValue = oldToolsURLAttrValue
+		} else {
+			expectedToolsURLValue = oldToolsURL
+			expectedToolsURLPresent = false
+		}
 	}
-	if expectedToolsURLValue != nil && expectedToolsURLValue != "" {
-		c.Assert(expectedToolsURLValue, gc.Equals, "tools-metadata-url-value")
-		c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
-		c.Assert(urlPresent, jc.IsTrue)
-		c.Assert(oldToolsURL, gc.Equals, expectedToolsURLValue)
-		c.Assert(oldURLPresent, jc.IsTrue)
-	} else {
-		c.Assert(urlPresent, jc.IsFalse)
-		c.Assert(oldURLAttrPresent, jc.IsFalse)
-		c.Assert(oldToolsURL, gc.Equals, "")
+	c.Assert(toolsURL, gc.Equals, expectedToolsURLValue)
+	c.Assert(urlPresent, gc.Equals, expectedToolsURLPresent)
+
+	// assertions for deprecated tools-stream attribute used with new agent-stream
+	agentStreamValue := cfg.AgentStream()
+	oldTstToolsStreamAttr, oldTstOk := test.attrs["tools-stream"]
+	expectedAgentStreamAttr := test.attrs["agent-stream"]
+
+	// When no agent-stream provided, look for tools-stream
+	if expectedAgentStreamAttr == nil {
+		if oldTstOk {
+			expectedAgentStreamAttr = oldTstToolsStreamAttr
+		} else {
+			// If it's still nil, then hard-coded default is used
+			expectedAgentStreamAttr = "released"
+		}
 	}
+	c.Assert(agentStreamValue, gc.Equals, expectedAgentStreamAttr)
 
 	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
 	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
@@ -1206,8 +1257,8 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
 	attrs["ca-private-key"] = ""
 	attrs["image-metadata-url"] = ""
+	attrs["agent-metadata-url"] = ""
 	attrs["tools-metadata-url"] = ""
-	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
@@ -1261,10 +1312,15 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"agent-version": "1.9.27"},
 	err:   `cannot clear agent-version`,
 }, {
-	about: "Can't change the firewall-mode",
+	about: "Can't change the firewall-mode (global->instance)",
 	old:   testing.Attrs{"firewall-mode": config.FwGlobal},
 	new:   testing.Attrs{"firewall-mode": config.FwInstance},
 	err:   `cannot change firewall-mode from "global" to "instance"`,
+}, {
+	about: "Can't change the firewall-mode (global->none)",
+	old:   testing.Attrs{"firewall-mode": config.FwGlobal},
+	new:   testing.Attrs{"firewall-mode": config.FwNone},
+	err:   `cannot change firewall-mode from "global" to "none"`,
 }, {
 	about: "Cannot change the state-port",
 	old:   testing.Attrs{"state-port": config.DefaultStatePort},

@@ -21,7 +21,7 @@ type stateShim struct {
 	apiPort   int
 }
 
-func (s *stateShim) Machine(id string) (stateMachine, error) {
+func (s *stateShim) Machine(id string) (StateMachine, error) {
 	m, err := s.State.Machine(id)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func (s *stateShim) Machine(id string) (stateMachine, error) {
 	}, nil
 }
 
-func (s *stateShim) MongoSession() mongoSession {
+func (s *stateShim) MongoSession() MongoSession {
 	return mongoSessionShim{s.State.MongoSession()}
 }
 

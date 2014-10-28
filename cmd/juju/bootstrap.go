@@ -85,7 +85,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "see --upload-series (OBSOLETE)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
-	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destory the environment if bootstrap fails")
+	f.BoolVar(&c.KeepBrokenEnvironment, "keep-broken", false, "do not destroy the environment if bootstrap fails")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -250,7 +250,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 
 // handleBootstrapError is called to clean up if bootstrap fails.
 func handleBootstrapError(ctx *cmd.Context, err error, cleanup func()) {
-	logger.Errorf("bootstrap failed: %v", err)
 	ch := make(chan os.Signal, 1)
 	ctx.InterruptNotify(ch)
 	defer ctx.StopInterruptNotify(ch)

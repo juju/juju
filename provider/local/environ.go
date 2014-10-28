@@ -75,6 +75,11 @@ func (*localEnviron) SupportNetworks() bool {
 	return false
 }
 
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *localEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
 		return fmt.Errorf("unknown placement directive: %s", placement)
@@ -131,8 +136,11 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
+
+	// No JobManageNetworking added in order not to change the network
+	// configuration of the user's machine.
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
@@ -166,9 +174,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		mcfg.EnableOSUpgrade = val
 	}
 
-	// don't write proxy settings for local machine
+	// don't write proxy or mirror settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
 	mcfg.ProxySettings = proxy.Settings{}
+	mcfg.AptMirror = ""
 
 	cloudcfg := coreCloudinit.New()
 	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)

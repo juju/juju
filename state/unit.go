@@ -184,7 +184,7 @@ func (u *Unit) AgentTools() (*tools.Tools, error) {
 // SetAgentVersion sets the version of juju that the agent is
 // currently running.
 func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
-	defer errors.Maskf(&err, "cannot set agent version for unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "cannot set agent version for unit %q", u)
 	if err = checkVersionValidity(v); err != nil {
 		return err
 	}
@@ -397,14 +397,14 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if len(containers) > 0 {
 		ops = append(ops, txn.Op{
 			C:      containerRefsC,
-			Id:     m.doc.Id,
+			Id:     m.doc.DocID,
 			Assert: bson.D{{"children.0", bson.D{{"$exists", 1}}}},
 		})
 		containerCheck = false
 	} else {
 		ops = append(ops, txn.Op{
 			C:  containerRefsC,
-			Id: m.doc.Id,
+			Id: m.doc.DocID,
 			Assert: bson.D{{"$or", []bson.D{
 				{{"children", bson.D{{"$size", 0}}}},
 				{{"children", bson.D{{"$exists", false}}}},
@@ -448,7 +448,7 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 
 	ops = append(ops, txn.Op{
 		C:      machinesC,
-		Id:     u.doc.MachineId,
+		Id:     m.doc.DocID,
 		Assert: machineAssert,
 		Update: machineUpdate,
 	})
@@ -515,7 +515,7 @@ func (u *Unit) EnsureDead() (err error) {
 // the service is Dying and no other references to it exist. It will fail if
 // the unit is not Dead.
 func (u *Unit) Remove() (err error) {
-	defer errors.Maskf(&err, "cannot remove unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "cannot remove unit %q", u)
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
@@ -738,7 +738,7 @@ func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.Contextf(&err, "cannot open ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
@@ -761,7 +761,7 @@ func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
 	if err != nil {
 		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
 	}
-	defer errors.Contextf(&err, "cannot close ports %v for unit %q", ports, u)
+	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q", ports, u)
 
 	machineId, err := u.AssignedMachineId()
 	if err != nil {
@@ -911,7 +911,7 @@ func (u *Unit) UnitTag() names.UnitTag {
 
 // WaitAgentPresence blocks until the respective agent is alive.
 func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
-	defer errors.Maskf(&err, "waiting for agent of unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	u.st.pwatcher.Watch(u.globalKey(), ch)
 	defer u.st.pwatcher.Unwatch(u.globalKey(), ch)
@@ -1041,7 +1041,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Update: bson.D{{"$set", bson.D{{"machineid", m.doc.Id}}}},
 	}, {
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: massert,
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
@@ -1117,13 +1117,14 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 	}
 	// Ensure the host machine is really clean.
 	if parentId != "" {
+		parentDocId := u.st.docID(parentId)
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     parentId,
+			Id:     parentDocId,
 			Assert: bson.D{{"clean", true}},
 		}, txn.Op{
 			C:      containerRefsC,
-			Id:     parentId,
+			Id:     parentDocId,
 			Assert: bson.D{hasNoContainersTerm},
 		})
 	}
@@ -1347,7 +1348,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	var machinesWithContainers = make([]string, len(containerRefs))
 	for i, cref := range containerRefs {
-		machinesWithContainers[i] = cref.Id
+		machinesWithContainers[i] = u.st.docID(cref.Id)
 	}
 	terms := bson.D{
 		{"life", Alive},
@@ -1402,7 +1403,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		}
 		var suitableIds = make([]string, len(suitableInstanceData))
 		for i, m := range suitableInstanceData {
-			suitableIds[i] = m.Id
+			suitableIds[i] = m.DocID
 		}
 		terms = append(terms, bson.DocElem{"_id", bson.D{{"$in", suitableIds}}})
 	}
@@ -1521,7 +1522,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	if u.doc.MachineId != "" {
 		ops = append(ops, txn.Op{
 			C:      machinesC,
-			Id:     u.doc.MachineId,
+			Id:     u.st.docID(u.doc.MachineId),
 			Assert: txn.DocExists,
 			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})
@@ -1547,7 +1548,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		Assert: notDeadDoc,
 	}, {
 		C:      actionsC,
-		Id:     doc.Id,
+		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
@@ -1564,6 +1565,12 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		return newAction(u.st, doc), nil
 	}
 	return nil, err
+}
+
+// CancelAction removes a pending Action from the queue for this
+// ActionReceiver and marks it as cancelled.
+func (u *Unit) CancelAction(action *Action) (*ActionResult, error) {
+	return action.Finish(ActionResults{Status: ActionCancelled})
 }
 
 // Actions returns a list of actions for this unit
@@ -1602,7 +1609,7 @@ func (u *Unit) Resolve(retryHooks bool) error {
 // whether to attempt to reexecute previous failed hooks or to continue
 // as if they had succeeded before.
 func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
-	defer errors.Maskf(&err, "cannot set resolved mode for unit %q", u)
+	defer errors.DeferredAnnotatef(&err, "cannot set resolved mode for unit %q", u)
 	switch mode {
 	case ResolvedRetryHooks, ResolvedNoHooks:
 	default:

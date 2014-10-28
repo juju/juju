@@ -205,7 +205,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
-	//     https://jira.klmongodb.org/browse/SERVER-6992
+	//     https://jira.mongodb.org/browse/SERVER-6992
 	err := log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
@@ -254,7 +254,7 @@ func (st *State) CACert() string {
 }
 
 func (st *State) Close() (err error) {
-	defer errors.Contextf(&err, "closing state failed")
+	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()

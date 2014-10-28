@@ -36,6 +36,12 @@ const (
 	// port opened.
 	FwGlobal = "global"
 
+	// FwNone requests that no firewalling should be performed inside
+	// the environment. No firewaller worker will be started. It's
+	// useful for clouds without support for either global or per
+	// instance security groups.
+	FwNone = "none"
+
 	// DefaultStatePort is the default port the state server is listening on.
 	DefaultStatePort int = 37017
 
@@ -68,15 +74,34 @@ const (
 // Centralized place to store values of config keys. This transitions
 // mistakes in referencing key-values to a compile-time error.
 const (
+	//
+	// Settings Attributes
+	//
+
 	// ProvisionerHarvestModeKey stores the key for this setting.
 	ProvisionerHarvestModeKey = "provisioner-harvest-mode"
 
+	// AgentStreamKey stores the key for this setting.
+	AgentStreamKey = "agent-stream"
+
+	// AgentMetadataURLKey stores the key for this setting.
+	AgentMetadataURLKey = "agent-metadata-url"
+
 	//
-	// Deprecated Settings
+	// Deprecated Settings Attributes
 	//
 
+	// Deprecated by provisioner-harvest-mode
 	// ProvisionerSafeModeKey stores the key for this setting.
 	ProvisionerSafeModeKey = "provisioner-safe-mode"
+
+	// Deprecated by agent-stream
+	// ToolsStreamKey stores the key for this setting.
+	ToolsStreamKey = "tools-stream"
+
+	// Deprecated by agent-metadata-url
+	// ToolsMetadataURLKey stores the key for this setting.
+	ToolsMetadataURLKey = "tools-metadata-url"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -329,17 +354,17 @@ func (c *Config) fillInStringDefault(attr string) {
 // attribute values still be used.
 func (cfg *Config) processDeprecatedAttributes() {
 	// The tools url has changed so ensure that both old and new values are in the config so that
-	// upgrades work. "tools-url" is the old attribute name.
-	if oldToolsURL := cfg.defined["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
-		_, newToolsSpecified := cfg.ToolsURL()
-		// Ensure the new attribute name "tools-metadata-url" is set.
+	// upgrades work. "agent-metadata-url" is the old attribute name.
+	if oldToolsURL := cfg.defined[ToolsMetadataURLKey]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := cfg.AgentMetadataURL()
+		// Ensure the new attribute name "agent-metadata-url" is set.
 		if !newToolsSpecified {
-			cfg.defined["tools-metadata-url"] = oldToolsURL
+			cfg.defined[AgentMetadataURLKey] = oldToolsURL
 		}
 	}
-	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
+	// Even if the user has edited their environment yaml to remove the deprecated tools-metadata-url value,
 	// we still want it in the config for upgrades.
-	cfg.defined["tools-url"], _ = cfg.ToolsURL()
+	cfg.defined[ToolsMetadataURLKey], _ = cfg.AgentMetadataURL()
 
 	// Copy across lxc-use-clone to lxc-clone.
 	if lxcUseClone, ok := cfg.defined["lxc-use-clone"]; ok {
@@ -372,6 +397,19 @@ func (cfg *Config) processDeprecatedAttributes() {
 				ProvisionerSafeModeKey,
 				ProvisionerHarvestModeKey,
 				harvestModeDescr,
+			)
+		}
+	}
+
+	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
+	if _, ok := cfg.defined[AgentStreamKey]; !ok {
+		if toolsKey, ok := cfg.defined[ToolsStreamKey]; ok {
+			cfg.defined[AgentStreamKey] = toolsKey
+			logger.Infof(
+				`Based on your "%s" setting, configuring "%s" to "%s".`,
+				ToolsStreamKey,
+				AgentStreamKey,
+				toolsKey,
 			)
 		}
 	}
@@ -425,7 +463,9 @@ func Validate(cfg, old *Config) error {
 	}
 
 	// Check firewall mode.
-	if mode := cfg.FirewallMode(); mode != FwInstance && mode != FwGlobal {
+	switch mode := cfg.FirewallMode(); mode {
+	case FwInstance, FwGlobal, FwNone:
+	default:
 		return fmt.Errorf("invalid firewall mode in environment configuration: %q", mode)
 	}
 
@@ -710,6 +750,11 @@ func (c *Config) AptFtpProxy() string {
 	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
 }
 
+// AptMirror sets the apt mirror for the environment.
+func (c *Config) AptMirror() string {
+	return c.asString("apt-mirror")
+}
+
 // BootstrapSSHOpts returns the SSH timeout and retry delays used
 // during bootstrap.
 func (c *Config) BootstrapSSHOpts() SSHTimeoutOpts {
@@ -758,8 +803,8 @@ func (c *Config) AdminSecret() string {
 }
 
 // FirewallMode returns whether the firewall should
-// manage ports per machine or global
-// (FwInstance or FwGlobal)
+// manage ports per machine, globally, or not at all.
+// (FwInstance, FwGlobal, or FwNone).
 func (c *Config) FirewallMode() string {
 	return c.mustString("firewall-mode")
 }
@@ -778,10 +823,10 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 	return version.Zero, false
 }
 
-// ToolsURL returns the URL that locates the tools tarballs and metadata,
+// AgentMetadataURL returns the URL that locates the agent tarballs and metadata,
 // and whether it has been set.
-func (c *Config) ToolsURL() (string, bool) {
-	if url, ok := c.defined["tools-metadata-url"]; ok && url != "" {
+func (c *Config) AgentMetadataURL() (string, bool) {
+	if url, ok := c.defined[AgentMetadataURLKey]; ok && url != "" {
 		return url.(string), true
 	}
 	return "", false
@@ -872,11 +917,11 @@ func (c *Config) ImageStream() string {
 	return "released"
 }
 
-// ToolsStream returns the simplestreams stream
+// AgentStream returns the simplestreams stream
 // used to identify which tools to use when
 // when bootstrapping or upgrading an environment.
-func (c *Config) ToolsStream() string {
-	v, _ := c.defined["tools-stream"].(string)
+func (c *Config) AgentStream() string {
+	v, _ := c.defined[AgentStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -955,10 +1000,10 @@ var fields = schema.Fields{
 	"name":                       schema.String(),
 	"uuid":                       schema.UUID(),
 	"default-series":             schema.String(),
-	"tools-metadata-url":         schema.String(),
+	AgentMetadataURLKey:          schema.String(),
 	"image-metadata-url":         schema.String(),
 	"image-stream":               schema.String(),
-	"tools-stream":               schema.String(),
+	AgentStreamKey:               schema.String(),
 	"authorized-keys":            schema.String(),
 	"authorized-keys-path":       schema.String(),
 	"firewall-mode":              schema.String(),
@@ -984,6 +1029,7 @@ var fields = schema.Fields{
 	"apt-http-proxy":             schema.String(),
 	"apt-https-proxy":            schema.String(),
 	"apt-ftp-proxy":              schema.String(),
+	"apt-mirror":                 schema.String(),
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
 	"bootstrap-addresses-delay":  schema.ForceInt(),
@@ -997,9 +1043,10 @@ var fields = schema.Fields{
 	"disable-network-management": schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":            schema.String(),
+	ToolsMetadataURLKey:    schema.String(),
 	"lxc-use-clone":        schema.Bool(),
 	ProvisionerSafeModeKey: schema.Bool(),
+	ToolsStreamKey:         schema.String(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -1030,14 +1077,16 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":             schema.Omit,
 	"apt-https-proxy":            schema.Omit,
 	"apt-ftp-proxy":              schema.Omit,
+	"apt-mirror":                 schema.Omit,
 	"lxc-clone":                  schema.Omit,
 	"disable-network-management": schema.Omit,
-	"tools-stream":               schema.Omit,
+	AgentStreamKey:               schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":            "",
+	ToolsMetadataURLKey:    "",
 	"lxc-use-clone":        schema.Omit,
 	ProvisionerSafeModeKey: schema.Omit,
+	ToolsStreamKey:         schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -1047,7 +1096,7 @@ var alwaysOptional = schema.Defaults{
 	"admin-secret":       "", // TODO(rog) omit
 	"ca-private-key":     "", // TODO(rog) omit
 	"image-metadata-url": "", // TODO(rog) omit
-	"tools-metadata-url": "", // TODO(rog) omit
+	AgentMetadataURLKey:  "", // TODO(rog) omit
 
 	"default-series": "",
 

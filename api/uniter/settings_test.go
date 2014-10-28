@@ -107,7 +107,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 
 	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().String())
+	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRelation.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)

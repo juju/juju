@@ -206,14 +206,14 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 // WatchContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of containers of the specified type on a machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
-	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, names.NumberSnippet)
+	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, ctype, names.NumberSnippet)
 	return m.containersWatcher(isChild)
 }
 
 // WatchAllContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of all containers on a machine.
 func (m *Machine) WatchAllContainers() StringsWatcher {
-	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, names.ContainerTypeSnippet, names.NumberSnippet)
+	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.DocID, names.ContainerTypeSnippet, names.NumberSnippet)
 	return m.containersWatcher(isChild)
 }
 
@@ -859,7 +859,7 @@ func (m *Machine) WatchPrincipalUnits() StringsWatcher {
 		}
 		return m.doc.Principals, nil
 	}
-	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id)
+	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.DocID)
 }
 
 func newUnitsWatcher(st *State, tag names.Tag, getUnits func() ([]string, error), coll, id string) StringsWatcher {
@@ -1174,7 +1174,7 @@ var _ Watcher = (*entityWatcher)(nil)
 
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
 func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
-	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
+	return newEntityWatcher(m.st, instanceDataC, m.doc.DocID)
 }
 
 // WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
@@ -1184,7 +1184,7 @@ func (st *State) WatchStateServerInfo() NotifyWatcher {
 
 // Watch returns a watcher for observing changes to a machine.
 func (m *Machine) Watch() NotifyWatcher {
-	return newEntityWatcher(m.st, machinesC, m.doc.Id)
+	return newEntityWatcher(m.st, machinesC, m.doc.DocID)
 }
 
 // Watch returns a watcher for observing changes to a service.
@@ -1235,7 +1235,13 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, settingsKey), nil
 }
 
-func newEntityWatcher(st *State, collName string, key string) NotifyWatcher {
+// WatchMeterStatus returns a watcher observing the changes to the unit's
+// meter status.
+func (u *Unit) WatchMeterStatus() NotifyWatcher {
+	return newEntityWatcher(u.st, meterStatusC, u.globalKey())
+}
+
+func newEntityWatcher(st *State, collName string, key interface{}) NotifyWatcher {
 	w := &entityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
@@ -1257,7 +1263,7 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 // given key in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.
-func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
+func getTxnRevno(coll *mgo.Collection, key interface{}) (int64, error) {
 	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
@@ -1270,7 +1276,7 @@ func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
 	return doc.TxnRevno, nil
 }
 
-func (w *entityWatcher) loop(collName string, key string) error {
+func (w *entityWatcher) loop(collName string, key interface{}) error {
 	coll, closer := w.st.getCollection(collName)
 	txnRevno, err := getTxnRevno(coll, key)
 	closer()
@@ -1415,14 +1421,14 @@ func (w *machineUnitsWatcher) loop() error {
 	}()
 
 	machines, closer := w.st.getCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.Id)
+	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
 	closer()
 	if err != nil {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(machinesC, w.machine.doc.Id, revno, machineCh)
-	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.Id, machineCh)
+	w.st.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	changes, err := w.updateMachine([]string(nil))
 	if err != nil {
 		return err
@@ -1496,14 +1502,14 @@ func (w *machineAddressesWatcher) Changes() <-chan struct{} {
 
 func (w *machineAddressesWatcher) loop() error {
 	machines, closer := w.st.getCollection(machinesC)
-	revno, err := getTxnRevno(machines, w.machine.doc.Id)
+	revno, err := getTxnRevno(machines, w.machine.doc.DocID)
 	closer()
 	if err != nil {
 		return err
 	}
 	machineCh := make(chan watcher.Change)
-	w.st.watcher.Watch(machinesC, w.machine.doc.Id, revno, machineCh)
-	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.Id, machineCh)
+	w.st.watcher.Watch(machinesC, w.machine.doc.DocID, revno, machineCh)
+	defer w.st.watcher.Unwatch(machinesC, w.machine.doc.DocID, machineCh)
 	addresses := w.machine.Addresses()
 	out := w.out
 	for {
@@ -1650,7 +1656,7 @@ func (w *idPrefixWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := mergeIds(changes, initial, updates); err != nil {
+			if err := mergeIds(w.st, changes, initial, updates); err != nil {
 				return err
 			}
 			if !changes.IsEmpty() {
@@ -1668,14 +1674,14 @@ func (w *idPrefixWatcher) loop() error {
 // makeIdFilter constructs a predicate to filter keys that have the
 // prefix matching one of the passed in ActionReceivers, or returns nil
 // if tags is empty
-func makeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) bool {
+func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	if len(receivers) == 0 {
 		return nil
 	}
 	ensureMarkerFn := ensureSuffixFn(marker)
 	prefixes := make([]string, len(receivers))
 	for ix, receiver := range receivers {
-		prefixes[ix] = ensureMarkerFn(receiver.Name())
+		prefixes[ix] = st.docID(ensureMarkerFn(receiver.Name()))
 	}
 
 	return func(key interface{}) bool {
@@ -1698,17 +1704,43 @@ func makeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) 
 func (w *idPrefixWatcher) initial() (set.Strings, error) {
 	var ids set.Strings
 	var doc struct {
-		Id string `bson:"_id"`
+		DocId string `bson:"_id"`
 	}
 	coll, closer := w.st.getCollection(w.targetC)
 	defer closer()
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
-		if w.filterFn == nil || w.filterFn(doc.Id) {
-			ids.Add(doc.Id)
+		if w.filterFn == nil || w.filterFn(doc.DocId) {
+			ids.Add(w.st.localID(doc.DocId))
 		}
 	}
 	return ids, iter.Close()
+}
+
+// mergeIds is used for merging actionId's and actionResultId's that
+// come in via the updates map. It cleans up the pending changes to
+// account for id's being removed before the watcher consumes them, and
+// to account for the slight potential overlap between the inital id's
+// pending before the watcher starts, and the id's the watcher detects.
+// Additionally, mergeIds strips the environment UUID prefix from the
+// id before emitting it through the watcher.
+func mergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
+	for id, exists := range updates {
+		switch id := id.(type) {
+		case string:
+			localId := st.localID(id)
+			if exists {
+				if !initial.Contains(localId) {
+					changes.Add(localId)
+				}
+			} else {
+				changes.Remove(localId)
+			}
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
+		}
+	}
+	return nil
 }
 
 // ensureSuffixFn returns a function that will make sure the passed in
@@ -1722,53 +1754,30 @@ func ensureSuffixFn(marker string) func(string) string {
 	}
 }
 
-// mergeIds is used for merging actionId's and actionResultId's that
-// come in via the updates map. It cleans up the pending changes to
-// account for id's being removed before the watcher consumes them, and
-// to account for the slight potential overlap between the inital id's
-// pending before the watcher starts, and the id's the watcher detects
-func mergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
-	for id, exists := range updates {
-		switch id := id.(type) {
-		case string:
-			if exists {
-				if !initial.Contains(id) {
-					changes.Add(id)
-				}
-			} else {
-				changes.Remove(id)
-			}
-		default:
-			return errors.Errorf("id is not of type string, got %T", id)
-		}
-	}
-	return nil
-}
-
 // WatchActions starts and returns a StringsWatcher that notifies on any
 // changes to the actions collection
 func (st *State) WatchActions() StringsWatcher {
-	return newIdPrefixWatcher(st, actionsC, makeIdFilter(actionMarker))
+	return newIdPrefixWatcher(st, actionsC, makeIdFilter(st, actionMarker))
 }
 
 // WatchActionsFilteredBy starts and returns a StringsWatcher that
 // notifies on changes to the actions collection that have Id's matching
 // the specified ActionReceivers
 func (st *State) WatchActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionsC, makeIdFilter(actionMarker, receivers...))
+	return newIdPrefixWatcher(st, actionsC, makeIdFilter(st, actionMarker, receivers...))
 }
 
 // WatchActionResults returns a StringsWatcher that notifies on changes
 // to the actionresults collection
 func (st *State) WatchActionResults() StringsWatcher {
-	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(actionResultMarker))
+	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionResultMarker))
 }
 
 // WatchActionResultsFilteredBy starts and returns a StringsWatcher that
 // notifies on changes to the actionresults collection that have Id's
 // matching the specified ActionReceivers
 func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(actionResultMarker, receivers...))
+	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(st, actionResultMarker, receivers...))
 }
 
 // machineInterfacesWatcher notifies about changes to all network interfaces
@@ -2039,4 +2048,68 @@ func (w *openedPortsWatcher) merge(ids set.Strings, change watcher.Change) error
 		}
 	}
 	return nil
+}
+
+// WatchForRebootEvent returns a notify watcher that will trigger an event
+// when the reboot flag is set on our machine agent, our parent machine agent
+// or grandparent machine agent
+func (m *Machine) WatchForRebootEvent() (NotifyWatcher, error) {
+	machineIds := m.machinesToCareAboutRebootsFor()
+	machines := set.NewStrings(machineIds...)
+	return newRebootWatcher(m.st, machines), nil
+}
+
+type rebootWatcher struct {
+	commonWatcher
+	machines set.Strings
+	out      chan struct{}
+}
+
+func newRebootWatcher(st *State, machines set.Strings) NotifyWatcher {
+	w := &rebootWatcher{
+		commonWatcher: commonWatcher{st: st},
+		machines:      machines,
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for the rebootWatcher.
+func (w *rebootWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *rebootWatcher) loop() error {
+	in := make(chan watcher.Change)
+	filter := func(key interface{}) bool {
+		if id, ok := key.(string); ok {
+			return w.machines.Contains(id)
+		}
+		w.tomb.Kill(fmt.Errorf("expected string, got %T: %v", key, key))
+		return false
+	}
+	w.st.watcher.WatchCollectionWithFilter(rebootC, in, filter)
+	defer w.st.watcher.UnwatchCollection(rebootC, in)
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
+
+		}
+	}
 }

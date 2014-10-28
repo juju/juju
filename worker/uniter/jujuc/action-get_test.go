@@ -18,6 +18,15 @@ type ActionGetSuite struct {
 	ContextSuite
 }
 
+type actionGetContext struct {
+	actionParams map[string]interface{}
+	jujuc.Context
+}
+
+func (ctx *actionGetContext) ActionParams() (map[string]interface{}, error) {
+	return ctx.actionParams, nil
+}
+
 type nonActionContext struct {
 	jujuc.Context
 }
@@ -240,7 +249,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 
 	for i, t := range actionGetTests {
 		c.Logf("test %d: %s\n args: %#v", i, t.summary, t.args)
-		hctx := &Context{}
+		hctx := &actionGetContext{}
 		hctx.actionParams = t.actionParams
 		com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 		c.Assert(err, gc.IsNil)
@@ -258,7 +267,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 }
 
 func (s *ActionGetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
+	hctx := &actionGetContext{}
 	com, err := jujuc.NewCommand(hctx, cmdString("action-get"))
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)

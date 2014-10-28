@@ -211,14 +211,14 @@ func (st *State) cleanupDyingUnit(name string) error {
 // cleanupRemovedUnit takes care of all the final cleanup required when
 // a unit is removed.
 func (st *State) cleanupRemovedUnit(unitId string) error {
-	actions, err := st.matchingActionsByPrefix(unitId)
+	actions, err := st.matchingActionsByReceiverName(unitId)
 	if err != nil {
 		return err
 	}
 
-	cancelled := ActionResults{Status: ActionFailed, Message: "unit removed"}
+	cancelled := ActionResults{Status: ActionCancelled, Message: "unit removed"}
 	for _, action := range actions {
-		if err = action.Finish(cancelled); err != nil {
+		if _, err = action.Finish(cancelled); err != nil {
 			return err
 		}
 	}

@@ -181,7 +181,7 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 		return tools.List{trustyTools}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
-		"tools-stream": "proposed"})
+		"agent-stream": "proposed"})
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)

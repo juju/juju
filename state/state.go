@@ -66,6 +66,10 @@ const (
 	openedPortsC       = "openedPorts"
 	metricsC           = "metrics"
 	upgradeInfoC       = "upgradeInfo"
+	rebootC            = "reboot"
+
+	// meterStatusC is the collection used to store meter status information.
+	meterStatusC = "meterStatus"
 
 	// toolsmetadataC is the collection used to store tools metadata.
 	toolsmetadataC = "toolsmetadata"
@@ -284,18 +288,17 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 	var agentTags []string
 	for _, name := range []string{machinesC, unitsC} {
 		collection := db.C(name)
-
 		var doc struct {
-			Id string `bson:"_id"`
+			DocID string `bson:"_id"`
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
+			localID := st.localID(doc.DocID)
 			switch name {
 			case machinesC:
-				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
+				agentTags = append(agentTags, names.NewMachineTag(localID).String())
 			case unitsC:
-				unitName := st.localID(doc.Id)
-				agentTags = append(agentTags, names.NewUnitTag(unitName).String())
+				agentTags = append(agentTags, names.NewUnitTag(localID).String())
 			}
 		}
 		if err := iter.Close(); err != nil {
@@ -537,16 +540,29 @@ func (st *State) Machine(id string) (*Machine, error) {
 	machinesCollection, closer := st.getCollection(machinesC)
 	defer closer()
 
+	var err error
 	mdoc := &machineDoc{}
-	sel := bson.D{{"_id", id}}
-	err := machinesCollection.Find(sel).One(mdoc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine %s", id)
+	for _, tryId := range []string{st.docID(id), id} {
+		err = machinesCollection.FindId(tryId).One(mdoc)
+		if err != mgo.ErrNotFound {
+			break
+		}
 	}
-	if err != nil {
+	switch err {
+	case nil:
+		// This is required to allow loading of machines before the
+		// environment UUID migration has been applied to the machines
+		// collection. Without this, a machine agent can't come up to
+		// run the database migration..
+		if mdoc.Id == "" {
+			mdoc.Id = mdoc.DocID
+		}
+		return newMachine(st, mdoc), nil
+	case mgo.ErrNotFound:
+		return nil, errors.NotFoundf("machine %s", id)
+	default:
 		return nil, errors.Annotatef(err, "cannot get machine %s", id)
 	}
-	return newMachine(st, mdoc), nil
 }
 
 // FindEntity returns the entity with the given tag.
@@ -602,15 +618,16 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag names.Tag) (string, string, error) {
+func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 	if tag == nil {
-		return "", "", errors.Errorf("tag is nil")
+		return "", nil, errors.Errorf("tag is nil")
 	}
 	coll := ""
 	id := tag.Id()
 	switch tag := tag.(type) {
 	case names.MachineTag:
 		coll = machinesC
+		id = st.docID(id)
 	case names.ServiceTag:
 		coll = servicesC
 		id = st.docID(id)
@@ -620,7 +637,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 	case names.UserTag:
 		coll = usersC
 		if !tag.IsLocal() {
-			return "", "", fmt.Errorf("%q is not a local user", tag.Username())
+			return "", nil, fmt.Errorf("%q is not a local user", tag.Username())
 		}
 		id = tag.Name()
 	case names.RelationTag:
@@ -633,7 +650,7 @@ func (st *State) parseTag(tag names.Tag) (string, string, error) {
 		coll = actionsC
 		id = actionIdFromTag(tag)
 	default:
-		return "", "", errors.Errorf("%q is not a valid collection tag", tag)
+		return "", nil, errors.Errorf("%q is not a valid collection tag", tag)
 	}
 	return coll, id, nil
 }
@@ -1082,7 +1099,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(name, owner string, ch *Charm, networks []string) (service *Service, err error) {
-	defer errors.Maskf(&err, "cannot add service %q", name)
+	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Invalid ownertag %s", owner)
@@ -1173,7 +1190,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 // network with the same name or provider id already exists in state,
 // an error satisfying errors.IsAlreadyExists is returned.
 func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
-	defer errors.Contextf(&err, "cannot add network %q", args.Name)
+	defer errors.DeferredAnnotatef(&err, "cannot add network %q", args.Name)
 	if args.CIDR != "" {
 		_, _, err := net.ParseCIDR(args.CIDR)
 		if err != nil {
@@ -1421,7 +1438,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	defer errors.Maskf(&err, "cannot add relation %q", key)
+	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -1582,7 +1599,7 @@ func (st *State) Action(id string) (*Action, error) {
 	defer closer()
 
 	doc := actionDoc{}
-	err := actions.FindId(id).One(&doc)
+	err := actions.FindId(st.docID(id)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action %q", id)
 	}
@@ -1594,29 +1611,32 @@ func (st *State) Action(id string) (*Action, error) {
 
 // matchingActions finds actions that match ActionReceiver
 func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
-	return st.matchingActionsByPrefix(ar.Name())
+	return st.matchingActionsByReceiverName(ar.Name())
 }
 
-// ActionByTag returns an Action given an ActionTag
-func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
-	return st.Action(actionIdFromTag(tag))
-}
-
-// matchingActionsByPrefix finds actions with a given prefix
-func (st *State) matchingActionsByPrefix(prefix string) ([]*Action, error) {
+// matchingActionsByReceiverName returns all Actions associated with the
+// ActionReceiver with the given name.
+func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, error) {
 	var doc actionDoc
 	var actions []*Action
 
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(ensureActionMarker(prefix))}}}}
+	envuuid := st.EnvironTag().Id()
+	sel := bson.D{{"env-uuid", envuuid}, {"receiver", receiver}}
 	iter := actionsCollection.Find(sel).Iter()
 
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
 	return actions, errors.Trace(iter.Close())
+
+}
+
+// ActionByTag returns an Action given an ActionTag.
+func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
+	return st.Action(actionIdFromTag(tag))
 }
 
 // ActionResult returns an ActionResult by Id.
@@ -1625,7 +1645,7 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	defer closer()
 
 	doc := actionResultDoc{}
-	err := actionresults.FindId(id).One(&doc)
+	err := actionresults.FindId(st.docID(id)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action result %q", id)
 	}
@@ -1635,7 +1655,14 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	return newActionResult(st, doc), nil
 }
 
-// matchingActionResults finds actions that match name
+// ActionResultByTag returns an ActionResult given an ActionTag. We
+// intentionally use the ActionTag rather than an ActionResultTag
+// because conceptually they're the same Action.
+func (st *State) ActionResultByTag(tag names.ActionTag) (*ActionResult, error) {
+	return st.ActionResult(actionResultIdFromTag(tag))
+}
+
+// matchingActionResults finds action results from a given ActionReceiver.
 func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, error) {
 	var doc actionResultDoc
 	var results []*ActionResult
@@ -1643,8 +1670,8 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 	actionresults, closer := st.getCollection(actionresultsC)
 	defer closer()
 
-	prefix := actionResultPrefix(ar)
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
+	envuuid := st.EnvironTag().Id()
+	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
 	iter := actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))
@@ -1678,7 +1705,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer errors.Maskf(&err, "cannot assign unit %q to machine", u)
+	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:

@@ -230,7 +230,7 @@ func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocke
 	}
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    rootCAs,
-		ServerName: "anything",
+		ServerName: "juju-apiserver",
 	}
 	return cfg, nil
 }

@@ -58,7 +58,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 	fmt.Fprintf(context.Stdout, "Finding tools in %s\n", c.metadataDir)
 	const minorVersion = -1
-	toolsList, err := envtools.ReadList(sourceStorage, version.Current.Major, minorVersion)
+	toolsList, err := envtools.ReadList(sourceStorage, c.stream, version.Current.Major, minorVersion)
 	if err == envtools.ErrNoTools {
 		var source string
 		source, err = envtools.ToolsURL(envtools.DefaultBaseURL)
@@ -93,11 +93,11 @@ func mergeAndWriteMetadata(stor storage.Storage, stream string, toolsList coreto
 	if err != nil {
 		return err
 	}
-	metadata := envtools.MetadataFromTools(toolsList)
+	metadata := envtools.MetadataFromTools(toolsList, stream)
 	if metadata, err = envtools.MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
-	if err = envtools.ResolveMetadata(stor, metadata); err != nil {
+	if err = envtools.ResolveMetadata(stor, stream, metadata); err != nil {
 		return err
 	}
 	return envtools.WriteMetadata(stor, stream, metadata, writeMirrors)

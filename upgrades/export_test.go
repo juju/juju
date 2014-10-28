@@ -27,8 +27,6 @@ var (
 	MigrateLocalProviderAgentConfig        = migrateLocalProviderAgentConfig
 
 	// 121 upgrade functions
-	StepsFor121a1              = stepsFor121a1
-	StepsFor121a2              = stepsFor121a2
 	MigrateCharmStorage        = migrateCharmStorage
 	MigrateCustomImageMetadata = migrateCustomImageMetadata
 	MigrateToolsStorage        = migrateToolsStorage

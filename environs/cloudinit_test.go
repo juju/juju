@@ -185,7 +185,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	testJujuHome := c.MkDir()
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/releases/juju1.2.3-quantal-amd64.tgz",
+		URL:     "http://foo.com/tools/released/juju1.2.3-quantal-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
@@ -194,6 +194,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	allJobs := []params.MachineJob{
 		params.JobManageEnviron,
 		params.JobHostUnits,
+		params.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",

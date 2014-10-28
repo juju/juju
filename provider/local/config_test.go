@@ -128,7 +128,7 @@ func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	validConfig, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
-	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, false)
+	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, true)
 	c.Check(validConfig.EnableOSUpgrade(), gc.Equals, false)
 }
 

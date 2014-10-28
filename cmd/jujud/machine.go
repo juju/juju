@@ -32,7 +32,9 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -91,7 +93,7 @@ var (
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
-	newSafeNetworker         = networker.NewSafeNetworker
+	newFirewaller            = firewaller.NewFirewaller
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -326,6 +328,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
 	}
+	// Check if firewall-mode is "none" to disable the firewaller.
+	firewallMode := envConfig.FirewallMode()
+	disableFirewaller := firewallMode == config.FwNone
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
@@ -402,17 +407,19 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-	writeNetworkConfig := providerType == "maas"
-	if disableNetworkManagement || !writeNetworkConfig {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return newSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
-		})
-	} else if !disableNetworkManagement && writeNetworkConfig {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return newNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
-		})
+
+	// Start networker depending on configuration and job.
+	intrusiveMode := false
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageNetworking {
+			intrusiveMode = true
+			break
+		}
 	}
+	intrusiveMode = intrusiveMode && !disableNetworkManagement
+	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
+	})
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
@@ -446,9 +453,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// Make another job to enable the firewaller. Not all
 			// environments are capable of managing ports
 			// centrally.
-			a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st.Firewaller())
-			})
+			if !disableFirewaller {
+				a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
+					return newFirewaller(st.Firewaller())
+				})
+			} else {
+				logger.Debugf("not starting firewaller worker - firewall-mode is %q", config.FwNone)
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
 			})
@@ -474,10 +485,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// We don't yet support nested lxc containers but anything else can run an LXC container.
-	if entity.ContainerType() != instance.LXC {
+	// LXC containers are only supported on bare metal and fully virtualized linux systems
+	// Nested LXC containers and Windows machines cannot run LXC containers
+	supportsLXC, err := lxc.IsLXCSupported()
+	if err != nil {
+		logger.Warningf("no lxc containers possible: %v", err)
+	}
+	if err == nil && supportsLXC {
 		supportedContainers = append(supportedContainers, instance.LXC)
 	}
+
 	supportsKvm, err := kvm.IsKVMSupported()
 	if err != nil {
 		logger.Warningf("determining kvm support: %v\nno kvm containers possible", err)
@@ -674,19 +691,19 @@ func init() {
 
 // limitLogin is called by the API server for each login attempt.
 // it returns an error if upgrads or restore are running.
-func (a *MachineAgent) limitLogins(creds params.Creds) error {
-	err := a.limitLoginsDuringRestore(creds)
+func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
+	err := a.limitLoginsDuringRestore(req)
 	if err != nil {
 		return err
 	}
-	err = a.limitLoginsDuringUpgrade(creds)
+	err = a.limitLoginsDuringUpgrade(req)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *MachineAgent) limitLoginsDuringRestore(creds params.Creds) error {
+func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 	var err error
 	switch {
 	case a.IsRestoreRunning():
@@ -695,7 +712,7 @@ func (a *MachineAgent) limitLoginsDuringRestore(creds params.Creds) error {
 		err = apiserver.AboutToRestoreError
 	}
 	if err != nil {
-		authTag, parseErr := names.ParseTag(creds.AuthTag)
+		authTag, parseErr := names.ParseTag(req.AuthTag)
 		if parseErr != nil {
 			return errors.Annotate(err, "could not parse auth tag")
 		}
@@ -717,9 +734,9 @@ func (a *MachineAgent) limitLoginsDuringRestore(creds params.Creds) error {
 // limitLoginsDuringUpgrade is called by the API server for each login
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
-func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
+func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 	if a.upgradeWorkerContext.IsUpgradeRunning() {
-		authTag, err := names.ParseTag(creds.AuthTag)
+		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
 		}
