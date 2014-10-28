@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"github.com/juju/errors"
 	"github.com/rogpeppe/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/common"
@@ -53,8 +52,7 @@ func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
 	info, err := a.srv.state.StateServingInfo()
-	if errors.IsNotFound(err) {
-	} else if err != nil {
+	if err != nil {
 		logger.Errorf("Admin Login (v1): %v", err)
 		return fail, err
 	} else if info.IdentityProvider != nil {

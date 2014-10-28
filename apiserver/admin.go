@@ -337,9 +337,7 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	}
 
 	info, err := c.st.StateServingInfo()
-	if errors.IsNotFound(err) {
-		return fail, err
-	} else if err != nil {
+	if err != nil {
 		return fail, err
 	} else if info.IdentityProvider == nil {
 		logger.Debugf("empty credentials, remote identity provider not configured")

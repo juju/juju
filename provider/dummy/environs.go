@@ -723,6 +723,24 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		logger.Debugf("setting password for %q to %q", owner.Name(), password)
 		owner.SetPassword(password)
 
+		stInfo := state.StateServingInfo{
+			APIPort:    estate.apiListener.Addr().(*net.TCPAddr).Port,
+			Cert:       testing.ServerCert,
+			PrivateKey: testing.ServerKey,
+		}
+		_, mongoPort, err := net.SplitHostPort(st.MongoSession().LiveServers()[0])
+		if err != nil {
+			return "", "", nil, err
+		}
+		stInfo.StatePort, err = strconv.Atoi(mongoPort)
+		if err != nil {
+			return "", "", nil, err
+		}
+		err = st.SetStateServingInfo(stInfo)
+		if err != nil {
+			return "", "", nil, err
+		}
+
 		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),
