@@ -27,7 +27,8 @@ var (
 		return meta.Finish(result.size, result.checksum)
 	}
 	storeArchive = func(stor filestorage.FileStorage, meta *metadata.Metadata, file io.Reader) error {
-		_, err := stor.Add(meta, file)
+		id, err := stor.Add(meta, file)
+		meta.SetID(id)
 		return err
 	}
 )
