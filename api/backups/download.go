@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Download implements the API method.
+// Download returns an io.ReadCloser for the given backup id.
 func (c *Client) Download(id string) (io.ReadCloser, error) {
 	args := params.BackupsDownloadArgs{
 		ID: id,
