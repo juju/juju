@@ -34,11 +34,11 @@ func (s *httpSuite) SetUpTest(c *gc.C) {
 	)
 }
 
-func (s *httpSuite) checkRequest(c *gc.C, req *http.Request, method, pth string) {
+func (s *httpSuite) checkRequest(c *gc.C, req *http.Request, method, path string) {
 	username := dummy.AdminUserTag().String()
 	password := jujutesting.AdminSecret
 	hostname := "localhost"
-	s.CheckRequest(c, req, method, username, password, hostname, pth)
+	s.CheckRequest(c, req, method, username, password, hostname, path)
 }
 
 func (s *httpSuite) TestNewHTTPRequestSuccess(c *gc.C) {
