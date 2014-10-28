@@ -63,7 +63,7 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	storageDir := c.MkDir()
 	suite.PatchValue(&envtools.DefaultBaseURL, "file://"+storageDir+"/tools")
-	suite.UploadFakeToolsToDirectory(c, storageDir)
+	suite.UploadFakeToolsToDirectory(c, storageDir, "released")
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {

@@ -78,26 +78,26 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 		return errors.Annotate(err, "cannot find tools in provider storage")
 	}
 
-	for _, tools := range toolsList {
-		logger.Infof("migrating %v tools to environment storage", tools.Version)
-		data, err := fetchToolsArchive(stor, tools)
+	for _, agentTools := range toolsList {
+		logger.Infof("migrating %v tools to environment storage", agentTools.Version)
+		data, err := fetchToolsArchive(stor, config.AgentStream(), agentTools)
 		if err != nil {
-			return errors.Annotatef(err, "failed to fetch %v tools", tools.Version)
+			return errors.Annotatef(err, "failed to fetch %v tools", agentTools.Version)
 		}
 		err = tstor.AddTools(bytes.NewReader(data), toolstorage.Metadata{
-			Version: tools.Version,
-			Size:    tools.Size,
-			SHA256:  tools.SHA256,
+			Version: agentTools.Version,
+			Size:    agentTools.Size,
+			SHA256:  agentTools.SHA256,
 		})
 		if err != nil {
-			return errors.Annotatef(err, "failed to add %v tools to environment storage", tools.Version)
+			return errors.Annotatef(err, "failed to add %v tools to environment storage", agentTools.Version)
 		}
 	}
 	return nil
 }
 
-func fetchToolsArchive(stor storage.StorageReader, tools *tools.Tools) ([]byte, error) {
-	r, err := stor.Get(envtools.StorageName(tools.Version))
+func fetchToolsArchive(stor storage.StorageReader, stream string, agentTools *tools.Tools) ([]byte, error) {
+	r, err := stor.Get(envtools.StorageName(agentTools.Version, stream))
 	if err != nil {
 		return nil, err
 	}
@@ -108,10 +108,10 @@ func fetchToolsArchive(stor storage.StorageReader, tools *tools.Tools) ([]byte, 
 	if err != nil {
 		return nil, err
 	}
-	if hash != tools.SHA256 {
+	if hash != agentTools.SHA256 {
 		return nil, errors.New("hash mismatch")
 	}
-	if size != tools.Size {
+	if size != agentTools.Size {
 		return nil, errors.New("size mismatch")
 	}
 	return buf.Bytes(), nil
