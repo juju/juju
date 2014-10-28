@@ -947,35 +947,16 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (e *environ) AllocateAddress(_ instance.Id, _ network.Id, addr network.Address) error {
-	// XXX is it ok to assume that this method is only called when
-	// SupportAddressAllocation returns true?
-	defaultVpc, _, err := e.defaultVpc()
+func (e *environ) AllocateAddress(_ instance.Id, netId network.Id, addr network.Address) error {
+	// The response here is not useful - either the call succeeds or we get an
+	// error
+	_, err := ec2.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	ec2 := e.ec2()
-	interfaceResp, err := ec2.NetworkInterfaces([]string{}, nil)
-	if err != nil {
+		// XXX we should retry here if the error is due to connection flakiness
 		return errors.Trace(err)
 	}
 
-	//iFace := interfaceResp.Interfaces[0]
-
-	resp, err := ec2.AssignPrivateIPAddresses(string(defaultVpc), []string{addr.Value}, 0, false)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	interfaceResp, err = ec2.NetworkInterfaces([]string{}, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// XXX temp: so I can push
-	fmt.Printf("%v %v", interfaceResp, resp)
-
-	return errors.NotImplementedf("AllocateAddress")
+	return nil
 }
 
 // ListNetworks returns basic information about all networks known
