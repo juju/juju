@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
@@ -74,6 +75,23 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 	})
 }
 
+func (s *SetSuite) TestSetSameValue(c *gc.C) {
+	assertSetSuccess(c, s.dir, s.svc, []string{
+		"username=hello",
+		"outlook=hello@world.tld",
+	}, charm.Settings{
+		"username": "hello",
+		"outlook":  "hello@world.tld",
+	})
+	assertSetWarning(c, s.dir, []string{
+		"username=hello",
+	}, "the configuration setting \"username\" already has the value \"hello\"")
+	assertSetWarning(c, s.dir, []string{
+		"outlook=hello@world.tld",
+	}, "the configuration setting \"outlook\" already has the value \"hello@world.tld\"")
+
+}
+
 func (s *SetSuite) TestSetOptionFail(c *gc.C) {
 	assertSetFail(c, s.dir, []string{"foo", "bar"}, "error: invalid option: \"foo\"\n")
 	assertSetFail(c, s.dir, []string{"=bar"}, "error: invalid option: \"=bar\"\n")
@@ -119,6 +137,14 @@ func assertSetFail(c *gc.C, dir string, args []string, err string) {
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
+}
+
+func assertSetWarning(c *gc.C, dir string, args []string, w string) {
+	ctx := coretesting.ContextForDir(c, dir)
+	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
+	c.Check(code, gc.Equals, 0)
+
+	c.Assert(strings.Replace(c.GetTestLog(), "\n", " ", -1), gc.Matches, ".*WARNING.*"+w+".*")
 }
 
 // setupValueFile creates a file containing one value for testing
