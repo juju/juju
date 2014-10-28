@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/errors"
 
-	backupsAPI "github.com/juju/juju/apiserver/backups"
+	apibackups "github.com/juju/juju/apiserver/backups"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -21,7 +21,7 @@ import (
 // TODO(ericsnow) This code should be in the backups package.
 
 var newBackups = func(st *state.State) (backups.Backups, error) {
-	return backupsAPI.NewBackups(st)
+	return apibackups.NewBackups(st)
 }
 
 // backupHandler handles backup requests
