@@ -117,7 +117,7 @@ func (s *backupsSuite) TestErrorWhenNewBackupsFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 
-	s.checkErrorResponse(c, resp, 500, "failed!")
+	s.checkErrorResponse(c, resp, http.StatusInternalServerError, "failed!")
 }
 
 type backupsDownloadSuite struct {
@@ -164,7 +164,7 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 	defer resp.Body.Close()
 	meta := s.fake.Meta
 
-	c.Check(resp.StatusCode, gc.Equals, 200)
+	c.Check(resp.StatusCode, gc.Equals, http.StatusOK)
 	c.Check(resp.Header.Get("Digest"), gc.Equals, string(apihttp.DIGEST_SHA)+"="+meta.Checksum())
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_RAW)
 }
@@ -183,5 +183,5 @@ func (s *backupsDownloadSuite) TestErrorWhenGetFails(c *gc.C) {
 	resp := s.sendValid(c)
 	defer resp.Body.Close()
 
-	s.checkErrorResponse(c, resp, 500, "failed!")
+	s.checkErrorResponse(c, resp, http.StatusInternalServerError, "failed!")
 }
