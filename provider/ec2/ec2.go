@@ -948,7 +948,6 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
 func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	// TODO(dimitern) This will be implemented in a follow-up.
 	return errors.NotImplementedf("AllocateAddress")
 }
 
