@@ -23,6 +23,7 @@ func (s *State) NewHTTPClient() *http.Client {
 	httpclient := utils.GetValidatingHTTPClient()
 	tlsconfig := tls.Config{
 		RootCAs: s.certPool,
+		// We want to be specific here (rather than just using "anything".
 		// See commit 7fc118f015d8480dfad7831788e4b8c0432205e8 (PR 899).
 		ServerName: "juju-apiserver",
 	}
