@@ -111,8 +111,8 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
-	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "released", versionStrings)
-	toolsFile := envtools.StorageName(vers, "released")
+	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", "released", versionStrings)
+	toolsFile := envtools.StorageName(vers)
 	return expectedTools, vers, path.Join(localStorage, toolsFile)
 }
 
@@ -238,8 +238,8 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	// them, and then cache them in toolstorage.
 	vers := version.MustParseBinary("1.23.0-trusty-amd64")
 	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", vers)[0]
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, vers)[0]
 	data := s.testDownload(c, tools, "")
 
 	metadata, cachedData := s.getToolsFromStorage(c, tools.Version)
@@ -251,9 +251,9 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", version.Current)[0]
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
+	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader("!"), 1)
 	c.Assert(err, gc.IsNil)
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
@@ -265,10 +265,10 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	stor := s.DefaultToolsStorage
-	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", version.Current)[0]
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
-	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
+	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader(sameSize), tools.Size)
 	c.Assert(err, gc.IsNil)
 
 	resp, err := s.downloadRequest(c, tools.Version, "")
