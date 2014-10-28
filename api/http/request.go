@@ -24,7 +24,6 @@ func NewRequest(method string, baseURL *url.URL, pth, uuid, tag, pw string) (*ht
 	}
 
 	req.SetBasicAuth(tag, pw)
-
 	return req, nil
 }
 
