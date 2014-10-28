@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+const CTYPE_JSON = "application/json"
+
 // HTTPClient is an API-specific HTTP client.
 type HTTPClient interface {
 	// Do sends the HTTP request, returning the subsequent response.

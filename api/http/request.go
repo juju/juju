@@ -34,7 +34,7 @@ func SetRequestArgs(req *http.Request, args interface{}) error {
 		return errors.Annotate(err, "while serializing args")
 	}
 
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", CTYPE_JSON)
 	req.Body = ioutil.NopCloser(bytes.NewBuffer(data))
 	return nil
 }

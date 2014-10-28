@@ -30,7 +30,7 @@ func ExtractAPIError(resp *http.Response) (*params.Error, error) {
 	}
 
 	var failure params.Error
-	if resp.Header.Get("Content-Type") == "application/json" {
+	if resp.Header.Get("Content-Type") == CTYPE_JSON {
 		if err := json.Unmarshal(body, &failure); err != nil {
 			return nil, errors.Annotate(err, "while unserializing the error")
 		}
