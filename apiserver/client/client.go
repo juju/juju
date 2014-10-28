@@ -262,7 +262,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
 		_, err = c.api.state.Machine(args.ToMachineSpec)
 		if err != nil {
-			return fmt.Errorf(`cannot deploy "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
 
@@ -474,7 +474,7 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
 		_, err = state.Machine(args.ToMachineSpec)
 		if err != nil {
-			return nil, fmt.Errorf(`cannot add units for service "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
