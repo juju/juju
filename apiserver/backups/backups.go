@@ -78,9 +78,7 @@ func NewBackups(st *state.State) (backups.Backups, error) {
 		return nil, errors.Trace(err)
 	}
 
-	backups := backups.NewBackups(stor)
-
-	return backups, nil
+	return backups.NewBackups(stor), nil
 }
 
 var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
