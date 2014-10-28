@@ -1,7 +1,8 @@
 bitbucket.org/kardianos/osext	hg	5d3ddcf53a508cc2f7404eaebf546ef2cb5cdb6e	12
-bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	
+bitbucket.org/kardianos/service	hg	d2fd4f8afd23d9b5d57250b8d3f0bc0c8bf363ec	58
 code.google.com/p/go.crypto	hg	aa2644fe4aa50e3b38d75187b4799b1f0c9ddcef	212
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
+code.google.com/p/winsvc	hg	d6f79143ccd1138cc9d86c9fc75b1d6f8b1b95fb	10
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	
 github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
