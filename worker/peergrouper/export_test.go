@@ -16,3 +16,4 @@ var (
 func (pub *publisher) PublishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	return pub.publishAPIServers(apiServers, instanceIds)
 }
+
