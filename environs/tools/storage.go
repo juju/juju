@@ -5,7 +5,6 @@ package tools
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/juju/juju/environs/storage"
@@ -16,41 +15,37 @@ import (
 var ErrNoTools = errors.New("no tools available")
 
 const (
-	toolPrefix = "tools/%s/juju-"
+	toolPrefix = "tools/releases/juju-"
 	toolSuffix = ".tgz"
 )
 
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
-func StorageName(vers version.Binary, stream string) string {
-	return storagePrefix(stream) + vers.String() + toolSuffix
-}
-
-func storagePrefix(stream string) string {
-	return fmt.Sprintf(toolPrefix, stream)
+func StorageName(vers version.Binary) string {
+	return toolPrefix + vers.String() + toolSuffix
 }
 
 // ReadList returns a List of the tools in store with the given major.minor version.
 // If minorVersion = -1, then only majorVersion is considered.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(stor storage.StorageReader, stream string, majorVersion, minorVersion int) (coretools.List, error) {
+func ReadList(stor storage.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
 		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
 	} else {
 		logger.Debugf("reading v%d.* tools", majorVersion)
 	}
-	names, err := storage.List(stor, storagePrefix(stream))
+	names, err := storage.List(stor, toolPrefix)
 	if err != nil {
 		return nil, err
 	}
 	var list coretools.List
 	var foundAnyTools bool
 	for _, name := range names {
-		if !strings.HasPrefix(name, storagePrefix(stream)) || !strings.HasSuffix(name, toolSuffix) {
+		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
 		var t coretools.Tools
-		vers := name[len(storagePrefix(stream)) : len(name)-len(toolSuffix)]
+		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
 			logger.Debugf("failed to parse version %q: %v", vers, err)
 			continue

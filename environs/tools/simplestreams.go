@@ -279,10 +279,10 @@ type MetadataFile struct {
 // MetadataFromTools returns a tools metadata list derived from the
 // given tools list. The size and sha256 will not be computed if
 // missing.
-func MetadataFromTools(toolsList coretools.List, stream string) []*ToolsMetadata {
+func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
 	metadata := make([]*ToolsMetadata, len(toolsList))
 	for i, t := range toolsList {
-		path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", stream, t.Version.Number, t.Version.Series, t.Version.Arch)
+		path := fmt.Sprintf("releases/juju-%s-%s-%s.tgz", t.Version.Number, t.Version.Series, t.Version.Arch)
 		metadata[i] = &ToolsMetadata{
 			Release:  t.Version.Series,
 			Version:  t.Version.Number.String(),
@@ -299,14 +299,14 @@ func MetadataFromTools(toolsList coretools.List, stream string) []*ToolsMetadata
 // ResolveMetadata resolves incomplete metadata
 // by fetching the tools from storage and computing
 // the size and hash locally.
-func ResolveMetadata(stor storage.StorageReader, stream string, metadata []*ToolsMetadata) error {
+func ResolveMetadata(stor storage.StorageReader, metadata []*ToolsMetadata) error {
 	for _, md := range metadata {
 		if md.Size != 0 {
 			continue
 		}
 		binary := md.binary()
-		logger.Infof("Fetching %s tools to generate hash: %v", stream, binary)
-		size, sha256hash, err := fetchToolsHash(stor, stream, binary)
+		logger.Infof("Fetching tools to generate hash: %v", binary)
+		size, sha256hash, err := fetchToolsHash(stor, binary)
 		if err != nil {
 			return err
 		}
@@ -426,7 +426,7 @@ func MergeAndWriteMetadata(stor storage.Storage, stream string, tools coretools.
 	if err != nil {
 		return err
 	}
-	metadata := MetadataFromTools(tools, stream)
+	metadata := MetadataFromTools(tools)
 	if metadata, err = MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
@@ -435,8 +435,8 @@ func MergeAndWriteMetadata(stor storage.Storage, stream string, tools coretools.
 
 // fetchToolsHash fetches the tools from storage and calculates
 // its size in bytes and computes a SHA256 hash of its contents.
-func fetchToolsHash(stor storage.StorageReader, stream string, ver version.Binary) (size int64, sha256hash hash.Hash, err error) {
-	r, err := storage.Get(stor, StorageName(ver, stream))
+func fetchToolsHash(stor storage.StorageReader, ver version.Binary) (size int64, sha256hash hash.Hash, err error) {
+	r, err := storage.Get(stor, StorageName(ver))
 	if err != nil {
 		return 0, nil, err
 	}

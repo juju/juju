@@ -71,7 +71,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	binVersion := version.Binary{number, series, arch, operatingSystem}
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, "released", binVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, binVersion)
 	envtools.DefaultBaseURL = defaultToolsURL
 
 	for i, errorCode := range []int{255, 0} {

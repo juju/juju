@@ -247,7 +247,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
 	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", versions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, versions...)
 	s.DefaultToolsStorage = stor
 
 	err = bootstrap.Bootstrap(ctx, environ, bootstrap.BootstrapParams{})
@@ -269,13 +269,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 // AddToolsToState adds tools to tools storage.
 func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
-	stor, err := s.State.ToolsStorage()
+	storage, err := s.State.ToolsStorage()
 	c.Assert(err, gc.IsNil)
-	defer stor.Close()
+	defer storage.Close()
 	for _, v := range versions {
 		content := v.String()
 		hash := fmt.Sprintf("sha256(%s)", content)
-		err := stor.AddTools(strings.NewReader(content), toolstorage.Metadata{
+		err := storage.AddTools(strings.NewReader(content), toolstorage.Metadata{
 			Version: v,
 			Size:    int64(len(content)),
 			SHA256:  hash,

@@ -31,7 +31,7 @@ var _ = gc.Suite(&StateSuite{})
 func (suite *StateSuite) newStorageWithDataDir(c *gc.C) (storage.Storage, string) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	suite.AddCleanup(func(*gc.C) { closer.Close() })
-	envtesting.UploadFakeTools(c, stor, "released")
+	envtesting.UploadFakeTools(c, stor)
 	return stor, dataDir
 }
 
