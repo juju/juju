@@ -36,6 +36,22 @@ var migrateToolsVersions = []version.Binary{
 	version.MustParseBinary("2.3.4-trusty-ppc64el"),
 }
 
+func (s *migrateToolsStorageSuite) TestMigrateToolsStorageNoTools(c *gc.C) {
+	fakeToolsStorage := &fakeToolsStorage{
+		stored: make(map[version.Binary]toolstorage.Metadata),
+	}
+	s.PatchValue(upgrades.StateToolsStorage, func(*state.State) (toolstorage.StorageCloser, error) {
+		return fakeToolsStorage, nil
+	})
+
+	stor := s.Environ.(environs.EnvironStorage).Storage()
+	envtesting.RemoveFakeTools(c, stor)
+	envtesting.RemoveFakeToolsMetadata(c, stor)
+	err := upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(fakeToolsStorage.stored, gc.HasLen, 0)
+}
+
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorage(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
 	envtesting.RemoveFakeTools(c, stor)

@@ -110,6 +110,24 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		}
 		settings[k] = nv
 	}
+
+	result, err := api.ServiceGet(c.ServiceName)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range settings {
+		configValue := result.Config[k]
+
+		configValueMap, ok := configValue.(map[string]interface{})
+		if ok {
+			// convert the value to string and compare
+			if fmt.Sprintf("%v", configValueMap["value"]) == v {
+				logger.Warningf("the configuration setting %q already has the value %q", k, v)
+			}
+		}
+	}
+
 	return api.ServiceSet(c.ServiceName, settings)
 }
 

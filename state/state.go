@@ -776,7 +776,8 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
-		err = charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
+		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
+		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -922,7 +923,8 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		err := charms.Find(bson.D{{"_id", st.docID(curl.String())}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		query := bson.D{{"_id", st.docID(curl.String())}}
+		err := charms.Find(query).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -963,8 +965,8 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 	defer closer()
 
 	var docs []charmDoc
-	err := charms.Find(
-		bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
+	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
+	err := charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

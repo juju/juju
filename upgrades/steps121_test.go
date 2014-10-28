@@ -46,6 +46,7 @@ func (s *steps121Suite) TestStepsFor121a3(c *gc.C) {
 		"prepend the environment UUID to the ID of all containerRef docs",
 		"prepend the environment UUID to the ID of all reboot docs",
 		"prepend the environment UUID to the ID of all charm docs",
+		"migrate machine jobs into ones with JobManageNetworking based on rules",
 	}
 	assertSteps(c, version.MustParse("1.21-alpha3"), expectedSteps)
 }
