@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -572,10 +573,10 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 
 // IgnoredDatabases is the list of databases that should not be
 // backed up.
-var IgnoredDatabases = []string{
+var IgnoredDatabases = set.NewStrings(
 	"backups",
 	"presence",
-}
+)
 
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
@@ -584,7 +585,7 @@ func NewDBBackupInfo(st *State) *backupsdb.Info {
 	targets := getBackupTargetDatabases(st)
 	info := backupsdb.Info{
 		ConnInfo: *connInfo,
-		Targets:  targets,
+		Targets:  targets.Values(),
 	}
 	return &info
 }
@@ -603,28 +604,14 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
 	return &info
 }
 
-func getBackupTargetDatabases(st *State) []string {
-	contains := func(list []string, value string) bool {
-		for _, str := range list {
-			if value == str {
-				return true
-			}
-		}
-		return false
-	}
-
+func getBackupTargetDatabases(st *State) *set.Strings {
 	dbNames, err := st.MongoSession().DatabaseNames()
 	if err != nil {
 		panic(fmt.Sprintf("unexpectedly unable to get DB names: %v", err))
 	}
 
-	var targets []string
-	for _, dbName := range dbNames {
-		if !contains(IgnoredDatabases, dbName) {
-			targets = append(targets, dbName)
-		}
-	}
-	return targets
+	targets := set.NewStrings(dbNames...).Difference(IgnoredDatabases)
+	return &targets
 }
 
 // NewBackupsOrigin returns a snapshot of where backup was run.  That
