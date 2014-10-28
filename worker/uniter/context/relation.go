@@ -12,9 +12,6 @@ import (
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
-// SettingsMap is a map from unit name to relation settings.
-type SettingsMap map[string]params.RelationSettings
-
 // ContextRelation is the implementation of jujuc.ContextRelation.
 type ContextRelation struct {
 	ru           *uniter.RelationUnit
