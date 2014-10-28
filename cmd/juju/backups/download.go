@@ -16,10 +16,10 @@ import (
 const archivePrefix = "juju-backup-"
 
 const downloadDoc = `
-"download" pulls down a backup archive file.
+"download" retrieves a backup archive file.
 
 If --filename is not used, the archive is downloaded to a temporary
-location.  The filename is printed to stdout.
+location and the filename is printed to stdout.
 `
 
 // DownloadCommand is the sub-command for downloading a backup archive.
