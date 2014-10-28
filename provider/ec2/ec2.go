@@ -944,12 +944,11 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, nil
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	// TODO(dimitern) This will be implemented in a follow-up.
-	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known
