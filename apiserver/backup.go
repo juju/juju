@@ -24,7 +24,7 @@ var newBackups = func(st *state.State) (backups.Backups, error) {
 	return apibackups.NewBackups(st)
 }
 
-// backupHandler handles backup requests
+// backupHandler handles backup requests.
 type backupHandler struct {
 	httpHandler
 }
