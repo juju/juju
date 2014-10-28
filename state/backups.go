@@ -570,24 +570,12 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 //---------------------------
 // utilities
 
-var (
-	// databases simply identifies the databases we expect to be
-	// backed up.  The actual list is composed dynamically using the
-	// session and IgnoredDatabases.
-	databases = []string{
-		"juju",
-		"admin",
-		"blobstore",
-		"local", // XXX from replicaset
-	}
-
-	// IgnoredDatabases is the list of databases that should not be
-	// backed up.
-	IgnoredDatabases = []string{
-		"backups",
-		"presence",
-	}
-)
+// IgnoredDatabases is the list of databases that should not be
+// backed up.
+var IgnoredDatabases = []string{
+	"backups",
+	"presence",
+}
 
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
