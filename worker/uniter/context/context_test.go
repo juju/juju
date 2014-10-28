@@ -368,8 +368,6 @@ func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionMessage("foo")
 	c.Check(err, gc.ErrorMatches, "not running an action")
-	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
-	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
 	c.Check(err, gc.ErrorMatches, "not running an action")
 }

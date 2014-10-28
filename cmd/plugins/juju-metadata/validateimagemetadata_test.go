@@ -93,6 +93,7 @@ environments:
         type: ec2
         default-series: precise
         region: us-east-1
+        control-bucket: satisfaction
 
     azure:
         type: azure

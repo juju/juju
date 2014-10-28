@@ -163,7 +163,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, newVers)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), newVers)
 
 	// The machine agent downloads the tools; fake this by
 	// creating downloaded-tools.txt in data-dir/tools/<version>.

@@ -69,13 +69,13 @@ var expectedOutputCommon = makeExpectedOutputCommon()
 
 func makeExpectedOutputCommon() string {
 	expected := `Finding tools in .*
-.*Fetching tools to generate hash: 1\.12\.0-precise-amd64
-.*Fetching tools to generate hash: 1\.12\.0-precise-i386
-.*Fetching tools to generate hash: 1\.12\.0-raring-amd64
-.*Fetching tools to generate hash: 1\.12\.0-raring-i386
-.*Fetching tools to generate hash: 1\.13\.0-precise-amd64
+.*Fetching {{.Stream}} tools to generate hash: 1\.12\.0-precise-amd64
+.*Fetching {{.Stream}} tools to generate hash: 1\.12\.0-precise-i386
+.*Fetching {{.Stream}} tools to generate hash: 1\.12\.0-raring-amd64
+.*Fetching {{.Stream}} tools to generate hash: 1\.12\.0-raring-i386
+.*Fetching {{.Stream}} tools to generate hash: 1\.13\.0-precise-amd64
 `
-	f := ".*Fetching tools to generate hash: %s\n"
+	f := ".*Fetching {{.Stream}} tools to generate hash: %s\n"
 	for _, v := range currentVersionStrings {
 		expected += fmt.Sprintf(f, regexp.QuoteMeta(v))
 	}
@@ -108,7 +108,7 @@ var expectedOutputMirrorsReleased = makeExpectedOutput(expectedOutputMirrorsTemp
 
 func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	metadataDir := osenv.JujuHome() // default metadata dir
-	toolstesting.MakeTools(c, metadataDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, nil)
 	c.Assert(code, gc.Equals, 0)
@@ -126,7 +126,7 @@ func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 
 func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	metadataDir := c.MkDir()
-	toolstesting.MakeTools(c, metadataDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
@@ -144,7 +144,7 @@ func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 
 func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
 	metadataDir := c.MkDir()
-	toolstesting.MakeTools(c, metadataDir, "releases", "proposed", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
 	c.Assert(code, gc.Equals, 0)
@@ -162,7 +162,7 @@ func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
 
 func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	// Write tools and metadata to the public tools location.
-	toolstesting.MakeToolsWithCheckSum(c, s.publicStorageDir, "releases", "released", versionStrings)
+	toolstesting.MakeToolsWithCheckSum(c, s.publicStorageDir, "released", versionStrings)
 
 	// Run the command with no local metadata.
 	ctx := coretesting.Context(c)
@@ -181,7 +181,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 
 func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 	metadataDir := c.MkDir()
-	toolstesting.MakeTools(c, metadataDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"--public", "-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
@@ -215,15 +215,15 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 		currentVersion.String() + ".1-precise-amd64",
 	}
 	metadataDir := osenv.JujuHome() // default metadata dir
-	toolstesting.MakeTools(c, metadataDir, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
 	ctx := coretesting.Context(c)
 	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`
 Finding tools in .*
-.*Fetching tools to generate hash: %s
-.*Fetching tools to generate hash: %s
+.*Fetching released tools to generate hash: %s
+.*Fetching released tools to generate hash: %s
 .*Writing tools/streams/v1/index\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
@@ -232,25 +232,25 @@ Finding tools in .*
 	c.Assert(metadata, gc.HasLen, 2)
 
 	filename := fmt.Sprintf("juju-%s-precise-amd64.tgz", currentVersion)
-	size, sha256 := toolstesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "releases", filename))
+	size, sha256 := toolstesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "released", filename))
 	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String(),
 		Arch:     "amd64",
 		Size:     size,
-		Path:     "releases/" + filename,
+		Path:     "released/" + filename,
 		FileType: "tar.gz",
 		SHA256:   sha256,
 	})
 
 	filename = fmt.Sprintf("juju-%s.1-precise-amd64.tgz", currentVersion)
-	size, sha256 = toolstesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "releases", filename))
+	size, sha256 = toolstesting.SHA256sum(c, filepath.Join(metadataDir, "tools", "released", filename))
 	c.Assert(metadata[1], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
 		Version:  currentVersion.String() + ".1",
 		Arch:     "amd64",
 		Size:     size,
-		Path:     "releases/" + filename,
+		Path:     "released/" + filename,
 		FileType: "tar.gz",
 		SHA256:   sha256,
 	})

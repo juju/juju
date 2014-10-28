@@ -36,7 +36,7 @@ import (
 var (
 	apiOpen = api.Open
 
-	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	DataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
@@ -64,7 +64,7 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", dataDir, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", DataDir, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {

@@ -1,4 +1,4 @@
-// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Copyright 2011-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package ec2
@@ -70,6 +70,9 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+
+	// cachedDefaultVpc caches the id of the ec2 default vpc
+	cachedDefaultVpc *defaultVpc
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -82,6 +85,11 @@ type ec2Instance struct {
 
 	mu sync.Mutex
 	*ec2.Instance
+}
+
+type defaultVpc struct {
+	hasDefaultVpc bool
+	id            network.Id
 }
 
 func (inst *ec2Instance) String() string {
@@ -242,7 +250,14 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyCredentials(e.(*environ)); err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -273,6 +288,39 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return m, nil
 }
 
+const badAccessKey = `
+Please ensure the Access Key ID you have specified is correct.
+You can obtain the Access Key ID via the "Security Credentials"
+page in the AWS console.`
+
+const badSecretKey = `
+Please ensure the Secret Access Key you have specified is correct.
+You can obtain the Secret Access Key via the "Security Credentials"
+page in the AWS console.`
+
+// verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
+// verify the configured credentials. If verification fails, a user-friendly
+// error will be returned, and the original error will be logged at debug
+// level.
+var verifyCredentials = func(e *environ) error {
+	_, err := e.ec2().AccountAttributes()
+	if err != nil {
+		logger.Debugf("ec2 request failed: %v", err)
+		if err, ok := err.(*ec2.Error); ok {
+			switch err.Code {
+			case "AuthFailure":
+				return errors.New("authentication failed.\n" + badAccessKey)
+			case "SignatureDoesNotMatch":
+				return errors.New("authentication failed.\n" + badSecretKey)
+			default:
+				return err
+			}
+		}
+		return err
+	}
+	return nil
+}
+
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -300,19 +348,35 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) defaultVpc() (network.Id, bool, error) {
+	if e.cachedDefaultVpc != nil {
+		defaultVpc := e.cachedDefaultVpc
+		return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
+	}
 	ec2 := e.ec2()
 	resp, err := ec2.AccountAttributes("default-vpc")
 	if err != nil {
 		return "", false, errors.Trace(err)
 	}
+
+	hasDefault := true
+	defaultVpcId := ""
+
 	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
-		return "", false, nil
+		hasDefault = false
+		defaultVpcId = ""
+	} else {
+
+		defaultVpcId := resp.Attributes[0].Values[0]
+		if defaultVpcId == none {
+			hasDefault = false
+			defaultVpcId = ""
+		}
 	}
-	defaultVpc := resp.Attributes[0].Values[0]
-	if defaultVpc == none {
-		return "", false, nil
-	}
-	return network.Id(defaultVpc), true, nil
+	defaultVpc := &defaultVpc{
+		id:            network.Id(defaultVpcId),
+		hasDefaultVpc: hasDefault}
+	e.cachedDefaultVpc = defaultVpc
+	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -880,37 +944,38 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, nil
 }
 
-// AllocateAddress requests a new address to be allocated for the
-// given instance on the given network.
-func (e *environ) AllocateAddress(_ instance.Id, netId network.Id) (network.Address, error) {
+// AllocateAddress requests an address to be allocated for the
+// given instance on the given network. This is not implemented by the
+// EC2 provider yet.
+func (e *environ) AllocateAddress(_ instance.Id, _ network.Id, addr network.Address) error {
 	// XXX is it ok to assume that this method is only called when
 	// SupportAddressAllocation returns true?
 	defaultVpc, _, err := e.defaultVpc()
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	ec2 := e.ec2()
 	interfaceResp, err := ec2.NetworkInterfaces([]string{}, nil)
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	//iFace := interfaceResp.Interfaces[0]
 
-	resp, err := ec2.AssignPrivateIPAddresses(string(defaultVpc), []string{}, 1, false)
+	resp, err := ec2.AssignPrivateIPAddresses(string(defaultVpc), []string{addr.Value}, 0, false)
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	interfaceResp, err = ec2.NetworkInterfaces([]string{}, nil)
 	if err != nil {
-		return network.Address{}, errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	// XXX temp: so I can push
 	fmt.Printf("%v %v", interfaceResp, resp)
 
-	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+	return errors.NotImplementedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known

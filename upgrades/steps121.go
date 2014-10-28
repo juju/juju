@@ -125,5 +125,10 @@ func stepsFor121a3() []Step {
 				return state.AddEnvUUIDToReboots(context.State())
 			},
 		},
+		&upgradeStep{
+			description: "migrate machine jobs into ones with JobManageNetworking based on rules",
+			targets:     []Target{DatabaseMaster},
+			run:         migrateJobManageNetworking,
+		},
 	}
 }

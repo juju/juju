@@ -52,7 +52,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	envtesting.UploadFakeTools(c, stor, "released")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
@@ -234,7 +234,7 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 	metadataDir, metadata := createImageMetadata(c)
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -260,7 +260,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 	noImagesDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(noImagesDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	envtesting.UploadFakeTools(c, stor, "released")
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)

@@ -130,18 +130,16 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
-	address, err := e.AllocateAddress(inst.Id(), netId)
+	newAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
+	err := e.AllocateAddress(inst.Id(), netId, newAddress)
 	c.Assert(err, gc.IsNil)
-	c.Assert(address, gc.DeepEquals, expectAddress)
 
-	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
+	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 
-	expectAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
-	address, err = e.AllocateAddress(inst.Id(), netId)
+	newAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
+	err = e.AllocateAddress(inst.Id(), netId, newAddress)
 	c.Assert(err, gc.IsNil)
-	c.Assert(address, gc.DeepEquals, expectAddress)
-	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
+	assertAllocateAddress(c, e, opc, inst.Id(), netId, newAddress)
 }
 
 func (s *suite) TestListNetworks(c *gc.C) {

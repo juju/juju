@@ -688,7 +688,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	env, err := provider.Prepare(nullContext(), cfg)
 	c.Assert(err, gc.IsNil)
 
-	envtesting.MustUploadFakeTools(s.toolsStorage)
+	envtesting.MustUploadFakeTools(s.toolsStorage, cfg.AgentStream())
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()
