@@ -12,26 +12,25 @@ import (
 	"github.com/juju/juju/replicaset"
 )
 
-// jujuMachineTagKey is the key for the tag where we save the member's juju machine id.
-const jujuMachineTagKey = "juju-machine-id"
+// jujuMachineTag is the key for the tag where we save the member's juju machine id.
+const jujuMachineTag = "juju-machine-id"
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
-// PeerGroupInfo holds information that may contribute to
+// peerGroupInfo holds information that may contribute to
 // a peer group.
-// This is exported only for testing purposes
-type PeerGroupInfo struct {
-	machines map[string]*Machine // id -> machine
+type peerGroupInfo struct {
+	machines map[string]*machine // id -> machine
 	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 }
 
 // desiredPeerGroup returns the mongo peer group according to the given
-// servers and a map with an element for each Machine in info.machines
-// specifying whether that Machine has been configured as voting. It will
+// servers and a map with an element for each machine in info.machines
+// specifying whether that machine has been configured as voting. It will
 // return a nil member list and error if the current group is already
 // correct, though the voting map will be still be returned in that case.
-func desiredPeerGroup(info *PeerGroupInfo) ([]replicaset.Member, map[*Machine]bool, error) {
+func desiredPeerGroup(info *peerGroupInfo) ([]replicaset.Member, map[*machine]bool, error) {
 	if len(info.members) == 0 {
 		return nil, nil, fmt.Errorf("current member set is empty")
 	}
@@ -68,12 +67,12 @@ func desiredPeerGroup(info *PeerGroupInfo) ([]replicaset.Member, map[*Machine]bo
 
 	// Set up initial record of machine votes. Any changes after
 	// this will trigger a peer group election.
-	machineVoting := make(map[*Machine]bool)
+	machineVoting := make(map[*machine]bool)
 	for _, m := range info.machines {
 		member := members[m]
 		machineVoting[m] = member != nil && isVotingMember(member)
 	}
-	setVoting := func(m *Machine, voting bool) {
+	setVoting := func(m *machine, voting bool) {
 		setMemberVoting(members[m], voting)
 		machineVoting[m] = voting
 		changed = true
@@ -107,9 +106,9 @@ func isVotingMember(member *replicaset.Member) bool {
 // change to their voting status (this includes machines
 // that are not yet represented in the peer group).
 func possiblePeerGroupChanges(
-	info *PeerGroupInfo,
-	members map[*Machine]*replicaset.Member,
-) (toRemoveVote, toAddVote, toKeep []*Machine) {
+	info *peerGroupInfo,
+	members map[*machine]*replicaset.Member,
+) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
 
 	logger.Debugf("assessing possible peer group changes:")
@@ -149,7 +148,7 @@ func possiblePeerGroupChanges(
 
 // updateAddresses updates the members' addresses from the machines' addresses.
 // It reports whether any changes have been made.
-func updateAddresses(members map[*Machine]*replicaset.Member, machines map[string]*Machine) bool {
+func updateAddresses(members map[*machine]*replicaset.Member, machines map[string]*machine) bool {
 	changed := false
 	// Make sure all members' machine addresses are up to date.
 	for _, m := range machines {
@@ -170,7 +169,7 @@ func updateAddresses(members map[*Machine]*replicaset.Member, machines map[strin
 // care not to let the total number of votes become even at
 // any time. It calls setVoting to change the voting status
 // of a machine.
-func adjustVotes(toRemoveVote, toAddVote []*Machine, setVoting func(*Machine, bool)) {
+func adjustVotes(toRemoveVote, toAddVote []*machine, setVoting func(*machine, bool)) {
 	// Remove voting members if they can be replaced by
 	// candidates that are ready. This does not affect
 	// the total number of votes.
@@ -205,21 +204,21 @@ func adjustVotes(toRemoveVote, toAddVote []*Machine, setVoting func(*Machine, bo
 // maxId upwards. It calls setVoting to set the voting
 // status of each new member.
 func addNewMembers(
-	members map[*Machine]*replicaset.Member,
-	toKeep []*Machine,
+	members map[*machine]*replicaset.Member,
+	toKeep []*machine,
 	maxId int,
-	setVoting func(*Machine, bool),
+	setVoting func(*machine, bool),
 ) {
 	for _, m := range toKeep {
 		hasAddress := m.mongoHostPort() != ""
 		if members[m] == nil && hasAddress {
-			// This Machine was not previously in the members list,
+			// This machine was not previously in the members list,
 			// so add it (as non-voting). We maintain the
 			// id manually to make it easier for tests.
 			maxId++
 			member := &replicaset.Member{
 				Tags: map[string]string{
-					jujuMachineTagKey: m.id,
+					jujuMachineTag: m.id,
 				},
 				Id: maxId,
 			}
@@ -248,23 +247,23 @@ func setMemberVoting(member *replicaset.Member, voting bool) {
 	}
 }
 
-type byId []*Machine
+type byId []*machine
 
 func (l byId) Len() int           { return len(l) }
 func (l byId) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l byId) Less(i, j int) bool { return l[i].id < l[j].id }
 
 // membersMap returns the replica-set members inside info keyed
-// by Machine. Any members that do not have a corresponding
-// Machine are returned in extra.
+// by machine. Any members that do not have a corresponding
+// machine are returned in extra.
 // The maximum replica-set id is returned in maxId.
-func (info *PeerGroupInfo) membersMap() (members map[*Machine]*replicaset.Member, extra []replicaset.Member, maxId int) {
+func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member, extra []replicaset.Member, maxId int) {
 	maxId = -1
-	members = make(map[*Machine]*replicaset.Member)
+	members = make(map[*machine]*replicaset.Member)
 	for _, member := range info.members {
 		member := member
-		mid, ok := member.Tags[jujuMachineTagKey]
-		var found *Machine
+		mid, ok := member.Tags[jujuMachineTag]
+		var found *machine
 		if ok {
 			found = info.machines[mid]
 		}
@@ -280,11 +279,11 @@ func (info *PeerGroupInfo) membersMap() (members map[*Machine]*replicaset.Member
 	return members, extra, maxId
 }
 
-// statusesMap returns the statuses inside info keyed by Machine.
-// The provided members map holds the members keyed by Machine,
+// statusesMap returns the statuses inside info keyed by machine.
+// The provided members map holds the members keyed by machine,
 // as returned by membersMap.
-func (info *PeerGroupInfo) statusesMap(members map[*Machine]*replicaset.Member) map[*Machine]replicaset.MemberStatus {
-	statuses := make(map[*Machine]replicaset.MemberStatus)
+func (info *peerGroupInfo) statusesMap(members map[*machine]*replicaset.Member) map[*machine]replicaset.MemberStatus {
+	statuses := make(map[*machine]replicaset.MemberStatus)
 	for _, status := range info.statuses {
 		for m, member := range members {
 			if member.Id == status.Id {

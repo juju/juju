@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package peergrouper_test
+package peergrouper
 
 import (
 	"fmt"
@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 type desiredPeerGroupSuite struct {
@@ -31,7 +30,7 @@ const (
 
 type desiredPeerGroupTest struct {
 	about    string
-	machines []*peergrouper.Machine
+	machines []*machine
 	statuses []replicaset.MemberStatus
 	members  []replicaset.Member
 
@@ -40,7 +39,7 @@ type desiredPeerGroupTest struct {
 	expectErr     string
 }
 
-func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
+func desiredPeerGroupTests(ipVersion TestIPVersion) []desiredPeerGroupTest {
 	return []desiredPeerGroupTest{
 		{
 			// Note that this should never happen - mongo
@@ -153,10 +152,10 @@ func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
 			expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v", ipVersion),
 		}, {
 			about: "a changed machine address should propagate to the members",
-			machines: append(mkMachines("11v 12v", ipVersion), peergrouper.NewMachine(
-				"13",
-				true,
-				[]network.HostPort{{
+			machines: append(mkMachines("11v 12v", ipVersion), &machine{
+				id:        "13",
+				wantsVote: true,
+				mongoHostPorts: []network.HostPort{{
 					Address: network.Address{
 						Value: ipVersion.extraHost,
 						Type:  ipVersion.addressType,
@@ -164,7 +163,7 @@ func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
 					},
 					Port: 1234,
 				}},
-			)),
+			}),
 			statuses:     mkStatuses("1s 2p 3p", ipVersion),
 			members:      mkMembers("1v 2v 3v", ipVersion),
 			expectVoting: []bool{true, true, true},
@@ -175,11 +174,11 @@ func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
 			}),
 		}, {
 			about: "a machine's address is ignored if it changes to empty",
-			machines: append(mkMachines("11v 12v", ipVersion), peergrouper.NewMachine(
-				"13",
-				true,
-				nil,
-			)),
+			machines: append(mkMachines("11v 12v", ipVersion), &machine{
+				id:             "13",
+				wantsVote:      true,
+				mongoHostPorts: nil,
+			}),
 			statuses:      mkStatuses("1s 2p 3p", ipVersion),
 			members:       mkMembers("1v 2v 3v", ipVersion),
 			expectVoting:  []bool{true, true, true},
@@ -188,19 +187,20 @@ func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
 }
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
-	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
+	DoTestForIPv4AndIPv6(func(ipVersion TestIPVersion) {
 		for i, test := range desiredPeerGroupTests(ipVersion) {
 			c.Logf("\ntest %d: %s", i, test.about)
-			machineMap := make(map[string]*peergrouper.Machine)
+			machineMap := make(map[string]*machine)
 			for _, m := range test.machines {
-				c.Assert(machineMap[m.Id()], gc.IsNil)
-				machineMap[m.Id()] = m
+				c.Assert(machineMap[m.id], gc.IsNil)
+				machineMap[m.id] = m
 			}
-			info := peergrouper.NewPeerGroupInfo(
-				machineMap,
-				test.statuses,
-				test.members)
-			members, voting, err := peergrouper.DesiredPeerGroup(info)
+			info := &peerGroupInfo{
+				machines: machineMap,
+				statuses: test.statuses,
+				members:  test.members,
+			}
+			members, voting, err := desiredPeerGroup(info)
 			if test.expectErr != "" {
 				c.Assert(err, gc.ErrorMatches, test.expectErr)
 				c.Assert(members, gc.IsNil)
@@ -214,7 +214,7 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			for i, m := range test.machines {
 				vote, votePresent := voting[m]
 				c.Check(votePresent, jc.IsTrue)
-				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
+				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 			}
 			// Assure ourselves that the total number of desired votes is odd in
 			// all circumstances.
@@ -223,13 +223,13 @@ func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
 			// Make sure that when the members are set as
 			// required, that there's no further change
 			// if desiredPeerGroup is called again.
-			info.SetMembers(members)
-			members, voting, err = peergrouper.DesiredPeerGroup(info)
+			info.members = members
+			members, voting, err = desiredPeerGroup(info)
 			c.Assert(members, gc.IsNil)
 			for i, m := range test.machines {
 				vote, votePresent := voting[m]
 				c.Check(votePresent, jc.IsTrue)
-				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.Id()))
+				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
 			}
 			c.Assert(err, gc.IsNil)
 		}
@@ -261,14 +261,13 @@ func newFloat64(f float64) *float64 {
 // Each machine in the description is white-space separated
 // and holds the decimal machine id followed by an optional
 // "v" if the machine wants a vote.
-func mkMachines(description string, ipVersion testIPVersion) []*peergrouper.Machine {
+func mkMachines(description string, ipVersion TestIPVersion) []*machine {
 	descrs := parseDescr(description)
-	ms := make([]*peergrouper.Machine, len(descrs))
+	ms := make([]*machine, len(descrs))
 	for i, d := range descrs {
-		ms[i] = peergrouper.NewMachine(
-			fmt.Sprint(d.id),
-			strings.Contains(d.flags, "v"),
-			[]network.HostPort{{
+		ms[i] = &machine{
+			id: fmt.Sprint(d.id),
+			mongoHostPorts: []network.HostPort{{
 				Address: network.Address{
 					Value: fmt.Sprintf(ipVersion.machineFormatHost, d.id),
 					Type:  ipVersion.addressType,
@@ -276,13 +275,14 @@ func mkMachines(description string, ipVersion testIPVersion) []*peergrouper.Mach
 				},
 				Port: mongoPort,
 			}},
-		)
+			wantsVote: strings.Contains(d.flags, "v"),
+		}
 	}
 	return ms
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{jujuMachineTagKey: id}
+	return map[string]string{jujuMachineTag: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member
@@ -293,7 +293,7 @@ func memberTag(id string) map[string]string {
 // 	- 'T' if the member has no associated machine tags.
 // Unless the T flag is specified, the machine tag
 // will be the replica-set id + 10.
-func mkMembers(description string, ipVersion testIPVersion) []replicaset.Member {
+func mkMembers(description string, ipVersion TestIPVersion) []replicaset.Member {
 	descrs := parseDescr(description)
 	ms := make([]replicaset.Member, len(descrs))
 	for i, d := range descrs {
@@ -328,7 +328,7 @@ var stateFlags = map[rune]replicaset.MemberState{
 // 	- 'H' if the instance is not healthy.
 //	- 'p' if the instance is in PrimaryState
 //	- 's' if the instance is in SecondaryState
-func mkStatuses(description string, ipVersion testIPVersion) []replicaset.MemberStatus {
+func mkStatuses(description string, ipVersion TestIPVersion) []replicaset.MemberStatus {
 	descrs := parseDescr(description)
 	ss := make([]replicaset.MemberStatus, len(descrs))
 	for i, d := range descrs {
@@ -424,8 +424,8 @@ func (l membersById) Len() int           { return len(l) }
 func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
 
-// assertAPIHostPorts asserts of two sets of network.HostPort slices are the same.
-func assertAPIHostPorts(c *gc.C, got, want [][]network.HostPort) {
+// AssertAPIHostPorts asserts of two sets of network.HostPort slices are the same.
+func AssertAPIHostPorts(c *gc.C, got, want [][]network.HostPort) {
 	c.Assert(got, gc.HasLen, len(want))
 	sort.Sort(hostPortSliceByHostPort(got))
 	sort.Sort(hostPortSliceByHostPort(want))

@@ -93,7 +93,7 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) e
 		memberHostPort,
 		mongo.ReplicaSetName,
 		map[string]string{
-			jujuMachineTagKey: agent.BootstrapMachineId,
+			jujuMachineTag: agent.BootstrapMachineId,
 		},
 	)
 }

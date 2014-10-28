@@ -19,16 +19,14 @@ import (
 	"github.com/juju/juju/worker"
 )
 
-// StateInterface is exported only for testing purposes
-type StateInterface interface {
-	Machine(id string) (StateMachine, error)
+type stateInterface interface {
+	Machine(id string) (stateMachine, error)
 	WatchStateServerInfo() state.NotifyWatcher
 	StateServerInfo() (*state.StateServerInfo, error)
-	MongoSession() MongoSession
+	MongoSession() mongoSession
 }
 
-// StateMachine is exported only for testing purposes
-type StateMachine interface {
+type stateMachine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
 	Refresh() error
@@ -40,8 +38,7 @@ type StateMachine interface {
 	MongoHostPorts() []network.HostPort
 }
 
-// MongoSession is exported only for testing purposes
-type MongoSession interface {
+type mongoSession interface {
 	CurrentStatus() (*replicaset.Status, error)
 	CurrentMembers() ([]replicaset.Member, error)
 	Set([]replicaset.Member) error
@@ -51,8 +48,7 @@ type publisherInterface interface {
 	// publish publishes information about the given state servers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
-	// PublishAPIServers is public for testing purposes
-	PublishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
+	publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
 }
 
 // notifyFunc holds a function that is sent
@@ -95,7 +91,7 @@ type pgWorker struct {
 
 	// st represents the State. It is an interface so we can swap
 	// out the implementation during testing.
-	st StateInterface
+	st stateInterface
 
 	// When something changes that might affect
 	// the peer group membership, it sends a function
@@ -108,7 +104,7 @@ type pgWorker struct {
 	// watching (all the state server machines). Each one has an
 	// associated goroutine that
 	// watches attributes of that machine.
-	machines map[string]*Machine
+	machines map[string]*machine
 
 	// publisher holds the implementation of the API
 	// address publisher.
@@ -129,11 +125,11 @@ func New(st *state.State) (worker.Worker, error) {
 	}, newPublisher(st, cfg.PreferIPv6())), nil
 }
 
-func newWorker(st StateInterface, pub publisherInterface) worker.Worker {
+func newWorker(st stateInterface, pub publisherInterface) worker.Worker {
 	w := &pgWorker{
 		st:        st,
 		notifyCh:  make(chan notifyFunc),
-		machines:  make(map[string]*Machine),
+		machines:  make(map[string]*machine),
 		publisher: pub,
 	}
 	go func() {
@@ -185,7 +181,7 @@ func (w *pgWorker) loop() error {
 			if err != nil {
 				return fmt.Errorf("cannot get API server info: %v", err)
 			}
-			if err := w.publisher.PublishAPIServers(servers, instanceIds); err != nil {
+			if err := w.publisher.publishAPIServers(servers, instanceIds); err != nil {
 				logger.Errorf("cannot publish API server addresses: %v", err)
 				ok = false
 			}
@@ -247,9 +243,9 @@ func (w *pgWorker) notify(f notifyFunc) bool {
 
 // peerGroupInfo collates current session information about the
 // mongo peer group with information from state machines.
-func (w *pgWorker) peerGroupInfo() (*PeerGroupInfo, error) {
+func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 	session := w.st.MongoSession()
-	info := &PeerGroupInfo{}
+	info := &peerGroupInfo{}
 	var err error
 	status, err := session.CurrentStatus()
 	if err != nil {
@@ -310,7 +306,7 @@ func (w *pgWorker) updateReplicaset() error {
 	//
 	// Note that we potentially update the HasVote status of the machines even
 	// if the members have not changed.
-	var added, removed []*Machine
+	var added, removed []*machine
 	for m, hasVote := range voting {
 		switch {
 		case hasVote && !m.stm.HasVote():
@@ -354,7 +350,7 @@ func (w *pgWorker) start(loop func() error) {
 
 // setHasVote sets the HasVote status of all the given
 // machines to hasVote.
-func setHasVote(ms []*Machine, hasVote bool) error {
+func setHasVote(ms []*machine, hasVote bool) error {
 	if len(ms) == 0 {
 		return nil
 	}
@@ -443,32 +439,31 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 }
 
 // machine represents a machine in State.
-// This type is exported for testing purposes
-type Machine struct {
+type machine struct {
 	id             string
 	wantsVote      bool
 	apiHostPorts   []network.HostPort
 	mongoHostPorts []network.HostPort
 
 	worker         *pgWorker
-	stm            StateMachine
+	stm            stateMachine
 	machineWatcher state.NotifyWatcher
 }
 
-func (m *Machine) mongoHostPort() string {
+func (m *machine) mongoHostPort() string {
 	return mongo.SelectPeerHostPort(m.mongoHostPorts)
 }
 
-func (m *Machine) String() string {
+func (m *machine) String() string {
 	return m.id
 }
 
-func (m *Machine) GoString() string {
+func (m *machine) GoString() string {
 	return fmt.Sprintf("&peergrouper.machine{id: %q, wantsVote: %v, hostPort: %q}", m.id, m.wantsVote, m.mongoHostPort())
 }
 
-func (w *pgWorker) newMachine(stm StateMachine) *Machine {
-	m := &Machine{
+func (w *pgWorker) newMachine(stm stateMachine) *machine {
+	m := &machine{
 		worker:         w,
 		id:             stm.Id(),
 		stm:            stm,
@@ -481,7 +476,7 @@ func (w *pgWorker) newMachine(stm StateMachine) *Machine {
 	return m
 }
 
-func (m *Machine) loop() error {
+func (m *machine) loop() error {
 	for {
 		select {
 		case _, ok := <-m.machineWatcher.Changes():
@@ -495,11 +490,11 @@ func (m *Machine) loop() error {
 	}
 }
 
-func (m *Machine) stop() {
+func (m *machine) stop() {
 	m.machineWatcher.Stop()
 }
 
-func (m *Machine) refresh() (bool, error) {
+func (m *machine) refresh() (bool, error) {
 	if err := m.stm.Refresh(); err != nil {
 		if errors.IsNotFound(err) {
 			// We want to be robust when the machine
