@@ -46,7 +46,8 @@ func NewErrorResponse(statusCode int, msg string) *HTTPResponse {
 }
 
 // NewFailureResponse returns an HTTP response with the status set
-// to 500 (ISE) and the body set to the JSON-encoded error.
+// to 500 (Internal Server Error) and the body set to the JSON-encoded
+// error.
 func NewFailureResponse(failure *params.Error) *HTTPResponse {
 	resp := NewHTTPResponse()
 	resp.StatusCode = http.StatusInternalServerError
