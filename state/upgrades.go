@@ -456,7 +456,7 @@ func AddCharmStoragePaths(st *State, storagePaths map[*charm.URL]string) error {
 		upgradesLogger.Debugf("adding storage path %q to %s", storagePath, curl)
 		op := txn.Op{
 			C:      charmsC,
-			Id:     curl.String(),
+			Id:     st.docID(curl.String()),
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{{"storagepath", storagePath}}},
@@ -515,6 +515,12 @@ func AddEnvUUIDToUnits(st *State) error {
 // all machine docs and adds new "env-uuid" field.
 func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
+}
+
+// AddEnvUUIDToCharms prepends the environment UUID to the ID of
+// all charm docs and adds new "env-uuid" field.
+func AddEnvUUIDToCharms(st *State) error {
+	return addEnvUUIDToEntityCollection(st, charmsC, "url")
 }
 
 // AddEnvUUIDToReboots prepends the environment UUID to the ID of

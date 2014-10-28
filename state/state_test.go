@@ -213,7 +213,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
 	doc := state.CharmDoc{}
-	err = s.charms.FindId(curl).One(&doc)
+	err = s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, gc.IsNil)
 	c.Logf("%#v", doc)
 	c.Assert(doc.URL, gc.DeepEquals, curl)
@@ -238,7 +238,7 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 
 	// Charm doc has been updated.
 	var docs []state.CharmDoc
-	err = s.charms.FindId(curl).All(&docs)
+	err = s.charms.FindId(state.DocID(s.State, curl.String())).All(&docs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(docs, gc.HasLen, 1)
 	c.Assert(docs[0].URL, gc.DeepEquals, curl)
@@ -253,7 +253,7 @@ func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 	// Find charm directly and verify only the charm URL and
 	// PendingUpload are set.
 	doc := state.CharmDoc{}
-	err := s.charms.FindId(curl).One(&doc)
+	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, gc.IsNil)
 	c.Logf("%#v", doc)
 	c.Assert(doc.URL, gc.DeepEquals, curl)
@@ -283,7 +283,6 @@ func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	curl, err = s.State.PrepareLocalCharmUpload(testCurl)
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.DeepEquals, testCurl)
-
 	s.assertPendingCharmExists(c, curl)
 
 	// Try adding it again with the same revision and ensure it gets bumped.
@@ -343,7 +342,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 		After: func() {
-			err := s.charms.RemoveId(curl)
+			err := s.charms.RemoveId(state.DocID(s.State, curl.String()))
 			c.Assert(err, gc.IsNil)
 		},
 	}
@@ -353,7 +352,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 		After: func() {
-			err := s.charms.UpdateId(curl, bson.D{{"$set", bson.D{
+			err := s.charms.UpdateId(state.DocID(s.State, curl.String()), bson.D{{"$set", bson.D{
 				{"bundlesha256", "fake"}},
 			}})
 			c.Assert(err, gc.IsNil)
@@ -442,7 +441,7 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 	// Find charm directly and verify only the charm URL and
 	// Placeholder are set.
 	doc := state.CharmDoc{}
-	err := s.charms.FindId(curl).One(&doc)
+	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 	c.Assert(doc.PendingUpload, jc.IsFalse)

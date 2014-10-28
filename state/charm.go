@@ -11,7 +11,9 @@ import (
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	URL     *charm.URL `bson:"_id"`
+	DocID   string     `bson:"_id"`
+	URL     *charm.URL `bson:"url"`
+	EnvUUID string     `bson:"env-uuid"`
 	Meta    *charm.Meta
 	Config  *charm.Config
 	Actions *charm.Actions

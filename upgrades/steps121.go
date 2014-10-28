@@ -124,6 +124,12 @@ func stepsFor121a3() []Step {
 			run: func(context Context) error {
 				return state.AddEnvUUIDToReboots(context.State())
 			},
+		}, &upgradeStep{
+			description: "prepend the environment UUID to the ID of all charm docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToCharms(context.State())
+			},
 		},
 	}
 }

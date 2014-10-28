@@ -325,6 +325,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToRebootsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToReboots, rebootC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToCharms(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToCharms, charmsC,
+		bson.M{
+			"_id":          "local:series/dummy-1",
+			"bundlesha256": "series-dummy-1-sha256",
+		},
+		bson.M{
+			"_id":          "local:anotherseries/dummy-2",
+			"bundlesha256": "anotherseries-dummy-2-sha256",
+		},
+	)
+	defer closer()
+
+	var newDoc charmDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.URL.String(), gc.Equals, "local:series/dummy-1")
+	c.Assert(newDoc.BundleSha256, gc.Equals, "series-dummy-1-sha256")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.URL.String(), gc.Equals, "local:anotherseries/dummy-2")
+	c.Assert(newDoc.BundleSha256, gc.Equals, "anotherseries-dummy-2-sha256")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToCharmsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToCharms, charmsC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToInstanceData(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToInstanceData, instanceDataC,
 		bson.M{
