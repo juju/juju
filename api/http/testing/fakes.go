@@ -13,11 +13,13 @@ import (
 type FakeHTTPClient struct {
 	// Error is the error that will be returned for any calls.
 	Error error
+
 	// Response is the response returned from calls.
 	Response *http.Response
 
 	// Calls is the record of which methods were called.
 	Calls []string
+
 	// RequestArg is the request that was passed to a call.
 	RequestArg *http.Request
 }
