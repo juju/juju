@@ -544,7 +544,7 @@ func (s *backupBlobStorage) Close() error {
 //---------------------------
 // backup storage
 
-const backupDB = "juju"
+const backupDB = "backups"
 
 // NewBackupStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
