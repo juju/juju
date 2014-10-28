@@ -101,13 +101,34 @@ func (md *mongoDumper) dump(dumpDir, dbName string) error {
 	return nil
 }
 
+func (md *mongoDumper) strip(dumpDir, dbNames ...string) error {
+
+}
+
 // Dump dumps the juju state database.
 func (md *mongoDumper) Dump(baseDumpDir string) error {
-	// Only dump the target databases.
-	for _, dbName := range md.Info.Targets {
-		if err := md.dump(baseDumpDir, dbName); err != nil {
-			return errors.Trace(err)
-		}
+	if err := md.dump(baseDumpDir, dbName); err != nil {
+		return errors.Trace(err)
 	}
+
+	var ignored []string
+
 	return nil
+}
+
+func listDatabases(dumpDir string) ([]string, error) {
+	list, err := ioutil.ReadDir(dumpDir)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var databases []string
+	for _, info := range list {
+		if !info.IsDir() {
+			// This will include oplog.bson.
+			continue
+		}
+		databases = append(databases, info.Name())
+	}
+	return databases, nil
 }
