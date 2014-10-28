@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -61,13 +62,9 @@ func _runCommand(cmd string, args ...string) error {
 	return errors.Annotatef(err, "cannot execute %q", cmd)
 }
 
-func untarFiles(tarFile string, outputFolder string, compress bool) error {
-	f, err := os.Open(tarFile)
-	if err != nil {
-		return errors.Annotatef(err, "cannot open backup file %q", tarFile)
-	}
-	defer f.Close()
-	var r io.Reader = f
+func untarFiles(tarFile io.ReadCloser, outputFolder string, compress bool) error {
+	var r io.Reader = tarFile
+	var err error
 	if compress {
 		r, err = gzip.NewReader(r)
 		if err != nil {
@@ -224,7 +221,7 @@ func getMongoRestoreArgsForVersion(version int, dumpPath string) ([]string, erro
 // placeNewMongo tries to use mongorestore to replace an existing
 // mongo (obtained from getMongoDbPath) with the dump in newMongoDumpPath
 // returns an error if its not possible
-func placeNewMongo(newMongoDumpPath string) error {
+func placeNewMongo(newMongoDumpPath string, version int) error {
 	mongoRestore, err := getMongorestorePath()
 	if err != nil {
 		return errors.Annotate(err, "mongorestore not available")
@@ -471,12 +468,21 @@ func runViaSSH(addr string, script string) error {
 	return nil
 }
 
+// Once Metadata is given a version option we can version backups
+// we could use juju version to signal this
+func backupVersion(backupMetadata *metadata.Metadata) int {
+	if backupMetadata == nil {
+		return 0
+	}
+	return 1
+}
+
 // Restore extract the content of the given backup file and:
 // * runs mongorestore with the backed up mongo dump
 // * updates and writes configuration files
 // * updates existing db entries to make sure they hold no references to
 // old instances
-func Restore(backupFile, privateAddress string, status *state.State) error {
+func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, status *state.State) error {
 	machine, err := status.Machine("0")
 	if err != nil {
 		return errors.Annotate(err, "cannot find bootstrap machine in status")
@@ -488,7 +494,7 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 
 	workDir := os.TempDir()
 
-	// TODO (perrito666) obtain this pat pathh from the proper place here and in backup
+	// TODO (perrito666) obtain this pat path from the proper place here and in backup
 	// if the backup contains the series of the machine we can generate it.
 	const agentFile string = "var/lib/juju/agents/machine-0/agent.conf"
 
@@ -504,12 +510,18 @@ func Restore(backupFile, privateAddress string, status *state.State) error {
 	defer os.RemoveAll(backupFilesPath)
 	// Extract inner container
 	innerBackup := filepath.Join(backupFilesPath, "root.tar")
-	if err := untarFiles(innerBackup, filesystemRoot(), false); err != nil {
+	innerBackupHandler, err := os.Open(innerBackup)
+	if err != nil {
+		return errors.Annotatef(err, "cannot open the backups inner tar file %q", innerBackup)
+	}
+	defer innerBackupHandler.Close()
+	if err := untarFiles(innerBackupHandler, filesystemRoot(), false); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
+	version := backupVersion(backupMetadata)
 	// Restore backed up mongo
 	mongoDump := filepath.Join(backupFilesPath, "dump")
-	if err := placeNewMongo(mongoDump); err != nil {
+	if err := placeNewMongo(mongoDump, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
 	}
 
