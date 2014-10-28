@@ -71,7 +71,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	return &b, nil
 }
 
-// NewBackups returns a new Backups based on the state.
+// NewBackups returns a new Backups based on the given state.
 func NewBackups(st *state.State) (backups.Backups, error) {
 	stor, err := newBackupsStorage(st)
 	if err != nil {
