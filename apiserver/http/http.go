@@ -3,4 +3,7 @@
 
 package http
 
-const CTYPE_JSON = "application/json"
+const (
+	CTYPE_JSON = "application/json"
+	CTYPE_RAW  = "application/octet-stream"
+)

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 
 	apibackups "github.com/juju/juju/apiserver/backups"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -88,7 +89,7 @@ func (h *backupHandler) read(req *http.Request, expectedType string) ([]byte, er
 }
 
 func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownloadArgs, error) {
-	body, err := h.read(req, "application/json")
+	body, err := h.read(req, apihttp.CTYPE_JSON)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,7 +104,7 @@ func (h *backupHandler) parseGETArgs(req *http.Request) (*params.BackupsDownload
 
 func (h *backupHandler) sendFile(file io.Reader, checksum, algorithm string, resp http.ResponseWriter) error {
 	// We don't set the Content-Length header, leaving it at -1.
-	resp.Header().Set("Content-Type", "application/octet-stream")
+	resp.Header().Set("Content-Type", apihttp.CTYPE_RAW)
 	resp.Header().Set("Digest", fmt.Sprintf("%s=%s", algorithm, checksum))
 	resp.WriteHeader(http.StatusOK)
 	if _, err := io.Copy(resp, file); err != nil {
@@ -124,7 +125,7 @@ func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", apihttp.CTYPE_JSON)
 	w.WriteHeader(statusCode)
 	w.Write(body)
 }

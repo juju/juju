@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
+	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
@@ -48,7 +49,7 @@ func (s *baseBackupsSuite) backupURL(c *gc.C) string {
 
 func (s *baseBackupsSuite) checkErrorResponse(c *gc.C, resp *http.Response, statusCode int, msg string) {
 	c.Check(resp.StatusCode, gc.Equals, statusCode)
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/json")
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_JSON)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	c.Assert(err, gc.IsNil)
@@ -140,7 +141,7 @@ func (s *backupsDownloadSuite) sendValid(c *gc.C) *http.Response {
 	s.fake.Archive = ioutil.NopCloser(archive)
 	s.body = archive.Bytes()
 
-	ctype := "application/json"
+	ctype := apihttp.CTYPE_JSON
 	body := s.newBody(c, meta.ID())
 	resp, err := s.authRequest(c, "GET", s.backupURL(c), ctype, body)
 	c.Assert(err, gc.IsNil)
@@ -162,7 +163,7 @@ func (s *backupsDownloadSuite) TestResponse(c *gc.C) {
 
 	c.Check(resp.StatusCode, gc.Equals, 200)
 	c.Check(resp.Header.Get("Digest"), gc.Equals, "SHA="+meta.Checksum())
-	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, apihttp.CTYPE_RAW)
 }
 
 func (s *backupsDownloadSuite) TestBody(c *gc.C) {
