@@ -209,7 +209,7 @@ type UploadFunc func(stor storage.Storage, stream string, forceVersion *version.
 // Exported for testing.
 var Upload UploadFunc = upload
 
-// Upload builds whatever version of github.com/juju/juju is in $GOPATH,
+// upload builds whatever version of github.com/juju/juju is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
 // the given version number; if any fakeSeries are supplied, additional copies

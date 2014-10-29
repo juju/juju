@@ -291,7 +291,7 @@ func BootstrapContext(cmdContext *cmd.Context) environs.BootstrapContext {
 }
 
 // BootstrapContextNoVerify returns a new BootstrapContext constructed from a command Context
-// where the validation of credentials is false..
+// where the validation of credentials is false.
 func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext {
 	return &bootstrapContext{
 		Context:           cmdContext,

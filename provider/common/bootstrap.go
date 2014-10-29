@@ -276,9 +276,9 @@ func (p *parallelHostChecker) Close() error {
 // connectSSH is called to connect to the specified host and
 // execute the "checkHostScript" bash script on it.
 var connectSSH = func(client ssh.Client, host, checkHostScript string) error {
-	clientCmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
-	clientCmd.Stdin = strings.NewReader(checkHostScript)
-	output, err := clientCmd.CombinedOutput()
+	cmd := client.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
+	cmd.Stdin = strings.NewReader(checkHostScript)
+	output, err := cmd.CombinedOutput()
 	if err != nil && len(output) > 0 {
 		err = fmt.Errorf("%s", strings.TrimSpace(string(output)))
 	}
