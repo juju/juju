@@ -109,7 +109,7 @@ func (s *backupSuite) TestGetBackupMetadataFound(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	doc, err := state.GetBackupMetadata(s.dbOp, id)
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 
 	s.checkDoc(c, doc, original, id)
 }
@@ -161,13 +161,13 @@ func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	stored := time.Now()
 	original := s.doc(c)
 	id, err := state.AddBackupMetadata(s.dbOp, original)
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	doc, err := state.GetBackupMetadata(s.dbOp, id)
 	c.Assert(err, gc.IsNil)
 	c.Assert(doc.Stored, gc.Equals, int64(0))
 
 	err = state.SetBackupStored(s.dbOp, id, stored)
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 
 	doc, err = state.GetBackupMetadata(s.dbOp, id)
 	c.Assert(err, gc.IsNil)
