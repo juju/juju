@@ -4,6 +4,11 @@
 package db_test
 
 import (
+	"os"
+	"path/filepath"
+
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups/db"
@@ -33,12 +38,29 @@ func (s *dumpSuite) TestDump(c *gc.C) {
 	s.patch(c)
 
 	connInfo := db.ConnInfo{"a", "b", "c"}
-	dbInfo := db.Info{connInfo, []string{"juju", "admin"}}
+	targets := set.NewStrings("juju", "admin")
+	dbInfo := db.Info{connInfo, &targets}
 	dumper, err := db.NewDumper(dbInfo)
 	c.Assert(err, gc.IsNil)
 
-	err = dumper.Dump("spam")
+	dumpDir := c.MkDir()
+	for _, dbName := range targets.Values() {
+		err := os.Mkdir(filepath.Join(dumpDir, dbName), 0777)
+		c.Assert(err, gc.IsNil)
+	}
+	ignoredDir := filepath.Join(dumpDir, "backups")
+	err = os.Mkdir(ignoredDir, 0777)
+	c.Assert(err, gc.IsNil)
+
+	err = dumper.Dump(dumpDir)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.ranCommand, gc.Equals, true)
+
+	for _, dbName := range targets.Values() {
+		_, err := os.Stat(filepath.Join(dumpDir, dbName))
+		c.Check(err, gc.IsNil)
+	}
+	_, err = os.Stat(ignoredDir)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
 }

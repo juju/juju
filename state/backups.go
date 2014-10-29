@@ -580,7 +580,7 @@ var IgnoredDatabases = set.NewStrings(
 
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
-func NewDBBackupInfo(st *State) (*backupsdb.Info, err) {
+func NewDBBackupInfo(st *State) (*backupsdb.Info, error) {
 	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
 	targets, err := getBackupTargetDatabases(st)
 	if err != nil {
@@ -608,7 +608,7 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
 	return &info
 }
 
-func getBackupTargetDatabases(st *State) (*set.Strings, err) {
+func getBackupTargetDatabases(st *State) (*set.Strings, error) {
 	dbNames, err := st.MongoSession().DatabaseNames()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get DB names")

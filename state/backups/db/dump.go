@@ -4,11 +4,13 @@
 package db
 
 import (
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/mongo"
 )
@@ -104,7 +106,7 @@ func (md *mongoDumper) dump(dumpDir, dbName string) error {
 // Dump dumps the juju state-related databases.  To do this we dump all
 // databases and then remove any ignored databases from the dump results.
 func (md *mongoDumper) Dump(baseDumpDir string) error {
-	if err := md.dump(baseDumpDir, dbName); err != nil {
+	if err := md.dump(baseDumpDir, ""); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -113,7 +115,7 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 		return errors.Trace(err)
 	}
 
-	for _, dbName := range found.Difference(md.Targets).Values() {
+	for _, dbName := range found.Difference(*md.Targets).Values() {
 		if err := strip(dbName, baseDumpDir); err != nil {
 			return errors.Trace(err)
 		}
@@ -128,7 +130,7 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 func strip(dbName, dumpDir string) error {
 	dirname := filepath.Join(dumpDir, dbName)
 	if err := os.Remove(dirname); err != nil {
-		return errors.Trace(error)
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -152,5 +154,5 @@ func listDatabases(dumpDir string) (*set.Strings, error) {
 		}
 		databases.Add(info.Name())
 	}
-	return databases, nil
+	return &databases, nil
 }

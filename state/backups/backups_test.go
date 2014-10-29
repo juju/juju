@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
@@ -44,7 +45,8 @@ func (s *backupsSuite) setStored(id string) *time.Time {
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	paths := files.Paths{DataDir: "/var/lib/juju"}
 	connInfo := db.ConnInfo{"a", "b", "c"}
-	dbInfo := db.Info{connInfo, []string{"juju", "admin"}}
+	targets := set.NewStrings("juju", "admin")
+	dbInfo := db.Info{connInfo, &targets}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	_, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
@@ -82,7 +84,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	// Run the backup.
 	paths := files.Paths{DataDir: "/var/lib/juju"}
 	connInfo := db.ConnInfo{"a", "b", "c"}
-	dbInfo := db.Info{connInfo, []string{"juju", "admin"}}
+	targets := set.NewStrings("juju", "admin")
+	dbInfo := db.Info{connInfo, &targets}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
@@ -96,7 +99,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(receivedDBInfo.Address, gc.Equals, "a")
 	c.Check(receivedDBInfo.Username, gc.Equals, "b")
 	c.Check(receivedDBInfo.Password, gc.Equals, "c")
-	c.Check(receivedDBInfo.Targets, gc.DeepEquals, []string{"juju", "admin"})
+	c.Check(*receivedDBInfo.Targets, gc.DeepEquals, targets)
 
 	c.Check(rootDir, gc.Equals, "")
 
