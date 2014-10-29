@@ -206,6 +206,9 @@ func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 //---------------------------
 // DB operations
 
+// TODO(ericsnow) Merge BackupDB with the storage implementation in
+// state/storage.go (also see state/toolstorage).
+
 // BackupDB performs all state database operations needed for
 // backups.
 type BackupDB struct {
