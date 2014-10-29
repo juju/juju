@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 
@@ -68,11 +69,19 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	defer srv.Close()
 
 	env := hookVars(runner.context, runner.paths)
-	result, err := utilexec.RunCommands(
-		utilexec.RunParams{
-			Commands:    commands,
-			WorkingDir:  runner.paths.GetCharmDir(),
-			Environment: env})
+	command := utilexec.RunParams{
+		Commands:    commands,
+		WorkingDir:  runner.paths.GetCharmDir(),
+		Environment: env,
+	}
+	err = command.Run()
+	if err != nil {
+		return nil, err
+	}
+	runner.context.SetProcess(command.Process())
+
+	// Block and wait for process to finish
+	result, err := command.Wait()
 	return result, runner.context.finalizeContext("run commands", err)
 }
 
@@ -148,10 +157,13 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	err = ps.Start()
 	outWriter.Close()
 	if err == nil {
+		// Record the *os.Process of the hook
+		runner.context.SetProcess(ps.Process)
+		// Block until execution finishes
 		err = ps.Wait()
 	}
 	hookLogger.stop()
-	return err
+	return errors.Trace(err)
 }
 
 func (runner *runner) startJujucServer() (*jujuc.Server, error) {

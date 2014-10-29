@@ -3,6 +3,14 @@
 
 package context
 
+import (
+	"github.com/juju/errors"
+)
+
+var ErrRequeueAndReboot = errors.New("reboot now")
+var ErrReboot = errors.New("reboot after hook")
+var ErrNoProcess = errors.New("no process to kill")
+
 type missingHookError struct {
 	hookName string
 }
