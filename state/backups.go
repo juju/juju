@@ -618,22 +618,22 @@ func getBackupTargetDatabases(st *State) (*set.Strings, err) {
 	return &targets, nil
 }
 
-// NewBackupsOrigin returns a snapshot of where backup was run.  That
+// NewBackupOrigin returns a snapshot of where backup was run.  That
 // snapshot is a new backup Origin value, for use in a backup's
 // metadata.  Every value except for the machine name is populated
 // either from juju state or some other implicit mechanism.
-func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
+func NewBackupOrigin(st *State, machine string) (*metadata.Origin, error) {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.
 		// Run for the hills.
-		panic(fmt.Sprintf("could not get hostname (system unstable?): %v", err))
+		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
 	}
 	origin := metadata.NewOrigin(
 		st.EnvironTag().Id(),
 		machine,
 		hostname,
 	)
-	return origin
+	return origin, nil
 }

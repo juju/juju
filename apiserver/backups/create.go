@@ -24,7 +24,10 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 	// TODO(ericsnow) The machine ID needs to be introspected from the
 	// API server, likely through a Resource.
 	machine := "0"
-	origin := state.NewBackupsOrigin(a.st, machine)
+	origin, err := state.NewBackupOrigin(a.st, machine)
+	if err != nil {
+		return p, errors.Trace(err)
+	}
 
 	meta, err := backups.Create(a.paths, *dbInfo, *origin, args.Notes)
 	if err != nil {
