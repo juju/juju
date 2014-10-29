@@ -210,6 +210,7 @@ func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 // operations.
 type DBOperator struct {
 	session   *mgo.Session
+	db        *mgo.Database
 	txnRunner jujutxn.Runner
 
 	// EnvUUID is the UUID of the environment.
@@ -227,6 +228,7 @@ func NewDBOperator(db *mgo.Database, target, envUUID string) *DBOperator {
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	dbOp := DBOperator{
 		session:   session,
+		db:        db,
 		txnRunner: txnRunner,
 		EnvUUID:   envUUID,
 		Target:    coll,
@@ -259,6 +261,13 @@ func (o *DBOperator) RunTransaction(ops []txn.Op) error {
 	return errors.Trace(err)
 }
 
+// BlobStorage returns a ManagedStorage matching the env storage and
+// the blobDB.
+func (o *DBOperator) BlobStorage(blobDB string) blobstore.ManagedStorage {
+	dataStore := blobstore.NewGridFS(blobDB, o.EnvUUID, o.session)
+	return blobstore.NewManagedStorage(o.db, dataStore)
+}
+
 // Copy returns a copy of the operator.
 func (o *DBOperator) Copy() *DBOperator {
 	session := o.session.Copy()
@@ -268,6 +277,7 @@ func (o *DBOperator) Copy() *DBOperator {
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	dbOp := DBOperator{
 		session:   session,
+		db:        db,
 		txnRunner: txnRunner,
 		EnvUUID:   o.EnvUUID,
 		Target:    coll,
@@ -496,12 +506,8 @@ type backupBlobStorage struct {
 
 func newBackupFileStorage(dbOp *DBOperator, root string) filestorage.RawFileStorage {
 	dbOp = dbOp.Copy()
-	db := dbOp.Target.Database
-	dbName := blobstoreDB
 
-	dataStore := blobstore.NewGridFS(dbName, dbOp.EnvUUID, db.Session)
-	managed := blobstore.NewManagedStorage(db, dataStore)
-
+	managed := dbOp.BlobStorage(blobstoreDB)
 	stor := backupBlobStorage{
 		dbOp:    dbOp,
 		envUUID: dbOp.EnvUUID,
