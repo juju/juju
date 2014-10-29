@@ -2,16 +2,12 @@
 
 from argparse import ArgumentParser
 import json
-from textwrap import dedent
+import logging
 import re
 import subprocess
 import sys
+from textwrap import dedent
 import urllib2
-
-from bzrlib.branch import Branch
-from bzrlib.plugin import load_plugins
-from bzrlib.revisionspec import RevisionSpec
-
 
 def parse_version(string):
     return re.search('^const version = "(.*)"', string, re.M).group(1)
@@ -69,31 +65,6 @@ def get_git_revision_info(branch, revision_spec):
     return None, commit, version
 
 
-def get_bzr_revision_info(branch, revision_spec):
-    """Find the revision_id, revno and juju-core version of a branch.
-
-    :param branch: The location of the branch.
-    :param revision_spec: a human-readable revision spec like '-1', 'revno:5'
-        or 'revid:asdf'
-    :return: a tuple of revno, revision-id, version
-    """
-    candidate = Branch.open(branch)
-    candidate.lock_read()
-    try:
-        info = RevisionSpec.from_string(revision_spec).in_history(candidate)
-        tree = candidate.repository.revision_tree(info.rev_id)
-        tree.lock_read()
-        try:
-            file_id = tree.path2id('version/version.go')
-            v_bytes = tree.get_file_text(file_id, path='version/version.go')
-        finally:
-            tree.unlock()
-        version = parse_version(v_bytes)
-        return info.revno, info.rev_id, version
-    finally:
-        candidate.unlock()
-
-
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('branch', help='The branch being built')
@@ -102,14 +73,11 @@ if __name__ == '__main__':
     parser.add_argument('--revision-build', default=None,
                         help='The build number.')
     args = parser.parse_args()
-    load_plugins()
     branch = args.branch
     revision_spec = args.revision
     if branch.startswith('lp:'):
-        if revision_spec is None:
-            revision_spec = 'revno:-1'
-        revno, revision_id, version = get_bzr_revision_info(
-            branch, revision_spec)
+        logging.error('Launchpad branches are no longer supported.')
+        sys.exit(1)
     else:
         revno, revision_id, version = get_git_revision_info(
             branch, revision_spec)
