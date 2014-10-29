@@ -565,16 +565,19 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		ranHook = false
 	case err == context.ErrRequeueAndReboot:
 		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, &hi, nil); stErr != nil {
-			logger.Errorf("failed to requeue hook: %s", stErr)
+			logger.Errorf("failed to requeue hook: %v", stErr)
 		}
 		return worker.ErrRebootMachine
 	case err == context.ErrReboot:
 		// Reboot after hook. We want to commit the running hook
-		defer func(err *error) {
-			*err = worker.ErrRebootMachine
-		}(&err)
+		defer func() {
+			if err != nil {
+				logger.Errorf("error while preparing for reboot: %v", err)
+			}
+			err = worker.ErrRebootMachine
+		}()
 	case err != nil:
-		logger.Errorf("hook %q failed: %s", hookName, err)
+		logger.Errorf("hook %q failed: %v", hookName, err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}

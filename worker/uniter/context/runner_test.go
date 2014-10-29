@@ -43,7 +43,7 @@ exit 42
 	c.Assert(result.Code, gc.Equals, 42)
 	c.Assert(string(result.Stdout), gc.Equals, paths.charm+"\n")
 	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
-	c.Assert(ctx.GetProcess(), gc.Not(gc.IsNil))
+	c.Assert(ctx.GetProcess(), gc.NotNil)
 }
 
 type RunHookSuite struct {

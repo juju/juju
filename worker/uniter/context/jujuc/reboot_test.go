@@ -24,15 +24,11 @@ func (s *JujuRebootSuite) TestNewJujuRebootCommand(c *gc.C) {
 
 func (s *JujuRebootSuite) TestInfo(c *gc.C) {
 	rebootCmd := jujuc.NewJujuRebootCommand(nil)
-	expectedCmdInfo := &cmd.Info{
-		Name:    "juju-reboot",
-		Args:    "",
-		Purpose: "Reboot the machine we are running on",
-	}
-
 	cmdInfo := rebootCmd.Info()
 
-	c.Assert(cmdInfo, gc.DeepEquals, expectedCmdInfo)
+	c.Assert(cmdInfo.Name, gc.Equals, "juju-reboot")
+	c.Assert(cmdInfo.Args, gc.Equals, "")
+	c.Assert(cmdInfo.Purpose, gc.Equals, "Reboot the host machine")
 }
 
 func (s *JujuRebootSuite) TestSetFlags(c *gc.C) {

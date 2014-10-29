@@ -474,7 +474,7 @@ func (ctx *HookContext) killCharmHook() error {
 		case <-timeout:
 			return errors.Errorf("failed to kill context process %d", proc.Pid)
 		}
-		logger.Infof("waiting for context process %s to die", proc.Pid)
+		logger.Infof("waiting for context process %d to die", proc.Pid)
 		tick = time.After(100 * time.Millisecond)
 	}
 }

@@ -190,22 +190,23 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 
 func (s *InterfaceSuite) startProcess(c *gc.C) *os.Process {
 	command := exec.RunParams{
-		Commands: "trap 'exit 0' SIGTERM; sleep 10",
+		Commands: "trap 'exit 0' SIGTERM; while true;do sleep 1;done",
 	}
 	err := command.Run()
 	c.Assert(err, gc.IsNil)
 	p := command.Process()
+	s.AddCleanup(func(c *gc.C) { p.Kill() })
 	return p
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 	ctx := context.HookContext{}
 	p := s.startProcess(c)
-	s.AddCleanup(func(c *gc.C) { p.Kill() })
 	ctx.SetProcess(p)
 	err := ctx.RequestReboot(jujuc.RebootAfterHook)
 	c.Assert(err, gc.IsNil)
-	syscall.Kill(p.Pid, syscall.SIGTERM)
+	err = syscall.Kill(p.Pid, syscall.SIGTERM)
+	c.Assert(err, gc.IsNil)
 	_, err = p.Wait()
 	c.Assert(err, gc.IsNil)
 	priority := ctx.GetRebootPriority()
@@ -215,7 +216,6 @@ func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {
 func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 	ctx := context.HookContext{}
 	p := s.startProcess(c)
-	s.AddCleanup(func(c *gc.C) { p.Kill() })
 	ctx.SetProcess(p)
 	go func() {
 		_, err := p.Wait()
@@ -228,6 +228,11 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
+	// A normal hook run or a juju-run command will record the *os.Process
+	// object of the running command, in HookContext. When requesting a
+	// reboot with the --now flag, the process is killed and only
+	// then will we set the reboot priority. This test basically simulates
+	// the case when the process calling juju-reboot is not recorded.
 	ctx := context.HookContext{}
 	err := ctx.RequestReboot(jujuc.RebootNow)
 	c.Assert(err, gc.ErrorMatches, "no process to kill")
