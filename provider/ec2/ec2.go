@@ -947,11 +947,20 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (e *environ) AllocateAddress(_ instance.Id, netId network.Id, addr network.Address) error {
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
 	ec2 := e.ec2()
+
+	instancesResp, err := ec2.Instances([]string{string(instId)}, nil)
+	if err != nil {
+		// XXX we should retry here if the error is due to connection flakiness
+		return errors.Trace(err)
+	}
+
+	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
+
 	// The response here is not useful - either the call succeeds or we get an
 	// error
-	_, err := ec2.AssignPrivateIPAddresses(string(netId), []string{addr.Value}, 0, false)
+	_, err = ec2.AssignPrivateIPAddresses(networkInterfaceId, []string{addr.Value}, 0, false)
 	if err != nil {
 		// XXX we should retry here if the error is due to connection flakiness
 		return errors.Trace(err)
