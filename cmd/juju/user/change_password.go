@@ -42,7 +42,7 @@ type ChangePasswordCommand struct {
 func (c *ChangePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-password",
-		Args:    "",
+		Args:    "[username]",
 		Purpose: "changes the password for a user",
 		Doc:     userChangePasswordDoc,
 	}
