@@ -76,6 +76,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 		return nil
 	})
 
+	stored := s.setStored("spam")
+
 	// Run the backup.
 	paths := files.Paths{DataDir: "/var/lib/juju"}
 	dbInfo := db.ConnInfo{"a", "b", "c"}
@@ -83,7 +85,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
 	// Test the call values.
-	s.Storage.CheckCalled(c, "", meta, archiveFile, "Add")
+	s.Storage.CheckCalled(c, "spam", meta, archiveFile, "Add", "Metadata")
 	filesToBackUp, _ := backups.ExposeCreateArgs(received)
 	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
 
@@ -97,9 +99,10 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 
 	// Check the resulting metadata.
 	c.Check(meta, gc.Equals, s.Storage.MetaArg)
+	c.Check(meta.ID(), gc.Equals, "spam")
 	c.Check(meta.Size(), gc.Equals, int64(10))
 	c.Check(meta.Checksum(), gc.Equals, "<checksum>")
-	c.Check(meta.Stored(), gc.NotNil)
+	c.Check(meta.Stored().Unix(), gc.Equals, stored.Unix())
 	c.Check(meta.Origin.Environment, gc.Equals, "<env ID>")
 	c.Check(meta.Origin.Machine, gc.Equals, "<machine ID>")
 	c.Check(meta.Origin.Hostname, gc.Equals, "<hostname>")
@@ -166,7 +169,7 @@ func (s *backupsSuite) TestStoreArchive(c *gc.C) {
 	err := backups.StoreArchive(s.Storage, meta, archive)
 	c.Assert(err, gc.IsNil)
 
-	s.Storage.CheckCalled(c, "", meta, archive, "Add")
+	s.Storage.CheckCalled(c, "spam", meta, archive, "Add", "Metadata")
 	c.Assert(meta.ID(), gc.Equals, "spam")
 	c.Assert(meta.Stored(), jc.DeepEquals, stored)
 }

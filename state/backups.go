@@ -279,13 +279,13 @@ func addBackupMetadataID(st *State, metadata *metadata.Metadata, id string) erro
 // to indicate that a backup archive has been stored.  If "id" does
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func setBackupStored(st *State, id string) error {
+func setBackupStored(st *State, id string, stored time.Time) error {
 	ops := []txn.Op{{
 		C:      backupsMetaC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
-			{"stored", true},
+			{"stored", stored.Unix()},
 		}}},
 	}}
 	if err := st.runTransaction(ops); err != nil {
@@ -385,7 +385,7 @@ func (s *backupsDocStorage) Close() error {
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	err := setBackupStored(s.state, id)
+	err := setBackupStored(s.state, id, time.Now().UTC())
 	if err != nil {
 		return errors.Trace(err)
 	}

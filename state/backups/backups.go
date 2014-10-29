@@ -37,6 +37,11 @@ func StoreArchive(stor filestorage.FileStorage, meta *metadata.Metadata, file io
 		return errors.Trace(err)
 	}
 	meta.SetID(id)
+	stored, err := stor.Metadata(id)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	meta.SetStored(stored.Stored())
 	return nil
 }
 
