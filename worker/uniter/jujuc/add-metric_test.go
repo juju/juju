@@ -97,7 +97,7 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			true,
 			2,
 			"",
-			"error: duplicate metric key given: \"key\"\n",
+			"error: key \"key\" specified more than once\n",
 			nil,
 		}, {
 			"can't add metrics",

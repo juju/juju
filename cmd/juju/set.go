@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -61,7 +62,7 @@ func (c *SetCommand) Init(args []string) error {
 		return errors.New("cannot specify --config when using key=value arguments")
 	}
 	c.ServiceName = args[0]
-	settings, err := parse(args[1:])
+	settings, err := keyvalues.Parse(args[1:], true)
 	if err != nil {
 		return err
 	}
@@ -129,21 +130,6 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	return api.ServiceSet(c.ServiceName, settings)
-}
-
-// parse parses the option k=v strings into a map of options to be
-// updated in the config. Keys with empty values are returned separately
-// and should be removed.
-func parse(options []string) (map[string]string, error) {
-	kv := make(map[string]string)
-	for _, o := range options {
-		s := strings.SplitN(o, "=", 2)
-		if len(s) != 2 || s[0] == "" {
-			return nil, fmt.Errorf("invalid option: %q", o)
-		}
-		kv[s[0]] = s[1]
-	}
-	return kv, nil
 }
 
 // readValue reads the value of an option out of the named file.

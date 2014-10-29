@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -105,12 +106,11 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	// TODO(thumper) look to have a common library of functions for dealing
 	// with key=value pairs.
 	c.values = make(attributes)
-	for i, arg := range args {
-		bits := strings.SplitN(arg, "=", 2)
-		if len(bits) < 2 {
-			return fmt.Errorf(`missing "=" in arg %d: %q`, i+1, arg)
-		}
-		key := bits[0]
+	options, err := keyvalues.Parse(args, false)
+	if err != nil {
+		return err
+	}
+	for key, value := range options {
 		if key == "agent-version" {
 			return fmt.Errorf("agent-version must be set via upgrade-juju")
 		}
@@ -118,7 +118,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 			return fmt.Errorf(`key %q specified more than once`, key)
 		}
 
-		c.values[key] = bits[1]
+		c.values[key] = value
 	}
 
 	return nil

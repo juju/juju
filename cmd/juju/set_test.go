@@ -93,8 +93,8 @@ func (s *SetSuite) TestSetSameValue(c *gc.C) {
 }
 
 func (s *SetSuite) TestSetOptionFail(c *gc.C) {
-	assertSetFail(c, s.dir, []string{"foo", "bar"}, "error: invalid option: \"foo\"\n")
-	assertSetFail(c, s.dir, []string{"=bar"}, "error: invalid option: \"=bar\"\n")
+	assertSetFail(c, s.dir, []string{"foo", "bar"}, "error: expected \"key=value\", got \"foo\"\n")
+	assertSetFail(c, s.dir, []string{"=bar"}, "error: expected \"key=value\", got \"=bar\"\n")
 	assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
 	}, "error: cannot read option from file \"missing.txt\": .* no such file or directory\n")
