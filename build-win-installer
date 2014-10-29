@@ -42,6 +42,8 @@ test $# -eq 1 || usage
 
 # Remove previous tarballs and installers from the workspace
 rm -r $WORKSPACE/* || echo "Nothing to clean"
+mkdir -p $WORKSPACE/artifacts
+touch $WORKSPACE/artifacts/empty
 
 HOST="$1"
 TARFILE=$(python <<EOT
@@ -84,7 +86,9 @@ if [ $? -ne 0 ]; then
 fi
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    Administrator@$HOST:$CI_DIR/juju-setup-$VERSION.exe $WORKSPACE/
+    "Administrator@$HOST:$CI_DIR/juju-setup-$VERSION.exe \
+     $CI_DIR/juju-$VERSION-win2012-amd64.tgz" \
+    $WORKSPACE/artifacts
 EXIT_STATUS=$?
 set -e
 exit $EXIT_STATUS
