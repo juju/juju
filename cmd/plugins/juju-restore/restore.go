@@ -167,9 +167,9 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	# Remove all state machines but 0, to restore HA
 	mongoAdminEval '
 		db = db.getSiblingDB("juju")
-		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.update({machineid: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
-		db.machines.remove({_id: {$ne:"0"}, hasvote: true})
+		db.machines.remove({machineid: {$ne:"0"}, hasvote: true})
 		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
 		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
 	'
