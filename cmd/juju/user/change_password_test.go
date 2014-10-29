@@ -4,6 +4,8 @@
 package user_test
 
 import (
+	"path/filepath"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
@@ -43,9 +45,59 @@ func newUserChangePassword() cmd.Command {
 	return envcmd.Wrap(&user.ChangePasswordCommand{})
 }
 
-func (s *ChangePasswordCommandSuite) TestExtraArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserChangePassword(), "--foobar")
-	c.Assert(err, gc.ErrorMatches, "flag provided but not defined: --foobar")
+func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
+	for i, test := range []struct {
+		args        []string
+		user        string
+		outPath     string
+		generate    bool
+		errorString string
+	}{
+		{
+		// no args is fine
+		}, {
+			args:     []string{"--generate"},
+			generate: true,
+		}, {
+			args:        []string{"--foobar"},
+			errorString: "flag provided but not defined: --foobar",
+		}, {
+			args: []string{"foobar"},
+			user: "foobar",
+		}, {
+			args:        []string{"foobar", "extra"},
+			errorString: `unrecognized args: \["extra"\]`,
+		}, {
+			args:        []string{"--output", "somefile"},
+			errorString: "output is only a valid option when changing another's password",
+		}, {
+			args:        []string{"-o", "somefile"},
+			errorString: "output is only a valid option when changing another's password",
+		}, {
+			args:     []string{"foobar", "--generate"},
+			user:     "foobar",
+			generate: true,
+		}, {
+			args:    []string{"foobar", "--output", "somefile"},
+			user:    "foobar",
+			outPath: "somefile",
+		}, {
+			args:    []string{"foobar", "-o", "somefile"},
+			user:    "foobar",
+			outPath: "somefile",
+		},
+	} {
+		c.Logf("test %d", i)
+		command := &user.ChangePasswordCommand{}
+		err := testing.InitCommand(command, test.args)
+		if test.errorString == "" {
+			c.Check(command.User, gc.Equals, test.user)
+			c.Check(command.OutPath, gc.Equals, test.outPath)
+			c.Check(command.Generate, gc.Equals, test.generate)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errorString)
+		}
+	}
 }
 
 func (s *ChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
@@ -103,6 +155,41 @@ func (s *ChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.C) {
 	s.mockAPI.failOps = []bool{false, true}
 	_, err := testing.RunCommand(c, newUserChangePassword(), "--generate")
 	c.Assert(err, gc.ErrorMatches, "failed to set password back: failed to do something")
+}
+
+func (s *ChangePasswordCommandSuite) TestChangeOthersPassword(c *gc.C) {
+	// The checks for user existence and admin rights are tested
+	// at the apiserver level.
+	context, err := testing.RunCommand(c, newUserChangePassword(), "other")
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.mockAPI.username, gc.Equals, "other")
+	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+	filename := context.AbsPath("other.jenv")
+	expected := `
+password:
+type password again:
+environment file written to `[1:] + filename + "\n"
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+	assertJENVContents(c, context.AbsPath("other.jenv"), "other", "sekrit")
+
+}
+
+func (s *ChangePasswordCommandSuite) TestChangeOthersPasswordWithFile(c *gc.C) {
+	// The checks for user existence and admin rights are tested
+	// at the apiserver level.
+	filename := filepath.Join(c.MkDir(), "test.jenv")
+	context, err := testing.RunCommand(c, newUserChangePassword(), "other", "-o", filename)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.mockAPI.username, gc.Equals, "other")
+	c.Assert(s.mockAPI.password, gc.Equals, "sekrit")
+	expected := `
+password:
+type password again:
+environment file written to `[1:] + filename + "\n"
+	c.Assert(testing.Stdout(context), gc.Equals, expected)
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+	assertJENVContents(c, filename, "other", "sekrit")
 }
 
 type mockEnvironInfo struct {
