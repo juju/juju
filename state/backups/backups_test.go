@@ -6,6 +6,7 @@ package backups_test
 import (
 	"bytes"
 	"io/ioutil"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -30,6 +31,14 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.api = backups.NewBackups(s.Storage)
+}
+
+func (s *backupsSuite) setStored(id string) *time.Time {
+	s.Storage.ID = id
+	s.Storage.Meta = testing.NewMetadataStarted(id, "")
+	stored := time.Now().UTC()
+	s.Storage.Meta.SetStored(&stored)
+	return &stored
 }
 
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
@@ -142,7 +151,22 @@ func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
 	_, testCreate := backups.NewTestCreate(nil)
 	s.PatchValue(backups.RunCreate, testCreate)
 	s.PatchValue(backups.FinishMeta, backups.NewTestMetaFinisher(""))
-	s.PatchValue(backups.StoreArchive, backups.NewTestArchiveStorer("failed!"))
+	s.PatchValue(backups.StoreArchiveRef, backups.NewTestArchiveStorer("failed!"))
 
 	s.checkFailure(c, "while storing backup archive: failed!")
+}
+
+func (s *backupsSuite) TestStoreArchive(c *gc.C) {
+	stored := s.setStored("spam")
+
+	meta := testing.NewMetadataStarted("", "")
+	c.Assert(meta.ID(), gc.Equals, "")
+	c.Assert(meta.Stored(), gc.IsNil)
+	archive := &bytes.Buffer{}
+	err := backups.StoreArchive(s.Storage, meta, archive)
+	c.Assert(err, gc.IsNil)
+
+	s.Storage.CheckCalled(c, "", meta, archive, "Add")
+	c.Assert(meta.ID(), gc.Equals, "spam")
+	c.Assert(meta.Stored(), jc.DeepEquals, stored)
 }

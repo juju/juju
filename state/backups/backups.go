@@ -26,12 +26,19 @@ var (
 	finishMeta       = func(meta *metadata.Metadata, result *createResult) error {
 		return meta.Finish(result.size, result.checksum)
 	}
-	storeArchive = func(stor filestorage.FileStorage, meta *metadata.Metadata, file io.Reader) error {
-		id, err := stor.Add(meta, file)
-		meta.SetID(id)
-		return err
-	}
+	storeArchive = StoreArchive
 )
+
+// StoreArchive sends the backup archive and its metadata to storage.
+// It also sets the metadata's ID and Stored values.
+func StoreArchive(stor filestorage.FileStorage, meta *metadata.Metadata, file io.Reader) error {
+	id, err := stor.Add(meta, file)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	meta.SetID(id)
+	return nil
+}
 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
