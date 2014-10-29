@@ -51,7 +51,7 @@ func (c *ChangePasswordCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *ChangePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
-	f.StringVar(&c.OutPath, "o", "", "specify the environment file for user")
+	f.StringVar(&c.OutPath, "o", "", "specifies the path of the generated user environment file")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
