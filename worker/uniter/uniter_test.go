@@ -2971,7 +2971,12 @@ type runCommands []string
 
 func (cmds runCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
-	result, err := ctx.uniter.RunCommands(commands)
+	args := uniter.RunCommandsArgs{
+		Commands:       commands,
+		RelationId:     -1,
+		RemoteUnitName: "",
+	}
+	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Code, gc.Equals, 0)
 	c.Check(string(result.Stdout), gc.Equals, "")
@@ -2982,6 +2987,12 @@ type asyncRunCommands []string
 
 func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 	commands := strings.Join(cmds, "\n")
+	args := uniter.RunCommandsArgs{
+		Commands:       commands,
+		RelationId:     -1,
+		RemoteUnitName: "",
+	}
+
 	socketPath := filepath.Join(ctx.path, "run.socket")
 
 	go func() {
@@ -2991,7 +3002,7 @@ func (cmds asyncRunCommands) step(c *gc.C, ctx *context) {
 		defer client.Close()
 
 		var result utilexec.ExecResponse
-		err = client.Call(uniter.JujuRunEndpoint, commands, &result)
+		err = client.Call(uniter.JujuRunEndpoint, args, &result)
 		c.Assert(err, gc.IsNil)
 		c.Check(result.Code, gc.Equals, 0)
 		c.Check(string(result.Stdout), gc.Equals, "")

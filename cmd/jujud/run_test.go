@@ -41,6 +41,8 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		unit         names.UnitTag
 		commands     string
 		avoidContext bool
+		relationId   int
+		remoteUnit   string
 	}{{
 		title:    "no args",
 		errMatch: "missing unit-name",
@@ -57,20 +59,39 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		args:     []string{"foo/2", "bar", "baz"},
 		errMatch: `unrecognized args: \["baz"\]`,
 	}, {
-		title:    "unit and command assignment",
-		args:     []string{"unit-name-2", "command"},
-		unit:     names.NewUnitTag("name/2"),
-		commands: "command",
+		title:      "unit and command assignment",
+		args:       []string{"unit-name-2", "command"},
+		unit:       names.NewUnitTag("name/2"),
+		commands:   "command",
+		relationId: -1,
 	}, {
-		title:    "unit id converted to tag",
-		args:     []string{"foo/1", "command"},
-		unit:     names.NewUnitTag("foo/1"),
-		commands: "command",
+		title:      "unit id converted to tag",
+		args:       []string{"foo/1", "command"},
+		unit:       names.NewUnitTag("foo/1"),
+		commands:   "command",
+		relationId: -1,
 	}, {
 		title:        "execute not in a context",
 		args:         []string{"--no-context", "command"},
 		commands:     "command",
 		avoidContext: true,
+		relationId:   -1,
+	}, {
+		title:        "relation-id",
+		args:         []string{"--relation-id", "1", "unit-name-2", "command"},
+		commands:     "command",
+		unit:         names.NewUnitTag("name/2"),
+		relationId:   1,
+		remoteUnit:   "",
+		avoidContext: false,
+	}, {
+		title:        "remote-unit",
+		args:         []string{"--remote-unit", "unit-name-1", "unit-name-2", "command"},
+		commands:     "command",
+		unit:         names.NewUnitTag("name/2"),
+		avoidContext: false,
+		relationId:   -1,
+		remoteUnit:   "unit-name-1",
 	},
 	} {
 		c.Logf("\n%d: %s", i, test.title)
@@ -81,6 +102,8 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 			c.Assert(runCommand.unit, gc.Equals, test.unit)
 			c.Assert(runCommand.commands, gc.Equals, test.commands)
 			c.Assert(runCommand.noContext, gc.Equals, test.avoidContext)
+			c.Assert(runCommand.relationId, gc.Equals, test.relationId)
+			c.Assert(runCommand.remoteUnitName, gc.Equals, test.remoteUnit)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -203,11 +226,11 @@ type mockRunner struct {
 
 var _ uniter.CommandRunner = (*mockRunner)(nil)
 
-func (r *mockRunner) RunCommands(commands string) (results *exec.ExecResponse, err error) {
-	r.c.Log("mock runner: " + commands)
+func (r *mockRunner) RunCommands(args uniter.RunCommandsArgs) (results *exec.ExecResponse, err error) {
+	r.c.Log("mock runner: " + args.Commands)
 	return &exec.ExecResponse{
 		Code:   42,
-		Stdout: []byte(commands + " stdout"),
-		Stderr: []byte(commands + " stderr"),
+		Stdout: []byte(args.Commands + " stdout"),
+		Stderr: []byte(args.Commands + " stderr"),
 	}, nil
 }
