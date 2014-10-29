@@ -10,13 +10,10 @@ import (
 )
 
 func (a *API) Remove(args params.BackupsRemoveArgs) error {
-	backups, closer, err := newBackups(a.st)
-	if err != nil {
-		return errors.Trace(err)
-	}
+	backups, closer := newBackups(a.st)
 	defer closer.Close()
 
-	err = backups.Remove(args.ID)
+	err := backups.Remove(args.ID)
 	if err != nil {
 		return errors.Trace(err)
 	}

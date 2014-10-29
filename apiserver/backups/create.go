@@ -14,10 +14,7 @@ import (
 // Create is the API method that requests juju to create a new backup
 // of its state.  It returns the metadata for that backup.
 func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataResult, err error) {
-	backups, closer, err := newBackups(a.st)
-	if err != nil {
-		return p, errors.Trace(err)
-	}
+	backups, closer := newBackups(a.st)
 	defer closer.Close()
 
 	mgoInfo := a.st.MongoConnectionInfo()

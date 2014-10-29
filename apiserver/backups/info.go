@@ -13,10 +13,7 @@ import (
 func (a *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
 
-	backups, closer, err := newBackups(a.st)
-	if err != nil {
-		return result, errors.Trace(err)
-	}
+	backups, closer := newBackups(a.st)
 	defer closer.Close()
 
 	meta, _, err := backups.Get(args.ID)
