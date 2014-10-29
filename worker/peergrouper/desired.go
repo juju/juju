@@ -105,7 +105,7 @@ func isVotingMember(member *replicaset.Member) bool {
 // ready to vote; toKeep holds machines with no desired
 // change to their voting status (this includes machines
 // that are not yet represented in the peer group).
-func possiblePeerGroupChanges(info *peerGroupInfo, members map[*machine]*replicaset.Member, ) (toRemoveVote, toAddVote, toKeep []*machine) {
+func possiblePeerGroupChanges(info *peerGroupInfo, members map[*machine]*replicaset.Member) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
 
 	logger.Debugf("assessing possible peer group changes:")
