@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
@@ -60,7 +61,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		if username == "" {
 			u, err := userCurrent()
 			if err != nil {
-				return nil, fmt.Errorf("failed to determine username for namespace: %v", err)
+				return nil, errors.Annotate(err, "failed to determine username for namespace")
 			}
 			username = u.Username
 		}
@@ -68,7 +69,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		namespace = fmt.Sprintf("%s-%s", username, cfg.Name())
 		cfg, err = cfg.Apply(map[string]interface{}{"namespace": namespace})
 		if err != nil {
-			return nil, fmt.Errorf("failed to create namespace: %v", err)
+			return nil, errors.Annotate(err, "failed to create namespace")
 		}
 	}
 	// Do the initial validation on the config.
@@ -77,14 +78,14 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if err := VerifyPrerequisites(localConfig.container()); err != nil {
-		return nil, fmt.Errorf("failed verification of local provider prerequisites: %v", err)
+		return nil, errors.Annotate(err, "failed verification of local provider prerequisites")
 	}
 	if cfg, err = providerInstance.correctLocalhostURLs(cfg, localConfig); err != nil {
-		return nil, fmt.Errorf("failed to translate proxy config settings: %v", err)
+		return nil, errors.Annotate(err, "failed to translate proxy config settings")
 	}
 	environ := &localEnviron{name: cfg.Name()}
 	if err := environ.SetConfig(cfg); err != nil {
-		return nil, fmt.Errorf("failure setting config: %v", err)
+		return nil, errors.Annotate(err, "failure setting config")
 	}
 	return environ, nil
 }
@@ -112,7 +113,7 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 		}
 		newValue, err := p.swapLocalhostForBridgeIP(anAttr.(string), providerCfg)
 		if err != nil {
-			return cfg, err
+			return nil, err
 		}
 		newAttrs[key] = newValue
 		logger.Infof("\nAttribute %q is set to (%v)\n", key, newValue)
@@ -247,7 +248,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
-		return nil, fmt.Errorf("failed to validate unknown attrs: %v", err)
+		return nil, errors.Annotatef(err, "failed to validate unknown attrs")
 	}
 	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
@@ -256,7 +257,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
 		if err != nil {
-			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
+			return nil, errors.Annotatef(err, "old config is not a valid local config: %v", old)
 		}
 		if containerType != oldLocalConfig.container() {
 			return nil, fmt.Errorf("cannot change container from %q to %q",
