@@ -1469,3 +1469,8 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
 }
+
+func (s *localHTTPSServerSuite) TestRemoveBlankContainer(c *gc.C) {
+	storage := openstack.CreateCustomStorage(s.env, "")
+	c.Assert(storage.Remove("test-container"), gc.Equals, "")
+}
