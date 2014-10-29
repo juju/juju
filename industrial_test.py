@@ -304,8 +304,8 @@ def main():
     args = parse_args()
     mit = MultiIndustrialTest.from_args(args)
     results = mit.run_tests()
-    maybe_write_json(args.json_file, {'results': results})
-    sys.stdout.writelines(mit.results_table(results))
+    maybe_write_json(args.json_file, results)
+    sys.stdout.writelines(mit.results_table(results['results']))
 
 
 if __name__ == '__main__':
