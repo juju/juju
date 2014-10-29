@@ -59,8 +59,10 @@ func (p maasEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *config.
 	if err != nil {
 		return nil, err
 	}
-	if err := verifyCredentials(env.(*maasEnviron)); err != nil {
-		return nil, err
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env.(*maasEnviron)); err != nil {
+			return nil, err
+		}
 	}
 	return env, nil
 }

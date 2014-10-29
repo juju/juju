@@ -103,7 +103,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	stor := s.DefaultToolsStorage
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), vers)
 	s.PatchValue(&version.Current, agentTools.Version)
-	err = envtools.MergeAndWriteMetadata(stor, "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -225,7 +225,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	newToolsBinary := "5.4.3-precise-amd64"
 	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), s.Environ.Config().AgentStream(), version.MustParseBinary(newToolsBinary))
 	s.PatchValue(&version.Current, newTools.Version)
-	err := envtools.MergeAndWriteMetadata(stor, "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
+	err := envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",

@@ -28,7 +28,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	attrs := dummy.SampleConfig().Delete("secret")
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	ctx := testing.Context(c)
+	ctx := testing.BootstrapContext(c)
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	defer env.Destroy()
@@ -81,7 +81,7 @@ func (s *ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
-		ctx := testing.Context(c)
+		ctx := testing.BootstrapContext(c)
 		env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 		if test.errorMsg != "" {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)

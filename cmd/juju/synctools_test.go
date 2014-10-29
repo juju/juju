@@ -135,7 +135,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.AllVersions, gc.Equals, false)
 		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.Stream, gc.Equals, "released")
+		c.Assert(sctx.Stream, gc.Equals, "proposed")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
@@ -146,7 +146,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 		called = true
 		return nil
 	}
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir, "--stream", "proposed")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
@@ -259,7 +259,7 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	err := a.UploadTools("released", &coretools.Tools{Version: version.Current}, []byte("abc"))
+	err := a.UploadTools("released", "released", &coretools.Tools{Version: version.Current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
 

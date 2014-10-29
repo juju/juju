@@ -95,7 +95,7 @@ func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}
 	dummy.Reset()
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig().Merge(attrs))
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
+	env, err := environs.Prepare(cfg, testing.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	s.removeTools(c)

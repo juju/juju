@@ -180,7 +180,7 @@ func UploadFakeToolsVersions(stor storage.Storage, stream string, versions ...ve
 			agentTools[i] = t
 		}
 	}
-	if err := envtools.MergeAndWriteMetadata(stor, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
+	if err := envtools.MergeAndWriteMetadata(stor, stream, stream, agentTools, envtools.DoNotWriteMirrors); err != nil {
 		return nil, err
 	}
 	return agentTools, nil
@@ -190,7 +190,7 @@ func UploadFakeToolsVersions(stor storage.Storage, stream string, versions ...ve
 func AssertUploadFakeToolsVersions(c *gc.C, stor storage.Storage, stream string, versions ...version.Binary) []*coretools.Tools {
 	agentTools, err := UploadFakeToolsVersions(stor, stream, versions...)
 	c.Assert(err, gc.IsNil)
-	err = envtools.MergeAndWriteMetadata(stor, stream, agentTools, envtools.DoNotWriteMirrors)
+	err = envtools.MergeAndWriteMetadata(stor, stream, stream, agentTools, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	return agentTools
 }
@@ -205,7 +205,7 @@ func MustUploadFakeToolsVersions(stor storage.Storage, stream string, versions .
 		}
 		agentTools[i] = t
 	}
-	err := envtools.MergeAndWriteMetadata(stor, stream, agentTools, envtools.DoNotWriteMirrors)
+	err := envtools.MergeAndWriteMetadata(stor, stream, stream, agentTools, envtools.DoNotWriteMirrors)
 	if err != nil {
 		panic(err)
 	}

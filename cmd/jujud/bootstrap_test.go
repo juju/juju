@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -700,12 +701,12 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	s.b64yamlEnvcfg = b64yaml(s.envcfg.AllAttrs()).encode()
 }
 
-func nullContext() *cmd.Context {
+func nullContext() environs.BootstrapContext {
 	ctx, _ := cmd.DefaultContext()
 	ctx.Stdin = io.LimitReader(nil, 0)
 	ctx.Stdout = ioutil.Discard
 	ctx.Stderr = ioutil.Discard
-	return ctx
+	return envcmd.BootstrapContext(ctx)
 }
 
 type b64yaml map[string]interface{}

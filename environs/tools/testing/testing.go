@@ -54,7 +54,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
 
-		toolsDir, err := ioutil.TempDir("", "juju-tools")
+		toolsDir, err := ioutil.TempDir("", "juju-tools-"+stream)
 		c.Assert(err, gc.IsNil)
 		name := "name"
 		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
@@ -101,7 +101,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	// Write the tools metadata.
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(stor, stream, toolsList, false)
+	err = tools.MergeAndWriteMetadata(stor, stream, stream, toolsList, false)
 	c.Assert(err, gc.IsNil)
 	return toolsList
 }
@@ -117,7 +117,7 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 }
 
 // ParseMetadataFromDir loads ToolsMetadata from the specified directory.
-func ParseMetadataFromDir(c *gc.C, stream, metadataDir string, expectMirrors bool) []*tools.ToolsMetadata {
+func ParseMetadataFromDir(c *gc.C, metadataDir, stream string, expectMirrors bool) []*tools.ToolsMetadata {
 	stor, err := filestorage.NewFileStorageReader(metadataDir)
 	c.Assert(err, gc.IsNil)
 	return ParseMetadataFromStorage(c, stor, stream, expectMirrors)

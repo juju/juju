@@ -51,7 +51,7 @@ func (suite *EnvironProviderSuite) TestUnknownAttrsContainAgentName(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	ctx := testing.Context(c)
+	ctx := testing.BootstrapContext(c)
 	environ, err := suite.makeEnviron().Provider().Prepare(ctx, config)
 	c.Assert(err, gc.IsNil)
 
@@ -76,7 +76,7 @@ func (suite *EnvironProviderSuite) TestAgentNameShouldNotBeSetByHand(c *gc.C) {
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	ctx := testing.Context(c)
+	ctx := testing.BootstrapContext(c)
 	_, err = suite.makeEnviron().Provider().Prepare(ctx, config)
 	c.Assert(err, gc.Equals, errAgentNameAlreadySet)
 }

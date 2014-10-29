@@ -368,7 +368,7 @@ var prepareConfigTests = []struct {
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := coretesting.BootstrapContext(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
@@ -388,7 +388,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := coretesting.BootstrapContext(c)
 	// By default "private-key-path isn't set until after validateConfig has been called.
 	attrs := validAttrs().Delete("private-key-path", "private-key")
 	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)

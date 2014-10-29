@@ -33,24 +33,25 @@ func storagePrefix(stream string) string {
 // ReadList returns a List of the tools in store with the given major.minor version.
 // If minorVersion = -1, then only majorVersion is considered.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(stor storage.StorageReader, stream string, majorVersion, minorVersion int) (coretools.List, error) {
+func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
 		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
 	} else {
 		logger.Debugf("reading v%d.* tools", majorVersion)
 	}
-	names, err := storage.List(stor, storagePrefix(stream))
+	storagePrefix := storagePrefix(toolsDir)
+	names, err := storage.List(stor, storagePrefix)
 	if err != nil {
 		return nil, err
 	}
 	var list coretools.List
 	var foundAnyTools bool
 	for _, name := range names {
-		if !strings.HasPrefix(name, storagePrefix(stream)) || !strings.HasSuffix(name, toolSuffix) {
+		if !strings.HasPrefix(name, storagePrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
 		var t coretools.Tools
-		vers := name[len(storagePrefix(stream)) : len(name)-len(toolSuffix)]
+		vers := name[len(storagePrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
 			logger.Debugf("failed to parse version %q: %v", vers, err)
 			continue

@@ -187,7 +187,7 @@ func CreateContainer(s *JoyentStorage) error {
 func MakeConfig(c *gc.C, attrs testing.Attrs) *environConfig {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
+	env, err := environs.Prepare(cfg, testing.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env.(*joyentEnviron).Ecfg()
 }

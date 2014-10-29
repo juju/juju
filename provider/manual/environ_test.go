@@ -192,7 +192,7 @@ func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
 	cfg := s.env.Config()
 	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, true)
 
-	_, _, _, err := s.env.Bootstrap(coretesting.Context(c), environs.BootstrapParams{})
+	_, _, _, err := s.env.Bootstrap(coretesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// Bootstrap must set use-sshstorage to false within the environment.

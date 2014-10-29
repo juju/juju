@@ -350,9 +350,9 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, "proposed", toolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "proposed", "proposed", toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := toolstesting.ParseMetadataFromDir(c, "proposed", dir, false)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", false)
 	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
 }
 
@@ -382,9 +382,9 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	if withMirrors {
 		writeMirrors = tools.WriteMirrors
 	}
-	err = tools.MergeAndWriteMetadata(writer, "proposed", toolsList, writeMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "proposed", "proposed", toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := toolstesting.ParseMetadataFromDir(c, "proposed", dir, withMirrors)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, "proposed", withMirrors)
 	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
 }
 
@@ -411,7 +411,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, "testing", existingToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "testing", "testing", existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -421,10 +421,10 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(writer, "testing", newToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "testing", "testing", newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := toolstesting.ParseMetadataFromDir(c, "testing", dir, false)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, "testing", false)
 	assertMetadataMatches(c, dir, "testing", requiredToolsList, metadata)
 }
 

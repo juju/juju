@@ -71,26 +71,26 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 		env.cfg = cfg
 	}
 
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", coretesting.CACert)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", coretesting.CAKey)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
@@ -101,7 +101,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{Constraints: cons})
+	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Constraints, gc.DeepEquals, cons)
@@ -111,7 +111,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	placement := "directive"
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{Placement: placement})
+	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{Placement: placement})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
@@ -127,7 +127,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsNonReleaseStream(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"agent-stream": "proposed"})
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
 	c.Assert(err, gc.IsNil)
@@ -143,7 +143,7 @@ func (s *bootstrapSuite) TestBootstrapNoToolsDevelopmentConfig(c *gc.C) {
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
 		"development": true})
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	// bootstrap.Bootstrap leaves it to the provider to
 	// locate bootstrap tools.
 	c.Assert(err, gc.IsNil)
@@ -238,7 +238,7 @@ func (s *bootstrapSuite) TestBootstrapMetadata(c *gc.C) {
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		MetadataDir: metadataDir,
 	})
 	c.Assert(err, gc.IsNil)
@@ -264,7 +264,7 @@ func (s *bootstrapSuite) TestBootstrapMetadataImagesMissing(c *gc.C) {
 
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{
+	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		MetadataDir: noImagesDir,
 	})
 	c.Assert(err, gc.IsNil)

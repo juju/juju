@@ -177,7 +177,7 @@ type fakeToolsUploader struct {
 	uploaded map[version.Binary]bool
 }
 
-func (u *fakeToolsUploader) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
+func (u *fakeToolsUploader) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
 	u.uploaded[tools.Version] = true
 	return nil
 }
@@ -517,6 +517,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 	}
 
 	err = uploader.UploadTools(
+		"released",
 		"released",
 		&coretools.Tools{
 			Version: version.Current,

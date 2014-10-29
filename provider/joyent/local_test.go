@@ -174,7 +174,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
-	return coretesting.Context(c)
+	return coretesting.BootstrapContext(c)
 }
 
 // If the environment is configured not to require a public IP address for nodes,

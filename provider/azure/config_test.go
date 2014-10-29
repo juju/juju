@@ -239,7 +239,7 @@ func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
 		}
 		cfg, err := config.New(config.UseDefaults, attrs)
 		c.Assert(err, gc.IsNil)
-		env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+		env, err := azureEnvironProvider{}.Prepare(testing.BootstrapContext(c), cfg)
 		c.Assert(err, gc.IsNil)
 		azureEnv := env.(*azureEnviron)
 		c.Assert(azureEnv.ecfg.availabilitySetsEnabled(), checker)
@@ -249,7 +249,7 @@ func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
 func (*configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
-	env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+	env, err := azureEnvironProvider{}.Prepare(testing.BootstrapContext(c), cfg)
 	c.Assert(err, gc.IsNil)
 	cfg, err = env.Config().Apply(map[string]interface{}{"availability-sets-enabled": false})
 	c.Assert(err, gc.IsNil)

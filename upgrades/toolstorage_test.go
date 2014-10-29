@@ -45,7 +45,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageNoTools(c *gc.C) {
 	})
 
 	stor := s.Environ.(environs.EnvironStorage).Storage()
-	envtesting.RemoveFakeTools(c, stor)
+	envtesting.RemoveFakeTools(c, stor, "released")
 	envtesting.RemoveFakeToolsMetadata(c, stor)
 	err := upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, gc.IsNil)

@@ -177,7 +177,7 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs.Environ {
-	ctx := coretesting.Context(c)
+	ctx := coretesting.BootstrapContext(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	availableTools := coretools.List{&coretools.Tools{
@@ -360,7 +360,7 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := coretesting.BootstrapContext(c)
 	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
 	validator, err := env.ConstraintsValidator()

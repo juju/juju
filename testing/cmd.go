@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 
 	"github.com/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
 )
@@ -40,6 +42,11 @@ func Context(c *gc.C) *cmd.Context {
 		Stdout: &bytes.Buffer{},
 		Stderr: &bytes.Buffer{},
 	}
+}
+
+// BootstrapContext creates a simple bootstrap execution context.
+func BootstrapContext(c *gc.C) environs.BootstrapContext {
+	return envcmd.BootstrapContext(Context(c))
 }
 
 // ContextForDir creates a simple command execution context with the current

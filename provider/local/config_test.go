@@ -107,9 +107,9 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
-	env, err := local.Provider.Prepare(testing.Context(c), minimalConfig(c))
+	env, err := local.Provider.Prepare(testing.BootstrapContext(c), minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	_, _, _, err = env.Bootstrap(testing.Context(c), environs.BootstrapParams{})
+	_, _, _, err = env.Bootstrap(testing.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }
 

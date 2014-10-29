@@ -150,7 +150,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := c.environ(context, store)
+		environ, err := c.prepare(context, store)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
