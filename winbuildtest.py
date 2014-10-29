@@ -10,6 +10,7 @@ import os
 import subprocess
 import sys
 import tarfile
+import traceback
 
 
 GO_CMD = os.path.join('\\', 'go', 'bin', 'go.exe')
@@ -17,6 +18,8 @@ ISS_CMD = os.path.join('\\', 'Progra~2', 'InnoSe~1', 'iscc.exe')
 JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 JUJU_UNINSTALL = os.path.join('\\', 'Progra~2', 'Juju', 'unins000.exe')
 
+GO_SRC_DIR = os.path.join('\\', 'go', 'src')
+GCC_BIN_DIR = os.path.join('\\', 'MinGW', 'bin')
 CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
 TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
 GOPATH = os.path.join(CI_DIR, 'gogo')
@@ -42,6 +45,7 @@ class WorkingDirectory:
 
 
 def run(*command, **kwargs):
+    kwargs['stderr'] = subprocess.STDOUT
     output = subprocess.check_output(command, **kwargs)
     return output
 
@@ -102,6 +106,18 @@ def move_source_to_gopath(tarball_name):
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
 
 
+def enable_cross_compile(gcc_bin_dir, go_src_dir, gopath):
+    env = dict(os.environ)
+    env['GOPATH'] = gopath
+    env['PATH'] = '{}{}{}'.format(env['PATH'], os.pathsep, gcc_bin_dir)
+    with WorkingDirectory(go_src_dir):
+        for arch in ('amd64', '386'):
+            env = dict(env)
+            env['GOARCH'] = arch
+            output = run('make.bat', '--no-clean', env=env)
+            print(output)
+
+
 def build_client(juju_cmd_dir, go_cmd, gopath, iss_dir):
     env = dict(os.environ)
     env['GOPATH'] = gopath
@@ -139,6 +155,14 @@ def test(version):
         raise Exception("Juju did not install")
 
 
+def has_agent(version):
+    try:
+        minor = int(version[2:4])
+        return minor >= 21
+    except ValueError:
+        return False
+
+
 def build_agent(jujud_cmd_dir, go_cmd, gopath):
     env = dict(os.environ)
     env['GOPATH'] = gopath
@@ -172,16 +196,21 @@ def main():
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
+        enable_cross_compile(GCC_BIN_DIR, GO_SRC_DIR, GOPATH)
         build_client(JUJU_CMD_DIR, GO_CMD, GOPATH, ISS_DIR)
         installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
         test(version)
-        #build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
-        #create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
+        if has_agent(version):
+            build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
+            create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
         return 0
     except Exception as e:
         print(str(e))
-        print(sys.exc_info()[0])
+        if isinstance(e, subprocess.CalledProcessError):
+            print("COMMAND OUTPUT:")
+            print(e.output)
+        print(traceback.print_tb(sys.exc_info()[2]))
         return 3
     return 0
 

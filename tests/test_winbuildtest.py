@@ -8,6 +8,8 @@ from winbuildtest import (
     build_client,
     create_cloud_agent,
     create_installer,
+    enable_cross_compile,
+    has_agent,
     GO_CMD,
     GOPATH,
     ISS_CMD,
@@ -16,6 +18,35 @@ from utils import temp_dir
 
 
 class WinBuildTestTestCase(TestCase):
+
+    def test_has_agent(self):
+        self.assertFalse(has_agent('1.20.11'))
+        self.assertTrue(has_agent('1.21-alpha3'))
+        self.assertTrue(has_agent('1.21.0'))
+        self.assertTrue(has_agent('1.22.0'))
+
+    def test_enable_cross_compile(self):
+        with temp_dir() as gcc_bin_dir:
+            with temp_dir() as go_src_dir:
+                with patch('winbuildtest.run', return_value='') as run_mock:
+                    devnull = open(os.devnull, 'w')
+                    with patch('sys.stdout', devnull):
+                        enable_cross_compile(gcc_bin_dir, go_src_dir, GOPATH)
+        expected_args = ('make.bat', '--no-clean')
+        # The first call set the GOARCH to amd64
+        output, args, kwargs = run_mock.mock_calls[0]
+        self.assertEqual(expected_args, args)
+        paths = kwargs['env'].get('PATH').split(os.pathsep)
+        self.assertEqual(gcc_bin_dir, paths[-1])
+        self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+        self.assertEqual('amd64', kwargs['env'].get('GOARCH'))
+        # The second call set the GOARCH to 386
+        output, args, kwargs = run_mock.mock_calls[1]
+        self.assertEqual(expected_args, args)
+        paths = kwargs['env'].get('PATH').split(os.pathsep)
+        self.assertEqual(gcc_bin_dir, paths[-1])
+        self.assertEqual(GOPATH, kwargs['env'].get('GOPATH'))
+        self.assertEqual('386', kwargs['env'].get('GOARCH'))
 
     def test_build_client(self):
         # build_client() builds the juju client with go and moved the
