@@ -56,7 +56,6 @@ func (st *State) RequestReboot() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if len(results.Results) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
