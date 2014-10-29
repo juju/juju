@@ -9,6 +9,7 @@ from winbuildtest import (
     create_cloud_agent,
     create_installer,
     enable_cross_compile,
+    has_agent,
     GO_CMD,
     GOPATH,
     ISS_CMD,
@@ -17,6 +18,12 @@ from utils import temp_dir
 
 
 class WinBuildTestTestCase(TestCase):
+
+    def test_has_agent(self):
+        self.assertFalse(has_agent('1.20.11'))
+        self.assertTrue(has_agent('1.21-alpha3'))
+        self.assertTrue(has_agent('1.21.0'))
+        self.assertTrue(has_agent('1.22.0'))
 
     def test_enable_cross_compile(self):
         with temp_dir() as gcc_bin_dir:

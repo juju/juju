@@ -155,6 +155,14 @@ def test(version):
         raise Exception("Juju did not install")
 
 
+def has_agent(version):
+    try:
+        minor = int(version[2:4])
+        return minor >= 21
+    except ValueError:
+        return False
+
+
 def build_agent(jujud_cmd_dir, go_cmd, gopath):
     env = dict(os.environ)
     env['GOPATH'] = gopath
@@ -193,8 +201,9 @@ def main():
         installer_name = create_installer(version, ISS_DIR, ISS_CMD, CI_DIR)
         install(installer_name)
         test(version)
-        #build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
-        #create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
+        if has_agent(version):
+            build_agent(JUJUD_CMD_DIR, GO_CMD, GOPATH)
+            create_cloud_agent(version, JUJUD_CMD_DIR, CI_DIR)
         return 0
     except Exception as e:
         print(str(e))
