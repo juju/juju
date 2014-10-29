@@ -209,14 +209,13 @@ func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 // DBOperator holds the information necessary to perform state database
 // operations.
 type DBOperator struct {
-	session *mgo.Session
+	session   *mgo.Session
+	txnRunner jujutxn.Runner
 
 	// EnvUUID is the UUID of the environment.
 	EnvUUID string
 	// Target is the DB collection on which to operate.
 	Target *mgo.Collection
-	// TXNRunner is the DB transaction runner to use when needed.
-	TXNRunner jujutxn.Runner
 }
 
 // NewDBOperator returns a DB operator for the target, with its own session.
@@ -228,11 +227,17 @@ func NewDBOperator(db *mgo.Database, target, envUUID string) *DBOperator {
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	dbOp := DBOperator{
 		session:   session,
+		txnRunner: txnRunner,
 		EnvUUID:   envUUID,
 		Target:    coll,
-		TXNRunner: txnRunner,
 	}
 	return &dbOp
+}
+
+// RunTransaction runs the DB operations within a single transaction.
+func (o *DBOperator) RunTransaction(ops []txn.Op) error {
+	err := o.txnRunner.RunTransaction(ops)
+	return errors.Trace(err)
 }
 
 // Copy returns a copy of the operator.
@@ -244,8 +249,9 @@ func (o *DBOperator) Copy() *DBOperator {
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	dbOp := DBOperator{
 		session:   session,
+		txnRunner: txnRunner,
+		EnvUUID:   o.EnvUUID,
 		Target:    coll,
-		TXNRunner: txnRunner,
 	}
 	return &dbOp
 }
@@ -314,8 +320,8 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 		Insert: doc,
 	}}
 
-	if err := dbOp.TXNRunner.RunTransaction(ops); err != nil {
-		if err == txn.ErrAborted {
+	if err := dbOp.RunTransaction(ops); err != nil {
+		if errors.Cause(err) == txn.ErrAborted {
 			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
 		return errors.Annotate(err, "while running transaction")
@@ -338,8 +344,8 @@ func setBackupStored(dbOp *DBOperator, id string, stored time.Time) error {
 		}}},
 	}}
 
-	if err := dbOp.TXNRunner.RunTransaction(ops); err != nil {
-		if err == txn.ErrAborted {
+	if err := dbOp.RunTransaction(ops); err != nil {
+		if errors.Cause(err) == txn.ErrAborted {
 			return errors.NotFoundf(id)
 		}
 		return errors.Annotate(err, "while running transaction")
