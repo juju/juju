@@ -282,7 +282,7 @@ func mkMachines(description string, ipVersion TestIPVersion) []*machine {
 }
 
 func memberTag(id string) map[string]string {
-	return map[string]string{jujuMachineTag: id}
+	return map[string]string{jujuMachineKey: id}
 }
 
 // mkMembers returns a slice of *replicaset.Member
