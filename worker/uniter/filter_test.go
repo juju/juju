@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/api"
@@ -62,12 +63,13 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter = s.st.Uniter()
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 	asserter := coretesting.NotifyAsserterC{
@@ -83,7 +85,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 	asserter.AssertNoReceive()
 
 	// Set dying.
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -101,7 +103,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
@@ -127,7 +129,7 @@ func (s *FilterSuite) assertAgentTerminates(c *gc.C, f *filter) {
 }
 
 func (s *FilterSuite) TestServiceDeath(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 	dyingAsserter := coretesting.NotifyAsserterC{
@@ -137,7 +139,7 @@ func (s *FilterSuite) TestServiceDeath(c *gc.C) {
 	}
 	dyingAsserter.AssertNoReceive()
 
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -162,7 +164,7 @@ loop:
 }
 
 func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -178,7 +180,7 @@ func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
 	resolvedAsserter.AssertNoReceive()
 
 	// Change the unit in an irrelevant way; no events.
-	err = s.unit.SetStatus(params.StatusError, "blarg", nil)
+	err = s.unit.SetStatus(state.StatusError, "blarg", nil)
 	c.Assert(err, gc.IsNil)
 	resolvedAsserter.AssertNoReceive()
 
@@ -224,7 +226,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 
 	s.APILogin(c, unit)
 
-	f, err := newFilter(s.uniter, unit.Tag().String())
+	f, err := newFilter(s.uniter, unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -290,7 +292,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -354,7 +356,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
-	f, err = newFilter(s.uniter, s.unit.Tag().String())
+	f, err = newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 	s.BackingState.StartSync()
@@ -368,7 +370,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -407,7 +409,7 @@ func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
 }
 
 func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -445,7 +447,7 @@ func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -496,7 +498,7 @@ func getAssertActionChange(s *FilterSuite, f *filter, c *gc.C) func(ids []string
 				c.Fatalf("timed out")
 			}
 		}
-		c.Assert(expected, jc.DeepEquals, seen)
+		c.Assert(seen, jc.DeepEquals, expected)
 
 		getAssertNoActionChange(s, f, c)()
 	}
@@ -512,7 +514,7 @@ func getAddAction(s *FilterSuite, c *gc.C) func(name string) string {
 }
 
 func (s *FilterSuite) TestActionEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -546,7 +548,7 @@ func (s *FilterSuite) TestPreexistingActions(c *gc.C) {
 	testId := addAction("snapshot")
 
 	// Now create the Filter and see whether the Action comes in as expected.
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -560,7 +562,7 @@ func (s *FilterSuite) TestPreexistingActions(c *gc.C) {
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
@@ -580,7 +582,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	s.assertFilterDies(c, f)
 
 	// Filter died after the error, so restart it.
-	f, err = newFilter(s.uniter, s.unit.Tag().String())
+	f, err = newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
@@ -592,7 +594,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -642,7 +644,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Start a new filter, check initial event.
-	f, err = newFilter(s.uniter, s.unit.Tag().String())
+	f, err = newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 	assertChange([]int{0, 2})
@@ -661,9 +663,47 @@ func (s *FilterSuite) addRelation(c *gc.C) *state.Relation {
 	c.Assert(err, gc.IsNil)
 	svcName := fmt.Sprintf("mysql%d", len(rels))
 	s.AddTestingService(c, svcName, s.mysqlcharm)
-	eps, err := s.State.InferEndpoints([]string{svcName, "wordpress"})
+	eps, err := s.State.InferEndpoints(svcName, "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	return rel
+}
+
+func (s *FilterSuite) TestMeterStatusEvents(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().(names.UnitTag))
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+	assertNoChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case <-f.MeterStatusEvents():
+			c.Fatalf("unexpected meter status event")
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+	assertChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case _, ok := <-f.MeterStatusEvents():
+			c.Assert(ok, gc.Equals, true)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out")
+		}
+		assertNoChange()
+	}
+	// Initial meter status does not trigger event.
+	assertNoChange()
+
+	// Set unit meter status to trigger event.
+	err = s.unit.SetMeterStatus("GREEN", "Operating normally.")
+	c.Assert(err, gc.IsNil)
+	assertChange()
+
+	// Make sure bundled events arrive properly.
+	for i := 0; i < 5; i++ {
+		err = s.unit.SetMeterStatus("RED", fmt.Sprintf("Update %d.", i))
+		c.Assert(err, gc.IsNil)
+	}
+	assertChange()
 }

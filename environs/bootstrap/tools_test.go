@@ -6,7 +6,7 @@ package bootstrap_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -69,11 +69,10 @@ func (s *toolsSuite) TestValidateUploadAllowed(c *gc.C) {
 func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	var called int
 	var filter tools.Filter
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		called++
 		c.Check(major, gc.Equals, version.Current.Major)
 		c.Check(minor, gc.Equals, version.Current.Minor)
-		c.Check(retry, jc.IsFalse)
 		filter = f
 		return nil, nil
 	})
@@ -90,11 +89,6 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 	tests := []test{{
 		version: nil,
 		arch:    nil,
-		dev:     false,
-		filter:  tools.Filter{Released: true},
-	}, {
-		version: nil,
-		arch:    nil,
 		dev:     true,
 		filter:  tools.Filter{},
 	}, {
@@ -102,11 +96,6 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		arch:    nil,
 		dev:     false,
 		filter:  tools.Filter{Number: vers},
-	}, {
-		version: nil,
-		arch:    &arm64,
-		dev:     false,
-		filter:  tools.Filter{Arch: arm64, Released: true},
 	}, {
 		version: &vers,
 		arch:    &arm64,
@@ -116,14 +105,14 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %#v", i, test)
-		bootstrap.FindBootstrapTools(nil, test.version, test.arch, test.dev)
+		bootstrap.FindBootstrapTools(nil, test.version, test.arch)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
 	}
 }
 
 func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		return nil, errors.New("splat")
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
@@ -132,7 +121,7 @@ func (s *toolsSuite) TestFindAvailableToolsError(c *gc.C) {
 }
 
 func (s *toolsSuite) TestFindAvailableToolsNoUpload(c *gc.C) {
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		return nil, errors.NotFoundf("tools")
 	})
 	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
@@ -147,7 +136,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUpload(c *gc.C) {
 		return "amd64"
 	})
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		findToolsCalled++
 		return nil, errors.NotFoundf("tools")
 	})
@@ -169,7 +158,7 @@ func (s *toolsSuite) TestFindAvailableToolsForceUploadInvalidArch(c *gc.C) {
 		return arch.I386
 	})
 	var findToolsCalled int
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		findToolsCalled++
 		return nil, errors.NotFoundf("tools")
 	})
@@ -188,10 +177,11 @@ func (s *toolsSuite) TestFindAvailableToolsAutoUpload(c *gc.C) {
 		Version: version.MustParseBinary("1.2.3-trusty-amd64"),
 		URL:     "http://testing.invalid/tools.tar.gz",
 	}
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		return tools.List{trustyTools}, nil
 	})
-	env := newEnviron("foo", useDefaultKeys, nil)
+	env := newEnviron("foo", useDefaultKeys, map[string]interface{}{
+		"agent-stream": "proposed"})
 	availableTools, err := bootstrap.FindAvailableTools(env, nil, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(availableTools), jc.GreaterThan, 1)
@@ -227,7 +217,7 @@ func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 		})
 	}
 
-	s.PatchValue(bootstrap.FindTools, func(_ environs.ConfigGetter, major, minor int, f tools.Filter, retry bool) (tools.List, error) {
+	s.PatchValue(bootstrap.FindTools, func(_ environs.Environ, major, minor int, f tools.Filter) (tools.List, error) {
 		return allTools, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)

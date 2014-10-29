@@ -46,18 +46,22 @@ type KeyManagerAPI struct {
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
 
-var adminUser = names.NewUserTag("admin")
-
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients and environment managers can access the key manager service.
 	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
+	env, err := st.Environment()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// For gccgo interface comparisons, we need a Tag.
+	owner := names.Tag(env.Owner())
 	// TODO(wallyworld) - replace stub with real canRead function
 	// For now, only admins can read authorised ssh keys.
 	canRead := func(_ string) bool {
-		return authorizer.GetAuthTag() == adminUser
+		return authorizer.GetAuthTag() == owner
 	}
 	// TODO(wallyworld) - replace stub with real canWrite function
 	// For now, only admins can write authorised ssh keys for users.
@@ -68,11 +72,9 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 			_, ismachinetag := authorizer.GetAuthTag().(names.MachineTag)
 			return ismachinetag
 		}
-		// Are we writing the auth key for a user.
-		if _, err := st.User(user); err != nil {
-			return false
-		}
-		return authorizer.GetAuthTag() == adminUser
+		// No point looking to see if the user exists as we are not
+		// yet storing keys on the user.
+		return authorizer.GetAuthTag() == owner
 	}
 	return &KeyManagerAPI{
 		state:      st,
@@ -98,18 +100,12 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 	}
 
 	for i, entity := range arg.Entities.Entities {
+		// NOTE: entity.Tag isn't a tag, but a username.
 		if !api.canRead(entity.Tag) {
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := api.state.User(entity.Tag); err != nil {
-			if errors.IsNotFound(err) {
-				results[i].Error = common.ServerError(common.ErrPerm)
-			} else {
-				results[i].Error = common.ServerError(err)
-			}
-			continue
-		}
+		// All keys are global, no need to look up the user.
 		if configErr == nil {
 			results[i].Result = keyInfo
 		}

@@ -11,15 +11,19 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/environs/tools"
+	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -107,8 +111,8 @@ func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binar
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
-	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
-	toolsFile := tools.StorageName(vers)
+	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", "released", versionStrings)
+	toolsFile := envtools.StorageName(vers)
 	return expectedTools, vers, path.Join(localStorage, toolsFile)
 }
 
@@ -121,17 +125,12 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	r, err := stor.Get(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	uploadedData, err := ioutil.ReadAll(r)
-	c.Assert(err, gc.IsNil)
+	_, uploadedData := s.getToolsFromStorage(c, vers)
 	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
@@ -146,10 +145,8 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -163,10 +160,8 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 }
 
@@ -182,49 +177,140 @@ func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 func (s *toolsSuite) TestUploadSeriesExpanded(c *gc.C) {
 	// Make some fake tools.
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
-	// Now try uploading them. The "series" parameter is accepted
-	// but ignored; the API server will expand the tools for all
-	// supported series.
-	params := "?binaryVersion=" + vers.String() + "&series=nonsense"
+	// Now try uploading them. The tools will be cloned for
+	// each additional series specified.
+	params := "?binaryVersion=" + vers.String() + "&series=quantal,precise"
 	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
 	c.Assert(err, gc.IsNil)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 	// Check the response.
-	stor := s.Environ.Storage()
-	toolsURL, err := stor.URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	expectedTools[0].URL = toolsURL
+	info := s.APIInfo(c)
+	expectedTools[0].URL = fmt.Sprintf("%s/environment/%s/tools/%s", s.baseURL(c), info.EnvironTag.Id(), vers)
 	s.assertUploadResponse(c, resp, expectedTools[0])
 
 	// Check the contents.
-	for _, series := range version.OSSupportedSeries(version.Ubuntu) {
-		toolsVersion := vers
-		toolsVersion.Series = series
-		r, err := stor.Get(tools.StorageName(toolsVersion))
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	expectedData, err := ioutil.ReadFile(toolPath)
+	c.Assert(err, gc.IsNil)
+	for _, series := range []string{"precise", "quantal"} {
+		vers := vers
+		vers.Series = series
+		_, r, err := storage.Tools(vers)
 		c.Assert(err, gc.IsNil)
 		uploadedData, err := ioutil.ReadAll(r)
-		c.Assert(err, gc.IsNil)
-		expectedData, err := ioutil.ReadFile(toolPath)
+		r.Close()
 		c.Assert(err, gc.IsNil)
 		c.Assert(uploadedData, gc.DeepEquals, expectedData)
 	}
+
+	// ensure other series *aren't* there.
+	vers.Series = "trusty"
+	_, err = storage.Metadata(vers)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *toolsSuite) TestDownloadEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	s.testDownload(c, environ.UUID())
+	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
+		Version: version.Current,
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	s.testDownload(c, tools, environ.UUID())
 }
 
 func (s *toolsSuite) TestDownloadTopLevelPath(c *gc.C) {
-	s.testDownload(c, "")
+	tools := s.storeFakeTools(c, "abc", toolstorage.Metadata{
+		Version: version.Current,
+		Size:    3,
+		SHA256:  "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+	})
+	s.testDownload(c, tools, "")
 }
 
-func (s *toolsSuite) testDownload(c *gc.C, uuid string) {
-	stor := s.Environ.Storage()
+func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
+	// The tools are not in toolstorage, so the download request causes
+	// the API server to search for the tools in simplestreams, fetch
+	// them, and then cache them in toolstorage.
+	vers := version.MustParseBinary("1.23.0-trusty-amd64")
+	stor := s.DefaultToolsStorage
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, vers)[0]
+	data := s.testDownload(c, tools, "")
+
+	metadata, cachedData := s.getToolsFromStorage(c, tools.Version)
+	c.Assert(metadata.Size, gc.Equals, tools.Size)
+	c.Assert(metadata.SHA256, gc.Equals, tools.SHA256)
+	c.Assert(string(cachedData), gc.Equals, string(data))
+}
+
+func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
+	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
+	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor)
 	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
+	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader("!"), 1)
+	c.Assert(err, gc.IsNil)
 
+	resp, err := s.downloadRequest(c, tools.Version, "")
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: size mismatch for .*")
+	s.assertToolsNotStored(c, tools.Version)
+}
+
+func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
+	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
+	stor := s.DefaultToolsStorage
+	envtesting.RemoveTools(c, stor)
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, version.Current)[0]
+	sameSize := strings.Repeat("!", int(tools.Size))
+	err := stor.Put(envtools.StorageName(tools.Version), strings.NewReader(sameSize), tools.Size)
+	c.Assert(err, gc.IsNil)
+
+	resp, err := s.downloadRequest(c, tools.Version, "")
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusBadRequest, "error fetching tools: hash mismatch for .*")
+	s.assertToolsNotStored(c, tools.Version)
+}
+
+func (s *toolsSuite) storeFakeTools(c *gc.C, content string, metadata toolstorage.Metadata) *coretools.Tools {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	err = storage.AddTools(strings.NewReader(content), metadata)
+	c.Assert(err, gc.IsNil)
+	return &coretools.Tools{
+		Version: metadata.Version,
+		Size:    metadata.Size,
+		SHA256:  metadata.SHA256,
+	}
+}
+
+func (s *toolsSuite) getToolsFromStorage(c *gc.C, vers version.Binary) (toolstorage.Metadata, []byte) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	metadata, r, err := storage.Tools(vers)
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadAll(r)
+	r.Close()
+	c.Assert(err, gc.IsNil)
+	return metadata, data
+}
+
+func (s *toolsSuite) assertToolsNotStored(c *gc.C, vers version.Binary) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	_, err = storage.Metadata(vers)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *toolsSuite) testDownload(c *gc.C, tools *coretools.Tools, uuid string) []byte {
 	resp, err := s.downloadRequest(c, tools.Version, uuid)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
@@ -235,6 +321,7 @@ func (s *toolsSuite) testDownload(c *gc.C, uuid string) {
 	hash := sha256.New()
 	hash.Write(data)
 	c.Assert(fmt.Sprintf("%x", hash.Sum(nil)), gc.Equals, tools.SHA256)
+	return data
 }
 
 func (s *toolsSuite) TestDownloadRejectsWrongEnvUUIDPath(c *gc.C) {

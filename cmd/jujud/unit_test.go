@@ -13,12 +13,11 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
-	"github.com/juju/juju/apiserver/params"
 	envtesting "github.com/juju/juju/environs/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -135,13 +134,13 @@ func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *gc.C) {
 			st, info, data, err := unit.Status()
 			c.Assert(err, gc.IsNil)
 			switch st {
-			case params.StatusPending, params.StatusInstalled:
+			case state.StatusPending, state.StatusInstalled:
 				c.Logf("waiting...")
 				continue
-			case params.StatusStarted:
+			case state.StatusStarted:
 				c.Logf("started!")
 				return
-			case params.StatusDown:
+			case state.StatusDown:
 				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
@@ -164,7 +163,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
+	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, newVers)
 
 	// The machine agent downloads the tools; fake this by
 	// creating downloaded-tools.txt in data-dir/tools/<version>.

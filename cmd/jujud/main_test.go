@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/gnuflag"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
 	coretesting "github.com/juju/juju/testing"
@@ -244,7 +244,7 @@ var argsTests = []struct {
 
 func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 	for _, t := range argsTests {
-		fmt.Println(t.args)
+		c.Log(t.args)
 		output := run(c, s.sockPath, "bill", t.code, t.args...)
 		c.Assert(output, gc.Equals, t.output)
 	}

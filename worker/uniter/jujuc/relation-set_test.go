@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -7,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -28,7 +29,7 @@ func (s *RelationSetSuite) TestHelp(c *gc.C) {
 	for i, t := range helpTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, "")
-		com, err := jujuc.NewCommand(hctx, "relation-set")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
@@ -152,7 +153,7 @@ func (s *RelationSetSuite) TestInit(c *gc.C) {
 	for i, t := range relationSetInitTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.ctxrelid, "")
-		com, err := jujuc.NewCommand(hctx, "relation-set")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, gc.IsNil)
 		err = testing.InitCommand(com, t.args)
 		if t.err == "" {
@@ -198,7 +199,7 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 		hctx.rels[1].units["u/0"] = basic
 
 		// Run the command.
-		com, err := jujuc.NewCommand(hctx, "relation-set")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, gc.IsNil)
 		rset := com.(*jujuc.RelationSetCommand)
 		rset.RelationId = 1
@@ -215,7 +216,8 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 
 func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	hctx := s.GetHookContext(c, 0, "")
-	com, _ := jujuc.NewCommand(hctx, "relation-set")
+	com, _ := jujuc.NewCommand(hctx, cmdString("relation-set"))
+
 	// The rel= is needed to make this a valid command.
 	ctx, err := testing.RunCommand(c, com, "--format", "foo", "rel=")
 

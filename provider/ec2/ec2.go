@@ -1,4 +1,4 @@
-// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Copyright 2011-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package ec2
@@ -16,6 +16,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
@@ -33,6 +33,8 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
+
+const none = "none"
 
 // Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
@@ -68,12 +70,13 @@ type environ struct {
 
 	availabilityZonesMutex sync.Mutex
 	availabilityZones      []common.AvailabilityZone
+
+	// cachedDefaultVpc caches the id of the ec2 default vpc
+	cachedDefaultVpc *defaultVpc
 }
 
 var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
-var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
 
@@ -82,6 +85,11 @@ type ec2Instance struct {
 
 	mu sync.Mutex
 	*ec2.Instance
+}
+
+type defaultVpc struct {
+	hasDefaultVpc bool
+	id            network.Id
 }
 
 func (inst *ec2Instance) String() string {
@@ -189,11 +197,17 @@ amazon:
     #
     # secret-key: <secret>
 
-    # image-stream chooses a simplestreams stream to select OS images
-    # from, for example daily or released images (or any other stream
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
     # available on simplestreams).
     #
     # image-stream: "released"
+
+    # agent-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # agent-stream: "released"
 
     # Whether or not to refresh the list of available updates for an
     # OS. The default option of true is recommended for use in
@@ -236,7 +250,14 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	return p.Open(cfg)
+	e, err := p.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if err := verifyCredentials(e.(*environ)); err != nil {
+		return nil, err
+	}
+	return e, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -267,6 +288,39 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error
 	return m, nil
 }
 
+const badAccessKey = `
+Please ensure the Access Key ID you have specified is correct.
+You can obtain the Access Key ID via the "Security Credentials"
+page in the AWS console.`
+
+const badSecretKey = `
+Please ensure the Secret Access Key you have specified is correct.
+You can obtain the Secret Access Key via the "Security Credentials"
+page in the AWS console.`
+
+// verifyCredentials issues a cheap, non-modifying/idempotent request to EC2 to
+// verify the configured credentials. If verification fails, a user-friendly
+// error will be returned, and the original error will be logged at debug
+// level.
+var verifyCredentials = func(e *environ) error {
+	_, err := e.ec2().AccountAttributes()
+	if err != nil {
+		logger.Debugf("ec2 request failed: %v", err)
+		if err, ok := err.(*ec2.Error); ok {
+			switch err.Code {
+			case "AuthFailure":
+				return errors.New("authentication failed.\n" + badAccessKey)
+			case "SignatureDoesNotMatch":
+				return errors.New("authentication failed.\n" + badSecretKey)
+			default:
+				return err
+			}
+		}
+		return err
+	}
+	return nil
+}
+
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -291,6 +345,38 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		bucket: e.s3Unlocked.Bucket(ecfg.controlBucket()),
 	}
 	return nil
+}
+
+func (e *environ) defaultVpc() (network.Id, bool, error) {
+	if e.cachedDefaultVpc != nil {
+		defaultVpc := e.cachedDefaultVpc
+		return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
+	}
+	ec2 := e.ec2()
+	resp, err := ec2.AccountAttributes("default-vpc")
+	if err != nil {
+		return "", false, errors.Trace(err)
+	}
+
+	hasDefault := true
+	defaultVpcId := ""
+
+	if len(resp.Attributes) == 0 || len(resp.Attributes[0].Values) == 0 {
+		hasDefault = false
+		defaultVpcId = ""
+	} else {
+
+		defaultVpcId := resp.Attributes[0].Values[0]
+		if defaultVpcId == none {
+			hasDefault = false
+			defaultVpcId = ""
+		}
+	}
+	defaultVpc := &defaultVpc{
+		id:            network.Id(defaultVpcId),
+		hasDefaultVpc: hasDefault}
+	e.cachedDefaultVpc = defaultVpc
+	return defaultVpc.id, defaultVpc.hasDefaultVpc, nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -358,6 +444,15 @@ func (e *environ) SupportNetworks() bool {
 	// TODO(dimitern) Once we have support for VPCs and advanced
 	// networking, return true here.
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *environ) SupportAddressAllocation(netId network.Id) (bool, error) {
+	_, hasDefaultVpc, err := e.defaultVpc()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return hasDefaultVpc, nil
 }
 
 var unsupportedConstraints = []string{
@@ -534,7 +629,10 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 	}, nil
 }
 
-const ebsStorage = "ebs"
+const (
+	ebsStorage = "ebs"
+	ssdStorage = "ssd"
+)
 
 // DistributeInstances implements the state.InstanceDistributor policy.
 func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
@@ -585,8 +683,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	arches := args.Tools.Arches()
-	stor := ebsStorage
-	sources, err := imagemetadata.GetMetadataSources(e)
+	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -597,7 +694,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Series:      series,
 		Arches:      arches,
 		Constraints: args.Constraints,
-		Storage:     &stor,
+		Storage:     []string{ssdStorage, ebsStorage},
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -655,6 +752,12 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
+	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
+			logger.Errorf("could not record instance in provider-state: %v", err)
+		}
+	}
+
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
 		Mem:      &spec.InstanceType.Mem,
@@ -682,7 +785,10 @@ func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
-	return e.terminateInstances(ids)
+	if err := e.terminateInstances(ids); err != nil {
+		return errors.Trace(err)
+	}
+	return common.RemoveStateInstances(e.Storage(), ids...)
 }
 
 // minDiskSize is the minimum/default size (in megabytes) for ec2 root disks.
@@ -838,12 +944,11 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	return insts, nil
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	// TODO(dimitern) This will be implemented in a follow-up.
-	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known
@@ -880,7 +985,10 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy() error {
-	return common.Destroy(e)
+	if err := common.Destroy(e); err != nil {
+		return errors.Trace(err)
+	}
+	return e.Storage().RemoveAll()
 }
 
 func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
@@ -1285,20 +1393,4 @@ func ec2ErrCode(err error) string {
 		return ""
 	}
 	return ec2err.Code
-}
-
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseImagesPath)}
-	return sources, nil
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}
-	return sources, nil
 }

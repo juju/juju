@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -25,6 +25,12 @@ type APIAddressUpdaterSuite struct {
 }
 
 var _ = gc.Suite(&APIAddressUpdaterSuite{})
+
+func (s *APIAddressUpdaterSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	err := s.State.SetAPIHostPorts(nil)
+	c.Assert(err, gc.IsNil)
+}
 
 type apiAddressSetter struct {
 	servers chan [][]network.HostPort

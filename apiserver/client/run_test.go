@@ -11,7 +11,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
@@ -95,7 +95,7 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	_, err = s.State.AddService("logging", owner.String(), s.AddTestingCharm(c, "logging"), nil)
 	c.Assert(err, gc.IsNil)
 
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)

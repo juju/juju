@@ -19,6 +19,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
@@ -166,9 +167,9 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	# Remove all state machines but 0, to restore HA
 	mongoAdminEval '
 		db = db.getSiblingDB("juju")
-		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.update({machineid: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
-		db.machines.remove({_id: {$ne:"0"}, hasvote: true})
+		db.machines.remove({machineid: {$ne:"0"}, hasvote: true})
 		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
 		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
 	'
@@ -244,8 +245,12 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
+	// While specifying the admin user will work for now, as soon as we allow
+	// the users to have a different initial user name, or they have changed
+	// the password for the admin user, this will fail.
+	owner := names.NewUserTag("admin")
 	for a := attempt.Start(); a.Next(); {
-		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+		apiState, err = juju.NewAPIState(owner, env, api.DefaultDialOpts())
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}
@@ -261,7 +266,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	progress("restored bootstrap machine")
 
-	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+	apiState, err = juju.NewAPIState(owner, env, api.DefaultDialOpts())
 	progress("opening state")
 	if err != nil {
 		return errors.Annotate(err, "cannot connect to api server")
@@ -298,9 +303,6 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	if len(instanceIds) == 0 {
 		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
-	if len(instanceIds) > 1 {
-		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
-	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
 		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
@@ -309,8 +311,10 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, errors.Annotate(err, "cannot detect whether old instance is still running")
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
-	if err := env.Storage().Remove(common.StateFile); err != nil {
-		return nil, errors.Annotate(err, fmt.Sprintf("cannot remove %q from storage", common.StateFile))
+	if env, ok := env.(environs.EnvironStorage); ok {
+		if err := env.Storage().Remove(common.StateFile); err != nil {
+			return nil, errors.Annotate(err, fmt.Sprintf("cannot remove %q from storage", common.StateFile))
+		}
 	}
 
 	// TODO If we fail beyond here, then we won't have a state file and

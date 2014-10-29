@@ -10,15 +10,14 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	amzec2 "launchpad.net/goamz/ec2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
-	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
@@ -75,16 +74,11 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
+	// Upload arches that ec2 supports; add to this
+	// as ec2 coverage expands.
+	t.UploadArches = []string{arch.AMD64, arch.I386}
 	t.BaseSuite.SetUpSuite(c)
 	t.LiveTests.SetUpSuite(c)
-	// TODO: Share code from jujutest.LiveTests for creating environment
-	e, err := environs.NewFromAttrs(t.TestConfig)
-	c.Assert(err, gc.IsNil)
-
-	// Put some fake tools in place so that tests that are simply
-	// starting instances without any need to check if those instances
-	// are running will find them in the public bucket.
-	envtesting.UploadFakeTools(c, e.Storage())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -95,7 +89,7 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
-	t.PatchValue(&version.Current, version.Binary{
+	t.BaseSuite.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
 		Series: coretesting.FakeDefaultSeries,
 		Arch:   arch.AMD64,
@@ -284,7 +278,7 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 
 func (t *LiveTests) TestDestroy(c *gc.C) {
 	t.PrepareOnce(c)
-	s := t.Env.Storage()
+	s := t.Env.(environs.EnvironStorage).Storage()
 	err := s.Put("foo", strings.NewReader("foo"), 3)
 	c.Assert(err, gc.IsNil)
 	err = s.Put("bar", strings.NewReader("bar"), 3)

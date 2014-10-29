@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3/hooks"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/api"
 	apiuniter "github.com/juju/juju/api/uniter"
@@ -62,12 +62,13 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAs(c, unit.Tag(), password)
-	s.uniter = s.st.Uniter()
+	s.uniter, err = s.st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
 
 	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
+	apiRel, err := s.uniter.Relation(s.rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -252,8 +253,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
 	c.Assert(err, gc.IsNil)
-	ctx := r.Context()
-	c.Assert(ctx.UnitNames(), gc.HasLen, 0)
+	c.Assert(r.Context().UnitNames(), gc.HasLen, 0)
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
@@ -263,10 +263,10 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	}
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
-	c.Assert(ctx.UnitNames(), gc.HasLen, 0)
+	c.Assert(r.Context().UnitNames(), gc.HasLen, 0)
 	c.Assert(s.dir.State().Members, gc.HasLen, 0)
 
-	// Check preparing a valid hook updates the context, but not persistent
+	// Check preparing a valid hook updates neither the context nor persistent
 	// relation state.
 	joined := hook.Info{
 		Kind:       hooks.RelationJoined,
@@ -276,50 +276,50 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.HasLen, 0)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
+	c.Assert(r.Context().UnitNames(), gc.IsNil)
 
 	// Check that preparing the following hook fails as before...
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
 	c.Assert(s.dir.State().Members, gc.HasLen, 0)
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
+	c.Assert(r.Context().UnitNames(), gc.IsNil)
 
 	// ...but that committing the previous hook updates the persistent
 	// relation state...
 	err = r.CommitHook(joined)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 0})
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
+	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
 
 	// ...and allows us to prepare the next hook...
 	name, err = r.PrepareHook(changed)
 	c.Assert(err, gc.IsNil)
 	c.Assert(name, gc.Equals, "ring-relation-changed")
 	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 0})
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
+	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
 
 	// ...and commit it.
 	err = r.CommitHook(changed)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 7})
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1"})
+	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
 
 	// To verify implied behaviour above, prepare a new joined hook with
 	// missing membership information, and check relation context
-	// membership is updated appropriately...
+	// membership is stil not updated...
 	joined.RemoteUnit = "u/2"
 	joined.ChangeVersion = 3
 	name, err = r.PrepareHook(joined)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.HasLen, 1)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1", "u/2"})
+	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
 
-	// ...and so is relation state on commit.
+	// ...until commit, at which point so is relation state.
 	err = r.CommitHook(joined)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 7, "u/2": 3})
-	c.Assert(ctx.UnitNames(), gc.DeepEquals, []string{"u/1", "u/2"})
+	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1", "u/2"})
 }
 
 func (s *RelationerSuite) TestSetDying(c *gc.C) {
@@ -412,8 +412,8 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetAddresses(network.NewAddress("blah", network.ScopeCloudLocal))
 	c.Assert(err, gc.IsNil)
-	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "mysql"})
+	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
+	eps, err := s.State.InferEndpoints("logging", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -427,12 +427,13 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	err = u.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	st := s.OpenAPIAs(c, u.Tag(), password)
-	uniterState := st.Uniter()
+	uniterState, err := st.Uniter()
+	c.Assert(err, gc.IsNil)
 	c.Assert(uniterState, gc.NotNil)
 
 	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
-	apiRel, err := uniterState.Relation(rel.Tag().String())
+	apiRel, err := uniterState.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -443,7 +444,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	// Join the relation.
 	err = r.Join()
 	c.Assert(err, gc.IsNil)
-	sub, err := logging.Unit("logging/0")
+	sub, err := s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Join the other side; check no hooks are sent.

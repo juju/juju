@@ -4,9 +4,7 @@
 package debug_test
 
 import (
-	"testing"
-
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/worker/uniter/debug"
 )
@@ -14,10 +12,6 @@ import (
 type DebugHooksCommonSuite struct{}
 
 var _ = gc.Suite(&DebugHooksCommonSuite{})
-
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
-}
 
 // TestHooksContext tests the behaviour of HooksContext.
 func (*DebugHooksCommonSuite) TestHooksContext(c *gc.C) {

@@ -4,13 +4,13 @@
 package state
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -39,7 +39,8 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	owner := names.NewLocalUserTag("test-admin")
+	st, err := Initialize(owner, TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	s.state = st
 	env, err := s.state.Environment()
@@ -75,10 +76,9 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	owner := s.env.Owner()
+	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
 	// requested networks collection. We remove it here to test
@@ -107,108 +107,4 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	networks, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(networks, gc.HasLen, 0)
-}
-
-// Check if ports stored on the unit are displayed.
-func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
-	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
-
-	// Add old-style ports to unit.
-	port := network.Port{Protocol: "tcp", Number: 80}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-
-	ports := unit.OpenedPorts()
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 80}})
-}
-
-// Check if opening ports on a unit with ports stored in the unit doc works.
-func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
-	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
-
-	// Add old-style ports to unit.
-	port := network.Port{Protocol: "tcp", Number: 80}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-
-	// Check if port conflicts are detected.
-	err = unit.OpenPort("tcp", 80)
-	c.Assert(err, gc.ErrorMatches, "cannot open ports 80-80/tcp for unit \"mysql/0\": cannot open ports 80-80/tcp on machine 0 due to conflict")
-
-	err = unit.OpenPort("tcp", 8080)
-	c.Assert(err, gc.IsNil)
-
-	ports := unit.OpenedPorts()
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 80}, {"tcp", 8080}})
-}
-
-// Check if closing ports on a unit with ports stored in the unit doc works.
-func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
-	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
-
-	// Add old-style ports to unit.
-	port := network.Port{Protocol: "tcp", Number: 80}
-	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
-	}}
-	err = s.state.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-	err = unit.Refresh()
-	c.Assert(err, gc.IsNil)
-
-	// Check if closing an unopened port works
-	err = unit.ClosePort("tcp", 8080)
-	c.Assert(err, gc.IsNil)
-
-	err = unit.ClosePort("tcp", 80)
-	c.Assert(err, gc.IsNil)
-
-	ports := unit.OpenedPorts()
-	c.Assert(ports, gc.DeepEquals, []network.Port{})
 }

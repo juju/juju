@@ -4,15 +4,24 @@
 package state
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
+
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+)
+
+var metricsLogger = loggo.GetLogger("juju.state.metrics")
+
+const (
+	CleanupAge = time.Hour * 24
 )
 
 // MetricBatch represents a batch of metrics reported from a unit.
@@ -27,6 +36,7 @@ type MetricBatch struct {
 
 type metricBatchDoc struct {
 	UUID     string    `bson:"_id"`
+	EnvUUID  string    `bson:"env-uuid"`
 	Unit     string    `bson:"unit"`
 	CharmUrl string    `bson:"charmurl"`
 	Sent     bool      `bson:"sent"`
@@ -57,6 +67,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
+			EnvUUID:  st.EnvironTag().Id(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
@@ -65,14 +76,14 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-			notDead, err := isNotDead(st.db, unitsC, unitTag.Id())
+			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
 			if err != nil || !notDead {
 				return nil, errors.NotFoundf(unitTag.Id())
 			}
 		}
 		ops := []txn.Op{{
 			C:      unitsC,
-			Id:     unitTag.Id(),
+			Id:     st.docID(unitTag.Id()),
 			Assert: notDeadDoc,
 		}, {
 			C:      metricsC,
@@ -90,7 +101,26 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 	return metric, nil
 }
 
-// MetricBatch returns the metric batch with the given id
+// MetricBatches returns all metric batches currently stored in state.
+// TODO (tasdomas): this method is currently only used in the uniter worker test -
+//                  it needs to be modified to restrict the scope of the values it
+//                  returns if it is to be used outside of tests.
+func (st *State) MetricBatches() ([]MetricBatch, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	docs := []metricBatchDoc{}
+	err := c.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]MetricBatch, len(docs))
+	for i, doc := range docs {
+		results[i] = MetricBatch{st: st, doc: doc}
+	}
+	return results, nil
+}
+
+// MetricBatch returns the metric batch with the given id.
 func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	c, closer := st.getCollection(metricsC)
 	defer closer()
@@ -105,40 +135,83 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 	return &MetricBatch{st: st, doc: doc}, nil
 }
 
-// DeleteMetricBatch deletes a metricBatch from the collection
-func (st *State) DeleteMetricBatch(UUID string) error {
-	ops := []txn.Op{{
-		C:      metricsC,
-		Id:     UUID,
-		Remove: true,
-	}}
-	err := st.runTransaction(ops)
-	return errors.Annotatef(err, "cannot delete metric batch %q %v", UUID, err)
-}
-
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
-	age := time.Now().Add(-(time.Hour * 24))
+	age := time.Now().Add(-(CleanupAge))
 	c, closer := st.getCollection(metricsC)
 	defer closer()
-	iter := c.Find(bson.M{
+	// Nothing else in the system will interact with sent metrics, and nothing needs
+	// to watch them either; so in this instance it's safe to do an end run around the
+	// mgo/txn package. See State.cleanupRelationSettings for a similar situation.
+	err := c.Remove(bson.M{
 		"sent":    true,
 		"created": bson.M{"$lte": age},
-	}).Select(bson.M{"_id": 1}).Iter()
-	var doc metricBatchDoc
-	for iter.Next(&doc) {
-		err := st.DeleteMetricBatch(doc.UUID)
-		if err != nil {
-			return err
-		}
+	})
+	if err == mgo.ErrNotFound {
+		metricsLogger.Infof("no metrics found to cleanup")
+		return nil
 	}
-	return iter.Close()
+	return err
+}
+
+// MetricsToSend returns batchSize metrics that need to be sent
+// to the collector
+func (st *State) MetricsToSend(batchSize int) ([]*MetricBatch, error) {
+	var docs []metricBatchDoc
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	err := c.Find(bson.M{
+		"sent": false,
+	}).Limit(batchSize).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	batch := make([]*MetricBatch, len(docs))
+	for i, doc := range docs {
+		batch[i] = &MetricBatch{st: st, doc: doc}
+
+	}
+
+	return batch, nil
+}
+
+// CountofUnsentMetrics returns the number of metrics that
+// haven't been sent to the collection service.
+func (st *State) CountofUnsentMetrics() (int, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	return c.Find(bson.M{
+		"sent": false,
+	}).Count()
+}
+
+// CountofSentMetrics returns the number of metrics that
+// have been sent to the collection service and have not
+// been removed by the cleanup worker.
+func (st *State) CountofSentMetrics() (int, error) {
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	return c.Find(bson.M{
+		"sent": true,
+	}).Count()
+}
+
+// MarshalJSON defines how the MetricBatch type should be
+// converted to json.
+func (m *MetricBatch) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m.doc)
 }
 
 // UUID returns to uuid of the metric.
 func (m *MetricBatch) UUID() string {
 	return m.doc.UUID
+}
+
+// EnvUUID returns the environment UUID this metric applies to.
+func (m *MetricBatch) EnvUUID() string {
+	return m.doc.EnvUUID
 }
 
 // Unit returns the name of the unit this metric was generated in.
@@ -151,20 +224,27 @@ func (m *MetricBatch) CharmURL() string {
 	return m.doc.CharmUrl
 }
 
+// Created returns the time this metric batch was created.
+func (m *MetricBatch) Created() time.Time {
+	return m.doc.Created
+}
+
 // Sent returns a flag to tell us if this metric has been sent to the metric
 // collection service
 func (m *MetricBatch) Sent() bool {
 	return m.doc.Sent
 }
 
+// Metrics returns the metrics in this batch.
+func (m *MetricBatch) Metrics() []Metric {
+	result := make([]Metric, len(m.doc.Metrics))
+	copy(result, m.doc.Metrics)
+	return result
+}
+
 // SetSent sets the sent flag to true
 func (m *MetricBatch) SetSent() error {
-	ops := []txn.Op{{
-		C:      metricsC,
-		Id:     m.UUID(),
-		Assert: txn.DocExists,
-		Update: bson.M{"$set": bson.M{"sent": true}},
-	}}
+	ops := setSentOps([]*MetricBatch{m})
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
@@ -173,9 +253,27 @@ func (m *MetricBatch) SetSent() error {
 	return nil
 }
 
-// Metrics returns the metrics in this batch.
-func (m *MetricBatch) Metrics() []Metric {
-	result := make([]Metric, len(m.doc.Metrics))
-	copy(result, m.doc.Metrics)
-	return result
+func setSentOps(metrics []*MetricBatch) []txn.Op {
+	ops := make([]txn.Op, len(metrics))
+	for i, m := range metrics {
+		ops[i] = txn.Op{
+			C:      metricsC,
+			Id:     m.UUID(),
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"sent": true}},
+		}
+	}
+	return ops
+}
+
+// SetMetricBatchesSent sets sent on each MetricBatch in the slice provided.
+func (st *State) SetMetricBatchesSent(metrics []*MetricBatch) error {
+	ops := setSentOps(metrics)
+	if err := st.runTransaction(ops); err != nil {
+		return errors.Annotatef(err, "cannot set metric sent in bulk call")
+	}
+	for _, m := range metrics {
+		m.doc.Sent = true
+	}
+	return nil
 }

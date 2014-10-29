@@ -70,6 +70,42 @@ type PortsResult struct {
 	Ports []network.Port
 }
 
+// MachinePorts holds a machine and network tags. It's used when
+// referring to opened ports on the machine for a network.
+type MachinePorts struct {
+	MachineTag string
+	NetworkTag string
+}
+
+// MachinePortRange holds a single port range open on a machine for
+// the given unit and relation tags.
+type MachinePortRange struct {
+	UnitTag     string
+	RelationTag string
+	PortRange   network.PortRange
+}
+
+// MachinePortsParams holds the arguments for making a
+// FirewallerAPIV1.GetMachinePorts() API call.
+type MachinePortsParams struct {
+	Params []MachinePorts
+}
+
+// MachinePortsResult holds a single result of the
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
+type MachinePortsResult struct {
+	Error *Error
+	Ports []MachinePortRange
+}
+
+// MachinePortsResults holds all the results of the
+// FirewallerAPIV1.GetMachinePorts() and UniterAPI.AllMachinePorts()
+// API calls.
+type MachinePortsResults struct {
+	Results []MachinePortsResult
+}
+
 // StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {
@@ -86,21 +122,6 @@ type StringResult struct {
 // that returns a string or an error.
 type StringResults struct {
 	Results []StringResult
-}
-
-// CharmArchiveURLResult holds a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResult struct {
-	Error                          *Error
-	Result                         string
-	DisableSSLHostnameVerification bool
-}
-
-// CharmArchiveURLResults holds the bulk operation result of an API
-// call that returns a charm archive (bundle) URL, a
-// DisableSSLHostnameVerification flag or an error.
-type CharmArchiveURLResults struct {
-	Results []CharmArchiveURLResult
 }
 
 // EnvironmentResult holds the result of an API call returning a name and UUID
@@ -247,33 +268,6 @@ type RelationResults struct {
 	Results []RelationResult
 }
 
-// ActionResults holds a slice of responses from the Actions query.
-type ActionsQueryResults struct {
-	ActionsQueryResults []ActionsQueryResult `json:"actionsqueryresults,omitempty"`
-}
-
-// Action holds the name and parameters of an Actions query.
-type ActionsQueryResult struct {
-	Error  *Error  `json:"actionsqueryresult-error,omitempty"`
-	Action *Action `json:"actionsqueryresult-result,omitempty"`
-}
-
-// Action holds the actual name and parameters of an Action.
-type Action struct {
-	Name   string                 `json:"action-name,omitempty"`
-	Params map[string]interface{} `json:"action-params,omitempty"`
-}
-
-// ActionResult holds the action tag and output used when recording the
-// result of an action. This is an argument, not a result, despite the
-// confusing name.
-type ActionResult struct {
-	ActionTag string
-	Results   map[string]interface{}
-	Failed    bool
-	Message   string
-}
-
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string
@@ -285,6 +279,20 @@ type EntityPort struct {
 // ClosePort on some entities.
 type EntitiesPorts struct {
 	Entities []EntityPort
+}
+
+// EntityPortRange holds an entity's tag, a protocol and a port range.
+type EntityPortRange struct {
+	Tag      string
+	Protocol string
+	FromPort int
+	ToPort   int
+}
+
+// EntitiesPortRanges holds the parameters for making an OpenPorts or
+// ClosePorts on some entities.
+type EntitiesPortRanges struct {
+	Entities []EntityPortRange
 }
 
 // EntityCharmURL holds an entity's tag and a charm URL.
@@ -645,4 +653,34 @@ type ProvisioningInfoResult struct {
 // ProvisioningInfoResults holds multiple machine provisioning info results.
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult
+}
+
+// Metric holds a single metric.
+type Metric struct {
+	Key   string
+	Value string
+	Time  time.Time
+}
+
+// MetricsParam contains the metrics for a single unit.
+type MetricsParam struct {
+	Tag     string
+	Metrics []Metric
+}
+
+// MetricsParams contains the metrics for multiple units.
+type MetricsParams struct {
+	Metrics []MetricsParam
+}
+
+// MeterStatusResult holds unit meter status or error.
+type MeterStatusResult struct {
+	Code  string
+	Info  string
+	Error *Error
+}
+
+// MeterStatusResults holds meter status results for multiple units.
+type MeterStatusResults struct {
+	Results []MeterStatusResult
 }

@@ -67,14 +67,16 @@ type HasRegion interface {
 }
 
 type LookupConstraint interface {
-	// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
-	Ids() ([]string, error)
-	// Returns the constraint parameters.
+	// IndexIds generates a string array representing index ids formed similarly to an ISCSI qualified name (IQN).
+	IndexIds() []string
+	// ProductIds generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+	ProductIds() ([]string, error)
+	// Params returns the constraint parameters.
 	Params() LookupParams
 }
 
 // LookupParams defines criteria used to find a metadata record.
-// Derived structs implement the Ids() method.
+// Derived structs implement the IndexIds() and ProductIds() method.
 type LookupParams struct {
 	CloudSpec
 	Series []string
@@ -224,10 +226,20 @@ func (metadata *CloudMetadata) extractCatalogsForProducts(productIds []string) [
 }
 
 // extractIndexes returns just the array of indexes, in arbitrary order.
-func (ind *Indices) extractIndexes() IndexMetadataSlice {
+func (ind *Indices) extractIndexes(indexIds []string) IndexMetadataSlice {
 	result := make(IndexMetadataSlice, 0, len(ind.Indexes))
-	for _, metadata := range ind.Indexes {
-		result = append(result, metadata)
+	if len(indexIds) == 0 {
+		// No ids specified so return everything.
+		for _, metadata := range ind.Indexes {
+			result = append(result, metadata)
+		}
+	} else {
+		// Return metadata for just the specified ids.
+		for _, id := range indexIds {
+			if metadata, ok := ind.Indexes[id]; ok {
+				result = append(result, metadata)
+			}
+		}
 	}
 	return result
 }
@@ -290,13 +302,15 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 }
 
 const (
-	StreamsDir       = "streams/v1"
-	UnsignedIndex    = "streams/v1/index.json"
-	DefaultIndexPath = "streams/v1/index"
-	UnsignedMirror   = "streams/v1/mirrors.json"
-	mirrorsPath      = "streams/v1/mirrors"
-	signedSuffix     = ".sjson"
-	UnsignedSuffix   = ".json"
+	streamsDir       = "streams/%s"
+	unsignedIndex    = "streams/%s/index.json"
+	signedIndex      = "streams/%s/index.sjson"
+	unsignedMirror   = "streams/%s/mirrors.json"
+	defaultIndexPath = "streams/%s/index"
+
+	defaultMirrorsPath = "streams/%s/mirrors"
+	signedSuffix       = ".sjson"
+	UnsignedSuffix     = ".json"
 )
 
 type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
@@ -315,17 +329,54 @@ type ValueParams struct {
 	PublicKey string
 }
 
+// StreamsDir returns the streams directory for streamsVersion.
+func StreamsDir(streamsVersion string) string {
+	return fmt.Sprintf(streamsDir, streamsVersion)
+}
+
+// MirrorsPath returns the mirrors path for streamsVersion.
+func MirrorsPath(streamsVersion string) string {
+	return fmt.Sprintf(defaultMirrorsPath, streamsVersion)
+}
+
+// UnsignedIndex returns an unsigned index file name for streamsVersion.
+func UnsignedIndex(streamsVersion string) string {
+	return fmt.Sprintf(unsignedIndex, streamsVersion)
+}
+
+// SignedIndex returns a signed index file name for streamsVersion.
+func SignedIndex(streamsVersion string) string {
+	return fmt.Sprintf(signedIndex, streamsVersion)
+}
+
+// UnsignedMirror returns an unsigned mirror file name for streamsVersion.
+func UnsignedMirror(streamsVersion string) string {
+	return fmt.Sprintf(unsignedMirror, streamsVersion)
+}
+
+// GetMetadataParams defines parameters used to load simplestreams metadata.
+type GetMetadataParams struct {
+	StreamsVersion   string
+	LookupConstraint LookupConstraint
+	OnlySigned       bool
+	ValueParams      ValueParams
+}
+
 // GetMetadata returns metadata records matching the specified constraint,looking in each source for signed metadata.
 // If onlySigned is false and no signed metadata is found in a source, the source is used to look for unsigned metadata.
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
-func GetMetadata(
-	sources []DataSource, baseIndexPath string, cons LookupConstraint, onlySigned bool,
-	params ValueParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
+
+	baseIndexPath := fmt.Sprintf(defaultIndexPath, params.StreamsVersion)
+	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	for _, source := range sources {
-		items, resolveInfo, err = getMaybeSignedMetadata(source, baseIndexPath, cons, true, params)
+		logger.Debugf("searching for metadata in datasource %q", source.Description())
+		items, resolveInfo, err = getMaybeSignedMetadata(
+			source, baseIndexPath, mirrorsPath, params.LookupConstraint, true, params.ValueParams)
 		// If no items are found using signed metadata, check unsigned.
-		if err != nil && len(items) == 0 && !onlySigned {
-			items, resolveInfo, err = getMaybeSignedMetadata(source, baseIndexPath, cons, false, params)
+		if err != nil && len(items) == 0 && !params.OnlySigned {
+			items, resolveInfo, err = getMaybeSignedMetadata(
+				source, baseIndexPath, mirrorsPath, params.LookupConstraint, false, params.ValueParams)
 		}
 		if err == nil {
 			break
@@ -339,7 +390,7 @@ func GetMetadata(
 }
 
 // getMaybeSignedMetadata returns metadata records matching the specified constraint.
-func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons LookupConstraint,
+func getMaybeSignedMetadata(source DataSource, baseIndexPath, mirrorsPath string, cons LookupConstraint,
 	signed bool, params ValueParams) ([]interface{}, *ResolveInfo, error) {
 
 	resolveInfo := &ResolveInfo{}
@@ -357,7 +408,7 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath string, cons Lookup
 	resolveInfo.Source = source.Description()
 	resolveInfo.Signed = signed
 	resolveInfo.IndexURL = indexURL
-	indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", signed, cons.Params().CloudSpec, params)
+	indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", mirrorsPath, signed, cons.Params().CloudSpec, params)
 	if err != nil {
 		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 			logger.Debugf("cannot load index %q: %v", indexURL, err)
@@ -403,7 +454,7 @@ func fetchData(source DataSource, path string, requireSigned bool, publicKey str
 
 // GetIndexWithFormat returns a simplestreams index of the specified format.
 // Exported for testing.
-func GetIndexWithFormat(source DataSource, indexPath, indexFormat string, requireSigned bool,
+func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath string, requireSigned bool,
 	cloudSpec CloudSpec, params ValueParams) (*IndexReference, error) {
 
 	data, url, err := fetchData(source, indexPath, requireSigned, params.PublicKey)
@@ -499,12 +550,12 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	if indexRef.MirroredProductsPath != "" {
 		return indexRef.MirroredProductsPath, nil
 	}
-	prodIds, err := cons.Ids()
+	prodIds, err := cons.ProductIds()
 	if err != nil {
 		return "", err
 	}
-	candidates := indexRef.extractIndexes()
-	// Restrict to image-ids entries.
+	candidates := indexRef.extractIndexes(cons.IndexIds())
+	// Restrict to the relevant data type entries.
 	dataTypeMatches := func(metadata *IndexMetadata) bool {
 		return metadata.DataType == indexRef.valueParams.DataType
 	}
@@ -895,7 +946,7 @@ func (indexRef *IndexReference) getLatestMetadataWithFormat(cons LookupConstrain
 
 // GetLatestMetadata extracts and returns the metadata records matching the given criteria.
 func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, source DataSource, filterFunc appendMatchingFunc) ([]interface{}, error) {
-	prodIds, err := cons.Ids()
+	prodIds, err := cons.ProductIds()
 	if err != nil {
 		return nil, err
 	}

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -128,7 +128,7 @@ func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	validConfig, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
-	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, false)
+	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, true)
 	c.Check(validConfig.EnableOSUpgrade(), gc.Equals, false)
 }
 

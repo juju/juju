@@ -17,7 +17,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
@@ -95,6 +95,9 @@ func (s *serverSuite) TestStop(c *gc.C) {
 }
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
+	err := s.State.SetAPIHostPorts(nil)
+	c.Assert(err, gc.IsNil)
+
 	// Start our own instance of the server listening on
 	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
 	listener, err := net.Listen("tcp", ":0")

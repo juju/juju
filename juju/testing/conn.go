@@ -6,19 +6,19 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -26,12 +26,16 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -59,6 +63,10 @@ type JujuConnSuite struct {
 	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
+
+	DefaultToolsStorageDir string
+	DefaultToolsStorage    storage.Storage
+
 	State        *state.State
 	Environ      environs.Environ
 	APIState     *api.State
@@ -89,6 +97,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
+	s.PatchValue(&configstore.DefaultAdminUsername, dummy.AdminUserTag().Name())
 	s.setUpConn(c)
 	s.Factory = factory.NewFactory(s.State)
 }
@@ -108,7 +117,9 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) AdminUserTag(c *gc.C) names.UserTag {
-	return names.NewUserTag(state.AdminUser)
+	env, err := s.State.StateServerEnvironment()
+	c.Assert(err, gc.IsNil)
+	return env.Owner()
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *mongo.MongoInfo {
@@ -125,7 +136,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	apiInfo.EnvironTag = env.Tag()
+	apiInfo.EnvironTag = env.EnvironTag()
 
 	return apiInfo
 }
@@ -181,7 +192,9 @@ func PreferredDefaultVersions(conf *config.Config, template version.Binary) []ve
 	prefVersion := template
 	prefVersion.Series = config.PreferredSeries(conf)
 	defaultVersion := template
-	defaultVersion.Series = testing.FakeDefaultSeries
+	if prefVersion.Series != testing.FakeDefaultSeries {
+		defaultVersion.Series = testing.FakeDefaultSeries
+	}
 	return []version.Binary{prefVersion, defaultVersion}
 }
 
@@ -230,7 +243,13 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	versions = append(versions, version.Current)
 
 	// Upload tools for both preferred and fake default series
-	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
+	s.DefaultToolsStorageDir = c.MkDir()
+	s.PatchValue(&tools.DefaultBaseURL, s.DefaultToolsStorageDir)
+	stor, err := filestorage.NewFileStorageWriter(s.DefaultToolsStorageDir)
+	c.Assert(err, gc.IsNil)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, versions...)
+	s.DefaultToolsStorage = stor
+
 	err = bootstrap.Bootstrap(ctx, environ, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -239,10 +258,43 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
 
-	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	s.APIState, err = juju.NewAPIState(s.AdminUserTag(c), environ, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetAPIHostPorts(s.APIState.APIHostPorts())
 	c.Assert(err, gc.IsNil)
 
 	s.Environ = environ
+}
+
+// AddToolsToState adds tools to tools storage.
+func (s *JujuConnSuite) AddToolsToState(c *gc.C, versions ...version.Binary) {
+	storage, err := s.State.ToolsStorage()
+	c.Assert(err, gc.IsNil)
+	defer storage.Close()
+	for _, v := range versions {
+		content := v.String()
+		hash := fmt.Sprintf("sha256(%s)", content)
+		err := storage.AddTools(strings.NewReader(content), toolstorage.Metadata{
+			Version: v,
+			Size:    int64(len(content)),
+			SHA256:  hash,
+		})
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+// AddDefaultToolsToState adds tools to tools storage for
+// {Number: version.Current.Number, Arch: amd64}, for the
+// "precise" series and the environment's preferred series.
+// The preferred series is default-series if specified,
+// otherwise the latest LTS.
+func (s *JujuConnSuite) AddDefaultToolsToState(c *gc.C) {
+	preferredVersion := version.Current
+	preferredVersion.Arch = "amd64"
+	versions := PreferredDefaultVersions(s.Environ.Config(), preferredVersion)
+	versions = append(versions, version.Current)
+	s.AddToolsToState(c, versions...)
 }
 
 var redialStrategy = utils.AttemptStrategy{
@@ -256,9 +308,6 @@ func newState(environ environs.Environ, mongoInfo *mongo.MongoInfo) (*state.Stat
 	password := environ.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
-	if err := environs.CheckEnvironment(environ); err != nil {
-		return nil, err
 	}
 
 	mongoInfo.Password = password
@@ -376,27 +425,13 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	if _, err := f.Seek(0, 0); err != nil {
 		return nil, err
 	}
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	env, err := environs.New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	stor := env.Storage()
-	if err := stor.Put(name, f, size); err != nil {
+
+	stor := st.Storage()
+	storagePath := fmt.Sprintf("/charms/%s-%s", curl.String(), digest)
+	if err := stor.Put(storagePath, f, size); err != nil {
 		return nil, fmt.Errorf("cannot put charm: %v", err)
 	}
-	ustr, err := stor.URL(name)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
-	}
-	u, err := url.Parse(ustr)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
-	}
-	sch, err := st.AddCharm(ch, curl, u, digest)
+	sch, err := st.AddCharm(ch, curl, storagePath, digest)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add charm: %v", err)
 	}
@@ -429,27 +464,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	testServer := gitjujutesting.MgoServer.Addr()
 	serverAlive := testServer != ""
 
-	// Bootstrap will set the admin password, and render non-authorized use
-	// impossible. s.State may still hold the right password, so try to reset
-	// the password so that the MgoSuite soft-resetting works. If that fails,
-	// it will still work, but it will take a while since it has to kill the
-	// whole database and start over.
-	if s.State != nil {
-		if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
-			c.Logf("cannot reset admin password: %v", err)
-		}
-		err := s.State.Close()
-		if serverAlive {
-			// This happens way too often with failing tests,
-			// so add some context in case of an error.
-			c.Check(
-				err,
-				gc.IsNil,
-				gc.Commentf("closing state failed, testing server %q is alive", testServer),
-			)
-		}
-		s.State = nil
-	}
+	// Close any api connections we know about first.
 	for _, st := range s.apiStates {
 		err := st.Close()
 		if serverAlive {
@@ -461,13 +476,24 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Check(
-				err,
-				gc.IsNil,
-				gc.Commentf("closing api state failed, testing server %q is alive", testServer),
+			c.Check(err, gc.IsNil,
+				gc.Commentf("closing api state failed\n%s\n", errors.ErrorStack(err)),
 			)
 		}
 	}
+	// Close state.
+	if s.State != nil {
+		err := s.State.Close()
+		if serverAlive {
+			// This happens way too often with failing tests,
+			// so add some context in case of an error.
+			c.Check(err, gc.IsNil,
+				gc.Commentf("closing state failed\n%s\n", errors.ErrorStack(err)),
+			)
+		}
+		s.State = nil
+	}
+
 	dummy.Reset()
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuHome(s.oldJujuHome)
@@ -511,7 +537,8 @@ func (s *JujuConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm)
 
 func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
 	c.Assert(s.State, gc.NotNil)
-	service, err := s.State.AddService(name, "user-admin", ch, networks)
+	owner := s.AdminUserTag(c).String()
+	service, err := s.State.AddService(name, owner, ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }

@@ -9,14 +9,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/upgrader"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/version"
@@ -155,14 +154,6 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	err := s.rawMachine.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 
-	// Set API host ports for tools URL.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err = s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
 	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, gc.IsNil)
@@ -170,7 +161,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 		c.Check(results.Results, gc.HasLen, 1)
 		c.Assert(results.Results[0].Error, gc.IsNil)
 		agentTools := results.Results[0].Tools
-		url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", version.Current)
+		url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.APIState.Addr(), version.Current)
 		c.Check(agentTools.URL, gc.Equals, url)
 		c.Check(agentTools.Version, gc.DeepEquals, cur)
 	}

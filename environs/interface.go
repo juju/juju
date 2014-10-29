@@ -53,7 +53,7 @@ type EnvironProvider interface {
 	SecretAttrs(cfg *config.Config) (map[string]string, error)
 }
 
-// EnvironStorage implements storage access for an environment
+// EnvironStorage implements storage access for an environment.
 type EnvironStorage interface {
 	// Storage returns storage specific to the environment.
 	Storage() storage.Storage
@@ -118,9 +118,9 @@ type Environ interface {
 	// instances.
 	InstanceBroker
 
-	// AllocateAddress requests a new address to be allocated for the
+	// AllocateAddress requests a specific address to be allocated for the
 	// given instance on the given network.
-	AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error)
+	AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error
 
 	// ListNetworks returns basic information about all networks known
 	// by the provider for the environment. They may be unknown to juju
@@ -155,8 +155,6 @@ type Environ interface {
 	// to Juju state servers. If there are no state server instances,
 	// ErrNotBootstrapped is returned.
 	StateServerInstances() ([]instance.Id, error)
-
-	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. Note that on some providers,

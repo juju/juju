@@ -30,7 +30,7 @@ func (c *EndpointCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-endpoints",
 		Args:    "",
-		Purpose: "Print the API server address",
+		Purpose: "print the API server address",
 		Doc:     endpointDoc,
 	}
 }

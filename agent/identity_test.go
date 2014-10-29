@@ -1,4 +1,5 @@
 // Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent
@@ -6,11 +7,13 @@ package agent
 import (
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -33,7 +36,7 @@ var attributeParams = AgentConfigParams{
 	Nonce:             "a nonce",
 }
 
-var servingInfo = state.StateServingInfo{
+var servingInfo = params.StateServingInfo{
 	Cert:           "old cert",
 	PrivateKey:     "old key",
 	StatePort:      69,
@@ -56,8 +59,12 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 
 	fi, err := os.Stat(conf.SystemIdentityPath())
 	c.Assert(err, gc.IsNil)
-	c.Check(fi.Mode().Perm(), gc.Equals, os.FileMode(0600))
 
+	// Windows is not fully POSIX compliant. Chmod() and Chown() have unexpected behavior
+	// compared to linux/unix
+	if runtime.GOOS != "windows" {
+		c.Check(fi.Mode().Perm(), gc.Equals, os.FileMode(0600))
+	}
 	// ensure that file is deleted when SystemIdentity is empty
 	info := servingInfo
 	info.SystemIdentity = ""
@@ -65,7 +72,6 @@ func (s *identitySuite) TestWriteSystemIdentityFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = WriteSystemIdentityFile(conf)
 	c.Assert(err, gc.IsNil)
-
 	fi, err = os.Stat(conf.SystemIdentityPath())
-	c.Assert(err, gc.ErrorMatches, `stat .*: no such file or directory`)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }

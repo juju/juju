@@ -22,10 +22,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/mongo"
@@ -67,8 +65,6 @@ type manualEnviron struct {
 	ubuntuUserInitMutex sync.Mutex
 }
 
-var _ envtools.SupportsCustomSources = (*manualEnviron)(nil)
-
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
@@ -103,6 +99,11 @@ func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportNetworks() bool {
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *manualEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
@@ -251,11 +252,11 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 	return instances, err
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not supported on the
 // manual provider.
-func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	return network.Address{}, errors.NotSupportedf("AllocateAddress")
+func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known
@@ -273,15 +274,6 @@ var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Sto
 		StorageDir: storageDir,
 		TmpDir:     storageTmpdir,
 	})
-}
-
-// GetToolsSources returns a list of sources which are
-// used to search for simplestreams tools metadata.
-func (e *manualEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off private storage.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath),
-	}, nil
 }
 
 func (e *manualEnviron) Storage() storage.Storage {

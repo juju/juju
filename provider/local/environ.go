@@ -31,9 +31,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
-	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
@@ -54,9 +52,6 @@ const bootstrapInstanceId instance.Id = "localhost"
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 
-// localEnviron implements SupportsCustomSources.
-var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
-
 type localEnviron struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -69,13 +64,6 @@ type localEnviron struct {
 	containerManager container.Manager
 }
 
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (e *localEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	return []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
-}
-
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*localEnviron) SupportedArchitectures() ([]string, error) {
 	localArch := arch.HostArch()
@@ -85,6 +73,11 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*localEnviron) SupportNetworks() bool {
 	return false
+}
+
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *localEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
 }
 
 func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
@@ -143,8 +136,11 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.DataDir = env.config.rootDir()
 	mcfg.LogDir = fmt.Sprintf("/var/log/juju-%s", env.config.namespace())
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 	mcfg.CloudInitOutputLog = filepath.Join(mcfg.DataDir, "cloud-init-output.log")
+
+	// No JobManageNetworking added in order not to change the network
+	// configuration of the user's machine.
+	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
 
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{
@@ -178,9 +174,10 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		mcfg.EnableOSUpgrade = val
 	}
 
-	// don't write proxy settings for local machine
+	// don't write proxy or mirror settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
 	mcfg.ProxySettings = proxy.Settings{}
+	mcfg.AptMirror = ""
 
 	cloudcfg := coreCloudinit.New()
 	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
@@ -438,11 +435,11 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return insts, err
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not supported on the
 // local provider.
-func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	return network.Address{}, errors.NotSupportedf("AllocateAddress")
+func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotSupportedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known

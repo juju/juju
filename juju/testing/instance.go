@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/constraints"
@@ -164,9 +164,7 @@ func StartInstanceWithParams(
 	if params.Constraints.Arch != nil {
 		filter.Arch = *params.Constraints.Arch
 	}
-	possibleTools, err := tools.FindTools(
-		env, -1, -1, filter, tools.DoNotAllowRetry,
-	)
+	possibleTools, err := tools.FindTools(env, -1, -1, filter)
 	if err != nil {
 		return nil, nil, nil, err
 	}

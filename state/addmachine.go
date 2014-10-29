@@ -13,7 +13,6 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -124,7 +123,7 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 // AddMachines adds new machines configured according to the
 // given templates.
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
-	defer errors.Maskf(&err, "cannot add a new machine")
+	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	env, err := st.Environment()
 	if err != nil {
@@ -245,17 +244,19 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := machineDocForTemplate(template, strconv.Itoa(seq))
+	mdoc := st.machineDocForTemplate(template, strconv.Itoa(seq))
 	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
 	prereqOps = append(prereqOps, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		prereqOps = append(prereqOps, txn.Op{
 			C:      instanceDataC,
-			Id:     mdoc.Id,
+			Id:     mdoc.DocID,
 			Assert: txn.DocMissing,
 			Insert: &instanceData{
-				Id:         mdoc.Id,
+				DocID:      mdoc.DocID,
+				MachineId:  mdoc.Id,
 				InstanceId: template.InstanceId,
+				EnvUUID:    mdoc.EnvUUID,
 				Arch:       template.HardwareCharacteristics.Arch,
 				Mem:        template.HardwareCharacteristics.Mem,
 				RootDisk:   template.HardwareCharacteristics.RootDisk,
@@ -318,7 +319,7 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := machineDocForTemplate(template, newId)
+	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
 	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
 	prereqOps = append(prereqOps,
@@ -369,7 +370,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		}
 	}
 
-	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
+	parentDoc := st.machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
 	if err != nil {
 		return nil, nil, err
@@ -378,7 +379,7 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	if err != nil {
 		return nil, nil, err
 	}
-	mdoc := machineDocForTemplate(template, newId)
+	mdoc := st.machineDocForTemplate(template, newId)
 	mdoc.ContainerType = string(containerType)
 	parentPrereqOps, parentOp := st.insertNewMachineOps(parentDoc, parentTemplate)
 	prereqOps, machineOp := st.insertNewMachineOps(mdoc, template)
@@ -392,9 +393,11 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 	return mdoc, append(prereqOps, parentOp, machineOp), nil
 }
 
-func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
+func (st *State) machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 	return &machineDoc{
+		DocID:      st.docID(id),
 		Id:         id,
+		EnvUUID:    st.EnvironTag().Id(),
 		Series:     template.Series,
 		Jobs:       template.Jobs,
 		Clean:      !template.Dirty,
@@ -414,7 +417,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) (prereqOps []txn.Op, machineOp txn.Op) {
 	machineOp = txn.Op{
 		C:      machinesC,
-		Id:     mdoc.Id,
+		Id:     mdoc.DocID,
 		Assert: txn.DocMissing,
 		Insert: mdoc,
 	}
@@ -422,7 +425,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 	return []txn.Op{
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), template.Constraints),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), statusDoc{
-			Status: params.StatusPending,
+			Status: StatusPending,
 		}),
 		// TODO(dimitern) 2014-04-04 bug #1302498
 		// Once we can add networks independently of machine
@@ -496,7 +499,13 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 // EnsureAvailability adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
-func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (StateServersChanges, error) {
+// If placement is not empty, any new machines which may be required are started
+// according to the specified placement directives until the placement list is
+// exhausted; thereafter any new machines are started according to the constraints and series.
+func (st *State) EnsureAvailability(
+	numStateServers int, cons constraints.Value, series string, placement []string,
+) (StateServersChanges, error) {
+
 	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
 		return StateServersChanges{}, fmt.Errorf("number of state servers must be odd and non-negative")
 	}
@@ -542,7 +551,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 
 		var ops []txn.Op
-		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
+		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series, placement)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
@@ -567,6 +576,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
+	placement []string,
 ) ([]txn.Op, StateServersChanges, error) {
 	var ops []txn.Op
 	var change StateServersChanges
@@ -578,6 +588,19 @@ func (st *State) ensureAvailabilityIntentionOps(
 		ops = append(ops, demoteStateServerOps(m)...)
 		change.Demoted = append(change.Demoted, m.doc.Id)
 	}
+	// Use any placement directives that have been provided
+	// when adding new machines, until the directives have
+	// been all used up. Set up a helper function to do the
+	// work required.
+	placementCount := 0
+	getPlacement := func() string {
+		if placementCount >= len(placement) {
+			return ""
+		}
+		result := placement[placementCount]
+		placementCount++
+		return result
+	}
 	mdocs := make([]*machineDoc, intent.newCount)
 	for i := range mdocs {
 		template := MachineTemplate{
@@ -587,6 +610,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 				JobManageEnviron,
 			},
 			Constraints: cons,
+			Placement:   getPlacement(),
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
@@ -684,7 +708,7 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAva
 func promoteStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}},
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	}, {
@@ -697,7 +721,7 @@ func promoteStateServerOps(m *Machine) []txn.Op {
 func demoteStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", false}},
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
 	}, {
@@ -710,7 +734,7 @@ func demoteStateServerOps(m *Machine) []txn.Op {
 func removeStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
 		C:      machinesC,
-		Id:     m.doc.Id,
+		Id:     m.doc.DocID,
 		Assert: bson.D{{"novote", true}, {"hasvote", false}},
 		Update: bson.D{
 			{"$pull", bson.D{{"jobs", JobManageEnviron}}},

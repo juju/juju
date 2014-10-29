@@ -4,38 +4,45 @@
 package state_test
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
 )
 
 type MetricSuite struct {
 	ConnSuite
+	unit *state.Unit
 }
 
 var _ = gc.Suite(&MetricSuite{})
 
+func (s *MetricSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+	s.unit = s.assertAddUnit(c)
+}
+
 func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 	now := state.NowToTheSecond()
-	unit := s.assertAddUnit(c)
-	_, err := unit.AddMetrics(now, []state.Metric{})
+	_, err := s.unit.AddMetrics(now, []state.Metric{})
 	c.Assert(err, gc.ErrorMatches, "cannot add a batch of 0 metrics")
 }
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
-	unit := s.assertAddUnit(c)
 	now := state.NowToTheSecond()
+	envUUID := s.State.EnvironTag().Id()
 	m := state.Metric{"item", "5", now, []byte("creds")}
-	metricBatch, err := unit.AddMetrics(now, []state.Metric{m})
+	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "wordpress/0")
+	c.Assert(metricBatch.EnvUUID(), gc.Equals, envUUID)
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
 	c.Assert(metricBatch.Sent(), gc.Equals, false)
+	c.Assert(metricBatch.Created(), gc.Equals, now)
 	c.Assert(metricBatch.Metrics(), gc.HasLen, 1)
 
 	metric := metricBatch.Metrics()[0]
@@ -79,28 +86,25 @@ func (s *MetricSuite) assertAddUnit(c *gc.C) *state.Unit {
 }
 
 func (s *MetricSuite) TestAddMetricNonExitentUnit(c *gc.C) {
-	unit := s.assertAddUnit(c)
-	assertUnitRemoved(c, unit)
+	assertUnitRemoved(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte{}}
-	_, err := unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `wordpress/0 not found`)
 }
 
 func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
-	unit := s.assertAddUnit(c)
-	assertUnitDead(c, unit)
+	assertUnitDead(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte{}}
-	_, err := unit.AddMetrics(now, []state.Metric{m})
+	_, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `wordpress/0 not found`)
 }
 
 func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
-	unit := s.assertAddUnit(c)
 	now := state.NowToTheSecond()
 	m := state.Metric{"item", "5", now, []byte{}}
-	added, err := unit.AddMetrics(now, []state.Metric{m})
+	added, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
 	c.Assert(err, gc.IsNil)
@@ -112,34 +116,16 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	c.Assert(saved.Sent(), jc.IsTrue)
 }
 
-func (s *MetricSuite) TestDeleteMetric(c *gc.C) {
-	unit := s.assertAddUnit(c)
-	now := state.NowToTheSecond()
-	m := state.Metric{"item", "5", now, []byte{}}
-	added, err := unit.AddMetrics(now, []state.Metric{m})
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.MetricBatch(added.UUID())
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.DeleteMetricBatch(added.UUID())
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.MetricBatch(added.UUID())
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	// We check the error explicitly to ensure the error message looks readable
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("metric %v not found", added.UUID()))
-}
-
 func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
-	unit := s.assertAddUnit(c)
 	oldTime := time.Now().Add(-(time.Hour * 25))
 	m := state.Metric{"item", "5", oldTime, []byte("creds")}
-	oldMetric, err := unit.AddMetrics(oldTime, []state.Metric{m})
+	oldMetric, err := s.unit.AddMetrics(oldTime, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	oldMetric.SetSent()
 
 	now := time.Now()
 	m = state.Metric{"item", "5", now, []byte("creds")}
-	newMetric, err := unit.AddMetrics(now, []state.Metric{m})
+	newMetric, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	newMetric.SetSent()
 	err = s.State.CleanupOldMetrics()
@@ -150,4 +136,87 @@ func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
 
 	_, err = s.State.MetricBatch(oldMetric.UUID())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *MetricSuite) TestCleanupNoMetrics(c *gc.C) {
+	err := s.State.CleanupOldMetrics()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *MetricSuite) TestMetricBatches(c *gc.C) {
+	now := state.NowToTheSecond()
+	m := state.Metric{"item", "5", now, []byte("creds")}
+	_, err := s.unit.AddMetrics(now, []state.Metric{m})
+	c.Assert(err, gc.IsNil)
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 1)
+	c.Assert(metricBatches[0].Unit(), gc.Equals, "wordpress/0")
+	c.Assert(metricBatches[0].CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
+	c.Assert(metricBatches[0].Sent(), gc.Equals, false)
+	c.Assert(metricBatches[0].Metrics(), gc.HasLen, 1)
+}
+
+// TestCountMetrics asserts the correct values are returned
+// by CountofUnsentMetrics and CountofSentMetrics.
+func (s *MetricSuite) TestCountMetrics(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	sent, err := s.State.CountofSentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 1)
+	unsent, err := s.State.CountofUnsentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsent, gc.Equals, 2)
+	c.Assert(unsent+sent, gc.Equals, 3)
+}
+
+func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := time.Now()
+	metrics := make([]*state.MetricBatch, 3)
+	for i := range metrics {
+		metrics[i] = s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	}
+	err := s.State.SetMetricBatchesSent(metrics)
+	c.Assert(err, gc.IsNil)
+	sent, err := s.State.CountofSentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(sent, gc.Equals, 3)
+
+}
+
+func (s *MetricSuite) TestMetricsToSend(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := state.NowToTheSecond()
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	result, err := s.State.MetricsToSend(5)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.HasLen, 2)
+}
+
+// TestMetricsToSendBatches checks that metrics are properly batched.
+func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
+	unit := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	now := state.NowToTheSecond()
+	for i := 0; i < 6; i++ {
+		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+	}
+	for i := 0; i < 4; i++ {
+		s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	}
+	for i := 0; i < 3; i++ {
+		result, err := s.State.MetricsToSend(2)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result, gc.HasLen, 2)
+		s.State.SetMetricBatchesSent(result)
+	}
+	result, err := s.State.MetricsToSend(2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.HasLen, 0)
 }

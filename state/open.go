@@ -62,7 +62,7 @@ func open(info *mongo.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, er
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(owner names.UserTag, info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := open(info, opts, policy)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -80,7 +80,8 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	logger.Infof("initializing environment")
+	logger.Infof("initializing environment, owner: %q", owner.Username())
+	logger.Infof("info: %#v", info)
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,10 +90,13 @@ func Initialize(info *mongo.MongoInfo, cfg *config.Config, opts mongo.DialOpts, 
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
 	st.environTag = names.NewEnvironTag(uuid)
+	newEnvUserOp, _ := createEnvUserOpAndDoc(uuid, owner, owner, owner.Name())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, cfg.Name(), uuid),
+		createInitialUserOp(st, owner, info.Password),
+		createEnvironmentOp(st, owner, cfg.Name(), uuid, uuid),
+		newEnvUserOp,
 		{
 			C:      stateServersC,
 			Id:     environGlobalKey,
@@ -186,7 +190,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
 	} else if mongoInfo.Password != "" {
-		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
+		if err := admin.Login(mongo.AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
@@ -201,7 +205,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
-	//     https://jira.klmongodb.org/browse/SERVER-6992
+	//     https://jira.mongodb.org/browse/SERVER-6992
 	err := log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
@@ -250,7 +254,7 @@ func (st *State) CACert() string {
 }
 
 func (st *State) Close() (err error) {
-	defer errors.Contextf(&err, "closing state failed")
+	defer errors.DeferredAnnotatef(&err, "closing state failed")
 	err1 := st.watcher.Stop()
 	err2 := st.pwatcher.Stop()
 	st.mu.Lock()

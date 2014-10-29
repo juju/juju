@@ -76,8 +76,12 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
+	agentConfig := a.CurrentConfig()
+	if err := setupLogging(agentConfig); err != nil {
+		return err
+	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
-	network.InitializeFromConfig(a.CurrentConfig())
+	network.InitializeFromConfig(agentConfig)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
@@ -116,10 +120,22 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
-		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir, hookLock), nil
+		uniterFacade, err := st.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		unitTag, err := names.ParseUnitTag(entity.Tag())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return uniter.NewUniter(uniterFacade, unitTag, dataDir, hookLock), nil
 	})
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
-		return apiaddressupdater.NewAPIAddressUpdater(st.Uniter(), a), nil
+		uniterFacade, err := st.Uniter()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return apiaddressupdater.NewAPIAddressUpdater(uniterFacade, a), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)

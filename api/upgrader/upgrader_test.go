@@ -9,13 +9,12 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/upgrader"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -96,14 +95,6 @@ func (s *machineUpgraderSuite) TestToolsNotMachine(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestTools(c *gc.C) {
-	// Set API host ports for tools URL.
-	hostPorts := [][]network.HostPort{{{
-		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
-		Port:    1234,
-	}}}
-	err := s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
 	cur := version.Current
 	curTools := &tools.Tools{Version: cur, URL: ""}
 	curTools.Version.Minor++
@@ -113,7 +104,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	stateTools, err := s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
-	url := fmt.Sprintf("https://0.1.2.3:1234/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", cur)
+	url := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", s.stateAPI.Addr(), cur)
 	c.Assert(stateTools.URL, gc.Equals, url)
 }
 

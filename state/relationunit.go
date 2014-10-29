@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -90,10 +90,10 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// * TODO(fwereade): check unit status == params.StatusStarted (this
 	//   breaks a bunch of tests in a boring but noisy-to-fix way, and is
 	//   being saved for a followup).
-	unitName, relationKey := ru.unit.doc.Name, ru.relation.doc.Key
+	unitDocID, relationKey := ru.unit.doc.DocID, ru.relation.doc.Key
 	ops := []txn.Op{{
 		C:      unitsC,
-		Id:     unitName,
+		Id:     unitDocID,
 		Assert: isAliveDoc,
 	}, {
 		C:      relationsC,
@@ -153,7 +153,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// unit: this could fail due to the subordinate service's not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its services are not).)
-	if alive, err := isAliveWithSession(db.C(unitsC), unitName); err != nil {
+	if alive, err := isAliveWithSession(db.C(unitsC), unitDocID); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
@@ -394,7 +394,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
-	defer errors.Maskf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	defer errors.DeferredAnnotatef(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	if !names.IsValidUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}

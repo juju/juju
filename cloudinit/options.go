@@ -82,6 +82,13 @@ func (cfg *Config) SetAptProxy(url string) {
 	cfg.set("apt_proxy", url != "", url)
 }
 
+// AptMirror returns the value set by SetAptMirror, and a
+// boolean flag indicating whether the mirror has been set.
+func (cfg *Config) AptMirror() (string, bool) {
+	mirror, ok := cfg.attrs["apt_mirror"].(string)
+	return mirror, ok
+}
+
 // SetAptMirror sets the URL to be used as the apt
 // mirror site. If not set, the URL is selected based
 // on cloud metadata in EC2 - <region>.archive.ubuntu.com
@@ -108,8 +115,9 @@ func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
 		},
 	)
 	if prefs != nil {
-		// Create the apt preferences file.
-		cfg.AddTextFile(prefs.Path, prefs.FileContents(), 0644)
+		// Create the apt preferences file. This needs to be done
+		// before apt-get upgrade, so it must be done as a bootcmd.
+		cfg.addBootTextFile(prefs.Path, prefs.FileContents(), 0644)
 	}
 }
 
@@ -341,30 +349,37 @@ func (cfg *Config) AddScripts(scripts ...string) {
 // AddTextFile will add multiple run_cmd entries to safely set the
 // contents of a specific file to the requested contents.
 func (cfg *Config) AddTextFile(filename, data string, mode uint) {
-	cfg.addFile(filename, []byte(data), mode, false)
+	addFile(cfg.AddRunCmd, filename, []byte(data), mode, false)
+}
+
+// addBootTextFile will add multiple bootcmd entries to safely set the
+// contents of a specific file to the requested contents early in the
+// boot process.
+func (cfg *Config) addBootTextFile(filename, data string, mode uint) {
+	addFile(cfg.AddBootCmd, filename, []byte(data), mode, false)
 }
 
 // AddBinaryFile will add multiple run_cmd entries to safely set the
 // contents of a specific file to the requested contents.
 func (cfg *Config) AddBinaryFile(filename string, data []byte, mode uint) {
-	cfg.addFile(filename, data, mode, true)
+	addFile(cfg.AddRunCmd, filename, data, mode, true)
 }
 
-func (cfg *Config) addFile(filename string, data []byte, mode uint, binary bool) {
+func addFile(addCmd func(string), filename string, data []byte, mode uint, binary bool) {
 	// Note: recent versions of cloud-init have the "write_files"
 	// module, which can write arbitrary files. We currently support
 	// 12.04 LTS, which uses an older version of cloud-init without
 	// this module.
 	p := shquote(filename)
-	cfg.AddRunCmd(fmt.Sprintf("install -D -m %o /dev/null %s", mode, p))
+	addCmd(fmt.Sprintf("install -D -m %o /dev/null %s", mode, p))
 	// Don't use the shell's echo builtin here; the interpretation
 	// of escape sequences differs between shells, namely bash and
 	// dash. Instead, we use printf (or we could use /bin/echo).
 	if binary {
 		encoded := base64.StdEncoding.EncodeToString(data)
-		cfg.AddRunCmd(fmt.Sprintf(`printf %%s %s | base64 -d > %s`, encoded, p))
+		addCmd(fmt.Sprintf(`printf %%s %s | base64 -d > %s`, encoded, p))
 	} else {
-		cfg.AddRunCmd(fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(string(data)), p))
+		addCmd(fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(string(data)), p))
 	}
 }
 

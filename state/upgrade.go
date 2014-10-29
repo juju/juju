@@ -67,6 +67,10 @@ const (
 	// upgrade logic.
 	UpgradeComplete UpgradeStatus = "complete"
 
+	// UpgradeAborted indicates that the upgrade wasn't completed due
+	// to some problem.
+	UpgradeAborted UpgradeStatus = "aborted"
+
 	// currentUpgradeId is the mongo _id of the current upgrade info document.
 	currentUpgradeId = "current"
 )
@@ -146,37 +150,65 @@ func (info *UpgradeInfo) Watch() NotifyWatcher {
 // When this returns true the master state state server can begin it's
 // own upgrade.
 func (info *UpgradeInfo) AllProvisionedStateServersReady() (bool, error) {
-	// Get current state servers.
+	provisioned, err := info.getProvisionedStateServers()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	ready := set.NewStrings(info.doc.StateServersReady...)
+	missing := set.NewStrings(provisioned...).Difference(ready)
+	return missing.IsEmpty(), nil
+}
+
+func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
+	var provisioned []string
+
 	stateServerInfo, err := info.st.StateServerInfo()
 	if err != nil {
-		return false, errors.Annotate(err, "cannot read state servers")
+		return provisioned, errors.Annotate(err, "cannot read state servers")
+	}
+
+	upgradeDone, err := info.isEnvUUIDUpgradeDone()
+	if err != nil {
+		return provisioned, errors.Trace(err)
 	}
 
 	// Extract current and provisioned state servers.
-	sel := bson.D{{
-		"_id", bson.D{{"$in", stateServerInfo.MachineIds}},
-	}}
-
 	instanceData, closer := info.st.getCollection(instanceDataC)
 	defer closer()
-	iter := instanceData.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 
-	var doc struct {
-		Id string `bson:"_id"`
+	// If instanceData has the env UUID upgrade query using the
+	// machineid field, otherwise check using _id.
+	var sel bson.D
+	var field string
+	if upgradeDone {
+		sel = bson.D{{"env-uuid", info.st.EnvironTag().Id()}}
+		field = "machineid"
+	} else {
+		field = "_id"
 	}
-	provisionedMachineIds := set.NewStrings()
+	sel = append(sel, bson.DocElem{field, bson.D{{"$in", stateServerInfo.MachineIds}}})
+	iter := instanceData.Find(sel).Select(bson.D{{field, true}}).Iter()
+
+	var doc bson.M
 	for iter.Next(&doc) {
-		provisionedMachineIds.Add(doc.Id)
+		provisioned = append(provisioned, doc[field].(string))
 	}
 	if err := iter.Close(); err != nil {
-		return false, errors.Annotate(err, "cannot read provisioned machines")
+		return provisioned, errors.Annotate(err, "cannot read provisioned machines")
 	}
-	// Find provisioned state machines that haven't indicated
-	// themselves as ready for upgrade.
-	missingMachineIds := provisionedMachineIds.Difference(
-		set.NewStrings(info.doc.StateServersReady...),
-	)
-	return missingMachineIds.IsEmpty(), nil
+	return provisioned, nil
+}
+
+func (info *UpgradeInfo) isEnvUUIDUpgradeDone() (bool, error) {
+	instanceData, closer := info.st.getCollection(instanceDataC)
+	defer closer()
+
+	query := instanceData.Find(bson.D{{"env-uuid", bson.D{{"$exists", true}}}})
+	n, err := query.Count()
+	if err != nil {
+		return false, errors.Annotatef(err, "couldn't query instance upgrade status")
+	}
+	return n > 0, nil
 }
 
 // SetStatus sets the status of the current upgrade. Checks are made
@@ -184,8 +216,8 @@ func (info *UpgradeInfo) AllProvisionedStateServersReady() (bool, error) {
 func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 	var assertSane bson.D
 	switch status {
-	case UpgradePending, UpgradeComplete:
-		return errors.Errorf("cannot explicitly set upgrade %s", status)
+	case UpgradePending, UpgradeComplete, UpgradeAborted:
+		return errors.Errorf("cannot explicitly set upgrade status to \"%s\"", status)
 	case UpgradeRunning:
 		assertSane = bson.D{{"status", bson.D{{"$in",
 			[]UpgradeStatus{UpgradePending, UpgradeRunning},
@@ -238,6 +270,12 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Started:           time.Now().UTC(),
 		StateServersReady: []string{machineId},
 	}
+
+	machine, err := st.Machine(machineId)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	ops := []txn.Op{{
 		C:      upgradeInfoC,
 		Id:     currentUpgradeId,
@@ -245,7 +283,7 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 		Insert: doc,
 	}, {
 		C:      instanceDataC,
-		Id:     machineId,
+		Id:     machine.doc.DocID,
 		Assert: txn.DocExists,
 	}}
 	if err := st.runTransaction(ops); err == nil {
@@ -288,11 +326,17 @@ func (st *State) EnsureUpgradeInfo(machineId string, previousVersion, targetVers
 func (st *State) isMachineProvisioned(machineId string) (bool, error) {
 	instanceData, closer := st.getCollection(instanceDataC)
 	defer closer()
-	count, err := instanceData.FindId(machineId).Count()
-	if err != nil {
-		return false, errors.Annotate(err, "cannot read instance data")
+
+	for _, id := range []string{st.docID(machineId), machineId} {
+		count, err := instanceData.FindId(id).Count()
+		if err != nil {
+			return false, errors.Annotate(err, "cannot read instance data")
+		}
+		if count > 0 {
+			return true, nil
+		}
 	}
-	return count > 0, nil
+	return false, nil
 }
 
 var errUpgradeInfoNotUpdated = errors.New("upgrade info not updated")
@@ -356,22 +400,9 @@ func (info *UpgradeInfo) SetStateServerDone(machineId string) error {
 		stateServersNotDone := stateServersReady.Difference(stateServersDone)
 		if stateServersNotDone.IsEmpty() {
 			// This is the last state server. Archive the current
-			// upgradeInfo document by setting its status to the final
-			// value and changing its id.
+			// upgradeInfo document.
 			doc.StateServersDone = stateServersDone.SortedValues()
-			doc.Status = UpgradeComplete
-			doc.Id = bson.NewObjectId().String()
-			return []txn.Op{{
-				C:      upgradeInfoC,
-				Id:     currentUpgradeId,
-				Assert: assertSanity,
-				Remove: true,
-			}, {
-				C:      upgradeInfoC,
-				Id:     doc.Id,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}}, nil
+			return info.makeArchiveOps(doc, UpgradeComplete), nil
 		}
 
 		return []txn.Op{{
@@ -389,6 +420,38 @@ func (info *UpgradeInfo) SetStateServerDone(machineId string) error {
 	return errors.Annotate(err, "cannot complete upgrade")
 }
 
+// Abort marks the current upgrade as aborted. It should be called if
+// the upgrade can't be completed for some reason.
+func (info *UpgradeInfo) Abort() error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		doc, err := currentUpgradeInfoDoc(info.st)
+		if errors.IsNotFound(err) {
+			return nil, jujutxn.ErrNoOperations
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return info.makeArchiveOps(doc, UpgradeAborted), nil
+	}
+	err := info.st.run(buildTxn)
+	return errors.Annotate(err, "cannot abort upgrade")
+}
+
+func (info *UpgradeInfo) makeArchiveOps(doc *upgradeInfoDoc, status UpgradeStatus) []txn.Op {
+	doc.Status = status
+	doc.Id = bson.NewObjectId().String() // change id to archive value
+	return []txn.Op{{
+		C:      upgradeInfoC,
+		Id:     currentUpgradeId,
+		Assert: assertExpectedVersions(doc.PreviousVersion, doc.TargetVersion),
+		Remove: true,
+	}, {
+		C:      upgradeInfoC,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+}
+
 // IsUpgrading returns true if an upgrade is currently in progress.
 func (st *State) IsUpgrading() (bool, error) {
 	doc, err := currentUpgradeInfoDoc(st)
@@ -399,6 +462,22 @@ func (st *State) IsUpgrading() (bool, error) {
 	} else {
 		return false, errors.Trace(err)
 	}
+}
+
+// AbortCurrentUpgrade archives any current UpgradeInfo and sets its
+// status to UpgradeAborted. Nothing happens if there's no current
+// UpgradeInfo.
+func (st *State) AbortCurrentUpgrade() error {
+	doc, err := currentUpgradeInfoDoc(st)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Trace(err)
+	}
+	info := &UpgradeInfo{st: st, doc: *doc}
+	return errors.Trace(info.Abort())
+
 }
 
 func currentUpgradeInfoDoc(st *State) (*upgradeInfoDoc, error) {
@@ -425,12 +504,15 @@ func checkUpgradeInfoSanity(st *State, machineId string, previousVersion, target
 	if !validIds.Contains(machineId) {
 		return nil, errors.Errorf("machine %q is not a state server", machineId)
 	}
-	assertSanity := bson.D{{
+	return assertExpectedVersions(previousVersion, targetVersion), nil
+}
+
+func assertExpectedVersions(previousVersion, targetVersion version.Number) bson.D {
+	return bson.D{{
 		"previousVersion", previousVersion,
 	}, {
 		"targetVersion", targetVersion,
 	}}
-	return assertSanity, nil
 }
 
 // ClearUpgradeInfo clears information about an upgrade in progress. It returns

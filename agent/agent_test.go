@@ -1,22 +1,23 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package agent_test
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -354,7 +355,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about         string
 		params        agent.AgentConfigParams
-		servingInfo   state.StateServingInfo
+		servingInfo   params.StateServingInfo
 		checkErr      string
 		inspectConfig func(*gc.C, agent.Config)
 	}
@@ -363,20 +364,20 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		checkErr: "state server cert not found in configuration",
 	}, {
 		about: "missing state server key",
-		servingInfo: state.StateServingInfo{
+		servingInfo: params.StateServingInfo{
 			Cert: "server cert",
 		},
 		checkErr: "state server key not found in configuration",
 	}, {
 		about: "missing state port",
-		servingInfo: state.StateServingInfo{
+		servingInfo: params.StateServingInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
 		},
 		checkErr: "state port not found in configuration",
 	}, {
 		about: "params api port",
-		servingInfo: state.StateServingInfo{
+		servingInfo: params.StateServingInfo{
 			Cert:       "server cert",
 			PrivateKey: "server key",
 			StatePort:  69,
@@ -387,7 +388,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 		tests = append(tests, testStruct{
 			about:  test.about,
 			params: test.params,
-			servingInfo: state.StateServingInfo{
+			servingInfo: params.StateServingInfo{
 				Cert:       "server cert",
 				PrivateKey: "server key",
 				StatePort:  3171,
@@ -426,7 +427,9 @@ func (*suite) TestAttributes(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
-	c.Assert(conf.SystemIdentityPath(), gc.Equals, "/data/dir/system-identity")
+	compareSystemIdentityPath := filepath.FromSlash("/data/dir/system-identity")
+	systemIdentityPath := filepath.FromSlash(conf.SystemIdentityPath())
+	c.Assert(systemIdentityPath, gc.Equals, compareSystemIdentityPath)
 	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
@@ -434,7 +437,7 @@ func (*suite) TestAttributes(c *gc.C) {
 }
 
 func (*suite) TestStateServingInfo(c *gc.C) {
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -447,7 +450,7 @@ func (*suite) TestStateServingInfo(c *gc.C) {
 	gotInfo, ok := conf.StateServingInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(gotInfo, jc.DeepEquals, servingInfo)
-	newInfo := state.StateServingInfo{
+	newInfo := params.StateServingInfo{
 		APIPort:        147,
 		StatePort:      169,
 		Cert:           "new cert",
@@ -497,7 +500,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -522,7 +525,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *gc.C) {
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -548,7 +551,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *g
 func (*suite) TestMongoInfoHonorsPreferIPv6(c *gc.C) {
 	attrParams := attributeParams
 	attrParams.PreferIPv6 = true
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
@@ -590,7 +593,7 @@ func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C
 
 func (*suite) TestSetPassword(c *gc.C) {
 	attrParams := attributeParams
-	servingInfo := state.StateServingInfo{
+	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      1234,

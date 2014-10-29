@@ -106,7 +106,10 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 // into the map, and returns either the keyed value, or nothing.
 // In the case of an empty keys list, the entire params map will be returned.
 func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
-	params := c.ctx.ActionParams()
+	params, err := c.ctx.ActionParams()
+	if err != nil {
+		return err
+	}
 
 	var answer interface{}
 

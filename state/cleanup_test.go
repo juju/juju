@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -108,7 +108,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a relation with a unit in scope.
-	pr := NewPeerRelation(c, s.State)
+	pr := NewPeerRelation(c, s.State, s.owner)
 	rel := pr.ru0.Relation()
 	err := pr.ru0.EnterScope(map[string]interface{}{"some": "settings"})
 	c.Assert(err, gc.IsNil)
@@ -157,7 +157,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
-	pr := NewPeerRelation(c, s.State)
+	pr := NewPeerRelation(c, s.State, s.owner)
 	err = pr.u0.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
 	err = pr.ru0.EnterScope(nil)

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 
@@ -59,7 +58,7 @@ func NewMachineConfig(
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
-		Jobs:                    []params.MachineJob{params.JobHostUnits},
+		Jobs:                    []params.MachineJob{params.JobHostUnits, params.JobManageNetworking},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -86,7 +85,11 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
+	mcfg.Jobs = []params.MachineJob{
+		params.JobManageEnviron,
+		params.JobHostUnits,
+		params.JobManageNetworking,
+	}
 	mcfg.Constraints = cons
 	return mcfg, nil
 }
@@ -101,6 +104,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	proxySettings, aptProxySettings proxy.Settings,
+	aptMirror string,
 	preferIPv6 bool,
 	enableOSRefreshUpdates bool,
 	enableOSUpgrade bool,
@@ -117,6 +121,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	mcfg.ProxySettings = proxySettings
 	mcfg.AptProxySettings = aptProxySettings
+	mcfg.AptMirror = aptMirror
 	mcfg.PreferIPv6 = preferIPv6
 	mcfg.EnableOSRefreshUpdate = enableOSRefreshUpdates
 	mcfg.EnableOSUpgrade = enableOSUpgrade
@@ -134,7 +139,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
-	defer errors.Maskf(&err, "cannot complete machine configuration")
+	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 
 	if err := PopulateMachineConfig(
 		mcfg,
@@ -143,6 +148,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		cfg.SSLHostnameVerification(),
 		cfg.ProxySettings(),
 		cfg.AptProxySettings(),
+		cfg.AptMirror(),
 		cfg.PreferIPv6(),
 		cfg.EnableOSRefreshUpdate(),
 		cfg.EnableOSUpgrade(),
@@ -177,7 +183,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		return errors.Annotate(err, "cannot generate state server certificate")
 	}
 
-	srvInfo := state.StateServingInfo{
+	srvInfo := params.StateServingInfo{
 		StatePort:  cfg.StatePort(),
 		APIPort:    cfg.APIPort(),
 		Cert:       string(cert),

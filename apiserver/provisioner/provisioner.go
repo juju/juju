@@ -92,7 +92,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, authorizer),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
-		ToolsFinder:            common.NewToolsFinder(st, urlGetter),
+		ToolsFinder:            common.NewToolsFinder(st, st, urlGetter),
 		st:                     st,
 		resources:              resources,
 		authorizer:             authorizer,
@@ -143,7 +143,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 			Changes:          changes,
 		}, nil
 	}
-	return nothing, watcher.MustErr(watch)
+	return nothing, watcher.EnsureErr(watch)
 }
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
@@ -263,7 +263,10 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
 			r := &result.Results[i]
-			r.Status, r.Info, r.Data, err = machine.Status()
+			var st state.Status
+			st, r.Info, r.Data, err = machine.Status()
+			r.Status = params.Status(st)
+
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -293,9 +296,12 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 			continue
 		}
 		result := params.StatusResult{}
-		if result.Status, result.Info, result.Data, err = machine.Status(); err != nil {
+		var st state.Status
+		st, result.Info, result.Data, err = machine.Status()
+		if err != nil {
 			continue
 		}
+		result.Status = params.Status(st)
 		if result.Status != params.StatusError {
 			continue
 		}
@@ -647,7 +653,7 @@ func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, err
 	if _, ok := <-watch.Changes(); ok {
 		result.NotifyWatcherId = p.resources.Register(watch)
 	} else {
-		return result, watcher.MustErr(watch)
+		return result, watcher.EnsureErr(watch)
 	}
 	return result, nil
 }

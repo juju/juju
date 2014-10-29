@@ -198,8 +198,8 @@ group is alphabetically sorted. eg:
         "time"
 
         "labix.org/v2/mgo"
-        gc "launchpad.net/gocheck"
         "github.com/juju/loggo"
+        gc "gopkg.in/check.v1"
 
         "github.com/juju/juju/state"
         "github.com/juju/juju/worker"
@@ -207,7 +207,7 @@ group is alphabetically sorted. eg:
 
 ```
 
-Because "launchpad.net/gocheck" will be referenced frequently in test suites,
+Because "gopkg.in/check.v1" will be referenced frequently in test suites,
 its name gets a default short name of just "gc".
 
 
@@ -261,7 +261,7 @@ Testing
 
 `juju` uses the `gocheck` testing framework. `gocheck` is automatically
 installed as a dependency of `juju`. You can read more about `gocheck`
-at http://go.pkgdoc.org/pkg/launchpad.net/gocheck. `gocheck` is integrated
+at http://godoc.org/gopkg.in/check.v1. `gocheck` is integrated
 into the source of each package so the standard `go test` command is used
 to run `gocheck` tests. For example
 

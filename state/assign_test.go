@@ -11,7 +11,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -41,7 +41,7 @@ func (s *AssignSuite) SetUpTest(c *gc.C) {
 
 func (s *AssignSuite) addSubordinate(c *gc.C, principal *state.Unit) *state.Unit {
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -293,13 +293,17 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	subUnit := s.addSubordinate(c, unit)
 
-	doc := make(map[string][]string)
-	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
-	principals, ok := doc["principals"]
-	if !ok {
-		c.Errorf(`machine document does not have a "principals" field`)
+	checkPrincipals := func() []string {
+		docID := state.DocID(s.State, machine.Id())
+		doc := make(map[string][]string)
+		s.machines.FindId(docID).One(&doc)
+		principals, ok := doc["principals"]
+		if !ok {
+			c.Errorf(`machine document does not have a "principals" field`)
+		}
+		return principals
 	}
-	c.Assert(principals, gc.DeepEquals, []string{"wordpress/0", "wordpress/1"})
+	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0", "wordpress/1"})
 
 	err = subUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -309,13 +313,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.Remove()
 	c.Assert(err, gc.IsNil)
-	doc = make(map[string][]string)
-	s.ConnSuite.machines.FindId(machine.Id()).One(&doc)
-	principals, ok = doc["principals"]
-	if !ok {
-		c.Errorf(`machine document does not have a "principals" field`)
-	}
-	c.Assert(principals, gc.DeepEquals, []string{"wordpress/0"})
+	c.Assert(checkPrincipals(), gc.DeepEquals, []string{"wordpress/0"})
 }
 
 func (s *AssignSuite) assertAssignedUnit(c *gc.C, unit *state.Unit) string {
@@ -810,7 +808,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add two environ manager machines and check they are not chosen.
-	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal", nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(changes.Added, gc.HasLen, 3)
 

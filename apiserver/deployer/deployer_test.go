@@ -8,9 +8,8 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/deployer"
@@ -63,7 +62,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
 	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
+	eps, err := s.State.InferEndpoints("mysql", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -82,7 +81,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = relUnit0.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	s.subordinate0, err = s.service1.Unit("logging/0")
+	s.subordinate0, err = s.State.Unit("logging/0")
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -108,7 +107,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewUserTag("admin")
+	anAuthorizer.Tag = s.AdminUserTag(c)
 	aDeployer, err := deployer.NewDeployerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aDeployer, gc.IsNil)

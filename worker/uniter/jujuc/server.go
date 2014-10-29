@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The worker/uniter/jujuc package implements the server side of the jujuc proxy
@@ -30,13 +30,17 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"config-get" + cmdSuffix:    NewConfigGetCommand,
 	"juju-log" + cmdSuffix:      NewJujuLogCommand,
 	"open-port" + cmdSuffix:     NewOpenPortCommand,
+	"opened-ports" + cmdSuffix:  NewOpenedPortsCommand,
 	"relation-get" + cmdSuffix:  NewRelationGetCommand,
 	"action-get" + cmdSuffix:    NewActionGetCommand,
+	"action-set" + cmdSuffix:    NewActionSetCommand,
+	"action-fail" + cmdSuffix:   NewActionFailCommand,
 	"relation-ids" + cmdSuffix:  NewRelationIdsCommand,
 	"relation-list" + cmdSuffix: NewRelationListCommand,
 	"relation-set" + cmdSuffix:  NewRelationSetCommand,
 	"unit-get" + cmdSuffix:      NewUnitGetCommand,
 	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
+	"add-metric" + cmdSuffix:    NewAddMetricCommand,
 }
 
 // CommandNames returns the names of all jujuc commands.

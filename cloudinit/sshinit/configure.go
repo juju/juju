@@ -145,6 +145,16 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 
 	var cmds []string
+
+	// If a mirror is specified, rewrite sources.list and rename cached index files.
+	if newMirror, _ := cfg.AptMirror(); newMirror != "" {
+		cmds = append(cmds, cloudinit.LogProgressCmd("Changing apt mirror to "+newMirror))
+		cmds = append(cmds, "old_mirror=$("+extractAptSource+")")
+		cmds = append(cmds, "new_mirror="+newMirror)
+		cmds = append(cmds, `sed -i s,$old_mirror,$new_mirror, `+aptSourcesList)
+		cmds = append(cmds, renameAptListFilesCommands("$new_mirror", "$old_mirror")...)
+	}
+
 	if len(cfg.AptSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing add-apt-repository"))

@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -45,7 +45,7 @@ type MachineConfig struct {
 	// This must only be set if the Bootstrap field is true
 	// (state servers started subsequently will acquire their serving info
 	// from another server)
-	StateServingInfo *state.StateServingInfo
+	StateServingInfo *params.StateServingInfo
 
 	// MongoInfo holds the means for the new instance to communicate with the
 	// juju state database. Unless the new machine is running a state server
@@ -139,6 +139,10 @@ type MachineConfig struct {
 	// for apt, which may or may not be the same as the normal ProxySettings.
 	AptProxySettings proxy.Settings
 
+	// AptMirror defines an APT mirror location, which, if specified, will
+	// override the default APT sources.
+	AptMirror string
+
 	// PreferIPv6 mirrors the value of prefer-ipv6 environment setting
 	// and when set IPv6 addresses for connecting to the API/state
 	// servers will be preferred over IPv4 ones.
@@ -146,6 +150,11 @@ type MachineConfig struct {
 
 	// The type of Simple Stream to download and deploy on this machine.
 	ImageStream string
+
+	// CustomImageMetadata is optional custom simplestreams image metadata
+	// to store in environment storage at bootstrap time. This is ignored
+	// in non-bootstrap machines.
+	CustomImageMetadata []*imagemetadata.ImageMetadata
 
 	// EnableOSRefreshUpdate specifies whether Juju will refresh its
 	// respective OS's updates list.
@@ -173,9 +182,10 @@ const NonceFile = "nonce.txt"
 
 // AddAptCommands update the cloudinit.Config instance with the necessary
 // packages, the request to do the apt-get update/upgrade on boot, and adds
-// the apt proxy settings if there are any.
+// the apt proxy and mirror settings if there are any.
 func AddAptCommands(
 	proxySettings proxy.Settings,
+	aptMirror string,
 	c *cloudinit.Config,
 	addUpdateScripts bool,
 	addUpgradeScripts bool,
@@ -184,6 +194,9 @@ func AddAptCommands(
 	if c == nil {
 		panic("c is nil")
 	}
+
+	// Set the APT mirror.
+	c.SetAptMirror(aptMirror)
 
 	// Bring packages up-to-date.
 	c.SetAptUpdate(addUpdateScripts)
@@ -379,7 +392,7 @@ func (e requiresError) Error() string {
 }
 
 func verifyConfig(cfg *MachineConfig) (err error) {
-	defer errors.Maskf(&err, "invalid machine configuration")
+	defer errors.DeferredAnnotatef(&err, "invalid machine configuration")
 	if !names.IsValidMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}

@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -8,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -34,7 +35,7 @@ var unitGetTests = []struct {
 
 func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "unit-get")
+	com, err := jujuc.NewCommand(hctx, cmdString("unit-get"))
 	c.Assert(err, gc.IsNil)
 	return com
 }

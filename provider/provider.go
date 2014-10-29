@@ -8,11 +8,19 @@
 package provider
 
 const (
-	Local = "local"
+	Azure     = "azure"
+	Dummy     = "dummy"
+	EC2       = "ec2"
+	Joyent    = "joyent"
+	Local     = "local"
+	MAAS      = "maas"
+	Manual    = "manual"
+	Null      = "null"
+	OpenStack = "openstack"
 )
 
 // IsManual returns true iff the specified provider
 // type refers to the manual provider.
 func IsManual(provider string) bool {
-	return provider == "null" || provider == "manual"
+	return provider == Null || provider == Manual
 }

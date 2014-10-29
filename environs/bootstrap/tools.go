@@ -70,14 +70,14 @@ func findAvailableTools(env environs.Environ, arch *string, upload bool) (coreto
 	if agentVersion, ok := env.Config().AgentVersion(); ok {
 		vers = &agentVersion
 	}
-	dev := version.Current.IsDev() || env.Config().Development()
 	logger.Debugf("looking for bootstrap tools: version=%v", vers)
-	toolsList, findToolsErr := findBootstrapTools(env, vers, arch, dev)
+	toolsList, findToolsErr := findBootstrapTools(env, vers, arch)
 	if findToolsErr != nil && !errors.IsNotFound(findToolsErr) {
 		return nil, findToolsErr
 	}
 
-	if !dev || vers != nil {
+	isDev := env.Config().AgentStream() != envtools.ReleasedStream || env.Config().Development()
+	if !isDev || vers != nil {
 		// We are not running a development build, or agent-version
 		// was specified; the only tools available are the ones we've
 		// just found.
@@ -128,7 +128,7 @@ func locallyBuildableTools() (buildable coretools.List) {
 // which it would be reasonable to launch an environment's first machine,
 // given the supplied constraints. If a specific agent version is not requested,
 // all tools matching the current major.minor version are chosen.
-func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string, dev bool) (list coretools.List, err error) {
+func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := version.Current.Number
 	var filter coretools.Filter
@@ -138,11 +138,7 @@ func findBootstrapTools(env environs.Environ, vers *version.Number, arch *string
 	if vers != nil {
 		// If we already have an explicit agent version set, we're done.
 		filter.Number = *vers
-		return findTools(env, cliVersion.Major, cliVersion.Minor, filter, false)
+		return findTools(env, cliVersion.Major, cliVersion.Minor, filter)
 	}
-	if !dev {
-		logger.Infof("filtering tools by released version")
-		filter.Released = true
-	}
-	return findTools(env, cliVersion.Major, cliVersion.Minor, filter, false)
+	return findTools(env, cliVersion.Major, cliVersion.Minor, filter)
 }

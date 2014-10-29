@@ -12,8 +12,8 @@ import (
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/testing"

@@ -5,7 +5,7 @@ package network_test
 
 import (
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
@@ -202,7 +202,7 @@ func (p *PortSuite) TestPortRangeConflicts(c *gc.C) {
 func (p *PortSuite) TestPortRangeString(c *gc.C) {
 	c.Assert(network.PortRange{80, 80, "TCP"}.String(),
 		gc.Equals,
-		"80-80/tcp")
+		"80/tcp")
 	c.Assert(network.PortRange{80, 100, "TCP"}.String(),
 		gc.Equals,
 		"80-100/tcp")
@@ -228,11 +228,31 @@ func (p *PortSuite) TestPortRangeValidity(c *gc.C) {
 	}, {
 		"invalid port range boundaries",
 		network.PortRange{90, 80, "tcp"},
-		"invalid port range.*",
+		"invalid port range 90-80/tcp",
+	}, {
+		"both FromPort and ToPort too large",
+		network.PortRange{88888, 99999, "tcp"},
+		"invalid port range 88888-99999/tcp",
+	}, {
+		"FromPort too large",
+		network.PortRange{88888, 65535, "tcp"},
+		"invalid port range 88888-65535/tcp",
+	}, {
+		"FromPort too small",
+		network.PortRange{0, 80, "tcp"},
+		"invalid port range 0-80/tcp",
+	}, {
+		"ToPort too large",
+		network.PortRange{1, 99999, "tcp"},
+		"invalid port range 1-99999/tcp",
+	}, {
+		"both ports 0",
+		network.PortRange{0, 0, "tcp"},
+		"invalid port range 0-0/tcp",
 	}, {
 		"invalid protocol",
 		network.PortRange{80, 80, "some protocol"},
-		"invalid protocol.*",
+		`invalid protocol "some protocol", expected "tcp" or "udp"`,
 	}}
 
 	for i, t := range testCases {

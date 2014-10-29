@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -104,6 +104,10 @@ var errorTransformTests = []struct {
 	err:        common.ErrTryAgain,
 	code:       params.CodeTryAgain,
 	helperFunc: params.IsCodeTryAgain,
+}, {
+	err:        state.UpgradeInProgressError,
+	code:       params.CodeUpgradeInProgress,
+	helperFunc: params.IsCodeUpgradeInProgress,
 }, {
 	err:  stderrors.New("an error"),
 	code: "",

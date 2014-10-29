@@ -110,12 +110,12 @@ var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
 // ensures that the environs.Config returned by Config()
 // has the specified stream.
 type overrideEnvStream struct {
-	env    environs.Environ
+	environs.Environ
 	stream string
 }
 
 func (oes *overrideEnvStream) Config() *config.Config {
-	cfg := oes.env.Config()
+	cfg := oes.Environ.Config()
 	// If no stream specified, just use default from environ.
 	if oes.stream == "" {
 		return cfg
@@ -136,7 +136,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := c.prepare(context, store)
+		environ, err := c.environ(context, store)
 		if err != nil {
 			return err
 		}
@@ -149,7 +149,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 			return err
 		}
 		oes := &overrideEnvStream{environ, c.stream}
-		params.Sources, err = imagemetadata.GetMetadataSources(oes)
+		params.Sources, err = environs.ImageMetadataSources(oes)
 		if err != nil {
 			return err
 		}

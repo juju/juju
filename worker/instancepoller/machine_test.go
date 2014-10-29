@@ -15,9 +15,8 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -62,28 +61,28 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 func (s *machineSuite) TestShortPollIntervalWhenNoAddress(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, nil, "i1234", "running", params.StatusStarted)
+	count := countPolls(c, nil, "i1234", "running", state.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNoStatus(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "", params.StatusStarted)
+	count := countPolls(c, testAddrs, "i1234", "", state.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotStarted(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "i1234", "pending", params.StatusPending)
+	count := countPolls(c, testAddrs, "i1234", "pending", state.StatusPending)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
 func (s *machineSuite) TestShortPollIntervalWhenNotProvisioned(c *gc.C) {
 	s.PatchValue(&ShortPoll, 1*time.Millisecond)
 	s.PatchValue(&LongPoll, coretesting.LongWait)
-	count := countPolls(c, testAddrs, "", "pending", params.StatusPending)
+	count := countPolls(c, testAddrs, "", "pending", state.StatusPending)
 	c.Assert(count, gc.Equals, 0)
 }
 
@@ -97,7 +96,7 @@ func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 	// ShortPollBackoff of ShortWait/ShortPoll, given that sleep will
 	// sleep for at least the requested interval.
 	maxCount := int(math.Log(float64(coretesting.ShortWait)/float64(ShortPoll))/math.Log(ShortPollBackoff) + 1)
-	count := countPolls(c, nil, "i1234", "", params.StatusStarted)
+	count := countPolls(c, nil, "i1234", "", state.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 	c.Assert(count, jc.LessThan, maxCount)
 	c.Logf("actual count: %v; max %v", count, maxCount)
@@ -106,7 +105,7 @@ func (s *machineSuite) TestShortPollIntervalExponent(c *gc.C) {
 func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 	s.PatchValue(&ShortPoll, coretesting.LongWait)
 	s.PatchValue(&LongPoll, 1*time.Millisecond)
-	count := countPolls(c, testAddrs, "i1234", "running", params.StatusStarted)
+	count := countPolls(c, testAddrs, "i1234", "running", state.StatusStarted)
 	c.Assert(count, jc.GreaterThan, 2)
 }
 
@@ -114,7 +113,7 @@ func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 // addresses and status to be returned from getInstanceInfo,
 // waits for coretesting.ShortWait, and returns the
 // number of times the instance is polled.
-func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, machineStatus params.Status) int {
+func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, machineStatus state.Status) int {
 	count := int32(0)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(string(id), gc.Equals, instId)
@@ -326,7 +325,7 @@ type testMachine struct {
 	instanceIdErr   error
 	id              string
 	instStatus      string
-	status          params.Status
+	status          state.Status
 	refresh         func() error
 	setAddressesErr error
 	// mu protects the following fields.
@@ -357,11 +356,11 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 }
 
 // This is stubbed out for testing.
-var MachineStatus = func(m *testMachine) (status params.Status, info string, data map[string]interface{}, err error) {
+var MachineStatus = func(m *testMachine) (status state.Status, info string, data map[string]interface{}, err error) {
 	return m.status, "", nil, nil
 }
 
-func (m *testMachine) Status() (status params.Status, info string, data map[string]interface{}, err error) {
+func (m *testMachine) Status() (status state.Status, info string, data map[string]interface{}, err error) {
 	return MachineStatus(m)
 }
 

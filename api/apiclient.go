@@ -94,9 +94,9 @@ type Info struct {
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
 
-	// Environ holds the environ tag for the environment we are trying to
-	// connect to.
-	EnvironTag names.Tag
+	// EnvironTag holds the environ tag for the environment we are
+	// trying to connect to.
+	EnvironTag names.EnvironTag
 }
 
 // DialOpts holds configuration parameters that control the
@@ -137,7 +137,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	pool.AddCert(xcert)
 
 	var environUUID string
-	if info.EnvironTag != nil {
+	if info.EnvironTag.Id() != "" {
 		environUUID = info.EnvironTag.Id()
 	}
 	// Dial all addresses at reasonable intervals.
@@ -230,7 +230,7 @@ func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocke
 	}
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    rootCAs,
-		ServerName: "anything",
+		ServerName: "juju-apiserver",
 	}
 	return cfg, nil
 }
@@ -325,10 +325,9 @@ func (s *State) Addr() string {
 	return s.addr
 }
 
-// EnvironTag returns the Environment Tag describing the environment we are
-// connected to.
-func (s *State) EnvironTag() string {
-	return s.environTag
+// EnvironTag returns the tag of the environment we are connected to.
+func (s *State) EnvironTag() (names.EnvironTag, error) {
+	return names.ParseEnvironTag(s.environTag)
 }
 
 // APIHostPorts returns addresses that may be used to connect

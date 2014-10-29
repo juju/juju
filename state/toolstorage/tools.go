@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/blobstore"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -16,6 +17,8 @@ import (
 
 	"github.com/juju/juju/version"
 )
+
+var logger = loggo.GetLogger("juju.state.toolstorage")
 
 type toolsStorage struct {
 	envUUID            string
@@ -43,68 +46,80 @@ func NewStorage(
 	}
 }
 
-func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) error {
+func (s *toolsStorage) AddTools(r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the tools tarball to storage.
 	path := toolsPath(metadata.Version, metadata.SHA256)
 	if err := s.managedStorage.PutForEnvironment(s.envUUID, path, r, metadata.Size); err != nil {
 		return errors.Annotate(err, "cannot store tools tarball")
 	}
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		err := s.managedStorage.RemoveForEnvironment(s.envUUID, path)
+		if err != nil {
+			logger.Errorf("failed to remove tools blob: %v", err)
+		}
+	}()
 
-	// Add or replace metadata.
-	doc := toolsMetadataDoc{
+	newDoc := toolsMetadataDoc{
 		Id:      metadata.Version.String(),
 		Version: metadata.Version,
 		Size:    metadata.Size,
 		SHA256:  metadata.SHA256,
 		Path:    path,
 	}
-	ops := []txn.Op{{
-		C:      s.metadataCollection.Name,
-		Id:     doc.Id,
-		Insert: &doc,
-	}, {
-		C:  s.metadataCollection.Name,
-		Id: doc.Id,
-		Update: bson.D{{
-			"$set", bson.D{
-				{"size", metadata.Size},
-				{"sha256", metadata.SHA256},
-				{"path", path},
-			},
-		}},
-	}}
-	// TODO(axw) if replacing existing metadata, remove the blob if
-	// there are no other metadata (e.g. aliases) still referencing it.
-	err := s.txnRunner.RunTransaction(ops)
+
+	// Add or replace metadata. If replacing, record the
+	// existing path so we can remove it later.
+	var oldPath string
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		op := txn.Op{
+			C:  s.metadataCollection.Name,
+			Id: newDoc.Id,
+		}
+
+		// On the first attempt we assume we're adding new tools.
+		// Subsequent attempts to add tools will fetch the existing
+		// doc, record the old path, and attempt to update the
+		// size, path and hash fields.
+		if attempt == 0 {
+			op.Assert = txn.DocMissing
+			op.Insert = &newDoc
+		} else {
+			oldDoc, err := s.toolsMetadata(metadata.Version)
+			if err != nil {
+				return nil, err
+			}
+			oldPath = oldDoc.Path
+			op.Assert = bson.D{{"path", oldPath}}
+			if oldPath != path {
+				op.Update = bson.D{{
+					"$set", bson.D{
+						{"size", metadata.Size},
+						{"sha256", metadata.SHA256},
+						{"path", path},
+					},
+				}}
+			}
+		}
+		return []txn.Op{op}, nil
+	}
+	err := s.txnRunner.Run(buildTxn)
 	if err != nil {
 		return errors.Annotate(err, "cannot store tools metadata")
 	}
-	return nil
-}
 
-func (s *toolsStorage) AddToolsAlias(alias, version version.Binary) error {
-	existingDoc, err := s.toolsMetadata(version)
-	if err != nil {
-		return err
+	if oldPath != "" && oldPath != path {
+		// Attempt to remove the old path. Failure is non-fatal.
+		err := s.managedStorage.RemoveForEnvironment(s.envUUID, oldPath)
+		if err != nil {
+			logger.Errorf("failed to remove old tools blob: %v", err)
+		} else {
+			logger.Debugf("removed old tools blob")
+		}
 	}
-	newDoc := toolsMetadataDoc{
-		Id:      alias.String(),
-		Version: alias,
-		Size:    existingDoc.Size,
-		SHA256:  existingDoc.SHA256,
-		Path:    existingDoc.Path,
-	}
-	ops := []txn.Op{{
-		C:      s.metadataCollection.Name,
-		Id:     newDoc.Id,
-		Assert: txn.DocMissing,
-		Insert: &newDoc,
-	}}
-	err = s.txnRunner.RunTransaction(ops)
-	if err == txn.ErrAborted {
-		return errors.AlreadyExistsf("%v tools metadata", alias)
-	}
-	return err
+	return nil
 }
 
 func (s *toolsStorage) Tools(v version.Binary) (Metadata, io.ReadCloser, error) {

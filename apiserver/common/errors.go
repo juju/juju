@@ -108,6 +108,9 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
+	msg := err.Error()
+	// Skip past annotations when looking for the code.
+	err = errors.Cause(err)
 	code, ok := singletonCode(err)
 	switch {
 	case ok:
@@ -125,13 +128,15 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNoAddressSet
 	case state.IsNotProvisionedError(err):
 		code = params.CodeNotProvisioned
+	case state.IsUpgradeInProgressError(err):
+		code = params.CodeUpgradeInProgress
 	case IsUnknownEnviromentError(err):
 		code = params.CodeNotFound
 	default:
 		code = params.ErrCode(err)
 	}
 	return &params.Error{
-		Message: err.Error(),
+		Message: msg,
 		Code:    code,
 	}
 }

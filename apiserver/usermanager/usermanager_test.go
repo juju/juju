@@ -4,15 +4,15 @@
 package usermanager_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/apiserver/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -48,8 +48,8 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{{
+	args := params.AddUsers{
+		Users: []params.AddUser{{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			Password:    "password",
@@ -59,85 +59,178 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	// Check that the call is succesful
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+	foobarTag := names.NewLocalUserTag("foobar")
+	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{
+		Tag: foobarTag.String()})
 	// Check that the call results in a new user being created
-	user, err := s.State.User("foobar")
+	user, err := s.State.User(foobarTag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(user, gc.NotNil)
 	c.Assert(user.Name(), gc.Equals, "foobar")
 	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
 }
 
-func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{{
+func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	c.Assert(err, gc.IsNil)
+
+	args := params.AddUsers{
+		Users: []params.AddUser{{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			Password:    "password",
 		}}}
-	removeArg := params.Entity{
-		Tag: "foobar",
-	}
-	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
-	_, err := s.usermanager.AddUser(args)
-	c.Assert(err, gc.IsNil)
-	user, err := s.State.User("foobar")
-	c.Assert(user.IsDeactivated(), gc.Equals, false) // The user should be active
 
-	result, err := s.usermanager.RemoveUser(removeArgs)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{params.ErrorResult{Error: nil}}})
-	user, err = s.State.User("foobar")
-	c.Assert(err, gc.IsNil)
-	// Removal makes the user in active
-	c.Assert(user.IsDeactivated(), gc.Equals, true)
-	c.Assert(user.PasswordValid(args.Changes[0].Password), gc.Equals, false)
+	_, err = usermanager.AddUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	_, err = s.State.User(names.NewLocalUserTag("foobar"))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-// Since removing a user just deacitvates them you cannot add a user
-// that has been previously been removed
-// TODO(mattyw) 2014-03-07 bug #1288745
-func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
-	removeArg := params.Entity{
-		Tag: "foobar",
-	}
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{{
-			Username:    "foobar",
-			DisplayName: "Foo Bar",
-			Password:    "password",
-		}}}
-	removeArgs := params.Entities{Entities: []params.Entity{removeArg}}
-	_, err := s.usermanager.AddUser(args)
-	c.Assert(err, gc.IsNil)
-
-	_, err = s.usermanager.RemoveUser(removeArgs)
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("addremove")
-	result, err := s.usermanager.AddUser(args)
-	expectedError := apiservertesting.ServerError("failed to create user: user already exists")
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			params.ErrorResult{expectedError}}})
-}
-
-func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
-	foobar := "foobar"
-	barfoo := "barfoo"
-	fooTag := names.NewUserTag(foobar)
-	barTag := names.NewUserTag(barfoo)
-	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
+func (s *userManagerSuite) TestDisableUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
 
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: fooTag.String()}, {Tag: barTag.String()}},
+		Entities: []params.Entity{
+			{alex.Tag().String()},
+			{barb.Tag().String()},
+			{names.NewLocalUserTag("ellie").String()},
+			{names.NewUserTag("fred@remote").String()},
+			{"not-a-tag"},
+		}}
+	result, err := s.usermanager.DisableUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+			{Error: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			}},
+			{Error: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			}},
+			{Error: &params.Error{
+				Message: `"not-a-tag" is not a valid tag`,
+			}},
+		}})
+	err = alex.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(alex.IsDisabled(), jc.IsTrue)
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(barb.IsDisabled(), jc.IsTrue)
+}
+
+func (s *userManagerSuite) TestEnableUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{alex.Tag().String()},
+			{barb.Tag().String()},
+			{names.NewLocalUserTag("ellie").String()},
+			{names.NewUserTag("fred@remote").String()},
+			{"not-a-tag"},
+		}}
+	result, err := s.usermanager.EnableUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: nil},
+			{Error: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			}},
+			{Error: &params.Error{
+				Message: "permission denied",
+				Code:    params.CodeUnauthorized,
+			}},
+			{Error: &params.Error{
+				Message: `"not-a-tag" is not a valid tag`,
+			}},
+		}})
+	err = alex.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(alex.IsDisabled(), jc.IsFalse)
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(barb.IsDisabled(), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestDisableUserAsNormalUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	c.Assert(err, gc.IsNil)
+
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
+
+	args := params.Entities{
+		[]params.Entity{{barb.Tag().String()}},
 	}
+	_, err = usermanager.DisableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(barb.IsDisabled(), jc.IsFalse)
+}
+
+func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	c.Assert(err, gc.IsNil)
+
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb", Disabled: true})
+
+	args := params.Entities{
+		[]params.Entity{{barb.Tag().String()}},
+	}
+	_, err = usermanager.EnableUser(args)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(barb.IsDisabled(), jc.IsTrue)
+}
+
+func (s *userManagerSuite) TestUserInfo(c *gc.C) {
+	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
+
+	args := params.UserInfoRequest{
+		Entities: []params.Entity{
+			{
+				Tag: userFoo.Tag().String(),
+			}, {
+				Tag: userBar.Tag().String(),
+			}, {
+				Tag: names.NewLocalUserTag("ellie").String(),
+			}, {
+				Tag: names.NewUserTag("not@remote").String(),
+			}, {
+				Tag: "not-a-tag",
+			},
+		}}
+
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := usermanager.UserInfoResults{
-		Results: []usermanager.UserInfoResult{
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
 			{
-				Result: &usermanager.UserInfo{
+				Result: &params.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      s.adminName,
@@ -145,12 +238,27 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 					LastConnection: userFoo.LastLogin(),
 				},
 			}, {
-				Result: &usermanager.UserInfo{
+				Result: &params.UserInfo{
 					Username:       "barfoo",
 					DisplayName:    "Bar Foo",
 					CreatedBy:      s.adminName,
 					DateCreated:    userBar.DateCreated(),
 					LastConnection: userBar.LastLogin(),
+					Disabled:       true,
+				},
+			}, {
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    params.CodeUnauthorized,
+				},
+			}, {
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    params.CodeUnauthorized,
+				},
+			}, {
+				Error: &params.Error{
+					Message: `"not-a-tag" is not a valid tag`,
 				},
 			}},
 	}
@@ -158,114 +266,59 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, expected)
 }
 
-func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
-	foobar := "foobar"
-	fooTag := names.NewUserTag(foobar)
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
+func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
+	admin, err := s.State.User(s.AdminUserTag(c))
+	c.Assert(err, gc.IsNil)
+	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: "barfoo", DisplayName: "Bar Foo", Disabled: true})
 
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: fooTag.String()}},
-	}
+	args := params.UserInfoRequest{IncludeDisabled: true}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := usermanager.UserInfoResults{
-		Results: []usermanager.UserInfoResult{
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
 			{
-				Result: &usermanager.UserInfo{
+				Result: &params.UserInfo{
+					Username:       "barfoo",
+					DisplayName:    "Bar Foo",
+					CreatedBy:      s.adminName,
+					DateCreated:    userBar.DateCreated(),
+					LastConnection: userBar.LastLogin(),
+					Disabled:       true,
+				},
+			}, {
+				Result: &params.UserInfo{
+					Username:       s.adminName,
+					DisplayName:    admin.DisplayName(),
+					CreatedBy:      s.adminName,
+					DateCreated:    admin.DateCreated(),
+					LastConnection: admin.LastLogin(),
+				},
+			}, {
+				Result: &params.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      s.adminName,
-					DateCreated:    user.DateCreated(),
-					LastConnection: user.LastLogin(),
+					DateCreated:    userFoo.DateCreated(),
+					LastConnection: userFoo.LastLogin(),
 				},
-			},
-		},
+			}},
 	}
+	c.Assert(results, jc.DeepEquals, expected)
 
-	c.Assert(results, gc.DeepEquals, expected)
-}
-
-func (s *userManagerSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
-	userTag := names.NewUserTag("foobar")
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: userTag.String()}},
-	}
-	results, err := s.usermanager.UserInfo(args)
+	results, err = s.usermanager.UserInfo(params.UserInfoRequest{})
 	c.Assert(err, gc.IsNil)
-	expected := usermanager.UserInfoResults{
-		Results: []usermanager.UserInfoResult{
-			{
-				Result: nil,
-				Error: &params.Error{
-					Message: "permission denied",
-					Code:    params.CodeUnauthorized,
-				},
-			},
-		},
-	}
-	c.Assert(results, gc.DeepEquals, expected)
-}
-
-func (s *userManagerSuite) TestUserInfoMachineTagFails(c *gc.C) {
-	userTag := names.NewMachineTag("0")
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: userTag.String()}},
-	}
-	results, err := s.usermanager.UserInfo(args)
-	c.Assert(err, gc.IsNil)
-	expected := usermanager.UserInfoResults{
-		Results: []usermanager.UserInfoResult{
-			{
-				Result: nil,
-				Error: &params.Error{
-					Message: `"machine-0" is not a valid user tag`,
-					Code:    "",
-				},
-			},
-		},
-	}
-	c.Assert(results, gc.DeepEquals, expected)
-}
-
-func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: "notatag"}},
-	}
-	results, err := s.usermanager.UserInfo(args)
-	c.Assert(err, gc.IsNil)
-	expected := usermanager.UserInfoResults{
-		Results: []usermanager.UserInfoResult{
-			{
-				Result: nil,
-				Error: &params.Error{
-					Message: `"notatag" is not a valid tag`,
-					Code:    "",
-				},
-			},
-		},
-	}
-	c.Assert(results, gc.DeepEquals, expected)
-}
-
-func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
-
-	machine1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-
-	// Create a FakeAuthorizer so we can check permissions,
-	// set up assuming machine 1 has logged in.
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: machine1.Tag(),
-	}
-
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	// Same results as before, but without the deactivated barfoo user
+	expected.Results = expected.Results[1:]
+	c.Assert(results, jc.DeepEquals, expected)
 }
 
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{{
-			Username: s.adminName,
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      alex.Tag().String(),
 			Password: "new-password",
 		}}}
 	results, err := s.usermanager.SetPassword(args)
@@ -273,59 +326,57 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
-	adminUser, err := s.State.User(s.adminName)
+	err = alex.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
+	c.Assert(alex.PasswordValid("new-password"), jc.IsTrue)
 }
 
-func (s *userManagerSuite) TestCannotSetPasswordWhenNotAUser(c *gc.C) {
-	machine1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: machine1.Tag(),
-	}
-	_, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{
-			{
-				Username: s.adminName,
-				Password: "new-password1",
-			},
-			{
-				Username: s.adminName,
-				Password: "new-password2",
-			}}}
-	results, err := s.usermanager.SetPassword(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
-	c.Assert(results.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
-
-	adminUser, err := s.State.User(s.adminName)
+func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(adminUser.PasswordValid("new-password2"), gc.Equals, true)
-}
-
-// Because at present all user are admins problems could be caused by allowing
-// users to change other users passwords. For the time being we only allow
-// the password of the current user to be changed
-func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
-	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{{
-			Username:    "foobar",
-			DisplayName: "Foo Bar",
-			Password:    "password",
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      alex.Tag().String(),
+			Password: "new-password",
 		}}}
-	results, err := s.usermanager.SetPassword(args)
+	results, err := usermanager.SetPassword(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	expectedError := apiservertesting.ServerError("Can only change the password of the current user (admin)")
-	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+
+	err = alex.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(alex.PasswordValid("new-password"), jc.IsTrue)
+}
+
+func (s *userManagerSuite) TestSetPasswordForOther(c *gc.C) {
+	alex := s.Factory.MakeUser(c, &factory.UserParams{Name: "alex"})
+	barb := s.Factory.MakeUser(c, &factory.UserParams{Name: "barb"})
+	usermanager, err := usermanager.NewUserManagerAPI(
+		s.State, nil, apiservertesting.FakeAuthorizer{Tag: alex.Tag()})
+	c.Assert(err, gc.IsNil)
+
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
+			Tag:      barb.Tag().String(),
+			Password: "new-password",
+		}}}
+	results, err := usermanager.SetPassword(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{
+		Error: &params.Error{
+			Message: "permission denied",
+			Code:    params.CodeUnauthorized,
+		}})
+
+	err = barb.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(barb.PasswordValid("new-password"), jc.IsFalse)
 }

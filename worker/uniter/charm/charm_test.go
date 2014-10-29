@@ -7,23 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	stdtesting "testing"
 
 	"github.com/juju/utils/set"
-	corecharm "gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	corecharm "gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )
-
-func TestPackage(t *stdtesting.T) {
-	// TODO(fwereade) 2014-03-21 not-worth-a-bug-number
-	// rewrite BundlesDir tests to use the mocks below and not require an API
-	// server and associated gubbins.
-	coretesting.MgoTestPackage(t)
-}
 
 // bundleReader is a charm.BundleReader that lets us mock out the bundles we
 // deploy to test the Deployers.

@@ -34,6 +34,7 @@ type SyncToolsCommand struct {
 	dev          bool
 	public       bool
 	source       string
+	stream       string
 	localDir     string
 	destination  string
 }
@@ -61,9 +62,10 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
-	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
+	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones\n    DEPRECATED: use --stream instead")
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 	f.StringVar(&c.source, "source", "", "local source directory")
+	f.StringVar(&c.stream, "stream", "", "simplestreams stream for which to sync metadata")
 	f.StringVar(&c.localDir, "local-dir", "", "local destination directory")
 	f.StringVar(&c.destination, "destination", "", "local destination directory")
 }
@@ -80,6 +82,12 @@ func (c *SyncToolsCommand) Init(args []string) error {
 			return err
 		}
 	}
+	if c.dev {
+		c.stream = envtools.TestingStream
+	}
+	if c.stream == "" {
+		c.stream = envtools.ReleasedStream
+	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -87,7 +95,7 @@ func (c *SyncToolsCommand) Init(args []string) error {
 // api.Client API. This exists to enable mocking.
 type syncToolsAPI interface {
 	FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
-	UploadTools(r io.Reader, v version.Binary) (*coretools.Tools, error)
+	UploadTools(r io.Reader, v version.Binary, series ...string) (*coretools.Tools, error)
 	Close() error
 }
 
@@ -105,7 +113,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 		MajorVersion: c.majorVersion,
 		MinorVersion: c.minorVersion,
 		DryRun:       c.dryRun,
-		Dev:          c.dev,
+		Stream:       c.stream,
 		Source:       c.source,
 	}
 
@@ -119,7 +127,11 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 			writeMirrors = envtools.WriteMirrors
 		}
 		sctx.TargetToolsFinder = sync.StorageToolsFinder{Storage: stor}
-		sctx.TargetToolsUploader = sync.StorageToolsUploader{Storage: stor, WriteMirrors: writeMirrors}
+		sctx.TargetToolsUploader = sync.StorageToolsUploader{
+			Storage:       stor,
+			WriteMetadata: true,
+			WriteMirrors:  writeMirrors,
+		}
 	} else {
 		if c.public {
 			logger.Warningf("--public is ignored unless --local-dir is specified")
@@ -158,7 +170,7 @@ func (s syncToolsAPIAdapter) FindTools(majorVersion int) (coretools.List, error)
 	return result.List, nil
 }
 
-func (s syncToolsAPIAdapter) UploadTools(tools *coretools.Tools, data []byte) error {
+func (s syncToolsAPIAdapter) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
 	_, err := s.syncToolsAPI.UploadTools(bytes.NewReader(data), tools.Version)
 	return err
 }

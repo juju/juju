@@ -1,17 +1,21 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
+
 package firewaller
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
-	common.RegisterStandardFacade("Firewaller", 0, NewFirewallerAPI)
+	// Version 0 is no longer supported.
+	common.RegisterStandardFacade("Firewaller", 1, NewFirewallerAPI)
 }
 
 // FirewallerAPI provides access to the Firewaller API facade.
@@ -28,6 +32,8 @@ type FirewallerAPI struct {
 	authorizer    common.Authorizer
 	accessUnit    common.GetAuthFunc
 	accessService common.GetAuthFunc
+	accessMachine common.GetAuthFunc
+	accessEnviron common.GetAuthFunc
 }
 
 // NewFirewallerAPI creates a new server-side FirewallerAPI facade.
@@ -41,6 +47,7 @@ func NewFirewallerAPI(
 		return nil, common.ErrPerm
 	}
 	// Set up the various authorization checkers.
+	accessEnviron := getAuthFuncForTagKind(names.EnvironTagKind)
 	accessUnit := getAuthFuncForTagKind(names.UnitTagKind)
 	accessService := getAuthFuncForTagKind(names.ServiceTagKind)
 	accessMachine := getAuthFuncForTagKind(names.MachineTagKind)
@@ -59,11 +66,11 @@ func NewFirewallerAPI(
 		resources,
 		authorizer,
 	)
-	// Watch() is supported for units or services.
+	// Watch() is supported for services only.
 	entityWatcher := common.NewAgentEntityWatcher(
 		st,
 		resources,
-		accessUnitOrService,
+		accessService,
 	)
 	// WatchUnits() is supported for machines.
 	unitsWatcher := common.NewUnitsWatcher(st,
@@ -81,6 +88,7 @@ func NewFirewallerAPI(
 		st,
 		accessMachine,
 	)
+
 	return &FirewallerAPI{
 		LifeGetter:             lifeGetter,
 		EnvironWatcher:         environWatcher,
@@ -93,29 +101,138 @@ func NewFirewallerAPI(
 		authorizer:             authorizer,
 		accessUnit:             accessUnit,
 		accessService:          accessService,
+		accessMachine:          accessMachine,
+		accessEnviron:          accessEnviron,
 	}, nil
 }
 
-// OpenedPorts returns the list of opened ports for each given unit.
-func (f *FirewallerAPI) OpenedPorts(args params.Entities) (params.PortsResults, error) {
-	result := params.PortsResults{
-		Results: make([]params.PortsResult, len(args.Entities)),
+// WatchOpenedPorts returns a new StringsWatcher for each given
+// environment tag.
+func (f *FirewallerAPI) WatchOpenedPorts(args params.Entities) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
-	canAccess, err := f.accessUnit()
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canWatch, err := f.accessEnviron()
 	if err != nil {
-		return params.PortsResults{}, err
+		return params.StringsWatchResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		unit, err := f.getUnit(canAccess, tag)
-		if err == nil {
-			result.Results[i].Ports = unit.OpenedPorts()
+		if !canWatch(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
-		result.Results[i].Error = common.ServerError(err)
+		watcherId, initial, err := f.watchOneEnvironOpenedPorts(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		result.Results[i].StringsWatcherId = watcherId
+		result.Results[i].Changes = initial
+	}
+	return result, nil
+}
+
+func (f *FirewallerAPI) watchOneEnvironOpenedPorts(tag names.Tag) (string, []string, error) {
+	// NOTE: tag is ignored, as there is only one environment in the
+	// state DB. Once this changes, change the code below accordingly.
+	watch := f.st.WatchOpenedPorts()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return f.resources.Register(watch), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(watch)
+}
+
+// GetMachinePorts returns the port ranges opened on a machine for the
+// specified network as a map mapping port ranges to the tags of the
+// units that opened them.
+func (f *FirewallerAPI) GetMachinePorts(args params.MachinePortsParams) (params.MachinePortsResults, error) {
+	result := params.MachinePortsResults{
+		Results: make([]params.MachinePortsResult, len(args.Params)),
+	}
+	canAccess, err := f.accessMachine()
+	if err != nil {
+		return params.MachinePortsResults{}, err
+	}
+	for i, param := range args.Params {
+		machineTag, err := names.ParseMachineTag(param.MachineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		networkTag, err := names.ParseNetworkTag(param.NetworkTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := f.getMachine(canAccess, machineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		ports, err := machine.OpenedPorts(networkTag.Id())
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if ports != nil {
+			portRanges := ports.AllPortRanges()
+			for portRange, unitName := range portRanges {
+				unitTag := names.NewUnitTag(unitName).String()
+				result.Results[i].Ports = append(result.Results[i].Ports,
+					params.MachinePortRange{
+						UnitTag:   unitTag,
+						PortRange: portRange,
+					})
+			}
+		}
+	}
+	return result, nil
+}
+
+// GetMachineActiveNetworks returns the tags of the all networks the
+// each given machine has open ports on.
+func (f *FirewallerAPI) GetMachineActiveNetworks(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	canAccess, err := f.accessMachine()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := f.getMachine(canAccess, machineTag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		ports, err := machine.AllPorts()
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		for _, port := range ports {
+			networkName, err := port.NetworkName()
+			if err != nil {
+				result.Results[i].Error = common.ServerError(err)
+				break
+			}
+			networkTag := names.NewNetworkTag(networkName).String()
+			result.Results[i].Result = append(result.Results[i].Result, networkTag)
+		}
 	}
 	return result, nil
 }
@@ -198,6 +315,16 @@ func (f *FirewallerAPI) getService(canAccess common.AuthFunc, tag names.ServiceT
 	// The authorization function guarantees that the tag represents a
 	// service.
 	return entity.(*state.Service), nil
+}
+
+func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
+	entity, err := f.getEntity(canAccess, tag)
+	if err != nil {
+		return nil, err
+	}
+	// The authorization function guarantees that the tag represents a
+	// machine.
+	return entity.(*state.Machine), nil
 }
 
 // getAuthFuncForTagKind returns a GetAuthFunc which creates an

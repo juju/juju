@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -14,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )
@@ -119,6 +122,11 @@ func (e *joyentEnviron) SupportNetworks() bool {
 	return false
 }
 
+// SupportAddressAllocation is specified on the EnvironCapability interface.
+func (e *joyentEnviron) SupportAddressAllocation(netId network.Id) (bool, error) {
+	return false, nil
+}
+
 func (env *joyentEnviron) SetConfig(cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
@@ -155,7 +163,10 @@ func (env *joyentEnviron) StateServerInstances() ([]instance.Id, error) {
 }
 
 func (env *joyentEnviron) Destroy() error {
-	return common.Destroy(env)
+	if err := common.Destroy(env); err != nil {
+		return errors.Trace(err)
+	}
+	return env.Storage().RemoveAll()
 }
 
 func (env *joyentEnviron) Ecfg() *environConfig {
@@ -181,20 +192,4 @@ func (env *joyentEnviron) Region() (simplestreams.CloudSpec, error) {
 		Region:   env.Ecfg().Region(),
 		Endpoint: env.Ecfg().sdcUrl(),
 	}, nil
-}
-
-// GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
-func (env *joyentEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseImagesPath)}
-	return sources, nil
-}
-
-// GetToolsSources returns a list of sources which are used to search for simplestreams tools metadata.
-func (env *joyentEnviron) GetToolsSources() ([]simplestreams.DataSource, error) {
-	// Add the simplestreams source off the control bucket.
-	sources := []simplestreams.DataSource{
-		storage.NewStorageSimpleStreamsDataSource("cloud storage", env.Storage(), storage.BaseToolsPath)}
-	return sources, nil
 }

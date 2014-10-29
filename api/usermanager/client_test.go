@@ -4,13 +4,12 @@
 package usermanager_test
 
 import (
-	"github.com/juju/names"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/usermanager"
 	"github.com/juju/juju/apiserver/params"
-	ums "github.com/juju/juju/apiserver/usermanager"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -30,60 +29,92 @@ func (s *usermanagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestAddUser(c *gc.C) {
-	err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *usermanagerSuite) TestAddUserOldClient(c *gc.C) {
-	userArgs := params.EntityPasswords{
-		Changes: []params.EntityPassword{{Tag: "foobar", Password: "password"}},
-	}
-	results := new(params.ErrorResults)
-	// Here we explicitly call into the UserManager object using the base
-	// APIState so as to be able to call the AddUser method with a different
-	// type of argument.
-	err := s.APIState.APICall("UserManager", 0, "", "AddUser", userArgs, results)
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *usermanagerSuite) TestRemoveUser(c *gc.C) {
-	err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.IsNil)
-	_, err = s.State.User("foobar")
+	tag, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.IsNil)
 
-	err = s.usermanager.RemoveUser("foobar")
+	user, err := s.State.User(tag)
 	c.Assert(err, gc.IsNil)
-	user, err := s.State.User("foobar")
-	c.Assert(user.IsDeactivated(), gc.Equals, true)
+	c.Assert(user.Name(), gc.Equals, "foobar")
+	c.Assert(user.DisplayName(), gc.Equals, "Foo Bar")
+	c.Assert(user.PasswordValid("password"), jc.IsTrue)
 }
 
 func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
-	err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
-	c.Assert(err, gc.IsNil)
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 
-	// Try adding again
-	err = s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	_, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
 	c.Assert(err, gc.ErrorMatches, "failed to create user: user already exists")
 }
 
+func (s *usermanagerSuite) TestAddUserResponseError(c *gc.C) {
+	usermanager.PatchResponses(s, s.usermanager,
+		func(interface{}) error {
+			return errors.New("call error")
+		},
+	)
+	_, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	c.Assert(err, gc.ErrorMatches, "call error")
+}
+
+func (s *usermanagerSuite) TestAddUserResultCount(c *gc.C) {
+	usermanager.PatchResponses(s, s.usermanager,
+		func(result interface{}) error {
+			if result, ok := result.(*params.AddUserResults); ok {
+				result.Results = make([]params.AddUserResult, 2)
+				return nil
+			}
+			return errors.New("wrong result type")
+		},
+	)
+	_, err := s.usermanager.AddUser("foobar", "Foo Bar", "password")
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *usermanagerSuite) TestDisableUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+
+	err := s.usermanager.DisableUser(user.Name())
+	c.Assert(err, gc.IsNil)
+
+	err = user.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(user.IsDisabled(), jc.IsTrue)
+}
+
+func (s *usermanagerSuite) TestDisableUserBadName(c *gc.C) {
+	err := s.usermanager.DisableUser("not@home")
+	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+}
+
+func (s *usermanagerSuite) TestEnableUser(c *gc.C) {
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar", Disabled: true})
+
+	err := s.usermanager.EnableUser(user.Name())
+	c.Assert(err, gc.IsNil)
+
+	err = user.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(user.IsDisabled(), jc.IsFalse)
+}
+
+func (s *usermanagerSuite) TestEnableUserBadName(c *gc.C) {
+	err := s.usermanager.EnableUser("not@home")
+	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
+}
+
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
-	err := s.usermanager.RemoveUser(s.AdminUserTag(c).Name())
-	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate admin user")
+	err := s.usermanager.DisableUser(s.AdminUserTag(c).Name())
+	c.Assert(err, gc.ErrorMatches, "failed to disable user: cannot disable state server environment owner")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
-	tag := names.NewUserTag("foobar")
-	user := s.Factory.MakeUser(c, &factory.UserParams{Name: tag.Id(), DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{
+		Name: "foobar", DisplayName: "Foo Bar"})
 
-	obtained, err := s.usermanager.UserInfo(tag.String())
+	obtained, err := s.usermanager.UserInfo([]string{"foobar"}, usermanager.AllUsers)
 	c.Assert(err, gc.IsNil)
-	expected := ums.UserInfoResult{
-		Result: &ums.UserInfo{
+	expected := []params.UserInfo{
+		{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			CreatedBy:   s.AdminUserTag(c).Name(),
@@ -94,37 +125,55 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
-func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
-	usermanager.PatchResponses(s, s.usermanager,
-		func(interface{}) error {
-			// do nothing, we get an empty result with no error
-			return nil
-		},
-	)
-	tag := names.NewUserTag("foobar")
-	_, err := s.usermanager.UserInfo(tag.String())
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
-}
-
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 	usermanager.PatchResponses(s, s.usermanager,
 		func(result interface{}) error {
-			if result, ok := result.(*ums.UserInfoResults); ok {
-				result.Results = make([]ums.UserInfoResult, 2)
+			if result, ok := result.(*params.UserInfoResults); ok {
+				result.Results = make([]params.UserInfoResult, 2)
+				result.Results[0].Result = &params.UserInfo{Username: "first"}
+				result.Results[1].Result = &params.UserInfo{Username: "second"}
+				return nil
 			}
-			return nil
+			return errors.New("wrong result type")
 		},
 	)
-	tag := names.NewUserTag("foobar")
-	_, err := s.usermanager.UserInfo(tag.String())
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+	obtained, err := s.usermanager.UserInfo(nil, usermanager.AllUsers)
+	c.Assert(err, gc.IsNil)
+
+	expected := []params.UserInfo{
+		{Username: "first"},
+		{Username: "second"},
+	}
+
+	c.Assert(obtained, jc.DeepEquals, expected)
+}
+
+func (s *usermanagerSuite) TestUserInfoMoreThanOneError(c *gc.C) {
+	usermanager.PatchResponses(s, s.usermanager,
+		func(result interface{}) error {
+			if result, ok := result.(*params.UserInfoResults); ok {
+				result.Results = make([]params.UserInfoResult, 2)
+				result.Results[0].Error = &params.Error{Message: "first error"}
+				result.Results[1].Error = &params.Error{Message: "second error"}
+				return nil
+			}
+			return errors.New("wrong result type")
+		},
+	)
+	_, err := s.usermanager.UserInfo([]string{"foo", "bar"}, usermanager.AllUsers)
+	c.Assert(err, gc.ErrorMatches, "foo: first error, bar: second error")
 }
 
 func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
-	name := s.AdminUserTag(c).Name()
-	err := s.usermanager.SetPassword(name, "new-password")
+	tag := s.AdminUserTag(c)
+	err := s.usermanager.SetPassword(tag.Name(), "new-password")
 	c.Assert(err, gc.IsNil)
-	user, err := s.State.User(name)
+	user, err := s.State.User(tag)
 	c.Assert(err, gc.IsNil)
-	c.Assert(user.PasswordValid("new-password"), gc.Equals, true)
+	c.Assert(user.PasswordValid("new-password"), jc.IsTrue)
+}
+
+func (s *usermanagerSuite) TestSetUserPasswordBadName(c *gc.C) {
+	err := s.usermanager.SetPassword("not@home", "new-password")
+	c.Assert(err, gc.ErrorMatches, `"not@home" is not a valid username`)
 }

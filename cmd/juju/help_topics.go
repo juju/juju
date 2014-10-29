@@ -227,10 +227,17 @@ A generic Windows Azure environment looks like this:
     # Most useful for developers.
     # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
 
-    # Pick a simplestreams stream to select OS images from: daily or released
-    # images, or any other stream available on simplestreams.  Leave blank for
-    # released images.
-    # image-stream: ""
+    # image-stream chooses a simplestreams stream from which to select
+    # OS images, for example daily or released images (or any other stream
+    # available on simplestreams).
+    #
+    # image-stream: "released"
+
+    # agent-stream chooses a simplestreams stream from which to select tools,
+    # for example released or proposed tools (or any other stream available
+    # on simplestreams).
+    #
+    # agent-stream: "released"
 
 This is the environments.yaml configuration file needed to run on Windows Azure.
 You will need to set the management-subscription-id, management-certificate-
@@ -321,8 +328,9 @@ cpu-power
 
 tags
    Tags defines the list of tags that the machine must have applied to it.
-   Multiple tags must be delimited by a comma. Tags are currently only supported
-   by the MaaS environment.
+   Multiple tags must be delimited by a comma. Both positive and negative
+   tags constraints are supported, the latter have a "^" prefix. Tags are
+   currently only supported by the MaaS environment.
 
 networks
    Networks defines the list of networks to ensure are available or not on the
@@ -333,9 +341,15 @@ networks
    network. Positive network constraints do not imply the networks will be enabled,
    use the --networks argument for that, just that they could be enabled.
 
+instance-type
+   Instance-type is the provider-specific name of a type of machine to deploy,
+   for example m1.small on EC2 or A4 on Azure.  Specifying this constraint may
+   conflict with other constraints depending on the provider (since the instance
+   type my determine things like memory size etc.)
+
 Example:
 
-   juju add-machine --constraints "arch=amd64 mem=8G tags=foo,bar"
+   juju add-machine --constraints "arch=amd64 mem=8G tags=foo,^bar"
 
 See Also:
    juju help set-constraints

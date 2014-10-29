@@ -11,8 +11,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state/watcher"
@@ -618,7 +618,7 @@ func (*storeManagerSuite) TestRunStop(c *gc.C) {
 }
 
 func (*storeManagerSuite) TestRun(c *gc.C) {
-	b := newTestBacking([]params.EntityInfo{
+	b := newTestBacking([]EntityInfo{
 		&MachineInfo{Id: "0"},
 		&ServiceInfo{Name: "logging"},
 		&ServiceInfo{Name: "wordpress"},
@@ -660,7 +660,7 @@ func (*storeManagerSuite) TestWatcherStop(c *gc.C) {
 }
 
 func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *gc.C) {
-	b := newTestBacking([]params.EntityInfo{&MachineInfo{Id: "0"}})
+	b := newTestBacking([]EntityInfo{&MachineInfo{Id: "0"}})
 	sm := NewStoreManager(b)
 	defer func() {
 		c.Check(sm.Stop(), gc.ErrorMatches, "some error")
@@ -676,7 +676,7 @@ func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *gc.C) {
 	checkNext(c, w, nil, "some error")
 }
 
-func StoreIncRef(a *Store, id InfoId) {
+func StoreIncRef(a *Store, id interface{}) {
 	entry := a.entities[id].Value.(*entityEntry)
 	entry.refCount++
 }
@@ -730,8 +730,8 @@ func checkDeltasEqual(c *gc.C, d0, d1 []params.Delta) {
 	c.Check(deltaMap(d0), gc.DeepEquals, deltaMap(d1))
 }
 
-func deltaMap(deltas []params.Delta) map[InfoId]params.EntityInfo {
-	m := make(map[InfoId]params.EntityInfo)
+func deltaMap(deltas []params.Delta) map[interface{}]EntityInfo {
+	m := make(map[interface{}]EntityInfo)
 	for _, d := range deltas {
 		id := d.Entity.EntityId()
 		if _, ok := m[id]; ok {
@@ -749,7 +749,7 @@ func deltaMap(deltas []params.Delta) map[InfoId]params.EntityInfo {
 // watcherState represents a Watcher client's
 // current view of the state. It holds the last delta that a given
 // state watcher has seen for each entity.
-type watcherState map[InfoId]params.Delta
+type watcherState map[interface{}]params.Delta
 
 func (s watcherState) update(changes []params.Delta) {
 	for _, d := range changes {
@@ -814,14 +814,14 @@ func assertWaitingRequests(c *gc.C, sm *StoreManager, waiting map[*Watcher][]*re
 type storeManagerTestBacking struct {
 	mu       sync.Mutex
 	fetchErr error
-	entities map[InfoId]params.EntityInfo
+	entities map[interface{}]EntityInfo
 	watchc   chan<- watcher.Change
 	txnRevno int64
 }
 
-func newTestBacking(initial []params.EntityInfo) *storeManagerTestBacking {
+func newTestBacking(initial []EntityInfo) *storeManagerTestBacking {
 	b := &storeManagerTestBacking{
-		entities: make(map[InfoId]params.EntityInfo),
+		entities: make(map[interface{}]EntityInfo),
 	}
 	for _, info := range initial {
 		b.entities[info.EntityId()] = info
@@ -846,7 +846,7 @@ func (b *storeManagerTestBacking) Changed(all *Store, change watcher.Change) err
 	return nil
 }
 
-func (b *storeManagerTestBacking) fetch(id InfoId) (params.EntityInfo, error) {
+func (b *storeManagerTestBacking) fetch(id interface{}) (EntityInfo, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.fetchErr != nil {
@@ -885,7 +885,7 @@ func (b *storeManagerTestBacking) GetAll(all *Store) error {
 	return nil
 }
 
-func (b *storeManagerTestBacking) updateEntity(info params.EntityInfo) {
+func (b *storeManagerTestBacking) updateEntity(info EntityInfo) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	id := info.EntityId()
@@ -906,7 +906,7 @@ func (b *storeManagerTestBacking) setFetchError(err error) {
 	b.fetchErr = err
 }
 
-func (b *storeManagerTestBacking) deleteEntity(id0 InfoId) {
+func (b *storeManagerTestBacking) deleteEntity(id0 interface{}) {
 	id := id0.(params.EntityId)
 	b.mu.Lock()
 	defer b.mu.Unlock()

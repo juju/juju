@@ -4,8 +4,6 @@
 package agent
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -24,23 +22,6 @@ const (
 	// BootstrapNonce is used as a nonce for the state server machine.
 	BootstrapNonce = "user-admin:bootstrap"
 )
-
-// InitializeState should be called on the bootstrap machine's agent
-// configuration. It uses that information to create the state server, dial the
-// state server, and initialize it. It also generates a new password for the
-// bootstrap machine and calls Write to save the the configuration.
-//
-// The envCfg values will be stored in the state's EnvironConfig; the
-// machineCfg values will be used to configure the bootstrap Machine,
-// and its constraints will be also be used for the environment-level
-// constraints. The connection to the state server will respect the
-// given timeout parameter.
-//
-// InitializeState returns the newly initialized state and bootstrap
-// machine. If it fails, the state may well be irredeemably compromised.
-type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
-}
 
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
@@ -68,19 +49,32 @@ type BootstrapMachineConfig struct {
 
 const BootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+// InitializeState should be called on the bootstrap machine's agent
+// configuration. It uses that information to create the state server, dial the
+// state server, and initialize it. It also generates a new password for the
+// bootstrap machine and calls Write to save the the configuration.
+//
+// The envCfg values will be stored in the state's EnvironConfig; the
+// machineCfg values will be used to configure the bootstrap Machine,
+// and its constraints will be also be used for the environment-level
+// constraints. The connection to the state server will respect the
+// given timeout parameter.
+//
+// InitializeState returns the newly initialized state and bootstrap
+// machine. If it fails, the state may well be irredeemably compromised.
+func InitializeState(adminUser names.UserTag, c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(BootstrapMachineId) {
-		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
+		return nil, nil, errors.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
 	if !ok {
-		return nil, nil, fmt.Errorf("state serving information not available")
+		return nil, nil, errors.Errorf("state serving information not available")
 	}
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := c.MongoInfo()
 	if !ok {
-		return nil, nil, fmt.Errorf("stateinfo not available")
+		return nil, nil, errors.Errorf("stateinfo not available")
 	}
 	info.Tag = nil
 	info.Password = c.OldPassword()
@@ -90,9 +84,9 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(info, envCfg, dialOpts, policy)
+	st, err := state.Initialize(adminUser, info, envCfg, dialOpts, policy)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
+		return nil, nil, errors.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
 	defer func() {
@@ -105,52 +99,37 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if err = initAPIHostPorts(c, st, machineCfg.Addresses, servingInfo.APIPort); err != nil {
 		return nil, nil, err
 	}
-	if err := st.SetStateServingInfo(servingInfo); err != nil {
-		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
+	ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+	if err := st.SetStateServingInfo(ssi); err != nil {
+		return nil, nil, errors.Errorf("cannot set state serving info: %v", err)
 	}
-	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
+	m, err := initConstraintsAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
 		return nil, nil, err
 	}
 	return st, m, nil
 }
 
-func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
-	if err := initBootstrapUser(st, c.OldPassword()); err != nil {
-		return nil, fmt.Errorf("cannot initialize bootstrap user: %v", err)
+func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
 	}
+}
+
+func initConstraintsAndBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineConfig) (*state.Machine, error) {
 	if err := st.SetEnvironConstraints(cfg.Constraints); err != nil {
-		return nil, fmt.Errorf("cannot set initial environ constraints: %v", err)
+		return nil, errors.Errorf("cannot set initial environ constraints: %v", err)
 	}
 	m, err := initBootstrapMachine(c, st, cfg)
 	if err != nil {
-		return nil, fmt.Errorf("cannot initialize bootstrap machine: %v", err)
+		return nil, errors.Errorf("cannot initialize bootstrap machine: %v", err)
 	}
 	return m, nil
-}
-
-// initBootstrapUser creates the initial admin user for the database, and sets
-// the initial password.
-func initBootstrapUser(st *state.State, passwordHash string) error {
-	logger.Debugf("adding admin user")
-	// Set up initial authentication.
-	u, err := st.AddAdminUser("") // empty initial passowrd
-	if err != nil {
-		return err
-	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-	logger.Debugf("setting password hash for admin user")
-	// TODO(jam): http://pad.lv/1248839
-	// We could teach bootstrap how to generate a custom salt and apply
-	// that to the hash that was generated. At which point we'd need to set
-	// it here. For now, we pass "" so that on first login we will create a
-	// new salt, but the fixed-salt password is still available from
-	// cloud-init.
-	return u.SetPasswordHash(passwordHash, "")
 }
 
 // initMongoAdminUser adds the admin user with the specified
@@ -161,7 +140,7 @@ func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password strin
 		return err
 	}
 	defer session.Close()
-	return mongo.SetAdminMongoPassword(session, "admin", password)
+	return mongo.SetAdminMongoPassword(session, mongo.AdminUser, password)
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
@@ -170,9 +149,9 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 
 	jobs := make([]state.MachineJob, len(cfg.Jobs))
 	for i, job := range cfg.Jobs {
-		machineJob, err := state.MachineJobFromParams(job)
+		machineJob, err := machineJobFromParams(job)
 		if err != nil {
-			return nil, fmt.Errorf("invalid bootstrap machine job %q: %v", job, err)
+			return nil, errors.Errorf("invalid bootstrap machine job %q: %v", job, err)
 		}
 		jobs[i] = machineJob
 	}
@@ -186,10 +165,10 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 		Jobs: jobs,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap machine in state: %v", err)
+		return nil, errors.Errorf("cannot create bootstrap machine in state: %v", err)
 	}
 	if m.Id() != BootstrapMachineId {
-		return nil, fmt.Errorf("bootstrap machine expected id 0, got %q", m.Id())
+		return nil, errors.Errorf("bootstrap machine expected id 0, got %q", m.Id())
 	}
 	// Read the machine agent's password and change it to
 	// a new password (other agents will change their password
@@ -214,4 +193,23 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
 	hostPorts := network.AddressesWithPort(addrs, apiPort)
 	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
+}
+
+// machineJobFromParams returns the job corresponding to params.MachineJob.
+// TODO(dfc) this function should live in apiserver/params, move there once
+// state does not depend on apiserver/params
+func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+	switch job {
+	case params.JobHostUnits:
+		return state.JobHostUnits, nil
+	case params.JobManageEnviron:
+		return state.JobManageEnviron, nil
+	case params.JobManageNetworking:
+		return state.JobManageNetworking, nil
+	case params.JobManageStateDeprecated:
+		// Deprecated in 1.18.
+		return state.JobManageStateDeprecated, nil
+	default:
+		return -1, errors.Errorf("invalid machine job %q", job)
+	}
 }

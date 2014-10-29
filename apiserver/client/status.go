@@ -5,13 +5,11 @@ package client
 
 import (
 	"fmt"
-	"path"
-	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -25,40 +23,77 @@ import (
 func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return api.Status{}, err
+		return api.Status{}, errors.Annotate(err, "could not get environ config")
 	}
 	var noStatus api.Status
 	var context statusContext
-	unitMatcher, err := NewUnitMatcher(args.Patterns)
-	if err != nil {
-		return noStatus, err
-	}
-	if context.services,
-		context.units, context.latestCharms, err = fetchAllServicesAndUnits(c.api.state, unitMatcher); err != nil {
-		return noStatus, err
+	if context.services, context.units, context.latestCharms, err =
+		fetchAllServicesAndUnits(c.api.state, len(args.Patterns) <= 0); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch services and units")
+	} else if context.machines, err = fetchMachines(c.api.state, nil); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch machines")
+	} else if context.relations, err = fetchRelations(c.api.state); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch relations")
+	} else if context.networks, err = fetchNetworks(c.api.state); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch networks")
 	}
 
-	// Filter machines by units in scope.
-	var machineIds *set.Strings
-	if !unitMatcher.matchesAny() {
-		machineIds, err = fetchUnitMachineIds(context.units)
-		if err != nil {
-			return noStatus, err
+	logger.Debugf("Services: %v", context.services)
+
+	if len(args.Patterns) > 0 {
+		predicate := BuildPredicateFor(args.Patterns)
+
+		// Filter machines
+		for status, machineList := range context.machines {
+			for idx, m := range machineList {
+				if matches, err := predicate(m); err != nil {
+					return noStatus, errors.Annotate(err, "could not filter machines")
+				} else if !matches {
+					// TODO(katco-): Check for index errors.
+					context.machines[status] = append(machineList[:idx], machineList[idx+1:]...)
+				}
+			}
 		}
-	}
-	if context.machines, err = fetchMachines(c.api.state, machineIds); err != nil {
-		return noStatus, err
-	}
-	if context.relations, err = fetchRelations(c.api.state); err != nil {
-		return noStatus, err
-	}
-	if context.networks, err = fetchNetworks(c.api.state); err != nil {
-		return noStatus, err
+
+		// TODO(katco-): BUG:1385456
+		//
+		// Uncomment to begin service functionality. WARNING: There is
+		// a bug in which filtering will fail on if the service would
+		// not otherwise be filtered because of a parent or child unit
+		// not being filtered. It is because it only considers units
+		// of its own type
+
+		// // Filter services
+		// for svcName, svc := range context.services {
+		// 	if matches, err := predicate(svc); err != nil {
+		// 		return noStatus, errors.Annotate(err, "could not filter services")
+		// 	} else if !matches {
+		// 		delete(context.services, svcName)
+		// 	}
+		// }
+
+		// Filter units
+		unitChainPredicate := UnitChainPredicateFn(predicate, context.unitByName)
+		for _, unitMap := range context.units {
+			for name, unit := range unitMap {
+				// Always start examining at the top-level. This
+				// prevents a situation where we filter a subordinate
+				// before we discover its parent is a match.
+				if !unit.IsPrincipal() {
+					continue
+				}
+				if matches, err := unitChainPredicate(unit); err != nil {
+					return noStatus, errors.Annotate(err, "could not filter units")
+				} else if !matches {
+					delete(unitMap, name)
+				}
+			}
+		}
 	}
 
 	return api.Status{
 		EnvironmentName: cfg.Name(),
-		Machines:        context.processMachines(),
+		Machines:        processMachines(context.machines),
 		Services:        context.processServices(),
 		Networks:        context.processNetworks(),
 		Relations:       context.processRelations(),
@@ -83,101 +118,15 @@ func (c *Client) Status() (api.LegacyStatus, error) {
 }
 
 type statusContext struct {
-	machines     map[string][]*state.Machine
+	// machines: top-level machine id -> list of machines nested in
+	// this machine.
+	machines map[string][]*state.Machine
+	// services: service name -> service
 	services     map[string]*state.Service
 	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
 	networks     map[string]*state.Network
 	latestCharms map[charm.URL]string
-}
-
-type unitMatcher struct {
-	patterns []string
-}
-
-// matchesAny returns true if the unitMatcher will
-// match any unit, regardless of its attributes.
-func (m unitMatcher) matchesAny() bool {
-	return len(m.patterns) == 0
-}
-
-// matchUnit attempts to match a state.Unit to one of
-// a set of patterns, taking into account subordinate
-// relationships.
-func (m unitMatcher) matchUnit(u *state.Unit) bool {
-	if m.matchesAny() {
-		return true
-	}
-
-	// Keep the unit if:
-	//  (a) its name matches a pattern, or
-	//  (b) it's a principal and one of its subordinates matches, or
-	//  (c) it's a subordinate and its principal matches.
-	//
-	// Note: do *not* include a second subordinate if the principal is
-	// only matched on account of a first subordinate matching.
-	if m.matchString(u.Name()) {
-		return true
-	}
-	if u.IsPrincipal() {
-		for _, s := range u.SubordinateNames() {
-			if m.matchString(s) {
-				return true
-			}
-		}
-		return false
-	}
-	principal, valid := u.PrincipalName()
-	if !valid {
-		panic("PrincipalName failed for subordinate unit")
-	}
-	return m.matchString(principal)
-}
-
-// matchString matches a string to one of the patterns in
-// the unit matcher, returning an error if a pattern with
-// invalid syntax is encountered.
-func (m unitMatcher) matchString(s string) bool {
-	for _, pattern := range m.patterns {
-		ok, err := path.Match(pattern, s)
-		if err != nil {
-			// We validate patterns, so should never get here.
-			panic(fmt.Errorf("pattern syntax error in %q", pattern))
-		} else if ok {
-			return true
-		}
-	}
-	return false
-}
-
-// validPattern must match the parts of a unit or service name
-// pattern either side of the '/' for it to be valid.
-var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
-
-// NewUnitMatcher returns a unitMatcher that matches units
-// with one of the specified patterns, or all units if no
-// patterns are specified.
-//
-// An error will be returned if any of the specified patterns
-// is invalid. Patterns are valid if they contain only
-// alpha-numeric characters, hyphens, or asterisks (and one
-// optional '/' to separate service/unit).
-func NewUnitMatcher(patterns []string) (unitMatcher, error) {
-	for i, pattern := range patterns {
-		fields := strings.Split(pattern, "/")
-		if len(fields) > 2 {
-			return unitMatcher{}, fmt.Errorf("pattern %q contains too many '/' characters", pattern)
-		}
-		for _, f := range fields {
-			if !validPattern.MatchString(f) {
-				return unitMatcher{}, fmt.Errorf("pattern %q contains invalid characters", pattern)
-			}
-		}
-		if len(fields) == 1 {
-			patterns[i] += "/*"
-		}
-	}
-	return unitMatcher{patterns}, nil
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -215,8 +164,9 @@ func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*stat
 // fetchAllServicesAndUnits returns a map from service name to service,
 // a map from service name to unit name to unit, and a map from base charm URL to latest URL.
 func fetchAllServicesAndUnits(
-	st *state.State, unitMatcher unitMatcher) (
-	map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
+	st *state.State,
+	matchAny bool,
+) (map[string]*state.Service, map[string]map[string]*state.Unit, map[charm.URL]string, error) {
 
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
@@ -232,12 +182,9 @@ func fetchAllServicesAndUnits(
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
-			if !unitMatcher.matchUnit(u) {
-				continue
-			}
 			svcUnitMap[u.Name()] = u
 		}
-		if unitMatcher.matchesAny() || len(svcUnitMap) > 0 {
+		if matchAny || len(svcUnitMap) > 0 {
 			unitMap[s.Name()] = svcUnitMap
 			svcMap[s.Name()] = s
 			// Record the base URL for the service's charm so that
@@ -316,39 +263,46 @@ func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
 	return out, nil
 }
 
-func (context *statusContext) processMachines() map[string]api.MachineStatus {
+type machineAndContainers map[string][]*state.Machine
+
+func (m machineAndContainers) HostForMachineId(id string) *state.Machine {
+	// Element 0 is assumed to be the top-level machine.
+	return m[id][0]
+}
+
+func (m machineAndContainers) Containers(id string) []*state.Machine {
+	return m[id][1:]
+}
+
+func processMachines(idToMachines map[string][]*state.Machine) map[string]api.MachineStatus {
 	machinesMap := make(map[string]api.MachineStatus)
-	for id, machines := range context.machines {
-		hostStatus := context.makeMachineStatus(machines[0])
-		context.processMachine(machines, &hostStatus, 0)
+	cache := make(map[string]api.MachineStatus)
+	for id, machines := range idToMachines {
+
+		if len(machines) <= 0 {
+			continue
+		}
+
+		// Element 0 is assumed to be the top-level machine.
+		hostStatus := makeMachineStatus(machines[0])
 		machinesMap[id] = hostStatus
+		cache[id] = hostStatus
+
+		for _, machine := range machines[1:] {
+			parent, ok := cache[state.ParentId(machine.Id())]
+			if !ok {
+				panic("We've broken an assumpution.")
+			}
+
+			status := makeMachineStatus(machine)
+			parent.Containers[machine.Id()] = status
+			cache[machine.Id()] = status
+		}
 	}
 	return machinesMap
 }
 
-func (context *statusContext) processMachine(machines []*state.Machine, host *api.MachineStatus, startIndex int) (nextIndex int) {
-	nextIndex = startIndex + 1
-	currentHost := host
-	var previousContainer *api.MachineStatus
-	for nextIndex < len(machines) {
-		machine := machines[nextIndex]
-		container := context.makeMachineStatus(machine)
-		if currentHost.Id == state.ParentId(machine.Id()) {
-			currentHost.Containers[machine.Id()] = container
-			previousContainer = &container
-			nextIndex++
-		} else {
-			if state.NestingLevel(machine.Id()) > state.NestingLevel(previousContainer.Id) {
-				nextIndex = context.processMachine(machines, previousContainer, nextIndex-1)
-			} else {
-				break
-			}
-		}
-	}
-	return
-}
-
-func (context *statusContext) makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
+func makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	status.Id = machine.Id()
 	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(machine)
 	status.AgentVersion = status.Agent.Version
@@ -537,7 +491,8 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, service
 
 func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string) (status api.UnitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
-	for _, port := range unit.OpenedPorts() {
+	unitPorts, _ := unit.OpenedPorts()
+	for _, port := range unitPorts {
 		status.OpenedPorts = append(status.OpenedPorts, port.String())
 	}
 	if unit.IsPrincipal() {
@@ -606,7 +561,7 @@ type stateAgent interface {
 	lifer
 	AgentPresence() (bool, error)
 	AgentTools() (*tools.Tools, error)
-	Status() (params.Status, string, map[string]interface{}, error)
+	Status() (state.Status, string, map[string]interface{}, error)
 }
 
 // processAgent retrieves version and status information from the given entity.
@@ -619,7 +574,9 @@ func processAgent(entity stateAgent) (
 		out.Version = t.Version.Number.String()
 	}
 
-	out.Status, out.Info, out.Data, out.Err = entity.Status()
+	var st state.Status
+	st, out.Info, out.Data, out.Err = entity.Status()
+	out.Status = params.Status(st)
 	compatStatus = out.Status
 	compatInfo = out.Info
 	out.Data = filterStatusData(out.Data)

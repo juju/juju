@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -212,6 +212,11 @@ var configTests = []configTest{
 		firewallMode: config.FwGlobal,
 	}, {
 		config: attrs{
+			"firewall-mode": "none",
+		},
+		firewallMode: config.FwNone,
+	}, {
+		config: attrs{
 			"ssl-hostname-verification": false,
 		},
 		err: "disabling ssh-hostname-verification is not supported",
@@ -287,6 +292,7 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
@@ -308,6 +314,7 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "ec2",
 		"control-bucket": "burblefoo",

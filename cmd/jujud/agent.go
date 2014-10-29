@@ -36,7 +36,7 @@ import (
 var (
 	apiOpen = api.Open
 
-	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+	DataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
 	checkProvisionedStrategy = utils.AttemptStrategy{
 		Total: 1 * time.Minute,
@@ -64,7 +64,7 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", dataDir, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", DataDir, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {
@@ -251,10 +251,8 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		}
 	}
 	if err != nil {
-		if params.IsCodeNotProvisioned(err) {
-			return nil, nil, worker.ErrTerminateAgent
-		}
-		if params.IsCodeUnauthorized(err) {
+		if params.IsCodeNotProvisioned(err) || params.IsCodeUnauthorized(err) {
+			logger.Errorf("agent terminating due to error returned during API open: %v", err)
 			return nil, nil, worker.ErrTerminateAgent
 		}
 		return nil, nil, err
@@ -266,10 +264,12 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	}()
 	entity, err := st.Agent().Entity(a.Tag())
 	if err == nil && entity.Life() == params.Dead {
+		logger.Errorf("agent terminating - entity %q is dead", a.Tag())
 		return nil, nil, worker.ErrTerminateAgent
 	}
 	if err != nil {
 		if params.IsCodeUnauthorized(err) {
+			logger.Errorf("agent terminating due to error returned during entity lookup: %v", err)
 			return nil, nil, worker.ErrTerminateAgent
 		}
 		return nil, nil, err

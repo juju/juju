@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -71,6 +71,11 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityPlacementError(c *gc.C) {
+	_, err := runEnsureAvailability(c, "-n", "1", "--to", "1")
+	c.Assert(err, gc.ErrorMatches, `unsupported ensure-availability placement directive "1"`)
+}
+
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {
 	expected := map[string][]string{
 		"maintained": []string{"0"},
@@ -105,10 +110,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--series", "series", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
@@ -119,10 +122,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C)
 	ctx, err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
@@ -130,6 +131,21 @@ adding machines: 1, 2
 	c.Assert(err, gc.IsNil)
 	expectedCons := constraints.MustParse("mem=4G")
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
+}
+
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithPlacement(c *gc.C) {
+	ctx, err := runEnsureAvailability(c, "--to", "valid", "-n", "3")
+	c.Assert(err, gc.IsNil)
+	c.Assert(coretesting.Stdout(ctx), gc.Equals,
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
+
+	m, err := s.State.Machine("1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Placement(), gc.Equals, "valid")
+	m, err = s.State.Machine("2")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Placement(), gc.Equals, "")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
@@ -164,10 +180,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -191,10 +205,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	_, err = runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
@@ -204,10 +216,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -218,10 +228,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
 	ctx, err := runEnsureAvailability(c)
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: 0
-adding machines: 1, 2
-
-`)
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)

@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -7,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -105,7 +106,7 @@ func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, "")
-		com, err := jujuc.NewCommand(hctx, "relation-ids")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -145,7 +146,7 @@ options:
 	} {
 		c.Logf("relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
-		com, err := jujuc.NewCommand(hctx, "relation-ids")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-ids"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})

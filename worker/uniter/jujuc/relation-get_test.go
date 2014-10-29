@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -9,7 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -184,7 +185,7 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := jujuc.NewCommand(hctx, "relation-get")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
@@ -249,7 +250,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
-		com, err := jujuc.NewCommand(hctx, "relation-get")
+		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
@@ -266,7 +267,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 
 func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, 1, "m/0")
-	com, err := jujuc.NewCommand(hctx, "relation-get")
+	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})

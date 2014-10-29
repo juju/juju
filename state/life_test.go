@@ -4,9 +4,10 @@
 package state_test
 
 import (
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
-	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
@@ -85,10 +86,11 @@ type lifeFixture interface {
 
 type unitLife struct {
 	unit *state.Unit
+	st   *state.State
 }
 
 func (l *unitLife) id() (coll string, id interface{}) {
-	return "units", l.unit.Name()
+	return "units", state.DocID(l.st, l.unit.Name())
 }
 
 func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
@@ -101,10 +103,11 @@ func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 
 type machineLife struct {
 	machine *state.Machine
+	st      *state.State
 }
 
 func (l *machineLife) id() (coll string, id interface{}) {
-	return "machines", l.machine.Id()
+	return "machines", state.DocID(l.st, l.machine.Id())
 }
 
 func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
@@ -132,7 +135,7 @@ func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached
 }
 
 func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
-	for i, lfix := range []lifeFixture{&unitLife{}, &machineLife{}} {
+	for i, lfix := range []lifeFixture{&unitLife{st: s.State}, &machineLife{st: s.State}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {
 			c.Logf("sequence %d", j)
@@ -156,6 +159,22 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			err = living.Remove()
 			c.Assert(err, gc.IsNil)
 		}
+	}
+}
+
+func (s *LifeSuite) TestLifeString(c *gc.C) {
+	var tests = []struct {
+		life state.Life
+		want params.Life
+	}{
+		{state.Alive, params.Alive},
+		{state.Dying, params.Dying},
+		{state.Dead, params.Dead},
+		{42, "unknown"},
+	}
+	for _, test := range tests {
+		got := test.life.String()
+		c.Assert(got, gc.Equals, string(test.want))
 	}
 }
 

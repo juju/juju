@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -27,9 +27,24 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
+// assertSteps is a helper that ensures that the given upgrade steps
+// match what is expected for that version and that the steps have
+// been added to the global upgrade operations list.
+func assertSteps(c *gc.C, ver version.Number, expected []string) {
+	for _, op := range (*upgrades.UpgradeOperations)() {
+		if op.TargetVersion() == ver {
+			assertExpectedSteps(c, op.Steps(), expected)
+			return
+		}
+	}
+	c.Fatal("upgrade operations for this version are not hooked up")
+}
+
 // assertExpectedSteps is a helper function used to check that the upgrade steps match
 // what is expected for a version.
 func assertExpectedSteps(c *gc.C, steps []upgrades.Step, expectedSteps []string) {
+	c.Assert(steps, gc.HasLen, len(expectedSteps))
+
 	var stepNames = make([]string, len(steps))
 	for i, step := range steps {
 		stepNames[i] = step.Description()
@@ -384,7 +399,7 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0", "1.21-alpha1"}
+var expectedVersions = []string{"1.18.0", "1.21-alpha1", "1.21-alpha2", "1.21-alpha3"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string

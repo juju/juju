@@ -4,7 +4,7 @@
 package environment_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/api/testing"
 	jujutesting "github.com/juju/juju/juju/testing"

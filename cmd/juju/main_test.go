@@ -4,31 +4,22 @@
 package main
 
 import (
-	"bytes"
-	"flag"
-	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
-	stdtesting "testing"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
-	"launchpad.net/gnuflag"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/envcmd"
+	cmdtesting "github.com/juju/juju/cmd/testing"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
-
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 type MainSuite struct {
 	testing.FakeJujuHomeSuite
@@ -36,50 +27,16 @@ type MainSuite struct {
 
 var _ = gc.Suite(&MainSuite{})
 
-var (
-	flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
-)
-
-// Reentrancy point for testing (something as close as possible to) the juju
-// tool itself.
-func TestRunMain(t *stdtesting.T) {
-	if *flagRunMain {
-		Main(flag.Args())
-	}
-}
-
-func badrun(c *gc.C, exit int, args ...string) string {
-	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
-	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
-	output, err := ps.CombinedOutput()
-	c.Logf("command output: %q", output)
-	if exit != 0 {
-		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
-	}
-	return string(output)
-}
-
-func helpText(command cmd.Command, name string) string {
-	buff := &bytes.Buffer{}
-	info := command.Info()
-	info.Name = name
-	f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
-	command.SetFlags(f)
-	buff.Write(info.Help(f))
-	return buff.String()
-}
-
 func deployHelpText() string {
-	return helpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
+	return cmdtesting.HelpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
 }
 
 func setHelpText() string {
-	return helpText(envcmd.Wrap(&SetCommand{}), "juju set")
+	return cmdtesting.HelpText(envcmd.Wrap(&SetCommand{}), "juju set")
 }
 
 func syncToolsHelpText() string {
-	return helpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
+	return cmdtesting.HelpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -210,8 +167,10 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"api-endpoints",
+	"api-info",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
+	"backups",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
@@ -362,5 +321,44 @@ func (s *MainSuite) TestEnvironCommands(c *gc.C) {
 	for _, cmd := range commands {
 		c.Logf("%v", cmd.Info().Name)
 		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
+	}
+}
+
+func (s *MainSuite) TestAllCommandsPurposeDocCapitalization(c *gc.C) {
+	// Verify each command that:
+	// - the Purpose field is not empty and begins with a lowercase
+	// letter, and,
+	// - if set, the Doc field either begins with the name of the
+	// command or and uppercase letter.
+	//
+	// The first makes Purpose a required documentation. Also, makes
+	// both "help commands"'s output and "help <cmd>"'s header more
+	// uniform. The second makes the Doc content either start like a
+	// sentence, or start godoc-like by using the command's name in
+	// lowercase.
+	var commands commands
+	registerCommands(&commands, testing.Context(c))
+	for _, cmd := range commands {
+		info := cmd.Info()
+		c.Logf("%v", info.Name)
+		purpose := strings.TrimSpace(info.Purpose)
+		doc := strings.TrimSpace(info.Doc)
+		comment := func(message string) interface{} {
+			return gc.Commentf("command %q %s", info.Name, message)
+		}
+
+		c.Check(purpose, gc.Not(gc.Equals), "", comment("has empty Purpose"))
+		if purpose != "" {
+			prefix := string(purpose[0])
+			c.Check(prefix, gc.Equals, strings.ToLower(prefix),
+				comment("expected lowercase first-letter Purpose"),
+			)
+		}
+		if doc != "" && !strings.HasPrefix(doc, info.Name) {
+			prefix := string(doc[0])
+			c.Check(prefix, gc.Equals, strings.ToUpper(prefix),
+				comment("expected uppercase first-letter Doc"),
+			)
+		}
 	}
 }

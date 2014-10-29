@@ -16,17 +16,20 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type clientSuite struct {
@@ -106,6 +109,98 @@ func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
 
 	client := s.APIState.Client()
 	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
+}
+
+func (s *clientSuite) TestShareEnvironmentExistingUser(c *gc.C) {
+	client := s.APIState.Client()
+	user := s.Factory.MakeEnvUser(c, nil)
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 1)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[0].UserTag, gc.Equals, user.UserTag().String())
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				err := &params.Error{Message: "failed to create environment user: env user already exists"}
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}}}
+			} else {
+				c.Fatalf("wrong input structure")
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	err := client.ShareEnvironment([]names.UserTag{user.UserTag()})
+	c.Assert(err, gc.ErrorMatches, "failed to create environment user: env user already exists")
+}
+
+func (s *clientSuite) TestShareEnvironmentThreeUsers(c *gc.C) {
+	client := s.APIState.Client()
+	existingUser := s.Factory.MakeEnvUser(c, nil)
+	localUser := s.Factory.MakeUser(c, nil)
+	newUserTag := names.NewUserTag("foo@bar")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, paramsIn interface{}, response interface{}) error {
+			if users, ok := paramsIn.(params.ModifyEnvironUsers); ok {
+				c.Assert(users.Changes, gc.HasLen, 3)
+				c.Logf(string(users.Changes[0].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[0].UserTag, gc.Equals, existingUser.UserTag().String())
+				c.Logf(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[1].UserTag, gc.Equals, localUser.UserTag().String())
+				c.Logf(string(users.Changes[1].Action), gc.Equals, string(params.AddEnvUser))
+				c.Logf(users.Changes[1].UserTag, gc.Equals, newUserTag.String())
+			} else {
+				c.Log("wrong input structure")
+				c.Fail()
+			}
+			if result, ok := response.(*params.ErrorResults); ok {
+				err := &params.Error{Message: "existing user"}
+				*result = params.ErrorResults{Results: []params.ErrorResult{{Error: err}, {Error: nil}, {Error: nil}}}
+			} else {
+				c.Log("wrong output structure")
+				c.Fail()
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+
+	err := client.ShareEnvironment([]names.UserTag{existingUser.UserTag(), localUser.UserTag(), newUserTag})
+	c.Assert(err, gc.ErrorMatches, `existing user`)
+}
+
+func (s *clientSuite) TestShareEnvironmentRealAPIServer(c *gc.C) {
+	client := s.APIState.Client()
+	user := names.NewUserTag("foo@ubuntuone")
+	err := client.ShareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+	c.Assert(envUser.CreatedBy(), gc.Equals, s.AdminUserTag(c).Username())
+	c.Assert(envUser.LastConnection(), gc.IsNil)
+}
+
+func (s *clientSuite) TestUnshareEnvironmentRealAPIServer(c *gc.C) {
+	client := s.APIState.Client()
+	user := names.NewUserTag("foo@ubuntuone")
+	err := client.ShareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+
+	envUser, err := s.State.EnvironmentUser(user)
+	c.Assert(err, gc.IsNil)
+	c.Assert(envUser.UserName(), gc.Equals, user.Username())
+
+	err = client.UnshareEnvironment([]names.UserTag{user})
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.EnvironmentUser(user)
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
@@ -198,7 +293,7 @@ func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
 
 	// If the server is old, we log at "/log"
 	info := s.APIInfo(c)
-	info.EnvironTag = nil
+	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -214,7 +309,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.EnvironTag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -228,7 +323,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 	// Backwards compatibility, passing EnvironTag = "" should just work
-	info.EnvironTag = nil
+	info.EnvironTag = names.NewEnvironTag("")
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()
@@ -236,7 +331,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in the correct environment UUID should also work
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.EnvironTag()
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()
@@ -249,13 +344,46 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Assert(apistate, gc.IsNil)
 }
 
-func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
-	defer api.PatchEnvironTag(s.APIState, "bad-env-uuid")()
-	emptyCons := constraints.Value{}
-	defaultSeries := ""
-	_, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches,
-		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
+func (s *clientSuite) TestSetEnvironAgentVersionDuringUpgrade(c *gc.C) {
+	// This is an integration test which ensure that a test with the
+	// correct error code is seen by the client from the
+	// SetEnvironAgentVersion call when an upgrade is in progress.
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
+		Jobs: []state.MachineJob{state.JobManageEnviron},
+	})
+	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
+	c.Assert(err, gc.IsNil)
+	nextVersion := version.MustParse("9.8.7")
+	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
+	c.Assert(err, gc.IsNil)
+
+	err = s.APIState.Client().SetEnvironAgentVersion(nextVersion)
+
+	// Expect an error with a error code that indicates this specific
+	// situation. The client needs to be able to reliably identify
+	// this error and handle it differently to other errors.
+	c.Assert(params.IsCodeUpgradeInProgress(err), jc.IsTrue)
+}
+
+func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {
+	client := s.APIState.Client()
+	someErr := errors.New("random")
+	cleanup := api.PatchClientFacadeCall(client,
+		func(request string, args interface{}, response interface{}) error {
+			c.Assert(request, gc.Equals, "AbortCurrentUpgrade")
+			c.Assert(args, gc.IsNil)
+			c.Assert(response, gc.IsNil)
+			return someErr
+		},
+	)
+	defer cleanup()
+
+	err := client.AbortCurrentUpgrade()
+	c.Assert(err, gc.Equals, someErr) // Confirms that the correct facade was called
 }
 
 // badReader raises err when Read is called.

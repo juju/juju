@@ -20,6 +20,14 @@ type Client struct {
 	facade base.FacadeCaller
 }
 
+// MetricsManagerClient defines the methods on the metricsmanager API end point.
+type MetricsManagerClient interface {
+	CleanupOldMetrics() error
+	SendMetrics() error
+}
+
+var _ MetricsManagerClient = (*Client)(nil)
+
 // NewClient creates a new client for accessing the metricsmanager api
 func NewClient(st *api.State) *Client {
 	frontend, backend := base.NewClientFacade(st, "MetricsManager")
@@ -29,11 +37,32 @@ func NewClient(st *api.State) *Client {
 // CleanupOldMetrics looks for metrics that are 24 hours old (or older)
 // and have been sent. Any metrics it finds are deleted.
 func (c *Client) CleanupOldMetrics() error {
+	envTag, err := c.st.EnvironTag()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	p := params.Entities{Entities: []params.Entity{
-		{c.st.EnvironTag()},
+		{envTag.String()},
 	}}
 	results := new(params.ErrorResults)
-	err := c.facade.FacadeCall("CleanupOldMetrics", p, results)
+	err = c.facade.FacadeCall("CleanupOldMetrics", p, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// SendMetrics will send any unsent metrics to the collection service.
+func (c *Client) SendMetrics() error {
+	envTag, err := c.st.EnvironTag()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p := params.Entities{Entities: []params.Entity{
+		{envTag.String()},
+	}}
+	results := new(params.ErrorResults)
+	err = c.facade.FacadeCall("SendMetrics", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}

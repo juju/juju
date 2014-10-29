@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -70,7 +70,7 @@ var syncToolsCommandTests = []struct {
 		args:        []string{"-e", "test-target", "--all", "--dev"},
 		sctx: &sync.SyncContext{
 			AllVersions: true,
-			Dev:         true,
+			Stream:      "testing",
 		},
 	},
 	{
@@ -99,12 +99,15 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 	for i, test := range syncToolsCommandTests {
 		c.Logf("test %d: %s", i, test.description)
 		called := false
+		if test.sctx.Stream == "" {
+			test.sctx.Stream = "released"
+		}
 		syncTools = func(sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
 			c.Assert(sctx.MajorVersion, gc.Equals, test.sctx.MajorVersion)
 			c.Assert(sctx.MinorVersion, gc.Equals, test.sctx.MinorVersion)
 			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
-			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
+			c.Assert(sctx.Stream, gc.Equals, test.sctx.Stream)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
 
 			c.Assert(sctx.TargetToolsFinder, gc.FitsTypeOf, syncToolsAPIAdapter{})
@@ -132,7 +135,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.AllVersions, gc.Equals, false)
 		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Stream, gc.Equals, "released")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
@@ -171,7 +174,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.AllVersions, gc.Equals, false)
 		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Stream, gc.Equals, "released")
 		c.Assert(sctx.Source, gc.Equals, "")
 		c.Assert(sctx.TargetToolsUploader, gc.FitsTypeOf, sync.StorageToolsUploader{})
 		uploader := sctx.TargetToolsUploader.(sync.StorageToolsUploader)
@@ -247,7 +250,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 	uploadToolsErr := errors.New("uh oh")
 	fake := fakeSyncToolsAPI{
-		uploadTools: func(r io.Reader, v version.Binary) (*coretools.Tools, error) {
+		uploadTools: func(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
 			data, err := ioutil.ReadAll(r)
 			c.Assert(err, gc.IsNil)
 			c.Assert(string(data), gc.Equals, "abc")
@@ -256,21 +259,21 @@ func (s *syncToolsSuite) TestAPIAdapterUploadTools(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	err := a.UploadTools(&coretools.Tools{Version: version.Current}, []byte("abc"))
+	err := a.UploadTools("released", &coretools.Tools{Version: version.Current}, []byte("abc"))
 	c.Assert(err, gc.Equals, uploadToolsErr)
 }
 
 type fakeSyncToolsAPI struct {
 	findTools   func(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error)
-	uploadTools func(r io.Reader, v version.Binary) (*coretools.Tools, error)
+	uploadTools func(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error)
 }
 
 func (f *fakeSyncToolsAPI) FindTools(majorVersion, minorVersion int, series, arch string) (params.FindToolsResult, error) {
 	return f.findTools(majorVersion, minorVersion, series, arch)
 }
 
-func (f *fakeSyncToolsAPI) UploadTools(r io.Reader, v version.Binary) (*coretools.Tools, error) {
-	return f.uploadTools(r, v)
+func (f *fakeSyncToolsAPI) UploadTools(r io.Reader, v version.Binary, additionalSeries ...string) (*coretools.Tools, error) {
+	return f.uploadTools(r, v, additionalSeries...)
 }
 
 func (f *fakeSyncToolsAPI) Close() error {

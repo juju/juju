@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -66,7 +66,7 @@ var marshalTestCases = []struct {
 			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"Subordinate":false}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
@@ -87,7 +87,7 @@ var marshalTestCases = []struct {
 			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo","StatusData":null}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
@@ -164,4 +164,91 @@ func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *gc.C) {
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
 	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
+}
+
+type ErrorResultsSuite struct{}
+
+var _ = gc.Suite(&ErrorResultsSuite{})
+
+func (s *ErrorResultsSuite) TestOneError(c *gc.C) {
+	for i, test := range []struct {
+		results  params.ErrorResults
+		errMatch string
+	}{
+		{
+			errMatch: "expected 1 result, got 0",
+		}, {
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}},
+			},
+		}, {
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}, {nil}},
+			},
+			errMatch: "expected 1 result, got 2",
+		}, {
+			results: params.ErrorResults{
+				[]params.ErrorResult{
+					{&params.Error{Message: "test error"}},
+				},
+			},
+			errMatch: "test error",
+		},
+	} {
+		c.Logf("test %d", i)
+		err := test.results.OneError()
+		if test.errMatch == "" {
+			c.Check(err, gc.IsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errMatch)
+		}
+	}
+}
+
+func (s *ErrorResultsSuite) TestCombine(c *gc.C) {
+	for i, test := range []struct {
+		msg      string
+		results  params.ErrorResults
+		errMatch string
+	}{
+		{
+			msg: "no results, no error",
+		}, {
+			msg: "single nil result",
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}},
+			},
+		}, {
+			msg: "multiple nil results",
+			results: params.ErrorResults{
+				[]params.ErrorResult{{nil}, {nil}},
+			},
+		}, {
+			msg: "one error result",
+			results: params.ErrorResults{
+				[]params.ErrorResult{
+					{&params.Error{Message: "test error"}},
+				},
+			},
+			errMatch: "test error",
+		}, {
+			msg: "mixed error results",
+			results: params.ErrorResults{
+				[]params.ErrorResult{
+					{&params.Error{Message: "test error"}},
+					{nil},
+					{&params.Error{Message: "second error"}},
+				},
+			},
+			errMatch: "test error\nsecond error",
+		},
+	} {
+		c.Logf("test %d: %s", i, test.msg)
+		err := test.results.Combine()
+		if test.errMatch == "" {
+			c.Check(err, gc.IsNil)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errMatch)
+		}
+	}
 }

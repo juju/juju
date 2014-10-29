@@ -1,22 +1,27 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 // dummyHookContext implements jujuc.Context,
 // as expected by jujuc.NewCommand.
-type dummyHookContext struct{}
+type dummyHookContext struct{ jujuc.Context }
 
+func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
+	return nil
+}
 func (dummyHookContext) UnitName() string {
 	return ""
 }
@@ -32,13 +37,12 @@ func (dummyHookContext) OpenPort(protocol string, port int) error {
 func (dummyHookContext) ClosePort(protocol string, port int) error {
 	return nil
 }
+func (dummyHookContext) OpenedPorts() []network.PortRange {
+	return nil
+}
 func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
-func (dummyHookContext) ActionParams() map[string]interface{} {
-	return nil
-}
-
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false
 }

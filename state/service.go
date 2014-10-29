@@ -13,12 +13,11 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 )
 
@@ -32,7 +31,9 @@ type Service struct {
 // serviceDoc represents the internal state of a service in MongoDB.
 // Note the correspondence with ServiceInfo in apiserver/params.
 type serviceDoc struct {
-	Name          string `bson:"_id"`
+	DocID         string `bson:"_id"`
+	Name          string `bson:"name"`
+	EnvUUID       string `bson:"env-uuid"`
 	Series        string
 	Subordinate   bool
 	CharmURL      *charm.URL
@@ -104,7 +105,7 @@ var errRefresh = stderrors.New("state seems inconsistent, refresh and try again"
 // some point; if the service has no units, and no relation involving the
 // service has any units in scope, they are all removed immediately.
 func (s *Service) Destroy() (err error) {
-	defer errors.Maskf(&err, "cannot destroy service %q", s)
+	defer errors.DeferredAnnotatef(&err, "cannot destroy service %q", s)
 	defer func() {
 		if err == nil {
 			// This is a white lie; the document might actually be removed.
@@ -191,7 +192,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the service from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if s.doc.UnitCount > 0 {
-		ops = append(ops, s.st.newCleanupOp(cleanupUnitsForDyingService, s.doc.Name+"/"))
+		ops = append(ops, s.st.newCleanupOp(cleanupUnitsForDyingService, s.doc.Name))
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)
@@ -203,7 +204,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	}
 	return append(ops, txn.Op{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: notLastRefs,
 		Update: update,
 	}), nil
@@ -214,7 +215,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 func (s *Service) removeOps(asserts bson.D) []txn.Op {
 	ops := []txn.Op{{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: asserts,
 		Remove: true,
 	}, {
@@ -253,7 +254,7 @@ func (s *Service) ClearExposed() error {
 func (s *Service) setExposed(exposed bool) (err error) {
 	ops := []txn.Op{{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
@@ -423,7 +424,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		// Update the charm URL and force flag (if relevant).
 		{
 			C:      servicesC,
-			Id:     s.doc.Name,
+			Id:     s.doc.DocID,
 			Assert: append(isAliveDoc, differentCharm...),
 			Update: bson.D{{"$set", bson.D{{"charmurl", ch.URL()}, {"forcecharm", force}}}},
 		},
@@ -447,7 +448,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Update the relation count as well.
 	ops = append(ops, txn.Op{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Assert: append(isAliveDoc, sameRelCount...),
 		Update: bson.D{{"$inc", bson.D{{"relationcount", len(newPeers)}}}},
 	})
@@ -487,7 +488,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			}
 		}
 		// Make sure the service doesn't have this charm already.
-		sel := bson.D{{"_id", s.doc.Name}, {"charmurl", ch.URL()}}
+		sel := bson.D{{"_id", s.doc.DocID}, {"charmurl", ch.URL()}}
 		var ops []txn.Op
 		if count, err := services.Find(sel).Count(); err != nil {
 			return nil, err
@@ -496,7 +497,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
 			ops = []txn.Op{{
 				C:      servicesC,
-				Id:     s.doc.Name,
+				Id:     s.doc.DocID,
 				Assert: append(isAliveDoc, sameCharm...),
 				Update: bson.D{{"$set", bson.D{{"forcecharm", force}}}},
 			}}
@@ -529,7 +530,7 @@ func (s *Service) Refresh() error {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
 
-	err := services.FindId(s.doc.Name).One(&s.doc)
+	err := services.FindId(s.doc.DocID).One(&s.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("service %q", s)
 	}
@@ -546,7 +547,7 @@ func (s *Service) newUnitName() (string, error) {
 
 	change := mgo.Change{Update: bson.D{{"$inc", bson.D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
-	if _, err := services.Find(bson.D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
+	if _, err := services.Find(bson.D{{"_id", s.doc.DocID}}).Apply(change, &result); err == mgo.ErrNotFound {
 		return "", errors.NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
@@ -570,35 +571,42 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	if err != nil {
 		return "", nil, err
 	}
+	docID := s.st.docID(name)
 	globalKey := unitGlobalKey(name)
 	udoc := &unitDoc{
+		DocID:     docID,
 		Name:      name,
+		EnvUUID:   s.doc.EnvUUID,
 		Service:   s.doc.Name,
 		Series:    s.doc.Series,
 		Life:      Alive,
 		Principal: principalName,
 	}
 	sdoc := statusDoc{
-		Status: params.StatusPending,
+		Status: StatusPending,
+	}
+	msdoc := meterStatusDoc{
+		Code: MeterNotSet,
 	}
 	ops := []txn.Op{
 		{
 			C:      unitsC,
-			Id:     name,
+			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: udoc,
 		},
 		createStatusOp(s.st, globalKey, sdoc),
+		createMeterStatusOp(s.st, globalKey, msdoc),
 		{
 			C:      servicesC,
-			Id:     s.doc.Name,
+			Id:     s.doc.DocID,
 			Assert: append(isAliveDoc, asserts...),
 			Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 		}}
 	if s.doc.Subordinate {
 		ops = append(ops, txn.Op{
 			C:  unitsC,
-			Id: principalName,
+			Id: s.st.docID(principalName),
 			Assert: append(isAliveDoc, bson.DocElem{
 				"subordinates", bson.D{{"$not", bson.RegEx{Pattern: "^" + s.doc.Name + "/"}}},
 			}),
@@ -618,31 +626,27 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 	return name, ops, nil
 }
 
-// GetOwnerTag returns the owner of this service
-// SCHEMACHANGE
-// TODO(mattyw) remove when schema upgrades are possible
-func (s *serviceDoc) GetOwnerTag() string {
-	if s.OwnerTag != "" {
-		return s.OwnerTag
-	}
-	return "user-admin"
-}
-
 // SCHEMACHANGE
 // TODO(mattyw) remove when schema upgrades are possible
 func (s *Service) GetOwnerTag() string {
-	return s.doc.GetOwnerTag()
+	owner := s.doc.OwnerTag
+	if owner == "" {
+		// We know that if there was no owner, it was created with an early
+		// version of juju, and that admin was the only user.
+		owner = names.NewUserTag("admin").String()
+	}
+	return owner
 }
 
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
-	defer errors.Maskf(&err, "cannot add unit to service %q", s)
+	defer errors.DeferredAnnotatef(&err, "cannot add unit to service %q", s)
 	name, ops, err := s.addUnitOps("", nil)
 	if err != nil {
 		return nil, err
 	}
 	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-		if alive, err := isAlive(s.st.db, servicesC, s.doc.Name); err != nil {
+		if alive, err := isAlive(s.st.db, servicesC, s.doc.DocID); err != nil {
 			return nil, err
 		} else if !alive {
 			return nil, fmt.Errorf("service is not alive")
@@ -651,13 +655,17 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	} else if err != nil {
 		return nil, err
 	}
-	return s.Unit(name)
+	return s.st.Unit(name)
 }
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
 func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops, err := u.destroyHostOps(s)
+	if err != nil {
+		return nil, err
+	}
+	portsOps, err := removePortsForUnitOps(s.st, u)
 	if err != nil {
 		return nil, err
 	}
@@ -668,15 +676,17 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	ops = append(ops, txn.Op{
 		C:      unitsC,
-		Id:     u.doc.Name,
+		Id:     u.doc.DocID,
 		Assert: append(observedFieldsMatch, asserts...),
 		Remove: true,
 	},
 		removeConstraintsOp(s.st, u.globalKey()),
 		removeStatusOp(s.st, u.globalKey()),
+		removeMeterStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
 		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
+	ops = append(ops, portsOps...)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
 		if errors.IsNotFound(err) {
@@ -692,7 +702,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	}
 	svcOp := txn.Op{
 		C:      servicesC,
-		Id:     s.doc.Name,
+		Id:     s.doc.DocID,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 	}
 	if s.doc.Life == Alive {
@@ -709,23 +719,6 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 	ops = append(ops, svcOp)
 
 	return ops, nil
-}
-
-// Unit returns the service's unit with name.
-func (s *Service) Unit(name string) (*Unit, error) {
-	if !names.IsValidUnit(name) {
-		return nil, fmt.Errorf("%q is not a valid unit name", name)
-	}
-
-	units, closer := s.st.getCollection(unitsC)
-	defer closer()
-
-	udoc := &unitDoc{}
-	sel := bson.D{{"_id", name}, {"service", s.doc.Name}}
-	if err := units.Find(sel).One(udoc); err != nil {
-		return nil, fmt.Errorf("cannot get unit %q from service %q: %v", name, s.doc.Name, err)
-	}
-	return newUnit(s.st, udoc), nil
 }
 
 // AllUnits returns all units of the service.
@@ -754,7 +747,7 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 }
 
 func serviceRelations(st *State, name string) (relations []*Relation, err error) {
-	defer errors.Maskf(&err, "can't get relations for service %q", name)
+	defer errors.DeferredAnnotatef(&err, "can't get relations for service %q", name)
 	relationsCollection, closer := st.getCollection(relationsC)
 	defer closer()
 
@@ -831,14 +824,14 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	if s.doc.Subordinate {
 		return ErrSubordinateConstraints
 	}
-	defer errors.Maskf(&err, "cannot set constraints")
+	defer errors.DeferredAnnotatef(&err, "cannot set constraints")
 	if s.doc.Life != Alive {
 		return errNotAlive
 	}
 	ops := []txn.Op{
 		{
 			C:      servicesC,
-			Id:     s.doc.Name,
+			Id:     s.doc.DocID,
 			Assert: isAliveDoc,
 		},
 		setConstraintsOp(s.st, s.globalKey(), cons),

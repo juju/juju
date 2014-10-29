@@ -1,12 +1,12 @@
 // Copyright 2013 Canonical Ltd.
-// Licensed under the LGPLv3, see COPYING and COPYING.LESSER file for details.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package version_test
 
 import (
 	"testing"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 )
 
 func Test(t *testing.T) {

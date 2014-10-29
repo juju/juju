@@ -5,6 +5,7 @@ package toolstorage_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -15,8 +16,9 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
+	txntesting "github.com/juju/txn/testing"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/toolstorage"
 	"github.com/juju/juju/testing"
@@ -36,6 +38,7 @@ type ToolsSuite struct {
 	storage            toolstorage.Storage
 	managedStorage     blobstore.ManagedStorage
 	metadataCollection *mgo.Collection
+	txnRunner          jujutxn.Runner
 }
 
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
@@ -50,8 +53,8 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	catalogue := s.session.DB("catalogue")
 	s.managedStorage = blobstore.NewManagedStorage(catalogue, rs)
 	s.metadataCollection = catalogue.C("toolsmetadata")
-	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
-	s.storage = toolstorage.NewStorage("my-uuid", s.managedStorage, s.metadataCollection, txnRunner)
+	s.txnRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: catalogue})
+	s.storage = toolstorage.NewStorage("my-uuid", s.managedStorage, s.metadataCollection, s.txnRunner)
 }
 
 func (s *ToolsSuite) TearDownTest(c *gc.C) {
@@ -95,49 +98,6 @@ func bumpVersion(v version.Binary) version.Binary {
 	return v
 }
 
-func (s *ToolsSuite) TestAddToolsAlias(c *gc.C) {
-	s.testAddTools(c, "abc")
-	alias := bumpVersion(version.Current)
-	err := s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, gc.IsNil)
-
-	md1, r1, err := s.storage.Tools(version.Current)
-	c.Assert(err, gc.IsNil)
-	defer r1.Close()
-	c.Assert(md1.Version, gc.Equals, version.Current)
-
-	md2, r2, err := s.storage.Tools(alias)
-	c.Assert(err, gc.IsNil)
-	defer r2.Close()
-	c.Assert(md2.Version, gc.Equals, alias)
-
-	c.Assert(md1.Size, gc.Equals, md2.Size)
-	c.Assert(md1.SHA256, gc.Equals, md2.SHA256)
-	data1, err := ioutil.ReadAll(r1)
-	c.Assert(err, gc.IsNil)
-	data2, err := ioutil.ReadAll(r2)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data1), gc.Equals, string(data2))
-}
-
-func (s *ToolsSuite) TestAddToolsAliasDoesNotReplace(c *gc.C) {
-	s.testAddTools(c, "abc")
-	alias := bumpVersion(version.Current)
-	err := s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, gc.IsNil)
-	err = s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsAlreadyExists)
-}
-
-func (s *ToolsSuite) TestAddToolsAliasNotExist(c *gc.C) {
-	// try to alias a non-existent version
-	alias := bumpVersion(version.Current)
-	err := s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, _, err = s.storage.Tools(alias)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-}
-
 func (s *ToolsSuite) TestAllMetadata(c *gc.C) {
 	metadata, err := s.storage.AllMetadata()
 	c.Assert(err, gc.IsNil)
@@ -155,8 +115,7 @@ func (s *ToolsSuite) TestAllMetadata(c *gc.C) {
 	c.Assert(metadata, jc.SameContents, expected)
 
 	alias := bumpVersion(version.Current)
-	err = s.storage.AddToolsAlias(alias, version.Current)
-	c.Assert(err, gc.IsNil)
+	s.addMetadataDoc(c, alias, 3, "hash(abc)", "path")
 
 	metadata, err = s.storage.AllMetadata()
 	c.Assert(err, gc.IsNil)
@@ -210,6 +169,162 @@ func (s *ToolsSuite) TestTools(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "blah")
 }
 
+func (s *ToolsSuite) TestAddToolsRemovesExisting(c *gc.C) {
+	// Add a metadata doc and a blob at a known path, then
+	// call AddTools and ensure the original blob is removed.
+	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
+	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	c.Assert(err, gc.IsNil)
+
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash(xyzzzz)",
+	}
+	err = s.storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.IsNil)
+
+	// old blob should be gone
+	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", "path")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	s.assertTools(c, addedMetadata, "xyzzzz")
+}
+
+func (s *ToolsSuite) TestAddToolsRemovesExistingRemoveFails(c *gc.C) {
+	// Add a metadata doc and a blob at a known path, then
+	// call AddTools and ensure that AddTools attempts to remove
+	// the original blob, but does not return an error if it
+	// fails.
+	s.addMetadataDoc(c, version.Current, 3, "hash(abc)", "path")
+	err := s.managedStorage.PutForEnvironment("my-uuid", "path", strings.NewReader("blah"), 4)
+	c.Assert(err, gc.IsNil)
+
+	storage := toolstorage.NewStorage(
+		"my-uuid",
+		removeFailsManagedStorage{s.managedStorage},
+		s.metadataCollection,
+		s.txnRunner,
+	)
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash(xyzzzz)",
+	}
+	err = storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.IsNil)
+
+	// old blob should still be there
+	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", "path")
+	c.Assert(err, gc.IsNil)
+	r.Close()
+
+	s.assertTools(c, addedMetadata, "xyzzzz")
+}
+
+func (s *ToolsSuite) TestAddToolsRemovesBlobOnFailure(c *gc.C) {
+	storage := toolstorage.NewStorage(
+		"my-uuid",
+		s.managedStorage,
+		s.metadataCollection,
+		errorTransactionRunner{s.txnRunner},
+	)
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash",
+	}
+	err := storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.ErrorMatches, "cannot store tools metadata: Run fails")
+
+	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
+	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *ToolsSuite) TestAddToolsRemovesBlobOnFailureRemoveFails(c *gc.C) {
+	storage := toolstorage.NewStorage(
+		"my-uuid",
+		removeFailsManagedStorage{s.managedStorage},
+		s.metadataCollection,
+		errorTransactionRunner{s.txnRunner},
+	)
+	addedMetadata := toolstorage.Metadata{
+		Version: version.Current,
+		Size:    6,
+		SHA256:  "hash",
+	}
+	err := storage.AddTools(strings.NewReader("xyzzzz"), addedMetadata)
+	c.Assert(err, gc.ErrorMatches, "cannot store tools metadata: Run fails")
+
+	// blob should still be there, because the removal failed.
+	path := fmt.Sprintf("tools/%s-%s", addedMetadata.Version, addedMetadata.SHA256)
+	r, _, err := s.managedStorage.GetForEnvironment("my-uuid", path)
+	c.Assert(err, gc.IsNil)
+	r.Close()
+}
+
+func (s *ToolsSuite) TestAddToolsSame(c *gc.C) {
+	metadata := toolstorage.Metadata{Version: version.Current, Size: 1, SHA256: "0"}
+	for i := 0; i < 2; i++ {
+		err := s.storage.AddTools(strings.NewReader("0"), metadata)
+		c.Assert(err, gc.IsNil)
+		s.assertTools(c, metadata, "0")
+	}
+}
+
+func (s *ToolsSuite) TestAddToolsConcurrent(c *gc.C) {
+	metadata0 := toolstorage.Metadata{Version: version.Current, Size: 1, SHA256: "0"}
+	metadata1 := toolstorage.Metadata{Version: version.Current, Size: 1, SHA256: "1"}
+
+	addMetadata := func() {
+		err := s.storage.AddTools(strings.NewReader("0"), metadata0)
+		c.Assert(err, gc.IsNil)
+		r, _, err := s.managedStorage.GetForEnvironment("my-uuid", fmt.Sprintf("tools/%s-0", version.Current))
+		c.Assert(err, gc.IsNil)
+		r.Close()
+	}
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata).Check()
+
+	err := s.storage.AddTools(strings.NewReader("1"), metadata1)
+	c.Assert(err, gc.IsNil)
+
+	// Blob added in before-hook should be removed.
+	_, _, err = s.managedStorage.GetForEnvironment("my-uuid", fmt.Sprintf("tools/%s-0", version.Current))
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	s.assertTools(c, metadata1, "1")
+}
+
+func (s *ToolsSuite) TestAddToolsExcessiveContention(c *gc.C) {
+	metadata := []toolstorage.Metadata{
+		{Version: version.Current, Size: 1, SHA256: "0"},
+		{Version: version.Current, Size: 1, SHA256: "1"},
+		{Version: version.Current, Size: 1, SHA256: "2"},
+		{Version: version.Current, Size: 1, SHA256: "3"},
+	}
+
+	i := 1
+	addMetadata := func() {
+		err := s.storage.AddTools(strings.NewReader(metadata[i].SHA256), metadata[i])
+		c.Assert(err, gc.IsNil)
+		i++
+	}
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, addMetadata, addMetadata, addMetadata).Check()
+
+	err := s.storage.AddTools(strings.NewReader(metadata[0].SHA256), metadata[0])
+	c.Assert(err, gc.ErrorMatches, "cannot store tools metadata: state changing too quickly; try again soon")
+
+	// There should be no blobs apart from the last one added by the before-hook.
+	for _, metadata := range metadata[:3] {
+		path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
+		_, _, err = s.managedStorage.GetForEnvironment("my-uuid", path)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	}
+
+	s.assertTools(c, metadata[3], "3")
+}
+
 func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash, path string) {
 	doc := struct {
 		Id      string         `bson:"_id"`
@@ -226,4 +341,31 @@ func (s *ToolsSuite) addMetadataDoc(c *gc.C, v version.Binary, size int64, hash,
 	}
 	err := s.metadataCollection.Insert(&doc)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *ToolsSuite) assertTools(c *gc.C, expected toolstorage.Metadata, content string) {
+	metadata, r, err := s.storage.Tools(expected.Version)
+	c.Assert(err, gc.IsNil)
+	defer r.Close()
+	c.Assert(metadata, gc.Equals, expected)
+
+	data, err := ioutil.ReadAll(r)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, content)
+}
+
+type removeFailsManagedStorage struct {
+	blobstore.ManagedStorage
+}
+
+func (removeFailsManagedStorage) RemoveForEnvironment(uuid, path string) error {
+	return errors.Errorf("cannot remove %s:%s", uuid, path)
+}
+
+type errorTransactionRunner struct {
+	jujutxn.Runner
+}
+
+func (errorTransactionRunner) Run(transactions jujutxn.TransactionSource) error {
+	return errors.New("Run fails")
 }

@@ -16,26 +16,32 @@ type ActionStatus string
 
 const (
 	// ActionFailed signifies that the action did not complete successfully.
-	ActionFailed ActionStatus = "fail"
+	ActionFailed ActionStatus = "failed"
 
 	// ActionCompleted indicates that the action ran to completion as intended.
-	ActionCompleted ActionStatus = "complete"
+	ActionCompleted ActionStatus = "completed"
+
+	// ActionCancelled means that the Action was cancelled before being run.
+	ActionCancelled ActionStatus = "cancelled"
+
+	// ActionPending is the default status when an Action is first queued.
+	ActionPending ActionStatus = "pending"
 )
 
 const actionResultMarker string = "_ar_"
 
 type actionResultDoc struct {
-	// Id is the key for this document.  The format of the id encodes
+	// DocId is the key for this document.  The format of the id encodes
 	// the id of the Action that was used to produce this ActionResult.
 	// The format is: <action id> + actionResultMarker + <generated sequence>
-	Id string `bson:"_id"`
+	// The <action id> encodes the EnvUUID.
+	DocId string `bson:"_id"`
 
-	// ActionName identifies the action that was run.
-	ActionName string `bson:"name"`
+	// EnvUUID is the environment identifier.
+	EnvUUID string `bson:"env-uuid"`
 
-	// Parameters describes the parameters passed in for the action
-	// when it was run.
-	Parameters map[string]interface{} `bson:"parameters"`
+	// Action describes the action that was queued.
+	Action actionDoc `bson:"action"`
 
 	// Status represents the end state of the Action; ActionFailed for an
 	// action that was removed prematurely, or that failed, and
@@ -56,32 +62,31 @@ type ActionResult struct {
 	doc actionResultDoc
 }
 
-// Id returns the id of the ActionResult.
+// Id returns the local id of the ActionResult.
 func (a *ActionResult) Id() string {
-	return a.doc.Id
+	return a.st.localID(a.doc.DocId)
 }
 
-// Tag implements the Entity interface and returns a names.Tag that
-// is a names.ActionResultTag
-func (a *ActionResult) Tag() names.Tag {
-	return a.ActionResultTag()
+// Receiver  returns the Name of the ActionReceiver for which this action
+// is enqueued.  Usually this is a Unit Name().
+func (a *ActionResult) Receiver() string {
+	return a.doc.Action.Receiver
 }
 
-// ActionResultTag returns an ActionResultTag constructed from this
-// actionResult's Prefix and Sequence
-func (a *ActionResult) ActionResultTag() names.ActionResultTag {
-	return names.NewActionResultTag(a.Id())
+// Sequence returns the unique suffix of the ActionResult _id.
+func (a *ActionResult) Sequence() int {
+	return a.doc.Action.Sequence
 }
 
-// ActionName returns the name of the Action.
-func (a *ActionResult) ActionName() string {
-	return a.doc.ActionName
+// Name returns the name of the Action.
+func (a *ActionResult) Name() string {
+	return a.doc.Action.Name
 }
 
 // Parameters will contain a structure representing arguments or parameters
 // that were passed to the action.
 func (a *ActionResult) Parameters() map[string]interface{} {
-	return a.doc.Parameters
+	return a.doc.Action.Parameters
 }
 
 // Status returns the final state of the action.
@@ -94,14 +99,23 @@ func (a *ActionResult) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
 }
 
-// globalKey returns the global database key for the action.
-func (a *ActionResult) globalKey() string {
-	return actionResultGlobalKey(a.doc.Id)
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionResultTag.
+func (a *ActionResult) Tag() names.Tag {
+	return a.ActionResultTag()
 }
 
-// actionResultGlobalKey returns the global database key for the named action.
-func actionResultGlobalKey(name string) string {
-	return "ar#" + name
+// ActionResultTag returns an ActionResultTag constructed from this
+// actionResult's Prefix and Sequence.
+func (a *ActionResult) ActionResultTag() names.ActionResultTag {
+	return names.NewActionResultTag(a.Id())
+}
+
+// ActionTag returns the ActionTag for the Action that this ActionResult
+// is for.
+func (a *ActionResult) ActionTag() names.ActionTag {
+	ar := a.ActionResultTag()
+	return names.JoinActionTag(ar.Prefix(), ar.Sequence())
 }
 
 // newActionResult builds an ActionResult from the supplied state and
@@ -122,12 +136,12 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", actionId))
 	}
 	return actionResultDoc{
-		Id:         id,
-		ActionName: a.doc.Name,
-		Parameters: a.doc.Parameters,
-		Status:     finalStatus,
-		Results:    results,
-		Message:    message,
+		DocId:   a.st.docID(id),
+		EnvUUID: a.doc.EnvUUID,
+		Action:  a.doc,
+		Status:  finalStatus,
+		Results: results,
+		Message: message,
 	}
 }
 
@@ -151,8 +165,21 @@ func actionResultPrefix(ar ActionReceiver) string {
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
 		C:      actionresultsC,
-		Id:     doc.Id,
+		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
+}
+
+// ensureActionResultMarker makes sure that the provided string has the
+// action result marker token at the end of the string.
+var ensureActionResultMarker = ensureSuffixFn(actionResultMarker)
+
+// actionResultIdFromTag converts an ActionTag to an actionResultId.
+func actionResultIdFromTag(tag names.ActionTag) string {
+	ptag := tag.PrefixTag()
+	if ptag == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%d", ensureActionResultMarker(ptag.Id()), tag.Sequence())
 }

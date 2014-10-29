@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -101,11 +101,11 @@ func defaultPassword(e apiAuthenticator) string {
 }
 
 type setStatuser interface {
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
+	SetStatus(status state.Status, info string, data map[string]interface{}) error
 }
 
 func setDefaultStatus(c *gc.C, entity setStatuser) {
-	err := entity.SetStatus(params.StatusStarted, "", nil)
+	err := entity.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -327,7 +327,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
-	u, err := s.State.User(s.AdminUserTag(c).Name())
+	u, err := s.State.User(s.AdminUserTag(c))
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)
@@ -347,7 +347,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -391,7 +391,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 				"remote-unit": "logging/0",
 				"foo":         "bar",
 			}
-			wu.SetStatus(params.StatusError, "blam", sd)
+			wu.SetStatus(state.StatusError, "blam", sd)
 		}
 
 		// Create the subordinate unit as a side-effect of entering

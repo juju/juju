@@ -23,6 +23,11 @@ type Relation struct {
 	life params.Life
 }
 
+// Tag returns the relation tag.
+func (r *Relation) Tag() names.RelationTag {
+	return r.tag
+}
+
 // String returns the relation as a string.
 func (r *Relation) String() string {
 	return r.tag.Id()

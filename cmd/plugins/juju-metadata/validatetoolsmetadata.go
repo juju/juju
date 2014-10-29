@@ -26,6 +26,7 @@ type ValidateToolsMetadataCommand struct {
 	out          cmd.Output
 	providerType string
 	metadataDir  string
+	stream       string
 	series       string
 	region       string
 	endpoint     string
@@ -76,7 +77,11 @@ Examples:
 
  - validate with series raring and using metadata from local directory
  
-  juju metadata validate-images -s raring -d <some directory>
+  juju metadata validate-tools -s raring -d <some directory>
+
+ - validate for the proposed stream
+
+  juju metadata validate-tools --stream proposed
 
 A key use case is to validate newly generated metadata prior to deployment to
 production. In this case, the metadata is placed in a local directory, a cloud
@@ -113,6 +118,7 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.exactVersion, "juju-version", "", "")
 	f.StringVar(&c.partVersion, "m", "", "the Juju major[.minor] version")
 	f.StringVar(&c.partVersion, "majorminor-version", "", "")
+	f.StringVar(&c.stream, "stream", tools.ReleasedStream, "simplestreams stream for which to generate the metadata")
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
@@ -144,7 +150,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := c.prepare(context, store)
+		environ, err := c.environ(context, store)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {
@@ -202,6 +208,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 			"local metadata directory", toolsURL, utils.VerifySSLHostnames),
 		}
 	}
+	params.Stream = c.stream
 
 	versions, resolveInfo, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,

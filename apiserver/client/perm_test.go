@@ -8,7 +8,8 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -28,125 +29,6 @@ var _ = gc.Suite(&permSuite{})
 // about the results. They only test that a call is succeeds or fails
 // (usually due to "permission denied"). There are separate test cases
 // testing each individual API call data flow later on.
-
-var (
-	userAdmin = names.NewUserTag("admin")
-	userOther = names.NewUserTag("other")
-)
-
-var operationPermTests = []struct {
-	about string
-	// op performs the operation to be tested using the given state
-	// connection. It returns a function that should be used to
-	// undo any changes made by the operation.
-	op    func(c *gc.C, st *api.State, mst *state.State) (reset func(), err error)
-	allow []names.Tag
-	deny  []names.Tag
-}{{
-	about: "Client.Status",
-	op:    opClientStatus,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceSet",
-	op:    opClientServiceSet,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceSetYAML",
-	op:    opClientServiceSetYAML,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceGet",
-	op:    opClientServiceGet,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.Resolved",
-	op:    opClientResolved,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceExpose",
-	op:    opClientServiceExpose,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceUnexpose",
-	op:    opClientServiceUnexpose,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceDeploy",
-	op:    opClientServiceDeploy,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceDeployWithNetworks",
-	op:    opClientServiceDeployWithNetworks,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceUpdate",
-	op:    opClientServiceUpdate,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceSetCharm",
-	op:    opClientServiceSetCharm,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.GetAnnotations",
-	op:    opClientGetAnnotations,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.SetAnnotations",
-	op:    opClientSetAnnotations,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.AddServiceUnits",
-	op:    opClientAddServiceUnits,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.DestroyServiceUnits",
-	op:    opClientDestroyServiceUnits,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.ServiceDestroy",
-	op:    opClientServiceDestroy,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.GetServiceConstraints",
-	op:    opClientGetServiceConstraints,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.SetServiceConstraints",
-	op:    opClientSetServiceConstraints,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.SetEnvironmentConstraints",
-	op:    opClientSetEnvironmentConstraints,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.EnvironmentGet",
-	op:    opClientEnvironmentGet,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.EnvironmentSet",
-	op:    opClientEnvironmentSet,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.SetEnvironAgentVersion",
-	op:    opClientSetEnvironAgentVersion,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.WatchAll",
-	op:    opClientWatchAll,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.CharmInfo",
-	op:    opClientCharmInfo,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.AddRelation",
-	op:    opClientAddRelation,
-	allow: []names.Tag{userAdmin, userOther},
-}, {
-	about: "Client.DestroyRelation",
-	op:    opClientDestroyRelation,
-	allow: []names.Tag{userAdmin, userOther},
-}}
 
 // allowed returns the set of allowed entities given an allow list and a
 // deny list.  If an allow list is specified, only those entities are
@@ -172,11 +54,127 @@ loop:
 }
 
 func (s *permSuite) TestOperationPerm(c *gc.C) {
+	var (
+		userAdmin = s.AdminUserTag(c)
+		userOther = names.NewLocalUserTag("other")
+	)
 	entities := s.setUpScenario(c)
-	for i, t := range operationPermTests {
+	for i, t := range []struct {
+		about string
+		// op performs the operation to be tested using the given state
+		// connection. It returns a function that should be used to
+		// undo any changes made by the operation.
+		op    func(c *gc.C, st *api.State, mst *state.State) (reset func(), err error)
+		allow []names.Tag
+		deny  []names.Tag
+	}{{
+		about: "Client.Status",
+		op:    opClientStatus,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceSet",
+		op:    opClientServiceSet,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceSetYAML",
+		op:    opClientServiceSetYAML,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceGet",
+		op:    opClientServiceGet,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.Resolved",
+		op:    opClientResolved,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceExpose",
+		op:    opClientServiceExpose,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceUnexpose",
+		op:    opClientServiceUnexpose,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceDeploy",
+		op:    opClientServiceDeploy,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceDeployWithNetworks",
+		op:    opClientServiceDeployWithNetworks,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceUpdate",
+		op:    opClientServiceUpdate,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceSetCharm",
+		op:    opClientServiceSetCharm,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.GetAnnotations",
+		op:    opClientGetAnnotations,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.SetAnnotations",
+		op:    opClientSetAnnotations,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.AddServiceUnits",
+		op:    opClientAddServiceUnits,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.DestroyServiceUnits",
+		op:    opClientDestroyServiceUnits,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.ServiceDestroy",
+		op:    opClientServiceDestroy,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.GetServiceConstraints",
+		op:    opClientGetServiceConstraints,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.SetServiceConstraints",
+		op:    opClientSetServiceConstraints,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.SetEnvironmentConstraints",
+		op:    opClientSetEnvironmentConstraints,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.EnvironmentGet",
+		op:    opClientEnvironmentGet,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.EnvironmentSet",
+		op:    opClientEnvironmentSet,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.SetEnvironAgentVersion",
+		op:    opClientSetEnvironAgentVersion,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.WatchAll",
+		op:    opClientWatchAll,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.CharmInfo",
+		op:    opClientCharmInfo,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.AddRelation",
+		op:    opClientAddRelation,
+		allow: []names.Tag{userAdmin, userOther},
+	}, {
+		about: "Client.DestroyRelation",
+		op:    opClientDestroyRelation,
+		allow: []names.Tag{userAdmin, userOther},
+	}} {
 		allow := allowed(entities, t.allow, t.deny)
-		for _, e := range entities {
-			c.Logf("test %d; %s; entity %q", i, t.about, e)
+		for j, e := range entities {
+			c.Logf("\n------\ntest %d,%d; %s; entity %q", i, j, t.about, e)
 			st := s.openAs(c, e)
 			reset, err := t.op(c, st, s.State)
 			if allow[e] {
@@ -200,6 +198,7 @@ func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error)
 	c.Assert(info.URL, gc.Equals, "local:quantal/wordpress-3")
 	c.Assert(info.Meta.Name, gc.Equals, "wordpress")
 	c.Assert(info.Revision, gc.Equals, 3)
+	c.Assert(info.Actions, jc.DeepEquals, &charm.Actions{ActionSpecs: nil})
 	return func() {}, nil
 }
 

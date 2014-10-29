@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
 )
 
 // State provides access to an agent's view of the state.
@@ -44,23 +43,10 @@ func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error
 	return &results.Entities[0], nil
 }
 
-func (st *State) StateServingInfo() (state.StateServingInfo, error) {
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	var results params.StateServingInfo
 	err := st.facade.FacadeCall("StateServingInfo", nil, &results)
-	return paramsStateServingInfoToStateStateServingInfo(&results), err
-}
-
-// convert params.StateServingInfo to a state.StateServingInfo.
-// This avoids state having a dependency on api/params.
-func paramsStateServingInfoToStateStateServingInfo(si *params.StateServingInfo) state.StateServingInfo {
-	return state.StateServingInfo{
-		APIPort:        si.APIPort,
-		StatePort:      si.StatePort,
-		Cert:           si.Cert,
-		PrivateKey:     si.PrivateKey,
-		SharedSecret:   si.SharedSecret,
-		SystemIdentity: si.SystemIdentity,
-	}
+	return results, err
 }
 
 // IsMaster reports whether the connected machine
@@ -131,4 +117,19 @@ func (m *Entity) SetPassword(password string) error {
 		return err
 	}
 	return results.OneError()
+}
+
+// ClearReboot clears the reboot flag of the machine.
+func (m *Entity) ClearReboot() error {
+	var result params.ErrorResults
+	args := params.SetStatus{
+		Entities: []params.EntityStatus{
+			{Tag: m.tag.String()},
+		},
+	}
+	err := m.st.facade.FacadeCall("ClearReboot", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
 }

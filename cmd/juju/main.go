@@ -12,6 +12,8 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/cmd/juju/backups"
+	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
 	// Import the providers.
@@ -50,6 +52,11 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
+	jcmd := NewJujuCommand(ctx)
+	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+}
+
+func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:            "juju",
 		Doc:             jujuDoc,
@@ -73,7 +80,7 @@ func Main(args []string) {
 	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	registerCommands(jcmd, ctx)
-	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
+	return jcmd
 }
 
 type commandRegistry interface {
@@ -105,6 +112,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(wrapEnvCommand(&StatusCommand{}))
 	r.Register(&SwitchCommand{})
 	r.Register(wrapEnvCommand(&EndpointCommand{}))
+	r.Register(wrapEnvCommand(&APIInfoCommand{}))
 
 	// Error resolution and debugging commands.
 	r.Register(wrapEnvCommand(&RunCommand{}))
@@ -137,11 +145,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Charm tool commands.
 	r.Register(&HelpToolCommand{})
 
+	// Manage backups.
+	r.Register(backups.NewCommand())
+
 	// Manage authorized ssh keys.
 	r.Register(NewAuthorizedKeysCommand())
 
 	// Manage users and access
-	r.Register(NewUserCommand())
+	r.Register(user.NewSuperCommand())
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))

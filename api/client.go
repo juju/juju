@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api
@@ -21,7 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -212,11 +212,11 @@ func (c *Client) Resolved(unit string, retry bool) error {
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
 // provisioner to retry.
-func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, error) {
+func (c *Client) RetryProvisioning(machines ...names.MachineTag) ([]params.ErrorResult, error) {
 	p := params.Entities{}
 	p.Entities = make([]params.Entity, len(machines))
 	for i, machine := range machines {
-		p.Entities[i] = params.Entity{Tag: machine}
+		p.Entities[i] = params.Entity{Tag: machine.String()}
 	}
 	var results params.ErrorResults
 	err := c.facade.FacadeCall("RetryProvisioning", p, &results)
@@ -284,7 +284,9 @@ func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 // AddMachines1dot18 adds new machines with the supplied parameters.
 //
 // TODO(axw) 2014-04-11 #XXX
-// This exists for backwards compatibility; remove in 1.21 (client only).
+// This exists for backwards compatibility;
+// We cannot remove this code while clients > 1.20 need to talk to 1.18
+// servers (which is something we need for an undetermined amount of time).
 func (c *Client) AddMachines1dot18(machineParams []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	args := params.AddMachines{
 		MachineParams: machineParams,
@@ -463,6 +465,7 @@ type CharmInfo struct {
 	URL      string
 	Config   *charm.Config
 	Meta     *charm.Meta
+	Actions  *charm.Actions
 }
 
 // CharmInfo returns information about the requested charm.
@@ -492,16 +495,52 @@ func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 
 // EnvironmentUUID returns the environment UUID from the client connection.
 func (c *Client) EnvironmentUUID() string {
-	value := c.st.EnvironTag()
-	if value != "" {
-		tag, err := names.ParseEnvironTag(value)
-		if err != nil {
-			logger.Warningf("environ tag not an environ: %v", err)
-			return ""
-		}
-		return tag.Id()
+	tag, err := c.st.EnvironTag()
+	if err != nil {
+		logger.Warningf("environ tag not an environ: %v", err)
+		return ""
 	}
-	return ""
+	return tag.Id()
+}
+
+// ShareEnvironment allows the given users access to the environment.
+func (c *Client) ShareEnvironment(users []names.UserTag) error {
+	var args params.ModifyEnvironUsers
+	for _, user := range users {
+		if &user != nil {
+			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+				UserTag: user.String(),
+				Action:  params.AddEnvUser,
+			})
+		}
+	}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Combine()
+}
+
+// UnshareEnvironment removes access to the environment for the given users.
+func (c *Client) UnshareEnvironment(users []names.UserTag) error {
+	var args params.ModifyEnvironUsers
+	for _, user := range users {
+		if &user != nil {
+			args.Changes = append(args.Changes, params.ModifyEnvironUser{
+				UserTag: user.String(),
+				Action:  params.RemoveEnvUser,
+			})
+		}
+	}
+
+	var result params.ErrorResults
+	err := c.facade.FacadeCall("ShareEnvironment", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return result.Combine()
 }
 
 // WatchAll holds the id of the newly-created AllWatcher.
@@ -567,6 +606,12 @@ func (c *Client) EnvironmentUnset(keys ...string) error {
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
 	return c.facade.FacadeCall("SetEnvironAgentVersion", args, nil)
+}
+
+// AbortCurrentUpgrade aborts and archives the current upgrade
+// synchronisation record, if any.
+func (c *Client) AbortCurrentUpgrade() error {
+	return c.facade.FacadeCall("AbortCurrentUpgrade", nil, nil)
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
@@ -715,14 +760,14 @@ func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
 }
 
 // UploadTools uploads tools at the specified location to the API server over HTTPS.
-func (c *Client) UploadTools(r io.Reader, vers version.Binary) (*tools.Tools, error) {
-	// Older versions of Juju expect to be told which series to expand
-	// the uploaded tools to on the server-side. In new versions we
-	// do this automatically, and the parameter will be ignored.
-	fakeSeries := version.OSSupportedSeries(vers.OS)
-
+func (c *Client) UploadTools(r io.Reader, vers version.Binary, additionalSeries ...string) (*tools.Tools, error) {
 	// Prepare the upload request.
-	url := fmt.Sprintf("%s/tools?binaryVersion=%s&series=%s", c.st.serverRoot, vers, strings.Join(fakeSeries, ","))
+	url := fmt.Sprintf(
+		"%s/tools?binaryVersion=%s&series=%s",
+		c.st.serverRoot,
+		vers,
+		strings.Join(additionalSeries, ","),
+	)
 	req, err := http.NewRequest("POST", url, r)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot create upload request")
@@ -775,16 +820,22 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
+// DEPRECATED: remove when we stop supporting 1.20 and earlier servers.
+// This API is now on the HighAvailability facade.
 func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
 	var results params.StateServersChangeResults
+	envTag, err := c.st.EnvironTag()
+	if err != nil {
+		return params.StateServersChanges{}, errors.Trace(err)
+	}
 	arg := params.StateServersSpecs{
 		Specs: []params.StateServersSpec{{
-			EnvironTag:      c.st.EnvironTag(),
+			EnvironTag:      envTag.String(),
 			NumStateServers: numStateServers,
 			Constraints:     cons,
 			Series:          series,
 		}}}
-	err := c.facade.FacadeCall("EnsureAvailability", arg, &results)
+	err = c.facade.FacadeCall("EnsureAvailability", arg, &results)
 	if err != nil {
 		return params.StateServersChanges{}, err
 	}
@@ -890,7 +941,7 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	cfg, err := websocket.NewConfig(target.String(), "http://localhost/")
 	cfg.Header = utils.BasicAuthHeader(c.st.tag, c.st.password)
-	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
+	cfg.TlsConfig = &tls.Config{RootCAs: c.st.certPool, ServerName: "juju-apiserver"}
 	connection, err := websocketDialConfig(cfg)
 	if err != nil {
 		return nil, err

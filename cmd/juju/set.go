@@ -34,7 +34,7 @@ In case a value starts with an at sign (@) the rest of the value is interpreted
 as a filename. The value itself is then read out of the named file. The maximum
 size of this value is 5M.
 
-Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command 
+Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command
 line and in configuration files.
 `
 
@@ -88,6 +88,12 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	}
 	settings := map[string]string{}
 	for k, v := range c.SettingsStrings {
+		//empty string is also valid as a setting value
+		if v == "" {
+			settings[k] = v
+			continue
+		}
+
 		if v[0] != '@' {
 			if !utf8.ValidString(v) {
 				return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
@@ -104,6 +110,24 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 		}
 		settings[k] = nv
 	}
+
+	result, err := api.ServiceGet(c.ServiceName)
+	if err != nil {
+		return err
+	}
+
+	for k, v := range settings {
+		configValue := result.Config[k]
+
+		configValueMap, ok := configValue.(map[string]interface{})
+		if ok {
+			// convert the value to string and compare
+			if fmt.Sprintf("%v", configValueMap["value"]) == v {
+				logger.Warningf("the configuration setting %q already has the value %q", k, v)
+			}
+		}
+	}
+
 	return api.ServiceSet(c.ServiceName, settings)
 }
 

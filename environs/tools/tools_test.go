@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -62,7 +62,8 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
 	final := map[string]interface{}{
-		"tools-metadata-url": "file://" + s.customToolsDir,
+		"agent-metadata-url": "file://" + s.customToolsDir,
+		"agent-stream":       "proposed",
 	}
 	for k, v := range attrs {
 		final[k] = v
@@ -82,11 +83,11 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return toolstesting.UploadToDirectory(c, s.customToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, "proposed", s.customToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return toolstesting.UploadToDirectory(c, s.publicToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, "proposed", s.publicToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
@@ -158,7 +159,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 		s.reset(c, nil)
 		custom := s.uploadCustom(c, test.custom...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{}, envtools.DoNotAllowRetry)
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -178,25 +179,12 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 	}
 }
 
-func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
-	s.reset(c, nil)
-	custom := toolstesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
-	s.uploadPublic(c, envtesting.VAll...)
-	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{}, envtools.DoNotAllowRetry)
-	c.Assert(err, gc.IsNil)
-	expect := map[version.Binary]string{}
-	for _, expected := range envtesting.V110p {
-		expect[expected] = custom[expected]
-	}
-	c.Assert(actual.URLs(), gc.DeepEquals, expect)
-}
-
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	_, err := envtools.FindTools(
-		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
+		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are

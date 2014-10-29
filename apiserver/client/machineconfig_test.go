@@ -8,7 +8,7 @@ import (
 	"net"
 	"strconv"
 
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
@@ -50,7 +50,8 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 
 	c.Check(machineConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
 	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
-	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
+	toolsURL := fmt.Sprintf("https://%s/environment/90168e4c-2f10-4e9c-83c2-feedfacee5a9/tools/%s", apiAddrs[0], machineConfig.Tools.Version)
+	c.Assert(machineConfig.Tools.URL, gc.Equals, toolsURL)
 }
 
 func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {

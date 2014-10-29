@@ -4,9 +4,11 @@
 package state_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/metadata"
@@ -25,7 +27,7 @@ func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
 		"localhost",
 	)
 	meta := metadata.NewMetadata(*origin, "", nil)
-	err := meta.Finish(int64(42), "some hash", "", nil)
+	err := meta.Finish(int64(42), "some hash")
 	c.Assert(err, gc.IsNil)
 	return meta
 }
@@ -36,13 +38,23 @@ func (s *backupSuite) checkMetadata(
 	if id != "" {
 		c.Check(metadata.ID(), gc.Equals, id)
 	}
-	c.Check(metadata.Notes(), gc.Equals, expected.Notes())
-	c.Check(metadata.Timestamp().Unix(), gc.DeepEquals, expected.Timestamp().Unix())
+	c.Check(metadata.Notes, gc.Equals, expected.Notes)
+	c.Check(metadata.Started.Unix(), gc.Equals, expected.Started.Unix())
 	c.Check(metadata.Checksum(), gc.Equals, expected.Checksum())
 	c.Check(metadata.ChecksumFormat(), gc.Equals, expected.ChecksumFormat())
 	c.Check(metadata.Size(), gc.Equals, expected.Size())
-	c.Check(metadata.Origin(), gc.DeepEquals, expected.Origin())
+	c.Check(metadata.Origin, gc.DeepEquals, expected.Origin)
 	c.Check(metadata.Stored(), gc.DeepEquals, expected.Stored())
+}
+
+func (s *backupSuite) TestNewBackupID(c *gc.C) {
+	origin := metadata.NewOrigin("spam", "0", "localhost")
+	started := time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
+	meta := metadata.NewMetadata(*origin, "", &started)
+
+	id := state.NewBackupID(meta)
+
+	c.Check(id, gc.Equals, "20140912-131927.spam")
 }
 
 func (s *backupSuite) TestGetBackupMetadataFound(c *gc.C) {
@@ -83,7 +95,7 @@ func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 
 func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
 	original := metadata.Metadata{}
-	c.Assert(original.Timestamp(), gc.NotNil)
+	c.Assert(original.Started, gc.NotNil)
 	_, err := state.AddBackupMetadata(s.State, &original)
 
 	c.Check(err, gc.NotNil)
@@ -104,14 +116,14 @@ func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	c.Check(err, gc.IsNil)
 	metadata, err := state.GetBackupMetadata(s.State, id)
 	c.Assert(err, gc.IsNil)
-	c.Assert(metadata.Stored(), gc.Equals, false)
+	c.Assert(metadata.Stored(), gc.IsNil)
 
 	err = state.SetBackupStored(s.State, id)
 	c.Check(err, gc.IsNil)
 
 	metadata, err = state.GetBackupMetadata(s.State, id)
 	c.Assert(err, gc.IsNil)
-	c.Assert(metadata.Stored(), gc.Equals, true)
+	c.Assert(metadata.Stored(), gc.NotNil)
 }
 
 func (s *backupSuite) TestSetBackupStoredNotFound(c *gc.C) {

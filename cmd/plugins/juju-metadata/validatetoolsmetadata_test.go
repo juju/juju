@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
@@ -70,7 +70,7 @@ func (s *ValidateToolsMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `local provider does not support tools metadata validation`)
 }
 
-func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region, series, endpoint string) error {
+func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version, region, series, endpoint string) error {
 	tm := []*tools.ToolsMetadata{{
 		Version: version,
 		Arch:    "amd64",
@@ -78,7 +78,7 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(targetStorage, tm, false)
+	err = tools.WriteMetadata(targetStorage, stream, tm, false)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region strin
 		c.Fatalf("unknown ec2 region %q", region)
 	}
 	endpoint := ec2Region.EC2Endpoint
-	s.makeLocalMetadata(c, "1.11.4", region, "precise", endpoint)
+	s.makeLocalMetadata(c, "released", "1.11.4", region, "precise", endpoint)
 }
 
 func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
@@ -163,7 +163,7 @@ func (s *ValidateToolsMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{
@@ -177,7 +177,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataWithManualParams(
 }
 
 func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{
@@ -197,7 +197,7 @@ func (s *ValidateToolsMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) 
 }
 
 func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
-	s.makeLocalMetadata(c, version.Current.Number.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", version.Current.Number.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{
@@ -210,8 +210,22 @@ func (s *ValidateToolsMetadataSuite) TestDefaultVersion(c *gc.C) {
 	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
 }
 
+func (s *ValidateToolsMetadataSuite) TestStream(c *gc.C) {
+	s.makeLocalMetadata(c, "proposed", version.Current.Number.String(), "region-2", "raring", "some-auth-url")
+	ctx := coretesting.Context(c)
+	code := cmd.Main(
+		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{
+			"-p", "openstack", "-s", "raring", "-r", "region-2",
+			"-u", "some-auth-url", "-d", s.metadataDir, "--stream", "proposed"},
+	)
+	c.Assert(code, gc.Equals, 0)
+	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(errOut, "\n", "", -1)
+	c.Check(strippedOut, gc.Matches, `Matching Tools Versions:.*Resolve Metadata.*`)
+}
+
 func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.11.4", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.11.4", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{
@@ -225,7 +239,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
-	s.makeLocalMetadata(c, "1.12.1", "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", "1.12.1", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{
@@ -239,7 +253,7 @@ func (s *ValidateToolsMetadataSuite) TestMajorMinorVersionMatch(c *gc.C) {
 }
 
 func (s *ValidateToolsMetadataSuite) TestJustDirectory(c *gc.C) {
-	s.makeLocalMetadata(c, version.Current.Number.String(), "region-2", "raring", "some-auth-url")
+	s.makeLocalMetadata(c, "released", version.Current.Number.String(), "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ValidateToolsMetadataCommand{}), ctx, []string{"-s", "raring", "-d", s.metadataDir},

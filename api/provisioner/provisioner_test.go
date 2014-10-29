@@ -1,6 +1,11 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// TODO(anastasia) 2014-10-08 #1378716
+// Re-enable tests for PPC64/ARM64 when the fixed gccgo has been backported to trusty and the CI machines have been updated.
+
+// +build !gccgo
+
 package provisioner_test
 
 import (
@@ -10,7 +15,7 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/provisioner"
@@ -125,7 +130,7 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetStatus(params.StatusError, "blah", map[string]interface{}{"transient": true})
+	err = machine.SetStatus(state.StatusError, "blah", map[string]interface{}{"transient": true})
 	c.Assert(err, gc.IsNil)
 	machines, info, err := s.provisioner.MachinesWithTransientErrors()
 	c.Assert(err, gc.IsNil)

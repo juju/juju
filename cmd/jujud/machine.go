@@ -20,7 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
@@ -28,10 +28,13 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
+	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -56,6 +59,7 @@ import (
 	workerlogger "github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
+	"github.com/juju/juju/worker/metricworker"
 	"github.com/juju/juju/worker/minunitsworker"
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
@@ -89,7 +93,7 @@ var (
 	newSingularRunner        = singular.New
 	peergrouperNew           = peergrouper.New
 	newNetworker             = networker.NewNetworker
-	newSafeNetworker         = networker.NewSafeNetworker
+	newFirewaller            = firewaller.NewFirewaller
 
 	// reportOpenedAPI is exposed for tests to know when
 	// the State has been successfully opened.
@@ -98,7 +102,54 @@ var (
 	// reportOpenedAPI is exposed for tests to know when
 	// the API has been successfully opened.
 	reportOpenedAPI = func(eitherState) {}
+
+	getMetricAPI = metricAPI
 )
+
+// PrepareRestore will flag the agent to allow only one command:
+// Restore, this will ensure that we can do all the file movements
+// required for restore and no one will do changes while we do that.
+// it will return error if the machine is already in this state.
+func (a *MachineAgent) PrepareRestore() error {
+	if a.restoreMode {
+		return fmt.Errorf("already in restore mode")
+	}
+	a.restoreMode = true
+	return nil
+}
+
+// BeginRestore will flag the agent to disallow all commands since
+// restore should be running and therefore making changes that
+// would override anything done.
+func (a *MachineAgent) BeginRestore() error {
+	switch {
+	case !a.restoreMode:
+		return fmt.Errorf("not in restore mode, cannot begin restoration")
+	case a.restoring:
+		return fmt.Errorf("already restoring")
+	}
+	a.restoring = true
+	return nil
+}
+
+// FinishRestore will restart jujud and err if restore flag is not true
+func (a *MachineAgent) FinishRestore() error {
+	if !a.restoring {
+		return fmt.Errorf("restore is not in progress")
+	}
+	a.tomb.Kill(worker.ErrTerminateAgent)
+	return nil
+}
+
+// IsRestorePreparing returns bool representing if we are in restore mode
+// but not running restore
+func (a *MachineAgent) IsRestorePreparing() bool {
+	return a.restoreMode && !a.restoring
+}
+
+func (a *MachineAgent) IsRestoreRunning() bool {
+	return a.restoring
+}
 
 // MachineAgent is a cmd.Command responsible for running a machine agent.
 type MachineAgent struct {
@@ -110,6 +161,8 @@ type MachineAgent struct {
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
+	restoreMode          bool
+	restoring            bool
 	workersStarted       chan struct{}
 	st                   *state.State
 
@@ -141,6 +194,7 @@ func (a *MachineAgent) Init(args []string) error {
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
 	a.upgradeWorkerContext = NewUpgradeWorkerContext()
+
 	return nil
 }
 
@@ -155,6 +209,12 @@ func (a *MachineAgent) Stop() error {
 	return a.tomb.Wait()
 }
 
+// Dying returns the channel that can be used to see if the machine
+// agent is terminating.
+func (a *MachineAgent) Dying() <-chan struct{} {
+	return a.tomb.Dying()
+}
+
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// Due to changes in the logging, and needing to care about old
@@ -166,13 +226,16 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
+	agentConfig := a.CurrentConfig()
+	if err := setupLogging(agentConfig); err != nil {
+		return err
+	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 
 	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
 		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
 	}
 	a.configChangedVal.Set(struct{}{})
-	agentConfig := a.CurrentConfig()
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
@@ -265,6 +328,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if disableNetworkManagement {
 		logger.Infof("network management is disabled")
 	}
+	// Check if firewall-mode is "none" to disable the firewaller.
+	firewallMode := envConfig.FirewallMode()
+	disableFirewaller := firewallMode == config.FwNone
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
@@ -341,17 +407,19 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-	writeNetworkConfig := providerType == "maas"
-	if disableNetworkManagement || !writeNetworkConfig {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return newSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
-		})
-	} else if !disableNetworkManagement && writeNetworkConfig {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return newNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
-		})
+
+	// Start networker depending on configuration and job.
+	intrusiveMode := false
+	for _, job := range entity.Jobs() {
+		if job == params.JobManageNetworking {
+			intrusiveMode = true
+			break
+		}
 	}
+	intrusiveMode = intrusiveMode && !disableNetworkManagement
+	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+		return newNetworker(st.Networker(), agentConfig, intrusiveMode, networker.DefaultConfigBaseDir)
+	})
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
@@ -385,11 +453,23 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			// Make another job to enable the firewaller. Not all
 			// environments are capable of managing ports
 			// centrally.
-			a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
-				return firewaller.NewFirewaller(st.Firewaller())
-			})
+			if !disableFirewaller {
+				a.startWorkerAfterUpgrade(singularRunner, "firewaller", func() (worker.Worker, error) {
+					return newFirewaller(st.Firewaller())
+				})
+			} else {
+				logger.Debugf("not starting firewaller worker - firewall-mode is %q", config.FwNone)
+			}
 			a.startWorkerAfterUpgrade(singularRunner, "charm-revision-updater", func() (worker.Worker, error) {
 				return charmrevisionworker.NewRevisionUpdateWorker(st.CharmRevisionUpdater()), nil
+			})
+
+			logger.Infof("starting metric workers")
+			a.startWorkerAfterUpgrade(runner, "metriccleanupworker", func() (worker.Worker, error) {
+				return metricworker.NewCleanup(getMetricAPI(st)), nil
+			})
+			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
+				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
 		case params.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
@@ -405,10 +485,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 // initialises suitable infrastructure to support such containers.
 func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
-	// We don't yet support nested lxc containers but anything else can run an LXC container.
-	if entity.ContainerType() != instance.LXC {
+	// LXC containers are only supported on bare metal and fully virtualized linux systems
+	// Nested LXC containers and Windows machines cannot run LXC containers
+	supportsLXC, err := lxc.IsLXCSupported()
+	if err != nil {
+		logger.Warningf("no lxc containers possible: %v", err)
+	}
+	if err == nil && supportsLXC {
 		supportedContainers = append(supportedContainers, instance.LXC)
 	}
+
 	supportsKvm, err := kvm.IsKVMSupported()
 	if err != nil {
 		logger.Warningf("determining kvm support: %v\nno kvm containers possible", err)
@@ -491,6 +577,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
+	registerSimplestreamsDataSource(st.Storage())
 
 	singularStateConn := singularStateConn{st.MongoSession(), m}
 	runner := newRunner(connectionIsFatal(st), moreImportant)
@@ -602,12 +689,54 @@ func init() {
 	}
 }
 
+// limitLogin is called by the API server for each login attempt.
+// it returns an error if upgrads or restore are running.
+func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
+	err := a.limitLoginsDuringRestore(req)
+	if err != nil {
+		return err
+	}
+	err = a.limitLoginsDuringUpgrade(req)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
+	var err error
+	switch {
+	case a.IsRestoreRunning():
+		err = apiserver.RestoreInProgressError
+	case a.IsRestorePreparing():
+		err = apiserver.AboutToRestoreError
+	}
+	if err != nil {
+		authTag, parseErr := names.ParseTag(req.AuthTag)
+		if parseErr != nil {
+			return errors.Annotate(err, "could not parse auth tag")
+		}
+		switch authTag := authTag.(type) {
+		case names.UserTag:
+			// use a restricted API mode
+			return err
+		case names.MachineTag:
+			if authTag == a.Tag() {
+				// allow logins from the local machine
+				return nil
+			}
+		}
+		return errors.Errorf("login for %q blocked because restore is in progress", authTag)
+	}
+	return nil
+}
+
 // limitLoginsDuringUpgrade is called by the API server for each login
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
-func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
+func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 	if a.upgradeWorkerContext.IsUpgradeRunning() {
-		authTag, err := names.ParseTag(creds.AuthTag)
+		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
 		}
@@ -680,7 +809,8 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		if err != nil {
 			return err
 		}
-		if err := st.SetStateServingInfo(servingInfo); err != nil {
+		ssi := paramsStateServingInfoToStateStateServingInfo(servingInfo)
+		if err := st.SetStateServingInfo(ssi); err != nil {
 			st.Close()
 			return fmt.Errorf("cannot set state serving info: %v", err)
 		}
@@ -727,6 +857,17 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 		return err
 	}
 	return nil
+}
+
+func paramsStateServingInfoToStateStateServingInfo(i params.StateServingInfo) state.StateServingInfo {
+	return state.StateServingInfo{
+		APIPort:        i.APIPort,
+		StatePort:      i.StatePort,
+		Cert:           i.Cert,
+		PrivateKey:     i.PrivateKey,
+		SharedSecret:   i.SharedSecret,
+		SystemIdentity: i.SystemIdentity,
+	}
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
@@ -919,4 +1060,8 @@ func (c singularStateConn) IsMaster() (bool, error) {
 
 func (c singularStateConn) Ping() error {
 	return c.session.Ping()
+}
+
+func metricAPI(st *api.State) metricsmanager.MetricsManagerClient {
+	return metricsmanager.NewClient(st)
 }

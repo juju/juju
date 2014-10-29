@@ -10,8 +10,8 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -58,7 +57,7 @@ var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 
-	userTag := names.NewUserTag("not-touched")
+	userTag := names.NewLocalUserTag("not-touched")
 
 	expectedMcfg := &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
@@ -103,7 +102,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
-	userTag := names.NewUserTag("not-touched")
+	userTag := names.NewLocalUserTag("not-touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
@@ -195,6 +194,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	allJobs := []params.MachineJob{
 		params.JobManageEnviron,
 		params.JobHostUnits,
+		params.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",
@@ -227,7 +227,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	}
 	if bootstrap {
 		cfg.Bootstrap = true
-		cfg.StateServingInfo = &state.StateServingInfo{
+		cfg.StateServingInfo = &params.StateServingInfo{
 			StatePort:  envConfig.StatePort(),
 			APIPort:    envConfig.APIPort(),
 			Cert:       testing.ServerCert,

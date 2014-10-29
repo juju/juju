@@ -9,7 +9,7 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
@@ -28,7 +28,7 @@ func init() {
 	}
 }
 
-const FakeDefaultSeries = "precise"
+const FakeDefaultSeries = "trusty"
 
 // FakeConfig() returns an environment configuration for a
 // fake provider with all required attributes set.

@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/names"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
@@ -35,21 +34,6 @@ var (
 	_ Entity = (*User)(nil)
 	_ Entity = (*Action)(nil)
 	_ Entity = (*ActionResult)(nil)
-)
-
-type StatusSetter interface {
-	SetStatus(status params.Status, info string, data map[string]interface{}) error
-}
-
-type StatusGetter interface {
-	Status() (status params.Status, info string, data map[string]interface{}, err error)
-}
-
-var (
-	_ StatusSetter = (*Machine)(nil)
-	_ StatusSetter = (*Unit)(nil)
-	_ StatusGetter = (*Machine)(nil)
-	_ StatusGetter = (*Unit)(nil)
 )
 
 // Lifer represents an entity with a life.

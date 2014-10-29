@@ -25,7 +25,8 @@ func New(location string) *Branch {
 	if _, err := os.Stat(location); err == nil {
 		stdout, _, err := b.bzr("root")
 		if err == nil {
-			b.location = strings.TrimRight(string(stdout), "\n")
+			// Need to trim \r as well as \n for Windows compatibility
+			b.location = strings.TrimRight(string(stdout), "\r\n")
 		}
 	}
 	return b

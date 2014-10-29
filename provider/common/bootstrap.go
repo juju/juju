@@ -38,9 +38,6 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
 
-	var inst instance.Instance
-	defer func() { handleBootstrapError(err, ctx, inst, env) }()
-
 	// First thing, ensure we have tools otherwise there's no point.
 	series = config.PreferredSeries(env.Config())
 	availableTools, err := args.AvailableTools.Match(coretools.Filter{Series: series})
@@ -76,12 +73,6 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
 
-	err = SaveState(env.Storage(), &BootstrapState{
-		StateInstances: []instance.Id{inst.Id()},
-	})
-	if err != nil {
-		return "", "", nil, fmt.Errorf("cannot save state: %v", err)
-	}
 	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
 		mcfg.InstanceId = inst.Id()
 		mcfg.HardwareCharacteristics = hw
@@ -91,41 +82,6 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		return FinishBootstrap(ctx, client, inst, mcfg)
 	}
 	return *hw.Arch, series, finalize, nil
-}
-
-// handleBootstrapError cleans up after a failed bootstrap.
-func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instance.Instance, env environs.Environ) {
-	if err == nil {
-		return
-	}
-
-	logger.Errorf("bootstrap failed: %v", err)
-	ch := make(chan os.Signal, 1)
-	ctx.InterruptNotify(ch)
-	defer ctx.StopInterruptNotify(ch)
-	defer close(ch)
-	go func() {
-		for _ = range ch {
-			fmt.Fprintln(ctx.GetStderr(), "Cleaning up failed bootstrap")
-		}
-	}()
-
-	if inst != nil {
-		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
-		if stoperr := env.StopInstances(inst.Id()); stoperr != nil {
-			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
-		} else {
-			// set to nil so we know we can safely delete the state file
-			inst = nil
-		}
-	}
-	// We only delete the bootstrap state file if either we didn't
-	// start an instance, or we managed to cleanly stop it.
-	if inst == nil {
-		if rmerr := DeleteStateFile(env.Storage()); rmerr != nil {
-			logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
-		}
-	}
 }
 
 // FinishBootstrap completes the bootstrap process by connecting

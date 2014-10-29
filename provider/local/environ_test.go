@@ -12,7 +12,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
@@ -69,12 +69,11 @@ func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	c.Assert(environ, gc.IsNil)
 }
 
-func (s *environSuite) TestNameAndStorage(c *gc.C) {
+func (s *environSuite) TestName(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Config().Name(), gc.Equals, "test")
-	c.Assert(environ.Storage(), gc.NotNil)
 }
 
 func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
@@ -83,10 +82,7 @@ func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	sources, err := tools.GetMetadataSources(environ)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(sources), gc.Equals, 1)
-	url, err := sources[0].URL("")
-	c.Assert(err, gc.IsNil)
-	c.Assert(strings.Contains(url, "/tools"), jc.IsTrue)
+	c.Assert(sources, gc.HasLen, 0)
 }
 
 func (*environSuite) TestSupportedArchitectures(c *gc.C) {
@@ -105,6 +101,16 @@ func (*environSuite) TestSupportNetworks(c *gc.C) {
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.SupportNetworks(), jc.IsFalse)
+}
+
+func (*environSuite) TestSupportAddressAllocation(c *gc.C) {
+	testConfig := minimalConfig(c)
+	env, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+
+	result, err := env.SupportAddressAllocation("")
+	c.Assert(result, jc.IsFalse)
+	c.Assert(err, gc.IsNil)
 }
 
 type localJujuTestSuite struct {
@@ -174,8 +180,6 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	ctx := coretesting.Context(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, environ.Storage())
-	defer environ.Storage().RemoveAll()
 	availableTools := coretools.List{&coretools.Tools{
 		Version: version.Current,
 		URL:     "http://testing.invalid/tools.tar.gz",

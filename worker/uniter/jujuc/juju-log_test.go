@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -8,7 +9,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -23,7 +24,7 @@ var _ = gc.Suite(&JujuLogSuite{})
 func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
-	com, err := jujuc.NewCommand(ctx, "juju-log")
+	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
 	c.Assert(err, gc.IsNil)
 	for _, t := range []struct {
 		args  []string
@@ -75,7 +76,7 @@ func (s *JujuLogSuite) TestBadges(c *gc.C) {
 
 func newJujuLogCommand(c *gc.C) cmd.Command {
 	ctx := &Context{}
-	com, err := jujuc.NewCommand(ctx, "juju-log")
+	com, err := jujuc.NewCommand(ctx, cmdString("juju-log"))
 	c.Assert(err, gc.IsNil)
 	return com
 }

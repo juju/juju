@@ -4,11 +4,13 @@
 package main
 
 import (
-	"gopkg.in/juju/charm.v3"
-	charmtesting "gopkg.in/juju/charm.v3/testing"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
+	charmtesting "gopkg.in/juju/charm.v4/testing"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -54,7 +56,7 @@ func (s *AddUnitSuite) setupService(c *gc.C) *charm.URL {
 	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
-	curl := charm.MustParseURL("local:precise/dummy-1")
+	curl := charm.MustParseURL("local:trusty/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 	return curl
 }
@@ -84,9 +86,9 @@ func (s *AddUnitSuite) assertForceMachine(c *gc.C, svc *state.Service, expectedN
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine2, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", machine2.Id())
@@ -100,10 +102,10 @@ func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 
 func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	template := state.MachineTemplate{
-		Series: "precise",
+		Series: testing.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
@@ -120,7 +122,7 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine(testing.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", "lxc:"+machine.Id())
@@ -130,4 +132,61 @@ func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
 	s.assertForceMachine(c, svc, 3, 1, machine.Id()+"/lxc/0")
 	s.assertForceMachine(c, svc, 3, 2, machine.Id())
+}
+
+func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
+	err := runAddUnit(c, "some-service-name", "--to", "0")
+	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
+}
+
+type AddUnitLocalSuite struct {
+	jujutesting.RepoSuite
+}
+
+var _ = gc.Suite(&AddUnitLocalSuite{})
+
+func (s *AddUnitLocalSuite) SetUpTest(c *gc.C) {
+	s.RepoSuite.SetUpTest(c)
+
+	// override provider type
+	s.PatchValue(&getClientConfig, func(client *api.Client) (*config.Config, error) {
+		attrs, err := client.EnvironmentGet()
+		if err != nil {
+			return nil, err
+		}
+		attrs["type"] = "local"
+		return config.New(config.NoDefaults, attrs)
+	})
+}
+
+func (s *AddUnitLocalSuite) TestLocalCannotHostUnits(c *gc.C) {
+	err := runAddUnit(c, "some-service-name", "--to", "0")
+	c.Assert(err, gc.ErrorMatches, "machine 0 is the state server for a local environment and cannot host units")
+}
+
+type namesSuite struct {
+}
+
+var _ = gc.Suite(&namesSuite{})
+
+func (*namesSuite) TestNameChecks(c *gc.C) {
+	assertMachineOrNewContainer := func(s string, expect bool) {
+		c.Logf("%s -> %v", s, expect)
+		c.Assert(isMachineOrNewContainer(s), gc.Equals, expect)
+	}
+	assertMachineOrNewContainer("0", true)
+	assertMachineOrNewContainer("00", false)
+	assertMachineOrNewContainer("1", true)
+	assertMachineOrNewContainer("0/lxc/0", true)
+	assertMachineOrNewContainer("lxc:0", true)
+	assertMachineOrNewContainer("lxc:lxc:0", false)
+	assertMachineOrNewContainer("kvm:0/lxc/1", true)
+	assertMachineOrNewContainer("lxc:", false)
+	assertMachineOrNewContainer(":lxc", false)
+	assertMachineOrNewContainer("0/lxc/", false)
+	assertMachineOrNewContainer("0/lxc", false)
+	assertMachineOrNewContainer("kvm:0/lxc", false)
+	assertMachineOrNewContainer("0/lxc/01", false)
+	assertMachineOrNewContainer("0/lxc/10", true)
+	assertMachineOrNewContainer("0/kvm/4", true)
 }

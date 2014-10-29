@@ -4,16 +4,13 @@
 package firewaller_test
 
 import (
-	stdtesting "testing"
-
 	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,
@@ -32,10 +29,6 @@ type firewallerSuite struct {
 }
 
 var _ = gc.Suite(&firewallerSuite{})
-
-func TestAll(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
-}
 
 func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)

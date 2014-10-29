@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
@@ -26,6 +25,23 @@ type StatusCommand struct {
 
 var statusDoc = `
 This command will report on the runtime state of various system entities.
+
+There are a number of ways to format the status output:
+
+- oneline: List units and their subordinates. For each unit, the IP
+           address and agent status are listed.
+- summary: Displays the subnet(s) and port(s) the environment utilizes.
+           Also displays aggregate information about:
+           - MACHINES: total #, and # in each state.
+           - UNITS: total #, and # in each state.
+           - SERVICES: total #, and # exposed of each service.
+- tabular: Displays information in a tabular format in these sections:
+           - Machines: ID, STATE, VERSION, DNS, INS-ID, SERIES, HARDWARE
+           - Services: NAME, EXPOSED, CHARM
+           - Units: ID, STATE, VERSION, MACHINE, PORTS, PUBLIC-ADDRESS
+             - Also displays subordinate units.
+- yaml (DEFAULT): Displays information on machines, services, and units
+                  in the yaml format.
 
 Service or unit names may be specified to filter the status to only those
 services and units that match, along with the related machines, services
@@ -50,8 +66,11 @@ func (c *StatusCommand) Info() *cmd.Info {
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"oneline": FormatOneline,
+		"tabular": FormatTabular,
+		"summary": FormatSummary,
 	})
 }
 
@@ -77,11 +96,7 @@ var newApiClientForStatus = func(c *StatusCommand) (statusAPI, error) {
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
-	// Just verify the pattern validity client side, do not use the matcher
-	_, err := client.NewUnitMatcher(c.patterns)
-	if err != nil {
-		return err
-	}
+
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.ConnectionName(), err)
@@ -97,6 +112,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
+
 	result := newStatusFormatter(status).format()
 	return c.out.Write(ctx, result)
 }

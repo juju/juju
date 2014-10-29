@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc_test
@@ -8,19 +9,17 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	stdtesting "testing"
+	"time"
 
-	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
-
-func TestPackage(t *stdtesting.T) { gc.TestingT(t) }
 
 func bufferBytes(stream io.Writer) []byte {
 	return stream.(*bytes.Buffer).Bytes()
@@ -79,11 +78,20 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	actionParams map[string]interface{}
-	ports        set.Strings
-	relid        int
-	remote       string
-	rels         map[int]*ContextRelation
+	ports         []network.PortRange
+	relid         int
+	remote        string
+	rels          map[int]*ContextRelation
+	metrics       []jujuc.Metric
+	canAddMetrics bool
+}
+
+func (c *Context) AddMetrics(key, value string, created time.Time) error {
+	if !c.canAddMetrics {
+		return fmt.Errorf("metrics disabled")
+	}
+	c.metrics = append(c.metrics, jujuc.Metric{key, value, created})
+	return nil
 }
 
 func (c *Context) UnitName() string {
@@ -98,14 +106,34 @@ func (c *Context) PrivateAddress() (string, bool) {
 	return "192.168.0.99", true
 }
 
-func (c *Context) OpenPort(protocol string, port int) error {
-	c.ports.Add(fmt.Sprintf("%d/%s", port, protocol))
+func (c *Context) OpenPorts(protocol string, fromPort, toPort int) error {
+	c.ports = append(c.ports, network.PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	})
+	network.SortPortRanges(c.ports)
 	return nil
 }
 
-func (c *Context) ClosePort(protocol string, port int) error {
-	c.ports.Remove(fmt.Sprintf("%d/%s", port, protocol))
+func (c *Context) ClosePorts(protocol string, fromPort, toPort int) error {
+	portRange := network.PortRange{
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}
+	for i, port := range c.ports {
+		if port == portRange {
+			c.ports = append(c.ports[:i], c.ports[i+1:]...)
+			break
+		}
+	}
+	network.SortPortRanges(c.ports)
 	return nil
+}
+
+func (c *Context) OpenedPorts() []network.PortRange {
+	return c.ports
 }
 
 func (c *Context) ConfigSettings() (charm.Settings, error) {
@@ -118,8 +146,20 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 	}, nil
 }
 
-func (c *Context) ActionParams() map[string]interface{} {
-	return c.actionParams
+func (c *Context) ActionParams() (map[string]interface{}, error) {
+	return nil, fmt.Errorf("not running an action")
+}
+
+func (c *Context) UpdateActionResults(keys []string, value string) error {
+	return fmt.Errorf("not running an action")
+}
+
+func (c *Context) SetActionFailed() error {
+	return fmt.Errorf("not running an action")
+}
+
+func (c *Context) SetActionMessage(message string) error {
+	return fmt.Errorf("not running an action")
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {
@@ -207,4 +247,8 @@ func (s Settings) Map() params.RelationSettings {
 		r[k] = v
 	}
 	return r
+}
+
+func cmdString(cmd string) string {
+	return cmd + jujuc.CmdSuffix
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -31,6 +31,7 @@ type ConnSuite struct {
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
 	machines     *mgo.Collection
+	instanceData *mgo.Collection
 	relations    *mgo.Collection
 	services     *mgo.Collection
 	units        *mgo.Collection
@@ -39,6 +40,7 @@ type ConnSuite struct {
 	policy       statetesting.MockPolicy
 	factory      *factory.Factory
 	envTag       names.EnvironTag
+	owner        names.UserTag
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -57,19 +59,23 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
 	cfg := testing.EnvironConfig(c)
-	cs.State = TestingInitialize(c, cfg, &cs.policy)
+	cs.owner = names.NewLocalUserTag("test-admin")
+	cs.State = TestingInitialize(c, cs.owner, cfg, &cs.policy)
 	uuid, ok := cfg.UUID()
 	c.Assert(ok, jc.IsTrue)
 	cs.envTag = names.NewEnvironTag(uuid)
-	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
-	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
-	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
-	cs.relations = cs.MgoSuite.Session.DB("juju").C("relations")
-	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
-	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
-	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
-	cs.State.AddAdminUser("pass")
 	cs.factory = factory.NewFactory(cs.State)
+
+	jujuDB := cs.MgoSuite.Session.DB("juju")
+	cs.annotations = jujuDB.C("annotations")
+	cs.charms = jujuDB.C("charms")
+	cs.machines = jujuDB.C("machines")
+	cs.instanceData = jujuDB.C("instanceData")
+	cs.relations = jujuDB.C("relations")
+	cs.services = jujuDB.C("services")
+	cs.units = jujuDB.C("units")
+	cs.stateServers = jujuDB.C("stateServers")
+
 	c.Log("SetUpTest done")
 }
 
@@ -87,11 +93,11 @@ func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 }
 
 func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *state.Service {
-	return state.AddTestingService(c, s.State, name, ch)
+	return state.AddTestingService(c, s.State, name, ch, s.owner)
 }
 
 func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
-	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, networks)
+	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, s.owner, networks)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {

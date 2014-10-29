@@ -11,12 +11,15 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/utils/ssh"
 )
 
-const shortWait = 50 * time.Millisecond
+const (
+	shortWait = 50 * time.Millisecond
+	longWait  = 10 * time.Second
+)
 
 type ExecuteSSHCommandSuite struct {
 	testing.IsolationSuite
@@ -53,7 +56,7 @@ func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		Host:    "hostname",
 		Command: "sudo apt-get update\nsudo apt-get upgrade",
-		Timeout: shortWait,
+		Timeout: longWait,
 	})
 
 	c.Assert(err, gc.IsNil)
@@ -69,7 +72,7 @@ func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		IdentityFile: "identity-file",
 		Host:         "hostname",
-		Timeout:      shortWait,
+		Timeout:      longWait,
 	})
 
 	c.Assert(err, gc.IsNil)
@@ -99,7 +102,7 @@ func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Command:      "echo stdout; exit 42",
-		Timeout:      shortWait,
+		Timeout:      longWait,
 	})
 
 	c.Check(err, gc.IsNil)

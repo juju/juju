@@ -9,10 +9,9 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"gopkg.in/juju/charm.v3"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -161,7 +160,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 func (s *UnitSuite) addSubordinateUnit(c *gc.C) *state.Unit {
 	subCharm := s.AddTestingCharm(c, "logging")
 	s.AddTestingService(c, "logging", subCharm)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	eps, err := s.State.InferEndpoints("wordpress", "logging")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -528,36 +527,36 @@ func (s *UnitSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusError, "", nil)
+	err := s.unit.SetStatus(state.StatusError, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "error" without info`)
-	err = s.unit.SetStatus(params.StatusPending, "", nil)
+	err = s.unit.SetStatus(state.StatusPending, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "pending"`)
-	err = s.unit.SetStatus(params.StatusDown, "", nil)
+	err = s.unit.SetStatus(state.StatusDown, "", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status "down"`)
-	err = s.unit.SetStatus(params.Status("vliegkat"), "orville", nil)
+	err = s.unit.SetStatus(state.Status("vliegkat"), "orville", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(status, gc.Equals, state.StatusPending)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"foo": "bar",
 	})
 	c.Assert(err, gc.IsNil)
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"foo": "bar",
@@ -567,27 +566,27 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *gc.C) {
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *gc.C) {
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 
 	err = s.unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetStatus(params.StatusStarted, "not really", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "not really", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot set status of unit "wordpress/0": not found or dead`)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.ErrorMatches, "status not found")
 }
 
 func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Regular status setting with data.
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", map[string]interface{}{
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", map[string]interface{}{
 		"1st-key": "one",
 		"2nd-key": 2,
 		"3rd-key": true,
@@ -596,7 +595,7 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
@@ -606,13 +605,13 @@ func (s *UnitSuite) TestGetSetStatusDataStandard(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
 
 	// Status setting with MongoDB special values.
-	err = s.unit.SetStatus(params.StatusError, "mongo", map[string]interface{}{
+	err = s.unit.SetStatus(state.StatusError, "mongo", map[string]interface{}{
 		`{name: "Joe"}`: "$where",
 		"eval":          `eval(function(foo) { return foo; }, "bar")`,
 		"mapReduce":     "mapReduce",
@@ -622,7 +621,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "mongo")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		`{name: "Joe"}`: "$where",
@@ -633,7 +632,7 @@ func (s *UnitSuite) TestGetSetStatusDataMongo(c *gc.C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
-	err := s.unit.SetStatus(params.StatusStarted, "", nil)
+	err := s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 	_, _, _, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
@@ -644,13 +643,13 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 		"2nd-key": 2,
 		"3rd-key": true,
 	}
-	err = s.unit.SetStatus(params.StatusError, "test-hook failed", data)
+	err = s.unit.SetStatus(state.StatusError, "test-hook failed", data)
 	c.Assert(err, gc.IsNil)
 	data["4th-key"] = 4.0
 
 	status, info, data, err := s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, state.StatusError)
 	c.Assert(info, gc.Equals, "test-hook failed")
 	c.Assert(data, gc.DeepEquals, map[string]interface{}{
 		"1st-key": "one",
@@ -659,12 +658,12 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	})
 
 	// Set status data to nil, so an empty map will be returned.
-	err = s.unit.SetStatus(params.StatusStarted, "", nil)
+	err = s.unit.SetStatus(state.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.unit.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, state.StatusStarted)
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 }
@@ -703,7 +702,7 @@ func (s *UnitSuite) TestUnitCharm(c *gc.C) {
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	defer state.SetRetryHooks(c, s.State, func() {
-		err := s.unit.SetStatus(params.StatusStarted, "", nil)
+		err := s.unit.SetStatus(state.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
@@ -785,7 +784,7 @@ func (s *UnitSuite) TestShortCircuitDestroyUnit(c *gc.C) {
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 	// A unit with subordinates is just set to Dying.
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -801,16 +800,16 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *gc.C) {
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *gc.C) {
 	for i, test := range []struct {
-		status params.Status
+		status state.Status
 		info   string
 	}{{
-		params.StatusInstalled, "",
+		state.StatusInstalled, "",
 	}, {
-		params.StatusStarted, "",
+		state.StatusStarted, "",
 	}, {
-		params.StatusError, "blah",
+		state.StatusError, "blah",
 	}, {
-		params.StatusStopped, "",
+		state.StatusStopped, "",
 	}} {
 		c.Logf("test %d: %s", i, test.status)
 		unit, err := s.service.AddUnit()
@@ -927,7 +926,7 @@ func (s *UnitSuite) TestResolve(c *gc.C) {
 	err = s.unit.Resolve(true)
 	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is not in an error state`)
 
-	err = s.unit.SetStatus(params.StatusError, "gaaah", nil)
+	err = s.unit.SetStatus(state.StatusError, "gaaah", nil)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.Resolve(false)
 	c.Assert(err, gc.IsNil)
@@ -978,65 +977,95 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
+	// Verify ports can be opened and closed only when the unit has
+	// assigned machine.
+	err := s.unit.OpenPort("tcp", 10)
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	err = s.unit.OpenPorts("tcp", 10, 20)
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	err = s.unit.ClosePort("tcp", 10)
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	err = s.unit.ClosePorts("tcp", 10, 20)
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	open, err := s.unit.OpenedPorts()
+	c.Assert(errors.Cause(err), jc.Satisfies, state.IsNotAssigned)
+	c.Assert(open, gc.HasLen, 0)
+
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
 
 	// Verify no open ports before activity.
-	c.Assert(s.unit.OpenedPorts(), gc.HasLen, 0)
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.HasLen, 0)
 
-	// Now open and close port.
+	// Now open and close ports and ranges and check.
+
 	err = s.unit.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
-	open := s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []network.Port{
-		{"tcp", 80},
+	err = s.unit.OpenPorts("udp", 100, 200)
+	c.Assert(err, gc.IsNil)
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.DeepEquals, []network.PortRange{
+		{80, 80, "tcp"},
+		{100, 200, "udp"},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, gc.IsNil)
-	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []network.Port{
-		{"tcp", 80},
-		{"udp", 53},
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.DeepEquals, []network.PortRange{
+		{80, 80, "tcp"},
+		{53, 53, "udp"},
+		{100, 200, "udp"},
 	})
 
-	err = s.unit.OpenPort("tcp", 53)
+	err = s.unit.OpenPorts("tcp", 53, 55)
 	c.Assert(err, gc.IsNil)
-	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []network.Port{
-		{"tcp", 53},
-		{"tcp", 80},
-		{"udp", 53},
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.DeepEquals, []network.PortRange{
+		{53, 55, "tcp"},
+		{80, 80, "tcp"},
+		{53, 53, "udp"},
+		{100, 200, "udp"},
 	})
 
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, gc.IsNil)
-	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []network.Port{
-		{"tcp", 53},
-		{"tcp", 80},
-		{"tcp", 443},
-		{"udp", 53},
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.DeepEquals, []network.PortRange{
+		{53, 55, "tcp"},
+		{80, 80, "tcp"},
+		{443, 443, "tcp"},
+		{53, 53, "udp"},
+		{100, 200, "udp"},
 	})
 
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, gc.IsNil)
-	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []network.Port{
-		{"tcp", 53},
-		{"tcp", 443},
-		{"udp", 53},
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.DeepEquals, []network.PortRange{
+		{53, 55, "tcp"},
+		{443, 443, "tcp"},
+		{53, 53, "udp"},
+		{100, 200, "udp"},
 	})
 
-	err = s.unit.ClosePort("tcp", 80)
+	err = s.unit.ClosePorts("udp", 100, 200)
 	c.Assert(err, gc.IsNil)
-	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []network.Port{
-		{"tcp", 53},
-		{"tcp", 443},
-		{"udp", 53},
+	open, err = s.unit.OpenedPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(open, gc.DeepEquals, []network.PortRange{
+		{53, 55, "tcp"},
+		{443, 443, "tcp"},
+		{53, 53, "udp"},
 	})
 }
 
@@ -1052,11 +1081,102 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		if err != nil {
 			return err
 		}
+		err = s.unit.OpenPorts("tcp", 10, 15)
+		if err != nil {
+			return err
+		}
 		err = s.unit.Refresh()
 		if err != nil {
 			return err
 		}
-		return s.unit.ClosePort("tcp", 20)
+		err = s.unit.ClosePort("tcp", 20)
+		if err != nil {
+			return err
+		}
+		return s.unit.ClosePorts("tcp", 10, 15)
+	})
+}
+
+func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
+	ports, err := machine.AllPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+
+	err = s.unit.OpenPorts("tcp", 100, 200)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = machine.AllPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 1)
+	c.Assert(ports[0].PortsForUnit(s.unit.Name()), jc.DeepEquals, []state.PortRange{
+		{s.unit.Name(), 100, 200, "tcp"},
+	})
+
+	// Now remove the unit and check again.
+	err = s.unit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Because that was the only range open, the ports doc will be
+	// removed as well.
+	ports, err = machine.AllPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+}
+
+func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
+	otherUnit, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = otherUnit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
+	ports, err := machine.AllPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+
+	err = s.unit.OpenPorts("tcp", 100, 200)
+	c.Assert(err, gc.IsNil)
+	err = otherUnit.OpenPorts("udp", 300, 400)
+	c.Assert(err, gc.IsNil)
+
+	ports, err = machine.AllPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 1)
+	c.Assert(ports[0].PortsForUnit(s.unit.Name()), jc.DeepEquals, []state.PortRange{
+		{s.unit.Name(), 100, 200, "tcp"},
+	})
+	c.Assert(ports[0].PortsForUnit(otherUnit.Name()), jc.DeepEquals, []state.PortRange{
+		{otherUnit.Name(), 300, 400, "udp"},
+	})
+
+	// Now remove the first unit and check again.
+	err = s.unit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Verify only otherUnit still has open ports.
+	ports, err = machine.AllPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 1)
+	c.Assert(ports[0].PortsForUnit(s.unit.Name()), gc.HasLen, 0)
+	c.Assert(ports[0].PortsForUnit(otherUnit.Name()), jc.DeepEquals, []state.PortRange{
+		{otherUnit.Name(), 300, 400, "udp"},
 	})
 }
 
@@ -1088,7 +1208,7 @@ func (s *UnitSuite) TestSubordinateChangeInPrincipal(c *gc.C) {
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
 		s.AddTestingService(c, name, subCharm)
-		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		eps, err := s.State.InferEndpoints(name, "wordpress")
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)
 		c.Assert(err, gc.IsNil)
@@ -1127,7 +1247,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1164,7 +1284,7 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *gc.C) {
 func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	subCharm := s.AddTestingCharm(c, "logging")
 	s.AddTestingService(c, "logging", subCharm)
-	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	eps, err := s.State.InferEndpoints("logging", "wordpress")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1195,7 +1315,7 @@ func (s *UnitSuite) TestRelations(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1265,7 +1385,7 @@ func (s *UnitSuite) TestRemovePathological(c *gc.C) {
 	wordpress := s.service
 	wordpress0 := s.unit
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1312,7 +1432,7 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 	wordpress := s.service
 	wordpress0 := s.unit
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	eps, err := s.State.InferEndpoints("wordpress", "mysql")
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
@@ -1358,6 +1478,8 @@ func (s *UnitSuite) TestRemovePathologicalWithBuggyUniter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
+	// TODO(mjs) - ENVUUID - test with multiple environments with
+	// identically named units and ensure there's no leakage.
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
@@ -1373,7 +1495,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *gc.C) {
 		// single subordinate unit of each service.
 		name := "logging" + strconv.Itoa(i)
 		subSvc := s.AddTestingService(c, name, subCharm)
-		eps, err := s.State.InferEndpoints([]string{name, "wordpress"})
+		eps, err := s.State.InferEndpoints(name, "wordpress")
 		c.Assert(err, gc.IsNil)
 		rel, err := s.State.AddRelation(eps...)
 		c.Assert(err, gc.IsNil)
@@ -1480,4 +1602,46 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 func (s *UnitSuite) TestUnitAgentTools(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	testAgentTools(c, s.unit, `unit "wordpress/0"`)
+}
+
+func (s *UnitSuite) TestUnitActionsFindsRightActions(c *gc.C) {
+	// Add simple service and two units
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	unit1, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	unit2, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	// Add 3 actions to first unit, and 2 to the second unit
+	_, err = unit1.AddAction("action1.1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("action1.2", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("action1.3", nil)
+	c.Assert(err, gc.IsNil)
+
+	_, err = unit2.AddAction("action2.1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit2.AddAction("action2.2", nil)
+	c.Assert(err, gc.IsNil)
+
+	// Verify that calling Actions on unit1 returns only
+	// the three actions added to unit1
+	actions1, err := unit1.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions1), gc.Equals, 3)
+	for _, action := range actions1 {
+		c.Assert(action.Name(), gc.Matches, "^action1\\..")
+	}
+
+	// Verify that calling Actions on unit2 returns only
+	// the two actions added to unit2
+	actions2, err := unit2.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions2), gc.Equals, 2)
+	for _, action := range actions2 {
+		c.Assert(action.Name(), gc.Matches, "^action2\\..")
+	}
 }

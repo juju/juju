@@ -6,11 +6,12 @@ package firewaller_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )
@@ -27,7 +28,6 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	// TODO(dfc) fix this
 	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 }
@@ -45,6 +45,10 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 	apiMachine0, err := s.firewaller.Machine(s.machines[0].Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine0, gc.NotNil)
+}
+
+func (s *machineSuite) TestTag(c *gc.C) {
+	c.Assert(s.apiMachine.Tag(), gc.Equals, names.NewMachineTag(s.machines[0].Id()))
 }
 
 func (s *machineSuite) TestInstanceId(c *gc.C) {
@@ -91,4 +95,48 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *machineSuite) TestActiveNetworks(c *gc.C) {
+	// No ports opened at first, no networks.
+	nets, err := s.apiMachine.ActiveNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, gc.HasLen, 0)
+
+	// Open a port and check again.
+	err = s.units[0].OpenPort("tcp", 1234)
+	c.Assert(err, gc.IsNil)
+	nets, err = s.apiMachine.ActiveNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, jc.DeepEquals, []names.NetworkTag{
+		names.NewNetworkTag(network.DefaultPublic),
+	})
+
+	// Remove all ports, no networks.
+	ports, err := s.machines[0].OpenedPorts(network.DefaultPublic)
+	c.Assert(err, gc.IsNil)
+	err = ports.Remove()
+	c.Assert(err, gc.IsNil)
+	nets, err = s.apiMachine.ActiveNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, gc.HasLen, 0)
+}
+
+func (s *machineSuite) TestOpenedPorts(c *gc.C) {
+	networkTag := names.NewNetworkTag(network.DefaultPublic)
+	unitTag := s.units[0].Tag().(names.UnitTag)
+
+	// No ports opened at first.
+	ports, err := s.apiMachine.OpenedPorts(networkTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, gc.HasLen, 0)
+
+	// Open a port and check again.
+	err = s.units[0].OpenPort("tcp", 1234)
+	c.Assert(err, gc.IsNil)
+	ports, err = s.apiMachine.OpenedPorts(networkTag)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
+		network.PortRange{FromPort: 1234, ToPort: 1234, Protocol: "tcp"}: unitTag,
+	})
 }

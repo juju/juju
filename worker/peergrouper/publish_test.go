@@ -1,13 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package peergrouper
+package peergrouper_test
 
 import (
-	gc "launchpad.net/gocheck"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 type publishSuite struct {
@@ -29,7 +30,7 @@ func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts [][]network.HostPo
 
 func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	var mock mockAPIHostPortsSetter
-	statePublish := newPublisher(&mock, false)
+	statePublish := peergrouper.NewPublisher(&mock, false)
 
 	hostPorts1 := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "127.0.0.1"), 1234)
 	hostPorts2 := network.AddressesWithPort(network.NewAddresses("testing2.invalid", "127.0.0.2"), 1234)
@@ -37,7 +38,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	// statePublish.publishAPIServers should not update state a second time.
 	apiServers := [][]network.HostPort{hostPorts1}
 	for i := 0; i < 2; i++ {
-		err := statePublish.publishAPIServers(apiServers, nil)
+		err := statePublish.PublishAPIServers(apiServers, nil)
 		c.Assert(err, gc.IsNil)
 	}
 
@@ -46,7 +47,7 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 
 	apiServers = append(apiServers, hostPorts2)
 	for i := 0; i < 2; i++ {
-		err := statePublish.publishAPIServers(apiServers, nil)
+		err := statePublish.PublishAPIServers(apiServers, nil)
 		c.Assert(err, gc.IsNil)
 	}
 	c.Assert(mock.calls, gc.Equals, 2)
@@ -59,9 +60,9 @@ func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
 
 	check := func(preferIPv6 bool, publish, expect []network.HostPort) {
 		var mock mockAPIHostPortsSetter
-		statePublish := newPublisher(&mock, preferIPv6)
+		statePublish := peergrouper.NewPublisher(&mock, preferIPv6)
 		for i := 0; i < 2; i++ {
-			err := statePublish.publishAPIServers([][]network.HostPort{publish}, nil)
+			err := statePublish.PublishAPIServers([][]network.HostPort{publish}, nil)
 			c.Assert(err, gc.IsNil)
 		}
 		c.Assert(mock.calls, gc.Equals, 1)
