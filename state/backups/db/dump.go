@@ -129,7 +129,7 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 // entries from oplog.bson.
 func strip(dbName, dumpDir string) error {
 	dirname := filepath.Join(dumpDir, dbName)
-	if err := os.Remove(dirname); err != nil {
+	if err := os.RemoveAll(dirname); err != nil {
 		return errors.Trace(err)
 	}
 
