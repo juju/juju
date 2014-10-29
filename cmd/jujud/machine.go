@@ -132,15 +132,6 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
-// FinishRestore will restart jujud and err if restore flag is not true
-func (a *MachineAgent) FinishRestore() error {
-	if !a.restoring {
-		return fmt.Errorf("restore is not in progress")
-	}
-	a.tomb.Kill(worker.ErrTerminateAgent)
-	return nil
-}
-
 // IsRestorePreparing returns bool representing if we are in restore mode
 // but not running restore
 func (a *MachineAgent) IsRestorePreparing() bool {
@@ -265,6 +256,46 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+	rWorker := func(stopch <-chan struct{}) error {
+		return a.restoreStateWatcher(st, stopch)
+	}
+	return worker.NewSimpleWorker(rWorker), nil
+}
+
+func (a *MachineAgent) restoreChanged(st *state.State) error {
+	rinfo, err := st.EnsureRestoreInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot read restore state")
+	}
+	switch rinfo.Status() {
+	case state.RestorePending:
+		a.PrepareRestore()
+	case state.RestoreInProgress:
+		a.BeginRestore()
+	}
+	return nil
+}
+
+func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
+	restoreWatch := st.WatchRestoreInfoChanges()
+	defer func() {
+		restoreWatch.Kill()
+		restoreWatch.Wait()
+	}()
+
+	for {
+		select {
+		case <-restoreWatch.Changes():
+			if err := a.restoreChanged(st); err != nil {
+				return err
+			}
+		case <-stopch:
+			return nil
+		}
+	}
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -609,6 +640,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
+			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
+				return a.newRestoreStateWatcher(st)
+			})
+
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -639,7 +674,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					Key:       key,
 					DataDir:   dataDir,
 					LogDir:    logDir,
-					Validator: a.limitLoginsDuringUpgrade,
+					Validator: a.limitLogins,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {

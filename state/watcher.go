@@ -1208,6 +1208,12 @@ func (st *State) WatchUpgradeInfo() NotifyWatcher {
 	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
 }
 
+// WatchRestoreInfoChanges returns a NotifyWatcher that will inform
+// when the restore status changes.
+func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
+	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
+}
+
 // WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
