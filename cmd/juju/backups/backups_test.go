@@ -13,6 +13,7 @@ import (
 
 var expectedSubCommmandNames = []string{
 	"create",
+	"download",
 	"help",
 	"info",
 	"list",

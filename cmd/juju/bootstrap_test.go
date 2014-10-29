@@ -550,7 +550,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
-	buildToolsTarballAlwaysFails := func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
+	buildToolsTarballAlwaysFails := func(forceVersion *version.Number) (*sync.BuiltTools, error) {
 		return nil, fmt.Errorf("an error")
 	}
 
@@ -632,7 +632,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 		versionStrings[i] = vers.String()
 	}
 	source := c.MkDir()
-	toolstesting.MakeTools(c, source, "released", versionStrings)
+	toolstesting.MakeTools(c, source, "releases", "released", versionStrings)
 	return source
 }
 

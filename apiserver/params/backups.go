@@ -24,6 +24,11 @@ type BackupsInfoArgs struct {
 type BackupsListArgs struct {
 }
 
+// BackupsDownloadArgs holds the args for the API Download method.
+type BackupsDownloadArgs struct {
+	ID string
+}
+
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
 	ID string
@@ -37,15 +42,16 @@ type BackupsListResult struct {
 // BackupsMetadataResult holds the metadata for a backup as returned by
 // an API backups method (such as Create).
 type BackupsMetadataResult struct {
-	ID             string
-	Started        time.Time
-	Finished       time.Time // May be zero...
+	ID string
+
 	Checksum       string
 	ChecksumFormat string
 	Size           int64
-	Stored         bool
-	Notes          string
+	Stored         time.Time // May be zero...
 
+	Started     time.Time
+	Finished    time.Time // May be zero...
+	Notes       string
 	Environment string
 	Machine     string
 	Hostname    string
@@ -56,19 +62,22 @@ type BackupsMetadataResult struct {
 // metadata value.
 func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.ID = meta.ID()
-	r.Started = meta.Started()
-	if meta.Finished() != nil {
-		r.Finished = *(meta.Finished())
-	}
+
 	r.Checksum = meta.Checksum()
 	r.ChecksumFormat = meta.ChecksumFormat()
 	r.Size = meta.Size()
-	r.Stored = meta.Stored()
-	r.Notes = meta.Notes()
+	if meta.Stored() != nil {
+		r.Stored = *(meta.Stored())
+	}
 
-	origin := meta.Origin()
-	r.Environment = origin.Environment()
-	r.Machine = origin.Machine()
-	r.Hostname = origin.Hostname()
-	r.Version = origin.Version()
+	r.Started = meta.Started
+	if meta.Finished != nil {
+		r.Finished = *meta.Finished
+	}
+	r.Notes = meta.Notes
+
+	r.Environment = meta.Origin.Environment
+	r.Machine = meta.Origin.Machine
+	r.Hostname = meta.Origin.Hostname
+	r.Version = meta.Origin.Version
 }

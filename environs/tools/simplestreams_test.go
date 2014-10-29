@@ -138,7 +138,7 @@ var fetchTests = []struct {
 			Version:  "1.13.0",
 			Arch:     "amd64",
 			Size:     2973595,
-			Path:     "tools/released/20130806/juju-1.13.0-precise-amd64.tgz",
+			Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
 			FileType: "tar.gz",
 			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
 		},
@@ -153,7 +153,7 @@ var fetchTests = []struct {
 			Version:  "1.13.0",
 			Arch:     "amd64",
 			Size:     2973173,
-			Path:     "tools/released/20130806/juju-1.13.0-raring-amd64.tgz",
+			Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
 			FileType: "tar.gz",
 			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
@@ -168,7 +168,7 @@ var fetchTests = []struct {
 			Version:  "1.11.4",
 			Arch:     "arm",
 			Size:     1950327,
-			Path:     "tools/released/20130806/juju-1.11.4-raring-arm.tgz",
+			Path:     "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "6472014e3255e3fe7fbd3550ef3f0a11",
 		},
@@ -183,7 +183,7 @@ var fetchTests = []struct {
 			Version:  "2.0.1",
 			Arch:     "arm",
 			Size:     1951096,
-			Path:     "tools/released/20130806/juju-2.0.1-precise-arm.tgz",
+			Path:     "tools/releases/20130806/juju-2.0.1-precise-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
 		},
@@ -199,7 +199,7 @@ var fetchTests = []struct {
 			Version:  "1.11.4",
 			Arch:     "arm",
 			Size:     1951096,
-			Path:     "tools/released/20130806/juju-1.11.4-precise-arm.tgz",
+			Path:     "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
 		},
@@ -208,7 +208,7 @@ var fetchTests = []struct {
 			Version:  "1.11.5",
 			Arch:     "arm",
 			Size:     2031281,
-			Path:     "tools/released/20130803/juju-1.11.5-precise-arm.tgz",
+			Path:     "tools/releases/20130803/juju-1.11.5-precise-arm.tgz",
 			FileType: "tar.gz",
 			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
@@ -224,7 +224,7 @@ var fetchTests = []struct {
 			Version:  "1.16.0",
 			Arch:     "amd64",
 			Size:     2973512,
-			Path:     "tools/testing/20130806/juju-1.16.0-trusty-amd64.tgz",
+			Path:     "tools/releases/20130806/juju-1.16.0-trusty-amd64.tgz",
 			FileType: "tar.gz",
 			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dac",
 		},
@@ -319,7 +319,7 @@ func (s *simplestreamsSuite) TestFetchWithMirror(c *gc.C) {
 	})
 }
 
-func assertMetadataMatches(c *gc.C, storageDir string, stream string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
+func assertMetadataMatches(c *gc.C, storageDir string, toolList coretools.List, metadata []*tools.ToolsMetadata) {
 	var expectedMetadata []*tools.ToolsMetadata = make([]*tools.ToolsMetadata, len(toolList))
 	for i, tool := range toolList {
 		expectedMetadata[i] = &tools.ToolsMetadata{
@@ -327,7 +327,7 @@ func assertMetadataMatches(c *gc.C, storageDir string, stream string, toolList c
 			Version:  tool.Version.Number.String(),
 			Arch:     tool.Version.Arch,
 			Size:     tool.Size,
-			Path:     fmt.Sprintf("%s/juju-%s.tgz", stream, tool.Version.String()),
+			Path:     fmt.Sprintf("releases/juju-%s.tgz", tool.Version.String()),
 			FileType: "tar.gz",
 			SHA256:   tool.SHA256,
 		}
@@ -350,10 +350,10 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	dir := c.MkDir()
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, "proposed", toolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := toolstesting.ParseMetadataFromDir(c, "proposed", dir, false)
-	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
+	metadata := toolstesting.ParseMetadataFromDir(c, "released", dir, false)
+	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
 func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
@@ -362,7 +362,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 		"2.0.1-raring-amd64",
 	}
 	dir := c.MkDir()
-	toolstesting.MakeTools(c, dir, "proposed", versionStrings)
+	toolstesting.MakeTools(c, dir, "releases", "released", versionStrings)
 
 	toolsList := coretools.List{
 		{
@@ -382,10 +382,10 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	if withMirrors {
 		writeMirrors = tools.WriteMirrors
 	}
-	err = tools.MergeAndWriteMetadata(writer, "proposed", toolsList, writeMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := toolstesting.ParseMetadataFromDir(c, "proposed", dir, withMirrors)
-	assertMetadataMatches(c, dir, "proposed", toolsList, metadata)
+	metadata := toolstesting.ParseMetadataFromDir(c, "released", dir, withMirrors)
+	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
 func (s *simplestreamsSuite) TestWriteMetadata(c *gc.C) {
@@ -411,7 +411,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, "testing", existingToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", existingToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -421,11 +421,11 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(writer, "testing", newToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "released", newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := toolstesting.ParseMetadataFromDir(c, "testing", dir, false)
-	assertMetadataMatches(c, dir, "testing", requiredToolsList, metadata)
+	metadata := toolstesting.ParseMetadataFromDir(c, "released", dir, false)
+	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
 type productSpecSuite struct{}
@@ -556,7 +556,7 @@ type metadataHelperSuite struct {
 var _ = gc.Suite(&metadataHelperSuite{})
 
 func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
-	metadata := tools.MetadataFromTools(nil, "proposed")
+	metadata := tools.MetadataFromTools(nil)
 	c.Assert(metadata, gc.HasLen, 0)
 
 	toolsList := coretools.List{{
@@ -565,11 +565,11 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 		SHA256:  "abc",
 	}, {
 		Version: version.MustParseBinary("2.0.1-raring-amd64"),
-		URL:     "file:///tmp/proposed/juju-2.0.1-raring-amd64.tgz",
+		URL:     "file:///tmp/releases/juju-2.0.1-raring-amd64.tgz",
 		Size:    456,
 		SHA256:  "xyz",
 	}}
-	metadata = tools.MetadataFromTools(toolsList, "proposed")
+	metadata = tools.MetadataFromTools(toolsList)
 	c.Assert(metadata, gc.HasLen, len(toolsList))
 	for i, t := range toolsList {
 		md := metadata[i]
@@ -579,7 +579,7 @@ func (*metadataHelperSuite) TestMetadataFromTools(c *gc.C) {
 		// FullPath is only filled out when reading tools using simplestreams.
 		// It's not needed elsewhere and requires a URL() call.
 		c.Assert(md.FullPath, gc.Equals, "")
-		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version, "proposed")[len("tools/"):])
+		c.Assert(md.Path, gc.Equals, tools.StorageName(t.Version)[len("tools/"):])
 		c.Assert(md.FileType, gc.Equals, "tar.gz")
 		c.Assert(md.Size, gc.Equals, t.Size)
 		c.Assert(md.SHA256, gc.Equals, t.SHA256)
@@ -599,7 +599,7 @@ func (c *countingStorage) Get(name string) (io.ReadCloser, error) {
 func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 	var versionStrings = []string{"1.2.3-precise-amd64"}
 	dir := c.MkDir()
-	toolstesting.MakeTools(c, dir, "released", versionStrings)
+	toolstesting.MakeTools(c, dir, "releases", "released", versionStrings)
 	toolsList := coretools.List{{
 		Version: version.MustParseBinary(versionStrings[0]),
 		Size:    123,
@@ -608,13 +608,13 @@ func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 
 	stor, err := filestorage.NewFileStorageReader(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.ResolveMetadata(stor, "released", nil)
+	err = tools.ResolveMetadata(stor, nil)
 	c.Assert(err, gc.IsNil)
 
 	// We already have size/sha256, so ensure that storage isn't consulted.
 	countingStorage := &countingStorage{StorageReader: stor}
-	metadata := tools.MetadataFromTools(toolsList, "released")
-	err = tools.ResolveMetadata(countingStorage, "released", metadata)
+	metadata := tools.MetadataFromTools(toolsList)
+	err = tools.ResolveMetadata(countingStorage, metadata)
 	c.Assert(err, gc.IsNil)
 	c.Assert(countingStorage.counter, gc.Equals, 0)
 
@@ -622,7 +622,7 @@ func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 	// the size/sha256 sum are updated.
 	metadata[0].Size = 0
 	metadata[0].SHA256 = ""
-	err = tools.ResolveMetadata(countingStorage, "released", metadata)
+	err = tools.ResolveMetadata(countingStorage, metadata)
 	c.Assert(err, gc.IsNil)
 	c.Assert(countingStorage.counter, gc.Equals, 1)
 	c.Assert(metadata[0].Size, gc.Not(gc.Equals), 0)

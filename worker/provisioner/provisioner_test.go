@@ -464,7 +464,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	availableVersions := []version.Binary{
 		currentVersion, compatibleVersion, ignoreVersion1, ignoreVersion2,
 	}
-	envtesting.AssertUploadFakeToolsVersions(c, stor, s.cfg.AgentStream(), availableVersions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, availableVersions...)
 
 	// Extract the tools that we expect to actually match.
 	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{

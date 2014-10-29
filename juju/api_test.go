@@ -70,7 +70,7 @@ func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	cs.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor, "released")
+	envtesting.UploadFakeTools(c, stor)
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -137,7 +137,7 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configst
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor, "released")
+	envtesting.UploadFakeTools(c, stor)
 
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)

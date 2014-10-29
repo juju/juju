@@ -215,7 +215,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindTools(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(2, "released")
+	list, err := a.FindTools(2)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, jc.SameContents, result)
 	c.Assert(called, jc.IsTrue)
@@ -229,7 +229,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsNotFound(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(1, "released")
+	list, err := a.FindTools(1)
 	c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 	c.Assert(list, gc.HasLen, 0)
 }
@@ -242,7 +242,7 @@ func (s *syncToolsSuite) TestAPIAdapterFindToolsAPIError(c *gc.C) {
 		},
 	}
 	a := syncToolsAPIAdapter{&fake}
-	list, err := a.FindTools(1, "released")
+	list, err := a.FindTools(1)
 	c.Assert(err, gc.Equals, findToolsErr) // error comes through untranslated
 	c.Assert(list, gc.HasLen, 0)
 }

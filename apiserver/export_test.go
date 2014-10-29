@@ -19,6 +19,7 @@ var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
+	NewBackups            = &newBackups
 )
 
 const LoginRateLimit = loginRateLimit
