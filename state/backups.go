@@ -211,12 +211,11 @@ func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 type DBOperator struct {
 	session   *mgo.Session
 	db        *mgo.Database
+	metaColl  *mgo.Collection
 	txnRunner jujutxn.Runner
 
 	// EnvUUID is the UUID of the environment.
 	EnvUUID string
-	// Target is the DB collection on which to operate.
-	Target *mgo.Collection
 }
 
 // NewDBOperator returns a DB operator for the target, with its own session.
@@ -231,14 +230,14 @@ func NewDBOperator(db *mgo.Database, target, envUUID string) *DBOperator {
 		db:        db,
 		txnRunner: txnRunner,
 		EnvUUID:   envUUID,
-		Target:    coll,
+		metaColl:  coll,
 	}
 	return &dbOp
 }
 
 // Metadata populates doc with the document matching the ID.
 func (o *DBOperator) Metadata(id string, doc interface{}) error {
-	err := o.Target.FindId(id).One(doc)
+	err := o.metaColl.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("metadata %q", id)
 	}
@@ -247,7 +246,13 @@ func (o *DBOperator) Metadata(id string, doc interface{}) error {
 
 // AllMetadata populates docs with the list of documents in storage.
 func (o *DBOperator) AllMetadata(docs interface{}) error {
-	err := o.Target.Find(nil).All(docs)
+	err := o.metaColl.Find(nil).All(docs)
+	return errors.Trace(err)
+}
+
+// RemoveMetadata removes the identified metadata from storage.
+func (o *DBOperator) RemoveMetadata(id string) error {
+	err := o.metaColl.RemoveId(id)
 	return errors.Trace(err)
 }
 
@@ -255,7 +260,7 @@ func (o *DBOperator) AllMetadata(docs interface{}) error {
 // and the metadata collection name.
 func (o *DBOperator) TxnOp(id string) txn.Op {
 	op := txn.Op{
-		C:  o.Target.Name,
+		C:  o.metaColl.Name,
 		Id: id,
 	}
 	return op
@@ -278,7 +283,7 @@ func (o *DBOperator) BlobStorage(blobDB string) blobstore.ManagedStorage {
 func (o *DBOperator) Copy() *DBOperator {
 	session := o.session.Copy()
 
-	coll := o.Target.With(session)
+	coll := o.metaColl.With(session)
 	db := coll.Database
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	dbOp := DBOperator{
@@ -286,7 +291,7 @@ func (o *DBOperator) Copy() *DBOperator {
 		db:        db,
 		txnRunner: txnRunner,
 		EnvUUID:   o.EnvUUID,
-		Target:    coll,
+		metaColl:  coll,
 	}
 	return &dbOp
 }
@@ -476,7 +481,7 @@ func (s *backupsDocStorage) RemoveDoc(id string) error {
 	dbOp := s.dbOp.Copy()
 	defer dbOp.Close()
 
-	return errors.Trace(dbOp.Target.RemoveId(id))
+	return errors.Trace(dbOp.RemoveMetadata(id))
 }
 
 // Close releases the DB resources.
