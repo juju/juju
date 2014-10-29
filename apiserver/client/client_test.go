@@ -41,14 +41,6 @@ import (
 
 type clientSuite struct {
 	baseSuite
-	afterFunc []func()
-}
-
-func (s *clientSuite) TearDownTest(c *gc.C) {
-	for _, f := range s.afterFunc {
-		f()
-	}
-	s.baseSuite.TearDownTest(c)
 }
 
 type Killer interface {
@@ -1493,7 +1485,7 @@ func (s *clientSuite) makeMockCharmStore() (store *charmtesting.MockCharmStore) 
 	mockStore := charmtesting.NewMockCharmStore()
 	origStore := client.CharmStore
 	client.CharmStore = mockStore
-	s.afterFunc = append(s.afterFunc, func() { client.CharmStore = origStore })
+	s.AddCleanup(func(_ *gc.C) { client.CharmStore = origStore })
 	return mockStore
 }
 
