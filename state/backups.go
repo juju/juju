@@ -471,7 +471,7 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 
 const backupStorageRoot = "backups"
 
-type envFileStorage struct {
+type backupBlobStorage struct {
 	dbOp *DBOperator
 
 	envUUID string
@@ -487,7 +487,7 @@ func newBackupFileStorage(dbOp *DBOperator, root string) filestorage.RawFileStor
 	dataStore := blobstore.NewGridFS(dbName, dbOp.EnvUUID, db.Session)
 	managed := blobstore.NewManagedStorage(db, dataStore)
 
-	stor := envFileStorage{
+	stor := backupBlobStorage{
 		dbOp:    dbOp,
 		envUUID: dbOp.EnvUUID,
 		managed: managed,
@@ -496,27 +496,27 @@ func newBackupFileStorage(dbOp *DBOperator, root string) filestorage.RawFileStor
 	return &stor
 }
 
-func (s *envFileStorage) path(id string) string {
+func (s *backupBlobStorage) path(id string) string {
 	// Use of path.Join instead of filepath.Join is intentional - this
 	// is an environment storage path not a filesystem path.
 	return path.Join(s.root, id)
 }
 
-func (s *envFileStorage) File(id string) (io.ReadCloser, error) {
+func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
 	file, _, err := s.managed.GetForEnvironment(s.envUUID, s.path(id))
 	return file, err
 }
 
-func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
+func (s *backupBlobStorage) AddFile(id string, file io.Reader, size int64) error {
 	return s.managed.PutForEnvironment(s.envUUID, s.path(id), file, size)
 }
 
-func (s *envFileStorage) RemoveFile(id string) error {
+func (s *backupBlobStorage) RemoveFile(id string) error {
 	return s.managed.RemoveForEnvironment(s.envUUID, s.path(id))
 }
 
 // Close closes the storage.
-func (s *envFileStorage) Close() error {
+func (s *backupBlobStorage) Close() error {
 	return s.dbOp.Close()
 }
 
