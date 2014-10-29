@@ -234,6 +234,15 @@ func NewDBOperator(db *mgo.Database, target, envUUID string) *DBOperator {
 	return &dbOp
 }
 
+// Metadata populates doc with the document matching the ID.
+func (o *DBOperator) Metadata(id string, doc interface{}) error {
+	err := o.Target.FindId(id).One(doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("metadata %q", id)
+	}
+	return errors.Trace(err)
+}
+
 // RunTransaction runs the DB operations within a single transaction.
 func (o *DBOperator) RunTransaction(ops []txn.Op) error {
 	err := o.txnRunner.RunTransaction(ops)
@@ -268,11 +277,11 @@ func (o *DBOperator) Close() error {
 func getBackupMetadata(dbOp *DBOperator, id string) (*BackupMetaDoc, error) {
 	var doc BackupMetaDoc
 	// There can only be one!
-	err := dbOp.Target.FindId(id).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("backup metadata %q", id)
+	err := dbOp.Metadata(id, &doc)
+	if errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
 	} else if err != nil {
-		return nil, errors.Annotate(err, "error getting backup metadata")
+		return nil, errors.Annotate(err, "while getting metadata")
 	}
 
 	if err := doc.validate(); err != nil {
