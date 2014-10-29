@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -33,8 +34,8 @@ func (s *baseBackupsSuite) SetUpTest(c *gc.C) {
 
 	s.fake = &backupstesting.FakeBackups{}
 	s.PatchValue(apiserver.NewBackups,
-		func(st *state.State) (backups.Backups, error) {
-			return s.fake, nil
+		func(st *state.State) (backups.Backups, io.Closer) {
+			return s.fake, ioutil.NopCloser(nil)
 		},
 	)
 }
@@ -105,20 +106,6 @@ func (s *backupsSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 	resp, err = s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.checkErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "POST"`)
-}
-
-func (s *backupsSuite) TestErrorWhenNewBackupsFails(c *gc.C) {
-	s.PatchValue(apiserver.NewBackups,
-		func(st *state.State) (backups.Backups, error) {
-			return nil, errors.New("failed!")
-		},
-	)
-
-	resp, err := s.authRequest(c, "GET", s.backupURL(c), "", nil)
-	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-
-	s.checkErrorResponse(c, resp, http.StatusInternalServerError, "failed!")
 }
 
 type backupsDownloadSuite struct {
