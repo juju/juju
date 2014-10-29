@@ -17,6 +17,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	backupsTesting "github.com/juju/juju/state/backups/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -140,7 +141,7 @@ func (s *LegacySuite) checkTarContents(
 }
 
 func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum string) {
-	fileShaSum := shaSumFile(c, file)
+	fileShaSum := backupsTesting.SHASumFile(c, file)
 	c.Check(fileShaSum, gc.Equals, checksum)
 	resetFile(c, file)
 }

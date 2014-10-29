@@ -15,9 +15,12 @@ type BaseSuite struct {
 	testing.IsolationSuite
 	// Meta is a Metadata with standard test values.
 	Meta *metadata.Metadata
+	// Storage is a FileStorage to use when testing backups.
+	Storage *FakeStorage
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.Meta = NewMetadata()
+	s.Storage = &FakeStorage{}
 }

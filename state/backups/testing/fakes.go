@@ -6,6 +6,10 @@ package testing
 import (
 	"io"
 
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/filestorage"
+	gc "gopkg.in/check.v1"
+
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
@@ -71,4 +75,81 @@ func (b *FakeBackups) Remove(id string) error {
 	b.Calls = append(b.Calls, "Remove")
 	b.IDArg = id
 	return b.Error
+}
+
+// TODO(ericsnow) FakeStorage should probably move over to the utils repo.
+
+// FakeStorage is a FileStorage implementation to use when testing
+// backups.
+type FakeStorage struct {
+	// Calls contains the order in which methods were called.
+	Calls []string
+
+	// ID is the stored backup ID to return.
+	ID string
+	// Meta holds the Metadata to return.
+	Meta filestorage.Metadata
+	// MetaList holds the Metadata list to return.
+	MetaList []filestorage.Metadata
+	// File holds the stored file to return.
+	File io.ReadCloser
+	// Error holds the Metadata to return.
+	Error error
+
+	// IDArg holds the ID that was passed in.
+	IDArg string
+	// MetaArg holds the Metadata that was passed in.
+	MetaArg filestorage.Metadata
+	// FileArg holds the file that was passed in.
+	FileArg io.Reader
+}
+
+// CheckCalled verifies that the fake was called as expected.
+func (s *FakeStorage) CheckCalled(c *gc.C, id string, meta filestorage.Metadata, file io.Reader, calls ...string) {
+	c.Check(s.Calls, jc.DeepEquals, calls)
+	c.Check(s.IDArg, gc.Equals, id)
+	c.Check(s.MetaArg, gc.Equals, meta)
+	c.Check(s.FileArg, gc.Equals, file)
+}
+
+func (s *FakeStorage) Metadata(id string) (filestorage.Metadata, error) {
+	s.Calls = append(s.Calls, "Metadata")
+	s.IDArg = id
+	return s.Meta, s.Error
+}
+
+func (s *FakeStorage) Get(id string) (filestorage.Metadata, io.ReadCloser, error) {
+	s.Calls = append(s.Calls, "Get")
+	s.IDArg = id
+	return s.Meta, s.File, s.Error
+}
+
+func (s *FakeStorage) List() ([]filestorage.Metadata, error) {
+	s.Calls = append(s.Calls, "List")
+	return s.MetaList, s.Error
+}
+
+func (s *FakeStorage) Add(meta filestorage.Metadata, file io.Reader) (string, error) {
+	s.Calls = append(s.Calls, "Add")
+	s.MetaArg = meta
+	s.FileArg = file
+	return s.ID, s.Error
+}
+
+func (s *FakeStorage) SetFile(id string, file io.Reader) error {
+	s.Calls = append(s.Calls, "SetFile")
+	s.IDArg = id
+	s.FileArg = file
+	return s.Error
+}
+
+func (s *FakeStorage) Remove(id string) error {
+	s.Calls = append(s.Calls, "Remove")
+	s.IDArg = id
+	return s.Error
+}
+
+func (s *FakeStorage) Close() error {
+	s.Calls = append(s.Calls, "Close")
+	return s.Error
 }
