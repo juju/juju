@@ -481,7 +481,7 @@ type envFileStorage struct {
 	dbOp *DBOperator
 
 	envUUID string
-	raw     blobstore.ManagedStorage
+	managed blobstore.ManagedStorage
 	root    string
 }
 
@@ -496,7 +496,7 @@ func newBackupFileStorage(dbOp *DBOperator, root string) filestorage.RawFileStor
 	stor := envFileStorage{
 		dbOp:    dbOp,
 		envUUID: dbOp.EnvUUID,
-		raw:     managed,
+		managed: managed,
 		root:    root,
 	}
 	return &stor
@@ -509,16 +509,16 @@ func (s *envFileStorage) path(id string) string {
 }
 
 func (s *envFileStorage) File(id string) (io.ReadCloser, error) {
-	file, _, err := s.raw.GetForEnvironment(s.envUUID, s.path(id))
+	file, _, err := s.managed.GetForEnvironment(s.envUUID, s.path(id))
 	return file, err
 }
 
 func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.raw.PutForEnvironment(s.envUUID, s.path(id), file, size)
+	return s.managed.PutForEnvironment(s.envUUID, s.path(id), file, size)
 }
 
 func (s *envFileStorage) RemoveFile(id string) error {
-	return s.raw.RemoveForEnvironment(s.envUUID, s.path(id))
+	return s.managed.RemoveForEnvironment(s.envUUID, s.path(id))
 }
 
 // Close closes the storage.
