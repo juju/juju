@@ -69,10 +69,10 @@ func (s *ChangePasswordCommandSuite) TestInit(c *gc.C) {
 			errorString: `unrecognized args: \["extra"\]`,
 		}, {
 			args:        []string{"--output", "somefile"},
-			errorString: "output is only a valid option when changing another's password",
+			errorString: "output is only a valid option when changing another user's password",
 		}, {
 			args:        []string{"-o", "somefile"},
-			errorString: "output is only a valid option when changing another's password",
+			errorString: "output is only a valid option when changing another user's password",
 		}, {
 			args:     []string{"foobar", "--generate"},
 			user:     "foobar",

@@ -14,7 +14,8 @@ import (
 )
 
 const userChangePasswordDoc = `
-Change the password for the user you are currently logged in as.
+Change the password for the user you are currently logged in as,
+or as an admin, change the password for another user.
 
 Examples:
   # You will be prompted to enter a password.
@@ -22,9 +23,13 @@ Examples:
 
   # Change the password to a random strong password.
   juju user change-password --generate
+
+  # Change the password for bob
+  juju user change-password bob --generate
+
 `
 
-// ChangePasswordCommand changes the password for the current user.
+// ChangePasswordCommand changes the password for a user.
 type ChangePasswordCommand struct {
 	UserCommandBase
 	Password string
@@ -38,7 +43,7 @@ func (c *ChangePasswordCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "change-password",
 		Args:    "",
-		Purpose: "changes the password of the current user",
+		Purpose: "changes the password for a user",
 		Doc:     userChangePasswordDoc,
 	}
 }
@@ -46,7 +51,7 @@ func (c *ChangePasswordCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *ChangePasswordCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Generate, "generate", false, "generate a new strong password")
-	f.StringVar(&c.OutPath, "o", "", "specify the environment file for new user")
+	f.StringVar(&c.OutPath, "o", "", "specify the environment file for user")
 	f.StringVar(&c.OutPath, "output", "", "")
 }
 
@@ -55,7 +60,7 @@ func (c *ChangePasswordCommand) Init(args []string) error {
 	var err error
 	c.User, err = cmd.ZeroOrOneArgs(args)
 	if c.User == "" && c.OutPath != "" {
-		return errors.New("output is only a valid option when changing another's password")
+		return errors.New("output is only a valid option when changing another user's password")
 	}
 	return err
 }
@@ -154,10 +159,11 @@ func (c *ChangePasswordCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *ChangePasswordCommand) writeEnvironmentFile(ctx *cmd.Context) error {
-	if c.OutPath == "" {
-		c.OutPath = c.User + ".jenv"
+	outPath := c.OutPath
+	if outPath == "" {
+		outPath = c.User + ".jenv"
 	}
-	outPath := normaliseJenvPath(ctx, c.OutPath)
+	outPath = normaliseJenvPath(ctx, outPath)
 	if err := generateUserJenv(c.ConnectionName(), c.User, c.Password, outPath); err != nil {
 		return err
 	}
