@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+from argparse import ArgumentParser
+import json
 from textwrap import dedent
 import re
 import subprocess
@@ -93,14 +95,22 @@ def get_bzr_revision_info(branch, revision_spec):
 
 
 if __name__ == '__main__':
+    parser = ArgumentParser()
+    parser.add_argument('branch', help='The branch being built')
+    parser.add_argument('revision', nargs='?', default=None,
+                        help='The revision being built')
+    parser.add_argument('--revision-build', default=None,
+                        help='The build number.')
+    args = parser.parse_args()
     load_plugins()
-    branch = sys.argv[1]
-    if sys.argv[1].startswith('lp:'):
-        revision_spec = sys.argv[2] if len(sys.argv) > 2 else 'revno:-1'
+    branch = args.branch
+    revision_spec = args.revision
+    if branch.startswith('lp:'):
+        if revision_spec is None:
+            revision_spec = 'revno:-1'
         revno, revision_id, version = get_bzr_revision_info(
             branch, revision_spec)
     else:
-        revision_spec = sys.argv[2] if len(sys.argv) > 2 else None
         revno, revision_id, version = get_git_revision_info(
             branch, revision_spec)
     with open('buildvars.bash', 'w') as f:
@@ -111,3 +121,11 @@ if __name__ == '__main__':
         """ % (branch, revision_id, version)))
         if revno is not None:
             f.write('export REVNO=%s\n' % revno)
+    with open('buildvars.json', 'w') as f:
+        json.dump({
+            'branch': branch,
+            'revision_id': revision_id,
+            'revno': revno,
+            'version': version,
+            'revision_build': args.revision_build,
+            }, f, indent=2)
