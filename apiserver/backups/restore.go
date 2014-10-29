@@ -65,7 +65,7 @@ func (a *API) Restore(p params.Restore) error {
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work
-	if err == nil{
+	if err == nil {
 		os.Exit(1)
 	}
 

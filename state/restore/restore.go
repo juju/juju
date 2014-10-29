@@ -47,15 +47,10 @@ func _runCommand(cmd string, args ...string) error {
 	command := exec.Command(cmd, args...)
 	out, err := command.CombinedOutput()
 
-	afile, err := os.Create("/home/ubuntu/" + strings.Replace(cmd, "/", "_", -1))
-	defer afile.Close()
-	afile.Write(out)
-	for _, arg := range args {
-		afile.WriteString(fmt.Sprintf("\n%s\n", arg))
-	}
 	if err == nil {
 		return nil
 	}
+
 	if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
 		return errors.Annotatef(err, "error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
 	}
@@ -193,7 +188,7 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 		errors.Annotate(err, "cannot connect to mongo to update")
 	}
 	defer session.Close()
-	if err := session.DB("juju").C("machines").Update(bson.M{"_id": "0"}, bson.M{"$set": bson.M{"instanceid": string(newInstId)}}); err != nil {
+	if err := session.DB("juju").C("machines").Update(bson.M{"machineid": "0"}, bson.M{"$set": bson.M{"instanceid": string(newInstId)}}); err != nil {
 		return errors.Annotate(err, "cannot update machine 0 instance information")
 	}
 	return nil
