@@ -245,6 +245,12 @@ func (o *DBOperator) Metadata(id string, doc interface{}) error {
 	return errors.Trace(err)
 }
 
+// AllMetadata populates docs with the list of documents in storage.
+func (o *DBOperator) AllMetadata(docs interface{}) error {
+	err := o.Target.Find(nil).All(docs)
+	return errors.Trace(err)
+}
+
 // TxnOp returns a single transaction operation populated with the id
 // and the metadata collection name.
 func (o *DBOperator) TxnOp(id string) txn.Op {
@@ -411,12 +417,11 @@ type backupsMetadataStorage struct {
 
 func newBackupMetadataStorage(dbOp *DBOperator) *backupsMetadataStorage {
 	dbOp = dbOp.Copy()
-	db := dbOp.Target.Database
 
 	docStor := backupsDocStorage{dbOp}
 	stor := backupsMetadataStorage{
 		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
-		db:                 db,
+		db:                 dbOp.db,
 		envUUID:            dbOp.EnvUUID,
 	}
 	return &stor
@@ -455,7 +460,7 @@ func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 	defer dbOp.Close()
 
 	var docs []BackupMetaDoc
-	if err := dbOp.Target.Find(nil).All(&docs); err != nil {
+	if err := dbOp.AllMetadata(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
