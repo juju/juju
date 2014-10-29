@@ -210,7 +210,7 @@ func (p environProvider) swapLocalhostForBridgeIP(u string, providerConfig *envi
 	//If localhost is specified, use its network bridge ip
 	bridgeAddress, nwerr := getAddressForInterface(providerConfig.networkBridge())
 	if nwerr != nil {
-		return nil, nwerr
+		return "", nwerr
 	}
 	parsedUrl.Host = hostPortRegexp.ReplaceAllString(hostPort, fmt.Sprintf("%s$port", bridgeAddress))
 	return parsedUrl.String(), nil
