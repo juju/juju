@@ -507,9 +507,9 @@ const backupStorageRoot = "backups"
 type backupBlobStorage struct {
 	backupDB *BackupDB
 
-	envUUID string
-	managed blobstore.ManagedStorage
-	root    string
+	envUUID   string
+	storeImpl blobstore.ManagedStorage
+	root      string
 }
 
 func newBackupFileStorage(backupDB *BackupDB, root string) filestorage.RawFileStorage {
@@ -517,10 +517,10 @@ func newBackupFileStorage(backupDB *BackupDB, root string) filestorage.RawFileSt
 
 	managed := backupDB.BlobStorage(blobstoreDB)
 	stor := backupBlobStorage{
-		backupDB: backupDB,
-		envUUID:  backupDB.envUUID,
-		managed:  managed,
-		root:     root,
+		backupDB:  backupDB,
+		envUUID:   backupDB.envUUID,
+		storeImpl: managed,
+		root:      root,
 	}
 	return &stor
 }
@@ -532,16 +532,16 @@ func (s *backupBlobStorage) path(id string) string {
 }
 
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
-	file, _, err := s.managed.GetForEnvironment(s.envUUID, s.path(id))
+	file, _, err := s.storeImpl.GetForEnvironment(s.envUUID, s.path(id))
 	return file, err
 }
 
 func (s *backupBlobStorage) AddFile(id string, file io.Reader, size int64) error {
-	return s.managed.PutForEnvironment(s.envUUID, s.path(id), file, size)
+	return s.storeImpl.PutForEnvironment(s.envUUID, s.path(id), file, size)
 }
 
 func (s *backupBlobStorage) RemoveFile(id string) error {
-	return s.managed.RemoveForEnvironment(s.envUUID, s.path(id))
+	return s.storeImpl.RemoveForEnvironment(s.envUUID, s.path(id))
 }
 
 // Close closes the storage.
