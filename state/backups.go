@@ -307,14 +307,12 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 		return errors.Trace(err)
 	}
 
-	var ops []txn.Op
-	op := txn.Op{
+	ops := []txn.Op{{
 		C:      dbOp.Target.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}
-	ops = append(ops, op)
+	}}
 
 	if err := dbOp.TXNRunner.RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
@@ -331,16 +329,14 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
 func setBackupStored(dbOp *DBOperator, id string, stored time.Time) error {
-	var ops []txn.Op
-	op := txn.Op{
+	ops := []txn.Op{{
 		C:      dbOp.Target.Name,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
 			{"stored", stored.UTC().Unix()},
 		}}},
-	}
-	ops = append(ops, op)
+	}}
 
 	if err := dbOp.TXNRunner.RunTransaction(ops); err != nil {
 		if err == txn.ErrAborted {

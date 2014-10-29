@@ -35,7 +35,7 @@ var (
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
+var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
