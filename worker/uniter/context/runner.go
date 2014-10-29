@@ -15,7 +15,7 @@ import (
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/version"
-//	"github.com/juju/juju/worker"
+	//	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/context/debug"
 	"github.com/juju/juju/worker/uniter/context/jujuc"
 )

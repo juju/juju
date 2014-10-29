@@ -219,7 +219,7 @@ func (s *InterfaceSuite) TestRequestRebootNow(c *gc.C) {
 	ctx.SetProcess(p)
 	go func() {
 		_, err := p.Wait()
-    	c.Assert(err, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 	}()
 	err := ctx.RequestReboot(jujuc.RebootNow)
 	c.Assert(err, gc.IsNil)
