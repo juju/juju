@@ -41,6 +41,14 @@ import (
 
 type clientSuite struct {
 	baseSuite
+	afterFunc []func()
+}
+
+func (s *clientSuite) TearDownTest(c *gc.C) {
+	s.baseSuite.TearDownTest(c)
+	for _, f := range s.afterFunc {
+		f()
+	}
 }
 
 type Killer interface {
@@ -1008,8 +1016,7 @@ func (s *clientSuite) TestClientUnitResolvedRetry(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
-	_, restore := makeMockCharmStore()
-	defer restore()
+	s.makeMockCharmStore()
 	for url, expect := range map[string]string{
 		"wordpress":                   "charm url series is not resolved",
 		"cs:wordpress":                "charm url series is not resolved",
@@ -1027,8 +1034,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, bundle := addCharm(c, store, "dummy")
 	cons := constraints.MustParse("mem=4G networks=^net3")
 
@@ -1084,8 +1090,7 @@ func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl 
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 	// TODO(fwereade): test ToMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, bundle := addCharm(c, store, "dummy")
 	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeploy(
@@ -1096,8 +1101,7 @@ func (s *clientSuite) TestClientServiceDeployPrincipal(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, bundle := addCharm(c, store, "logging")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 0, "", constraints.Value{}, "",
@@ -1119,8 +1123,7 @@ func (s *clientSuite) TestClientServiceDeploySubordinate(c *gc.C) {
 func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, "",
@@ -1136,8 +1139,7 @@ func (s *clientSuite) TestClientServiceDeployConfig(c *gc.C) {
 func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{}, "",
@@ -1148,8 +1150,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, bundle := addCharm(c, store, "dummy")
 
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
@@ -1187,8 +1188,7 @@ func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, _ := addCharm(c, store, "dummy")
 
 	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
@@ -1213,8 +1213,7 @@ func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCha
 }
 
 func (s *clientSuite) checkClientServiceUpdateSetCharm(c *gc.C, forceCharmUrl bool) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	s.deployServiceForTests(c, store)
 	addCharm(c, store, "wordpress")
 
@@ -1245,8 +1244,7 @@ func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *gc.C) {
-	_, restore := makeMockCharmStore()
-	defer restore()
+	s.makeMockCharmStore()
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for charmUrl, expect := range map[string]string{
 		"wordpress":                   "charm url series is not resolved",
@@ -1355,8 +1353,7 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceUpdateAllParams(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	s.deployServiceForTests(c, store)
 	addCharm(c, store, "wordpress")
 
@@ -1423,8 +1420,7 @@ func (s *clientSuite) TestClientServiceUpdateInvalidService(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -1446,8 +1442,7 @@ func (s *clientSuite) TestClientServiceSetCharm(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -1469,8 +1464,7 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
-	_, restore := makeMockCharmStore()
-	defer restore()
+	s.makeMockCharmStore()
 	err := s.APIState.Client().ServiceSetCharm(
 		"badservice", "cs:precise/wordpress-3", true,
 	)
@@ -1478,8 +1472,7 @@ func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
-	_, restore := makeMockCharmStore()
-	defer restore()
+	s.makeMockCharmStore()
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
@@ -1496,11 +1489,12 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	}
 }
 
-func makeMockCharmStore() (store *charmtesting.MockCharmStore, restore func()) {
+func (s *clientSuite) makeMockCharmStore() (store *charmtesting.MockCharmStore) {
 	mockStore := charmtesting.NewMockCharmStore()
 	origStore := client.CharmStore
 	client.CharmStore = mockStore
-	return mockStore, func() { client.CharmStore = origStore }
+	s.afterFunc = append(s.afterFunc, func() { client.CharmStore = origStore })
+	return mockStore
 }
 
 func addCharm(c *gc.C, store *charmtesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
@@ -2296,8 +2290,7 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 
 	attrs := map[string]interface{}{"charm-store-auth": "token=value",
 		"test-mode": true}
@@ -2332,8 +2325,7 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 }
 
 func (s *clientSuite) TestAddCharm(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 
 	blobs := make(map[string]bool)
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
@@ -2391,8 +2383,7 @@ var resolveCharmCases = []struct {
 }
 
 func (s *clientSuite) TestResolveCharm(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 
 	for i, test := range resolveCharmCases {
 		c.Logf("test %d: %#v", i, test)
@@ -2452,8 +2443,7 @@ func (s *recordingStorage) Remove(path string) error {
 }
 
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 
 	var blobsMu sync.Mutex
 	blobs := make(map[string]bool)
@@ -2503,8 +2493,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 }
 
 func (s *clientSuite) TestAddCharmOverwritesPlaceholders(c *gc.C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
+	store := s.makeMockCharmStore()
 
 	client := s.APIState.Client()
 	curl, _ := addCharm(c, store, "wordpress")
