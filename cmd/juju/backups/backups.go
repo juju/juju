@@ -41,6 +41,7 @@ func NewCommand() cmd.Command {
 	backupsCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&InfoCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&ListCommand{}))
+	backupsCmd.Register(envcmd.Wrap(&DownloadCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 	return &backupsCmd
 }
@@ -55,6 +56,8 @@ type APIClient interface {
 	Info(id string) (*params.BackupsMetadataResult, error)
 	// List gets all stored metadata.
 	List() (*params.BackupsListResult, error)
+	// Download pulls the backup archive file.
+	Download(id string) (io.ReadCloser, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
 }

@@ -24,6 +24,11 @@ type BackupsInfoArgs struct {
 type BackupsListArgs struct {
 }
 
+// BackupsDownloadArgs holds the args for the API Download method.
+type BackupsDownloadArgs struct {
+	ID string
+}
+
 // BackupsRemoveArgs holds the args for the API Remove method.
 type BackupsRemoveArgs struct {
 	ID string
