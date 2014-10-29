@@ -17,9 +17,9 @@ import (
 
 type backupSuite struct {
 	ConnSuite
-	session *mgo.Session
-	dbOp    *state.DBOperator
-	dbOps   []*state.DBOperator
+	session   *mgo.Session
+	backupDB  *state.BackupDB
+	backupDBs []*state.BackupDB
 }
 
 var _ = gc.Suite(&backupSuite{})
@@ -28,30 +28,30 @@ func (s *backupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.session = s.ConnSuite.MgoSuite.Session.Copy()
-	s.dbOps = []*state.DBOperator{}
-	s.dbOp = s.newDBOp()
+	s.backupDBs = []*state.BackupDB{}
+	s.backupDB = s.newBackupDB()
 }
 
 func (s *backupSuite) TearDownTest(c *gc.C) {
-	for _, dbOp := range s.dbOps {
-		dbOp.Close()
+	for _, backupDB := range s.backupDBs {
+		backupDB.Close()
 	}
 	s.session.Close()
 	s.ConnSuite.TearDownTest(c)
 }
 
-func (s *backupSuite) newDBOp() *state.DBOperator {
+func (s *backupSuite) newBackupDB() *state.BackupDB {
 	envUUID := s.State.EnvironTag().Id()
 
-	var dbOp *state.DBOperator
-	if len(s.dbOps) == 0 {
-		db := s.session.DB(state.BackupsDB)
-		dbOp = state.NewDBOperator(db, state.BackupsMetaC, envUUID)
+	var backupDB *state.BackupDB
+	if len(s.backupDBs) == 0 {
+		db := s.session.DB(state.BACKUP_DB)
+		backupDB = state.NewBackupDB(db, state.BackupsMetaC, envUUID)
 	} else {
-		dbOp = s.dbOps[0].Copy()
+		backupDB = s.backupDBs[0].Copy()
 	}
-	s.dbOps = append(s.dbOps, dbOp)
-	return dbOp
+	s.backupDBs = append(s.backupDBs, backupDB)
+	return backupDB
 }
 
 func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
@@ -105,27 +105,27 @@ func (s *backupSuite) TestNewBackupID(c *gc.C) {
 
 func (s *backupSuite) TestGetBackupMetadataFound(c *gc.C) {
 	original := s.doc(c)
-	id, err := state.AddBackupMetadata(s.dbOp, original)
+	id, err := state.AddBackupMetadata(s.backupDB, original)
 	c.Assert(err, gc.IsNil)
 
-	doc, err := state.GetBackupMetadata(s.dbOp, id)
+	doc, err := state.GetBackupMetadata(s.backupDB, id)
 	c.Assert(err, gc.IsNil)
 
 	s.checkDoc(c, doc, original, id)
 }
 
 func (s *backupSuite) TestGetBackupMetadataNotFound(c *gc.C) {
-	_, err := state.GetBackupMetadata(s.dbOp, "spam")
+	_, err := state.GetBackupMetadata(s.backupDB, "spam")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *backupSuite) TestAddBackupMetadataSuccess(c *gc.C) {
 	original := s.doc(c)
-	id, err := state.AddBackupMetadata(s.dbOp, original)
+	id, err := state.AddBackupMetadata(s.backupDB, original)
 	c.Assert(err, gc.IsNil)
 
-	doc, err := state.GetBackupMetadata(s.dbOp, id)
+	doc, err := state.GetBackupMetadata(s.backupDB, id)
 	c.Assert(err, gc.IsNil)
 
 	s.checkDoc(c, doc, original, id)
@@ -134,7 +134,7 @@ func (s *backupSuite) TestAddBackupMetadataSuccess(c *gc.C) {
 func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 	original := s.doc(c)
 	original.ID = "spam"
-	id, err := state.AddBackupMetadata(s.dbOp, original)
+	id, err := state.AddBackupMetadata(s.backupDB, original)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(id, gc.Not(gc.Equals), "spam")
@@ -143,16 +143,16 @@ func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
 	original := &state.BackupMetaDoc{}
 	c.Assert(original.Started, gc.NotNil)
-	_, err := state.AddBackupMetadata(s.dbOp, original)
+	_, err := state.AddBackupMetadata(s.backupDB, original)
 
 	c.Check(err, gc.NotNil)
 }
 
 func (s *backupSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 	original := s.doc(c)
-	id, err := state.AddBackupMetadata(s.dbOp, original)
+	id, err := state.AddBackupMetadata(s.backupDB, original)
 	c.Assert(err, gc.IsNil)
-	err = state.AddBackupMetadataID(s.dbOp, original, id)
+	err = state.AddBackupMetadataID(s.backupDB, original, id)
 
 	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
 }
@@ -160,23 +160,23 @@ func (s *backupSuite) TestAddBackupMetadataAlreadyExists(c *gc.C) {
 func (s *backupSuite) TestSetBackupStoredSuccess(c *gc.C) {
 	stored := time.Now()
 	original := s.doc(c)
-	id, err := state.AddBackupMetadata(s.dbOp, original)
+	id, err := state.AddBackupMetadata(s.backupDB, original)
 	c.Assert(err, gc.IsNil)
-	doc, err := state.GetBackupMetadata(s.dbOp, id)
+	doc, err := state.GetBackupMetadata(s.backupDB, id)
 	c.Assert(err, gc.IsNil)
 	c.Assert(doc.Stored, gc.Equals, int64(0))
 
-	err = state.SetBackupStored(s.dbOp, id, stored)
+	err = state.SetBackupStored(s.backupDB, id, stored)
 	c.Assert(err, gc.IsNil)
 
-	doc, err = state.GetBackupMetadata(s.dbOp, id)
+	doc, err = state.GetBackupMetadata(s.backupDB, id)
 	c.Assert(err, gc.IsNil)
 	c.Check(doc.Stored, gc.Equals, stored.UTC().Unix())
 }
 
 func (s *backupSuite) TestSetBackupStoredNotFound(c *gc.C) {
 	stored := time.Now()
-	err := state.SetBackupStored(s.dbOp, "spam", stored)
+	err := state.SetBackupStored(s.backupDB, "spam", stored)
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

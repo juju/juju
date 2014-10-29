@@ -206,9 +206,9 @@ func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 //---------------------------
 // DB operations
 
-// DBOperator holds the information necessary to perform state database
-// operations.
-type DBOperator struct {
+// BackupDB performs all state database operations needed for
+// backups.
+type BackupDB struct {
 	session   *mgo.Session
 	db        *mgo.Database
 	metaColl  *mgo.Collection
@@ -216,26 +216,26 @@ type DBOperator struct {
 	envUUID   string
 }
 
-// NewDBOperator returns a DB operator for the target, with its own session.
-func NewDBOperator(db *mgo.Database, target, envUUID string) *DBOperator {
+// NewBackupDB returns a DB operator for the , with its own session.
+func NewBackupDB(db *mgo.Database, metaColl, envUUID string) *BackupDB {
 	session := db.Session.Copy()
 	db = db.With(session)
 
-	coll := db.C(target)
+	coll := db.C(metaColl)
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
-	dbOp := DBOperator{
+	backupDB := BackupDB{
 		session:   session,
 		db:        db,
 		metaColl:  coll,
 		txnRunner: txnRunner,
 		envUUID:   envUUID,
 	}
-	return &dbOp
+	return &backupDB
 }
 
 // Metadata populates doc with the document matching the ID.
-func (o *DBOperator) Metadata(id string, doc interface{}) error {
-	err := o.metaColl.FindId(id).One(doc)
+func (b *BackupDB) Metadata(id string, doc interface{}) error {
+	err := b.metaColl.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("metadata %q", id)
 	}
@@ -243,70 +243,70 @@ func (o *DBOperator) Metadata(id string, doc interface{}) error {
 }
 
 // AllMetadata populates docs with the list of documents in storage.
-func (o *DBOperator) AllMetadata(docs interface{}) error {
-	err := o.metaColl.Find(nil).All(docs)
+func (b *BackupDB) AllMetadata(docs interface{}) error {
+	err := b.metaColl.Find(nil).All(docs)
 	return errors.Trace(err)
 }
 
 // RemoveMetadata removes the identified metadata from storage.
-func (o *DBOperator) RemoveMetadata(id string) error {
-	err := o.metaColl.RemoveId(id)
+func (b *BackupDB) RemoveMetadata(id string) error {
+	err := b.metaColl.RemoveId(id)
 	return errors.Trace(err)
 }
 
 // TxnOp returns a single transaction operation populated with the id
 // and the metadata collection name.
-func (o *DBOperator) TxnOp(id string) txn.Op {
+func (b *BackupDB) TxnOp(id string) txn.Op {
 	op := txn.Op{
-		C:  o.metaColl.Name,
+		C:  b.metaColl.Name,
 		Id: id,
 	}
 	return op
 }
 
 // RunTransaction runs the DB operations within a single transaction.
-func (o *DBOperator) RunTransaction(ops []txn.Op) error {
-	err := o.txnRunner.RunTransaction(ops)
+func (b *BackupDB) RunTransaction(ops []txn.Op) error {
+	err := b.txnRunner.RunTransaction(ops)
 	return errors.Trace(err)
 }
 
 // BlobStorage returns a ManagedStorage matching the env storage and
 // the blobDB.
-func (o *DBOperator) BlobStorage(blobDB string) blobstore.ManagedStorage {
-	dataStore := blobstore.NewGridFS(blobDB, o.envUUID, o.session)
-	return blobstore.NewManagedStorage(o.db, dataStore)
+func (b *BackupDB) BlobStorage(blobDB string) blobstore.ManagedStorage {
+	dataStore := blobstore.NewGridFS(blobDB, b.envUUID, b.session)
+	return blobstore.NewManagedStorage(b.db, dataStore)
 }
 
 // Copy returns a copy of the operator.
-func (o *DBOperator) Copy() *DBOperator {
-	session := o.session.Copy()
+func (b *BackupDB) Copy() *BackupDB {
+	session := b.session.Copy()
 
-	coll := o.metaColl.With(session)
+	coll := b.metaColl.With(session)
 	db := coll.Database
 	txnRunner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
-	dbOp := DBOperator{
+	backupDB := BackupDB{
 		session:   session,
 		db:        db,
 		metaColl:  coll,
 		txnRunner: txnRunner,
-		envUUID:   o.envUUID,
+		envUUID:   b.envUUID,
 	}
-	return &dbOp
+	return &backupDB
 }
 
 // Close releases the DB connection resources.
-func (o *DBOperator) Close() error {
-	o.session.Close()
+func (b *BackupDB) Close() error {
+	b.session.Close()
 	return nil
 }
 
 // getBackupMetadata returns the backup metadata associated with "id".
 // If "id" does not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func getBackupMetadata(dbOp *DBOperator, id string) (*BackupMetaDoc, error) {
+func getBackupMetadata(backupDB *BackupDB, id string) (*BackupMetaDoc, error) {
 	var doc BackupMetaDoc
 	// There can only be one!
-	err := dbOp.Metadata(id, &doc)
+	err := backupDB.Metadata(id, &doc)
 	if errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	} else if err != nil {
@@ -338,24 +338,24 @@ func newBackupID(doc *BackupMetaDoc) string {
 // accessed later.  It returns a new ID that is associated with the
 // backup.  If the provided metadata already has an ID set, it is
 // ignored.
-func addBackupMetadata(dbOp *DBOperator, doc *BackupMetaDoc) (string, error) {
+func addBackupMetadata(backupDB *BackupDB, doc *BackupMetaDoc) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
 	id := newBackupID(doc)
-	return id, addBackupMetadataID(dbOp, doc, id)
+	return id, addBackupMetadataID(backupDB, doc, id)
 }
 
-func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error {
+func addBackupMetadataID(backupDB *BackupDB, doc *BackupMetaDoc, id string) error {
 	doc.ID = id
 	if err := doc.validate(); err != nil {
 		return errors.Trace(err)
 	}
 
-	op := dbOp.TxnOp(id)
+	op := backupDB.TxnOp(id)
 	op.Assert = txn.DocMissing
 	op.Insert = doc
 
-	if err := dbOp.RunTransaction([]txn.Op{op}); err != nil {
+	if err := backupDB.RunTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			return errors.AlreadyExistsf("metadata %q", doc.ID)
 		}
@@ -369,14 +369,14 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 // to indicate that a backup archive has been stored.  If "id" does
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func setBackupStored(dbOp *DBOperator, id string, stored time.Time) error {
-	op := dbOp.TxnOp(id)
+func setBackupStored(backupDB *BackupDB, id string, stored time.Time) error {
+	op := backupDB.TxnOp(id)
 	op.Assert = txn.DocExists
 	op.Update = bson.D{{"$set", bson.D{
 		{"stored", stored.UTC().Unix()},
 	}}}
 
-	if err := dbOp.RunTransaction([]txn.Op{op}); err != nil {
+	if err := backupDB.RunTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
 			return errors.NotFoundf("metadata %q", id)
 		}
@@ -409,7 +409,7 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 }
 
 type backupsDocStorage struct {
-	dbOp *DBOperator
+	backupDB *BackupDB
 }
 
 type backupsMetadataStorage struct {
@@ -418,14 +418,14 @@ type backupsMetadataStorage struct {
 	envUUID string
 }
 
-func newBackupMetadataStorage(dbOp *DBOperator) *backupsMetadataStorage {
-	dbOp = dbOp.Copy()
+func newBackupMetadataStorage(backupDB *BackupDB) *backupsMetadataStorage {
+	backupDB = backupDB.Copy()
 
-	docStor := backupsDocStorage{dbOp}
+	docStor := backupsDocStorage{backupDB}
 	stor := backupsMetadataStorage{
 		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
-		db:                 dbOp.db,
-		envUUID:            dbOp.envUUID,
+		db:                 backupDB.db,
+		envUUID:            backupDB.envUUID,
 	}
 	return &stor
 }
@@ -438,18 +438,18 @@ func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	}
 	metaDoc.UpdateFromMetadata(metadata)
 
-	dbOp := s.dbOp.Copy()
-	defer dbOp.Close()
+	backupDB := s.backupDB.Copy()
+	defer backupDB.Close()
 
-	id, err := addBackupMetadata(dbOp, &metaDoc)
+	id, err := addBackupMetadata(backupDB, &metaDoc)
 	return id, errors.Trace(err)
 }
 
 func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
-	dbOp := s.dbOp.Copy()
-	defer dbOp.Close()
+	backupDB := s.backupDB.Copy()
+	defer backupDB.Close()
 
-	doc, err := getBackupMetadata(dbOp, id)
+	doc, err := getBackupMetadata(backupDB, id)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -459,11 +459,11 @@ func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 }
 
 func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
-	dbOp := s.dbOp.Copy()
-	defer dbOp.Close()
+	backupDB := s.backupDB.Copy()
+	defer backupDB.Close()
 
 	var docs []BackupMetaDoc
-	if err := dbOp.AllMetadata(&docs); err != nil {
+	if err := backupDB.AllMetadata(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -476,23 +476,23 @@ func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 }
 
 func (s *backupsDocStorage) RemoveDoc(id string) error {
-	dbOp := s.dbOp.Copy()
-	defer dbOp.Close()
+	backupDB := s.backupDB.Copy()
+	defer backupDB.Close()
 
-	return errors.Trace(dbOp.RemoveMetadata(id))
+	return errors.Trace(backupDB.RemoveMetadata(id))
 }
 
 // Close releases the DB resources.
 func (s *backupsDocStorage) Close() error {
-	return s.dbOp.Close()
+	return s.backupDB.Close()
 }
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	dbOp := NewDBOperator(s.db, backupsMetaC, s.envUUID)
-	defer dbOp.Close()
+	backupDB := NewBackupDB(s.db, backupsMetaC, s.envUUID)
+	defer backupDB.Close()
 
-	err := setBackupStored(dbOp, id, time.Now())
+	err := setBackupStored(backupDB, id, time.Now())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -505,22 +505,22 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 const backupStorageRoot = "backups"
 
 type backupBlobStorage struct {
-	dbOp *DBOperator
+	backupDB *BackupDB
 
 	envUUID string
 	managed blobstore.ManagedStorage
 	root    string
 }
 
-func newBackupFileStorage(dbOp *DBOperator, root string) filestorage.RawFileStorage {
-	dbOp = dbOp.Copy()
+func newBackupFileStorage(backupDB *BackupDB, root string) filestorage.RawFileStorage {
+	backupDB = backupDB.Copy()
 
-	managed := dbOp.BlobStorage(blobstoreDB)
+	managed := backupDB.BlobStorage(blobstoreDB)
 	stor := backupBlobStorage{
-		dbOp:    dbOp,
-		envUUID: dbOp.envUUID,
-		managed: managed,
-		root:    root,
+		backupDB: backupDB,
+		envUUID:  backupDB.envUUID,
+		managed:  managed,
+		root:     root,
 	}
 	return &stor
 }
@@ -546,24 +546,24 @@ func (s *backupBlobStorage) RemoveFile(id string) error {
 
 // Close closes the storage.
 func (s *backupBlobStorage) Close() error {
-	return s.dbOp.Close()
+	return s.backupDB.Close()
 }
 
 //---------------------------
 // backup storage
 
-const BackupsDB = "juju"
+const BACKUP_DB = "juju"
 
 // NewBackupStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
 func NewBackupStorage(st *State) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
 	db := st.db
-	dbOp := NewDBOperator(db, backupsMetaC, envUUID)
-	defer dbOp.Close()
+	backupDB := NewBackupDB(db, backupsMetaC, envUUID)
+	defer backupDB.Close()
 
-	files := newBackupFileStorage(dbOp, backupStorageRoot)
-	docs := newBackupMetadataStorage(dbOp)
+	files := newBackupFileStorage(backupDB, backupStorageRoot)
+	docs := newBackupMetadataStorage(backupDB)
 	return filestorage.NewFileStorage(docs, files)
 }
 
