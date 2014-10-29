@@ -21,12 +21,12 @@ import (
 // s.metaresult.
 var MetaResultString = `
 backup ID:       "spam"
-started:         0001-01-01 00:00:00 +0000 UTC
-finished:        0001-01-01 00:00:00 +0000 UTC
 checksum:        ""
 checksum format: ""
 size (B):        0
-stored:          false
+stored:          0001-01-01 00:00:00 +0000 UTC
+started:         0001-01-01 00:00:00 +0000 UTC
+finished:        0001-01-01 00:00:00 +0000 UTC
 notes:           ""
 environment ID:  ""
 machine ID:      ""

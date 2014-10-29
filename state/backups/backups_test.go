@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/filestorage"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
@@ -22,7 +21,7 @@ import (
 type backupsSuite struct {
 	testing.BaseSuite
 
-	storage filestorage.FileStorage
+	storage *fakeStorage
 	api     backups.Backups
 }
 
@@ -31,10 +30,7 @@ var _ = gc.Suite(&backupsSuite{}) // Register the suite.
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	storage, err := filestorage.NewSimpleStorage(c.MkDir())
-	c.Assert(err, gc.IsNil)
-	s.storage = storage
-
+	s.storage = &fakeStorage{}
 	s.api = backups.NewBackups(s.storage)
 }
 
@@ -80,6 +76,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
 	// Test the call values.
+	s.storage.check(c, "", meta, archiveFile, "Add")
 	filesToBackUp, _ := backups.ExposeCreateArgs(received)
 	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
 
@@ -92,17 +89,18 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(rootDir, gc.Equals, "")
 
 	// Check the resulting metadata.
-	c.Check(meta.ID(), gc.Not(gc.Equals), "")
+	c.Check(meta, gc.Equals, s.storage.metaArg)
 	c.Check(meta.Size(), gc.Equals, int64(10))
 	c.Check(meta.Checksum(), gc.Equals, "<checksum>")
-	c.Check(meta.Stored(), gc.Equals, true)
-	metaOrigin := meta.Origin()
-	c.Check(metaOrigin.Environment(), gc.Equals, "<env ID>")
-	c.Check(metaOrigin.Machine(), gc.Equals, "<machine ID>")
-	c.Check(metaOrigin.Hostname(), gc.Equals, "<hostname>")
-	c.Check(meta.Notes(), gc.Equals, "some notes")
+	c.Check(meta.Stored(), gc.NotNil)
+	c.Check(meta.Origin.Environment, gc.Equals, "<env ID>")
+	c.Check(meta.Origin.Machine, gc.Equals, "<machine ID>")
+	c.Check(meta.Origin.Hostname, gc.Equals, "<hostname>")
+	c.Check(meta.Notes, gc.Equals, "some notes")
 
 	// Check the file storage.
+	s.storage.meta = meta
+	s.storage.file = archiveFile
 	storedMeta, storedFile, err := s.storage.Get(meta.ID())
 	c.Check(err, gc.IsNil)
 	c.Check(storedMeta, gc.DeepEquals, meta)
