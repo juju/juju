@@ -313,6 +313,7 @@ copy_proposed_to_release() {
         exit 6
     fi
     cp $proposed_releases/juju-${RELEASE}*.tgz  $DEST_DIST/tools/releases
+    ADDED="--added $RELEASE"
 }
 
 
