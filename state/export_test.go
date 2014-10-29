@@ -217,7 +217,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(st.docID(serviceName)).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil

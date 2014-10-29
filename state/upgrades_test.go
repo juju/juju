@@ -302,6 +302,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMinUnits(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMinUnits, minUnitsC,
+		bson.M{
+			"_id":   "wordpress",
+			"revno": 1,
+		},
+		bson.M{
+			"_id":   "mediawiki",
+			"revno": 2,
+		},
+	)
+	defer closer()
+
+	var newDoc minUnitsDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.ServiceName, gc.Equals, "wordpress")
+	c.Assert(newDoc.Revno, gc.Equals, 1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.ServiceName, gc.Equals, "mediawiki")
+	c.Assert(newDoc.Revno, gc.Equals, 2)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMinUnitsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMinUnits, minUnitsC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToReboots, rebootC,
 		bson.M{

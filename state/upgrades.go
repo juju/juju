@@ -518,6 +518,12 @@ func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
 }
 
+// AddEnvUUIDToMinUnits prepends the environment UUID to the ID of
+// all minUnits docs and adds new "env-uuid" field.
+func AddEnvUUIDToMinUnits(st *State) error {
+	return addEnvUUIDToEntityCollection(st, minUnitsC, "servicename")
+}
+
 // AddEnvUUIDToReboots prepends the environment UUID to the ID of
 // all reboot docs and adds new "env-uuid" field.
 func AddEnvUUIDToReboots(st *State) error {

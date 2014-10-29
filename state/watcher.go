@@ -421,7 +421,7 @@ func (w *minUnitsWatcher) initial() (set.Strings, error) {
 }
 
 func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change) error {
-	serviceName := change.Id.(string)
+	serviceName := w.st.localID(change.Id.(string))
 	if change.Revno == -1 {
 		delete(w.known, serviceName)
 		serviceNames.Remove(serviceName)
@@ -430,7 +430,7 @@ func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change)
 	doc := minUnitsDoc{}
 	newMinUnits, closer := w.st.getCollection(minUnitsC)
 	defer closer()
-	if err := newMinUnits.FindId(serviceName).One(&doc); err != nil {
+	if err := newMinUnits.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
 	revno, known := w.known[serviceName]
