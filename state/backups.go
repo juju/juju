@@ -359,7 +359,7 @@ func addBackupMetadataID(dbOp *DBOperator, doc *BackupMetaDoc, id string) error 
 
 	if err := dbOp.RunTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
-			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
+			return errors.AlreadyExistsf("metadata %q", doc.ID)
 		}
 		return errors.Annotate(err, "while running transaction")
 	}
@@ -380,7 +380,7 @@ func setBackupStored(dbOp *DBOperator, id string, stored time.Time) error {
 
 	if err := dbOp.RunTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
-			return errors.NotFoundf(id)
+			return errors.NotFoundf("metadata %q", id)
 		}
 		return errors.Annotate(err, "while running transaction")
 	}
