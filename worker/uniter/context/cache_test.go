@@ -126,6 +126,26 @@ func (s *RelationCacheSuite) TestInvalidateMemberUncachesMemberSettings(c *gc.C)
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
 }
 
+func (s *RelationCacheSuite) TestInvalidateMemberUncachesOtherSettings(c *gc.C) {
+	s.results = []settingsResult{{
+		params.RelationSettings{"foo": "bar"}, nil,
+	}, {
+		params.RelationSettings{"baz": "qux"}, nil,
+	}}
+	cache := context.NewRelationCache(s.ReadSettings, nil)
+
+	settings, err := cache.Settings("x/2")
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
+
+	cache.InvalidateMember("x/2")
+	settings, err = cache.Settings("x/2")
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
+}
+
 func (s *RelationCacheSuite) TestRemoveMemberUncachesMemberSettings(c *gc.C) {
 	s.results = []settingsResult{{
 		params.RelationSettings{"foo": "bar"}, nil,
