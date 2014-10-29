@@ -172,6 +172,7 @@ var commandNames = []string{
 	"authorized-keys",
 	"backups",
 	"bootstrap",
+	"charm-sync",
 	"debug-hooks",
 	"debug-log",
 	"deploy",

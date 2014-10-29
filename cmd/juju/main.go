@@ -141,6 +141,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm publishing commands.
 	r.Register(wrapEnvCommand(&PublishCommand{}))
+	r.Register(wrapEnvCommand(&CharmSyncCommand{}))
 
 	// Charm tool commands.
 	r.Register(&HelpToolCommand{})
