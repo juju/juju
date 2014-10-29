@@ -101,13 +101,13 @@ retract_tools() {
         local RETRACT_GLOB="juju-*.tgz"
     elif [[ -n "$REMOVE_RELEASE" ]]; then
         local RETRACT_GLOB="juju-$REMOVE_RELEASE*.tgz"
-    elif [[ -z "$REMOVE_RELEASE" ]]; then
+    else
         echo "Nothing to reset"
         return
     fi
-    count=$(find $DEST_DIST/tools/releases -name "$RETRACT_GLOB" | wc -l)
-    if [[ $((count)) > 0  ]]; then
-        find $DEST_DIST/tools/releases -name "$RETRACT_GLOB" -delete
+    local deleted=$(
+        find $DEST_DIST/tools/releases -name "$RETRACT_GLOB" -delete -print)
+    if [[ -n $deleted  ]]; then
         REMOVED="--removed $REMOVE_RELEASE"
     fi
 }
@@ -284,10 +284,10 @@ archive_tools() {
     done
     # The extracted files are no longer needed. Clean them up now.
     rm -r $WORK
-    # Exit early when debs were searched, but no new tools were found.
     if [[ -n "${added_tools[@]:-}" ]]; then
         ADDED="--added $RELEASE"
     else
+        # Exit early when debs were searched, but no new tools were found.
         echo "No tools were added from the built debs."
         cleanup
         if [[ $IS_TESTING == "true" ]]; then
