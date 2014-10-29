@@ -1317,13 +1317,27 @@ func (st *State) docID(localID string) string {
 }
 
 // localID returns the local id value by stripping
-// of the environment uuid prefix if it is there.
+// off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
 	prefix := st.EnvironTag().Id() + ":"
 	if strings.HasPrefix(ID, prefix) {
 		return ID[len(prefix):]
 	}
 	return ID
+}
+
+// strictLocalID returns the local id value by removing the
+// environment UUID prefix.
+//
+// A success flag is also returned. If there is no prefix matching the
+// State's environment, false is returned. True is returned if the
+// expected prefix was present.
+func (st *State) strictLocalID(ID string) (string, bool) {
+	prefix := st.EnvironTag().Id() + ":"
+	if !strings.HasPrefix(ID, prefix) {
+		return "", false
+	}
+	return ID[len(prefix):], true
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.

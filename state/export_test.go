@@ -300,6 +300,10 @@ func LocalID(st *State, id string) string {
 	return st.localID(id)
 }
 
+func StrictLocalID(st *State, id string) (string, bool) {
+	return st.strictLocalID(id)
+}
+
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
 }
