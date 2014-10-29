@@ -471,12 +471,6 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 
 const backupStorageRoot = "backups"
 
-// Ensure we satisfy the interface.
-var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-
-// Ensure we satisfy the interface.
-var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
-
 type envFileStorage struct {
 	dbOp *DBOperator
 
