@@ -59,7 +59,10 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 func (cache *RelationCache) Settings(unitName string) (params.RelationSettings, error) {
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
-		if settings = cache.others[unitName]; settings == nil {
+		if !isMember {
+			settings = cache.others[unitName]
+		}
+		if settings == nil {
 			var err error
 			settings, err = cache.readSettings(unitName)
 			if err != nil {

@@ -57,10 +57,6 @@ func (c *HookContext) ActionData() *ActionData {
 	return c.actionData
 }
 
-func (cr *ContextRelation) StoredMemberSettings(remoteUnit string) params.RelationSettings {
-	return cr.members[remoteUnit]
-}
-
 func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
 		actionData: &ActionData{
