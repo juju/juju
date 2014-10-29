@@ -589,7 +589,7 @@ func NewDBBackupInfo(st *State) (*backupsdb.Info, err) {
 
 	info := backupsdb.Info{
 		ConnInfo: *connInfo,
-		Targets:  targets.Values(),
+		Targets:  targets,
 	}
 	return &info, nil
 }

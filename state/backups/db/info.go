@@ -5,6 +5,7 @@ package db
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 )
 
 // ConnInfo is a simplification of authentication.MongoInfo, focused
@@ -48,5 +49,5 @@ func (ci *ConnInfo) Validate() error {
 type Info struct {
 	ConnInfo
 	// Targets is a list of databases to dump.
-	Targets []string
+	Targets *set.Strings
 }
