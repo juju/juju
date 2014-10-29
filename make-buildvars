@@ -9,6 +9,7 @@ import sys
 from textwrap import dedent
 import urllib2
 
+
 def parse_version(string):
     return re.search('^const version = "(.*)"', string, re.M).group(1)
 
@@ -33,7 +34,8 @@ def ls_remote(repo_url, ref, head=False, tag=False):
         return None, None
     if len(found.split('\n')) > 1:
         raise Exception(
-            "More than one commit matched the branch or tag:\n{}".format(found))
+            "More than one commit matched the branch or tag:\n{}".format(
+                found))
     commit, ref = found.split('\t')
     return commit, ref
 
@@ -93,7 +95,6 @@ if __name__ == '__main__':
         json.dump({
             'branch': branch,
             'revision_id': revision_id,
-            'revno': revno,
             'version': version,
             'revision_build': args.revision_build,
             }, f, indent=2)
