@@ -45,7 +45,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageNoTools(c *gc.C) {
 	})
 
 	stor := s.Environ.(environs.EnvironStorage).Storage()
-	envtesting.RemoveFakeTools(c, stor)
+	envtesting.RemoveFakeTools(c, stor, "released")
 	envtesting.RemoveFakeToolsMetadata(c, stor)
 	err := upgrades.MigrateToolsStorage(s.State, &mockAgentConfig{})
 	c.Assert(err, gc.IsNil)
@@ -54,8 +54,8 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageNoTools(c *gc.C) {
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorage(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
-	envtesting.RemoveFakeTools(c, stor)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
+	envtesting.RemoveFakeTools(c, stor, "released")
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", migrateToolsVersions...)
 	s.testMigrateToolsStorage(c, &mockAgentConfig{})
 }
 
@@ -63,7 +63,7 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) 
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", migrateToolsVersions...)
 	for _, providerType := range []string{"local", "manual"} {
 		s.testMigrateToolsStorage(c, &mockAgentConfig{
 			values: map[string]string{
@@ -76,10 +76,10 @@ func (s *migrateToolsStorageSuite) TestMigrateToolsStorageLocalstorage(c *gc.C) 
 
 func (s *migrateToolsStorageSuite) TestMigrateToolsStorageBadSHA256(c *gc.C) {
 	stor := s.Environ.(environs.EnvironStorage).Storage()
-	envtesting.AssertUploadFakeToolsVersions(c, stor, migrateToolsVersions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, "released", migrateToolsVersions...)
 	// Overwrite one of the tools archives with junk, so the hash does not match.
 	err := stor.Put(
-		envtools.StorageName(migrateToolsVersions[0]),
+		envtools.StorageName(migrateToolsVersions[0], "released"),
 		strings.NewReader("junk"),
 		4,
 	)

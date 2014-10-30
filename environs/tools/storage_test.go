@@ -22,14 +22,14 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) TestStorageName(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	path := envtools.StorageName(vers)
-	c.Assert(path, gc.Equals, "tools/releases/juju-1.2.3-precise-amd64.tgz")
+	path := envtools.StorageName(vers, "proposed")
+	c.Assert(path, gc.Equals, "tools/proposed/juju-1.2.3-precise-amd64.tgz")
 }
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	_, err = envtools.ReadList(stor, 2, 0)
+	_, err = envtools.ReadList(stor, "released", 2, 0)
 	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
@@ -40,7 +40,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 	v100 := version.MustParseBinary("1.0.0-precise-amd64")
 	v101 := version.MustParseBinary("1.0.1-precise-amd64")
 	v111 := version.MustParseBinary("1.1.1-precise-amd64")
-	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, v001, v100, v101, v111)
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", v001, v100, v101, v111)
 	t001 := agentTools[0]
 	t100 := agentTools[1]
 	t101 := agentTools[2]
@@ -64,7 +64,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		2, 0, nil,
 	}} {
 		c.Logf("test %d", i)
-		list, err := envtools.ReadList(stor, t.majorVersion, t.minorVersion)
+		list, err := envtools.ReadList(stor, "proposed", t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
 			// ReadList doesn't set the Size of SHA256, so blank out those attributes.

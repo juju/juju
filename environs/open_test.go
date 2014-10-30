@@ -41,7 +41,7 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
 	cfg, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
@@ -49,14 +49,14 @@ func (s *OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	envtesting.UploadFakeTools(c, stor)
+	envtesting.UploadFakeTools(c, stor, cfg.AgentStream())
 	err = bootstrap.Bootstrap(ctx, env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
 	store := configstore.NewMem()
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	_, err := environs.PrepareFromName("erewhemos", ctx, store)
 	c.Assert(err, gc.IsNil)
 
@@ -80,7 +80,7 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 
 func (*OpenSuite) TestNewFromName(c *gc.C) {
 	store := configstore.NewMem()
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	e, err := environs.PrepareFromName("erewhemos", ctx, store)
 	c.Assert(err, gc.IsNil)
 
@@ -116,7 +116,7 @@ func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
 }
 
 func (*OpenSuite) TestPrepareFromName(c *gc.C) {
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	e, err := environs.PrepareFromName("erewhemos", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(e.Config().Name(), gc.Equals, "erewhemos")
@@ -192,7 +192,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
 	store := configstore.NewMem()
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
 
@@ -240,7 +240,7 @@ func (*OpenSuite) TestPrepareGeneratesDifferentAdminSecrets(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
 
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env0, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	adminSecret0 := env0.Config().AdminSecret()
@@ -266,7 +266,7 @@ func (*OpenSuite) TestPrepareWithMissingKey(c *gc.C) {
 	))
 	c.Assert(err, gc.IsNil)
 	store := configstore.NewMem()
-	env, err := environs.Prepare(cfg, testing.Context(c), store)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), store)
 	c.Assert(err, gc.ErrorMatches, "cannot ensure CA certificate: environment configuration with a certificate but no CA private key")
 	c.Assert(env, gc.IsNil)
 	// Ensure that the config storage info is cleaned up.
@@ -284,7 +284,7 @@ func (*OpenSuite) TestPrepareWithExistingKeyPair(c *gc.C) {
 		},
 	))
 	c.Assert(err, gc.IsNil)
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
@@ -307,7 +307,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 	store := configstore.NewMem()
 	// Prepare the environment and sanity-check that
 	// the config storage info has been made.
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	e, err := environs.Prepare(cfg, ctx, store)
 	c.Assert(err, gc.IsNil)
 	_, err = store.ReadInfo(e.Config().Name())

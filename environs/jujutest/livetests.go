@@ -29,7 +29,6 @@ import (
 	envtoolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
@@ -89,7 +88,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	t.UploadFakeTools(c, stor)
+	t.UploadFakeTools(c, stor, "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
 }
@@ -125,7 +124,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
+	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -141,12 +140,12 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := sync.Upload(t.toolsStorage, nil, coretesting.FakeDefaultSeries)
+		_, err := sync.Upload(t.toolsStorage, "released", nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -179,7 +178,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.BootstrapOnce(c)
 
-	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
 	id0 := inst.Id()
 
@@ -232,14 +231,14 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.BootstrapOnce(c)
 
-	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
+	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := testing.AssertStartInstance(c, t.Env, "2")
+	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
 	c.Assert(inst2, gc.NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
@@ -337,13 +336,13 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
+	inst1, _ := jujutesting.AssertStartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances(inst1.Id())
 	ports, err := t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	inst2, _ := testing.AssertStartInstance(c, t.Env, "2")
+	inst2, _ := jujutesting.AssertStartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -410,7 +409,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// TODO(niemeyer): Stop growing this kitchen sink test and split it into proper parts.
 
 	c.Logf("opening state")
-	st := t.Env.(testing.GetStater).GetStateInAPIServer()
+	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 
 	env, err := st.Environment()
 	c.Assert(err, gc.IsNil)
@@ -460,7 +459,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
 	url := charmtesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := testing.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
+	sch, err := jujutesting.PutCharm(st, url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
 	svc, err := st.AddService("dummy", owner.String(), sch, nil)
 	c.Assert(err, gc.IsNil)
@@ -638,7 +637,7 @@ func waitAgentTools(c *gc.C, w *toolsWaiter, expect version.Binary) *coretools.T
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *gc.C, st *state.State, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := sync.Upload(t.toolsStorage, &newVersion.Number, newVersion.Series)
+	upgradeTools, err := sync.Upload(t.toolsStorage, "released", &newVersion.Number, newVersion.Series)
 	c.Assert(err, gc.IsNil)
 	// sync.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
@@ -725,13 +724,13 @@ func assertInstanceId(c *gc.C, m *state.Machine, inst instance.Instance) {
 // a valid machine config.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
-	stateInfo := testing.FakeStateInfo(machineId)
-	apiInfo := testing.FakeAPIInfo(machineId)
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, "", "released", "quantal", nil, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, version.MustParseBinary("5.4.5-trusty-amd64"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", version.MustParseBinary("5.4.5-trusty-amd64"))
 	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
@@ -760,7 +759,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg, coretesting.Context(c), configstore.NewMem())
+	dummyenv, err := environs.Prepare(dummyCfg, envtesting.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	defer dummyenv.Destroy()
 
@@ -769,14 +768,14 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	st := t.Env.(testing.GetStater).GetStateInAPIServer()
+	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()
 	// Wait for machine agent to come up on the bootstrap
 	// machine and ensure it deployed the proper series.
 	m0, err := st.Machine("0")

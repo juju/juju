@@ -60,16 +60,23 @@ direct interaction with State, lives in the state/backups package.
 
 // backupMetadataDoc is a mirror of metadata.Metadata, used just for DB storage.
 type backupMetadataDoc struct {
-	ID             string `bson:"_id"`
-	Started        int64  `bson:"started,minsize"`
-	Finished       int64  `bson:"finished,minsize"`
+	ID string `bson:"_id"`
+
+	// blob storage
+
 	Checksum       string `bson:"checksum"`
 	ChecksumFormat string `bson:"checksumformat"`
 	Size           int64  `bson:"size,minsize"`
-	Stored         bool   `bson:"stored"`
-	Notes          string `bson:"notes,omitempty"`
+	Stored         int64  `bson:"stored,minsize"`
+
+	// backups
+
+	Started  int64  `bson:"started,minsize"`
+	Finished int64  `bson:"finished,minsize"`
+	Notes    string `bson:"notes,omitempty"`
 
 	// origin
+
 	Environment string         `bson:"environment"`
 	Machine     string         `bson:"machine"`
 	Hostname    string         `bson:"hostname"`
@@ -114,7 +121,7 @@ func (doc *backupMetadataDoc) validate() error {
 
 	// Check the file-related fields.
 	if !doc.fileSet() {
-		if doc.Stored {
+		if doc.Stored != 0 {
 			return errors.New(`"Stored" flag is unexpectedly true`)
 		}
 		// Don't check the file-related fields.
@@ -138,70 +145,60 @@ func (doc *backupMetadataDoc) validate() error {
 
 // asMetadata returns a new metadata.Metadata based on the backupMetadataDoc.
 func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
-	// Create a new Metadata.
-	origin := metadata.ExistingOrigin(
-		doc.Environment,
-		doc.Machine,
-		doc.Hostname,
-		doc.Version,
-	)
+	meta := metadata.Metadata{
+		Started: time.Unix(doc.Started, 0).UTC(),
+		Notes:   doc.Notes,
+	}
 
-	started := time.Unix(doc.Started, 0).UTC()
-	meta := metadata.NewMetadata(
-		*origin,
-		doc.Notes,
-		&started,
-	)
+	meta.Origin.Environment = doc.Environment
+	meta.Origin.Machine = doc.Machine
+	meta.Origin.Hostname = doc.Hostname
+	meta.Origin.Version = doc.Version
 
-	// The ID is already set.
 	meta.SetID(doc.ID)
 
-	// Exit early if file-related fields not set.
-	if !doc.fileSet() {
-		return meta
+	if doc.fileSet() {
+		// Set the file-related fields.
+
+		finished := time.Unix(doc.Finished, 0).UTC()
+		meta.Finished = &finished
+
+		// The doc should have already been validated when stored.
+		meta.FileMetadata.Raw.Size = doc.Size
+		meta.FileMetadata.Raw.Checksum = doc.Checksum
+		meta.FileMetadata.Raw.ChecksumFormat = doc.ChecksumFormat
+
+		if doc.Stored != 0 {
+			stored := time.Unix(doc.Stored, 0).UTC()
+			meta.SetStored(&stored)
+		}
 	}
 
-	// Set the file-related fields.
-	var finished *time.Time
-	if doc.Finished != 0 {
-		val := time.Unix(doc.Finished, 0).UTC()
-		finished = &val
-	}
-	err := meta.Finish(doc.Size, doc.Checksum, doc.ChecksumFormat, finished)
-	if err != nil {
-		// The doc should have already been validated.  An error here
-		// indicates that Metadata changed and backupMetadataDoc did not
-		// accommodate the change.  Thus an error here indicates a
-		// developer "error".  A caller should not need to worry about
-		// that case so we panic instead of passing the error out.
-		panic(fmt.Sprintf("unexpectedly invalid metadata doc: %v", err))
-	}
-	if doc.Stored {
-		meta.SetStored()
-	}
-	return meta
+	return &meta
 }
 
 // updateFromMetadata copies the corresponding data from the backup
 // Metadata into the backupMetadataDoc.
-func (doc *backupMetadataDoc) updateFromMetadata(metadata *metadata.Metadata) {
-	finished := metadata.Finished()
+func (doc *backupMetadataDoc) updateFromMetadata(meta *metadata.Metadata) {
 	// Ignore metadata.ID.
-	doc.Started = metadata.Started().Unix()
-	if finished != nil {
-		doc.Finished = finished.Unix()
-	}
-	doc.Checksum = metadata.Checksum()
-	doc.ChecksumFormat = metadata.ChecksumFormat()
-	doc.Size = metadata.Size()
-	doc.Stored = metadata.Stored()
-	doc.Notes = metadata.Notes()
 
-	origin := metadata.Origin()
-	doc.Environment = origin.Environment()
-	doc.Machine = origin.Machine()
-	doc.Hostname = origin.Hostname()
-	doc.Version = origin.Version()
+	doc.Checksum = meta.Checksum()
+	doc.ChecksumFormat = meta.ChecksumFormat()
+	doc.Size = meta.Size()
+	if meta.Stored() != nil {
+		doc.Stored = meta.Stored().Unix()
+	}
+
+	doc.Started = meta.Started.Unix()
+	if meta.Finished != nil {
+		doc.Finished = meta.Finished.Unix()
+	}
+	doc.Notes = meta.Notes
+
+	doc.Environment = meta.Origin.Environment
+	doc.Machine = meta.Origin.Machine
+	doc.Hostname = meta.Origin.Hostname
+	doc.Version = meta.Origin.Version
 }
 
 //---------------------------
@@ -235,14 +232,12 @@ func getBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 // consumable (in contrast to a plain UUID string).  Ideally we would
 // use some form of environment name rather than the UUID, but for now
 // the raw env ID is sufficient.
-func newBackupID(metadata *metadata.Metadata) string {
-	rawts := metadata.Started()
-	Y, M, D := rawts.Date()
-	h, m, s := rawts.Clock()
+func newBackupID(meta *metadata.Metadata) string {
+	Y, M, D := meta.Started.Date()
+	h, m, s := meta.Started.Clock()
 	timestamp := fmt.Sprintf("%04d%02d%02d-%02d%02d%02d", Y, M, D, h, m, s)
-	origin := metadata.Origin()
-	env := origin.Environment()
-	return timestamp + "." + env
+
+	return timestamp + "." + meta.Origin.Environment
 }
 
 // addBackupMetadata stores metadata for a backup where it can be
@@ -325,33 +320,33 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 	return origin
 }
 
-// Ensure we satisfy the interface.
-var _ = filestorage.MetadataStorage((*backupMetadataStorage)(nil))
+type backupsDocStorage struct {
+	state *State
+}
 
-type backupMetadataStorage struct {
+type backupsMetadataStorage struct {
+	filestorage.MetadataDocStorage
 	state *State
 }
 
 func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
-	stor := backupMetadataStorage{
-		state: st,
+	docStor := backupsDocStorage{state: st}
+	stor := backupsMetadataStorage{
+		MetadataDocStorage: filestorage.MetadataDocStorage{&docStor},
+		state:              st,
 	}
 	return &stor
 }
 
-func (s *backupMetadataStorage) AddDoc(doc interface{}) (string, error) {
-	meta, ok := doc.(*metadata.Metadata)
+func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
+	metadata, ok := doc.(*metadata.Metadata)
 	if !ok {
-		return "", errors.Errorf("doc must be of type state.backups.metadata.Metadata")
+		return "", errors.Errorf("doc must be of type *metadata.Metadata")
 	}
-	return addBackupMetadata(s.state, meta)
+	return addBackupMetadata(s.state, metadata)
 }
 
-func (s *backupMetadataStorage) Doc(id string) (interface{}, error) {
-	return s.Metadata(id)
-}
-
-func (s *backupMetadataStorage) Metadata(id string) (filestorage.Metadata, error) {
+func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 	metadata, err := getBackupMetadata(s.state, id)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -359,19 +354,7 @@ func (s *backupMetadataStorage) Metadata(id string) (filestorage.Metadata, error
 	return metadata, nil
 }
 
-func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
-	metas, err := s.ListMetadata()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	docs := []interface{}{}
-	for _, meta := range metas {
-		docs = append(docs, meta)
-	}
-	return docs, nil
-}
-
-func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
+func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 	collection, closer := s.state.getCollection(backupsMetaC)
 	defer closer()
 
@@ -379,7 +362,8 @@ func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
 	if err := collection.Find(nil).All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
-	list := make([]filestorage.Metadata, len(docs))
+
+	list := make([]filestorage.Document, len(docs))
 	for i, doc := range docs {
 		meta := doc.asMetadata()
 		list[i] = meta
@@ -387,24 +371,24 @@ func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
 	return list, nil
 }
 
-func (s *backupMetadataStorage) RemoveDoc(id string) error {
+func (s *backupsDocStorage) RemoveDoc(id string) error {
 	collection, closer := s.state.getCollection(backupsMetaC)
 	defer closer()
 
 	return errors.Trace(collection.RemoveId(id))
 }
 
-func (s *backupMetadataStorage) New() filestorage.Metadata {
-	origin := NewBackupsOrigin(s.state, "")
-	return metadata.NewMetadata(*origin, "", nil)
+// Close implements io.Closer.Close.
+func (s *backupsDocStorage) Close() error {
+	return nil
 }
 
-func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
-	err := setBackupStored(s.state, meta.ID())
+// SetStored records in the metadata the fact that the file was stored.
+func (s *backupsMetadataStorage) SetStored(id string) error {
+	err := setBackupStored(s.state, id)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	meta.SetStored()
 	return nil
 }
 
@@ -412,6 +396,9 @@ func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
 // raw file storage
 
 const backupStorageRoot = "backups"
+
+// Ensure we satisfy the interface.
+var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 
 // Ensure we satisfy the interface.
 var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
@@ -447,6 +434,11 @@ func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
 
 func (s *envFileStorage) RemoveFile(id string) error {
 	return s.envStor.Remove(s.path(id))
+}
+
+// Close closes the storage.
+func (s *envFileStorage) Close() error {
+	return nil
 }
 
 //---------------------------
