@@ -86,7 +86,7 @@ type Context struct {
 	canAddMetrics bool
 }
 
-func (c *Context) AddMetrics(key, value string, created time.Time) error {
+func (c *Context) AddMetric(key, value string, created time.Time) error {
 	if !c.canAddMetrics {
 		return fmt.Errorf("metrics disabled")
 	}

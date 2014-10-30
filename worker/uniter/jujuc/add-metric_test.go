@@ -61,14 +61,6 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"error: no metrics specified\n",
 			nil,
 		}, {
-			"invalid metric value",
-			[]string{"add-metric", "key=invalidvalue"},
-			true,
-			2,
-			"",
-			"error: invalid value type: expected float, got \"invalidvalue\"\n",
-			nil,
-		}, {
 			"invalid argument format",
 			[]string{"add-metric", "key"},
 			true,
