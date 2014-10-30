@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	apiuniter "github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -31,11 +31,11 @@ type HookContextSuite struct {
 	machine  *state.Machine
 	relch    *state.Charm
 	relunits map[int]*state.RelationUnit
-	relctxs  map[int]*context.ContextRelation
 
-	st      *api.State
-	uniter  *apiuniter.State
-	apiUnit *apiuniter.Unit
+	st          *api.State
+	uniter      *uniter.State
+	apiUnit     *uniter.Unit
+	apiRelunits map[int]*uniter.RelationUnit
 }
 
 func (s *HookContextSuite) SetUpTest(c *gc.C) {
@@ -62,7 +62,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.relch = s.AddTestingCharm(c, "mysql")
 	s.relunits = map[int]*state.RelationUnit{}
-	s.relctxs = map[int]*context.ContextRelation{}
+	s.apiRelunits = map[int]*uniter.RelationUnit{}
 	s.AddContextRelation(c, "db0")
 	s.AddContextRelation(c, "db1")
 }
@@ -89,26 +89,33 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	c.Assert(err, gc.IsNil)
 	ru, err := rel.Unit(s.unit)
 	c.Assert(err, gc.IsNil)
-	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, gc.IsNil)
+	s.relunits[rel.Id()] = ru
 	apiRel, err := s.uniter.Relation(rel.Tag().(names.RelationTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
 	c.Assert(err, gc.IsNil)
-	s.relctxs[rel.Id()] = context.NewContextRelation(apiRelUnit, nil)
+	s.apiRelunits[rel.Id()] = apiRelUnit
 }
 
 func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	remote string, proxies proxy.Settings, addMetrics bool) *context.HookContext {
 	if relid != -1 {
-		_, found := s.relctxs[relid]
+		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
 	}
 	facade, err := s.st.Uniter()
 	c.Assert(err, gc.IsNil)
+
+	relctxs := map[int]*context.ContextRelation{}
+	for relId, relUnit := range s.apiRelunits {
+		cache := context.NewRelationCache(relUnit.ReadSettings, nil)
+		relctxs[relId] = context.NewContextRelation(relUnit, cache)
+	}
+
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		"test-env-name", relid, remote, s.relctxs, apiAddrs, names.NewUserTag("owner"),
+		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
 		proxies, addMetrics, nil, s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	return context

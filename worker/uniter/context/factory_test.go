@@ -16,22 +16,48 @@ import (
 
 type FactorySuite struct {
 	HookContextSuite
-	factory context.Factory
+	factory    context.Factory
+	membership map[int][]string
 }
 
 var _ = gc.Suite(&FactorySuite{})
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.HookContextSuite.SetUpTest(c)
+	s.membership = map[int][]string{}
 	factory, err := context.NewFactory(
 		s.uniter,
 		s.unit.Tag().(names.UnitTag),
-		func() map[int]*context.ContextRelation {
-			return s.relctxs
+		func() map[int]*context.RelationInfo {
+			info := map[int]*context.RelationInfo{}
+			for relId, relUnit := range s.apiRelunits {
+				info[relId] = &context.RelationInfo{
+					RelationUnit: relUnit,
+					MemberNames:  s.membership[relId],
+				}
+			}
+			return info
 		},
 	)
 	c.Assert(err, gc.IsNil)
 	s.factory = factory
+}
+
+func (s *FactorySuite) setUpCacheMethods(c *gc.C) {
+	// The factory's caches are created lazily, so it doesn't have any at all to
+	// begin with. Creating and discarding a context lets us call updateCache
+	// without panicking. (IMO this is less invasive that making updateCache
+	// responsible for creating missing caches etc.)
+	_, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *FactorySuite) updateCache(relId int, unitName string, settings params.RelationSettings) {
+	context.UpdateCachedSettings(s.factory, relId, unitName, settings)
+}
+
+func (s *FactorySuite) getCache(relId int, unitName string) (params.RelationSettings, bool) {
+	return context.CachedSettings(s.factory, relId, unitName)
 }
 
 func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
@@ -117,21 +143,49 @@ func (s *FactorySuite) TestNewHookContextWithRelation(c *gc.C) {
 	s.AssertRelationContext(c, ctx, 1)
 }
 
-func (s *FactorySuite) TestNewHookContextUpdatesRelationContext(c *gc.C) {
-	// Note: this test makes use of the persistent .relctxs field, which
-	// means that the backing contexts' members are updated directly and
-	// can be inspected to verify the factory's behaviour. A normal uniter
-	// will not act like this: it recreates a fresh set of ContextRelations
-	// every time a new hook context is created, so the factory's actions
-	// do not end up writing to uniter state.
+func (s *FactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 
-	// We start off writing some cached settings for r/0, so we can verify
-	// the cache gets cleared.
-	s.relctxs[1].UpdateMembers(context.SettingsMap{
-		"r/0": params.RelationSettings{"foo": "bar"},
-	})
+	// Write cached member settings for a member and a non-member.
+	s.setUpCacheMethods(c)
+	s.membership[0] = []string{"rel0/0"}
+	s.updateCache(0, "rel0/0", params.RelationSettings{"keep": "me"})
+	s.updateCache(0, "rel0/1", params.RelationSettings{"drop": "me"})
 
-	ctx, err := s.factory.NewHookContext(hook.Info{
+	ctx, err = s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
+	c.Assert(err, gc.IsNil)
+
+	settings0, found := s.getCache(0, "rel0/0")
+	c.Assert(found, jc.IsTrue)
+	c.Assert(settings0, jc.DeepEquals, params.RelationSettings{"keep": "me"})
+
+	settings1, found := s.getCache(0, "rel0/1")
+	c.Assert(found, jc.IsFalse)
+	c.Assert(settings1, gc.IsNil)
+
+	// Check the caches are being used by the context relations.
+	relCtx, found := ctx.Relation(0)
+	c.Assert(found, jc.IsTrue)
+
+	// Verify that the settings really were cached by trying to look them up.
+	// Nothing's really in scope, so the call would fail if they weren't.
+	settings0, err = relCtx.ReadSettings("rel0/0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings0, jc.DeepEquals, params.RelationSettings{"keep": "me"})
+
+	// Verify that the non-member settings were purged by looking them up and
+	// checking for the expected error.
+	settings1, err = relCtx.ReadSettings("rel0/1")
+	c.Assert(settings1, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *FactorySuite) TestNewHookContextRelationJoinedUpdatesRelationContextAndCaches(c *gc.C) {
+	// Write some cached settings for r/0, so we can verify the cache gets cleared.
+	s.setUpCacheMethods(c)
+	s.membership[1] = []string{"r/0"}
+	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
+
+	ctx, err = s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationJoined,
 		RelationId: 1,
 		RemoteUnit: "r/0",
@@ -141,14 +195,18 @@ func (s *FactorySuite) TestNewHookContextUpdatesRelationContext(c *gc.C) {
 	s.AssertNotActionContext(c, ctx)
 	rel := s.AssertRelationContext(c, ctx, 1)
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
-	c.Assert(rel.StoredMemberSettings("r/0"), gc.IsNil)
+	cached0, member := s.getCache(1, "r/0")
+	c.Assert(cached0, gc.IsNil)
+	c.Assert(member, jc.IsTrue)
+}
 
-	// Reupdate member settings to have actual values, so we can check that
+func (s *FactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCaches(c *gc.C) {
+	// Update member settings to have actual values, so we can check that
 	// the change for r/4 clears its cache but leaves r/0's alone.
-	s.relctxs[1].UpdateMembers(context.SettingsMap{
-		"r/0": params.RelationSettings{"foo": "bar"},
-		"r/4": params.RelationSettings{"baz": "qux"},
-	})
+	s.setUpCacheMethods(c)
+	s.membership[1] = []string{"r/0", "r/4"}
+	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
+	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
 
 	ctx, err = s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationChanged,
@@ -158,18 +216,23 @@ func (s *FactorySuite) TestNewHookContextUpdatesRelationContext(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	rel = s.AssertRelationContext(c, ctx, 1)
+	rel := s.AssertRelationContext(c, ctx, 1)
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
-	c.Assert(rel.StoredMemberSettings("r/0"), jc.DeepEquals, params.RelationSettings{
-		"foo": "bar",
-	})
-	c.Assert(rel.StoredMemberSettings("r/4"), gc.IsNil)
+	cached0, member := s.getCache(1, "r/0")
+	c.Assert(cached0, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(member, jc.IsTrue)
+	cached4, member := s.getCache(1, "r/4")
+	c.Assert(cached4, gc.IsNil)
+	c.Assert(member, jc.IsTrue)
+}
 
-	// Reupdate member settings to have actual values, so we can check that
-	// the change for r/0 leaves r/4's cache alone.
-	s.relctxs[1].UpdateMembers(context.SettingsMap{
-		"r/4": params.RelationSettings{"baz": "qux"},
-	})
+func (s *FactorySuite) TestNewHookContextRelationDepartedUpdatesRelationContextAndCaches(c *gc.C) {
+	// Update member settings to have actual values, so we can check that
+	// the depart for r/0 leaves r/4's cache alone (while discarding r/0's).
+	s.setUpCacheMethods(c)
+	s.membership[1] = []string{"r/0", "r/4"}
+	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
+	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
 
 	ctx, err = s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationDeparted,
@@ -179,11 +242,40 @@ func (s *FactorySuite) TestNewHookContextUpdatesRelationContext(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	rel = s.AssertRelationContext(c, ctx, 1)
+	rel := s.AssertRelationContext(c, ctx, 1)
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
-	c.Assert(rel.StoredMemberSettings("r/4"), jc.DeepEquals, params.RelationSettings{
-		"baz": "qux",
+	cached0, member := s.getCache(1, "r/0")
+	c.Assert(cached0, gc.IsNil)
+	c.Assert(member, jc.IsFalse)
+	cached4, member := s.getCache(1, "r/4")
+	c.Assert(cached4, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(member, jc.IsTrue)
+}
+
+func (s *FactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *gc.C) {
+	// Note that this is bizarre and unrealistic, because we would never usually
+	// run relation-broken on a non-empty relation. But verfying that the settings
+	// stick around allows us to verify that there's no special handling for that
+	// hook -- as there should not be, because the relation caches will be discarded
+	// for the *next* hook, which will be constructed with the current set of known
+	// relations and ignore everything else.
+	s.setUpCacheMethods(c)
+	s.membership[1] = []string{"r/0", "r/4"}
+	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
+	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
+
+	ctx, err = s.factory.NewHookContext(hook.Info{
+		Kind:       hooks.RelationBroken,
+		RelationId: 1,
 	})
+	rel := s.AssertRelationContext(c, ctx, 1)
+	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
+	cached0, member := s.getCache(1, "r/0")
+	c.Assert(cached0, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+	c.Assert(member, jc.IsTrue)
+	cached4, member := s.getCache(1, "r/4")
+	c.Assert(cached4, jc.DeepEquals, params.RelationSettings{"baz": "qux"})
+	c.Assert(member, jc.IsTrue)
 }
 
 func (s *FactorySuite) TestNewHookContextWithBadRelation(c *gc.C) {
