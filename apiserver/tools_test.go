@@ -239,7 +239,7 @@ func (s *toolsSuite) TestDownloadFetchesAndCaches(c *gc.C) {
 	vers := version.MustParseBinary("1.23.0-trusty-amd64")
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", vers)[0]
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", vers)[0]
 	data := s.testDownload(c, tools, "")
 
 	metadata, cachedData := s.getToolsFromStorage(c, tools.Version)
@@ -252,7 +252,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesSize(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", version.Current)[0]
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", version.Current)[0]
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader("!"), 1)
 	c.Assert(err, gc.IsNil)
 
@@ -266,7 +266,7 @@ func (s *toolsSuite) TestDownloadFetchesAndVerifiesHash(c *gc.C) {
 	// Upload fake tools, then upload over the top so the SHA256 hash does not match.
 	stor := s.DefaultToolsStorage
 	envtesting.RemoveTools(c, stor, "released")
-	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", version.Current)[0]
+	tools := envtesting.AssertUploadFakeToolsVersions(c, stor, "released", "released", version.Current)[0]
 	sameSize := strings.Repeat("!", int(tools.Size))
 	err := stor.Put(envtools.StorageName(tools.Version, "released"), strings.NewReader(sameSize), tools.Size)
 	c.Assert(err, gc.IsNil)
