@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-// SHASumFile returns the SHA hash of the file.
-func SHASumFile(c *gc.C, file *os.File) string {
+// SHA1SumFile returns the RFC 3230 SHA hash of the file.
+func SHA1SumFile(c *gc.C, file *os.File) string {
 	shahash := sha1.New()
 	_, err := io.Copy(shahash, file)
 	c.Assert(err, gc.IsNil)

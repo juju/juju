@@ -141,7 +141,7 @@ func (s *LegacySuite) checkTarContents(
 }
 
 func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum string) {
-	fileShaSum := backupsTesting.SHASumFile(c, file)
+	fileShaSum := backupsTesting.SHA1SumFile(c, file)
 	c.Check(fileShaSum, gc.Equals, checksum)
 	resetFile(c, file)
 }
