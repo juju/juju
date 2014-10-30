@@ -375,6 +375,19 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := createContainer(env, args)
 	if err != nil {
+		// if the lxc container failed to start we retry
+		// see bug #1364939 where could fail to start if there
+		// is an existing lxc container with the same name
+		// - the existing container is destroyed in the first failed
+		// createContainer call so we can retry and see if it goes
+		// better this time around
+		if strings.Contains(err.Error(), "failed to start") {
+			inst, hardware, err := createContainer(env, args)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			return inst, hardware, nil, nil
+		}
 		return nil, nil, nil, err
 	}
 	return inst, hardware, nil, nil
