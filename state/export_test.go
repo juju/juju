@@ -14,7 +14,6 @@ import (
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/utils/filestorage"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 	"gopkg.in/mgo.v2"
@@ -279,8 +278,8 @@ func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
 
-func WatcherMergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
-	return mergeIds(st, changes, initial, updates)
+func WatcherMergeIds(st *State, preexisting []string, changeset *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, preexisting, changeset, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {

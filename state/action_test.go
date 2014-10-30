@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
@@ -356,14 +355,14 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 
 	for ix, test := range tests {
 		updates := mapify(test.adds, test.removes)
-		changes := newSet(test.changes)
-		initial := newSet(test.initial)
-		expected := newSet(test.expected)
+		changes := sliceify(test.changes)
+		initial := sliceify(test.initial)
+		expected := sliceify(test.expected)
 
-		c.Log(fmt.Sprintf("test number %d %+v", ix, test))
-		err := state.WatcherMergeIds(s.State, changes, initial, updates)
+		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
+		err := state.WatcherMergeIds(s.State, initial, &changes, updates)
 		c.Assert(err, gc.IsNil)
-		c.Assert(changes.SortedValues(), jc.DeepEquals, expected.SortedValues())
+		c.Assert(changes, jc.DeepEquals, expected)
 	}
 }
 
@@ -382,10 +381,10 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		changes, initial, updates := newSet(""), newSet(""), map[interface{}]bool{}
+		changes, initial, updates := []string{}, []string{}, map[interface{}]bool{}
 
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, changes, initial, updates)
+		err := state.WatcherMergeIds(s.State, initial, &changes, updates)
 
 		if test.ok {
 			c.Assert(err, gc.IsNil)
@@ -506,31 +505,35 @@ func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
 	return ids
 }
 
-// newSet is a convenience method to make reading the tests easier. It
-// turns a comma delimited string into a set.Strings
-func newSet(vals string) set.Strings {
-	ret := set.NewStrings(strings.Split(vals, ",")...)
-	ret.Remove("")
-	return ret
-}
-
 // mapify is a convenience method, also to make reading the tests
 // easier. It combines two comma delimited strings representing
 // additions and removals and turns it into the map[interface{}]bool
 // format needed
 func mapify(adds, removes string) map[interface{}]bool {
 	m := map[interface{}]bool{}
-	for _, v := range strings.Split(adds, ",") {
-		if v != "" {
-			m[v] = true
-		}
+	for _, v := range sliceify(adds) {
+		m[v] = true
 	}
-	for _, v := range strings.Split(removes, ",") {
-		if v != "" {
-			m[v] = false
-		}
+	for _, v := range sliceify(removes) {
+		m[v] = false
 	}
 	return m
+}
+
+// sliceify turns a comma separated list of strings into a slice
+// trimming white space and excluding empty strings.
+func sliceify(csvlist string) []string {
+	slice := []string{}
+	if csvlist == "" {
+		return slice
+	}
+	for _, entry := range strings.Split(csvlist, ",") {
+		clean := strings.TrimSpace(entry)
+		if clean != "" {
+			slice = append(slice, clean)
+		}
+	}
+	return slice
 }
 
 // mockAR is an implementation of ActionReceiver that can be used for
