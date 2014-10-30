@@ -465,8 +465,12 @@ func runViaSSH(addr string, script string) error {
 
 // Once Metadata is given a version option we can version backups
 // we could use juju version to signal this
-func backupVersion(backupMetadata *metadata.Metadata) int {
-	if backupMetadata == nil {
+func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) int {
+	backupMetadataFile := true
+	if _, err := os.Stat(filepath.Join(backupFilesPath, "metadata.json")); os.IsNotExist(err) {
+		backupMetadataFile = false
+	}
+	if backupMetadata == nil && !backupMetadataFile {
 		return 0
 	}
 	return 1
@@ -513,7 +517,7 @@ func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privat
 	if err := untarFiles(innerBackupHandler, filesystemRoot(), false); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
-	version := backupVersion(backupMetadata)
+	version := backupVersion(backupMetadata, backupFilesPath)
 	// Restore backed up mongo
 	mongoDump := filepath.Join(backupFilesPath, "dump")
 	if err := placeNewMongo(mongoDump, version); err != nil {
