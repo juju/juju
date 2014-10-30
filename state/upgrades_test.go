@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -1050,7 +1051,76 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 		c.Assert(code, gc.Equals, "NOT SET")
 		c.Assert(info, gc.Equals, "")
 	}
+}
 
+func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceData(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = "1"
+	s.instanceIdSetUp(c, machineID, instID)
+
+	err := MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(err, gc.IsNil)
+
+	s.instanceIdAssertMigration(c, machineID, instID)
+}
+
+func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceDataIdempotent(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = "1"
+	s.instanceIdSetUp(c, machineID, instID)
+
+	err := MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(err, gc.IsNil)
+
+	s.instanceIdAssertMigration(c, machineID, instID)
+}
+
+func (s *upgradesSuite) TestMigrateMachineInstanceIdNoIdLogsWarning(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = ""
+	s.instanceIdSetUp(c, machineID, instID)
+
+	MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.state.upgrade machine "0" doc has no instanceid`)
+}
+
+func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instance.Id) {
+	mDoc := bson.M{
+		"_id":        machineID,
+		"instanceid": instID,
+	}
+	ops := []txn.Op{
+		txn.Op{
+			C:      machinesC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: mDoc,
+		},
+	}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, instID instance.Id) {
+	// check to see if instanceid is in instance
+	var instanceMap bson.M
+	insts, closer := s.state.getCollection(instanceDataC)
+	defer closer()
+	err := insts.FindId(machineID).One(&instanceMap)
+	c.Assert(err, gc.IsNil)
+	c.Assert(instanceMap["instanceid"], gc.Equals, string(instID))
+
+	// check to see if instanceid field is removed
+	var machineMap bson.M
+	machines, closer := s.state.getCollection(machinesC)
+	defer closer()
+	err = machines.FindId(machineID).One(&machineMap)
+	c.Assert(err, gc.IsNil)
+	_, keyExists := machineMap["instanceid"]
+	c.Assert(keyExists, jc.IsFalse)
 }
 
 // setUpJobManageNetworking prepares the test environment for the JobManageNetworking tests.

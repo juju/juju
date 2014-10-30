@@ -98,6 +98,13 @@ func stepsFor121a2() []Step {
 func stepsFor121a3() []Step {
 	return []Step{
 		&upgradeStep{
+			description: "migrate machine instanceId into instanceData",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.MigrateMachineInstanceIdToInstanceData(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "prepend the environment UUID to the ID of all machine docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
