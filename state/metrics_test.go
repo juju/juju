@@ -34,7 +34,7 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
-	envUUID := s.State.EnvironTag().Id()
+	envUUID := s.State.EnvironUUID()
 	m := state.Metric{"item", "5", now, []byte("creds")}
 	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)

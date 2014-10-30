@@ -140,6 +140,12 @@ func (st *State) EnvironTag() names.EnvironTag {
 	return st.environTag
 }
 
+// EnvironUUID returns the environment UUID for the environment
+// controlled by this state instance.
+func (st *State) EnvironUUID() string {
+	return st.environTag.Id()
+}
+
 // getCollection fetches a named collection using a new session if the
 // database has previously been logged in to.
 // It returns the collection and a closer function for the session.
@@ -1090,7 +1096,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 		relDoc := &relationDoc{
 			DocID:     st.docID(relKey),
 			Key:       relKey,
-			EnvUUID:   st.EnvironTag().Id(),
+			EnvUUID:   st.EnvironUUID(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1320,13 +1326,13 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return st.EnvironTag().Id() + ":" + localID
+	return st.EnvironUUID() + ":" + localID
 }
 
 // localID returns the local id value by stripping
 // off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
-	prefix := st.EnvironTag().Id() + ":"
+	prefix := st.EnvironUUID() + ":"
 	if strings.HasPrefix(ID, prefix) {
 		return ID[len(prefix):]
 	}
@@ -1340,7 +1346,7 @@ func (st *State) localID(ID string) string {
 // State's environment, false is returned. True is returned if the
 // expected prefix was present.
 func (st *State) strictLocalID(ID string) (string, bool) {
-	prefix := st.EnvironTag().Id() + ":"
+	prefix := st.EnvironUUID() + ":"
 	if !strings.HasPrefix(ID, prefix) {
 		return "", false
 	}
@@ -1538,7 +1544,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
-			EnvUUID:   st.EnvironTag().Id(),
+			EnvUUID:   st.EnvironUUID(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1652,7 +1658,7 @@ func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, erro
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	envuuid := st.EnvironTag().Id()
+	envuuid := st.EnvironUUID()
 	sel := bson.D{{"env-uuid", envuuid}, {"receiver", receiver}}
 	iter := actionsCollection.Find(sel).Iter()
 
@@ -1699,7 +1705,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 	actionresults, closer := st.getCollection(actionresultsC)
 	defer closer()
 
-	envuuid := st.EnvironTag().Id()
+	envuuid := st.EnvironUUID()
 	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
 	iter := actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {

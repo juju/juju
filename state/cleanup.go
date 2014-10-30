@@ -38,7 +38,7 @@ type cleanupDoc struct {
 func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
 		DocID:   st.docID(fmt.Sprint(bson.NewObjectId())),
-		EnvUUID: st.EnvironTag().Id(),
+		EnvUUID: st.EnvironUUID(),
 		Kind:    kind,
 		Prefix:  prefix,
 	}
@@ -167,7 +167,7 @@ func (st *State) cleanupUnitsForDyingService(serviceName string) error {
 	// when multiple environments exist.
 	sel := bson.D{
 		{"service", serviceName},
-		{"env-uuid", st.EnvironTag().Id()},
+		{"env-uuid", st.EnvironUUID()},
 		{"life", Alive},
 	}
 	iter := units.Find(sel).Iter()
