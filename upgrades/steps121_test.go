@@ -41,6 +41,11 @@ func (s *steps121Suite) TestStepsFor121a2(c *gc.C) {
 
 func (s *steps121Suite) TestStepsFor121a3(c *gc.C) {
 	var expectedSteps = []string{
+		// It is important to keep the order of the following three steps:
+		// 1.migrate machine instanceId, 2. Add env ID to  machine docs, 3.
+		// Add env ID to instanceData docs. If the order changes, bad things
+		// will happen.
+		"migrate machine instanceId into instanceData",
 		"prepend the environment UUID to the ID of all machine docs",
 		"prepend the environment UUID to the ID of all instanceData docs",
 		"prepend the environment UUID to the ID of all containerRef docs",
@@ -48,6 +53,7 @@ func (s *steps121Suite) TestStepsFor121a3(c *gc.C) {
 		"prepend the environment UUID to the ID of all relations docs",
 		"prepend the environment UUID to the ID of all relationscopes docs",
 		"migrate machine jobs into ones with JobManageNetworking based on rules",
+		"prepend the environment UUID to the ID of all cleanup docs",
 	}
 	assertSteps(c, version.MustParse("1.21-alpha3"), expectedSteps)
 }

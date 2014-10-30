@@ -403,7 +403,6 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 		Clean:      !template.Dirty,
 		Principals: template.principals,
 		Life:       Alive,
-		InstanceId: template.InstanceId,
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
 		NoVote:     template.NoVote,

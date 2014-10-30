@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
@@ -500,6 +502,67 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 	return st.runTransaction(ops)
 }
 
+// MigrateMachineInstanceIdToInstanceData migrates the deprecated "instanceid"
+// machine field into "instanceid" in the instanceData doc.
+func MigrateMachineInstanceIdToInstanceData(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	instDatas, closer := st.getCollection(instanceDataC)
+	defer closer()
+	machines, closer := st.getCollection(machinesC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := machines.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		var instID interface{}
+		mID := doc["_id"].(string)
+		i, err := instDatas.FindId(mID).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if i == 0 {
+			var ok bool
+			if instID, ok = doc["instanceid"]; !ok || instID == "" {
+				upgradesLogger.Warningf("machine %q doc has no instanceid", mID)
+				continue
+			}
+
+			// Insert instanceData doc.
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     mID,
+				Assert: txn.DocMissing,
+				Insert: instanceData{
+					DocID:      mID,
+					MachineId:  mID,
+					EnvUUID:    st.EnvironTag().Id(),
+					InstanceId: instance.Id(instID.(string)),
+				},
+			})
+		}
+
+		// Remove instanceid field from machine doc.
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     mID,
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$unset", bson.D{{"instanceid", nil}}},
+			},
+		})
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(ops)
+}
+
 // AddEnvUUIDToServices prepends the environment UUID to the ID of
 // all service docs and adds new "env-uuid" field.
 func AddEnvUUIDToServices(st *State) error {
@@ -542,6 +605,12 @@ func AddEnvUUIDToInstanceData(st *State) error {
 	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
 }
 
+// AddEnvUUIDToCleanups prepends the environment UUID to the ID of
+// all cleanup docs and adds new "env-uuid" field.
+func AddEnvUUIDToCleanups(st *State) error {
+	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
+}
+
 // AddEnvUUIDToRelations prepends the environment UUID to the ID of
 // all relations docs and adds new "env-uuid" and "key" fields.
 func AddEnvUUIDToRelations(st *State) error {
@@ -570,10 +639,11 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	ops := []txn.Op{}
 	var doc bson.M
 	for iter.Next(&doc) {
-		// The "_id" field becomes the new "name" field.
-		oldID := doc["_id"].(string)
-		id := st.docID(oldID)
-		doc[fieldForOldID] = oldID
+		oldID := doc["_id"]
+		id := st.docID(fmt.Sprint(oldID))
+		if fieldForOldID != "" {
+			doc[fieldForOldID] = oldID
+		}
 		doc["_id"] = id
 		doc["env-uuid"] = uuid
 		ops = append(ops,
