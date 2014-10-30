@@ -24,6 +24,7 @@ var _ = gc.Suite(&createSuite{})
 func (s *createSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.subcommand = &backups.CreateCommand{}
+	s.subcommand.Filename = "juju-backup-<date>-<time>.tar.gz"
 }
 
 func (s *createSuite) TestHelp(c *gc.C) {
