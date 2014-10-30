@@ -519,6 +519,12 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
+func (s *clientSuite) TestClientAddUnitToMachineNotFound(c *gc.C) {
+	s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	_, err := s.APIState.Client().AddServiceUnits("dummy", 1, "42")
+	c.Assert(err, gc.ErrorMatches, `cannot add units for service "dummy" to machine 42: machine 42 not found`)
+}
+
 func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 	var clientCharmInfoTests = []struct {
 		about           string
