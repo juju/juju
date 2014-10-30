@@ -302,6 +302,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToCleanups(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToCleanups, cleanupsC,
+		bson.M{
+			"_id":    bson.NewObjectId(),
+			"kind":   "units",
+			"prefix": "mysql",
+		},
+		bson.M{
+			"_id":    bson.NewObjectId(),
+			"kind":   "service",
+			"prefix": "mediawiki",
+		},
+	)
+	defer closer()
+
+	var newDoc cleanupDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(string(newDoc.Kind), gc.Equals, "units")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(string(newDoc.Kind), gc.Equals, "service")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToCleanupsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToCleanups, cleanupsC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToReboots, rebootC,
 		bson.M{
@@ -400,7 +427,7 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	var ids []string
 	envTag := s.state.EnvironTag().Id()
 	for _, oldDoc := range oldDocs {
-		oldID := oldDoc["_id"].(string)
+		oldID := strID(oldDoc["_id"])
 		newID := s.state.docID(oldID)
 
 		err = coll.FindId(oldID).One(&d)
@@ -412,7 +439,6 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 
 		ids = append(ids, newID)
 	}
-
 	count, err := coll.Find(nil).Count()
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, len(oldDocs))
@@ -425,7 +451,13 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	upgradeStep func(*State) error,
 	collName string,
 ) {
-	const oldID = "foo"
+	var oldID interface{}
+	if collName == cleanupsC {
+		oldID = bson.NewObjectId()
+	} else {
+		oldID = "foo"
+	}
+
 	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
 
 	err := upgradeStep(s.state)
@@ -440,13 +472,13 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(oldID))
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(strID(oldID)))
 }
 
 func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
 	ops := []txn.Op{{
 		C:      collName,
-		Id:     legacyDoc["_id"].(string),
+		Id:     legacyDoc["_id"],
 		Assert: txn.DocMissing,
 		Insert: legacyDoc,
 	}}
@@ -454,7 +486,7 @@ func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id string, doc interface{}) {
+func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, doc interface{}) {
 	err := coll.FindId(id).One(doc)
 	c.Assert(err, gc.IsNil)
 }

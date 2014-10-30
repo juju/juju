@@ -536,6 +536,20 @@ func AddEnvUUIDToInstanceData(st *State) error {
 	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
 }
 
+// AddEnvUUIDToCleanups prepends the environment UUID to the ID of
+// all cleanup docs and adds new "env-uuid" field.
+func AddEnvUUIDToCleanups(st *State) error {
+	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
+}
+
+func strID(id interface{}) string {
+	switch n := id.(type) {
+	case bson.ObjectId:
+		return n.String()
+	}
+	return id.(string)
+}
+
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {
 	env, err := st.Environment()
 	if err != nil {
@@ -553,9 +567,11 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	var doc bson.M
 	for iter.Next(&doc) {
 		// The "_id" field becomes the new "name" field.
-		oldID := doc["_id"].(string)
-		id := st.docID(oldID)
-		doc[fieldForOldID] = oldID
+		oldID := doc["_id"]
+		id := st.docID(strID(oldID))
+		if fieldForOldID != "" {
+			doc[fieldForOldID] = oldID
+		}
 		doc["_id"] = id
 		doc["env-uuid"] = uuid
 		ops = append(ops,
