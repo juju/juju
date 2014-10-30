@@ -149,7 +149,7 @@ func listDatabases(dumpDir string) (*set.Strings, error) {
 	databases := set.NewStrings()
 	for _, info := range list {
 		if !info.IsDir() {
-			// This will include oplog.bson.
+			// Notably, oplog.bson is thus excluded here.
 			continue
 		}
 		databases.Add(info.Name())
