@@ -43,13 +43,8 @@ func (s *backupSuite) TearDownTest(c *gc.C) {
 func (s *backupSuite) newBackupDBWrapper() *state.BackupDBWrapper {
 	envUUID := s.State.EnvironTag().Id()
 
-	var backupDB *state.BackupDBWrapper
-	if len(s.backupDBs) == 0 {
-		db := s.session.DB(state.BackupDB)
-		backupDB = state.NewBackupDBWrapper(db, state.BackupsMetaC, envUUID)
-	} else {
-		backupDB = s.backupDBs[0].Copy()
-	}
+	db := s.session.DB(state.BackupDB)
+	backupDB := state.NewBackupDBWrapper(db, state.BackupsMetaC, envUUID)
 	s.backupDBs = append(s.backupDBs, backupDB)
 	return backupDB
 }
