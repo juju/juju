@@ -128,9 +128,5 @@ func (c *CreateCommand) download(ctx *cmd.Context, client APIClient, id string, 
 	defer outfile.Close()
 
 	_, err = io.Copy(outfile, archive)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
+	return errors.Trace(err)
 }
