@@ -5,8 +5,8 @@ package local_test
 
 import (
 	"errors"
+	"fmt"
 	"os/user"
-	"strings"
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -317,92 +317,93 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 }
 
 func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
+	urlConstruct := "%v%v%v"
+	// This value is currently hard-coded in export_test and is called on by this test setup. @see export_test.go MockAddressForInterface()
+	expectedBridge := "127.0.0.1"
+	proxyAttrs := map[string]string{
+		"http-proxy":      "http://",
+		"https-proxy":     "https://",
+		"ftp-proxy":       "ftp://",
+		"apt-http-proxy":  "http://",
+		"apt-https-proxy": "https://",
+		"apt-ftp-proxy":   "ftp://",
+	}
+
+	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"type": "local",
+		"name": "test",
+	})
+	c.Assert(err, gc.IsNil)
+	provider, err := environs.Provider(provider.Local)
+	c.Assert(err, gc.IsNil)
 
 	for i, test := range []struct {
-		message        string
-		proxySettings  map[string]interface{}
-		expectNoChange bool
+		message      string
+		url          string
+		port         string
+		expectChange bool
 	}{{
-		message: "replace localhost with bridge ip in proxy url",
-		proxySettings: map[string]interface{}{
-			"type":            "local",
-			"name":            "test",
-			"http-proxy":      "http://localhost:8080",
-			"apt-http-proxy":  "http://localhost:8080",
-			"https-proxy":     "https://localhost",
-			"apt-https-proxy": "https://localhost",
-			"ftp-proxy":       "ftp://localhost",
-			"apt-ftp-proxy":   "ftp://localhost",
-		},
-		expectNoChange: false,
+		message:      "replace localhost with bridge ip in proxy url",
+		url:          "localhost",
+		port:         "",
+		expectChange: true,
 	}, {
-		message: "replace 127.2.0.1 with bridge ip in proxy url",
-		proxySettings: map[string]interface{}{
-			"type":            "local",
-			"name":            "test",
-			"http-proxy":      "http://127.2.0.1:8080",
-			"apt-http-proxy":  "http://127.2.0.1:8080",
-			"https-proxy":     "https://127.2.0.1",
-			"apt-https-proxy": "https://127.2.0.1",
-			"ftp-proxy":       "ftp://127.2.0.1",
-			"apt-ftp-proxy":   "ftp://127.2.0.1",
-		},
-		expectNoChange: false,
+		message:      "replace localhost:port with bridge ip:port in proxy url",
+		url:          "localhost",
+		port:         ":8877",
+		expectChange: true,
 	}, {
-		message: "replace [::1] with bridge ip in proxy url",
-		proxySettings: map[string]interface{}{
-			"type":            "local",
-			"name":            "test",
-			"http-proxy":      "http://[::1]:8080",
-			"apt-http-proxy":  "http://[::1]:8080",
-			"https-proxy":     "https://[::1]:8988",
-			"apt-https-proxy": "https://[::1]:8988",
-			"ftp-proxy":       "ftp://[::1]:8988",
-			"apt-ftp-proxy":   "ftp://[::1]:8988",
-		},
-		expectNoChange: false,
+		message:      "replace 127.2.0.1 with bridge ip in proxy url",
+		url:          "127.2.0.1",
+		port:         "",
+		expectChange: true,
 	}, {
-		message: "replace ::1 with bridge ip in proxy url",
-		proxySettings: map[string]interface{}{
-			"type":            "local",
-			"name":            "test",
-			"http-proxy":      "http://::1",
-			"apt-http-proxy":  "http://::1",
-			"https-proxy":     "https://::1",
-			"apt-https-proxy": "https://::1",
-			"ftp-proxy":       "ftp://::1",
-			"apt-ftp-proxy":   "ftp://::1",
-		},
-		expectNoChange: false,
+		message:      "replace 127.2.0.1:port with bridge ip:port in proxy url",
+		url:          "127.2.0.1",
+		port:         ":8877",
+		expectChange: true,
 	}, {
-		message: "do not replace provided with bridge ip in proxy url",
-		proxySettings: map[string]interface{}{
-			"type":            "local",
-			"name":            "test",
-			"http-proxy":      "http://www.google.com:8988",
-			"apt-http-proxy":  "http://www.google.com:8988",
-			"https-proxy":     "https://www.google.com",
-			"apt-https-proxy": "https://www.google.com",
-			"ftp-proxy":       "ftp://www.google.com",
-			"apt-ftp-proxy":   "ftp://www.google.com",
-		},
-		expectNoChange: true,
+		message:      "replace [::1]:port with bridge ip:port in proxy url",
+		url:          "[::1]",
+		port:         ":8877",
+		expectChange: true,
+	}, {
+		message:      "replace ::1 with bridge ip in proxy url",
+		url:          "::1",
+		port:         "",
+		expectChange: true,
+	}, {
+		message:      "do not replace provided with bridge ip in proxy url",
+		url:          "www.google.com",
+		port:         "",
+		expectChange: false,
+	}, {
+		message:      "do not replace provided:port with bridge ip:port in proxy url",
+		url:          "www.google.com",
+		port:         ":8877",
+		expectChange: false,
 	},
 	} {
 		c.Logf("test %d: %v\n", i, test.message)
-		basecfg, err := config.New(config.UseDefaults, test.proxySettings)
-		c.Assert(err, gc.IsNil)
-		provider, err := environs.Provider(provider.Local)
-		c.Assert(err, gc.IsNil)
-		env, err := provider.Prepare(coretesting.Context(c), basecfg)
-		c.Assert(err, gc.IsNil)
-		envConfig := env.Config()
 
-		c.Assert(strings.EqualFold(envConfig.AptHttpProxy(), test.proxySettings["apt-http-proxy"].(string)), gc.Equals, test.expectNoChange)
-		c.Assert(strings.EqualFold(envConfig.AptHttpsProxy(), test.proxySettings["apt-https-proxy"].(string)), gc.Equals, test.expectNoChange)
-		c.Assert(strings.EqualFold(envConfig.AptFtpProxy(), test.proxySettings["apt-ftp-proxy"].(string)), gc.Equals, test.expectNoChange)
-		c.Assert(strings.EqualFold(envConfig.HttpProxy(), test.proxySettings["http-proxy"].(string)), gc.Equals, test.expectNoChange)
-		c.Assert(strings.EqualFold(envConfig.HttpsProxy(), test.proxySettings["https-proxy"].(string)), gc.Equals, test.expectNoChange)
-		c.Assert(strings.EqualFold(envConfig.FtpProxy(), test.proxySettings["ftp-proxy"].(string)), gc.Equals, test.expectNoChange)
+		proxyAttrValues := map[string]interface{}{}
+		for anAttrKey, anAttrVal := range proxyAttrs {
+			proxyAttrValues[anAttrKey] = fmt.Sprintf(urlConstruct, anAttrVal, test.url, test.port)
+		}
+
+		cfg, err := basecfg.Apply(proxyAttrValues)
+		c.Assert(err, gc.IsNil)
+		env, err := provider.Prepare(coretesting.Context(c), cfg)
+		c.Assert(err, gc.IsNil)
+
+		envConfig := env.Config().AllAttrs()
+		for anAttrKey, anAttrVal := range proxyAttrs {
+			expectedAttValue := proxyAttrValues[anAttrKey]
+			if test.expectChange {
+				expectedAttValue = fmt.Sprintf(urlConstruct, anAttrVal, expectedBridge, test.port)
+			}
+			c.Logf("env (%q) vs expected (%q) vs original (%q)\n", envConfig[anAttrKey].(string), expectedAttValue.(string), proxyAttrValues[anAttrKey])
+			c.Assert(envConfig[anAttrKey].(string), gc.Matches, expectedAttValue.(string))
+		}
 	}
 }
