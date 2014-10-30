@@ -42,7 +42,9 @@ var _ = gc.Suite(&cloudinitSuite{})
 var envConstraints = constraints.MustParse("mem=2G")
 
 var allMachineJobs = []params.MachineJob{
-	params.JobManageEnviron, params.JobHostUnits,
+	params.JobManageEnviron,
+	params.JobHostUnits,
+	params.JobManageNetworking,
 }
 var normalMachineJobs = []params.MachineJob{
 	params.JobHostUnits,

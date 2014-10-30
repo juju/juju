@@ -32,7 +32,7 @@ var logger = loggo.GetLogger("juju.environs.manual")
 // consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	DestroyMachines(machines ...string) error
+	ForceDestroyMachines(machines ...string) error
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
@@ -74,7 +74,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			if cleanupErr := args.Client.DestroyMachines(machineId); cleanupErr != nil {
+			if cleanupErr := args.Client.ForceDestroyMachines(machineId); cleanupErr != nil {
 				logger.Warningf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
@@ -183,6 +183,10 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 	// task. The provisioner task will happily remove any and all dead
 	// machines from state, but will ignore the associated instance ID
 	// if it isn't one that the environment provider knows about.
+	// Also, manually provisioned machines don't have the JobManageNetworking.
+	// This ensures that the networker is running in non-intrusive mode
+	// and never touches the network configuration files.
+	// No JobManageNetworking here due to manual provisioning.
 
 	instanceId := instance.Id(manualInstancePrefix + hostname)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())

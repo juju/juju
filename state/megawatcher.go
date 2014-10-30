@@ -588,7 +588,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 // been migrated, it returns the id that was passed in.
 func (b *allWatcherStateBacking) docID(collection string, id interface{}) interface{} {
 	switch collection {
-	case servicesC:
+	case servicesC, unitsC:
 		if id, ok := id.(string); ok {
 			return b.st.docID(id)
 		}

@@ -367,7 +367,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
 	if cons.Tags != nil && len(*cons.Tags) > 0 {
-		params.Add("tags", strings.Join(*cons.Tags, ","))
+		tags, notTags := parseTags(*cons.Tags)
+		if len(tags) > 0 {
+			params.Add("tags", strings.Join(tags, ","))
+		}
+		if len(notTags) > 0 {
+			params.Add("not_tags", strings.Join(notTags, ","))
+		}
 	}
 	// TODO(bug 1212689): ignore root-disk constraint for now.
 	if cons.RootDisk != nil {
@@ -377,6 +383,25 @@ func convertConstraints(cons constraints.Value) url.Values {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
 	return params
+}
+
+// parseTags parses a tags constraints, splitting it into a positive
+// and negative tags to pass to MAAS. Positive tags have no prefix,
+// negative tags have a "^" prefix. All spaces inside the rawTags are
+// stripped before parsing.
+func parseTags(rawTags []string) (tags, notTags []string) {
+	for _, tag := range rawTags {
+		tag = strings.Replace(tag, " ", "", -1)
+		if len(tag) == 0 {
+			continue
+		}
+		if strings.HasPrefix(tag, "^") {
+			notTags = append(notTags, strings.TrimPrefix(tag, "^"))
+		} else {
+			tags = append(tags, tag)
+		}
+	}
+	return tags, notTags
 }
 
 // addNetworks converts networks include/exclude information into

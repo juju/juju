@@ -372,10 +372,19 @@ func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
 }
 
 func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
-	// This will be implemented when backups needs this functionality.
-	// For now the method is stubbed out for the same of the
-	// MetadataStorage interface.
-	return nil, errors.NotImplementedf("ListMetadata")
+	collection, closer := s.state.getCollection(backupsMetaC)
+	defer closer()
+
+	var docs []backupMetadataDoc
+	if err := collection.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+	list := make([]filestorage.Metadata, len(docs))
+	for i, doc := range docs {
+		meta := doc.asMetadata()
+		list[i] = meta
+	}
+	return list, nil
 }
 
 func (s *backupMetadataStorage) RemoveDoc(id string) error {

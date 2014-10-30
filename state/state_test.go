@@ -2420,7 +2420,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, nil)
 	c.Assert(err, gc.ErrorMatches, "tag is nil")
 	c.Assert(coll, gc.Equals, "")
-	c.Assert(id, gc.Equals, "")
+	c.Assert(id, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
@@ -2447,7 +2447,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	coll, id, err := state.ParseTag(s.State, u.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
-	c.Assert(id, gc.Equals, u.Name())
+	c.Assert(id, gc.Equals, state.DocID(s.State, u.Name()))
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
@@ -3681,6 +3681,12 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 		c.Fatalf("watcher not closed")
 	}
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
+	t := state.NowToTheSecond()
+	rounded := t.Round(time.Second)
+	c.Assert(t, gc.DeepEquals, rounded)
 }
 
 type SetAdminMongoPasswordSuite struct {

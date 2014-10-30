@@ -1,4 +1,5 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
+// Copyright 2014 Cloudbase Solutions SRL
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package bzr_test
@@ -10,6 +11,7 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/bzr"
@@ -35,10 +37,10 @@ func (s *BzrSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	bzrdir := c.MkDir()
 	s.PatchEnvironment("BZR_HOME", bzrdir)
-	err := os.Mkdir(filepath.Join(bzrdir, ".bazaar"), 0755)
+	err := os.MkdirAll(filepath.Join(bzrdir, bzrHome), 0755)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(
-		filepath.Join(bzrdir, ".bazaar", "bazaar.conf"),
+		filepath.Join(bzrdir, bzrHome, "bazaar.conf"),
 		[]byte(bzr_config), 0644)
 	c.Assert(err, gc.IsNil)
 	s.b = bzr.New(c.MkDir())
@@ -53,7 +55,7 @@ func (s *BzrSuite) TestNewFindsRoot(c *gc.C) {
 	// found along the way.
 	path, err := filepath.EvalSymlinks(s.b.Location())
 	c.Assert(err, gc.IsNil)
-	c.Assert(b.Location(), gc.Equals, path)
+	c.Assert(b.Location(), jc.SamePath, path)
 }
 
 func (s *BzrSuite) TestJoin(c *gc.C) {
@@ -119,7 +121,7 @@ func (s *BzrSuite) TestPush(c *gc.C) {
 	// Push location should be set to b2.
 	location, err := b1.PushLocation()
 	c.Assert(err, gc.IsNil)
-	c.Assert(location, gc.Equals, b2.Location())
+	c.Assert(location, jc.SamePath, b2.Location())
 
 	// Now push it to b3.
 	err = b1.Push(&bzr.PushAttr{Location: b3.Location()})
@@ -128,7 +130,7 @@ func (s *BzrSuite) TestPush(c *gc.C) {
 	// Push location is still set to b2.
 	location, err = b1.PushLocation()
 	c.Assert(err, gc.IsNil)
-	c.Assert(location, gc.Equals, b2.Location())
+	c.Assert(location, jc.SamePath, b2.Location())
 
 	// Push it again, this time with the remember flag set.
 	err = b1.Push(&bzr.PushAttr{Location: b3.Location(), Remember: true})
@@ -137,7 +139,7 @@ func (s *BzrSuite) TestPush(c *gc.C) {
 	// Now the push location has shifted to b3.
 	location, err = b1.PushLocation()
 	c.Assert(err, gc.IsNil)
-	c.Assert(location, gc.Equals, b3.Location())
+	c.Assert(location, jc.SamePath, b3.Location())
 
 	// Both b2 and b3 should have the file.
 	_, err = os.Stat(b2.Join("file"))

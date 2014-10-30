@@ -16,6 +16,7 @@ import (
 // AgentAPIV0 implements the version 0 of the API provided to an agent.
 type AgentAPIV0 struct {
 	*common.PasswordChanger
+	*common.RebootFlagClearer
 
 	st   *state.State
 	auth common.Authorizer
@@ -32,9 +33,10 @@ func NewAgentAPIV0(st *state.State, resources *common.Resources, auth common.Aut
 		return auth.AuthOwner, nil
 	}
 	return &AgentAPIV0{
-		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
-		st:              st,
-		auth:            auth,
+		PasswordChanger:   common.NewPasswordChanger(st, getCanChange),
+		RebootFlagClearer: common.NewRebootFlagClearer(st, getCanChange),
+		st:                st,
+		auth:              auth,
 	}, nil
 }
 

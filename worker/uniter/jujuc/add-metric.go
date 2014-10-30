@@ -5,7 +5,6 @@ package jujuc
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -25,19 +24,22 @@ type Metric struct {
 type AddMetricCommand struct {
 	cmd.CommandBase
 	ctx     Context
-	Metrics []Metric
+	Metrics map[string]Metric
 }
 
 // NewAddMetricCommand generates a new AddMetricCommand.
 func NewAddMetricCommand(ctx Context) cmd.Command {
-	return &AddMetricCommand{ctx: ctx}
+	return &AddMetricCommand{
+		ctx:     ctx,
+		Metrics: make(map[string]Metric),
+	}
 }
 
 // Info returns the command infor structure for the add-metric command.
 func (c *AddMetricCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-metric",
-		Args:    "key=value [key=value ...]",
+		Args:    "key1=value1 [key2=value2 ...]",
 		Purpose: "send metrics",
 	}
 }
@@ -57,7 +59,10 @@ func (c *AddMetricCommand) Init(args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid value type: expected float, got %q", parts[1])
 		}
-		c.Metrics = append(c.Metrics, Metric{parts[0], parts[1], now})
+		if _, alreadySet := c.Metrics[parts[0]]; alreadySet {
+			return fmt.Errorf("cannot set the same metric key twice: %q already set", parts[0])
+		}
+		c.Metrics[parts[0]] = Metric{parts[0], parts[1], now}
 	}
 	return nil
 }
@@ -67,7 +72,6 @@ func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
 		err := c.ctx.AddMetrics(metric.Key, metric.Value, metric.Time)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "can't add metrics!")
 			return errors.Annotate(err, "cannot record metric")
 		}
 	}

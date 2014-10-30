@@ -25,13 +25,25 @@ const (
 const actionResultMarker string = "_ar_"
 
 type actionResultDoc struct {
-	// Id is the key for this document.  The format of the id encodes
+	// DocId is the key for this document.  The format of the id encodes
 	// the id of the Action that was used to produce this ActionResult.
 	// The format is: <action id> + actionResultMarker + <generated sequence>
-	Id string `bson:"_id"`
+	// The <action id> encodes the EnvUUID.
+	DocId string `bson:"_id"`
 
-	// ActionName identifies the action that was run.
-	ActionName string `bson:"name"`
+	// EnvUUID is the environment identifier.
+	EnvUUID string `bson:"env-uuid"`
+
+	// Receiver is the Name of the Unit or any other ActionReceiver for
+	// which this Action is queued.
+	Receiver string `bson:"receiver"`
+
+	// Sequence is the unique identifier for this instance of this Action,
+	// and is encoded in the DocId too.
+	Sequence int `bson:"sequence"`
+
+	// Name identifies the action that was run.
+	Name string `bson:"name"`
 
 	// Parameters describes the parameters passed in for the action
 	// when it was run.
@@ -56,26 +68,25 @@ type ActionResult struct {
 	doc actionResultDoc
 }
 
-// Id returns the id of the ActionResult.
+// Id returns the local id of the ActionResult
 func (a *ActionResult) Id() string {
-	return a.doc.Id
+	return a.st.localID(a.doc.DocId)
 }
 
-// Tag implements the Entity interface and returns a names.Tag that
-// is a names.ActionResultTag
-func (a *ActionResult) Tag() names.Tag {
-	return a.ActionResultTag()
+// Receiver  returns the Name of the ActionReceiver for which this action
+// is enqueued.  Usually this is a Unit Name()
+func (a *ActionResult) Receiver() string {
+	return a.doc.Receiver
 }
 
-// ActionResultTag returns an ActionResultTag constructed from this
-// actionResult's Prefix and Sequence
-func (a *ActionResult) ActionResultTag() names.ActionResultTag {
-	return names.NewActionResultTag(a.Id())
+// Sequence returns the unique suffix of the ActionResult _id
+func (a *ActionResult) Sequence() int {
+	return a.doc.Sequence
 }
 
-// ActionName returns the name of the Action.
-func (a *ActionResult) ActionName() string {
-	return a.doc.ActionName
+// Name returns the name of the Action.
+func (a *ActionResult) Name() string {
+	return a.doc.Name
 }
 
 // Parameters will contain a structure representing arguments or parameters
@@ -92,6 +103,18 @@ func (a *ActionResult) Status() ActionStatus {
 // Results returns the structured output of the action and any error.
 func (a *ActionResult) Results() (map[string]interface{}, string) {
 	return a.doc.Results, a.doc.Message
+}
+
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionResultTag
+func (a *ActionResult) Tag() names.Tag {
+	return a.ActionResultTag()
+}
+
+// ActionResultTag returns an ActionResultTag constructed from this
+// actionResult's Prefix and Sequence
+func (a *ActionResult) ActionResultTag() names.ActionResultTag {
+	return names.NewActionResultTag(a.Id())
 }
 
 // newActionResult builds an ActionResult from the supplied state and
@@ -112,8 +135,11 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", actionId))
 	}
 	return actionResultDoc{
-		Id:         id,
-		ActionName: a.doc.Name,
+		DocId:      a.st.docID(id),
+		EnvUUID:    a.doc.EnvUUID,
+		Receiver:   a.doc.Receiver,
+		Sequence:   a.doc.Sequence,
+		Name:       a.doc.Name,
 		Parameters: a.doc.Parameters,
 		Status:     finalStatus,
 		Results:    results,
@@ -141,7 +167,7 @@ func actionResultPrefix(ar ActionReceiver) string {
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
 		C:      actionresultsC,
-		Id:     doc.Id,
+		Id:     doc.DocId,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}

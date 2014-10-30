@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012, 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package jujuc
@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 )
 
 // Context is the interface that all hook helper commands
@@ -36,11 +37,27 @@ type Context interface {
 	// separately by a co- located unit).
 	ClosePorts(protocol string, fromPort, toPort int) error
 
+	// OpenedPorts returns all port ranges currently opened by this
+	// unit on its assigned machine. The result is sorted first by
+	// protocol, then by number.
+	OpenedPorts() []network.PortRange
+
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
+
+	// UpdateActionResults inserts new values for use with action-set.
+	// The results struct will be delivered to the state server upon
+	// completion of the Action.
+	UpdateActionResults(keys []string, value string) error
+
+	// SetActionMessage sets a message for the Action.
+	SetActionMessage(string) error
+
+	// SetActionFailed sets a failure state for the Action.
+	SetActionFailed() error
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
@@ -58,7 +75,8 @@ type Context interface {
 	// currently participating in.
 	RelationIds() []int
 
-	// OwnerTag returns the owner of the service the executing units belongs to
+	// OwnerTag returns the user tag of the service the executing
+	// units belongs to.
 	OwnerTag() string
 
 	// AddMetric records a metric to return after hook execution.

@@ -296,6 +296,21 @@ type Creds struct {
 	Nonce    string
 }
 
+// LoginRequest holds credentials for identifying an entity to the Login v1
+// facade.
+type LoginRequest struct {
+	AuthTag     string `json:"auth-tag"`
+	Credentials string `json:"credentials"`
+	Nonce       string `json:"nonce"`
+}
+
+// LoginRequestCompat holds credentials for identifying an entity to the Login v1
+// or earlier (v0 or even pre-facade).
+type LoginRequestCompat struct {
+	LoginRequest
+	Creds
+}
+
 // GetAnnotationsResults holds annotations associated with an entity.
 type GetAnnotationsResults struct {
 	Annotations map[string]string
@@ -756,17 +771,58 @@ type LoginResult struct {
 	Facades        []FacadeVersions
 }
 
+// ReauthRequest holds a challenge/response token meaningful to the identity
+// provider.
+type ReauthRequest struct {
+	Prompt string `json:"prompt"`
+	Nonce  string `json:"nonce"`
+}
+
+// UserInfo describes a logged-in local user or remote identity.
+type UserInfo struct {
+	DisplayName    string     `json:"display-name"`
+	Identity       string     `json:"identity"`
+	LastConnection *time.Time `json:"last-connection,omitempty"`
+
+	// Credentials contains an optional opaque credential value to be held by
+	// the client, if any.
+	Credentials *string `json:"credentials,omitempty"`
+}
+
+// LoginRequestV1 holds the result of an Admin v1 Login call.
+type LoginResultV1 struct {
+	Servers [][]network.HostPort `json:"servers"`
+
+	// EnvironTag is the tag for the environment that is being connected to.
+	EnvironTag string `json:"environ-tag"`
+
+	// ServerTag is the tag for the environment that holds the API servers.
+	// This is the initial environment created when bootstrapping juju.
+	ServerTag string `json:"server-tag"`
+
+	// ReauthRequest can be used to relay any further authentication handshaking
+	// required on the part of the client to complete the Login, if any.
+	ReauthRequest *ReauthRequest `json:"reauth-request,omitempty"`
+
+	// UserInfo describes the authenticated user, if any.
+	UserInfo *UserInfo `json:"user-info,omitempty"`
+
+	// Facades describes all the available API facade versions to the
+	// authenticated client.
+	Facades []FacadeVersions `json:"facades"`
+}
+
 // StateServersSpec contains arguments for
 // the EnsureAvailability client API call.
 type StateServersSpec struct {
 	EnvironTag      string
-	NumStateServers int               `json:num-state-servers`
-	Constraints     constraints.Value `json:constraints,omitempty`
+	NumStateServers int               `json:"num-state-servers"`
+	Constraints     constraints.Value `json:"constraints,omitempty"`
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
-	Series string `json:series,omitempty`
+	Series string `json:"series,omitempty"`
 	// Placement defines specific machines to become new state server machines.
-	Placement []string `json:placement,omitempty`
+	Placement []string `json:"placement,omitempty"`
 }
 
 // StateServersSpecs contains all the arguments
@@ -793,11 +849,11 @@ type StateServersChangeResults struct {
 // that have been added, removed or maintained in the
 // pool as a result of an ensure-availability operation.
 type StateServersChanges struct {
-	Added      []string `json:added,omitempty`
-	Maintained []string `json:maintained,omitempty`
-	Removed    []string `json:removed,omitempty`
-	Promoted   []string `json:promoted,omitempty`
-	Demoted    []string `json:demoted,omitempty`
+	Added      []string `json:"added,omitempty"`
+	Maintained []string `json:"maintained,omitempty"`
+	Removed    []string `json:"removed,omitempty"`
+	Promoted   []string `json:"promoted,omitempty"`
+	Demoted    []string `json:"demoted,omitempty"`
 }
 
 // FindToolsParams defines parameters for the FindTools method.
@@ -823,4 +879,16 @@ type FindToolsParams struct {
 type FindToolsResult struct {
 	List  tools.List
 	Error *Error
+}
+
+// RebootActionResults holds a list of RebootActionResult and any error.
+type RebootActionResults struct {
+	Results []RebootActionResult `json:results,omitempty`
+}
+
+// RebootActionResult holds the result of a single call to
+// machine.ShouldRebootOrShutdown.
+type RebootActionResult struct {
+	Result RebootAction `json:result,omitempty`
+	Error  *Error       `json:error,omitempty`
 }

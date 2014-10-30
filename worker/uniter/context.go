@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -47,6 +48,27 @@ func (e *missingHookError) Error() string {
 func IsMissingHookError(err error) bool {
 	_, ok := err.(*missingHookError)
 	return ok
+}
+
+// meterStatus describes the unit's meter status.
+type meterStatus struct {
+	code string
+	info string
+}
+
+// PortRangeInfo contains information about a pending open- or
+// close-port operation for a port range. This is only exported for
+// testing.
+type PortRangeInfo struct {
+	ShouldOpen  bool
+	RelationTag names.RelationTag
+}
+
+// PortRange contains a port range and a relation id. Used as key to
+// pendingRelations and is only exported for testing.
+type PortRange struct {
+	Ports      network.PortRange
+	RelationId int
 }
 
 // HookContext is the implementation of jujuc.Context.
@@ -101,17 +123,33 @@ type HookContext struct {
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 
-	// serviceOwner contains the owner of the service
-	serviceOwner string
+	// serviceOwner contains the user tag of the service owner.
+	serviceOwner names.UserTag
 
-	// proxySettings are the current proxy settings that the uniter knows about
+	// proxySettings are the current proxy settings that the uniter knows about.
 	proxySettings proxy.Settings
 
-	// metrics are the metrics recorded by calls to add-metric
+	// metrics are the metrics recorded by calls to add-metric.
 	metrics []jujuc.Metric
 
-	// canAddMetrics specifies whether the hook allows recording metrics
+	// canAddMetrics specifies whether the hook allows recording metrics.
 	canAddMetrics bool
+
+	// meterStatus is the status of the unit's metering.
+	meterStatus *meterStatus
+
+	// pendingPorts contains a list of port ranges to be opened or
+	// closed when the current hook is committed.
+	pendingPorts map[PortRange]PortRangeInfo
+
+	// machinePorts contains cached information about all opened port
+	// ranges on the unit's assigned machine, mapped to the unit that
+	// opened each range and the relevant relation.
+	machinePorts map[network.PortRange]params.RelationUnit
+
+	// assignedMachineTag contains the tag of the unit's assigned
+	// machine.
+	assignedMachineTag names.MachineTag
 }
 
 func NewHookContext(
@@ -124,25 +162,28 @@ func NewHookContext(
 	remoteUnitName string,
 	relations map[int]*ContextRelation,
 	apiAddrs []string,
-	serviceOwner string,
+	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
 	actionData *actionData,
+	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
 	ctx := &HookContext{
-		unit:           unit,
-		state:          state,
-		id:             id,
-		uuid:           uuid,
-		envName:        envName,
-		relationId:     relationId,
-		remoteUnitName: remoteUnitName,
-		relations:      relations,
-		apiAddrs:       apiAddrs,
-		serviceOwner:   serviceOwner,
-		proxySettings:  proxySettings,
-		canAddMetrics:  canAddMetrics,
-		actionData:     actionData,
+		unit:               unit,
+		state:              state,
+		id:                 id,
+		uuid:               uuid,
+		envName:            envName,
+		relationId:         relationId,
+		remoteUnitName:     remoteUnitName,
+		relations:          relations,
+		apiAddrs:           apiAddrs,
+		serviceOwner:       serviceOwner,
+		proxySettings:      proxySettings,
+		canAddMetrics:      canAddMetrics,
+		actionData:         actionData,
+		pendingPorts:       make(map[PortRange]PortRangeInfo),
+		assignedMachineTag: assignedMachineTag,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -153,6 +194,21 @@ func NewHookContext(
 	ctx.privateAddress, err = unit.PrivateAddress()
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
+	}
+	ctx.machinePorts, err = state.AllMachinePorts(ctx.assignedMachineTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	statusCode, statusInfo, err := unit.MeterStatus()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve meter status for unit")
+	}
+	if statusCode != "" {
+		ctx.meterStatus = &meterStatus{
+			code: statusCode,
+			info: statusInfo,
+		}
 	}
 
 	return ctx, nil
@@ -171,15 +227,34 @@ func (ctx *HookContext) PrivateAddress() (string, bool) {
 }
 
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
-	return ctx.unit.OpenPorts(protocol, fromPort, toPort)
+	return tryOpenPorts(
+		protocol, fromPort, toPort,
+		ctx.unit.Tag(),
+		ctx.machinePorts, ctx.pendingPorts,
+	)
 }
 
 func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
-	return ctx.unit.ClosePorts(protocol, fromPort, toPort)
+	return tryClosePorts(
+		protocol, fromPort, toPort,
+		ctx.unit.Tag(),
+		ctx.machinePorts, ctx.pendingPorts,
+	)
+}
+
+func (ctx *HookContext) OpenedPorts() []network.PortRange {
+	var unitRanges []network.PortRange
+	for portRange, relUnit := range ctx.machinePorts {
+		if relUnit.Unit == ctx.unit.Tag().String() {
+			unitRanges = append(unitRanges, portRange)
+		}
+	}
+	network.SortPortRanges(unitRanges)
+	return unitRanges
 }
 
 func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner
+	return ctx.serviceOwner.String()
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
@@ -205,14 +280,33 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	return ctx.actionData.ActionParams, nil
 }
 
-// SetActionFailed sets the state of the action to "fail" and sets the results
-// message to the string argument.
-func (ctx *HookContext) SetActionFailed(message string) error {
+// SetActionMessage sets a message for the Action, usually an error message.
+func (ctx *HookContext) SetActionMessage(message string) error {
 	if ctx.actionData == nil {
 		return fmt.Errorf("not running an action")
 	}
 	ctx.actionData.ResultsMessage = message
+	return nil
+}
+
+// SetActionFailed sets the fail state of the action.
+func (ctx *HookContext) SetActionFailed() error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
 	ctx.actionData.ActionFailed = true
+	return nil
+}
+
+// UpdateActionResults inserts new values for use with action-set and
+// action-fail.  The results struct will be delivered to the state server
+// upon completion of the Action.  It returns an error if not called on an
+// Action-containing HookContext.
+func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
+	if ctx.actionData == nil {
+		return fmt.Errorf("not running an action")
+	}
+	addValueToMap(keys, value, ctx.actionData.ResultsMap)
 	return nil
 }
 
@@ -310,6 +404,8 @@ func (ctx *HookContext) osDependentEnvVars(charmDir, toolsDir string) []string {
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
 func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
+	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
+	// JUJU_ACTION_UUID, ...
 	vars := []string{
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,
@@ -329,7 +425,19 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
 	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
+	vars = append(vars, ctx.meterStatusEnvVars()...)
 	return vars
+}
+
+// meterStatusEnvVars returns meter status environment variables if the meter
+// status is set.
+func (ctx *HookContext) meterStatusEnvVars() []string {
+	if ctx.meterStatus != nil {
+		return []string{
+			fmt.Sprintf("JUJU_METER_STATUS=%s", ctx.meterStatus.code),
+			fmt.Sprintf("JUJU_METER_INFO=%s", ctx.meterStatus.info)}
+	}
+	return nil
 }
 
 func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
@@ -364,6 +472,34 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 		rctx.ClearCache()
 	}
 
+	for rangeKey, rangeInfo := range ctx.pendingPorts {
+		if ctxErr == nil {
+			var e error
+			var op string
+			if rangeInfo.ShouldOpen {
+				e = ctx.unit.OpenPorts(
+					rangeKey.Ports.Protocol,
+					rangeKey.Ports.FromPort,
+					rangeKey.Ports.ToPort,
+				)
+				op = "open"
+			} else {
+				e = ctx.unit.ClosePorts(
+					rangeKey.Ports.Protocol,
+					rangeKey.Ports.FromPort,
+					rangeKey.Ports.ToPort,
+				)
+				op = "close"
+			}
+			if e != nil {
+				e = errors.Annotatef(e, "cannot %s %v", op, rangeKey.Ports)
+				logger.Errorf("%v", e)
+				if ctxErr == nil {
+					ctxErr = e
+				}
+			}
+		}
+	}
 	if ctxErr != nil {
 		return ctxErr
 	}
@@ -393,8 +529,8 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 // finalizeAction passes back the final status of an Action hook to state.
 // It wraps any errors which occurred in normal behavior of the Action run;
 // only errors passed in unhandledErr will be returned.
-// TODO (binary132): synchronize with gsamfira's reboot logic
 func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
+	// TODO (binary132): synchronize with gsamfira's reboot logic
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.ActionTag
@@ -739,4 +875,192 @@ func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionD
 		ActionParams: params,
 		ResultsMap:   map[string]interface{}{},
 	}
+}
+
+// actionStatus messages define the possible states of a completed Action.
+const (
+	actionStatusInit   = "init"
+	actionStatusFailed = "fail"
+)
+
+// addValueToMap adds the given value to the map on which the method is run.
+// This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
+// into {foo: {bar: baz, baz: faz}}.
+func addValueToMap(keys []string, value string, target map[string]interface{}) {
+	next := target
+
+	for i := range keys {
+		// if we are on last key set the value.
+		// shouldn't be a problem.  overwrites existing vals.
+		if i == len(keys)-1 {
+			next[keys[i]] = value
+			break
+		}
+
+		if iface, ok := next[keys[i]]; ok {
+			switch typed := iface.(type) {
+			case map[string]interface{}:
+				// If we already had a map inside, keep
+				// stepping through.
+				next = typed
+			default:
+				// If we didn't, then overwrite value
+				// with a map and iterate with that.
+				m := map[string]interface{}{}
+				next[keys[i]] = m
+				next = m
+			}
+			continue
+		}
+
+		// Otherwise, it wasn't present, so make it and step
+		// into.
+		m := map[string]interface{}{}
+		next[keys[i]] = m
+		next = m
+	}
+}
+
+func validatePortRange(protocol string, fromPort, toPort int) (network.PortRange, error) {
+	// Validate the given range.
+	newRange := network.PortRange{
+		Protocol: strings.ToLower(protocol),
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}
+	if err := newRange.Validate(); err != nil {
+		return network.PortRange{}, err
+	}
+	return newRange, nil
+}
+
+func tryOpenPorts(
+	protocol string,
+	fromPort, toPort int,
+	unitTag names.UnitTag,
+	machinePorts map[network.PortRange]params.RelationUnit,
+	pendingPorts map[PortRange]PortRangeInfo,
+) error {
+	// TODO(dimitern) Once port ranges are linked to relations in
+	// addition to networks, refactor this functions and test it
+	// better to ensure it handles relations properly.
+	relationId := -1
+
+	//Validate the given range.
+	newRange, err := validatePortRange(protocol, fromPort, toPort)
+	if err != nil {
+		return err
+	}
+	rangeKey := PortRange{
+		Ports:      newRange,
+		RelationId: relationId,
+	}
+
+	rangeInfo, isKnown := pendingPorts[rangeKey]
+	if isKnown {
+		if !rangeInfo.ShouldOpen {
+			// If the same range is already pending to be closed, just
+			// mark is pending to be opened.
+			rangeInfo.ShouldOpen = true
+			pendingPorts[rangeKey] = rangeInfo
+		}
+		return nil
+	}
+
+	// Ensure there are no conflicts with existing ports on the
+	// machine.
+	for portRange, relUnit := range machinePorts {
+		relUnitTag, err := names.ParseUnitTag(relUnit.Unit)
+		if err != nil {
+			return errors.Annotatef(
+				err,
+				"machine ports %v contain invalid unit tag",
+				portRange,
+			)
+		}
+		if newRange.ConflictsWith(portRange) {
+			if portRange == newRange && relUnitTag == unitTag {
+				// The same unit trying to open the same range is just
+				// ignored.
+				return nil
+			}
+			return errors.Errorf(
+				"cannot open %v (unit %q): conflicts with existing %v (unit %q)",
+				newRange, unitTag.Id(), portRange, relUnitTag.Id(),
+			)
+		}
+	}
+	// Ensure other pending port ranges do not conflict with this one.
+	for rangeKey, rangeInfo := range pendingPorts {
+		if newRange.ConflictsWith(rangeKey.Ports) && rangeInfo.ShouldOpen {
+			return errors.Errorf(
+				"cannot open %v (unit %q): conflicts with %v requested earlier",
+				newRange, unitTag.Id(), rangeKey.Ports,
+			)
+		}
+	}
+
+	rangeInfo = pendingPorts[rangeKey]
+	rangeInfo.ShouldOpen = true
+	pendingPorts[rangeKey] = rangeInfo
+	return nil
+}
+
+func tryClosePorts(
+	protocol string,
+	fromPort, toPort int,
+	unitTag names.UnitTag,
+	machinePorts map[network.PortRange]params.RelationUnit,
+	pendingPorts map[PortRange]PortRangeInfo,
+) error {
+	// TODO(dimitern) Once port ranges are linked to relations in
+	// addition to networks, refactor this functions and test it
+	// better to ensure it handles relations properly.
+	relationId := -1
+
+	// Validate the given range.
+	newRange, err := validatePortRange(protocol, fromPort, toPort)
+	if err != nil {
+		return err
+	}
+	rangeKey := PortRange{
+		Ports:      newRange,
+		RelationId: relationId,
+	}
+
+	rangeInfo, isKnown := pendingPorts[rangeKey]
+	if isKnown {
+		if rangeInfo.ShouldOpen {
+			// If the same range is already pending to be opened, just
+			// remove it from pending.
+			delete(pendingPorts, rangeKey)
+		}
+		return nil
+	}
+
+	// Ensure the range we're trying to close is opened on the
+	// machine.
+	relUnit, found := machinePorts[newRange]
+	if !found {
+		// Trying to close a range which is not open is ignored.
+		return nil
+	} else if relUnit.Unit != unitTag.String() {
+		relUnitTag, err := names.ParseUnitTag(relUnit.Unit)
+		if err != nil {
+			return errors.Annotatef(
+				err,
+				"machine ports %v contain invalid unit tag",
+				newRange,
+			)
+		}
+		return errors.Errorf(
+			"cannot close %v (opened by %q) from %q",
+			newRange, relUnitTag.Id(), unitTag.Id(),
+		)
+	}
+
+	rangeInfo = pendingPorts[rangeKey]
+	rangeInfo.ShouldOpen = false
+	pendingPorts[rangeKey] = rangeInfo
+	return nil
 }
