@@ -2397,7 +2397,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 type recordingStorage struct {
 	*sync.Mutex
 	state.Storage
-	blobs map[string]bool
+	blobs      map[string]bool
 	putBarrier *sync.WaitGroup
 }
 
@@ -2437,7 +2437,7 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
 		storage := st.Storage()
 		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs,
-					 putBarrier: &putBarrier}
+			putBarrier: &putBarrier}
 	})
 
 	client := s.APIState.Client()
