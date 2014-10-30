@@ -40,10 +40,10 @@ func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
 	return &doc
 }
 
-func newBackupDBWrapper(st *State) *BackupDBWrapper {
+func getBackupDBWrapper(st *State) *backupDBWrapper {
 	envUUID := st.EnvironTag().Id()
 	db := st.db.Session.DB(BackupDB)
-	return NewBackupDBWrapper(db, BackupsMetaC, envUUID)
+	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
 }
 
 func NewBackupID(meta *metadata.Metadata) string {
@@ -52,7 +52,7 @@ func NewBackupID(meta *metadata.Metadata) string {
 }
 
 func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
-	db := newBackupDBWrapper(st)
+	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc, err := getBackupMetadata(db, id)
 	if err != nil {
@@ -62,21 +62,21 @@ func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 }
 
 func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
-	db := newBackupDBWrapper(st)
+	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadata(db, doc)
 }
 
 func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
-	db := newBackupDBWrapper(st)
+	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadataID(db, doc, id)
 }
 
 func SetBackupStored(st *State, id string, stored time.Time) error {
-	db := newBackupDBWrapper(st)
+	db := getBackupDBWrapper(st)
 	defer db.Close()
 	return setBackupStored(db, id, stored)
 }
