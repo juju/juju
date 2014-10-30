@@ -95,15 +95,12 @@ func (s *RelationCacheSuite) TestSettingsCachesMemberSettings(c *gc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, []string{"x/2"})
 
-	settings, err := cache.Settings("x/2")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
-
-	settings, err = cache.Settings("x/2")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
+	for i := 0; i < 2; i++ {
+		settings, err := cache.Settings("x/2")
+		c.Assert(err, gc.IsNil)
+		c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+		c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
+	}
 }
 
 func (s *RelationCacheSuite) TestInvalidateMemberUncachesMemberSettings(c *gc.C) {
@@ -172,15 +169,12 @@ func (s *RelationCacheSuite) TestSettingsCachesOtherSettings(c *gc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
-	settings, err := cache.Settings("x/2")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
-
-	settings, err = cache.Settings("x/2")
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
-	c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
+	for i := 0; i < 2; i++ {
+		settings, err := cache.Settings("x/2")
+		c.Assert(err, gc.IsNil)
+		c.Assert(settings, jc.DeepEquals, params.RelationSettings{"foo": "bar"})
+		c.Assert(s.calls, jc.DeepEquals, []string{"x/2"})
+	}
 }
 
 func (s *RelationCacheSuite) TestPrunePreservesMemberSettings(c *gc.C) {
