@@ -285,7 +285,7 @@ func setBackupStored(st *State, id string, stored time.Time) error {
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
-			{"stored", stored.Unix()},
+			{"stored", stored.UTC().Unix()},
 		}}},
 	}}
 	if err := st.runTransaction(ops); err != nil {
@@ -385,7 +385,7 @@ func (s *backupsDocStorage) Close() error {
 
 // SetStored records in the metadata the fact that the file was stored.
 func (s *backupsMetadataStorage) SetStored(id string) error {
-	err := setBackupStored(s.state, id, time.Now().UTC())
+	err := setBackupStored(s.state, id, time.Now())
 	if err != nil {
 		return errors.Trace(err)
 	}
