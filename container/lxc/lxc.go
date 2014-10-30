@@ -396,6 +396,18 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 	return
 }
 
+func (manager *containerManager) IsInitialized() bool {
+	requiredBinaries := []string{
+		"lxc-ls",
+	}
+	for _, bin := range requiredBinaries {
+		if _, err := exec.LookPath(bin); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"
 
 func internalLogDir(containerName string) string {

@@ -208,7 +208,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 		return result, err
 	}
 	cfg := make(map[string]string)
-	cfg[container.ConfigName] = "juju"
+	cfg[container.ConfigName] = container.DefaultNamespace
 	switch args.Type {
 	case instance.LXC:
 		if useLxcClone, ok := config.LXCUseClone(); ok {
