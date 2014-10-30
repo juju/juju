@@ -23,8 +23,20 @@ const createDoc = `
 "create" requests that juju create a backup of its state and print the
 backup's unique ID.  You may provide a note to associate with the backup.
 
-The backup archive and associated metadata are stored in juju and
-will be lost when the environment is destroyed.
+The backup archive and associated metadata are stored remotely by juju.
+
+The --download option may be used without the --filename option.  In
+that case, the backup archive will be stored in the current working
+directory with a name matching juju-backup-<date>-<time>.tar.gz.
+
+WARNING: Remotely stored backups will be lost when the environment is
+destroyed.  Furthermore, the remotely backup is not guaranteed to be
+available.
+
+Therefore, you should use the --download or --filename options, or use
+"juju backups download", to get a local copy of the backup archive.
+This local copy can then be used to restore an environment even if that
+environment was already destroyed or is otherwise unavailable.
 `
 
 // CreateCommand is the sub-command for creating a new backup.
