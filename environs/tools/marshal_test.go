@@ -4,6 +4,7 @@
 package tools_test
 
 import (
+	"encoding/json"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -17,19 +18,20 @@ var _ = gc.Suite(&marshalSuite{})
 type marshalSuite struct{}
 
 func (s *marshalSuite) TestLargeNumber(c *gc.C) {
-	metadata := []*tools.ToolsMetadata{
-		&tools.ToolsMetadata{
-			Release:  "saucy",
-			Version:  "1.2.3.4",
-			Arch:     "arm",
-			Size:     9223372036854775807,
-			Path:     "/somewhere/over/the/rainbow.tar.gz",
-			FileType: "tar.gz",
-		},
+	metadata := map[string][]*tools.ToolsMetadata{
+		"released": []*tools.ToolsMetadata{
+			&tools.ToolsMetadata{
+				Release:  "saucy",
+				Version:  "1.2.3.4",
+				Arch:     "arm",
+				Size:     9223372036854775807,
+				Path:     "/somewhere/over/the/rainbow.tar.gz",
+				FileType: "tar.gz",
+			}},
 	}
-	_, products, err := tools.MarshalToolsMetadataJSON(metadata, "proposed", time.Now())
+	_, products, err := tools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(products), jc.Contains, `"size": 9223372036854775807`)
+	c.Assert(string(products[tools.ProductMetadataPath("released")]), jc.Contains, `"size": 9223372036854775807`)
 }
 
 var expectedIndex = `{
@@ -39,6 +41,16 @@ var expectedIndex = `{
             "format": "products:1.0",
             "datatype": "content-download",
             "path": "streams/v1/com.ubuntu.juju:proposed:tools.json",
+            "products": [
+                "com.ubuntu.juju:14.04:arm64",
+                "com.ubuntu.juju:14.10:ppc64el"
+            ]
+        },
+        "com.ubuntu.juju:released:tools": {
+            "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
+            "format": "products:1.0",
+            "datatype": "content-download",
+            "path": "streams/v1/com.ubuntu.juju:released:tools.json",
             "products": [
                 "com.ubuntu.juju:12.04:amd64",
                 "com.ubuntu.juju:12.04:arm",
@@ -50,7 +62,7 @@ var expectedIndex = `{
     "format": "index:1.0"
 }`
 
-var expectedProducts = `{
+var expectedReleasedProducts = `{
     "products": {
         "com.ubuntu.juju:12.04:amd64": {
             "version": "4.3.2.1",
@@ -112,10 +124,56 @@ var expectedProducts = `{
     },
     "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
     "format": "products:1.0",
+    "content_id": "com.ubuntu.juju:released:tools"
+}`
+
+var expectedProposedProducts = `{
+    "products": {
+        "com.ubuntu.juju:14.04:arm64": {
+            "version": "1.2-beta1",
+            "arch": "arm64",
+            "versions": {
+                "19700101": {
+                    "items": {
+                        "1.2-beta1-trusty-arm64": {
+                            "release": "trusty",
+                            "version": "1.2-beta1",
+                            "arch": "arm64",
+                            "size": 42,
+                            "path": "gotham.tar.gz",
+                            "ftype": "tar.gz",
+                            "sha256": ""
+                        }
+                    }
+                }
+            }
+        },
+        "com.ubuntu.juju:14.10:ppc64el": {
+            "version": "1.2-alpha1",
+            "arch": "ppc64el",
+            "versions": {
+                "19700101": {
+                    "items": {
+                        "1.2-alpha1-utopic-ppc64el": {
+                            "release": "utopic",
+                            "version": "1.2-alpha1",
+                            "arch": "ppc64el",
+                            "size": 9223372036854775807,
+                            "path": "/funkytown.tar.gz",
+                            "ftype": "tar.gz",
+                            "sha256": ""
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "updated": "Thu, 01 Jan 1970 00:00:00 +0000",
+    "format": "products:1.0",
     "content_id": "com.ubuntu.juju:proposed:tools"
 }`
 
-var toolMetadataForTesting = []*tools.ToolsMetadata{
+var releasedToolMetadataForTesting = []*tools.ToolsMetadata{
 	&tools.ToolsMetadata{
 		Release:  "saucy",
 		Version:  "1.2.3.4",
@@ -142,21 +200,69 @@ var toolMetadataForTesting = []*tools.ToolsMetadata{
 	},
 }
 
+var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
+	&tools.ToolsMetadata{
+		Release:  "utopic",
+		Version:  "1.2-alpha1",
+		Arch:     "ppc64el",
+		Size:     9223372036854775807,
+		Path:     "/funkytown.tar.gz",
+		FileType: "tar.gz",
+	},
+	&tools.ToolsMetadata{
+		Release:  "trusty",
+		Version:  "1.2-beta1",
+		Arch:     "arm64",
+		Size:     42,
+		Path:     "gotham.tar.gz",
+		FileType: "tar.gz",
+	},
+}
+
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
-	index, err := tools.MarshalToolsMetadataIndexJSON(toolMetadataForTesting, "proposed", time.Unix(0, 0).UTC())
+	streamMetadata := map[string][]*tools.ToolsMetadata{
+		"released": releasedToolMetadataForTesting,
+		"proposed": proposedToolMetadataForTesting,
+	}
+	index, err := tools.MarshalToolsMetadataIndexJSON(streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(index), gc.Equals, expectedIndex)
+	assertIndex(c, index)
+
+}
+
+func assertIndex(c *gc.C, obtainedIndex []byte) {
+	// Unmarshall into objects so an order independent comparison can be done.
+	var obtained interface{}
+	err := json.Unmarshal(obtainedIndex, &obtained)
+	var expected interface{}
+	err = json.Unmarshal([]byte(expectedIndex), &expected)
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
 func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
-	products, err := tools.MarshalToolsMetadataProductsJSON(toolMetadataForTesting, "proposed", time.Unix(0, 0).UTC())
+	streamMetadata := map[string][]*tools.ToolsMetadata{
+		"released": releasedToolMetadataForTesting,
+		"proposed": proposedToolMetadataForTesting,
+	}
+	products, err := tools.MarshalToolsMetadataProductsJSON(streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(products), gc.Equals, expectedProducts)
+	assertProducts(c, products)
+}
+
+func assertProducts(c *gc.C, obtainedProducts map[string][]byte) {
+	c.Assert(obtainedProducts, gc.HasLen, 2)
+	c.Assert(string(obtainedProducts["streams/v1/com.ubuntu.juju:released:tools.json"]), gc.Equals, expectedReleasedProducts)
+	c.Assert(string(obtainedProducts["streams/v1/com.ubuntu.juju:proposed:tools.json"]), gc.Equals, expectedProposedProducts)
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
-	index, products, err := tools.MarshalToolsMetadataJSON(toolMetadataForTesting, "proposed", time.Unix(0, 0).UTC())
+	streamMetadata := map[string][]*tools.ToolsMetadata{
+		"released": releasedToolMetadataForTesting,
+		"proposed": proposedToolMetadataForTesting,
+	}
+	index, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(index), gc.Equals, expectedIndex)
-	c.Assert(string(products), gc.Equals, expectedProducts)
+	assertIndex(c, index)
+	assertProducts(c, products)
 }

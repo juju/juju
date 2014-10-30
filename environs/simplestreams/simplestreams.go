@@ -170,7 +170,7 @@ type MirrorReference struct {
 	Format   string      `json:"format"`
 	DataType string      `json:"datatype"`
 	Path     string      `json:"path"`
-	Clouds   []CloudSpec `json:"clouds"`
+	Clouds   []CloudSpec `json:"clouds,omitempty"`
 }
 
 type MirrorMetadata struct {

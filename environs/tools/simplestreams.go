@@ -9,12 +9,12 @@ package tools
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"hash"
 	"io"
 	"path"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -165,6 +165,7 @@ type ToolsMetadata struct {
 	FullPath string `json:"-"`
 	FileType string `json:"ftype"`
 	SHA256   string `json:"sha256"`
+	//	Stream   string `json:"-"`
 }
 
 func (t *ToolsMetadata) String() string {
@@ -356,52 +357,62 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 	return list, nil
 }
 
-// ReadMetadata returns the tools metadata from the given storage.
-func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
-	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
-	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
-	if err != nil {
-		return nil, err
+// ReadMetadata returns the tools metadata from the given storage for all streams.
+// The result is a map of metadata slices, keyed on stream.
+func ReadMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, error) {
+	streamMetadata := make(map[string][]*ToolsMetadata)
+	for _, stream := range []string{"released", "proposed", "devel", "testing"} {
+		dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
+		toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
+		if err != nil {
+			return nil, err
+		}
+		metadata, _, err := Fetch(
+			[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		}
+		for _, tm := range metadata {
+			toolsMetadata := streamMetadata[stream]
+			toolsMetadata = append(toolsMetadata, tm)
+			streamMetadata[stream] = toolsMetadata
+		}
 	}
-	metadata, _, err := Fetch(
-		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-	return metadata, nil
+	return streamMetadata, nil
 }
-
-var publicMirrorsInfo = `{
- "mirrors": {
-  "com.ubuntu.juju:{{stream}}:tools": [
-     {
-      "datatype": "content-download",
-      "path": "streams/v1/cpc-mirrors.json",
-      "updated": "{{updated}}",
-      "format": "mirrors:1.0"
-     }
-  ]
- }
-}
-`
 
 // WriteMetadata writes the given tools metadata to the given storage.
-func WriteMetadata(stor storage.Storage, stream string, metadata []*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
+func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
 	updated := time.Now()
-	index, products, err := MarshalToolsMetadataJSON(metadata, stream, updated)
+	index, products, err := MarshalToolsMetadataJSON(streamMetadata, updated)
 	if err != nil {
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
-		{ProductMetadataPath(stream), products},
+		{simplestreams.UnsignedIndex("v1"), index},
+	}
+	for file, metadata := range products {
+		metadataInfo = append(metadataInfo, MetadataFile{file, metadata})
 	}
 	if writeMirrors {
-		mirrorsUpdated := updated.Format("20060102") // YYYYMMDD
-		mirrorsInfo := strings.Replace(publicMirrorsInfo, "{{updated}}", mirrorsUpdated, -1)
-		mirrorsInfo = strings.Replace(mirrorsInfo, "{{stream}}", stream, -1)
+		streamsMirrorsMetadata := make(map[string][]simplestreams.MirrorReference)
+		for stream, _ := range streamMetadata {
+			streamsMirrorsMetadata[ToolsContentId(stream)] = []simplestreams.MirrorReference{{
+				Updated:  updated.Format("20060102"), // YYYYMMDD
+				DataType: ContentDownload,
+				Format:   "mirrors:1.0",
+				Path:     "streams/v1/cpc-mirrors.json",
+			}}
+		}
+		mirrorsMetadata := map[string]map[string][]simplestreams.MirrorReference{
+			"mirrors": streamsMirrorsMetadata,
+		}
+		mirrorsInfo, err := json.MarshalIndent(&mirrorsMetadata, "", "    ")
+		if err != nil {
+			return err
+		}
 		metadataInfo = append(
-			metadataInfo, MetadataFile{simplestreams.UnsignedMirror(currentStreamsVersion), []byte(mirrorsInfo)})
+			metadataInfo, MetadataFile{simplestreams.UnsignedMirror(currentStreamsVersion), mirrorsInfo})
 	}
 	for _, md := range metadataInfo {
 		filePath := path.Join(storage.BaseToolsPath, md.Path)
@@ -425,15 +436,16 @@ const (
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
 func MergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
-	existing, err := ReadMetadata(stor, toolsDir)
+	existing, err := ReadMetadata(stor)
 	if err != nil {
 		return err
 	}
 	metadata := MetadataFromTools(tools, toolsDir)
-	if metadata, err = MergeMetadata(metadata, existing); err != nil {
+	if metadata, err = MergeMetadata(metadata, existing[stream]); err != nil {
 		return err
 	}
-	return WriteMetadata(stor, stream, metadata, writeMirrors)
+	existing[stream] = metadata
+	return WriteMetadata(stor, existing, writeMirrors)
 }
 
 // fetchToolsHash fetches the tools from storage and calculates

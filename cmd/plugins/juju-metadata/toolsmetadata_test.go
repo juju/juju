@@ -163,6 +163,46 @@ func (s *ToolsMetadataSuite) TestGenerateStream(c *gc.C) {
 	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
+func (s *ToolsMetadataSuite) TestGenerateMultipleStreams(c *gc.C) {
+	metadataDir := c.MkDir()
+	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
+
+	ctx := coretesting.Context(c)
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
+	c.Assert(code, gc.Equals, 0)
+	code = cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "released"})
+	c.Assert(code, gc.Equals, 0)
+
+	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "proposed", false)
+	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	obtainedVersionStrings := make([]string, len(versionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
+
+	metadata = toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
+	c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	obtainedVersionStrings = make([]string, len(currentVersionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, currentVersionStrings)
+
+	toolstesting.MakeTools(c, metadataDir, "released", versionStrings)
+	metadata = toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
+	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	obtainedVersionStrings = make([]string, len(versionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
+}
+
 func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	// Write tools and metadata to the public tools location.
 	toolstesting.MakeToolsWithCheckSum(c, s.publicStorageDir, "released", versionStrings)
