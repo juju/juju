@@ -97,7 +97,6 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 		"http-proxy",
 		"https-proxy",
 		"ftp-proxy",
-		"no-proxy",
 		"apt-http-proxy",
 		"apt-https-proxy",
 		"apt-ftp-proxy",
