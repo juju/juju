@@ -94,6 +94,7 @@ $DefaultNetstreamDriverCertFile {{tlsCertPath}}
 $DefaultNetstreamDriverKeyFile {{tlsKeyPath}}
 $InputTCPServerStreamDriverAuthMode anon
 $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+$InputTCPMaxSessions 10000 # default is 200, all agents connect to all rsyslog daemons
 
 $InputTCPServerBindRuleset remote
 $InputTCPServerRun {{portNumber}}
