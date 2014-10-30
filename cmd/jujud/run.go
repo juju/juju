@@ -24,6 +24,7 @@ type RunCommand struct {
 	commands       string
 	showHelp       bool
 	noContext      bool
+	noRemoteUnit   bool
 	relationId     int
 	remoteUnitName string
 }
@@ -58,6 +59,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
 	f.IntVar(&c.relationId, "relation-id", -1, "run the commands for a specific relation context on a unit")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
+	f.BoolVar(&c.noRemoteUnit, "no-remote-unit", false, "run the commands for a specific relation context even if there is no remote unit")
 }
 
 func (c *RunCommand) Init(args []string) error {
@@ -138,6 +140,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		Commands:       c.commands,
 		RelationId:     c.relationId,
 		RemoteUnitName: c.remoteUnitName,
+		NoRemoteUnit:   c.noRemoteUnit,
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	return &result, err

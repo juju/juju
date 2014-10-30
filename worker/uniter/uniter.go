@@ -880,7 +880,9 @@ func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCo
 
 		switch numRemoteUnits {
 		case 0:
-			err = errors.Errorf("no remote unit found for relation id: %d", args.RelationId)
+			if !args.NoRemoteUnit {
+				err = errors.Errorf("no remote unit found for relation id: %d, use --no-remote-unit to execute the commands anyway", args.RelationId)
+			}
 		case 1:
 			remoteUnit = remoteUnits[0]
 		default:

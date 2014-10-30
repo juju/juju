@@ -43,6 +43,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		avoidContext bool
 		relationId   int
 		remoteUnit   string
+		noRemoteUnit bool
 	}{{
 		title:    "no args",
 		errMatch: "missing unit-name",
@@ -76,6 +77,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		commands:     "command",
 		avoidContext: true,
 		relationId:   -1,
+		noRemoteUnit: false,
 	}, {
 		title:        "relation-id",
 		args:         []string{"--relation-id", "1", "unit-name-2", "command"},
@@ -84,6 +86,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		relationId:   1,
 		remoteUnit:   "",
 		avoidContext: false,
+		noRemoteUnit: false,
 	}, {
 		title:        "remote-unit",
 		args:         []string{"--remote-unit", "unit-name-1", "unit-name-2", "command"},
@@ -92,6 +95,14 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		avoidContext: false,
 		relationId:   -1,
 		remoteUnit:   "unit-name-1",
+		noRemoteUnit: false,
+	}, {
+		title:        "no-remote-unit",
+		args:         []string{"--no-remote-unit", "--relation-id", "1", "unit-name-2", "command"},
+		commands:     "command",
+		unit:         names.NewUnitTag("name/2"),
+		relationId:   1,
+		noRemoteUnit: true,
 	},
 	} {
 		c.Logf("\n%d: %s", i, test.title)
@@ -104,6 +115,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 			c.Assert(runCommand.noContext, gc.Equals, test.avoidContext)
 			c.Assert(runCommand.relationId, gc.Equals, test.relationId)
 			c.Assert(runCommand.remoteUnitName, gc.Equals, test.remoteUnit)
+			c.Assert(runCommand.noRemoteUnit, gc.Equals, test.noRemoteUnit)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 		}
