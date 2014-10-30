@@ -8,8 +8,9 @@ from jujupy import EnvJujuClient
 def parse_args(args=None):
     """Parse commandline arguments into a Namespace."""
     parser = ArgumentParser()
-    parser.add_argument('buildvars')
-    parser.add_argument('output')
+    parser.add_argument('buildvars',
+                        help="Path to the new client's buildvars.json.")
+    parser.add_argument('output', help='Path of the file to write.')
     return parser.parse_args(args)
 
 

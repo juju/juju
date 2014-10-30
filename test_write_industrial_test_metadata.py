@@ -14,10 +14,12 @@ from write_industrial_test_metadata import (
 
 class TestWriteIndustrialTestMetadata(TestCase):
 
-    def test_parse_args(self):
+    def test_parse_args_insufficiennt_args(self):
         with patch('sys.stderr'):
             with self.assertRaises(SystemExit):
                 parse_args(['foo'])
+
+    def test_parse_args(self):
         args = parse_args(['foo', 'bar'])
         self.assertItemsEqual(['buildvars', 'output'],
                               [a for a in dir(args) if not a.startswith('_')])
