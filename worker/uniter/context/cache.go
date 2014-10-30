@@ -19,9 +19,13 @@ type SettingsMap map[string]params.RelationSettings
 // Member settings are stored until invalidated or removed by name; settings
 // of non-member units are stored only until the cache is pruned.
 type RelationCache struct {
+	// readSettings is used to get settings data if when not already present.
 	readSettings SettingsFunc
-	members      SettingsMap
-	others       SettingsMap
+	// members' keys define the relation's membership; non-nil values hold
+	// cached settings.
+	members SettingsMap
+	// others is a short-term cache for non-member settings.
+	others SettingsMap
 }
 
 // NewRelationCache creates a new RelationCache that will use the supplied
@@ -55,7 +59,8 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 	return memberNames
 }
 
-// Settings returns the settings of the named remote unit.
+// Settings returns the settings of the named remote unit. It's valid to get
+// the settings of any unit that has ever been in the relation.
 func (cache *RelationCache) Settings(unitName string) (params.RelationSettings, error) {
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
