@@ -134,7 +134,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 // resolves metadata for existing tools by fetching them and computing
 // size/sha256 locally.
 func mergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors) error {
-	existing, err := envtools.ReadMetadata(stor)
+	existing, err := envtools.ReadAllMetadata(stor)
 	if err != nil {
 		return err
 	}

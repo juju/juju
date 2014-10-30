@@ -109,6 +109,12 @@ const (
 
 	// Used to specify metadata for testing tools.
 	TestingStream = "testing"
+
+	// Used to specify the proposed tools metadata.
+	ProposedStream = "proposed"
+
+	// Used to specify the devel tools metadata.
+	DevelStream = "devel"
 )
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
@@ -165,7 +171,6 @@ type ToolsMetadata struct {
 	FullPath string `json:"-"`
 	FileType string `json:"ftype"`
 	SHA256   string `json:"sha256"`
-	//	Stream   string `json:"-"`
 }
 
 func (t *ToolsMetadata) String() string {
@@ -357,26 +362,37 @@ func MergeMetadata(tmlist1, tmlist2 []*ToolsMetadata) ([]*ToolsMetadata, error) 
 	return list, nil
 }
 
-// ReadMetadata returns the tools metadata from the given storage for all streams.
+// ReadMetadata returns the tools metadata from the given storage for the specified stream.
+func ReadMetadata(store storage.StorageReader, stream string) ([]*ToolsMetadata, error) {
+	dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
+	toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
+	if err != nil {
+		return nil, err
+	}
+	metadata, _, err := Fetch(
+		[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+	return metadata, nil
+}
+
+// AllMetadataStreams is the set of streams for which there will be simplestreams tools metadata.
+var AllMetadataStreams = []string{ReleasedStream, ProposedStream, TestingStream, DevelStream}
+
+// ReadAllMetadata returns the tools metadata from the given storage for all streams.
 // The result is a map of metadata slices, keyed on stream.
-func ReadMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, error) {
+func ReadAllMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, error) {
 	streamMetadata := make(map[string][]*ToolsMetadata)
-	for _, stream := range []string{"released", "proposed", "devel", "testing"} {
-		dataSource := storage.NewStorageSimpleStreamsDataSource("existing metadata", store, storage.BaseToolsPath)
-		toolsConstraint, err := makeToolsConstraint(simplestreams.CloudSpec{}, stream, -1, -1, coretools.Filter{})
+	for _, stream := range AllMetadataStreams {
+		metadata, err := ReadMetadata(store, stream)
 		if err != nil {
 			return nil, err
 		}
-		metadata, _, err := Fetch(
-			[]simplestreams.DataSource{dataSource}, toolsConstraint, false)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, err
+		if len(metadata) == 0 {
+			continue
 		}
-		for _, tm := range metadata {
-			toolsMetadata := streamMetadata[stream]
-			toolsMetadata = append(toolsMetadata, tm)
-			streamMetadata[stream] = toolsMetadata
-		}
+		streamMetadata[stream] = metadata
 	}
 	return streamMetadata, nil
 }
@@ -436,7 +452,7 @@ const (
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
 func MergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
-	existing, err := ReadMetadata(stor)
+	existing, err := ReadAllMetadata(stor)
 	if err != nil {
 		return err
 	}

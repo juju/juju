@@ -53,21 +53,24 @@ func MarshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 				return nil, err
 			}
 		}
-		indices.Indexes[ToolsContentId(stream)] =
-			&simplestreams.IndexMetadata{
-				Updated:          indices.Updated,
-				Format:           "products:1.0",
-				DataType:         "content-download",
-				ProductsFilePath: ProductMetadataPath(stream),
-				ProductIds:       set.NewStrings(productIds...).SortedValues(),
-			}
+		indexMetadata := &simplestreams.IndexMetadata{
+			Updated:          indices.Updated,
+			Format:           "products:1.0",
+			DataType:         "content-download",
+			ProductsFilePath: ProductMetadataPath(stream),
+			ProductIds:       set.NewStrings(productIds...).SortedValues(),
+		}
+		indices.Indexes[ToolsContentId(stream)] = indexMetadata
 	}
 	return json.MarshalIndent(&indices, "", "    ")
 }
 
 // MarshalToolsMetadataProductsJSON marshals tools metadata to products JSON.
 // updated is the time at which the JSON file was updated.
-func MarshalToolsMetadataProductsJSON(streamMetadata map[string][]*ToolsMetadata, updated time.Time) (out map[string][]byte, err error) {
+func MarshalToolsMetadataProductsJSON(
+	streamMetadata map[string][]*ToolsMetadata, updated time.Time,
+) (out map[string][]byte, err error) {
+
 	out = make(map[string][]byte, len(streamMetadata))
 	for stream, metadata := range streamMetadata {
 		var cloud simplestreams.CloudMetadata
@@ -97,7 +100,8 @@ func MarshalToolsMetadataProductsJSON(streamMetadata map[string][]*ToolsMetadata
 				cloud.Products[id] = catalog
 			}
 		}
-		if out[ProductMetadataPath(stream)], err = json.MarshalIndent(&cloud, "", "    "); err != nil {
+		productPath := ProductMetadataPath(stream)
+		if out[productPath], err = json.MarshalIndent(&cloud, "", "    "); err != nil {
 			return nil, err
 		}
 	}

@@ -760,17 +760,17 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	out, err := tools.ReadMetadata(stor)
-	c.Assert(out, gc.HasLen, 0)
+	out, err := tools.ReadAllMetadata(stor)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
+	c.Assert(out, gc.HasLen, 0)
 	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 
 	// Read back what was just written.
-	out, err = tools.ReadMetadata(stor)
+	out, err = tools.ReadAllMetadata(stor)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
-			// FullPath is set by ReadMetadata.
+			// FullPath is set by ReadAllMetadata.
 			c.Assert(md.FullPath, gc.Not(gc.Equals), "")
 			md.FullPath = ""
 		}
@@ -796,17 +796,17 @@ func (*metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	out, err := tools.ReadMetadata(stor)
+	out, err := tools.ReadAllMetadata(stor)
 	c.Assert(out, gc.HasLen, 0)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
 	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 
 	// Read back what was just written.
-	out, err = tools.ReadMetadata(stor)
+	out, err = tools.ReadAllMetadata(stor)
 	for _, outMetadata := range out {
 		for _, md := range outMetadata {
-			// FullPath is set by ReadMetadata.
+			// FullPath is set by ReadAllMetadata.
 			c.Assert(md.FullPath, gc.Not(gc.Equals), "")
 			md.FullPath = ""
 		}

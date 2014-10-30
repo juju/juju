@@ -15,7 +15,16 @@ import (
 
 var _ = gc.Suite(&marshalSuite{})
 
-type marshalSuite struct{}
+type marshalSuite struct {
+	streamMetadata map[string][]*tools.ToolsMetadata
+}
+
+func (s *marshalSuite) SetUpTest(c *gc.C) {
+	s.streamMetadata = map[string][]*tools.ToolsMetadata{
+		"released": releasedToolMetadataForTesting,
+		"proposed": proposedToolMetadataForTesting,
+	}
+}
 
 func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 	metadata := map[string][]*tools.ToolsMetadata{
@@ -220,11 +229,7 @@ var proposedToolMetadataForTesting = []*tools.ToolsMetadata{
 }
 
 func (s *marshalSuite) TestMarshalIndex(c *gc.C) {
-	streamMetadata := map[string][]*tools.ToolsMetadata{
-		"released": releasedToolMetadataForTesting,
-		"proposed": proposedToolMetadataForTesting,
-	}
-	index, err := tools.MarshalToolsMetadataIndexJSON(streamMetadata, time.Unix(0, 0).UTC())
+	index, err := tools.MarshalToolsMetadataIndexJSON(s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	assertIndex(c, index)
 
@@ -241,11 +246,7 @@ func assertIndex(c *gc.C, obtainedIndex []byte) {
 }
 
 func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
-	streamMetadata := map[string][]*tools.ToolsMetadata{
-		"released": releasedToolMetadataForTesting,
-		"proposed": proposedToolMetadataForTesting,
-	}
-	products, err := tools.MarshalToolsMetadataProductsJSON(streamMetadata, time.Unix(0, 0).UTC())
+	products, err := tools.MarshalToolsMetadataProductsJSON(s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	assertProducts(c, products)
 }
@@ -257,11 +258,7 @@ func assertProducts(c *gc.C, obtainedProducts map[string][]byte) {
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {
-	streamMetadata := map[string][]*tools.ToolsMetadata{
-		"released": releasedToolMetadataForTesting,
-		"proposed": proposedToolMetadataForTesting,
-	}
-	index, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Unix(0, 0).UTC())
+	index, products, err := tools.MarshalToolsMetadataJSON(s.streamMetadata, time.Unix(0, 0).UTC())
 	c.Assert(err, gc.IsNil)
 	assertIndex(c, index)
 	assertProducts(c, products)
