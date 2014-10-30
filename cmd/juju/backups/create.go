@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	notset           = "<not set>"
+	notset           = "juju-backup-<date>-<time>.tar.gz"
 	filenameTemplate = "juju-backup-%04d%02d%02d-%02d%02d%02d.tar.gz"
 )
 
