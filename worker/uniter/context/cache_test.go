@@ -45,7 +45,7 @@ func (s *RelationCacheSuite) TestCreateEmpty(c *gc.C) {
 }
 
 func (s *RelationCacheSuite) TestCreateWithMembers(c *gc.C) {
-	cache := context.NewRelationCache(s.ReadSettings, []string{"u/1", "u/2", "u/3"})
+	cache := context.NewRelationCache(s.ReadSettings, []string{"u/3", "u/2", "u/1"})
 	c.Assert(cache.MemberNames(), jc.DeepEquals, []string{"u/1", "u/2", "u/3"})
 	c.Assert(s.calls, gc.HasLen, 0)
 }
