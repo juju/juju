@@ -16,11 +16,11 @@ import (
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
 	"github.com/juju/juju/state/backups/metadata"
-	"github.com/juju/juju/state/backups/testing"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type backupsSuite struct {
-	testing.BaseSuite
+	backupstesting.BaseSuite
 
 	api backups.Backups
 }
@@ -35,7 +35,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 func (s *backupsSuite) setStored(id string) *time.Time {
 	s.Storage.ID = id
-	s.Storage.Meta = testing.NewMetadataStarted(id, "")
+	s.Storage.Meta = backupstesting.NewMetadataStarted(id, "")
 	stored := time.Now().UTC()
 	s.Storage.Meta.SetStored(&stored)
 	return &stored
@@ -162,7 +162,7 @@ func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
 func (s *backupsSuite) TestStoreArchive(c *gc.C) {
 	stored := s.setStored("spam")
 
-	meta := testing.NewMetadataStarted("", "")
+	meta := backupstesting.NewMetadataStarted("", "")
 	c.Assert(meta.ID(), gc.Equals, "")
 	c.Assert(meta.Stored(), gc.IsNil)
 	archive := &bytes.Buffer{}
