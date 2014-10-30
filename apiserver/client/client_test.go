@@ -2398,9 +2398,16 @@ type recordingStorage struct {
 	*sync.Mutex
 	state.Storage
 	blobs map[string]bool
+	putBarrier *sync.WaitGroup
 }
 
 func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
+	if s.putBarrier != nil {
+		// This goroutine has gotten to Put() so mark it Done() and
+		// wait for the other goroutines to get to this point.
+		s.putBarrier.Done()
+		s.putBarrier.Wait()
+	}
 	err := s.Storage.Put(path, r, size)
 	if err == nil {
 		s.Lock()
@@ -2426,9 +2433,11 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 
 	var blobsMu sync.Mutex
 	blobs := make(map[string]bool)
+	var putBarrier sync.WaitGroup
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
 		storage := st.Storage()
-		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs}
+		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs,
+					 putBarrier: &putBarrier}
 	})
 
 	client := s.APIState.Client()
@@ -2440,6 +2449,9 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	// created.
 
 	var wg sync.WaitGroup
+	// We don't add them 1-by-1 because that would allow each goroutine to
+	// finish separately without actually synchronizing between them
+	putBarrier.Add(10)
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(index int) {
