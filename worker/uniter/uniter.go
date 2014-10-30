@@ -204,7 +204,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 
-	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationContexts)
+	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos)
 	if err != nil {
 		return err
 	}
@@ -350,12 +350,12 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getRelationContexts() map[int]*context.ContextRelation {
-	ctxRelations := map[int]*context.ContextRelation{}
+func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
+	relationInfos := map[int]*context.RelationInfo{}
 	for id, r := range u.relationers {
-		ctxRelations[id] = r.Context()
+		relationInfos[id] = r.ContextInfo()
 	}
-	return ctxRelations
+	return relationInfos
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

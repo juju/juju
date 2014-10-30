@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
+	"github.com/juju/utils/filestorage"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -29,6 +30,9 @@ var (
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
+
+var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
+var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
@@ -270,6 +274,10 @@ func DocID(st *State, id string) string {
 
 func LocalID(st *State, id string) string {
 	return st.localID(id)
+}
+
+func StrictLocalID(st *State, id string) (string, bool) {
+	return st.strictLocalID(id)
 }
 
 func GetUnitEnvUUID(unit *Unit) string {

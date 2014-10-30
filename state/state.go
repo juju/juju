@@ -83,6 +83,9 @@ const (
 
 	// blobstoreDB is the name of the blobstore GridFS database.
 	blobstoreDB = "blobstore"
+
+	// restoreInfoC is used to track restore progress
+	restoreInfoC = "restoreInfo"
 )
 
 // State represents the state of an environment
@@ -642,6 +645,7 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 		id = tag.Name()
 	case names.RelationTag:
 		coll = relationsC
+		id = st.docID(id)
 	case names.EnvironTag:
 		coll = environmentsC
 	case names.NetworkTag:
@@ -671,6 +675,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 			URL:          curl,
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
+			Metrics:      ch.Metrics(),
 			Actions:      ch.Actions(),
 			BundleSha256: bundleSha256,
 			StoragePath:  storagePath,
@@ -1080,14 +1085,16 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 		}}
 		relKey := relationKey(eps)
 		relDoc := &relationDoc{
+			DocID:     st.docID(relKey),
 			Key:       relKey,
+			EnvUUID:   st.EnvironTag().Id(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
-			Id:     relKey,
+			Id:     relDoc.DocID,
 			Assert: txn.DocMissing,
 			Insert: relDoc,
 		})
@@ -1314,13 +1321,27 @@ func (st *State) docID(localID string) string {
 }
 
 // localID returns the local id value by stripping
-// of the environment uuid prefix if it is there.
+// off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
 	prefix := st.EnvironTag().Id() + ":"
 	if strings.HasPrefix(ID, prefix) {
 		return ID[len(prefix):]
 	}
 	return ID
+}
+
+// strictLocalID returns the local id value by removing the
+// environment UUID prefix.
+//
+// A success flag is also returned. If there is no prefix matching the
+// State's environment, false is returned. True is returned if the
+// expected prefix was present.
+func (st *State) strictLocalID(ID string) (string, bool) {
+	prefix := st.EnvironTag().Id() + ":"
+	if !strings.HasPrefix(ID, prefix) {
+		return "", false
+	}
+	return ID[len(prefix):], true
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
@@ -1438,6 +1459,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
+	docID := st.docID(key)
 	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
@@ -1467,7 +1489,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
-		if exists, err := isNotDead(st.db, relationsC, key); err != nil {
+		if exists, err := isNotDead(st.db, relationsC, docID); err != nil {
 			return nil, errors.Trace(err)
 		} else if exists {
 			return nil, errors.Errorf("relation already exists")
@@ -1511,14 +1533,16 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			}
 		}
 		doc = &relationDoc{
+			DocID:     docID,
 			Key:       key,
+			EnvUUID:   st.EnvironTag().Id(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
 		}
 		ops = append(ops, txn.Op{
 			C:      relationsC,
-			Id:     doc.Key,
+			Id:     docID,
 			Assert: txn.DocMissing,
 			Insert: doc,
 		})
@@ -1542,7 +1566,7 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 	defer closer()
 
 	doc := relationDoc{}
-	err := relations.Find(bson.D{{"_id", key}}).One(&doc)
+	err := relations.FindId(st.docID(key)).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
@@ -1558,6 +1582,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	defer closer()
 
 	doc := relationDoc{}
+	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err := relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
@@ -1574,6 +1599,7 @@ func (st *State) AllRelations() (relations []*Relation, err error) {
 	defer closer()
 
 	docs := relationDocSlice{}
+	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relations")

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
 )
@@ -215,7 +214,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	}
 }
 
-func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
+func (s *RunHookSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	// TODO(fwereade): these should be testing a public Flush() method on
 	// the context, or something, instead of faking up an unnecessary hook
 	// execution.
@@ -232,22 +231,20 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	}, paths.charm)
 
 	// Mess with multiple relation settings.
-	node0, err := s.relctxs[0].Settings()
+	relCtx0, ok := ctx.Relation(0)
+	c.Assert(ok, jc.IsTrue)
+	node0, err := relCtx0.Settings()
+	c.Assert(err, gc.IsNil)
 	node0.Set("foo", "1")
-	node1, err := s.relctxs[1].Settings()
+	relCtx1, ok := ctx.Relation(1)
+	c.Assert(ok, jc.IsTrue)
+	node1, err := relCtx1.Settings()
+	c.Assert(err, gc.IsNil)
 	node1.Set("bar", "2")
 
 	// Run the failing hook.
 	err = context.NewRunner(ctx, paths).RunHook("something-happened")
 	c.Assert(err, gc.ErrorMatches, "exit status 123")
-
-	// Check that the changes to the local settings nodes have been discarded.
-	node0, err = s.relctxs[0].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, params.RelationSettings{"relation-name": "db0"})
-	node1, err = s.relctxs[1].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, params.RelationSettings{"relation-name": "db1"})
 
 	// Check that the changes have not been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
@@ -256,42 +253,47 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	settings1, err := s.relunits[1].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{"relation-name": "db1"})
+}
+
+func (s *RunHookSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
+	// TODO(fwereade): these should be testing a public Flush() method on
+	// the context, or something, instead of faking up an unnecessary hook
+	// execution.
 
 	// Create a charm with a working hook, and mess with settings again.
-	paths = NewRealPaths(c)
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
 	}, paths.charm)
+
+	// Mess with multiple relation settings.
+	relCtx0, ok := ctx.Relation(0)
+	c.Assert(ok, jc.IsTrue)
+	node0, err := relCtx0.Settings()
+	c.Assert(err, gc.IsNil)
 	node0.Set("baz", "3")
+	relCtx1, ok := ctx.Relation(1)
+	c.Assert(ok, jc.IsTrue)
+	node1, err := relCtx1.Settings()
+	c.Assert(err, gc.IsNil)
 	node1.Set("qux", "4")
 
 	// Run the hook.
 	err = context.NewRunner(ctx, paths).RunHook("something-happened")
 	c.Assert(err, gc.IsNil)
 
-	// Check that the changes to the local settings nodes are still there.
-	node0, err = s.relctxs[0].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, params.RelationSettings{
-		"relation-name": "db0",
-		"baz":           "3",
-	})
-	node1, err = s.relctxs[1].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, params.RelationSettings{
-		"relation-name": "db1",
-		"qux":           "4",
-	})
-
 	// Check that the changes have been written to state.
-	settings0, err = s.relunits[0].ReadSettings("u/0")
+	settings0, err := s.relunits[0].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{
 		"relation-name": "db0",
 		"baz":           "3",
 	})
-	settings1, err = s.relunits[1].ReadSettings("u/0")
+	settings1, err := s.relunits[1].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{
 		"relation-name": "db1",

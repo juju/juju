@@ -5,10 +5,10 @@ package jujuc
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/keyvalues"
 	"launchpad.net/gnuflag"
 )
 
@@ -22,7 +22,7 @@ type RelationSetCommand struct {
 }
 
 func NewRelationSetCommand(ctx Context) cmd.Command {
-	return &RelationSetCommand{ctx: ctx, Settings: map[string]string{}}
+	return &RelationSetCommand{ctx: ctx}
 }
 
 func (c *RelationSetCommand) Info() *cmd.Info {
@@ -42,14 +42,9 @@ func (c *RelationSetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
 	}
-	for _, kv := range args {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) != 2 || len(parts[0]) == 0 {
-			return fmt.Errorf(`expected "key=value", got %q`, kv)
-		}
-		c.Settings[parts[0]] = parts[1]
-	}
-	return nil
+	var err error
+	c.Settings, err = keyvalues.Parse(args, true)
+	return err
 }
 
 func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {

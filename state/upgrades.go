@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -597,6 +598,18 @@ func AddEnvUUIDToInstanceData(st *State) error {
 	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
 }
 
+// AddEnvUUIDToRelations prepends the environment UUID to the ID of
+// all relations docs and adds new "env-uuid" and "key" fields.
+func AddEnvUUIDToRelations(st *State) error {
+	return addEnvUUIDToEntityCollection(st, relationsC, "key")
+}
+
+// AddEnvUUIDToRelationScopes prepends the environment UUID to the ID of
+// all relationscopes docs and adds new "env-uuid" field and "key" fields.
+func AddEnvUUIDToRelationScopes(st *State) error {
+	return addEnvUUIDToEntityCollection(st, relationScopesC, "key")
+}
+
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {
 	env, err := st.Environment()
 	if err != nil {
@@ -636,5 +649,64 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)
 	}
+	return st.runTransaction(ops)
+}
+
+// migrateJobManageNetworking adds the job JobManageNetworking to all
+// machines except for:
+//
+// - machines in a MAAS environment,
+// - machines in a manual environment,
+// - bootstrap node (host machine) in a local environment, and
+// - manually provisioned machines.
+func MigrateJobManageNetworking(st *State) error {
+	// Retrieve the provider.
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "failed to read current config")
+	}
+	envType := envConfig.Type()
+
+	// Check for MAAS or manual (aka null) provider.
+	if envType == provider.MAAS || provider.IsManual(envType) {
+		// No job adding for these environment types.
+		return nil
+	}
+
+	// Iterate over all machines and create operations.
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+
+	iter := machinesCollection.Find(nil).Iter()
+	defer iter.Close()
+
+	ops := []txn.Op{}
+	mdoc := machineDoc{}
+
+	for iter.Next(&mdoc) {
+		// Check possible exceptions.
+		localID := st.localID(mdoc.Id)
+		if localID == "0" && envType == provider.Local {
+			// Skip machine 0 in local environment.
+			continue
+		}
+		if strings.HasPrefix(mdoc.Nonce, manualMachinePrefix) {
+			// Skip manually provisioned machine in non-manual environments.
+			continue
+		}
+		if hasJob(mdoc.Jobs, JobManageNetworking) {
+			// Should not happen during update, but just to
+			// prevent double entries.
+			continue
+		}
+		// Everything fine, now add job.
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     mdoc.DocID,
+			Update: bson.D{{"$addToSet", bson.D{{"jobs", JobManageNetworking}}}},
+		})
+	}
+
+	// Run transaction.
 	return st.runTransaction(ops)
 }
