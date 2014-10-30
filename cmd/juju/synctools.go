@@ -85,9 +85,6 @@ func (c *SyncToolsCommand) Init(args []string) error {
 	if c.dev {
 		c.stream = envtools.TestingStream
 	}
-	if c.stream == "" {
-		c.stream = envtools.ReleasedStream
-	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -156,7 +153,7 @@ type syncToolsAPIAdapter struct {
 	syncToolsAPI
 }
 
-func (s syncToolsAPIAdapter) FindTools(majorVersion int) (coretools.List, error) {
+func (s syncToolsAPIAdapter) FindTools(majorVersion int, stream string) (coretools.List, error) {
 	result, err := s.syncToolsAPI.FindTools(majorVersion, -1, "", "")
 	if err != nil {
 		return nil, err
@@ -170,7 +167,7 @@ func (s syncToolsAPIAdapter) FindTools(majorVersion int) (coretools.List, error)
 	return result.List, nil
 }
 
-func (s syncToolsAPIAdapter) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
+func (s syncToolsAPIAdapter) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
 	_, err := s.syncToolsAPI.UploadTools(bytes.NewReader(data), tools.Version)
 	return err
 }

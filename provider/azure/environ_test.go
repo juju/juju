@@ -1493,7 +1493,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
-			c, s.env.storage, envtesting.V120p...,
+			c, s.env.storage, s.env.Config().AgentStream(), envtesting.V120p...,
 		),
 		MachineConfig: mcfg,
 	}
@@ -1622,7 +1622,7 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	s.UploadFakeTools(c, stor)
+	s.UploadFakeTools(c, stor, "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 
 	env := s.setupEnvWithDummyMetadata(c)
@@ -1649,6 +1649,6 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	s.PatchValue(&createInstance, func(*azureEnviron, *gwacl.ManagementAPI, *gwacl.Role, string, bool) (instance.Instance, error) {
 		return nil, fmt.Errorf("no instance for you")
 	})
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

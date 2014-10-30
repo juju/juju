@@ -101,6 +101,9 @@ qsH+JQgcphKkC+JH0Dw7Q/0e16LClkPPa21NseVGUWzS0WmS+0egtDDutg==
 var DefaultBaseURL = "https://streams.canonical.com/juju/tools"
 
 const (
+	// Legacy release directory for Juju < 1.21.
+	LegacyReleaseDirectory = "releases"
+
 	// Used to specify the released tools metadata.
 	ReleasedStream = "released"
 
@@ -279,10 +282,10 @@ type MetadataFile struct {
 // MetadataFromTools returns a tools metadata list derived from the
 // given tools list. The size and sha256 will not be computed if
 // missing.
-func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
+func MetadataFromTools(toolsList coretools.List, toolsDir string) []*ToolsMetadata {
 	metadata := make([]*ToolsMetadata, len(toolsList))
 	for i, t := range toolsList {
-		path := fmt.Sprintf("releases/juju-%s-%s-%s.tgz", t.Version.Number, t.Version.Series, t.Version.Arch)
+		path := fmt.Sprintf("%s/juju-%s-%s-%s.tgz", toolsDir, t.Version.Number, t.Version.Series, t.Version.Arch)
 		metadata[i] = &ToolsMetadata{
 			Release:  t.Version.Series,
 			Version:  t.Version.Number.String(),
@@ -299,14 +302,14 @@ func MetadataFromTools(toolsList coretools.List) []*ToolsMetadata {
 // ResolveMetadata resolves incomplete metadata
 // by fetching the tools from storage and computing
 // the size and hash locally.
-func ResolveMetadata(stor storage.StorageReader, metadata []*ToolsMetadata) error {
+func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*ToolsMetadata) error {
 	for _, md := range metadata {
 		if md.Size != 0 {
 			continue
 		}
 		binary := md.binary()
-		logger.Infof("Fetching tools to generate hash: %v", binary)
-		size, sha256hash, err := fetchToolsHash(stor, binary)
+		logger.Infof("Fetching tools from dir %q to generate hash: %v", toolsDir, binary)
+		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
 		if err != nil {
 			return err
 		}
@@ -421,12 +424,12 @@ const (
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
 // and merges it with metadata generated from the given tools list. The
 // resulting metadata is written to storage.
-func MergeAndWriteMetadata(stor storage.Storage, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
-	existing, err := ReadMetadata(stor, stream)
+func MergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, tools coretools.List, writeMirrors ShouldWriteMirrors) error {
+	existing, err := ReadMetadata(stor, toolsDir)
 	if err != nil {
 		return err
 	}
-	metadata := MetadataFromTools(tools)
+	metadata := MetadataFromTools(tools, toolsDir)
 	if metadata, err = MergeMetadata(metadata, existing); err != nil {
 		return err
 	}
@@ -435,8 +438,8 @@ func MergeAndWriteMetadata(stor storage.Storage, stream string, tools coretools.
 
 // fetchToolsHash fetches the tools from storage and calculates
 // its size in bytes and computes a SHA256 hash of its contents.
-func fetchToolsHash(stor storage.StorageReader, ver version.Binary) (size int64, sha256hash hash.Hash, err error) {
-	r, err := storage.Get(stor, StorageName(ver))
+func fetchToolsHash(stor storage.StorageReader, stream string, ver version.Binary) (size int64, sha256hash hash.Hash, err error) {
+	r, err := storage.Get(stor, StorageName(ver, stream))
 	if err != nil {
 		return 0, nil, err
 	}

@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
@@ -368,7 +369,7 @@ var prepareConfigTests = []struct {
 }}
 
 func (s *ConfigSuite) TestPrepare(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	for i, test := range prepareConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validPrepareAttrs().Merge(test.insert).Delete(test.remove...)
@@ -388,7 +389,7 @@ func (s *ConfigSuite) TestPrepare(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareWithDefaultKeyFile(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	// By default "private-key-path isn't set until after validateConfig has been called.
 	attrs := validAttrs().Delete("private-key-path", "private-key")
 	keyFilePath, err := utils.NormalizePath(jp.DefaultPrivateKey)

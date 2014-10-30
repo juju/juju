@@ -105,7 +105,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// Put some fake tools metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, t.metadataStorage)
+	envtesting.UploadFakeTools(c, t.metadataStorage, t.Env.Config().AgentStream())
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -224,7 +224,7 @@ func (s *LiveTests) assertStartInstanceDefaultSecurityGroup(c *gc.C, useDefault 
 	c.Assert(env, gc.NotNil)
 	defer env.Destroy()
 	// Bootstrap and start an instance.
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := jujutesting.AssertStartInstance(c, env, "100")
 	// Check whether the instance has the default security group assigned.

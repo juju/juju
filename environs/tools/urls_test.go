@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
@@ -27,6 +28,7 @@ var _ = gc.Suite(&URLsSuite{})
 
 func (s *URLsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -39,7 +41,7 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	return env
 }

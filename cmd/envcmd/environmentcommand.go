@@ -271,3 +271,30 @@ func (w *environCommandWrapper) Init(args []string) error {
 	w.SetEnvName(w.envName)
 	return w.EnvironCommand.Init(args)
 }
+
+type bootstrapContext struct {
+	*cmd.Context
+	verifyCredentials bool
+}
+
+// ShouldVerifyCredentials implements BootstrapContext.ShouldVerifyCredentials
+func (ctx *bootstrapContext) ShouldVerifyCredentials() bool {
+	return ctx.verifyCredentials
+}
+
+// BootstrapContext returns a new BootstrapContext constructed from a command Context.
+func BootstrapContext(cmdContext *cmd.Context) environs.BootstrapContext {
+	return &bootstrapContext{
+		Context:           cmdContext,
+		verifyCredentials: true,
+	}
+}
+
+// BootstrapContextNoVerify returns a new BootstrapContext constructed from a command Context
+// where the validation of credentials is false.
+func BootstrapContextNoVerify(cmdContext *cmd.Context) environs.BootstrapContext {
+	return &bootstrapContext{
+		Context:           cmdContext,
+		verifyCredentials: false,
+	}
+}

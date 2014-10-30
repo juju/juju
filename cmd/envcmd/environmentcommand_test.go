@@ -134,6 +134,16 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitMultipleConfigNoDefault(
 	testEnsureEnvName(c, "")
 }
 
+func (s *EnvironmentCommandSuite) TestBootstrapContext(c *gc.C) {
+	ctx := envcmd.BootstrapContext(&cmd.Context{})
+	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsTrue)
+}
+
+func (s *EnvironmentCommandSuite) TestBootstrapContextNoVerify(c *gc.C) {
+	ctx := envcmd.BootstrapContextNoVerify(&cmd.Context{})
+	c.Assert(ctx.ShouldVerifyCredentials(), jc.IsFalse)
+}
+
 type testCommand struct {
 	envcmd.EnvCommandBase
 }
