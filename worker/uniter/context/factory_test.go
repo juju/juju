@@ -151,7 +151,7 @@ func (s *FactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 	s.updateCache(0, "rel0/0", params.RelationSettings{"keep": "me"})
 	s.updateCache(0, "rel0/1", params.RelationSettings{"drop": "me"})
 
-	ctx, err = s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
 	c.Assert(err, gc.IsNil)
 
 	settings0, found := s.getCache(0, "rel0/0")
@@ -185,7 +185,7 @@ func (s *FactorySuite) TestNewHookContextRelationJoinedUpdatesRelationContextAnd
 	s.membership[1] = []string{"r/0"}
 	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
 
-	ctx, err = s.factory.NewHookContext(hook.Info{
+	ctx, err := s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationJoined,
 		RelationId: 1,
 		RemoteUnit: "r/0",
@@ -208,7 +208,7 @@ func (s *FactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAn
 	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
 	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
 
-	ctx, err = s.factory.NewHookContext(hook.Info{
+	ctx, err := s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationChanged,
 		RelationId: 1,
 		RemoteUnit: "r/4",
@@ -234,7 +234,7 @@ func (s *FactorySuite) TestNewHookContextRelationDepartedUpdatesRelationContextA
 	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
 	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
 
-	ctx, err = s.factory.NewHookContext(hook.Info{
+	ctx, err := s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationDeparted,
 		RelationId: 1,
 		RemoteUnit: "r/0",
@@ -264,10 +264,11 @@ func (s *FactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *gc.C) {
 	s.updateCache(1, "r/0", params.RelationSettings{"foo": "bar"})
 	s.updateCache(1, "r/4", params.RelationSettings{"baz": "qux"})
 
-	ctx, err = s.factory.NewHookContext(hook.Info{
+	ctx, err := s.factory.NewHookContext(hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: 1,
 	})
+	c.Assert(err, gc.IsNil)
 	rel := s.AssertRelationContext(c, ctx, 1)
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
