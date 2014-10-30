@@ -88,7 +88,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.ToolsFixture.SetUpTest(c)
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	t.UploadFakeTools(c, stor, "released")
+	t.UploadFakeTools(c, stor, "released", "released")
 	t.toolsStorage = stor
 	t.CleanupSuite.PatchValue(&envtools.BundleTools, envtoolstesting.GetMockBundleTools(c))
 }
@@ -730,7 +730,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	t.PrepareOnce(c)
-	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", version.MustParseBinary("5.4.5-trusty-amd64"))
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
 	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,

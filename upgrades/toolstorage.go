@@ -57,18 +57,12 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 		}
 	}
 
-	// Load environment config, so we can determine which stream to import.
-	config, err := st.EnvironConfig()
-	if err != nil {
-		return errors.Annotate(err, "cannot get environment config")
-	}
-
 	// Search provider storage for tools.
 	datasource := storage.NewStorageSimpleStreamsDataSource("provider storage", stor, storage.BaseToolsPath)
 	toolsList, err := envtools.FindToolsForCloud(
 		[]simplestreams.DataSource{datasource},
 		simplestreams.CloudSpec{},
-		config.AgentStream(),
+		envtools.ReleasedStream,
 		-1, -1, tools.Filter{})
 	switch err {
 	case nil:
@@ -82,7 +76,7 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 
 	for _, agentTools := range toolsList {
 		logger.Infof("migrating %v tools to environment storage", agentTools.Version)
-		data, err := fetchToolsArchive(stor, config.AgentStream(), agentTools)
+		data, err := fetchToolsArchive(stor, envtools.LegacyReleaseDirectory, agentTools)
 		if err != nil {
 			return errors.Annotatef(err, "failed to fetch %v tools", agentTools.Version)
 		}
@@ -98,8 +92,8 @@ func migrateToolsStorage(st *state.State, agentConfig agent.Config) error {
 	return nil
 }
 
-func fetchToolsArchive(stor storage.StorageReader, stream string, agentTools *tools.Tools) ([]byte, error) {
-	r, err := stor.Get(envtools.StorageName(agentTools.Version, stream))
+func fetchToolsArchive(stor storage.StorageReader, toolsDir string, agentTools *tools.Tools) ([]byte, error) {
+	r, err := stor.Get(envtools.StorageName(agentTools.Version, toolsDir))
 	if err != nil {
 		return nil, err
 	}
