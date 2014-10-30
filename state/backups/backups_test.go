@@ -6,6 +6,7 @@ package backups_test
 import (
 	"bytes"
 	"io/ioutil"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -15,14 +16,13 @@ import (
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
 	"github.com/juju/juju/state/backups/metadata"
-	"github.com/juju/juju/testing"
+	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
 type backupsSuite struct {
-	testing.BaseSuite
+	backupstesting.BaseSuite
 
-	storage *fakeStorage
-	api     backups.Backups
+	api backups.Backups
 }
 
 var _ = gc.Suite(&backupsSuite{}) // Register the suite.
@@ -30,8 +30,15 @@ var _ = gc.Suite(&backupsSuite{}) // Register the suite.
 func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	s.storage = &fakeStorage{}
-	s.api = backups.NewBackups(s.storage)
+	s.api = backups.NewBackups(s.Storage)
+}
+
+func (s *backupsSuite) setStored(id string) *time.Time {
+	s.Storage.ID = id
+	s.Storage.Meta = backupstesting.NewMetadataStarted(id, "")
+	stored := time.Now().UTC()
+	s.Storage.Meta.SetStored(&stored)
+	return &stored
 }
 
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
@@ -44,7 +51,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 }
 
 func (s *backupsSuite) TestNewBackups(c *gc.C) {
-	api := backups.NewBackups(s.storage)
+	api := backups.NewBackups(s.Storage)
 
 	c.Check(api, gc.NotNil)
 }
@@ -69,6 +76,8 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 		return nil
 	})
 
+	stored := s.setStored("spam")
+
 	// Run the backup.
 	paths := files.Paths{DataDir: "/var/lib/juju"}
 	dbInfo := db.ConnInfo{"a", "b", "c"}
@@ -76,7 +85,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
 	// Test the call values.
-	s.storage.check(c, "", meta, archiveFile, "Add")
+	s.Storage.CheckCalled(c, "spam", meta, archiveFile, "Add", "Metadata")
 	filesToBackUp, _ := backups.ExposeCreateArgs(received)
 	c.Check(filesToBackUp, jc.SameContents, []string{"<some file>"})
 
@@ -89,19 +98,20 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(rootDir, gc.Equals, "")
 
 	// Check the resulting metadata.
-	c.Check(meta, gc.Equals, s.storage.metaArg)
+	c.Check(meta, gc.Equals, s.Storage.MetaArg)
+	c.Check(meta.ID(), gc.Equals, "spam")
 	c.Check(meta.Size(), gc.Equals, int64(10))
 	c.Check(meta.Checksum(), gc.Equals, "<checksum>")
-	c.Check(meta.Stored(), gc.NotNil)
+	c.Check(meta.Stored().Unix(), gc.Equals, stored.Unix())
 	c.Check(meta.Origin.Environment, gc.Equals, "<env ID>")
 	c.Check(meta.Origin.Machine, gc.Equals, "<machine ID>")
 	c.Check(meta.Origin.Hostname, gc.Equals, "<hostname>")
 	c.Check(meta.Notes, gc.Equals, "some notes")
 
 	// Check the file storage.
-	s.storage.meta = meta
-	s.storage.file = archiveFile
-	storedMeta, storedFile, err := s.storage.Get(meta.ID())
+	s.Storage.Meta = meta
+	s.Storage.File = archiveFile
+	storedMeta, storedFile, err := s.Storage.Get(meta.ID())
 	c.Check(err, gc.IsNil)
 	c.Check(storedMeta, gc.DeepEquals, meta)
 	data, err := ioutil.ReadAll(storedFile)
@@ -144,7 +154,22 @@ func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
 	_, testCreate := backups.NewTestCreate(nil)
 	s.PatchValue(backups.RunCreate, testCreate)
 	s.PatchValue(backups.FinishMeta, backups.NewTestMetaFinisher(""))
-	s.PatchValue(backups.StoreArchive, backups.NewTestArchiveStorer("failed!"))
+	s.PatchValue(backups.StoreArchiveRef, backups.NewTestArchiveStorer("failed!"))
 
 	s.checkFailure(c, "while storing backup archive: failed!")
+}
+
+func (s *backupsSuite) TestStoreArchive(c *gc.C) {
+	stored := s.setStored("spam")
+
+	meta := backupstesting.NewMetadataStarted("", "")
+	c.Assert(meta.ID(), gc.Equals, "")
+	c.Assert(meta.Stored(), gc.IsNil)
+	archive := &bytes.Buffer{}
+	err := backups.StoreArchive(s.Storage, meta, archive)
+	c.Assert(err, gc.IsNil)
+
+	s.Storage.CheckCalled(c, "spam", meta, archive, "Add", "Metadata")
+	c.Assert(meta.ID(), gc.Equals, "spam")
+	c.Assert(meta.Stored(), jc.DeepEquals, stored)
 }

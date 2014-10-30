@@ -22,7 +22,7 @@ var (
 	GetDBDumper      = &getDBDumper
 	RunCreate        = &runCreate
 	FinishMeta       = &finishMeta
-	StoreArchive     = &storeArchive
+	StoreArchiveRef  = &storeArchive
 )
 
 func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
