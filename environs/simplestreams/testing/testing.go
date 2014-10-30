@@ -203,7 +203,7 @@ var imageData = map[string]string{
       "1130preciseamd64": {
        "version": "1.13.0",
        "size": 2973595,
-       "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.13.0-precise-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
       }
@@ -220,14 +220,14 @@ var imageData = map[string]string{
       "1130raringamd64": {
        "version": "1.13.0",
        "size": 2973173,
-       "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.13.0-raring-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       },
       "1140raringamd64": {
        "version": "1.14.0",
        "size": 2973173,
-       "path": "tools/releases/20130806/juju-1.14.0-raring-amd64.tgz",
+       "path": "tools/released/20130806/juju-1.14.0-raring-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
@@ -244,14 +244,14 @@ var imageData = map[string]string{
       "201precisearm": {
        "version": "2.0.1",
        "size": 1951096,
-       "path": "tools/releases/20130806/juju-2.0.1-precise-arm.tgz",
+       "path": "tools/released/20130806/juju-2.0.1-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       },
       "1114precisearm": {
        "version": "1.11.4",
        "size": 1951096,
-       "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
+       "path": "tools/released/20130806/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       }
@@ -262,14 +262,14 @@ var imageData = map[string]string{
       "1114precisearm": {
        "version": "1.11.4",
        "size": 2851541,
-       "path": "tools/releases/20130803/juju-1.11.4-precise-arm.tgz",
+       "path": "tools/released/20130803/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       },
       "1115precisearm": {
        "version": "1.11.5",
        "size": 2031281,
-       "path": "tools/releases/20130803/juju-1.11.5-precise-arm.tgz",
+       "path": "tools/released/20130803/juju-1.11.5-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
@@ -286,14 +286,14 @@ var imageData = map[string]string{
       "1114raringarm": {
        "version": "1.11.4",
        "size": 1950327,
-       "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
+       "path": "tools/released/20130806/juju-1.11.4-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
       },
       "201raringarm": {
        "version": "2.0.1",
        "size": 1950327,
-       "path": "tools/releases/20130806/juju-2.0.1-raring-arm.tgz",
+       "path": "tools/released/20130806/juju-2.0.1-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
       }
@@ -320,7 +320,7 @@ var imageData = map[string]string{
       "1130preciseamd64": {
        "version": "1.16.0",
        "size": 2973512,
-       "path": "tools/releases/20130806/juju-1.16.0-trusty-amd64.tgz",
+       "path": "tools/testing/20130806/juju-1.16.0-trusty-amd64.tgz",
        "ftype": "tar.gz",
        "sha256": "447aeb6a934a5eaec4f703eda4ef2dac"
       }

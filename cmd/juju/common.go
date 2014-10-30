@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -91,7 +92,7 @@ func environFromNameProductionFunc(
 		}
 	}
 
-	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
+	if env, err = environs.PrepareFromName(envName, envcmd.BootstrapContext(ctx), store); err != nil {
 		return nil, cleanup, err
 	}
 

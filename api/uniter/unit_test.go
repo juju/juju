@@ -518,9 +518,9 @@ func (s *unitSuite) TestJoinedRelations(c *gc.C) {
 	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, gc.IsNil)
-	c.Assert(joinedRelations, gc.DeepEquals, []names.RelationTag{
-		rel2.Tag().(names.RelationTag),
+	c.Assert(joinedRelations, jc.SameContents, []names.RelationTag{
 		rel1.Tag().(names.RelationTag),
+		rel2.Tag().(names.RelationTag),
 	})
 }
 

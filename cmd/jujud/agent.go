@@ -123,8 +123,12 @@ func importance(err error) int {
 		return 1
 	case isUpgraded(err):
 		return 2
-	case err == worker.ErrTerminateAgent:
+	case err == worker.ErrRebootMachine:
 		return 3
+	case err == worker.ErrShutdownMachine:
+		return 3
+	case err == worker.ErrTerminateAgent:
+		return 4
 	}
 }
 
@@ -164,7 +168,8 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
 		return true
 	}
 	if isUpgraded(err) {
@@ -313,7 +318,8 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 // agentDone processes the error returned by
 // an exiting agent.
 func agentDone(err error) error {
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
 		err = nil
 	}
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {

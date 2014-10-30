@@ -254,8 +254,10 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	if err := verifyCredentials(e.(*environ)); err != nil {
-		return nil, err
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(e.(*environ)); err != nil {
+			return nil, err
+		}
 	}
 	return e, nil
 }

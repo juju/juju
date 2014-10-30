@@ -421,7 +421,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
-	environs.PrepareFromName("devenv", ctx, store)
+	environs.PrepareFromName("devenv", envcmd.BootstrapContext(ctx), store)
 
 	logger := "jenv.warning.test"
 	var testWriter loggo.TestWriter
@@ -550,7 +550,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
-	buildToolsTarballAlwaysFails := func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+	buildToolsTarballAlwaysFails := func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
 		return nil, fmt.Errorf("an error")
 	}
 
@@ -632,7 +632,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 		versionStrings[i] = vers.String()
 	}
 	source := c.MkDir()
-	toolstesting.MakeTools(c, source, "releases", "released", versionStrings)
+	toolstesting.MakeTools(c, source, "released", versionStrings)
 	return source
 }
 
@@ -645,7 +645,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName(envName, cmdtesting.NullContext(c), store)
+	env, err := environs.PrepareFromName(envName, envcmd.BootstrapContext(cmdtesting.NullContext(c)), store)
 	c.Assert(err, gc.IsNil)
 	return env
 }

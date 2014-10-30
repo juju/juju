@@ -279,7 +279,6 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 				}
 			}
 		}
-		rctx.ClearCache()
 	}
 
 	for rangeKey, rangeInfo := range ctx.pendingPorts {

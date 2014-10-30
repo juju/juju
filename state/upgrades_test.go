@@ -18,6 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
@@ -302,6 +303,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToCleanups(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToCleanups, cleanupsC,
+		bson.M{
+			"_id":    bson.NewObjectId(),
+			"kind":   "units",
+			"prefix": "mysql",
+		},
+		bson.M{
+			"_id":    bson.NewObjectId(),
+			"kind":   "service",
+			"prefix": "mediawiki",
+		},
+	)
+	defer closer()
+
+	var newDoc cleanupDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(string(newDoc.Kind), gc.Equals, "units")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(string(newDoc.Kind), gc.Equals, "service")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToCleanupsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToCleanups, cleanupsC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToReboots, rebootC,
 		bson.M{
@@ -406,6 +434,60 @@ func (s *upgradesSuite) TestAddEnvUUIDToContainerRefsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToContainerRefs, containerRefsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToRelations(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRelations, relationsC,
+		bson.M{
+			"_id": "foo:db bar:db",
+			"id":  1,
+		},
+		bson.M{
+			"_id": "foo:http bar:http",
+			"id":  3,
+		},
+	)
+	defer closer()
+
+	var newDoc relationDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "foo:db bar:db")
+	c.Assert(newDoc.Id, gc.Equals, 1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "foo:http bar:http")
+	c.Assert(newDoc.Id, gc.Equals, 3)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelations, relationsC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationScopes(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRelationScopes, relationScopesC,
+		bson.M{
+			"_id":       "r#0#peer#foo/0",
+			"departing": false,
+		},
+		bson.M{
+			"_id":       "r#1#provider#bar/0",
+			"departing": true,
+		},
+	)
+	defer closer()
+
+	var newDoc relationScopeDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "r#0#peer#foo/0")
+	c.Assert(newDoc.Departing, gc.Equals, false)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "r#1#provider#bar/0")
+	c.Assert(newDoc.Departing, gc.Equals, true)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,
@@ -427,7 +509,7 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	var ids []string
 	envTag := s.state.EnvironTag().Id()
 	for _, oldDoc := range oldDocs {
-		oldID := oldDoc["_id"].(string)
+		oldID := fmt.Sprint(oldDoc["_id"])
 		newID := s.state.docID(oldID)
 
 		err = coll.FindId(oldID).One(&d)
@@ -439,7 +521,6 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 
 		ids = append(ids, newID)
 	}
-
 	count, err := coll.Find(nil).Count()
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, len(oldDocs))
@@ -452,7 +533,13 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	upgradeStep func(*State) error,
 	collName string,
 ) {
-	const oldID = "foo"
+	var oldID interface{}
+	if collName == cleanupsC {
+		oldID = bson.NewObjectId()
+	} else {
+		oldID = "foo"
+	}
+
 	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
 
 	err := upgradeStep(s.state)
@@ -467,13 +554,13 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(oldID))
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
 }
 
 func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
 	ops := []txn.Op{{
 		C:      collName,
-		Id:     legacyDoc["_id"].(string),
+		Id:     legacyDoc["_id"],
 		Assert: txn.DocMissing,
 		Insert: legacyDoc,
 	}}
@@ -481,7 +568,7 @@ func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id string, doc interface{}) {
+func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, doc interface{}) {
 	err := coll.FindId(id).One(doc)
 	c.Assert(err, gc.IsNil)
 }
@@ -991,7 +1078,76 @@ func (s *upgradesSuite) TestCreateMeterStatuses(c *gc.C) {
 		c.Assert(code, gc.Equals, "NOT SET")
 		c.Assert(info, gc.Equals, "")
 	}
+}
 
+func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceData(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = "1"
+	s.instanceIdSetUp(c, machineID, instID)
+
+	err := MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(err, gc.IsNil)
+
+	s.instanceIdAssertMigration(c, machineID, instID)
+}
+
+func (s *upgradesSuite) TestMigrateMachineInstanceIdToInstanceDataIdempotent(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = "1"
+	s.instanceIdSetUp(c, machineID, instID)
+
+	err := MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(err, gc.IsNil)
+
+	err = MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(err, gc.IsNil)
+
+	s.instanceIdAssertMigration(c, machineID, instID)
+}
+
+func (s *upgradesSuite) TestMigrateMachineInstanceIdNoIdLogsWarning(c *gc.C) {
+	machineID := "0"
+	var instID instance.Id = ""
+	s.instanceIdSetUp(c, machineID, instID)
+
+	MigrateMachineInstanceIdToInstanceData(s.state)
+	c.Assert(c.GetTestLog(), jc.Contains, `WARNING juju.state.upgrade machine "0" doc has no instanceid`)
+}
+
+func (s *upgradesSuite) instanceIdSetUp(c *gc.C, machineID string, instID instance.Id) {
+	mDoc := bson.M{
+		"_id":        machineID,
+		"instanceid": instID,
+	}
+	ops := []txn.Op{
+		txn.Op{
+			C:      machinesC,
+			Id:     machineID,
+			Assert: txn.DocMissing,
+			Insert: mDoc,
+		},
+	}
+	err := s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *upgradesSuite) instanceIdAssertMigration(c *gc.C, machineID string, instID instance.Id) {
+	// check to see if instanceid is in instance
+	var instanceMap bson.M
+	insts, closer := s.state.getCollection(instanceDataC)
+	defer closer()
+	err := insts.FindId(machineID).One(&instanceMap)
+	c.Assert(err, gc.IsNil)
+	c.Assert(instanceMap["instanceid"], gc.Equals, string(instID))
+
+	// check to see if instanceid field is removed
+	var machineMap bson.M
+	machines, closer := s.state.getCollection(machinesC)
+	defer closer()
+	err = machines.FindId(machineID).One(&machineMap)
+	c.Assert(err, gc.IsNil)
+	_, keyExists := machineMap["instanceid"]
+	c.Assert(keyExists, jc.IsFalse)
 }
 
 // setUpJobManageNetworking prepares the test environment for the JobManageNetworking tests.
