@@ -159,7 +159,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		if err == errAlreadyDying {
 			relOps = []txn.Op{{
 				C:      relationsC,
-				Id:     rel.doc.Key,
+				Id:     rel.doc.DocID,
 				Assert: bson.D{{"life", Dying}},
 			}}
 		} else if err != nil {
@@ -364,7 +364,7 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 		}
 		asserts = append(asserts, txn.Op{
 			C:      relationsC,
-			Id:     rel.doc.Key,
+			Id:     rel.doc.DocID,
 			Assert: txn.DocExists,
 		})
 	}
@@ -752,6 +752,7 @@ func serviceRelations(st *State, name string) (relations []*Relation, err error)
 	defer closer()
 
 	docs := []relationDoc{}
+	// TODO(mjs) - ENVUUID - filtering by environment required here
 	err = relationsCollection.Find(bson.D{{"endpoints.servicename", name}}).All(&docs)
 	if err != nil {
 		return nil, err

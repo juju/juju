@@ -126,6 +126,20 @@ func stepsFor121a3() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all relations docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToRelations(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all relationscopes docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToRelationScopes(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "migrate machine jobs into ones with JobManageNetworking based on rules",
 			targets:     []Target{DatabaseMaster},
 			run:         migrateJobManageNetworking,

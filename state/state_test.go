@@ -98,6 +98,25 @@ func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
 	c.Assert(localID, gc.Equals, id)
 }
 
+func (s *StateSuite) TestStrictLocalID(c *gc.C) {
+	id := state.DocID(s.State, "wordpress")
+	localID, ok := state.StrictLocalID(s.State, id)
+	c.Assert(localID, gc.Equals, "wordpress")
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *StateSuite) TestStrictLocalIDWithWrongPrefix(c *gc.C) {
+	localID, ok := state.StrictLocalID(s.State, "foo:wordpress")
+	c.Assert(localID, gc.Equals, "")
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
+	localID, ok := state.StrictLocalID(s.State, "wordpress")
+	c.Assert(localID, gc.Equals, "")
+	c.Assert(ok, jc.IsFalse)
+}
+
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {

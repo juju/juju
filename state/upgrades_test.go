@@ -379,6 +379,60 @@ func (s *upgradesSuite) TestAddEnvUUIDToContainerRefsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToContainerRefs, containerRefsC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToRelations(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRelations, relationsC,
+		bson.M{
+			"_id": "foo:db bar:db",
+			"id":  1,
+		},
+		bson.M{
+			"_id": "foo:http bar:http",
+			"id":  3,
+		},
+	)
+	defer closer()
+
+	var newDoc relationDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "foo:db bar:db")
+	c.Assert(newDoc.Id, gc.Equals, 1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "foo:http bar:http")
+	c.Assert(newDoc.Id, gc.Equals, 3)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelations, relationsC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationScopes(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToRelationScopes, relationScopesC,
+		bson.M{
+			"_id":       "r#0#peer#foo/0",
+			"departing": false,
+		},
+		bson.M{
+			"_id":       "r#1#provider#bar/0",
+			"departing": true,
+		},
+	)
+	defer closer()
+
+	var newDoc relationScopeDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "r#0#peer#foo/0")
+	c.Assert(newDoc.Departing, gc.Equals, false)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.Key, gc.Equals, "r#1#provider#bar/0")
+	c.Assert(newDoc.Departing, gc.Equals, true)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToRelationScopesIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToRelationScopes, relationScopesC)
+}
+
 func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	c *gc.C,
 	upgradeStep func(*State) error,

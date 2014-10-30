@@ -180,13 +180,20 @@ func (s *Service) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Service) WatchRelations() StringsWatcher {
+	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	members := bson.D{{"endpoints.servicename", s.doc.Name}}
+
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
-	filter := func(key interface{}) bool {
-		k := key.(string)
-		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+	filter := func(id interface{}) bool {
+		k, ok := s.st.strictLocalID(id.(string))
+		if !ok {
+			return false
+		}
+		out := strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+		return out
 	}
+
 	return newLifecycleWatcher(s.st, relationsC, members, filter)
 }
 
@@ -570,8 +577,9 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 	defer closer()
 
 	docs := []relationScopeDoc{}
+	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	sel := bson.D{
-		{"_id", bson.D{{"$regex", "^" + w.prefix}}},
+		{"key", bson.D{{"$regex", "^" + w.prefix}}},
 		{"departing", bson.D{{"$ne", true}}},
 	}
 	if err = relationScopes.Find(sel).All(&docs); err != nil {
@@ -604,7 +612,7 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			if exists {
 				existIds = append(existIds, id)
 			} else {
-				doc := &relationScopeDoc{Key: id}
+				doc := &relationScopeDoc{Key: w.st.localID(id)}
 				info.remove(doc.unitName())
 			}
 		default:
@@ -629,8 +637,9 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 
 func (w *RelationScopeWatcher) loop() error {
 	in := make(chan watcher.Change)
-	filter := func(key interface{}) bool {
-		return strings.HasPrefix(key.(string), w.prefix)
+	fullPrefix := w.st.docID(w.prefix)
+	filter := func(id interface{}) bool {
+		return strings.HasPrefix(id.(string), fullPrefix)
 	}
 	w.st.watcher.WatchCollectionWithFilter(relationScopesC, in, filter)
 	defer w.st.watcher.UnwatchCollection(relationScopesC, in)
