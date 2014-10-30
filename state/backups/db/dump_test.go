@@ -37,26 +37,29 @@ func (s *dumpSuite) patch(c *gc.C) {
 func (s *dumpSuite) TestDump(c *gc.C) {
 	s.patch(c)
 
-	connInfo := db.ConnInfo{"a", "b", "c"}
+	connInfo := db.ConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := db.Info{connInfo, &targets}
 	dumper, err := db.NewDumper(dbInfo)
 	c.Assert(err, gc.IsNil)
 
+	// Make the dump directories.
 	dumpDir := c.MkDir()
 	for _, dbName := range targets.Values() {
 		err := os.Mkdir(filepath.Join(dumpDir, dbName), 0777)
 		c.Assert(err, gc.IsNil)
 	}
-	ignoredDir := filepath.Join(dumpDir, "backups")
+	ignoredDir := filepath.Join(dumpDir, "backups") // a non-target dir
 	err = os.Mkdir(ignoredDir, 0777)
 	c.Assert(err, gc.IsNil)
 
+	// Run the dump command.
 	err = dumper.Dump(dumpDir)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.ranCommand, gc.Equals, true)
 
+	// Check that the ignored directory was deleted.
 	for _, dbName := range targets.Values() {
 		_, err := os.Stat(filepath.Join(dumpDir, dbName))
 		c.Check(err, gc.IsNil)
