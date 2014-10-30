@@ -124,7 +124,7 @@ func (t *LiveTests) PrepareOnce(c *gc.C) {
 	}
 	cfg, err := config.New(config.NoDefaults, t.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, coretesting.BootstrapContext(c), t.ConfigStore)
+	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
 	c.Assert(e, gc.NotNil)
 	t.Env = e
@@ -145,7 +145,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	}
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), t.Env, bootstrap.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -759,7 +759,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 		"state-server": false,
 		"name":         "dummy storage",
 	}))
-	dummyenv, err := environs.Prepare(dummyCfg, coretesting.BootstrapContext(c), configstore.NewMem())
+	dummyenv, err := environs.Prepare(dummyCfg, envtesting.BootstrapContext(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	defer dummyenv.Destroy()
 
@@ -768,11 +768,11 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	attrs := t.TestConfig.Merge(coretesting.Attrs{"default-series": other.Series})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	env, err := environs.Prepare(cfg, coretesting.BootstrapContext(c), t.ConfigStore)
+	env, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), t.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	defer environs.Destroy(env, t.ConfigStore)
 
-	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	st := t.Env.(jujutesting.GetStater).GetStateInAPIServer()

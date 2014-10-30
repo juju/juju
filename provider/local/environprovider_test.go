@@ -16,6 +16,7 @@ import (
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
@@ -233,7 +234,7 @@ Acquire::magic::Proxy "none";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(coretesting.BootstrapContext(c), testConfig)
+		env, err := provider.Prepare(envtesting.BootstrapContext(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -288,7 +289,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(coretesting.BootstrapContext(c), basecfg)
+		env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()
@@ -309,7 +310,7 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 	})
 	provider, err := environs.Provider("local")
 	c.Assert(err, gc.IsNil)
-	env, err := provider.Prepare(coretesting.BootstrapContext(c), basecfg)
+	env, err := provider.Prepare(envtesting.BootstrapContext(c), basecfg)
 	c.Assert(err, gc.IsNil)
 	// local provider sets proxy-ssh to false
 	c.Assert(env.Config().ProxySSH(), gc.Equals, false)

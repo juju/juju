@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/manual"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -37,7 +38,7 @@ func (s *providerSuite) TestPrepare(c *gc.C) {
 	delete(minimal, "storage-auth-key")
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
-	env, err := manual.ProviderInstance.Prepare(coretesting.BootstrapContext(c), testConfig)
+	env, err := manual.ProviderInstance.Prepare(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, gc.IsNil)
 	cfg := env.Config()
 	key, _ := cfg.UnknownAttrs()["storage-auth-key"].(string)
@@ -49,7 +50,7 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = false
 	testConfig, err := config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
-	_, err = manual.ProviderInstance.Prepare(coretesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.Prepare(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, gc.ErrorMatches, "use-sshstorage must not be specified")
 
 	s.PatchValue(manual.NewSSHStorage, func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
@@ -58,7 +59,7 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	minimal["use-sshstorage"] = true
 	testConfig, err = config.New(config.UseDefaults, minimal)
 	c.Assert(err, gc.IsNil)
-	_, err = manual.ProviderInstance.Prepare(coretesting.BootstrapContext(c), testConfig)
+	_, err = manual.ProviderInstance.Prepare(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, gc.ErrorMatches, "initialising SSH storage failed: newSSHStorage failed")
 }
 
@@ -68,7 +69,7 @@ func (s *providerSuite) TestPrepareSetsUseSSHStorage(c *gc.C) {
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	env, err := manual.ProviderInstance.Prepare(coretesting.BootstrapContext(c), testConfig)
+	env, err := manual.ProviderInstance.Prepare(envtesting.BootstrapContext(c), testConfig)
 	c.Assert(err, gc.IsNil)
 	cfg := env.Config()
 	value := cfg.AllAttrs()["use-sshstorage"]

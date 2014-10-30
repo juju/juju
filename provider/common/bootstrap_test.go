@@ -108,7 +108,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	env.startInstance = startInstance
 
-	ctx := coretesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(c)
 	_, _, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		Constraints:    checkCons,
 		Placement:      checkPlacement,
@@ -146,7 +146,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 		config:        getConfig,
 		setConfig:     setConfig,
 	}
-	ctx := coretesting.BootstrapContext(c)
+	ctx := envtesting.BootstrapContext(c)
 	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		AvailableTools: tools.List{&tools.Tools{Version: version.Current}},
 	})

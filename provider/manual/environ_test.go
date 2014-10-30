@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
@@ -192,7 +193,7 @@ func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
 	cfg := s.env.Config()
 	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, true)
 
-	_, _, _, err := s.env.Bootstrap(coretesting.BootstrapContext(c), environs.BootstrapParams{})
+	_, _, _, err := s.env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// Bootstrap must set use-sshstorage to false within the environment.

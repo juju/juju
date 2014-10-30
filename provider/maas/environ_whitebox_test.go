@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -198,7 +199,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
-	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -565,7 +566,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)
-	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -578,14 +579,14 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Check(err, gc.ErrorMatches, "Juju cannot bootstrap because no tools are available for your environment(.|\n)*")
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -994,7 +995,7 @@ func (s *environSuite) bootstrap(c *gc.C) environs.Environ {
 	s.newNode(c, "node0", "bootstrap-host", nil)
 	s.setupFakeTools(c)
 	env := s.makeEnviron()
-	err := bootstrap.Bootstrap(coretesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{
 		Placement: "bootstrap-host",
 	})
 	c.Assert(err, gc.IsNil)

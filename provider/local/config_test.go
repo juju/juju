@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/testing"
@@ -107,9 +108,9 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
-	env, err := local.Provider.Prepare(testing.BootstrapContext(c), minimalConfig(c))
+	env, err := local.Provider.Prepare(envtesting.BootstrapContext(c), minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	_, _, _, err = env.Bootstrap(testing.BootstrapContext(c), environs.BootstrapParams{})
+	_, _, _, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }
 
