@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -536,6 +537,12 @@ func AddEnvUUIDToInstanceData(st *State) error {
 	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
 }
 
+// AddEnvUUIDToCleanups prepends the environment UUID to the ID of
+// all cleanup docs and adds new "env-uuid" field.
+func AddEnvUUIDToCleanups(st *State) error {
+	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
+}
+
 // AddEnvUUIDToRelations prepends the environment UUID to the ID of
 // all relations docs and adds new "env-uuid" and "key" fields.
 func AddEnvUUIDToRelations(st *State) error {
@@ -564,10 +571,11 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	ops := []txn.Op{}
 	var doc bson.M
 	for iter.Next(&doc) {
-		// The "_id" field becomes the new "name" field.
-		oldID := doc["_id"].(string)
-		id := st.docID(oldID)
-		doc[fieldForOldID] = oldID
+		oldID := doc["_id"]
+		id := st.docID(fmt.Sprint(oldID))
+		if fieldForOldID != "" {
+			doc[fieldForOldID] = oldID
+		}
 		doc["_id"] = id
 		doc["env-uuid"] = uuid
 		ops = append(ops,

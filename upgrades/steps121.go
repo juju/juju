@@ -144,5 +144,12 @@ func stepsFor121a3() []Step {
 			targets:     []Target{DatabaseMaster},
 			run:         migrateJobManageNetworking,
 		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all cleanup docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToCleanups(context.State())
+			},
+		},
 	}
 }
