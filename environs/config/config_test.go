@@ -6,6 +6,7 @@ package config_test
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -1453,6 +1454,45 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
+}
+
+func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
+	s.addJujuFiles(c)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "myenv",
+		"type": "other",
+	})
+	c.Assert(err, gc.IsNil)
+	warningTxt := `WARNING juju.environs.config unknown config field %q`
+
+	for i, test := range []struct {
+		message  string
+		aKey     string
+		aValue   string
+		expected bool
+	}{{
+		message:  "Warning message about unknown attribute (%v) is expected because attribute value exists",
+		aKey:     "unknown",
+		aValue:   "unknown value",
+		expected: true,
+	}, {
+		message:  "Warning message about unknown attribute (%v) is unexpected because attribute value is empty",
+		aKey:     "unknown-empty",
+		aValue:   "",
+		expected: false,
+	},
+	} {
+		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
+		testCfg, err := cfg.Apply(map[string]interface{}{test.aKey: test.aValue})
+		c.Assert(err, gc.IsNil)
+
+		// all attrs passed through and warning displayed
+		attrs, err := testCfg.ValidateUnknownAttrs(nil, nil)
+		c.Assert(err, gc.IsNil)
+		c.Assert(attrs, gc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
+		expectedMsg := fmt.Sprintf(warningTxt, test.aKey)
+		c.Assert(strings.Contains(c.GetTestLog(), expectedMsg), gc.Equals, test.expected, gc.Commentf(test.message, test.aKey))
+	}
 }
 
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
