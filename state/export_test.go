@@ -42,7 +42,7 @@ func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
 
 func getBackupDBWrapper(st *State) *backupDBWrapper {
 	envUUID := st.EnvironTag().Id()
-	db := st.db.Session.DB(BackupDB)
+	db := st.db.Session.DB(backupDB)
 	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
 }
 
