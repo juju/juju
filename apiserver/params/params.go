@@ -881,6 +881,8 @@ type StateServersChanges struct {
 	Demoted    []string `json:"demoted,omitempty"`
 }
 
+// Restore Holds the backup file or id and the machine to
+// be used for the restore process
 type Restore struct {
 	FileName string
 	BackupId string

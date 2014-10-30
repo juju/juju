@@ -14,10 +14,12 @@ import (
 var aboutToRestoreError = errors.New("juju restore is in progress - Juju functionality is limited to avoid data loss")
 var restoreInProgressError = errors.New("juju restore is in progress - Juju api is off to prevent data loss")
 
+// aboutToRestoreRoot a root that will only allow Restore calls
 type aboutToRestoreRoot struct {
 	rpc.MethodFinder
 }
 
+// restoreRoot a root that will not allow calls whatsoever during restore.
 type restoreInProgressRoot struct {
 	rpc.MethodFinder
 }
@@ -56,6 +58,8 @@ var allowedMethodsAboutToRestore = set.NewStrings(
 	"Backups.Restore", // for "juju restore"
 )
 
+// return true is this method is allowed when the server is in state.RestorePreparing mode
+// at present only Backups.Restore is
 func isMethodAllowedAboutToRestore(rootName, methodName string) bool {
 	fullName := rootName + "." + methodName
 	return allowedMethodsAboutToRestore.Contains(fullName)

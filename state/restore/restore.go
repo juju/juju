@@ -41,9 +41,11 @@ import (
 
 var logger = loggo.GetLogger("juju.state.restore")
 
-var runCommand = _runCommand
+var runCommand = runExternalCommand
 
-func _runCommand(cmd string, args ...string) error {
+// runExternalCommand will run the external comand cmd with args arguments and return nil on success
+// fails or the command output if it fails
+func runExternalCommand(cmd string, args ...string) error {
 	command := exec.Command(cmd, args...)
 	out, err := command.CombinedOutput()
 
@@ -57,6 +59,8 @@ func _runCommand(cmd string, args ...string) error {
 	return errors.Annotatef(err, "cannot execute %q", cmd)
 }
 
+// untarFiles will take the reader and output folder for a tar file, wrap in a gzip
+// reader if uncompression is required and call utils/tar UntarFiles
 func untarFiles(tarFile io.ReadCloser, outputFolder string, compress bool) error {
 	var r io.Reader = tarFile
 	var err error
@@ -85,6 +89,8 @@ func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
 
 var replaceableFiles = getReplaceableFiles
 
+// getReplaceableFiles will return a map with the files/folders that need to
+// be replaces so they can be deleted prior to a restore.
 func getReplaceableFiles() (map[string]os.FileMode, error) {
 	replaceables := map[string]os.FileMode{}
 	os.Rename("/var/log/juju", "/var/log/oldjuju")
@@ -160,13 +166,17 @@ func newDialInfo(privateAddr string, conf agentConfig) (*mgo.DialInfo, error) {
 	return dialInfo, nil
 }
 
-var getMongorestorePath = _getMongorestorePath
+var mongorestorePath = getMongorestorePath
 
-func _getMongorestorePath() (string, error) {
-	const mongoDumpPath string = "/usr/lib/juju/bin/mongorestore"
+// getMongorestorePath will look for mongorestore binary on the system
+// and return it if mongorestore actually exists.
+// it will look first for the juju provided one and if not found make a
+// try at a system one.
+func getMongorestorePath() (string, error) {
+	const mongoRestoreFullPath string = "/usr/lib/juju/bin/mongorestore"
 
-	if _, err := os.Stat(mongoDumpPath); err == nil {
-		return mongoDumpPath, nil
+	if _, err := os.Stat(mongoRestoreFullPath); err == nil {
+		return mongoRestoreFullPath, nil
 	}
 
 	path, err := exec.LookPath("mongorestore")
@@ -176,12 +186,17 @@ func _getMongorestorePath() (string, error) {
 	return path, nil
 }
 
-var getMongoDbPath = _getMongoDbPath
+var mongoDbPath = getMongoDbPath
 
-func _getMongoDbPath() string {
+// getMongoDbPath returns the path where the data of mongo is stored.
+// TODO(perrito666) find a unified location to fetch this info from.
+func getMongoDbPath() string {
 	return "/var/lib/juju/db"
 }
 
+// updateMongoEntries will update the machine entries in the restored mongo to
+// reflect the real machine instanceid in case it changed (a newly bootstraped
+// server)
 func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
@@ -194,18 +209,22 @@ func updateMongoEntries(newInstId instance.Id, dialInfo *mgo.DialInfo) error {
 	return nil
 }
 
+// getMongoRestoreArgsForVersion returns a string slice containing the args to be used
+// to call mongo restore since these can change depending on the backup method
+// Version 0: a dump made with --db, stoping the state server.
+// Version 1: a dump made with --oplog with a running state server.
 func getMongoRestoreArgsForVersion(version int, dumpPath string) ([]string, error) {
 	MGORestoreVersions := map[int][]string{}
 
 	MGORestoreVersions[0] = []string{
 		"--drop",
-		"--dbpath", getMongoDbPath(),
+		"--dbpath", mongoDbPath(),
 		dumpPath}
 
 	MGORestoreVersions[1] = []string{
 		"--drop",
 		"--oplogReplay",
-		"--dbpath", getMongoDbPath(),
+		"--dbpath", mongoDbPath(),
 		dumpPath}
 	if restoreCommand, ok := MGORestoreVersions[version]; ok {
 		return restoreCommand, nil
@@ -214,32 +233,32 @@ func getMongoRestoreArgsForVersion(version int, dumpPath string) ([]string, erro
 }
 
 // placeNewMongo tries to use mongorestore to replace an existing
-// mongo (obtained from getMongoDbPath) with the dump in newMongoDumpPath
+// mongo (obtained from mongoDbPath) with the dump in newMongoDumpPath
 // returns an error if its not possible
 func placeNewMongo(newMongoDumpPath string, version int) error {
-	mongoRestore, err := getMongorestorePath()
+	mongoRestore, err := mongorestorePath()
 	if err != nil {
 		return errors.Annotate(err, "mongorestore not available")
 	}
-	// TODO(perrito666): When there is a new backup version add mechanism to determine it
+
 	mgoRestoreArgs, err := getMongoRestoreArgsForVersion(0, newMongoDumpPath)
 	if err != nil {
 		return fmt.Errorf("cannot restore this backup version")
 	}
-	if err = _runCommand(
+	if err = runCommand(
 		"initctl",
 		"stop",
 		"juju-db"); err != nil {
 		return errors.Annotate(err, "failed to stop mongo")
 	}
 
-	err = _runCommand(mongoRestore, mgoRestoreArgs...)
+	err = runCommand(mongoRestore, mgoRestoreArgs...)
 
 	if err != nil {
 		return errors.Annotate(err, "failed to restore database dump")
 	}
 
-	if err = _runCommand(
+	if err = runCommand(
 		"initctl",
 		"start",
 		"juju-db"); err != nil {
@@ -249,6 +268,7 @@ func placeNewMongo(newMongoDumpPath string, version int) error {
 	return nil
 }
 
+// credentials for mongo in backed up agent.conf
 type credentials struct {
 	tag           string
 	tagPassword   string
@@ -256,6 +276,7 @@ type credentials struct {
 	adminPassword string
 }
 
+// agentConfig config from the backed up agent.conf
 type agentConfig struct {
 	credentials credentials
 	apiPort     string
@@ -326,6 +347,7 @@ func fetchAgentConfigFromBackup(agentConf io.Reader) (agentConfig, error) {
 	}, nil
 }
 
+// newStateConnection tries to connect to the newly restored state server
 func newStateConnection(agentConf agentConfig) (*state.State, error) {
 	caCert := agentConf.cACert
 	// TODO(dfc) agenConf.credentials should supply a Tag
@@ -397,6 +419,8 @@ func mustParseTemplate(templ string) *template.Template {
 	return template.Must(template.New("").Parse(templ))
 }
 
+// agentAddressTemplate is the template used to replace the api server data
+// in the agents for the new ones if the machine has been rebootstraped
 var agentAddressTemplate = mustParseTemplate(`
 set -exu
 cd /var/lib/juju/agents
@@ -446,6 +470,7 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 	return runViaSSH(addr, sshArg)
 }
 
+// runViaSSH runs script in the remote machine with addres addr
 func runViaSSH(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
@@ -465,6 +490,10 @@ func runViaSSH(addr string, script string) error {
 
 // Once Metadata is given a version option we can version backups
 // we could use juju version to signal this
+// Version 0: juju backup plugin (a bash script)
+// Version 1: juju backups create (first implementation) for the
+// moment this version is determined by checking for metadata but not
+// its contents.
 func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) int {
 	backupMetadataFile := true
 	if _, err := os.Stat(filepath.Join(backupFilesPath, "metadata.json")); os.IsNotExist(err) {
@@ -476,11 +505,13 @@ func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) in
 	return 1
 }
 
-// Restore extract the content of the given backup file and:
+// Restore is the entry point for this package:
+// * extracts the content of the given backup file and:
 // * runs mongorestore with the backed up mongo dump
 // * updates and writes configuration files
 // * updates existing db entries to make sure they hold no references to
 // old instances
+// * updates config in all agents.
 func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, status *state.State) error {
 	machine, err := status.Machine("0")
 	if err != nil {
@@ -497,17 +528,20 @@ func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privat
 	// if the backup contains the series of the machine we can generate it.
 	const agentFile string = "var/lib/juju/agents/machine-0/agent.conf"
 
-	// Extract outer container
+	// Extract outer container (a juju-backup folder inside the tar)
 	if err := untarFiles(backupFile, workDir, true); err != nil {
 		return errors.Annotate(err, "cannot extract files from backup")
 	}
+
+	// delete all the files to be replaced
 	if err := prepareMachineForRestore(); err != nil {
 		return errors.Annotate(err, "cannot delete existing files")
 	}
 	backupFilesPath := filepath.Join(workDir, "juju-backup")
-
+	// just in case, we dont want to leave these sensitive files hanging around.
 	defer os.RemoveAll(backupFilesPath)
-	// Extract inner container
+
+	// Extract inner container (root.tar inside the juju-backup)
 	innerBackup := filepath.Join(backupFilesPath, "root.tar")
 	innerBackupHandler, err := os.Open(innerBackup)
 	if err != nil {
@@ -517,6 +551,7 @@ func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privat
 	if err := untarFiles(innerBackupHandler, filesystemRoot(), false); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
+
 	version := backupVersion(backupMetadata, backupFilesPath)
 	// Restore backed up mongo
 	mongoDump := filepath.Join(backupFilesPath, "dump")
@@ -559,6 +594,7 @@ func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privat
 	}
 	defer st.Close()
 
+	// update all agents known to the new state server.
 	err = updateAllMachines(privateAddress, agentConf, st)
 	if err != nil {
 		return errors.Annotate(err, "cannot update agents")
@@ -570,6 +606,8 @@ func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privat
 		return errors.Trace(err)
 	}
 
+	// Mark restoreInfo as Finished so upon restart of the apiserver
+	// the client can reconnect and determine if we where succesful.
 	err = rInfo.SetStatus(state.RestoreFinished)
 
 	return errors.Annotate(err, "failed to set status to finished")

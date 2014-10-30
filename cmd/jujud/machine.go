@@ -112,6 +112,8 @@ func (a *MachineAgent) IsRestorePreparing() bool {
 	return a.restoreMode && !a.restoring
 }
 
+// IsRestoreRunning returns bool representing if we are in restore mode
+// and running the actual restore process
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
 }
@@ -257,6 +259,9 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
+// This will return a worker or err if there is a failure, the worker takes care
+// of watching the state of restoreInfo doc and put the agent in the different
+// restore modes
 func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
@@ -264,6 +269,8 @@ func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, e
 	return worker.NewSimpleWorker(rWorker), nil
 }
 
+// restoreChanged will be called whenever restoreInfo doc changes signaling a new
+// step in the restore process
 func (a *MachineAgent) restoreChanged(st *state.State) error {
 	rinfo, err := st.EnsureRestoreInfo()
 	if err != nil {
@@ -278,6 +285,7 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 	return nil
 }
 
+// restoreStateWatcher watches for restoreInfo looking for changes in the restore process
 func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
 	restoreWatch := st.WatchRestoreInfoChanges()
 	defer func() {
@@ -737,6 +745,8 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	return nil
 }
 
+// limitLoginsDuringRestore will only allow logins for restore related purposes
+// while the different steps of restore are running.
 func (a *MachineAgent) limitLoginsDuringRestore(req params.LoginRequest) error {
 	var err error
 	switch {

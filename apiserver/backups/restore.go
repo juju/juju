@@ -20,7 +20,7 @@ func backupFile(backupPath string) (io.ReadCloser, error) {
 	return os.Open(backupPath)
 }
 
-// Restore implements the server side of Client.Restore
+// Restore implements the server side of Backups.Restore
 func (a *API) Restore(p params.Restore) error {
 	// Get hold of a backup file Reader
 	var backupFileHandler io.ReadCloser
@@ -73,6 +73,7 @@ func (a *API) Restore(p params.Restore) error {
 
 }
 
+// PrepareRestore implements the server side of Backups.PrepareRestore
 func (a *API) PrepareRestore() error {
 	rInfo, err := a.st.EnsureRestoreInfo()
 	if err != nil {
@@ -82,6 +83,7 @@ func (a *API) PrepareRestore() error {
 	return errors.Annotatef(err, "cannot set restore status to %s", state.RestorePending)
 }
 
+// FinishRestore implements the server side of Backups.FinishRestore
 func (a *API) FinishRestore() error {
 	rInfo, err := a.st.EnsureRestoreInfo()
 	if err != nil {

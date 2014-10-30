@@ -96,7 +96,8 @@ var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
 	return storage, nil
 }
 
-// PublicAddress implements the server side of Client.PublicAddress.
+// PublicAddress implements the server side of Client.PublicAddress. Replicated here because
+// Its required for this Facade too
 func (a *API) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
 	switch {
 	case names.IsValidMachine(p.Target):

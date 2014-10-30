@@ -75,33 +75,46 @@ func (c *RestoreCommand) Init(args []string) error {
 const restoreAPIIncompatibility = "server version not compatible for " +
 	"restore with client version"
 
+// runRestore will implement the actual calls to the different Client parts
+// of restore.
 func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 
 	fileName := filepath.Base(c.filename)
 	if err := client.Restore(fileName, c.backupId); err != nil {
 
+		// Backwards compatibility
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
+		// This signals that Restore almost certainly finished and
+		// triggered Exit
 		if err != rpc.ErrShutdown {
 			return errors.Trace(err)
 		}
+		// upstrart should have restarted the api server so we reconnect
 		client, err = c.NewAPIClient()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 	}
+	// We check that, after client reconnection, Restore actually set the state
+	// as state.RestoreCompleted and mark it as state.RestoreChecked
 	if err := client.FinishRestore(); err != nil {
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
 		return errors.Trace(err)
 	}
-	fmt.Fprintf(ctx.Stdout, "restore from %s completed\n", c.filename)
+	if fileName == "" {
+		fileName = c.backupId
+	}
+	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", fileName)
 	return nil
 }
 
+// rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
+// if there is no current server available to restore to.
 func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error) {
 	cons := c.constraints
 	store, err := configstore.Default()
@@ -146,6 +159,8 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 	return env, nil
 }
 
+// doUpload will copy a local backup file to a location in the ubuntu user
+// home in the server to be restored.
 func (c *RestoreCommand) doUpload(client APIClient) error {
 	addr, err := client.PublicAddress("0")
 	if err != nil {
@@ -160,6 +175,7 @@ func (c *RestoreCommand) doUpload(client APIClient) error {
 	return nil
 }
 
+// Run is the entry point for this command
 func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
 		_, err := c.rebootstrap(ctx)
@@ -182,6 +198,7 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	}
 
 	defer client.Close()
+	// there is a filename, we need to upload it to the server
 	if c.filename != "" {
 		if err := c.doUpload(client); err != nil {
 			return errors.Annotatef(err, "cannot upload backup")

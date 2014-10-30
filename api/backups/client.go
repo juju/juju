@@ -47,10 +47,17 @@ func (c *Client) Restore(backupFileName, backupId string) error {
 	return err
 }
 
+// Preparerestore puts the server into a state that only allows
+// for restore to be called. This is to avoid the data loss if
+// users try to perform actions that are going to be overwritten
+// by restore
 func (c *Client) PrepareRestore() error {
 	return c.facade.FacadeCall("PrepareRestore", nil, nil)
 }
 
+// FinishRestore since Restore call will end up with a reset
+// state server, finish restore will check that the the newly
+// placed state server has the mark of restore complete
 func (c *Client) FinishRestore() error {
 	return c.facade.FacadeCall("FinishRestore", nil, nil)
 }
