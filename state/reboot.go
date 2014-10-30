@@ -113,7 +113,7 @@ func (m *Machine) GetRebootFlag() (bool, error) {
 func (m *Machine) machinesToCareAboutRebootsFor() []string {
 	var possibleIds []string
 	for currentId := m.Id(); currentId != ""; {
-		possibleIds = append(possibleIds, currentId)
+		possibleIds = append(possibleIds, m.st.docID(currentId))
 		currentId = ParentId(currentId)
 	}
 	return possibleIds
@@ -127,13 +127,9 @@ func (m *Machine) ShouldRebootOrShutdown() (RebootAction, error) {
 	defer closer()
 
 	machines := m.machinesToCareAboutRebootsFor()
-	var docIDs []string
-	for _, id := range machines {
-		docIDs = append(docIDs, m.st.docID(id))
-	}
 
 	docs := []rebootDoc{}
-	sel := bson.D{{"_id", bson.D{{"$in", docIDs}}}}
+	sel := bson.D{{"_id", bson.D{{"$in", machines}}}}
 	if err := rebootCol.Find(sel).All(&docs); err != nil {
 		return ShouldDoNothing, errors.Trace(err)
 	}

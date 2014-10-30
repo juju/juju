@@ -48,7 +48,6 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		args        []string
 		user        string
 		displayname string
-		password    string
 		outPath     string
 		generate    bool
 		errorString string
@@ -85,7 +84,6 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		if test.errorString == "" {
 			c.Check(addUserCmd.User, gc.Equals, test.user)
 			c.Check(addUserCmd.DisplayName, gc.Equals, test.displayname)
-			c.Check(addUserCmd.Password, gc.Equals, test.password)
 			c.Check(addUserCmd.OutPath, gc.Equals, test.outPath)
 			c.Check(addUserCmd.Generate, gc.Equals, test.generate)
 		} else {
@@ -93,19 +91,24 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 		}
 	}
 }
-func (s *UserAddCommandSuite) AssertJENVContents(c *gc.C, filename string) {
+
+func assertJENVContents(c *gc.C, filename, username, password string) {
 	raw, err := ioutil.ReadFile(filename)
 	c.Assert(err, gc.IsNil)
 	details := map[string]interface{}{}
 	err = goyaml.Unmarshal(raw, &details)
 	c.Assert(err, gc.IsNil)
-	c.Assert(details["user"], gc.Equals, s.mockAPI.username)
-	c.Assert(details["password"], gc.Equals, s.mockAPI.password)
+	c.Assert(details["user"], gc.Equals, username)
+	c.Assert(details["password"], gc.Equals, password)
 	c.Assert(details["state-servers"], gc.DeepEquals, []interface{}{"localhost:12345"})
 	c.Assert(details["ca-cert"], gc.DeepEquals, testing.CACert)
 	c.Assert(details["environ-uuid"], gc.Equals, "env-uuid")
 	_, found := details["bootstrap-config"]
 	c.Assert(found, jc.IsFalse)
+}
+
+func (s *UserAddCommandSuite) AssertJENVContents(c *gc.C, filename string) {
+	assertJENVContents(c, filename, s.mockAPI.username, s.mockAPI.password)
 }
 
 func (s *UserAddCommandSuite) TestAddUserJustUsername(c *gc.C) {

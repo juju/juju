@@ -12,6 +12,11 @@ func ExposeFacade(c *Client) base.FacadeCaller {
 	return c.facade
 }
 
+// SetHTTP sets the HTTP caller on the client.
+func SetHTTP(c *Client, http httpClient) {
+	c.http = http
+}
+
 // PatchClientFacadeCall changes the internal FacadeCaller to one that lets
 // you mock out the FacadeCall method. The function returned by
 // PatchClientFacadeCall is a cleanup function that returns the client to its

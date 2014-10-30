@@ -89,6 +89,10 @@ func (job MachineJob) String() string {
 	return string(job.ToParams())
 }
 
+// manualMachinePrefix signals as prefix of Nonce that a machine is
+// manually provisioned.
+const manualMachinePrefix = "manual:"
+
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in apiserver/params.
 type machineDoc struct {
@@ -271,7 +275,7 @@ func (m *Machine) IsManual() (bool, error) {
 	// Apart from the bootstrap machine, manually provisioned
 	// machines have a nonce prefixed with "manual:". This is
 	// unique to manual provisioning.
-	if strings.HasPrefix(m.doc.Nonce, "manual:") {
+	if strings.HasPrefix(m.doc.Nonce, manualMachinePrefix) {
 		return true, nil
 	}
 	// The bootstrap machine uses BootstrapNonce, so in that

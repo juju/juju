@@ -167,9 +167,9 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	# Remove all state machines but 0, to restore HA
 	mongoAdminEval '
 		db = db.getSiblingDB("juju")
-		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.update({machineid: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
-		db.machines.remove({_id: {$ne:"0"}, hasvote: true})
+		db.machines.remove({machineid: {$ne:"0"}, hasvote: true})
 		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
 		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
 	'
@@ -324,7 +324,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	// it go ahead anyway without the check.
 
 	args := bootstrap.BootstrapParams{Constraints: cons}
-	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
+	if err := bootstrap.Bootstrap(envcmd.BootstrapContextNoVerify(ctx), env, args); err != nil {
 		return nil, errors.Annotate(err, "cannot bootstrap new instance")
 	}
 	return env, nil

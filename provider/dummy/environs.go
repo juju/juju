@@ -967,16 +967,16 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	return
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error) {
+func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
-		return network.Address{}, err
+		return err
 	}
 
 	estate, err := env.state()
 	if err != nil {
-		return network.Address{}, err
+		return err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
@@ -985,17 +985,13 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (netwo
 	// and addresses, make sure we return a valid address
 	// for the given network, and we also have the network
 	// already registered.
-	newAddress := network.NewAddress(
-		fmt.Sprintf("0.1.2.%d", estate.maxAddr),
-		network.ScopeCloudLocal,
-	)
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
 		NetworkId:  netId,
-		Address:    newAddress,
+		Address:    addr,
 	}
-	return newAddress, nil
+	return nil
 }
 
 // ListNetworks implements environs.Environ.ListNetworks.
