@@ -7,12 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/rogpeppe/macaroon/bakery"
-	"gopkg.in/macaroon.v1"
+	"github.com/juju/macaroon"
+	"github.com/juju/macaroon/bakery"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/names"
 )
 
 type RemoteUser struct {

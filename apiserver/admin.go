@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/macaroon/bakery"
 	"github.com/juju/names"
-	"github.com/rogpeppe/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"

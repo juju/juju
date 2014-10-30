@@ -4,7 +4,7 @@
 package apiserver
 
 import (
-	"github.com/rogpeppe/macaroon/bakery"
+	"github.com/juju/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -18,7 +18,6 @@ type adminApiV1 struct {
 // methods that are needed to log in.
 type adminV1 struct {
 	*admin
-	*bakery.Service
 }
 
 func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
@@ -29,9 +28,6 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 				root:        root,
 				reqNotifier: reqNotifier,
 			},
-			Service: bakery.NewService(bakery.NewServiceParams{
-				Location: srv.getEnvironUUID(),
-			}),
 		},
 	}
 }
@@ -53,10 +49,17 @@ func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
 
 	info, err := a.srv.state.StateServingInfo()
 	if err != nil {
-		logger.Errorf("Admin Login (v1): %v", err)
 		return fail, err
-	} else if info.IdentityProvider != nil {
-		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, a.Service))
+	} else if info.TargetKeyPair != nil && info.IdentityProvider != nil {
+		bakerySrv, err := bakery.NewService(bakery.NewServiceParams{
+			Location: a.srv.getEnvironUUID(),
+			Key:      info.TargetKeyPair,
+			Locator:  info.NewTargetLocator(),
+		})
+		if err != nil {
+			return fail, err
+		}
+		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, bakerySrv))
 	}
 
 	return a.doLogin(req, newLocalCredentialChecker(a.srv.state))

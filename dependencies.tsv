@@ -35,3 +35,4 @@ launchpad.net/gomaasapi	bzr	raphael.badin@canonical.com-20141030154602-5noqak0jf
 launchpad.net/goose	bzr	tarmac-20140908075634-5iinsru19k3d8w55	128
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20141001010733-pu1w53wfrivt0mb5	238
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
+github.com/juju/macaroon	git	b6959645eb05e87909acaab1a0cb03c1d9943a7d	

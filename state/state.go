@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/macaroon/bakery"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
@@ -128,6 +129,7 @@ type StateServingInfo struct {
 	SharedSecret   string
 	SystemIdentity string
 
+	TargetKeyPair    *bakery.KeyPair   `bson:"target-key-pair"`
 	IdentityProvider *IdentityProvider `bson:"identity-provider"`
 }
 
@@ -138,8 +140,16 @@ const IdentityProviderKeySize = 32
 // IdentityProvider holds information about a remote identity provider
 // that the Juju server trusts to make inbound API connections.
 type IdentityProvider struct {
-	PublicKey *[IdentityProviderKeySize]byte `bson:"public-key"`
-	Location  string                         `bson:"location"`
+	PublicKey *bakery.PublicKey `bson:"public-key"`
+	Location  string            `bson:"location"`
+}
+
+func (info *StateServingInfo) NewTargetLocator() bakery.PublicKeyLocator {
+	m := make(bakery.PublicKeyLocatorMap)
+	if info.IdentityProvider != nil {
+		m[info.IdentityProvider.Location] = info.IdentityProvider.PublicKey
+	}
+	return m
 }
 
 // ForEnviron returns a connection to mongo for the specified environment. The
