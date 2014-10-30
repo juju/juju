@@ -67,7 +67,7 @@ func (t *Tests) SetUpTest(c *gc.C) {
 	storageDir := c.MkDir()
 	t.DefaultBaseURL = "file://" + storageDir + "/tools"
 	t.ToolsFixture.SetUpTest(c)
-	t.UploadFakeToolsToDirectory(c, storageDir, "released")
+	t.UploadFakeToolsToDirectory(c, storageDir, "released", "released")
 	t.ConfigStore = configstore.NewMem()
 }
 

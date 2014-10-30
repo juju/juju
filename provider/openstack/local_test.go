@@ -207,7 +207,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	// Put some fake metadata in place so that tests that are simply
 	// starting instances without any need to check if those instances
 	// are running can find the metadata.
-	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream())
+	envtesting.UploadFakeTools(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
 	s.imageMetadataStorage = openstack.ImageMetadataStorage(s.env)
 	openstack.UseTestImageData(s.imageMetadataStorage, s.cred)
 }
@@ -339,7 +339,8 @@ func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	amd64Version.Arch = arch.AMD64
 	for _, series := range version.SupportedSeries() {
 		amd64Version.Series = series
-		envtesting.AssertUploadFakeToolsVersions(c, s.toolsMetadataStorage, s.env.Config().AgentStream(), amd64Version)
+		envtesting.AssertUploadFakeToolsVersions(
+			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 	}
 
 	env := s.Prepare(c)
@@ -1110,7 +1111,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	url, err := metadataStorage.URL("")
 	c.Assert(err, gc.IsNil)
 	c.Logf("Generating fake tools for: %v", url)
-	envtesting.UploadFakeTools(c, metadataStorage, s.env.Config().AgentStream())
+	envtesting.UploadFakeTools(c, metadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream())
 	defer envtesting.RemoveFakeTools(c, metadataStorage, s.env.Config().AgentStream())
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
