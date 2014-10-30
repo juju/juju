@@ -60,8 +60,8 @@ Furthermore, the bulk of the backup-related code, which does not need
 direct interaction with State, lives in the state/backups package.
 */
 
-// BackupMetaDoc is a mirror of metadata.Metadata, used just for DB storage.
-type BackupMetaDoc struct {
+// backupMetaDoc is a mirror of metadata.Metadata, used just for DB storage.
+type backupMetaDoc struct {
 	ID string `bson:"_id"`
 
 	// blob storage
@@ -85,7 +85,7 @@ type BackupMetaDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
-func (doc *BackupMetaDoc) fileSet() bool {
+func (doc *backupMetaDoc) fileSet() bool {
 	if doc.Finished == 0 {
 		return false
 	}
@@ -101,7 +101,7 @@ func (doc *BackupMetaDoc) fileSet() bool {
 	return true
 }
 
-func (doc *BackupMetaDoc) validate() error {
+func (doc *backupMetaDoc) validate() error {
 	if doc.ID == "" {
 		return errors.New("missing ID")
 	}
@@ -145,8 +145,8 @@ func (doc *BackupMetaDoc) validate() error {
 	return nil
 }
 
-// asMetadata returns a new metadata.Metadata based on the BackupMetaDoc.
-func (doc *BackupMetaDoc) asMetadata() *metadata.Metadata {
+// asMetadata returns a new metadata.Metadata based on the backupMetaDoc.
+func (doc *backupMetaDoc) asMetadata() *metadata.Metadata {
 	meta := metadata.Metadata{
 		Started: time.Unix(doc.Started, 0).UTC(),
 		Notes:   doc.Notes,
@@ -180,8 +180,8 @@ func (doc *BackupMetaDoc) asMetadata() *metadata.Metadata {
 }
 
 // UpdateFromMetadata copies the corresponding data from the backup
-// Metadata into the BackupMetaDoc.
-func (doc *BackupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
+// Metadata into the backupMetaDoc.
+func (doc *backupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
 	// Ignore metadata.ID.
 
 	doc.Checksum = meta.Checksum()
@@ -306,8 +306,8 @@ func (b *BackupDBWrapper) Close() error {
 // getBackupMetadata returns the backup metadata associated with "id".
 // If "id" does not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func getBackupMetadata(backupDB *BackupDBWrapper, id string) (*BackupMetaDoc, error) {
-	var doc BackupMetaDoc
+func getBackupMetadata(backupDB *BackupDBWrapper, id string) (*backupMetaDoc, error) {
+	var doc backupMetaDoc
 	// There can only be one!
 	err := backupDB.Metadata(id, &doc)
 	if errors.IsNotFound(err) {
@@ -328,7 +328,7 @@ func getBackupMetadata(backupDB *BackupDBWrapper, id string) (*BackupMetaDoc, er
 // consumable (in contrast to a plain UUID string).  Ideally we would
 // use some form of environment name rather than the UUID, but for now
 // the raw env ID is sufficient.
-func newBackupID(doc *BackupMetaDoc) string {
+func newBackupID(doc *backupMetaDoc) string {
 	rawts := time.Unix(doc.Started, 0).UTC()
 	Y, M, D := rawts.Date()
 	h, m, s := rawts.Clock()
@@ -341,14 +341,14 @@ func newBackupID(doc *BackupMetaDoc) string {
 // accessed later.  It returns a new ID that is associated with the
 // backup.  If the provided metadata already has an ID set, it is
 // ignored.
-func addBackupMetadata(backupDB *BackupDBWrapper, doc *BackupMetaDoc) (string, error) {
+func addBackupMetadata(backupDB *BackupDBWrapper, doc *backupMetaDoc) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
 	id := newBackupID(doc)
 	return id, addBackupMetadataID(backupDB, doc, id)
 }
 
-func addBackupMetadataID(backupDB *BackupDBWrapper, doc *BackupMetaDoc, id string) error {
+func addBackupMetadataID(backupDB *BackupDBWrapper, doc *backupMetaDoc, id string) error {
 	doc.ID = id
 	if err := doc.validate(); err != nil {
 		return errors.Trace(err)
@@ -434,7 +434,7 @@ func newBackupMetadataStorage(backupDB *BackupDBWrapper) *backupsMetadataStorage
 }
 
 func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
-	var metaDoc BackupMetaDoc
+	var metaDoc backupMetaDoc
 	metadata, ok := doc.(*metadata.Metadata)
 	if !ok {
 		return "", errors.Errorf("doc must be of type *metadata.Metadata")
@@ -465,7 +465,7 @@ func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 	backupDB := s.backupDB.Copy()
 	defer backupDB.Close()
 
-	var docs []BackupMetaDoc
+	var docs []backupMetaDoc
 	if err := backupDB.AllMetadata(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}

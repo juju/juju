@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -19,23 +20,66 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/state/backups/metadata"
 )
 
 const BackupsMetaC = backupsMetaC
 
 var (
-	NewBackupID         = newBackupID
-	GetBackupMetadata   = getBackupMetadata
-	AddBackupMetadata   = addBackupMetadata
-	AddBackupMetadataID = addBackupMetadataID
-	SetBackupStored     = setBackupStored
-
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
+
+func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
+	var doc backupMetaDoc
+	doc.UpdateFromMetadata(meta)
+	return &doc
+}
+
+func newBackupDBWrapper(st *State) *BackupDBWrapper {
+	envUUID := st.EnvironTag().Id()
+	db := st.db.Session.DB(BackupDB)
+	return NewBackupDBWrapper(db, BackupsMetaC, envUUID)
+}
+
+func NewBackupID(meta *metadata.Metadata) string {
+	doc := newBackupDoc(meta)
+	return newBackupID(doc)
+}
+
+func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
+	db := newBackupDBWrapper(st)
+	defer db.Close()
+	doc, err := getBackupMetadata(db, id)
+	if err != nil {
+		return nil, err
+	}
+	return doc.asMetadata(), nil
+}
+
+func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
+	db := newBackupDBWrapper(st)
+	defer db.Close()
+	doc := newBackupDoc(meta)
+	return addBackupMetadata(db, doc)
+}
+
+func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
+	db := newBackupDBWrapper(st)
+	defer db.Close()
+	doc := newBackupDoc(meta)
+	return addBackupMetadataID(db, doc, id)
+}
+
+func SetBackupStored(st *State, id string, stored time.Time) error {
+	db := newBackupDBWrapper(st)
+	defer db.Close()
+	return setBackupStored(db, id, stored)
+}
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
