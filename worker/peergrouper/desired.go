@@ -257,8 +257,9 @@ func (l byId) Less(i, j int) bool { return l[i].id < l[j].id }
 func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member, extra []replicaset.Member, maxId int) {
 	maxId = -1
 	members = make(map[*machine]*replicaset.Member)
-	for _, member := range info.members {
-		member := member
+	for key, _ := range info.members {
+		// key is used instead of value to have a loop scoped member value
+		member := info.members[key]
 		mid, ok := member.Tags[jujuMachineKey]
 		var found *machine
 		if ok {
