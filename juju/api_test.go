@@ -62,7 +62,7 @@ func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 func (cs *NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env, err := environs.Prepare(cfg, ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 
@@ -128,7 +128,7 @@ func (s *NewAPIClientSuite) bootstrapEnv(c *gc.C, envName string, store configst
 	if store == nil {
 		store = configstore.NewMem()
 	}
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	c.Logf("env name: %s", envName)
 	env, err := environs.PrepareFromName(envName, ctx, store)
 	c.Assert(err, gc.IsNil)

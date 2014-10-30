@@ -99,9 +99,6 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 	for i, test := range syncToolsCommandTests {
 		c.Logf("test %d: %s", i, test.description)
 		called := false
-		if test.sctx.Stream == "" {
-			test.sctx.Stream = "released"
-		}
 		syncTools = func(sctx *sync.SyncContext) error {
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
 			c.Assert(sctx.MajorVersion, gc.Equals, test.sctx.MajorVersion)
@@ -193,7 +190,7 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
 	}
 	// Run sync-tools command with --destination flag.
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir, "--stream", "released")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
