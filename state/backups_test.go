@@ -18,8 +18,8 @@ import (
 type backupSuite struct {
 	ConnSuite
 	session   *mgo.Session
-	backupDB  *state.BackupDB
-	backupDBs []*state.BackupDB
+	backupDB  *state.BackupDBWrapper
+	backupDBs []*state.BackupDBWrapper
 }
 
 var _ = gc.Suite(&backupSuite{})
@@ -28,8 +28,8 @@ func (s *backupSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	s.session = s.ConnSuite.MgoSuite.Session.Copy()
-	s.backupDBs = []*state.BackupDB{}
-	s.backupDB = s.newBackupDB()
+	s.backupDBs = []*state.BackupDBWrapper{}
+	s.backupDB = s.newBackupDBWrapper()
 }
 
 func (s *backupSuite) TearDownTest(c *gc.C) {
@@ -40,13 +40,13 @@ func (s *backupSuite) TearDownTest(c *gc.C) {
 	s.ConnSuite.TearDownTest(c)
 }
 
-func (s *backupSuite) newBackupDB() *state.BackupDB {
+func (s *backupSuite) newBackupDBWrapper() *state.BackupDBWrapper {
 	envUUID := s.State.EnvironTag().Id()
 
-	var backupDB *state.BackupDB
+	var backupDB *state.BackupDBWrapper
 	if len(s.backupDBs) == 0 {
 		db := s.session.DB(state.BACKUP_DB)
-		backupDB = state.NewBackupDB(db, state.BackupsMetaC, envUUID)
+		backupDB = state.NewBackupDBWrapper(db, state.BackupsMetaC, envUUID)
 	} else {
 		backupDB = s.backupDBs[0].Copy()
 	}
