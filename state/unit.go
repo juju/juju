@@ -81,9 +81,10 @@ type unitDoc struct {
 	PasswordHash string
 
 	// No longer used - to be removed.
-	Ports          []network.Port
-	PublicAddress  string
-	PrivateAddress string
+	Ports           []network.Port
+	PublicAddress   string
+	PrivateAddress  string
+	CharmURLSetTime time.Time `bson:"charmurlsettime"`
 }
 
 // Unit represents the state of a service unit.
@@ -110,6 +111,24 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
 	return u.st.Service(u.doc.Service)
+}
+
+func (u *Unit) setCharmURLSetTime(t time.Time) error {
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"charmurlsettime", t}}}},
+	}}
+	if err := u.st.runTransaction(ops); err != nil {
+		return onAbort(err, ErrDead)
+	}
+	u.doc.CharmURLSetTime = t
+	return nil
+}
+
+func (u *Unit) CharmURLSetTime() time.Time {
+	return u.doc.CharmURLSetTime
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -888,7 +907,12 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 		}
 		return ops, nil
 	}
-	return u.st.run(buildTxn)
+	err = u.st.run(buildTxn)
+	if err != nil {
+		return err
+	}
+	u.setCharmURLSetTime(time.Now())
+	return nil
 }
 
 // AgentPresence returns whether the respective remote agent is alive.

@@ -24,6 +24,7 @@ type Client struct {
 type MetricsManagerClient interface {
 	CleanupOldMetrics() error
 	SendMetrics() error
+	AddBuiltinMetrics() error
 }
 
 var _ MetricsManagerClient = (*Client)(nil)
@@ -63,6 +64,23 @@ func (c *Client) SendMetrics() error {
 	}}
 	results := new(params.ErrorResults)
 	err = c.facade.FacadeCall("SendMetrics", p, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// AddBuiltinMetrics adds builtin metrics to state
+func (c *Client) AddBuiltinMetrics() error {
+	envTag, err := c.st.EnvironTag()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p := params.Entities{Entities: []params.Entity{
+		{envTag.String()},
+	}}
+	results := new(params.ErrorResults)
+	err = c.facade.FacadeCall("AddBuiltinMetrics", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}

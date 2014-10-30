@@ -13,48 +13,30 @@ import (
 	"github.com/juju/juju/worker/metricworker"
 )
 
-type SenderSuite struct {
+type BuiltinSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&SenderSuite{})
+var _ = gc.Suite(&BuiltinSuite{})
 
-func (s *SenderSuite) SetUpTest(c *gc.C) {
+func (s *BuiltinSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 }
 
 // TestSend create 2 metrics, one sent and one not sent.
 // It confirms that one metric is sent.
-func (s *SenderSuite) TestSender(c *gc.C) {
+func (s *BuiltinSuite) TestBuiltin(c *gc.C) {
 	notify := make(chan struct{})
 	cleanup := metricworker.PatchNotificationChannel(notify)
 	defer cleanup()
 	client := &mockClient{}
-	worker := metricworker.NewSender(client)
+	worker := metricworker.NewBuiltin(client)
 	select {
 	case <-notify:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("the sender function should have fired by now")
+		c.Fatalf("the builtin worker function should have fired by now")
 	}
-	c.Assert(client.calls, gc.DeepEquals, []string{"SendMetrics"})
+	c.Assert(client.calls, gc.DeepEquals, []string{"AddBuiltinMetrics"})
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
-}
-
-type mockClient struct {
-	calls []string
-}
-
-func (m *mockClient) CleanupOldMetrics() error {
-	m.calls = append(m.calls, "CleanupOldMetrics")
-	return nil
-}
-func (m *mockClient) SendMetrics() error {
-	m.calls = append(m.calls, "SendMetrics")
-	return nil
-}
-
-func (m *mockClient) AddBuiltinMetrics() error {
-	m.calls = append(m.calls, "AddBuiltinMetrics")
-	return nil
 }

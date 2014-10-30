@@ -154,3 +154,44 @@ func (s *metricsManagerSuite) TestSendArgsIndependent(c *gc.C) {
 	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
 }
+
+func (s *metricsManagerSuite) TestAddBuiltinMetricsAPI(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{s.State.EnvironTag().String()},
+	}}
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	result, err := s.metricsmanager.AddBuiltinMetrics(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+	count, err := s.State.CountofUnsentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 1)
+}
+
+func (s *metricsManagerSuite) TestAddBuiltinArgsIndependent(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{"invalid"},
+		{s.State.EnvironTag().String()},
+	}}
+	result, err := s.metricsmanager.AddBuiltinMetrics(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 2)
+	expectedError := common.ServerError(common.ErrPerm)
+	c.Assert(result.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+	c.Assert(result.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
+}
+
+func (s *metricsManagerSuite) TestAddBuiltinMetrics(c *gc.C) {
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	mb, err := metricsmanager.AddBuiltinMetrics(s.metricsmanager)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mb, gc.HasLen, 1)
+	count, err := s.State.CountofUnsentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 1)
+}

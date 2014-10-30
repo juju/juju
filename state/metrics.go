@@ -5,6 +5,7 @@ package state
 
 import (
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -276,4 +277,70 @@ func (st *State) SetMetricBatchesSent(metrics []*MetricBatch) error {
 		m.doc.Sent = true
 	}
 	return nil
+}
+
+// CharmsRequiringMetric returns a list of charm URLS whose charm makes use of the metric
+func (st *State) CharmsRequiringMetric(metric string) ([]*charm.URL, error) {
+	coll, closer := st.getCollection(charmsC)
+	defer closer()
+	doc := charmDoc{}
+	charms := []*charm.URL{}
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		c := &Charm{st: st, doc: doc}
+		m := c.Metrics()
+		if m != nil {
+			if _, ok := m.Metrics[metric]; ok {
+				charms = append(charms, c.URL())
+			}
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	return charms, nil
+}
+
+type BulkMetrics struct {
+	M map[charm.URL]map[string]int
+	// TODO (mattyw) Let's make this struct a little more generic
+}
+
+func (st *State) CharmCreatedTimes(now time.Time, urls []*charm.URL) (*BulkMetrics, error) {
+	coll, closer := st.getCollection(unitsC)
+	defer closer()
+	times := BulkMetrics{map[charm.URL]map[string]int{}}
+
+	for _, url := range urls {
+		ct := map[string]int{}
+		doc := struct {
+			CharmURLSetTime time.Time `bson:"charmurlsettime"`
+			Unit            string    `bson:"name"`
+		}{}
+		iter := coll.Find(bson.M{"charmurl": url}).Iter()
+		for iter.Next(&doc) {
+			ct[doc.Unit] = int(now.Sub(doc.CharmURLSetTime).Seconds())
+		}
+		if err := iter.Close(); err != nil {
+			return nil, err
+		}
+		times.M[*url] = ct
+	}
+	return &times, nil
+}
+
+func (st *State) AddBulkMetrics(metrics *BulkMetrics) ([]*MetricBatch, error) {
+	batches := []*MetricBatch{}
+	now := time.Now()
+	for charmURL, units := range metrics.M {
+		for unitName, ct := range units {
+			unitTag := names.NewUnitTag(unitName)
+			b, err := st.addMetrics(unitTag, &charmURL, now, []Metric{{Key: "juju-unit-time", Value: strconv.Itoa(ct), Time: now}})
+			if err != nil {
+				return nil, err
+			}
+			batches = append(batches, b)
+		}
+	}
+	return batches, nil
 }

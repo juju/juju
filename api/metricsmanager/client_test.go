@@ -69,3 +69,18 @@ func (s *metricsManagerSuite) TestSendMetricsFails(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(called, jc.IsTrue)
 }
+
+func (s *metricsManagerSuite) TestAddBuiltinMetrics(c *gc.C) {
+	var called bool
+	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
+		called = true
+		c.Assert(request, gc.Equals, "AddBuiltinMetrics")
+		result := response.(*params.ErrorResults)
+		result.Results = make([]params.ErrorResult, 1)
+		result.Results[0].Error = common.ServerError(common.ErrPerm)
+		return result.OneError()
+	})
+	err := s.manager.AddBuiltinMetrics()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(called, jc.IsTrue)
+}

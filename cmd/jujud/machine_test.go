@@ -208,7 +208,8 @@ const initialMachinePassword = "machine-password-1234567890"
 func (s *MachineSuite) NewMockMetricAPI() *mockMetricAPI {
 	cleanup := make(chan struct{})
 	sender := make(chan struct{})
-	return &mockMetricAPI{cleanup, sender}
+	addbuiltin := make(chan struct{})
+	return &mockMetricAPI{cleanup, sender, addbuiltin}
 }
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
@@ -439,6 +440,11 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for metric sender API to be called")
 	case <-s.metricAPI.SendCalled():
+	}
+	select {
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for metric sender API to be called")
+	case <-s.metricAPI.AddBuiltinMetricsCalled():
 	}
 
 	err = a.Stop()
@@ -1369,8 +1375,9 @@ func newDummyWorker() worker.Worker {
 }
 
 type mockMetricAPI struct {
-	cleanUpCalled chan struct{}
-	sendCalled    chan struct{}
+	cleanUpCalled    chan struct{}
+	sendCalled       chan struct{}
+	addbuiltinCalled chan struct{}
 }
 
 func (m *mockMetricAPI) CleanupOldMetrics() error {
@@ -1386,10 +1393,20 @@ func (m *mockMetricAPI) SendMetrics() error {
 	return nil
 }
 
+func (m *mockMetricAPI) AddBuiltinMetrics() error {
+	go func() {
+		m.addbuiltinCalled <- struct{}{}
+	}()
+	return nil
+}
+
 func (m *mockMetricAPI) SendCalled() <-chan struct{} {
 	return m.sendCalled
 }
 
 func (m *mockMetricAPI) CleanupCalled() <-chan struct{} {
 	return m.cleanUpCalled
+}
+func (m *mockMetricAPI) AddBuiltinMetricsCalled() <-chan struct{} {
+	return m.addbuiltinCalled
 }

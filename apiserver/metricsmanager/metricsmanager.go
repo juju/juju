@@ -6,6 +6,8 @@
 package metricsmanager
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -31,6 +33,7 @@ func init() {
 type MetricsManager interface {
 	CleanupOldMetrics(arg params.Entities) (params.ErrorResults, error)
 	SendMetrics(args params.Entities) (params.ErrorResults, error)
+	AddBuiltinMetrics(args params.Entities) (params.ErrorResults, error)
 }
 
 // MetricsManagerAPI implements the metrics manager interface and is the concrete
@@ -129,6 +132,48 @@ func (api *MetricsManagerAPI) SendMetrics(args params.Entities) (params.ErrorRes
 		err = metricsender.SendMetrics(api.state, sender, maxBatchesPerSend)
 		if err != nil {
 			err = errors.Annotate(err, "failed to send metrics")
+			result.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return result, nil
+}
+
+func (api *MetricsManagerAPI) addBuiltinMetrics() ([]*state.MetricBatch, error) {
+	urls, err := api.state.CharmsRequiringMetric("juju-unit-time")
+	if err != nil {
+		return nil, err
+	}
+	bm, err := api.state.CharmCreatedTimes(time.Now(), urls)
+	if err != nil {
+		return nil, err
+	}
+	return api.state.AddBulkMetrics(bm)
+}
+
+func (api *MetricsManagerAPI) AddBuiltinMetrics(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := api.accessEnviron()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Entities {
+		tag, err := names.ParseEnvironTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		_, err = api.addBuiltinMetrics()
+		if err != nil {
+			err = errors.Annotate(err, "failed to add builtin metrics")
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -219,4 +220,60 @@ func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
 	result, err := s.State.MetricsToSend(2)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.HasLen, 0)
+}
+
+// TestUnitsRequiringMetric checks that the correct number of units are returned by the call
+func (s *MetricSuite) TestUnitsRequiringMetric(c *gc.C) {
+	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	//TODO (mattyw) Would be useful to be able to create a unit directly from a charm in the factory
+	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	charms, err := s.State.CharmsRequiringMetric("pings")
+	c.Assert(err, gc.IsNil)
+	c.Assert(charms, gc.HasLen, 1)
+	c.Assert(charms[0].String(), gc.Equals, "cs:quantal/metered")
+}
+
+func (s *MetricSuite) TestCharmCreatedTime(c *gc.C) {
+	t0 := time.Now().Add(3 * time.Second)
+	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	meteredUnit := s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	charms, err := s.State.CharmsRequiringMetric("pings")
+	c.Assert(err, gc.IsNil)
+	times, err := s.State.CharmCreatedTimes(t0, charms)
+	c.Assert(err, gc.IsNil)
+	c.Assert(times.M, gc.HasLen, 1)
+	unitTime := times.M[*meteredCharm.URL()][meteredUnit.Name()]
+	c.Assert(unitTime > 1, jc.IsTrue)
+	c.Assert(unitTime < 3, jc.IsTrue)
+}
+
+func (s *MetricSuite) TestAddBulkMetrics(c *gc.C) {
+	meteredUnit0 := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	meteredUnit1 := s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	url0, _ := meteredUnit0.CharmURL()
+	url1, _ := meteredUnit1.CharmURL()
+	ct0 := map[string]int{
+		meteredUnit0.Name(): 1,
+	}
+	ct1 := map[string]int{
+		meteredUnit1.Name(): 1,
+	}
+	bulkMetrics := state.BulkMetrics{
+		map[charm.URL]map[string]int{
+			*url0: ct0, *url1: ct1,
+		},
+	}
+	mb, err := s.State.AddBulkMetrics(&bulkMetrics)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mb, gc.HasLen, 2)
+	count, err := s.State.CountofUnsentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 2)
+	// TODO (mattyw) Can we add more checks for the metrics contents please
 }

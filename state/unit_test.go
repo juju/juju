@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -889,6 +890,18 @@ func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
+}
+
+func (s *UnitSuite) TestCharmURLSetTime(c *gc.C) {
+	t0 := time.Now()
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
+	t1 := time.Now()
+	err = s.unit.Refresh()
+	c.Assert(err, gc.IsNil)
+	charmUrlSetTime := s.unit.CharmURLSetTime()
+	c.Assert(charmUrlSetTime.After(t0), jc.IsTrue)
+	c.Assert(charmUrlSetTime.Before(t1), jc.IsTrue)
 }
 
 func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
