@@ -4,9 +4,12 @@
 package context_test
 
 import (
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/apiserver/params"
@@ -18,6 +21,7 @@ type FactorySuite struct {
 	HookContextSuite
 	factory    context.Factory
 	membership map[int][]string
+	charm      charm.Charm
 }
 
 var _ = gc.Suite(&FactorySuite{})
@@ -37,6 +41,13 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 				}
 			}
 			return info
+		},
+		func() (charm.Charm, error) {
+			if s.charm != nil {
+				return s.charm, nil
+			} else {
+				return s.relch, nil
+			}
 		},
 	)
 	c.Assert(err, gc.IsNil)
@@ -298,4 +309,26 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 	c.Assert(ctx.ActionData(), jc.DeepEquals, context.NewActionData(
 		&tag, params,
 	))
+}
+
+func (s *FactorySuite) TestNewHookContextMetricsDisabled(c *gc.C) {
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
+	c.Assert(err, gc.IsNil)
+	err = ctx.AddMetrics("key", "value", time.Now())
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+
+	s.charm = nil
+	ctx, err = s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
+	c.Assert(err, gc.IsNil)
+	err = ctx.AddMetrics("key", "value", time.Now())
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+}
+
+func (s *FactorySuite) TestNewHookContextMetricsEnabled(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "metered")
+
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
+	c.Assert(err, gc.IsNil)
+	err = ctx.AddMetrics("pings", "0.5", time.Now())
+	c.Assert(err, gc.IsNil)
 }

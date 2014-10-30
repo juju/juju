@@ -205,9 +205,9 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 }
 
 func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
-	added := s.AddTestingCharm(c, "metered-custom")
+	added := s.AddTestingCharm(c, "metered")
 	c.Assert(added.Metrics(), gc.NotNil)
 
-	chd := charmtesting.Charms.CharmDir("metered-custom")
+	chd := charmtesting.Charms.CharmDir("metered")
 	c.Assert(chd.Metrics(), gc.DeepEquals, added.Metrics())
 }
