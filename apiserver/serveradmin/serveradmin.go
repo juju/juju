@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/loggo"
+	"github.com/juju/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -101,6 +102,12 @@ func (api *ServerAdminAPI) SetIdentityProvider(args params.SetIdentityProvider) 
 		info.IdentityProvider = nil
 	} else {
 		info.IdentityProvider, err = newIdentityProviderState(args.IdentityProvider)
+		if err != nil {
+			return err
+		}
+	}
+	if info.TargetKeyPair == nil {
+		info.TargetKeyPair, err = bakery.GenerateKey()
 		if err != nil {
 			return err
 		}
