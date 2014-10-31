@@ -1,3 +1,6 @@
+// Copyright 2012-2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for infos.
+
 package server
 
 import (
@@ -5,6 +8,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/serveradmin"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 )
 
@@ -40,6 +44,7 @@ func NewSuperCommand() cmd.Command {
 // ServerCommandBase defines some common functionality for all server commands.
 type ServerCommandBase struct {
 	envcmd.EnvCommandBase
+	api ServerAdminAPI
 }
 
 // NewServerAdminClient returns a serveradmin client for the root api endpoint
@@ -50,4 +55,11 @@ func (c *ServerCommandBase) NewServerAdminClient() (*serveradmin.Client, error) 
 		return nil, err
 	}
 	return serveradmin.NewClient(root), nil
+}
+
+// ServerAdminAPI defines the serveradmin API methods used by the server commands.
+type ServerAdminAPI interface {
+	IdentityProvider() (*params.IdentityProviderInfo, error)
+	SetIdentityProvider(publicKey, location string) error
+	Close() error
 }

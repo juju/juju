@@ -7,8 +7,6 @@ import (
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/apiserver/params"
 )
 
 const serverTrustCommandDoc = `
@@ -75,24 +73,20 @@ func (c *TrustCommand) Init(args []string) error {
 	return nil
 }
 
-// TrustServerAPI defines the serveradmin API methods that the trust command uses.
-type TrustServerAPI interface {
-	IdentityProvider() (*params.IdentityProviderInfo, error)
-	SetIdentityProvider(publicKey, location string) error
-	Close() error
-}
-
-func (c *TrustCommand) getTrustServerAPI() (TrustServerAPI, error) {
+func (c *TrustCommand) getServerAdminAPI() (ServerAdminAPI, error) {
+	if c.api != nil {
+		return c.api, nil
+	}
 	return c.NewServerAdminClient()
 }
 
 var (
-	getTrustServerAPI = (*TrustCommand).getTrustServerAPI
+	getServerTrustAPI = (*TrustCommand).getServerAdminAPI
 )
 
 // Run implements Command.Run.
 func (c *TrustCommand) Run(ctx *cmd.Context) error {
-	client, err := getTrustServerAPI(c)
+	client, err := getServerTrustAPI(c)
 	if err != nil {
 		return err
 	}
