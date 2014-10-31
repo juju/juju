@@ -29,7 +29,7 @@ func NewClient(st base.APICallCloser) *Client {
 // nil.
 func (c *Client) IdentityProvider() (*params.IdentityProviderInfo, error) {
 	var result params.IdentityProviderResult
-	err := c.facade.FacadeCall("SetIdentityProvider", nil, &result)
+	err := c.facade.FacadeCall("IdentityProvider", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

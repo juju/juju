@@ -22,7 +22,7 @@ func init() {
 	common.RegisterStandardFacade("ServerAdmin", 0, NewServerAdminAPI)
 }
 
-// ServerAdmin defines the methods on the usermanager API end point.
+// ServerAdmin defines the methods on the serveradmin API end point.
 type ServerAdmin interface {
 	IdentityProvider() (params.IdentityProviderResult, error)
 	SetIdentityProvider(args params.SetIdentityProvider) error
