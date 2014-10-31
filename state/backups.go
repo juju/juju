@@ -240,7 +240,7 @@ func newBackupDBWrapper(db *mgo.Database, metaColl, envUUID string) *backupDBWra
 func (b *backupDBWrapper) metadata(id string, doc interface{}) error {
 	err := b.metaColl.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("metadata %q", id)
+		return errors.NotFoundf("backup metadata %q", id)
 	}
 	return errors.Trace(err)
 }
@@ -360,7 +360,7 @@ func addBackupMetadataID(dbWrap *backupDBWrapper, doc *backupMetaDoc, id string)
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
-			return errors.AlreadyExistsf("metadata %q", doc.ID)
+			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
 		return errors.Annotate(err, "while running transaction")
 	}
@@ -381,7 +381,7 @@ func setBackupStored(dbWrap *backupDBWrapper, id string, stored time.Time) error
 
 	if err := dbWrap.runTransaction([]txn.Op{op}); err != nil {
 		if errors.Cause(err) == txn.ErrAborted {
-			return errors.NotFoundf("metadata %q", id)
+			return errors.NotFoundf("backup metadata %q", id)
 		}
 		return errors.Annotate(err, "while running transaction")
 	}
