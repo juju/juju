@@ -317,17 +317,10 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 }
 
 func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
-	urlConstruct := "%v%v%v"
+	//URL protocol is irrelelvant as we are only interested in it as string
+	urlConstruct := "http://%v%v"
 	// This value is currently hard-coded in export_test and is called on by this test setup. @see export_test.go MockAddressForInterface()
 	expectedBridge := "127.0.0.1"
-	proxyAttrs := map[string]string{
-		"http-proxy":      "http://",
-		"https-proxy":     "https://",
-		"ftp-proxy":       "ftp://",
-		"apt-http-proxy":  "http://",
-		"apt-https-proxy": "https://",
-		"apt-ftp-proxy":   "ftp://",
-	}
 
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
@@ -337,73 +330,83 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 	provider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
 
-	for i, test := range []struct {
-		message      string
-		url          string
-		port         string
-		expectChange bool
-	}{{
-		message:      "replace localhost with bridge ip in proxy url",
-		url:          "localhost",
-		port:         "",
-		expectChange: true,
-	}, {
-		message:      "replace localhost:port with bridge ip:port in proxy url",
-		url:          "localhost",
-		port:         ":8877",
-		expectChange: true,
-	}, {
-		message:      "replace 127.2.0.1 with bridge ip in proxy url",
-		url:          "127.2.0.1",
-		port:         "",
-		expectChange: true,
-	}, {
-		message:      "replace 127.2.0.1:port with bridge ip:port in proxy url",
-		url:          "127.2.0.1",
-		port:         ":8877",
-		expectChange: true,
-	}, {
-		message:      "replace [::1]:port with bridge ip:port in proxy url",
-		url:          "[::1]",
-		port:         ":8877",
-		expectChange: true,
-	}, {
-		message:      "replace ::1 with bridge ip in proxy url",
-		url:          "::1",
-		port:         "",
-		expectChange: true,
-	}, {
-		message:      "do not replace provided with bridge ip in proxy url",
-		url:          "www.google.com",
-		port:         "",
-		expectChange: false,
-	}, {
-		message:      "do not replace provided:port with bridge ip:port in proxy url",
-		url:          "www.google.com",
-		port:         ":8877",
-		expectChange: false,
-	},
-	} {
+	for i, test := range urlReplacementTests {
 		c.Logf("test %d: %v\n", i, test.message)
 
+		//construct proxy env attributes based on the test scenario
 		proxyAttrValues := map[string]interface{}{}
-		for anAttrKey, anAttrVal := range proxyAttrs {
-			proxyAttrValues[anAttrKey] = fmt.Sprintf(urlConstruct, anAttrVal, test.url, test.port)
+		for _, anAttrKey := range config.ProxyAttributes {
+			proxyAttrValues[anAttrKey] = fmt.Sprintf(urlConstruct, test.url, test.port)
 		}
 
+		//Update env config to include new attributes
 		cfg, err := basecfg.Apply(proxyAttrValues)
 		c.Assert(err, gc.IsNil)
+		//this call should replace all loopback urls with bridge ip
 		env, err := provider.Prepare(coretesting.Context(c), cfg)
 		c.Assert(err, gc.IsNil)
 
+		// verify that correct replacement took place
 		envConfig := env.Config().AllAttrs()
-		for anAttrKey, anAttrVal := range proxyAttrs {
+		for _, anAttrKey := range config.ProxyAttributes {
+			//expected value is either unchanged original
 			expectedAttValue := proxyAttrValues[anAttrKey]
 			if test.expectChange {
-				expectedAttValue = fmt.Sprintf(urlConstruct, anAttrVal, expectedBridge, test.port)
+				// or expected value has bridge ip substituted for localhost variations
+				expectedAttValue = fmt.Sprintf(urlConstruct, expectedBridge, test.port)
 			}
 			c.Logf("env (%q) vs expected (%q) vs original (%q)\n", envConfig[anAttrKey].(string), expectedAttValue.(string), proxyAttrValues[anAttrKey])
 			c.Assert(envConfig[anAttrKey].(string), gc.Matches, expectedAttValue.(string))
 		}
 	}
+}
+
+type testURL struct {
+	message      string
+	url          string
+	port         string
+	expectChange bool
+}
+
+var urlReplacementTests = []testURL{{
+	message:      "replace localhost with bridge ip in proxy url",
+	url:          "localhost",
+	port:         "",
+	expectChange: true,
+}, {
+	message:      "replace localhost:port with bridge ip:port in proxy url",
+	url:          "localhost",
+	port:         ":8877",
+	expectChange: true,
+}, {
+	message:      "replace 127.2.0.1 with bridge ip in proxy url",
+	url:          "127.2.0.1",
+	port:         "",
+	expectChange: true,
+}, {
+	message:      "replace 127.2.0.1:port with bridge ip:port in proxy url",
+	url:          "127.2.0.1",
+	port:         ":8877",
+	expectChange: true,
+}, {
+	message:      "replace [::1]:port with bridge ip:port in proxy url",
+	url:          "[::1]",
+	port:         ":8877",
+	expectChange: true,
+}, {
+	message:      "replace ::1 with bridge ip in proxy url",
+	url:          "::1",
+	port:         "",
+	expectChange: true,
+}, {
+	message:      "do not replace provided with bridge ip in proxy url",
+	url:          "www.google.com",
+	port:         "",
+	expectChange: false,
+}, {
+	message:      "do not replace provided:port with bridge ip:port in proxy url",
+	url:          "www.google.com",
+	port:         ":8877",
+	expectChange: false,
+},
 }
