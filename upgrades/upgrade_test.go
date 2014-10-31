@@ -427,12 +427,15 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0", "1.21-alpha1"}
+var expectedVersions = []string{"1.18.0", "1.21.0"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string
 	for _, utv := range (*upgrades.UpgradeOperations)() {
-		versions = append(versions, utv.TargetVersion().String())
+		vers := utv.TargetVersion()
+		// Upgrade steps should only be targeted at final versions (not alpha/beta).
+		c.Check(vers.Tag, gc.Equals, "")
+		versions = append(versions, vers.String())
 
 	}
 	c.Assert(versions, gc.DeepEquals, expectedVersions)
