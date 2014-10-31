@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO(ericsnow) Remove this plugin once 1.20 is no longer supported.
 >&2 echo 'DEPRECATED: Use "juju backups create" instead of "juju backup".'
 
 # Grab the first version out of juju status (should be machine 0).
