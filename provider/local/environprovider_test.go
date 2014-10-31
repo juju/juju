@@ -343,7 +343,7 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 		cfg, err := basecfg.Apply(proxyAttrValues)
 		c.Assert(err, gc.IsNil)
 		//this call should replace all loopback urls with bridge ip
-		env, err := provider.Prepare(coretesting.Context(c), cfg)
+		env, err := provider.Prepare(envtesting.BootstrapContext(c), cfg)
 		c.Assert(err, gc.IsNil)
 
 		// verify that correct replacement took place
