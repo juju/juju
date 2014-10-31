@@ -68,11 +68,7 @@ func NewDumper(info Info) (Dumper, error) {
 	return &dumper, nil
 }
 
-func (md *mongoDumper) options(dumpDir string, dbName string) []string {
-	if dbName != "" {
-		dumpDir = filepath.Join(dumpDir, dbName)
-	}
-
+func (md *mongoDumper) options(dumpDir string) []string {
 	options := []string{
 		"--ssl",
 		"--authenticationDatabase", "admin",
@@ -80,25 +76,15 @@ func (md *mongoDumper) options(dumpDir string, dbName string) []string {
 		"--username", md.Username,
 		"--password", md.Password,
 		"--out", dumpDir,
+		"--oplog",
 	}
-
-	if dbName == "" {
-		options = append(options, "--oplog")
-	} else {
-		options = append(options, "--db", dbName)
-	}
-
 	return options
 }
 
-func (md *mongoDumper) dump(dumpDir, dbName string) error {
-	options := md.options(dumpDir, dbName)
+func (md *mongoDumper) dump(dumpDir string) error {
+	options := md.options(dumpDir)
 	if err := runCommand(md.binPath, options...); err != nil {
-		suffix := " (" + dbName + ")"
-		if dbName == "" {
-			suffix = "s"
-		}
-		return errors.Annotatef(err, "error dumping database%s", suffix)
+		return errors.Annotate(err, "error dumping databases")
 	}
 	return nil
 }
@@ -106,7 +92,7 @@ func (md *mongoDumper) dump(dumpDir, dbName string) error {
 // Dump dumps the juju state-related databases.  To do this we dump all
 // databases and then remove any ignored databases from the dump results.
 func (md *mongoDumper) Dump(baseDumpDir string) error {
-	if err := md.dump(baseDumpDir, ""); err != nil {
+	if err := md.dump(baseDumpDir); err != nil {
 		return errors.Trace(err)
 	}
 
