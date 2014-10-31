@@ -1456,6 +1456,27 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
 }
 
+type testAttr struct {
+	message string
+	aKey    string
+	aValue  string
+	checker gc.Checker
+}
+
+var emptyAttributeTests = []testAttr{
+	{
+		message: "Warning message about unknown attribute (%v) is expected because attribute value exists",
+		aKey:    "unknown",
+		aValue:  "unknown value",
+		checker: gc.Matches,
+	}, {
+		message: "Warning message about unknown attribute (%v) is unexpected because attribute value is empty",
+		aKey:    "unknown-empty",
+		aValue:  "",
+		checker: gc.Not(gc.Matches),
+	},
+}
+
 func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
@@ -1463,35 +1484,20 @@ func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
 		"type": "other",
 	})
 	c.Assert(err, gc.IsNil)
-	warningTxt := `WARNING juju.environs.config unknown config field %q`
+	warningTxt := `.* unknown config field %q.*`
 
-	for i, test := range []struct {
-		message  string
-		aKey     string
-		aValue   string
-		expected bool
-	}{{
-		message:  "Warning message about unknown attribute (%v) is expected because attribute value exists",
-		aKey:     "unknown",
-		aValue:   "unknown value",
-		expected: true,
-	}, {
-		message:  "Warning message about unknown attribute (%v) is unexpected because attribute value is empty",
-		aKey:     "unknown-empty",
-		aValue:   "",
-		expected: false,
-	},
-	} {
+	for i, test := range emptyAttributeTests {
 		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
 		testCfg, err := cfg.Apply(map[string]interface{}{test.aKey: test.aValue})
 		c.Assert(err, gc.IsNil)
-
-		// all attrs passed through and warning displayed
 		attrs, err := testCfg.ValidateUnknownAttrs(nil, nil)
 		c.Assert(err, gc.IsNil)
+		// all attrs passed through
 		c.Assert(attrs, gc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
-		expectedMsg := fmt.Sprintf(warningTxt, test.aKey)
-		c.Assert(strings.Contains(c.GetTestLog(), expectedMsg), gc.Equals, test.expected, gc.Commentf(test.message, test.aKey))
+		expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
+		logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
+		// warning displayed or not based on test expectation
+		c.Assert(logOutputText, test.checker, expectedWarning, gc.Commentf(test.message, test.aKey))
 	}
 }
 
