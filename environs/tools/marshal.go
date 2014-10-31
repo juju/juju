@@ -43,7 +43,7 @@ func MarshalToolsMetadataJSON(metadata map[string][]*ToolsMetadata, updated time
 func MarshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, updated time.Time) (out []byte, err error) {
 	var indices simplestreams.Indices
 	indices.Updated = updated.Format(time.RFC1123Z)
-	indices.Format = "index:1.0"
+	indices.Format = simplestreams.IndexFormat
 	indices.Indexes = make(map[string]*simplestreams.IndexMetadata, len(streamMetadata))
 	for stream, metadata := range streamMetadata {
 		productIds := make([]string, len(metadata))
@@ -55,8 +55,8 @@ func MarshalToolsMetadataIndexJSON(streamMetadata map[string][]*ToolsMetadata, u
 		}
 		indexMetadata := &simplestreams.IndexMetadata{
 			Updated:          indices.Updated,
-			Format:           "products:1.0",
-			DataType:         "content-download",
+			Format:           simplestreams.ProductFormat,
+			DataType:         ContentDownload,
 			ProductsFilePath: ProductMetadataPath(stream),
 			ProductIds:       set.NewStrings(productIds...).SortedValues(),
 		}
@@ -75,7 +75,7 @@ func MarshalToolsMetadataProductsJSON(
 	for stream, metadata := range streamMetadata {
 		var cloud simplestreams.CloudMetadata
 		cloud.Updated = updated.Format(time.RFC1123Z)
-		cloud.Format = "products:1.0"
+		cloud.Format = simplestreams.ProductFormat
 		cloud.ContentId = ToolsContentId(stream)
 		cloud.Products = make(map[string]simplestreams.MetadataCatalog)
 		itemsversion := updated.Format("20060102") // YYYYMMDD

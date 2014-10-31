@@ -416,8 +416,8 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 			streamsMirrorsMetadata[ToolsContentId(stream)] = []simplestreams.MirrorReference{{
 				Updated:  updated.Format("20060102"), // YYYYMMDD
 				DataType: ContentDownload,
-				Format:   "mirrors:1.0",
-				Path:     "streams/v1/cpc-mirrors.json",
+				Format:   simplestreams.MirrorFormat,
+				Path:     simplestreams.MirrorFile,
 			}}
 		}
 		mirrorsMetadata := map[string]map[string][]simplestreams.MirrorReference{
