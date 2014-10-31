@@ -27,24 +27,35 @@ const sshHostPrefix = "ssh:"
 
 var addMachineDoc = `
 
-If no container is specified, a new machine will be
-provisioned.  If a container is specified, a new machine will be provisioned
-with that container.
+Juju supports adding machines using provider-specific machine instances
+(EC2 instances, OpenStack servers, MAAS nodes, etc.); existing machines
+running a supported operating system (see "manual provisioning" below),
+and containers on machines. Machines are created in a clean state and
+ready to have units deployed.
 
-To add a container to an existing machine, use the <container>:<machinenumber>
-format.
+Without any parameters, add-machine will allocate a new provider-specific
+machine (multiple, if "-n" is provided). When adding a new machine, you
+may specify constraints for the machine to be provisioned; the provider
+will interpret these constraints in order to decide what kind of machine
+to allocate.
 
-When adding a new machine, you may specify constraints for the machine to be
-provisioned.  Constraints cannot be combined with deploying a container to an
-existing machine.
+If a container type is specified (e.g. "lxc"), then add-machine will
+allocate container of that type on a new provider-specific machine. It is
+also possible to add containers to existing machines using the format
+<container>:<machinenumber>. Constraints cannot be combined with deploying
+a container to an existing machine. The currently supported container
+types are: $CONTAINER_TYPES$.
 
-Currently, the only supported container type is lxc.
+Manual provisioning is the process of installing Juju on an existing machine
+and bring it under Juju's management; currently this requires that the machine
+be running Ubuntu, that it be accessible via SSH, and be running on the same
+network as the API server.
 
-Machines are created in a clean state and ready to have units deployed.
-
-This command also supports manual provisioning of existing machines via SSH. The
-target machine must be able to communicate with the API server, and be able to
-access the environment storage.
+It is possible to override or augment constraints by passing provider-specific
+"placement directives" with "--to"; these give the provider additional
+information about how to allocate the machine. For example, one can direct the
+MAAS provider to acquire a particular node by specifying its hostname with
+"--to". For more information on placement directives, see "juju help placement".
 
 Examples:
    juju add-machine                      (starts a new machine)
@@ -54,10 +65,25 @@ Examples:
    juju add-machine lxc:4                (starts a new lxc container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
+   juju add-machine zone=us-east-1a
 
 See Also:
    juju help constraints
+   juju help placement
 `
+
+func init() {
+	containerTypes := make([]string, len(instance.ContainerTypes))
+	for i, t := range instance.ContainerTypes {
+		containerTypes[i] = string(t)
+	}
+	addMachineDoc = strings.Replace(
+		addMachineDoc,
+		"$CONTAINER_TYPES$",
+		strings.Join(containerTypes, ", "),
+		-1,
+	)
+}
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
@@ -75,7 +101,7 @@ type AddMachineCommand struct {
 func (c *AddMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container>:machine | <container> | ssh:[user@]host]",
+		Args:    "[<container>:machine | <container> | ssh:[user@]host | placement]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
 		Doc:     addMachineDoc,
 	}
