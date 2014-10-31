@@ -87,6 +87,27 @@ const (
 	// AgentMetadataURLKey stores the key for this setting.
 	AgentMetadataURLKey = "agent-metadata-url"
 
+	// HttpProxyKey stores the key for this setting.
+	HttpProxyKey = "http-proxy"
+
+	// HttpsProxyKey stores the key for this setting.
+	HttpsProxyKey = "https-proxy"
+
+	// FtpProxyKey stores the key for this setting.
+	FtpProxyKey = "ftp-proxy"
+
+	// AptHttpProxyKey stores the key for this setting.
+	AptHttpProxyKey = "apt-http-proxy"
+
+	// AptHttpsProxyKey stores the key for this setting.
+	AptHttpsProxyKey = "apt-https-proxy"
+
+	// AptFtpProxyKey stores the key for this setting.
+	AptFtpProxyKey = "apt-ftp-proxy"
+
+	// NoProxyKey stores the key for this setting.
+	NoProxyKey = "no-proxy"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -143,6 +164,16 @@ var harvestingMethodToFlag = map[HarvestMode]string{
 	HarvestNone:      "none",
 	HarvestUnknown:   "unknown",
 	HarvestDestroyed: "destroyed",
+}
+
+// proxyAttrs contains attribute names that could contain loopback URLs, pointing to localhost
+var ProxyAttributes = []string{
+	HttpProxyKey,
+	HttpsProxyKey,
+	FtpProxyKey,
+	AptHttpProxyKey,
+	AptHttpsProxyKey,
+	AptFtpProxyKey,
 }
 
 // String returns the description of the harvesting mode.
@@ -697,22 +728,22 @@ func (c *Config) ProxySettings() proxy.Settings {
 
 // HttpProxy returns the http proxy for the environment.
 func (c *Config) HttpProxy() string {
-	return c.asString("http-proxy")
+	return c.asString(HttpProxyKey)
 }
 
 // HttpsProxy returns the https proxy for the environment.
 func (c *Config) HttpsProxy() string {
-	return c.asString("https-proxy")
+	return c.asString(HttpsProxyKey)
 }
 
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
-	return c.asString("ftp-proxy")
+	return c.asString(FtpProxyKey)
 }
 
 // NoProxy returns the 'no proxy' for the environment.
 func (c *Config) NoProxy() string {
-	return c.asString("no-proxy")
+	return c.asString(NoProxyKey)
 }
 
 func (c *Config) getWithFallback(key, fallback string) string {
@@ -735,19 +766,19 @@ func (c *Config) AptProxySettings() proxy.Settings {
 // AptHttpProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHttpProxy() string {
-	return c.getWithFallback("apt-http-proxy", "http-proxy")
+	return c.getWithFallback(AptHttpProxyKey, HttpProxyKey)
 }
 
 // AptHttpsProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHttpsProxy() string {
-	return c.getWithFallback("apt-https-proxy", "https-proxy")
+	return c.getWithFallback(AptHttpsProxyKey, HttpsProxyKey)
 }
 
 // AptFtpProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFtpProxy() string {
-	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
+	return c.getWithFallback(AptFtpProxyKey, FtpProxyKey)
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -1022,13 +1053,13 @@ var fields = schema.Fields{
 	"logging-config":             schema.String(),
 	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
-	"http-proxy":                 schema.String(),
-	"https-proxy":                schema.String(),
-	"ftp-proxy":                  schema.String(),
-	"no-proxy":                   schema.String(),
-	"apt-http-proxy":             schema.String(),
-	"apt-https-proxy":            schema.String(),
-	"apt-ftp-proxy":              schema.String(),
+	HttpProxyKey:                 schema.String(),
+	HttpsProxyKey:                schema.String(),
+	FtpProxyKey:                  schema.String(),
+	NoProxyKey:                   schema.String(),
+	AptHttpProxyKey:              schema.String(),
+	AptHttpsProxyKey:             schema.String(),
+	AptFtpProxyKey:               schema.String(),
 	"apt-mirror":                 schema.String(),
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
@@ -1070,13 +1101,13 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	"rsyslog-ca-cert":            schema.Omit,
-	"http-proxy":                 schema.Omit,
-	"https-proxy":                schema.Omit,
-	"ftp-proxy":                  schema.Omit,
-	"no-proxy":                   schema.Omit,
-	"apt-http-proxy":             schema.Omit,
-	"apt-https-proxy":            schema.Omit,
-	"apt-ftp-proxy":              schema.Omit,
+	HttpProxyKey:                 schema.Omit,
+	HttpsProxyKey:                schema.Omit,
+	FtpProxyKey:                  schema.Omit,
+	NoProxyKey:                   schema.Omit,
+	AptHttpProxyKey:              schema.Omit,
+	AptHttpsProxyKey:             schema.Omit,
+	AptFtpProxyKey:               schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	"lxc-clone":                  schema.Omit,
 	"disable-network-management": schema.Omit,
@@ -1280,10 +1311,10 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 // proxy settings.
 func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "http-proxy", proxySettings.Http)
-	addIfNotEmpty(settings, "https-proxy", proxySettings.Https)
-	addIfNotEmpty(settings, "ftp-proxy", proxySettings.Ftp)
-	addIfNotEmpty(settings, "no-proxy", proxySettings.NoProxy)
+	addIfNotEmpty(settings, HttpProxyKey, proxySettings.Http)
+	addIfNotEmpty(settings, HttpsProxyKey, proxySettings.Https)
+	addIfNotEmpty(settings, FtpProxyKey, proxySettings.Ftp)
+	addIfNotEmpty(settings, NoProxyKey, proxySettings.NoProxy)
 	return settings
 }
 
@@ -1291,8 +1322,8 @@ func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 // proxy settings.
 func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "apt-http-proxy", proxySettings.Http)
-	addIfNotEmpty(settings, "apt-https-proxy", proxySettings.Https)
-	addIfNotEmpty(settings, "apt-ftp-proxy", proxySettings.Ftp)
+	addIfNotEmpty(settings, AptHttpProxyKey, proxySettings.Http)
+	addIfNotEmpty(settings, AptHttpsProxyKey, proxySettings.Https)
+	addIfNotEmpty(settings, AptFtpProxyKey, proxySettings.Ftp)
 	return settings
 }
