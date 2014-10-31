@@ -145,6 +145,25 @@ var harvestingMethodToFlag = map[HarvestMode]string{
 	HarvestDestroyed: "destroyed",
 }
 
+const (
+	HttpProxy     = "http-proxy"
+	HttpsProxy    = "https-proxy"
+	FtpProxy      = "ftp-proxy"
+	AptHttpProxy  = "apt-http-proxy"
+	AptHttpsProxy = "apt-https-proxy"
+	AptFtpProxy   = "apt-ftp-proxy"
+)
+
+// proxyAttrs contains attribute names that could contain loopback URLs, pointing to localhost
+var ProxyAttributes = [...]string{
+	HttpProxy,
+	HttpsProxy,
+	FtpProxy,
+	AptHttpProxy,
+	AptHttpsProxy,
+	AptFtpProxy,
+}
+
 // String returns the description of the harvesting mode.
 func (method HarvestMode) String() string {
 	if description, ok := harvestingMethodToFlag[method]; ok {
@@ -697,17 +716,17 @@ func (c *Config) ProxySettings() proxy.Settings {
 
 // HttpProxy returns the http proxy for the environment.
 func (c *Config) HttpProxy() string {
-	return c.asString("http-proxy")
+	return c.asString(HttpProxy)
 }
 
 // HttpsProxy returns the https proxy for the environment.
 func (c *Config) HttpsProxy() string {
-	return c.asString("https-proxy")
+	return c.asString(HttpsProxy)
 }
 
 // FtpProxy returns the ftp proxy for the environment.
 func (c *Config) FtpProxy() string {
-	return c.asString("ftp-proxy")
+	return c.asString(FtpProxy)
 }
 
 // NoProxy returns the 'no proxy' for the environment.
@@ -735,19 +754,19 @@ func (c *Config) AptProxySettings() proxy.Settings {
 // AptHttpProxy returns the apt http proxy for the environment.
 // Falls back to the default http-proxy if not specified.
 func (c *Config) AptHttpProxy() string {
-	return c.getWithFallback("apt-http-proxy", "http-proxy")
+	return c.getWithFallback(AptHttpProxy, HttpProxy)
 }
 
 // AptHttpsProxy returns the apt https proxy for the environment.
 // Falls back to the default https-proxy if not specified.
 func (c *Config) AptHttpsProxy() string {
-	return c.getWithFallback("apt-https-proxy", "https-proxy")
+	return c.getWithFallback(AptHttpsProxy, HttpsProxy)
 }
 
 // AptFtpProxy returns the apt ftp proxy for the environment.
 // Falls back to the default ftp-proxy if not specified.
 func (c *Config) AptFtpProxy() string {
-	return c.getWithFallback("apt-ftp-proxy", "ftp-proxy")
+	return c.getWithFallback(AptFtpProxy, FtpProxy)
 }
 
 // AptMirror sets the apt mirror for the environment.
@@ -1022,13 +1041,13 @@ var fields = schema.Fields{
 	"logging-config":             schema.String(),
 	"charm-store-auth":           schema.String(),
 	ProvisionerHarvestModeKey:    schema.String(),
-	"http-proxy":                 schema.String(),
-	"https-proxy":                schema.String(),
-	"ftp-proxy":                  schema.String(),
+	HttpProxy:                    schema.String(),
+	HttpsProxy:                   schema.String(),
+	FtpProxy:                     schema.String(),
 	"no-proxy":                   schema.String(),
-	"apt-http-proxy":             schema.String(),
-	"apt-https-proxy":            schema.String(),
-	"apt-ftp-proxy":              schema.String(),
+	AptHttpProxy:                 schema.String(),
+	AptHttpsProxy:                schema.String(),
+	AptFtpProxy:                  schema.String(),
 	"apt-mirror":                 schema.String(),
 	"bootstrap-timeout":          schema.ForceInt(),
 	"bootstrap-retry-delay":      schema.ForceInt(),
@@ -1070,13 +1089,13 @@ var alwaysOptional = schema.Defaults{
 	"bootstrap-retry-delay":      schema.Omit,
 	"bootstrap-addresses-delay":  schema.Omit,
 	"rsyslog-ca-cert":            schema.Omit,
-	"http-proxy":                 schema.Omit,
-	"https-proxy":                schema.Omit,
-	"ftp-proxy":                  schema.Omit,
+	HttpProxy:                    schema.Omit,
+	HttpsProxy:                   schema.Omit,
+	FtpProxy:                     schema.Omit,
 	"no-proxy":                   schema.Omit,
-	"apt-http-proxy":             schema.Omit,
-	"apt-https-proxy":            schema.Omit,
-	"apt-ftp-proxy":              schema.Omit,
+	AptHttpProxy:                 schema.Omit,
+	AptHttpsProxy:                schema.Omit,
+	AptFtpProxy:                  schema.Omit,
 	"apt-mirror":                 schema.Omit,
 	"lxc-clone":                  schema.Omit,
 	"disable-network-management": schema.Omit,
@@ -1280,9 +1299,9 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 // proxy settings.
 func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "http-proxy", proxySettings.Http)
-	addIfNotEmpty(settings, "https-proxy", proxySettings.Https)
-	addIfNotEmpty(settings, "ftp-proxy", proxySettings.Ftp)
+	addIfNotEmpty(settings, HttpProxy, proxySettings.Http)
+	addIfNotEmpty(settings, HttpsProxy, proxySettings.Https)
+	addIfNotEmpty(settings, FtpProxy, proxySettings.Ftp)
 	addIfNotEmpty(settings, "no-proxy", proxySettings.NoProxy)
 	return settings
 }
@@ -1291,8 +1310,8 @@ func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 // proxy settings.
 func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "apt-http-proxy", proxySettings.Http)
-	addIfNotEmpty(settings, "apt-https-proxy", proxySettings.Https)
-	addIfNotEmpty(settings, "apt-ftp-proxy", proxySettings.Ftp)
+	addIfNotEmpty(settings, AptHttpProxy, proxySettings.Http)
+	addIfNotEmpty(settings, AptHttpsProxy, proxySettings.Https)
+	addIfNotEmpty(settings, AptFtpProxy, proxySettings.Ftp)
 	return settings
 }

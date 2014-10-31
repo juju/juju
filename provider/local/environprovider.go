@@ -81,7 +81,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, errors.Annotate(err, "failed verification of local provider prerequisites")
 	}
 	if cfg, err = providerInstance.correctLocalhostURLs(cfg, localConfig); err != nil {
-		return nil, errors.Annotate(err, "failed to translate proxy config settings")
+		return nil, errors.Annotate(err, "failed to convert loopback (poinitng to localhost) URLs specified as proxy config settings")
 	}
 	environ := &localEnviron{name: cfg.Name()}
 	if err := environ.SetConfig(cfg); err != nil {
@@ -92,33 +92,27 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // correctLocalhostURLs exams proxy attributes and changes URL values pointing to localhost to use bridge IP.
 func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *environConfig) (*config.Config, error) {
-	// Attribute names that could contain references to localhost in their values
-	proxyAttrs := []string{
-		"http-proxy",
-		"https-proxy",
-		"ftp-proxy",
-		"apt-http-proxy",
-		"apt-https-proxy",
-		"apt-ftp-proxy",
-	}
-	// Current configuration attributes
 	attrs := cfg.AllAttrs()
-
-	newAttrs := make(map[string]interface{})
-	for _, key := range proxyAttrs {
+	updates := make(map[string]interface{})
+	for _, key := range config.ProxyAttributes {
 		anAttr := attrs[key]
 		if anAttr == nil {
 			continue
 		}
-		newValue, err := p.swapLocalhostForBridgeIP(anAttr.(string), providerCfg)
-		if err != nil {
-			return nil, err
+		var attrStr string
+		var isString bool
+		if attrStr, isString = anAttr.(string); !isString || attrStr == "" {
+			continue
 		}
-		newAttrs[key] = newValue
+		newValue, err := p.swapLocalhostForBridgeIP(attrStr, providerCfg)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		updates[key] = newValue
 		logger.Infof("\nAttribute %q is set to (%v)\n", key, newValue)
 	}
 	// Update desired attributes on current configuration
-	return cfg.Apply(newAttrs)
+	return cfg.Apply(updates)
 }
 
 var detectAptProxies = apt.DetectProxies
@@ -187,31 +181,28 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 }
 
 // swapLocalhostForBridgeIP substitutes bridge ip for localhost. Non-localhost values are not modified.
-func (p environProvider) swapLocalhostForBridgeIP(u string, providerConfig *environConfig) (string, error) {
-	if u == "" {
-		return u, nil
-	}
-	// TODO {anastasia} Parse method does not cater for malformed URL, eg. localhost:8080
-	parsedUrl, err := url.Parse(u)
+func (p environProvider) swapLocalhostForBridgeIP(originalURL string, providerConfig *environConfig) (string, error) {
+	// TODO(anastasia) 2014-10-31 Bug#1385277 Parse method does not cater for malformed URL, eg. localhost:8080
+	parsedUrl, err := url.Parse(originalURL)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	// Localhost url can be specified in 3 ways: localhost, 127.0.0.1 or ::1
 	// This regular expression does not cater for a. subnets, eg. 127.0.0.1/8 nor b. digits preceding :: in ipv6 url, eg. 0::0:1.
-	localHostRegexp := regexp.MustCompile("localhost|127\\.[\\d.]+|[0:]+1|\\[?::1]?")
-	// Host and post specification is host:port
-	hostPortRegexp := regexp.MustCompile("(?P<host>(\\[?[::]*[^:]+))(?P<port>($|:[^:]+$))")
-	hostPort := parsedUrl.Host //parse url
-	if !localHostRegexp.MatchString(hostPort) {
+	localHostRegexp := regexp.MustCompile(`localhost|127\.[\d.]+|[0:]+1|\[?::1]?`)
+	hostAndPort := parsedUrl.Host
+	if !localHostRegexp.MatchString(hostAndPort) {
 		// If not localhost, return current attribute value
-		return u, nil
+		return originalURL, nil
 	}
 	//If localhost is specified, use its network bridge ip
 	bridgeAddress, nwerr := getAddressForInterface(providerConfig.networkBridge())
 	if nwerr != nil {
-		return "", nwerr
+		return "", errors.Trace(nwerr)
 	}
-	parsedUrl.Host = hostPortRegexp.ReplaceAllString(hostPort, fmt.Sprintf("%s$port", bridgeAddress))
+	// Host and post specification is host:port
+	hostAndPortRegexp := regexp.MustCompile(`(?P<host>(\[?[::]*[^:]+))(?P<port>($|:[^:]+$))`)
+	parsedUrl.Host = hostAndPortRegexp.ReplaceAllString(hostAndPort, fmt.Sprintf("%s$port", bridgeAddress))
 	return parsedUrl.String(), nil
 }
 
