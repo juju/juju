@@ -46,27 +46,28 @@ class GenerateMirrors(TestCase):
             with open(mirror_path) as mirror_file:
                 data = json.load(mirror_file)
         self.assertEqual(['mirrors'], data.keys())
-        expected_produts = sorted(
-            'com.ubuntu.juju:%s:tools' % p for p in PURPOSES)
-        expected_produts.extend(['format', 'updated'])
-        self.assertEqual(expected_produts, sorted(data['mirrors'].keys()))
+        self.assertEqual('mirrors:1.0', data['mirrors']['format'])
         expected_updated = updated.strftime('%a, %d %b %Y %H:%M:%S -0000')
         self.assertEqual(expected_updated, data['mirrors']['updated'])
-        proposed_mirrors = data['mirrors']['com.ubuntu.juju:proposed:tools']
-        self.assertEqual(
-            'streams/v1/com.ubuntu.juju:proposed:tools.json',
-            proposed_mirrors[0]['path'])
-        self.assertEqual(
-            'https://juju-dist.s3.amazonaws.com/tools',
-            proposed_mirrors[0]['mirror'])
-        self.assertEqual(
-            'https://jujutools.blob.core.windows.net/juju-tools/tools',
-            proposed_mirrors[1]['mirror'])
-        self.assertEqual(
-            ("https://region-a.geo-1.objects.hpcloudsvc.com/"
-             "v1/60502529753910/juju-dist/tools"),
-            proposed_mirrors[2]['mirror'])
-        self.assertEqual(
-            ("https://us-east.manta.joyent.com/"
-             "cpcjoyentsupport/public/juju-dist/tools"),
-            proposed_mirrors[3]['mirror'])
+        expected_produts = sorted(
+            'com.ubuntu.juju:%s:tools' % p for p in PURPOSES)
+        for product_name in expected_produts:
+            purposeful_mirrors = data['mirrors'][product_name]
+            purpose = product_name.split(':')[1]
+            self.assertEqual(
+                'streams/v1/com.ubuntu.juju:%s:tools.json' % purpose,
+                purposeful_mirrors[0]['path'])
+            self.assertEqual(
+                'https://juju-dist.s3.amazonaws.com/tools',
+                purposeful_mirrors[0]['mirror'])
+            self.assertEqual(
+                'https://jujutools.blob.core.windows.net/juju-tools/tools',
+                purposeful_mirrors[1]['mirror'])
+            self.assertEqual(
+                ("https://region-a.geo-1.objects.hpcloudsvc.com/"
+                 "v1/60502529753910/juju-dist/tools"),
+                purposeful_mirrors[2]['mirror'])
+            self.assertEqual(
+                ("https://us-east.manta.joyent.com/"
+                 "cpcjoyentsupport/public/juju-dist/tools"),
+                purposeful_mirrors[3]['mirror'])
