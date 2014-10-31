@@ -112,6 +112,11 @@ var setEnvInitTests = []struct {
 			"key":   "value",
 			"other": "embedded=equal",
 		},
+	}, {
+		args: []string{"key="},
+		expected: attributes{
+			"key": "",
+		},
 	},
 }
 

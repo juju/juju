@@ -103,13 +103,12 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 		return fmt.Errorf("no key, value pairs specified")
 	}
 
-	// TODO(thumper) look to have a common library of functions for dealing
-	// with key=value pairs.
-	c.values = make(attributes)
-	options, err := keyvalues.Parse(args, false)
+	options, err := keyvalues.Parse(args, true)
 	if err != nil {
 		return err
 	}
+
+	c.values = make(attributes)
 	for key, value := range options {
 		if key == "agent-version" {
 			return fmt.Errorf("agent-version must be set via upgrade-juju")
