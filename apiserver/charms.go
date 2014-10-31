@@ -429,11 +429,13 @@ func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) 
 	// Use the storage to retrieve and save the charm archive.
 	reader, _, err := storage.Get(ch.StoragePath())
 	if err != nil {
-		return errors.Annotate(err, "charm not found in the provider storage")
+		defer os.Remove(tempCharmArchive.Name())
+		return errors.Annotate(err, "cannot get charm from environment storage")
 	}
 	defer reader.Close()
 
 	if _, err = io.Copy(tempCharmArchive, reader); err != nil {
+		defer os.Remove(tempCharmArchive.Name())
 		return errors.Annotate(err, "error processing charm archive download")
 	}
 	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
