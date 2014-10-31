@@ -183,6 +183,7 @@ JOYENT_MIRROR = {
 
 def generate_mirrors_file(updated, streams_path,
                           verbose=False, dry_run=False):
+    """Generate the mirrors for all the purposeful streams."""
     if verbose:
         print('Creating mirrors.json')
     updated = updated.strftime('%Y%m%d')
@@ -208,6 +209,7 @@ def generate_mirrors_file(updated, streams_path,
 
 def generate_cpc_mirrors_file(updated, streams_path,
                               verbose=False, dry_run=False):
+    """Generate the cpc-mirrors for all the purposeful streams."""
     if verbose:
         print('Creating cpc-mirrors.json')
     updated = updated.strftime('%a, %d %b %Y %H:%M:%S -0000')
@@ -220,19 +222,14 @@ def generate_cpc_mirrors_file(updated, streams_path,
         product_name = "com.ubuntu.juju:%s:tools" % purpose
         product_path = "streams/v1/%s.json" % product_name
         if verbose:
-            print(
-                "Adding %s at %s to cpc-mirrors.json" %
-                (product_path, updated))
-        aws_mirror = dict(AWS_MIRROR)
-        aws_mirror['path'] = product_path
-        azure_mirror = dict(AZURE_MIRROR)
-        azure_mirror['path'] = product_path
-        hp_mirror = dict(HP_MIRROR)
-        hp_mirror['path'] = product_path
-        joyent_mirror = dict(JOYENT_MIRROR)
-        joyent_mirror['path'] = product_path
-        mirrors['mirrors'][product_name] = [
-            aws_mirror, azure_mirror, hp_mirror, joyent_mirror]
+            print("Adding %s to cpc-mirrors.json" % product_path)
+        mirrors['mirrors'][product_name] = []
+        for master in (AWS_MIRROR, AZURE_MIRROR, HP_MIRROR, JOYENT_MIRROR):
+            mirror = dict(master)
+            mirror['path'] = product_path
+            mirrors['mirrors'][product_name].append(mirror)
+            if verbose:
+                print("    Adding %s" % mirror['mirror'])
     data = json.dumps(mirrors)
     file_path = '%s/cpc-mirrors.json' % streams_path
     if not dry_run:
