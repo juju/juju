@@ -9,25 +9,34 @@ import sys
 import traceback
 
 
-RELEASE = 'release'
+RELEASED = 'released'
 PROPOSED = 'proposed'
 DEVEL = 'devel'
 TESTING = 'testing'
-PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
-
-MIRRORS_JSON = 'mirrors.json'
+PURPOSES = (RELEASED, PROPOSED, DEVEL, TESTING)
 
 
 def generate_mirrors_file(updated, streams_path,
                           verbose=False, dry_run=False):
     if verbose:
-        print('Creating %s' % MIRRORS_JSON)
+        print('Creating mirrors.json')
+    updated = updated.strftime('%Y%m%d')
     mirrors = {
         "mirrors": {}
     }
+    for purpose in PURPOSES:
+        product_name = "com.ubuntu.juju:%s:tools" % purpose
+        if verbose:
+            print("Adding %s at %s to mirrors.json" % (product_name, updated))
+        mirrors['mirrors'][product_name] = [{
+            "datatype": "content-download",
+            "path": "streams/v1/cpc-mirrors.json",
+            "updated": "%s" % updated,
+            "format": "mirrors:1.0"
+        }]
+    data = json.dumps(mirrors)
+    file_path = '%s/mirrors.json' % streams_path
     if not dry_run:
-        data = json.dumps(mirrors)
-        file_path = '%s/%s' % (streams_path, MIRRORS_JSON)
         with open(file_path, 'w') as mirror_file:
             mirror_file.write(data)
 
