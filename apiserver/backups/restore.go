@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/state/restore"
 )
 
+const restoreUserHome = "/home/ubuntu/"
+
 func backupFile(backupPath string) (io.ReadCloser, error) {
 	return os.Open(backupPath)
 }
@@ -23,24 +25,26 @@ func backupFile(backupPath string) (io.ReadCloser, error) {
 // Restore implements the server side of Backups.Restore
 func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
-	var backupFileHandler io.ReadCloser
-	var backupMetadata *metadata.Metadata
-	var err error
+	var (
+		fileHandler io.ReadCloser
+		meta        *metadata.Metadata
+		err         error
+	)
 	switch {
 	case p.BackupId != "":
-		if backupMetadata, backupFileHandler, err = a.backups.Get(p.BackupId); err != nil {
+		if meta, fileHandler, err = a.backups.Get(p.BackupId); err != nil {
 			return errors.Annotatef(err, "there was an error obtaining backup %q", p.BackupId)
 		}
 	case p.FileName != "":
-		filename := "/home/ubuntu/" + p.FileName
-		if backupFileHandler, err = backupFile(filename); err != nil {
+		filename := restoreUserHome + p.FileName
+		if fileHandler, err = backupFile(filename); err != nil {
 			return errors.Annotatef(err, "there was an error opening %q", filename)
 		}
 	default:
 		return errors.Errorf("no backup file or id given")
 
 	}
-	defer backupFileHandler.Close()
+	defer fileHandler.Close()
 
 	// Obtain the address of the machine where restore is going to be performed
 	machine, err := a.st.Machine(p.Machine)
@@ -60,7 +64,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	err = rInfo.SetStatus(state.RestoreInProgress)
 
 	// Restore
-	if err := restore.Restore(backupFileHandler, backupMetadata, addr, a.st); err != nil {
+	if err := restore.Restore(fileHandler, meta, addr, a.st); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
