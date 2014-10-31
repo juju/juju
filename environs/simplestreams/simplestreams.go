@@ -170,7 +170,7 @@ type MirrorReference struct {
 	Format   string      `json:"format"`
 	DataType string      `json:"datatype"`
 	Path     string      `json:"path"`
-	Clouds   []CloudSpec `json:"clouds"`
+	Clouds   []CloudSpec `json:"clouds,omitempty"`
 }
 
 type MirrorMetadata struct {
@@ -311,6 +311,11 @@ const (
 	defaultMirrorsPath = "streams/%s/mirrors"
 	signedSuffix       = ".sjson"
 	UnsignedSuffix     = ".json"
+
+	IndexFormat   = "index:1.0"
+	ProductFormat = "products:1.0"
+	MirrorFormat  = "mirrors:1.0"
+	MirrorFile    = "streams/v1/cpc-mirrors.json"
 )
 
 type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
@@ -408,7 +413,7 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath, mirrorsPath string
 	resolveInfo.Source = source.Description()
 	resolveInfo.Signed = signed
 	resolveInfo.IndexURL = indexURL
-	indexRef, err := GetIndexWithFormat(source, indexPath, "index:1.0", mirrorsPath, signed, cons.Params().CloudSpec, params)
+	indexRef, err := GetIndexWithFormat(source, indexPath, IndexFormat, mirrorsPath, signed, cons.Params().CloudSpec, params)
 	if err != nil {
 		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 			logger.Debugf("cannot load index %q: %v", indexURL, err)
@@ -416,7 +421,7 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath, mirrorsPath string
 		return nil, resolveInfo, err
 	}
 	logger.Debugf("read metadata index at %q", indexURL)
-	items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", signed)
+	items, err = indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
@@ -534,7 +539,7 @@ func getMirror(source DataSource, mirrors MirrorRefs, datatype, contentId string
 	if err != nil {
 		return nil, err
 	}
-	mirrorInfo, err := mirrorRef.getMirrorInfo(source, contentId, cloudSpec, "mirrors:1.0", requireSigned, publicKey)
+	mirrorInfo, err := mirrorRef.getMirrorInfo(source, contentId, cloudSpec, MirrorFormat, requireSigned, publicKey)
 	if err != nil {
 		return nil, err
 	}

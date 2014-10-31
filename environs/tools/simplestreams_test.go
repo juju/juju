@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"launchpad.net/goamz/aws"
@@ -411,7 +412,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	}
 	writer, err := filestorage.NewFileStorageWriter(dir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(writer, "testing", "testing", existingToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "testing", "testing", existingToolsList, tools.WriteMirrors)
 	c.Assert(err, gc.IsNil)
 	newToolsList := coretools.List{
 		existingToolsList[0],
@@ -421,11 +422,18 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 			SHA256:  "def",
 		},
 	}
-	err = tools.MergeAndWriteMetadata(writer, "testing", "testing", newToolsList, tools.DoNotWriteMirrors)
+	err = tools.MergeAndWriteMetadata(writer, "testing", "testing", newToolsList, tools.WriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := toolstesting.ParseMetadataFromDir(c, dir, "testing", false)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, "testing", true)
 	assertMetadataMatches(c, dir, "testing", requiredToolsList, metadata)
+
+	err = tools.MergeAndWriteMetadata(writer, "devel", "devel", newToolsList, tools.WriteMirrors)
+	c.Assert(err, gc.IsNil)
+	metadata = toolstesting.ParseMetadataFromDir(c, dir, "testing", true)
+	assertMetadataMatches(c, dir, "testing", requiredToolsList, metadata)
+	metadata = toolstesting.ParseMetadataFromDir(c, dir, "devel", true)
+	assertMetadataMatches(c, dir, "devel", newToolsList, metadata)
 }
 
 type productSpecSuite struct{}
@@ -735,33 +743,75 @@ func (*metadataHelperSuite) TestMergeMetadata(c *gc.C) {
 	}
 }
 
-func (*metadataHelperSuite) TestReadWriteMetadata(c *gc.C) {
-	metadata := []*tools.ToolsMetadata{{
-		Release: "precise",
-		Version: "1.2.3",
-		Arch:    "amd64",
-		Path:    "path1",
-	}, {
-		Release: "raring",
-		Version: "1.2.3",
-		Arch:    "amd64",
-		Path:    "path2",
-	}}
+func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
+	metadata := map[string][]*tools.ToolsMetadata{
+		"released": []*tools.ToolsMetadata{{
+			Release: "precise",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path1",
+		}, {
+			Release: "raring",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path2",
+		}},
+	}
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	out, err := tools.ReadMetadata(stor, "released")
+	out, err := tools.ReadAllMetadata(stor)
+	c.Assert(err, gc.IsNil) // non-existence is not an error
+	c.Assert(out, gc.HasLen, 0)
+	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	c.Assert(err, gc.IsNil)
+
+	// Read back what was just written.
+	out, err = tools.ReadAllMetadata(stor)
+	for _, outMetadata := range out {
+		for _, md := range outMetadata {
+			// FullPath is set by ReadAllMetadata.
+			c.Assert(md.FullPath, gc.Not(gc.Equals), "")
+			md.FullPath = ""
+		}
+	}
+	c.Assert(out, jc.DeepEquals, metadata)
+}
+
+func (*metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
+	metadata := map[string][]*tools.ToolsMetadata{
+		"released": []*tools.ToolsMetadata{{
+			Release: "precise",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path1",
+		}},
+		"proposed": []*tools.ToolsMetadata{{
+			Release: "raring",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path2",
+		}},
+	}
+
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, gc.IsNil)
+	out, err := tools.ReadAllMetadata(stor)
 	c.Assert(out, gc.HasLen, 0)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
-	err = tools.WriteMetadata(stor, "released", metadata, tools.DoNotWriteMirrors)
+	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	out, err = tools.ReadMetadata(stor, "released")
-	for _, md := range out {
-		// FullPath is set by ReadMetadata.
-		c.Assert(md.FullPath, gc.Not(gc.Equals), "")
-		md.FullPath = ""
+
+	// Read back what was just written.
+	out, err = tools.ReadAllMetadata(stor)
+	for _, outMetadata := range out {
+		for _, md := range outMetadata {
+			// FullPath is set by ReadAllMetadata.
+			c.Assert(md.FullPath, gc.Not(gc.Equals), "")
+			md.FullPath = ""
+		}
 	}
-	c.Assert(out, gc.DeepEquals, metadata)
+	c.Assert(out, jc.DeepEquals, metadata)
 }
 
 type signedSuite struct {
