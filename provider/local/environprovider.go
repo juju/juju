@@ -81,7 +81,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, errors.Annotate(err, "failed verification of local provider prerequisites")
 	}
 	if cfg, err = providerInstance.correctLocalhostURLs(cfg, localConfig); err != nil {
-		return nil, errors.Annotate(err, "failed to convert loopback (poinitng to localhost) URLs specified as proxy config settings")
+		return nil, errors.Annotate(err, "failed to replace localhost references in loopback URLs specified in proxy config settings")
 	}
 	environ := &localEnviron{name: cfg.Name()}
 	if err := environ.SetConfig(cfg); err != nil {
@@ -93,7 +93,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 // correctLocalhostURLs exams proxy attributes and changes URL values pointing to localhost to use bridge IP.
 func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *environConfig) (*config.Config, error) {
 	attrs := cfg.AllAttrs()
-	updates := make(map[string]interface{})
+	updatedAttrs := make(map[string]interface{})
 	for _, key := range config.ProxyAttributes {
 		anAttr := attrs[key]
 		if anAttr == nil {
@@ -108,11 +108,11 @@ func (p environProvider) correctLocalhostURLs(cfg *config.Config, providerCfg *e
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		updates[key] = newValue
+		updatedAttrs[key] = newValue
 		logger.Infof("\nAttribute %q is set to (%v)\n", key, newValue)
 	}
 	// Update desired attributes on current configuration
-	return cfg.Apply(updates)
+	return cfg.Apply(updatedAttrs)
 }
 
 var detectAptProxies = apt.DetectProxies
@@ -154,10 +154,10 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		cfg.NoProxy() == "" {
 		proxySettings := proxy.DetectProxies()
 		logger.Tracef("Proxies detected %#v", proxySettings)
-		setIfNotBlank("http-proxy", proxySettings.Http)
-		setIfNotBlank("https-proxy", proxySettings.Https)
-		setIfNotBlank("ftp-proxy", proxySettings.Ftp)
-		setIfNotBlank("no-proxy", proxySettings.NoProxy)
+		setIfNotBlank(config.HttpProxyKey, proxySettings.Http)
+		setIfNotBlank(config.HttpsProxyKey, proxySettings.Https)
+		setIfNotBlank(config.FtpProxyKey, proxySettings.Ftp)
+		setIfNotBlank(config.NoProxyKey, proxySettings.NoProxy)
 	}
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&
@@ -166,9 +166,9 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		if err != nil {
 			return nil, err
 		}
-		setIfNotBlank("apt-http-proxy", proxySettings.Http)
-		setIfNotBlank("apt-https-proxy", proxySettings.Https)
-		setIfNotBlank("apt-ftp-proxy", proxySettings.Ftp)
+		setIfNotBlank(config.AptHttpProxyKey, proxySettings.Http)
+		setIfNotBlank(config.AptHttpsProxyKey, proxySettings.Https)
+		setIfNotBlank(config.AptFtpProxyKey, proxySettings.Ftp)
 	}
 	if len(attrs) > 0 {
 		cfg, err = cfg.Apply(attrs)
