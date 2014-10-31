@@ -42,7 +42,17 @@ func (s *backupsSuite) setStored(id string) *time.Time {
 	return &stored
 }
 
+type fakeDumper struct{}
+
+func (*fakeDumper) Dump(dumpDir string) error {
+	return nil
+}
+
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
+	s.PatchValue(backups.GetDBDumper, func(db.Info) (db.Dumper, error) {
+		return &fakeDumper{}, nil
+	})
+
 	paths := files.Paths{DataDir: "/var/lib/juju"}
 	connInfo := db.ConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
