@@ -33,9 +33,14 @@ func NewRelationer(ru *apiuniter.RelationUnit, dir *relation.StateDir, hooks cha
 	}
 }
 
-// Context returns a fresh ContextRelation representing r's current state.
-func (r *Relationer) Context() *context.ContextRelation {
-	return context.NewContextRelation(r.ru, r.dir.State().Members)
+// ContextInfo returns a represention of r's current state.
+func (r *Relationer) ContextInfo() *context.RelationInfo {
+	members := r.dir.State().Members
+	memberNames := make([]string, 0, len(members))
+	for memberName := range members {
+		memberNames = append(memberNames, memberName)
+	}
+	return &context.RelationInfo{r.ru, memberNames}
 }
 
 // IsImplicit returns whether the local relation endpoint is implicit. Implicit

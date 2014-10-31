@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
+	"github.com/juju/utils/filestorage"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
@@ -18,8 +19,6 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
-
-	"github.com/juju/juju/instance"
 )
 
 var (
@@ -31,6 +30,9 @@ var (
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
+
+var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
+var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
@@ -142,28 +144,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 }
 
 var MachineIdLessThan = machineIdLessThan
-
-// SCHEMACHANGE
-// This method is used to reset a deprecated machine attribute.
-func SetMachineInstanceId(m *Machine, instanceId string) {
-	m.doc.InstanceId = instance.Id(instanceId)
-}
-
-// SCHEMACHANGE
-// ClearInstanceDocId sets instanceid on instanceData for machine to "".
-func ClearInstanceDocId(c *gc.C, m *Machine) {
-	ops := []txn.Op{
-		{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
-		},
-	}
-
-	err := m.st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-}
 
 // SCHEMACHANGE
 // This method is used to reset the ownertag attribute
@@ -294,6 +274,10 @@ func DocID(st *State, id string) string {
 
 func LocalID(st *State, id string) string {
 	return st.localID(id)
+}
+
+func StrictLocalID(st *State, id string) (string, bool) {
+	return st.strictLocalID(id)
 }
 
 func GetUnitEnvUUID(unit *Unit) string {

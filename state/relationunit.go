@@ -79,7 +79,8 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
+	rsDocID := ru.st.docID(ruKey)
+	if count, err := relationScopes.FindId(rsDocID).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		return nil
@@ -90,14 +91,14 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// * TODO(fwereade): check unit status == params.StatusStarted (this
 	//   breaks a bunch of tests in a boring but noisy-to-fix way, and is
 	//   being saved for a followup).
-	unitDocID, relationKey := ru.unit.doc.DocID, ru.relation.doc.Key
+	unitDocID, relationDocID := ru.unit.doc.DocID, ru.relation.doc.DocID
 	ops := []txn.Op{{
 		C:      unitsC,
 		Id:     unitDocID,
 		Assert: isAliveDoc,
 	}, {
 		C:      relationsC,
-		Id:     relationKey,
+		Id:     relationDocID,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 	}}
@@ -123,9 +124,13 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// * Create the scope doc.
 	ops = append(ops, txn.Op{
 		C:      relationScopesC,
-		Id:     ruKey,
+		Id:     rsDocID,
 		Assert: txn.DocMissing,
-		Insert: relationScopeDoc{Key: ruKey},
+		Insert: relationScopeDoc{
+			DocID:   rsDocID,
+			Key:     ruKey,
+			EnvUUID: ru.st.EnvironTag().Id(),
+		},
 	})
 
 	// * If the unit should have a subordinate, and does not, create it.
@@ -141,7 +146,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
+	if count, err := relationScopes.FindId(rsDocID).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		// The scope document exists, so we're actually already in scope.
@@ -158,7 +163,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if alive, err := isAliveWithSession(db.C(relationsC), relationKey); err != nil {
+	if alive, err := isAliveWithSession(db.C(relationsC), relationDocID); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
@@ -241,14 +246,15 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	if err != nil {
 		return err
 	}
-	if count, err := relationScopes.FindId(key).Count(); err != nil {
+	docID := ru.st.docID(key)
+	if count, err := relationScopes.FindId(docID).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		return nil
 	}
 	ops := []txn.Op{{
 		C:      relationScopesC,
-		Id:     key,
+		Id:     docID,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
 	return ru.st.runTransaction(ops)
@@ -267,6 +273,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	if err != nil {
 		return err
 	}
+	docID := ru.st.docID(key)
 	// The logic below is involved because we remove a dying relation
 	// with the last unit that leaves a scope in it. It handles three
 	// possible cases:
@@ -298,7 +305,7 @@ func (ru *RelationUnit) LeaveScope() error {
 				return nil, err
 			}
 		}
-		count, err := relationScopes.FindId(key).Count()
+		count, err := relationScopes.FindId(docID).Count()
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
@@ -306,21 +313,21 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		ops := []txn.Op{{
 			C:      relationScopesC,
-			Id:     key,
+			Id:     docID,
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
 		if ru.relation.doc.Life == Alive {
 			ops = append(ops, txn.Op{
 				C:      relationsC,
-				Id:     ru.relation.doc.Key,
+				Id:     ru.relation.doc.DocID,
 				Assert: bson.D{{"life", Alive}},
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
 				C:      relationsC,
-				Id:     ru.relation.doc.Key,
+				Id:     ru.relation.doc.DocID,
 				Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
@@ -360,7 +367,7 @@ func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	sel = append(sel, bson.D{{"_id", key}}...)
+	sel = append(sel, bson.D{{"_id", ru.st.docID(key)}}...)
 	count, err := relationScopes.Find(sel).Count()
 	if err != nil {
 		return false, err
@@ -426,7 +433,9 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 // relationScopeDoc represents a unit which is in a relation scope.
 // The relation, container, role, and unit are all encoded in the key.
 type relationScopeDoc struct {
-	Key       string `bson:"_id"`
+	DocID     string `bson:"_id"`
+	Key       string `bson:"key"`
+	EnvUUID   string `bson:"env-uuid"`
 	Departing bool
 }
 

@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
@@ -21,12 +22,12 @@ import (
 // s.metaresult.
 var MetaResultString = `
 backup ID:       "spam"
-started:         0001-01-01 00:00:00 +0000 UTC
-finished:        0001-01-01 00:00:00 +0000 UTC
 checksum:        ""
 checksum format: ""
 size (B):        0
-stored:          false
+stored:          0001-01-01 00:00:00 +0000 UTC
+started:         0001-01-01 00:00:00 +0000 UTC
+finished:        0001-01-01 00:00:00 +0000 UTC
 notes:           ""
 environment ID:  ""
 machine ID:      ""
@@ -115,6 +116,7 @@ func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) 
 
 type fakeAPIClient struct {
 	metaresult *params.BackupsMetadataResult
+	archive    io.ReadCloser
 	err        error
 
 	args  []string
@@ -147,6 +149,15 @@ func (c *fakeAPIClient) List() (*params.BackupsListResult, error) {
 	var result params.BackupsListResult
 	result.List = []params.BackupsMetadataResult{*c.metaresult}
 	return &result, nil
+}
+
+func (c *fakeAPIClient) Download(id string) (io.ReadCloser, error) {
+	c.args = append(c.args, "id")
+	c.idArg = id
+	if c.err != nil {
+		return nil, c.err
+	}
+	return c.archive, nil
 }
 
 func (c *fakeAPIClient) Remove(id string) error {

@@ -236,7 +236,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 
-	err = bootstrapFuncs.Bootstrap(ctx, environ, bootstrap.BootstrapParams{
+	err = bootstrapFuncs.Bootstrap(envcmd.BootstrapContext(ctx), environ, bootstrap.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 		UploadTools: c.UploadTools,

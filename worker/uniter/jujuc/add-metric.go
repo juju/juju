@@ -6,11 +6,11 @@ package jujuc
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/utils/keyvalues"
 )
 
 // Metric represents a single metric set by the charm.
@@ -47,22 +47,16 @@ func (c *AddMetricCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no metrics specified")
 	}
-	keys := make(map[string]struct{})
-	for _, kv := range args {
-		parts := strings.SplitN(kv, "=", 2)
-		if len(parts) != 2 || len(parts[0]) == 0 {
-			return fmt.Errorf(`expected "key=value", got %q`, kv)
-		}
-		if _, ok := keys[parts[0]]; ok {
-			return fmt.Errorf("duplicate metric key given: %q",
-				parts[0])
-		}
-		keys[parts[0]] = struct{}{}
-		_, err := strconv.ParseFloat(parts[1], 64)
+	options, err := keyvalues.Parse(args, false)
+	if err != nil {
+		return err
+	}
+	for key, value := range options {
+		_, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			return fmt.Errorf("invalid value type: expected float, got %q", parts[1])
+			return fmt.Errorf("invalid value type: expected float, got %q", value)
 		}
-		c.Metrics = append(c.Metrics, Metric{parts[0], parts[1], now})
+		c.Metrics = append(c.Metrics, Metric{key, value, now})
 	}
 	return nil
 }

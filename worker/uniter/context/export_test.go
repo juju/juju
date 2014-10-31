@@ -23,6 +23,23 @@ var (
 	TryClosePorts     = tryClosePorts
 )
 
+func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.RelationSettings) {
+	f := f0.(*factory)
+	members := f.relationCaches[relId].members
+	if members[unitName] == nil {
+		members[unitName] = params.RelationSettings{}
+	}
+	for key, value := range settings {
+		members[unitName][key] = value
+	}
+}
+
+func CachedSettings(f0 Factory, relId int, unitName string) (params.RelationSettings, bool) {
+	f := f0.(*factory)
+	settings, found := f.relationCaches[relId].members[unitName]
+	return settings, found
+}
+
 // PatchMeterStatus changes the meter status of the context.
 func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	oldMeterStatus := ctx.meterStatus
@@ -55,10 +72,6 @@ func (c *HookContext) EnvInfo() (name, uuid string) {
 
 func (c *HookContext) ActionData() *ActionData {
 	return c.actionData
-}
-
-func (cr *ContextRelation) StoredMemberSettings(remoteUnit string) params.RelationSettings {
-	return cr.members[remoteUnit]
 }
 
 func GetStubActionContext(in map[string]interface{}) *HookContext {

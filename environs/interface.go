@@ -207,4 +207,8 @@ type BootstrapContext interface {
 	// StopInterruptNotify returns, no more signals will be
 	// delivered to the channel.
 	StopInterruptNotify(chan<- os.Signal)
+
+	// ShouldVerifyCredentials indicates whether the caller's cloud
+	// credentials should be verified.
+	ShouldVerifyCredentials() bool
 }

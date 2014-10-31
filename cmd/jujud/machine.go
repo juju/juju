@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
@@ -64,6 +65,7 @@ import (
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -129,15 +131,6 @@ func (a *MachineAgent) BeginRestore() error {
 		return fmt.Errorf("already restoring")
 	}
 	a.restoring = true
-	return nil
-}
-
-// FinishRestore will restart jujud and err if restore flag is not true
-func (a *MachineAgent) FinishRestore() error {
-	if !a.restoring {
-		return fmt.Errorf("restore is not in progress")
-	}
-	a.tomb.Kill(worker.ErrTerminateAgent)
 	return nil
 }
 
@@ -250,12 +243,47 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
+	case worker.ErrRebootMachine:
+		logger.Infof("Caught reboot error")
+		err = a.executeRebootOrShutdown(params.ShouldReboot)
+	case worker.ErrShutdownMachine:
+		logger.Infof("Caught shutdown error")
+		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	err = agentDone(err)
 	a.tomb.Kill(err)
 	return err
+}
+
+func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
+	agentCfg := a.CurrentConfig()
+	// At this stage, all API connections would have been closed
+	// We need to reopen the API to clear the reboot flag after
+	// scheduling the reboot. It may be cleaner to do this in the reboot
+	// worker, before returning the ErrRebootMachine.
+	st, _, err := openAPIState(agentCfg, a)
+	if err != nil {
+		logger.Infof("Reboot: Error connecting to state")
+		return errors.Trace(err)
+	}
+	// block until all units/containers are ready, and reboot/shutdown
+	finalize, err := reboot.NewRebootWaiter(st, agentCfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("Reboot: Executing reboot")
+	err = finalize.ExecuteReboot(action)
+	if err != nil {
+		logger.Infof("Reboot: Error executing reboot: %v", err)
+		return errors.Trace(err)
+	}
+	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
+	// so the agent will simply exit without error pending reboot/shutdown.
+	return worker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
@@ -265,6 +293,46 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+	rWorker := func(stopch <-chan struct{}) error {
+		return a.restoreStateWatcher(st, stopch)
+	}
+	return worker.NewSimpleWorker(rWorker), nil
+}
+
+func (a *MachineAgent) restoreChanged(st *state.State) error {
+	rinfo, err := st.EnsureRestoreInfo()
+	if err != nil {
+		return errors.Annotate(err, "cannot read restore state")
+	}
+	switch rinfo.Status() {
+	case state.RestorePending:
+		a.PrepareRestore()
+	case state.RestoreInProgress:
+		a.BeginRestore()
+	}
+	return nil
+}
+
+func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
+	restoreWatch := st.WatchRestoreInfoChanges()
+	defer func() {
+		restoreWatch.Kill()
+		restoreWatch.Wait()
+	}()
+
+	for {
+		select {
+		case <-restoreWatch.Changes():
+			if err := a.restoreChanged(st); err != nil {
+				return err
+			}
+		case <-stopch:
+			return nil
+		}
+	}
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -394,6 +462,17 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// before starting.
 	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
+	})
+	a.startWorkerAfterUpgrade(runner, "reboot", func() (worker.Worker, error) {
+		reboot, err := st.Reboot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		lock, err := hookExecutionLock(DataDir)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return rebootworker.NewReboot(reboot, agentConfig, lock)
 	})
 	a.startWorkerAfterUpgrade(runner, "apiaddressupdater", func() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
@@ -609,6 +688,10 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
+			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
+				return a.newRestoreStateWatcher(st)
+			})
+
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -639,7 +722,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 					Key:       key,
 					DataDir:   dataDir,
 					LogDir:    logDir,
-					Validator: a.limitLoginsDuringUpgrade,
+					Validator: a.limitLogins,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
