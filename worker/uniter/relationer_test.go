@@ -384,6 +384,39 @@ func (s *RelationerSuite) assertHook(c *gc.C, expect hook.Info) {
 	}
 }
 
+func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
+	relationers := map[int]*uniter.Relationer{}
+
+	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
+	err := r.Join()
+	c.Assert(err, gc.IsNil)
+
+	relationers[0] = r
+
+	args := uniter.RunCommandsArgs{
+		Commands:       "some-command",
+		RelationId:     0,
+		RemoteUnitName: "",
+	}
+
+	// Check preparing a valid hook updates neither the context nor persistent
+	// relation state.
+	joined := hook.Info{
+		Kind:       hooks.RelationJoined,
+		RemoteUnit: "u/1",
+	}
+	name, err := r.PrepareHook(joined)
+	c.Assert(err, gc.IsNil)
+	c.Assert(name, gc.Equals, "ring-relation-joined")
+
+	err = r.CommitHook(joined)
+	c.Assert(err, gc.IsNil)
+
+	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(remoteUnit, gc.Equals, "u/1")
+}
+
 type stopper interface {
 	Stop() error
 }

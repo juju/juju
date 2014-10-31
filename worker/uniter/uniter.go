@@ -431,7 +431,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	}
 	defer u.hookLock.Unlock()
 
-	remoteUnitName, err := parseRemoteUnit(u.relationers, args.RelationId, args)
+	remoteUnitName, err := ParseRemoteUnit(u.relationers, args)
 	if err != nil {
 		return nil, err
 	}
@@ -862,20 +862,20 @@ func (u *Uniter) watchForProxyChanges(environWatcher apiwatcher.NotifyWatcher) {
 	}()
 }
 
-// parseRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
+// ParseRemoteUnit attempts to infer the remoteUnit for a given relationId. If the
 // remoteUnit is present in the RunCommandArgs, that is used and no attempt to infer
 // the remoteUnit happens. If no remoteUnit or more than one remoteUnit is found for
 // a given relationId an error is returned for display to the user.
-func parseRemoteUnit(relationers map[int]*Relationer, relationId int, args RunCommandsArgs) (string, error) {
+func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (string, error) {
 	remoteUnit := args.RemoteUnitName
-	if relationId != -1 && len(remoteUnit) == 0 {
-		relationer, found := relationers[relationId]
+	if args.RelationId != -1 && len(remoteUnit) == 0 {
+		relationer, found := relationers[args.RelationId]
 		if !found {
 			return "", errors.Errorf("unable to find relation id: %d", args.RelationId)
 		}
 
 		var err error
-		remoteUnits := relationer.Context().UnitNames()
+		remoteUnits := relationer.ContextInfo().MemberNames
 		numRemoteUnits := len(remoteUnits)
 
 		switch numRemoteUnits {
