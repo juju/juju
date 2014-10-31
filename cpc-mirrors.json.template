@@ -2,6 +2,36 @@
   "mirrors": {
     "com.ubuntu.juju:released:tools": [
       {
+        "mirror": "https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist/PURPOSE_TOOLS",
+        "path": "streams/v1/com.ubuntu.juju:released:tools.json",
+        "clouds": [
+          {
+           "region": "eu-ams-1",
+           "endpoint": "https://eu-ams-1.api.joyentcloud.com"
+          },
+          {
+           "region": "us-sw-1",
+           "endpoint": "https://us-sw-1.api.joyentcloud.com"
+          },
+          {
+           "region": "us-east-3",
+           "endpoint": "https://us-east-3.api.joyentcloud.com"
+          },
+          {
+           "region": "us-east-2",
+           "endpoint": "https://us-east-2.api.joyentcloud.com"
+          },
+          {
+           "region": "us-east-1",
+           "endpoint": "https://us-east-1.api.joyentcloud.com"
+          },
+          {
+           "region": "us-west-1",
+           "endpoint": "https://us-west-1.api.joyentcloud.com"
+          }
+        ]
+      },
+      {
         "mirror": "https://juju-dist.s3.amazonaws.com/PURPOSE_TOOLS",
         "path": "streams/v1/com.ubuntu.juju:released:tools.json",
         "clouds": [
@@ -29,7 +59,6 @@
             "endpoint": "https://ec2.ap-southeast-2.amazonaws.com",
             "region": "ap-southeast-2"
           },
-
           {
             "endpoint": "https://ec2.ap-northeast-1.amazonaws.com",
             "region": "ap-northeast-1"
@@ -37,6 +66,10 @@
           {
             "endpoint": "https://ec2.sa-east-1.amazonaws.com",
             "region": "sa-east-1"
+          },
+          {
+           "endpoint": "https://ec2.eu-central-1.amazonaws.com",
+           "region": "eu-central-1"
           }
         ]
       },
@@ -46,15 +79,11 @@
         "clouds": [
           {
             "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
-            "region": "az-1.region-a.geo-1"
+            "region": "region-a.geo-1"
           },
           {
-            "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
-            "region": "az-2.region-a.geo-1"
-          },
-          {
-            "endpoint": "https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
-            "region": "az-3.region-a.geo-1"
+            "endpoint": "https://region-b.geo-1.identity.hpcloudsvc.com:35357/v2.0/",
+            "region": "region-b.geo-1"
           }
         ]
       },
@@ -109,6 +138,26 @@
           {
             "endpoint": "https://core.windows.net/",
             "region": "West US"
+          },
+          {
+           "endpoint": "https://management.core.windows.net/",
+           "region": "North Central US"
+          },
+          {
+           "endpoint": "https://management.core.windows.net/",
+           "region": "South Central US"
+          },
+          {
+           "endpoint": "https://management.core.windows.net/",
+           "region": "Australia Southeast"
+          },
+          {
+           "endpoint": "https://management.core.windows.net/",
+           "region": "Australia East"
+          },
+          {
+           "endpoint": "https://management.core.windows.net/",
+           "region": "Brazil South"
           }
         ]
       }
@@ -117,3 +166,4 @@
   "format": "mirrors:1.0",
   "updated": "NOW"
 }
+
