@@ -90,7 +90,5 @@ type RestoreArgs struct {
 	// BackupId holds the id of the backup in server if any
 	BackupId string
 	// Machine holds the machine where the backup is going to be restored
-	Machine  string
+	Machine string
 }
-
-
