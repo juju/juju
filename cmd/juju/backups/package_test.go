@@ -184,7 +184,3 @@ func (c *fakeAPIClient) FinishRestore() error {
 func (c *fakeAPIClient) Restore(string, string) error {
 	return nil
 }
-
-func (c *fakeAPIClient) PublicAddress(string) (string, error) {
-	return "", nil
-}

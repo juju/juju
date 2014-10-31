@@ -41,9 +41,9 @@ func NewClient(st httpAPICallCloser) *Client {
 // file on server and will return error on failure.
 func (c *Client) Restore(backupFileName, backupId string) error {
 	params := params.RestoreArgs{
-			FileName: backupFileName,
-			BackupId: backupId,
-			Machine:  "0"}
+		FileName: backupFileName,
+		BackupId: backupId,
+		Machine:  "0"}
 	err := c.facade.FacadeCall("Restore", params, nil)
 	return err
 }
@@ -61,13 +61,4 @@ func (c *Client) PrepareRestore() error {
 // placed state server has the mark of restore complete
 func (c *Client) FinishRestore() error {
 	return c.facade.FacadeCall("FinishRestore", nil, nil)
-}
-
-// PublicAddress returns the public address of the specified
-// machine or unit. For a machine, target is an id not a tag.
-func (c *Client) PublicAddress(target string) (string, error) {
-	var results params.PublicAddressResults
-	p := params.PublicAddress{Target: target}
-	err := c.facade.FacadeCall("PublicAddress", p, &results)
-	return results.PublicAddress, err
 }
