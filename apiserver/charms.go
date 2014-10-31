@@ -412,16 +412,6 @@ func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) 
 		return errors.Annotate(err, "cannot get charm from state")
 	}
 
-	// Use the storage to retrieve and save the charm archive.
-	reader, _, err := storage.Get(ch.StoragePath())
-	if err != nil {
-		return errors.Annotate(err, "charm not found in the provider storage")
-	}
-	defer reader.Close()
-	data, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return errors.Annotate(err, "cannot read charm data")
-	}
 	// In order to avoid races, the archive is saved in a temporary file which
 	// is then atomically renamed. The temporary file is created in the
 	// charm cache directory so that we can safely assume the rename source and
@@ -435,7 +425,15 @@ func (h *charmsHandler) downloadCharm(curl *charm.URL, charmArchivePath string) 
 		return errors.Annotate(err, "cannot create charm archive temp file")
 	}
 	defer tempCharmArchive.Close()
-	if err = ioutil.WriteFile(tempCharmArchive.Name(), data, 0644); err != nil {
+
+	// Use the storage to retrieve and save the charm archive.
+	reader, _, err := storage.Get(ch.StoragePath())
+	if err != nil {
+		return errors.Annotate(err, "charm not found in the provider storage")
+	}
+	defer reader.Close()
+
+	if _, err = io.Copy(tempCharmArchive, reader); err != nil {
 		return errors.Annotate(err, "error processing charm archive download")
 	}
 	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
