@@ -405,7 +405,7 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex("v1"), index},
+		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
 	}
 	for file, metadata := range products {
 		metadataInfo = append(metadataInfo, MetadataFile{file, metadata})
