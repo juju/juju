@@ -397,7 +397,7 @@ func (st *State) machineDocForTemplate(template MachineTemplate, id string) *mac
 	return &machineDoc{
 		DocID:      st.docID(id),
 		Id:         id,
-		EnvUUID:    st.EnvironTag().Id(),
+		EnvUUID:    st.EnvironUUID(),
 		Series:     template.Series,
 		Jobs:       template.Jobs,
 		Clean:      !template.Dirty,

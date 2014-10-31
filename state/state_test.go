@@ -82,11 +82,11 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
-	c.Assert(docID, gc.Equals, s.State.EnvironTag().Id()+":"+id)
+	c.Assert(docID, gc.Equals, s.State.EnvironUUID()+":"+id)
 }
 
 func (s *StateSuite) TestLocalID(c *gc.C) {
-	id := s.State.EnvironTag().Id() + ":wordpress"
+	id := s.State.EnvironUUID() + ":wordpress"
 	localID := state.LocalID(s.State, id)
 	c.Assert(localID, gc.Equals, "wordpress")
 }
@@ -132,6 +132,10 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 	defer st.Close()
 
 	c.Assert(st.EnvironTag(), gc.Equals, s.envTag)
+}
+
+func (s *StateSuite) TestEnvironUUID(c *gc.C) {
+	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {

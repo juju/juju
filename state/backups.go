@@ -313,7 +313,7 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 		panic(fmt.Sprintf("could not get hostname (system unstable?): %v", err))
 	}
 	origin := metadata.NewOrigin(
-		st.EnvironTag().Id(),
+		st.EnvironUUID(),
 		machine,
 		hostname,
 	)

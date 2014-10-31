@@ -534,7 +534,7 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	coll, closer := s.state.getCollection(collName)
 	var d map[string]string
 	var ids []string
-	envTag := s.state.EnvironTag().Id()
+	envTag := s.state.EnvironUUID()
 	for _, oldDoc := range oldDocs {
 		oldID := fmt.Sprint(oldDoc["_id"])
 		newID := s.state.docID(oldID)
