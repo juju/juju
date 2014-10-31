@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	apiprovisioner "github.com/juju/juju/api/provisioner"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/environs/config"
 )
@@ -24,11 +23,3 @@ var (
 	ContainerManagerConfig = containerManagerConfig
 	GetToolsFinder         = &getToolsFinder
 )
-
-func ProcessMachines(pt ProvisionerTask, ids []string) error {
-	return pt.(*provisionerTask).processMachines(ids)
-}
-
-func AddMachine(pt ProvisionerTask, m *apiprovisioner.Machine) {
-	pt.(*provisionerTask).machines[m.Id()] = m
-}
