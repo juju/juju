@@ -662,6 +662,28 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
+func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	// check that StateServerInstances returns the id of the bootstrap machine.
+	//instanceIds, err := env.StateServerInstances()
+	//c.Assert(err, gc.IsNil)
+	//c.Assert(instanceIds, gc.HasLen, 1)
+
+	insts, err := env.AllInstances()
+	c.Assert(err, gc.IsNil)
+	//c.Assert(insts, gc.HasLen, 1)
+	//c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
+	//instanceIds, err := env.StateServerInstances()
+	//c.Assert(err, gc.IsNil)
+
+	instId := insts[0].Id()
+	err = env.AllocateAddress(instId, "", network.Address{})
+	c.Assert(err, gc.IsNil)
+}
+
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
