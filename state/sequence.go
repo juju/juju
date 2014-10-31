@@ -11,12 +11,14 @@ import (
 )
 
 type sequenceDoc struct {
-	Name    string `bson:"_id"`
+	DocID   string `bson:"_id"`
+	Name    string `bson:"name"`
+	EnvUUID string `bson:"env-uuid"`
 	Counter int
 }
 
 func (s *State) sequence(name string) (int, error) {
-	query := s.db.C("sequence").Find(bson.D{{"_id", name}})
+	query := s.db.C(sequenceC).FindId(s.docID(name))
 	inc := mgo.Change{
 		Update: bson.M{"$inc": bson.M{"counter": 1}},
 		Upsert: true,
