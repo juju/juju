@@ -1,5 +1,7 @@
 #!/bin/bash
 
+>&2 echo 'DEPRECATED: Use "juju backups create" instead of "juju backup".'
+
 # Grab the first version out of juju status (should be machine 0).
 VERSION=$(juju status | grep 'agent-version:' | awk '{print $2}')
 
