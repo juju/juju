@@ -28,10 +28,12 @@ class GenerateMirrors(TestCase):
         expected_produts = sorted(
             'com.ubuntu.juju:%s:tools' % p for p in PURPOSES)
         self.assertEqual(expected_produts, sorted(data['mirrors'].keys()))
+        first_mirror = data['mirrors']['com.ubuntu.juju:released:tools'][0]
+        self.assertEqual('content-download', first_mirror['datatype'])
+        self.assertEqual('mirrors:1.0', first_mirror['format'])
+        self.assertEqual('streams/v1/cpc-mirrors.json', first_mirror['path'])
         expected_updated = updated.strftime('%Y%m%d')
-        self.assertEqual(
-            expected_updated,
-            data['mirrors']['com.ubuntu.juju:released:tools'][0]['updated'])
+        self.assertEqual(expected_updated, first_mirror['updated'])
 
     def test_cpc_generate_mirrors_file(self):
         updated = datetime.datetime.utcnow()
