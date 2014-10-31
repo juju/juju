@@ -571,9 +571,9 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 //---------------------------
 // utilities
 
-// IgnoredDatabases is the list of databases that should not be
+// ignoredDatabases is the list of databases that should not be
 // backed up.
-var IgnoredDatabases = set.NewStrings(
+var ignoredDatabases = set.NewStrings(
 	"backups",
 	"presence",
 )
@@ -614,7 +614,7 @@ func getBackupTargetDatabases(st *State) (*set.Strings, error) {
 		return nil, errors.Annotate(err, "unable to get DB names")
 	}
 
-	targets := set.NewStrings(dbNames...).Difference(IgnoredDatabases)
+	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
 	return &targets, nil
 }
 
