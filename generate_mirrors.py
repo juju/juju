@@ -22,7 +22,9 @@ def generate_mirrors_file(updated, streams_path,
                           verbose=False, dry_run=False):
     if verbose:
         print('Creating %s' % MIRRORS_JSON)
-    mirrors = {}
+    mirrors = {
+        "mirrors": {}
+    }
     if not dry_run:
         data = json.dumps(mirrors)
         file_path = '%s/%s' % (streams_path, MIRRORS_JSON)
