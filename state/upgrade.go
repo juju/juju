@@ -181,7 +181,7 @@ func (info *UpgradeInfo) getProvisionedStateServers() ([]string, error) {
 	var sel bson.D
 	var field string
 	if upgradeDone {
-		sel = bson.D{{"env-uuid", info.st.EnvironTag().Id()}}
+		sel = bson.D{{"env-uuid", info.st.EnvironUUID()}}
 		field = "machineid"
 	} else {
 		field = "_id"

@@ -541,7 +541,7 @@ func MigrateMachineInstanceIdToInstanceData(st *State) error {
 				Insert: instanceData{
 					DocID:      mID,
 					MachineId:  mID,
-					EnvUUID:    st.EnvironTag().Id(),
+					EnvUUID:    st.EnvironUUID(),
 					InstanceId: instance.Id(instID.(string)),
 				},
 			})

@@ -919,7 +919,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	defer closer()
 	query := bson.D{
 		{"name", bson.D{{"$in", initialNames}}},
-		{"env-uuid", w.st.EnvironTag().Id()},
+		{"env-uuid", w.st.EnvironUUID()},
 	}
 	docs := []lifeWatchDoc{}
 	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {

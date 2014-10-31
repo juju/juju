@@ -22,7 +22,7 @@ var _ = gc.Suite(&backupSuite{})
 
 func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
 	origin := metadata.NewOrigin(
-		s.State.EnvironTag().Id(),
+		s.State.EnvironUUID(),
 		"0",
 		"localhost",
 	)

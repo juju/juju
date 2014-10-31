@@ -67,7 +67,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 		st: st,
 		doc: metricBatchDoc{
 			UUID:     uuid.String(),
-			EnvUUID:  st.EnvironTag().Id(),
+			EnvUUID:  st.EnvironUUID(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
