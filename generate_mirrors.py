@@ -258,14 +258,14 @@ def main(argv):
     An exit code of 1 will have a list of strings explaining the problems.
     An exit code of 0 is a pass and the explanation is None.
     """
-    args = parse_args(argv[1:])
+    args = parse_args(argv)
     try:
         streams_path = os.path.join(args.streams_path, 'streams', 'v1')
         updated = datetime.datetime.utcnow()
         generate_cpc_mirrors_file(
-            updated, streams_path, args.verbose, args.dry_run)
+            updated, streams_path, verbose=args.verbose, dry_run=args.dry_run)
         generate_mirrors_file(
-            updated, streams_path, args.verbose, args.dry_run)
+            updated, streams_path, verbose=args.verbose, dry_run=args.dry_run)
     except Exception as e:
         print(e)
         if args.verbose:
@@ -277,4 +277,4 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv))
+    sys.exit(main(sys.argv[1:]))

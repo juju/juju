@@ -8,6 +8,7 @@ from utils import temp_dir
 from generate_mirrors import (
     generate_mirrors_file,
     generate_cpc_mirrors_file,
+    main,
     PURPOSES,
 )
 
@@ -75,3 +76,16 @@ class GenerateMirrors(TestCase):
                  "cpcjoyentsupport/public/juju-dist/tools"),
                 purposeful_mirrors[3]['mirror'])
             self.assertEqual(6, len(purposeful_mirrors[3]['clouds']))
+
+    def test_main(self):
+        with patch('generate_mirrors.generate_mirrors_file') as gmf_mock:
+            with patch(
+                    'generate_mirrors.generate_cpc_mirrors_file') as gcmf_mock:
+                main(['streams/juju-dist/tools'])
+                for mock in (gmf_mock, gcmf_mock):
+                    args, kwargs = mock.call_args
+                    self.assertIsInstance(args[0], datetime.datetime)
+                    self.assertEqual(
+                        'streams/juju-dist/tools/streams/v1', args[1])
+                    self.assertFalse(kwargs['verbose'])
+                    self.assertFalse(kwargs['dry_run'])
