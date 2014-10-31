@@ -36,7 +36,7 @@ var logger = loggo.GetLogger("juju.provider.ec2")
 
 const none = "none"
 
-// Use shortAttempt to poll for short-term events.
+// Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
@@ -80,16 +80,16 @@ var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
 
+type defaultVpc struct {
+	hasDefaultVpc bool
+	id            network.Id
+}
+
 type ec2Instance struct {
 	e *environ
 
 	mu sync.Mutex
 	*ec2.Instance
-}
-
-type defaultVpc struct {
-	hasDefaultVpc bool
-	id            network.Id
 }
 
 func (inst *ec2Instance) String() string {
@@ -948,21 +948,45 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
 func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
-	ec2 := e.ec2()
+	ec2Inst := e.ec2()
 
-	instancesResp, err := ec2.Instances([]string{string(instId)}, nil)
+	var err error
+	var instancesResp *ec2.InstancesResp
+	for a := shortAttempt.Start(); a.Next(); {
+		instancesResp, err = ec2Inst.Instances([]string{string(instId)}, nil)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
-		// XXX we should retry here if the error is due to connection flakiness
+		// either the instance doesn't exist or we couldn't get through to
+		// the ec2 api
 		return errors.Trace(err)
 	}
 
+	if len(instancesResp.Reservations) == 0 {
+		return errors.Errorf("Odd response from ec2. Instance not found.")
+	}
+	if len(instancesResp.Reservations[0].Instances) == 0 {
+		return errors.Errorf("Odd response from ec2. Instance not found.")
+	}
+	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
+		return errors.Errorf("Odd response from ec2. Network interface not found.")
+	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
 
-	// The response here is not useful - either the call succeeds or we get an
-	// error
-	_, err = ec2.AssignPrivateIPAddresses(networkInterfaceId, []string{addr.Value}, 0, false)
+	for a := shortAttempt.Start(); a.Next(); {
+		// The response here is not useful - either the call succeeds or we get an
+		// error
+		_, err = ec2Inst.AssignPrivateIPAddresses(networkInterfaceId, []string{addr.Value}, 0, false)
+		if err == nil {
+			break
+		} else if err.Code == "PrivateIpAddressLimitExceeded" {
+			return common.IPAddressesExhausted
+		}
+
+	}
 	if err != nil {
-		// XXX we should retry here if the error is due to connection flakiness
 		return errors.Trace(err)
 	}
 
