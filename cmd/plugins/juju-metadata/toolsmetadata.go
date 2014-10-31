@@ -139,12 +139,13 @@ func mergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, toolsL
 		return err
 	}
 	metadata := envtools.MetadataFromTools(toolsList, toolsDir)
-	if metadata, err = envtools.MergeMetadata(metadata, existing[stream]); err != nil {
+	var mergedMetadata []*envtools.ToolsMetadata
+	if mergedMetadata, err = envtools.MergeMetadata(metadata, existing[stream]); err != nil {
 		return err
 	}
-	if err = envtools.ResolveMetadata(stor, toolsDir, metadata); err != nil {
+	if err = envtools.ResolveMetadata(stor, toolsDir, mergedMetadata); err != nil {
 		return err
 	}
-	existing[stream] = metadata
+	existing[stream] = mergedMetadata
 	return envtools.WriteMetadata(stor, existing, writeMirrors)
 }
