@@ -1901,6 +1901,9 @@ func (s *clientSuite) TestClientEnvironmentSetDeprecated(c *gc.C) {
 	value, found := envConfig.AllAttrs()["agent-metadata-url"]
 	c.Assert(found, jc.IsTrue)
 	c.Assert(value, gc.Equals, "value")
+	value, found = envConfig.AllAttrs()["tools-metadata-url"]
+	c.Assert(found, jc.IsTrue)
+	c.Assert(value, gc.Equals, "value")
 }
 
 func (s *clientSuite) TestClientEnvironmentSetCannotChangeAgentVersion(c *gc.C) {
