@@ -16,10 +16,12 @@ class GenerateMirrors(TestCase):
 
     def test_generate_mirrors_file(self):
         updated = datetime.datetime.utcnow()
-        with temp_dir() as stream_path:
+        with temp_dir() as base_path:
+            stream_path = '%s/streams/v1' % base_path
+            os.makedirs(stream_path)
             generate_mirrors_file(updated, stream_path)
             mirror_path = '%s/mirrors.json' % stream_path
-            self.assertTrue(os.path.exists(mirror_path))
+            self.assertTrue(os.path.isfile(mirror_path))
             with open(mirror_path) as mirror_file:
                 data = json.load(mirror_file)
         self.assertEqual(['mirrors'], data.keys())

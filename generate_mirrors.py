@@ -5,6 +5,7 @@ from __future__ import print_function
 from argparse import ArgumentParser
 import datetime
 import json
+import os
 import sys
 import traceback
 
@@ -56,7 +57,8 @@ def parse_args(args=None):
         '-v', '--verbose', action="store_true", default=False,
         help='Increse verbosity.')
     parser.add_argument(
-        'streams_path', help="The dirextory to create the files in.")
+        'streams_path',
+        help="The streams base directory to create the files in. eg ./tools")
     return parser.parse_args(args)
 
 
@@ -68,11 +70,12 @@ def main(argv):
     """
     args = parse_args(argv[1:])
     try:
+        streams_path = os.path.join(args.streams_path, 'streams', 'v1')
         updated = datetime.datetime.utcnow()
         generate_cpc_mirrors_file(
-            updated, args.streams_path, args.verbose, args.dry_run)
+            updated, streams_path, args.verbose, args.dry_run)
         generate_mirrors_file(
-            updated, args.streams_path, args.verbose, args.dry_run)
+            updated, streams_path, args.verbose, args.dry_run)
     except Exception as e:
         print(e)
         if args.verbose:
