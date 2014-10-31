@@ -140,14 +140,14 @@ const IdentityProviderKeySize = 32
 // IdentityProvider holds information about a remote identity provider
 // that the Juju server trusts to make inbound API connections.
 type IdentityProvider struct {
-	PublicKey *bakery.PublicKey `bson:"public-key"`
-	Location  string            `bson:"location"`
+	PublicKey bakery.PublicKey `bson:"public-key"`
+	Location  string           `bson:"location"`
 }
 
 func (info *StateServingInfo) NewTargetLocator() bakery.PublicKeyLocator {
 	m := make(bakery.PublicKeyLocatorMap)
 	if info.IdentityProvider != nil {
-		m[info.IdentityProvider.Location] = info.IdentityProvider.PublicKey
+		m[info.IdentityProvider.Location] = &info.IdentityProvider.PublicKey
 	}
 	return m
 }
