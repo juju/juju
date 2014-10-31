@@ -103,7 +103,7 @@ func (st *State) EnvironmentUser(user names.UserTag) (*EnvironmentUser, error) {
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
 
-	id := envUserID(st.EnvironTag().Id(), user.Username())
+	id := envUserID(st.EnvironUUID(), user.Username())
 	err := envUsers.FindId(id).One(&envUser.doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("environment user %q", user.Username())
@@ -130,7 +130,7 @@ func (st *State) AddEnvironmentUser(user, createdBy names.UserTag) (*Environment
 		}
 	}
 
-	envuuid := st.EnvironTag().Id()
+	envuuid := st.EnvironUUID()
 	op, doc := createEnvUserOpAndDoc(envuuid, user, createdBy, displayName)
 	err := st.runTransaction([]txn.Op{op})
 	if err == txn.ErrAborted {
@@ -167,7 +167,7 @@ func createEnvUserOpAndDoc(envuuid string, user, createdBy names.UserTag, displa
 func (st *State) RemoveEnvironmentUser(user names.UserTag) error {
 	ops := []txn.Op{{
 		C:      envUsersC,
-		Id:     envUserID(st.EnvironTag().Id(), user.Username()),
+		Id:     envUserID(st.EnvironUUID(), user.Username()),
 		Assert: txn.DocExists,
 		Remove: true,
 	}}
