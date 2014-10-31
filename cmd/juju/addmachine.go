@@ -40,16 +40,16 @@ will interpret these constraints in order to decide what kind of machine
 to allocate.
 
 If a container type is specified (e.g. "lxc"), then add-machine will
-allocate container of that type on a new provider-specific machine. It is
+allocate a container of that type on a new provider-specific machine. It is
 also possible to add containers to existing machines using the format
-<container>:<machinenumber>. Constraints cannot be combined with deploying
-a container to an existing machine. The currently supported container
-types are: $CONTAINER_TYPES$.
+<container type>:<machine number>. Constraints cannot be combined with
+deploying a container to an existing machine. The currently supported
+container types are: $CONTAINER_TYPES$.
 
 Manual provisioning is the process of installing Juju on an existing machine
-and bring it under Juju's management; currently this requires that the machine
-be running Ubuntu, that it be accessible via SSH, and be running on the same
-network as the API server.
+and bringing it under Juju's management; currently this requires that the
+machine be running Ubuntu, that it be accessible via SSH, and be running on
+the same network as the API server.
 
 It is possible to override or augment constraints by passing provider-specific
 "placement directives" with "--to"; these give the provider additional

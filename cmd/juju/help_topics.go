@@ -274,7 +274,7 @@ See the online help for more information:
 `
 
 const helpMAASProvider = `
-A generic MAAS environment looks like htis:
+A generic MAAS environment looks like this:
 
   sample_maas:
     type: maas
