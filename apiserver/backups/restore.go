@@ -21,7 +21,7 @@ func backupFile(backupPath string) (io.ReadCloser, error) {
 }
 
 // Restore implements the server side of Backups.Restore
-func (a *API) Restore(p params.Restore) error {
+func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
 	var backupFileHandler io.ReadCloser
 	var backupMetadata *metadata.Metadata

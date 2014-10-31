@@ -881,14 +881,6 @@ type StateServersChanges struct {
 	Demoted    []string `json:"demoted,omitempty"`
 }
 
-// Restore Holds the backup file or id and the machine to
-// be used for the restore process
-type Restore struct {
-	FileName string
-	BackupId string
-	Machine  string
-}
-
 // FindToolsParams defines parameters for the FindTools method.
 type FindToolsParams struct {
 	// Number will be used to match tools versions exactly if non-zero.

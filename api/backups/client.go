@@ -40,9 +40,10 @@ func NewClient(st httpAPICallCloser) *Client {
 // machine has been bootstraped, it receives the name of a backup
 // file on server and will return error on failure.
 func (c *Client) Restore(backupFileName, backupId string) error {
-	params := params.Restore{FileName: backupFileName,
-		BackupId: backupId,
-		Machine:  "0"}
+	params := params.RestoreArgs{
+			FileName: backupFileName,
+			BackupId: backupId,
+			Machine:  "0"}
 	err := c.facade.FacadeCall("Restore", params, nil)
 	return err
 }

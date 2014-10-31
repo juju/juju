@@ -81,3 +81,16 @@ func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.Hostname = meta.Origin.Hostname
 	r.Version = meta.Origin.Version
 }
+
+// Restore Holds the backup file or id and the machine to
+// be used for the restore process
+type RestoreArgs struct {
+	// FileName holds the name of the backup file if any
+	FileName string
+	// BackupId holds the id of the backup in server if any
+	BackupId string
+	// Machine holds the machine where the backup is going to be restored
+	Machine  string
+}
+
+
