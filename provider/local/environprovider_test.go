@@ -317,11 +317,6 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 }
 
 func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
-	//URL protocol is irrelelvant as we are only interested in it as string
-	urlConstruct := "http://%v%v"
-	// This value is currently hard-coded in export_test and is called on by this test setup. @see export_test.go MockAddressForInterface()
-	expectedBridge := "127.0.0.1"
-
 	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"type": "local",
 		"name": "test",
@@ -330,6 +325,10 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 	provider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
 
+	//URL protocol is irrelelvant as we are only interested in it as string
+	urlConstruct := "http://%v%v"
+	// This value is currently hard-coded in export_test and is called on by this test setup. @see export_test.go MockAddressForInterface()
+	expectedBridge := "127.0.0.1"
 	for i, test := range urlReplacementTests {
 		c.Logf("test %d: %v\n", i, test.message)
 
@@ -355,8 +354,7 @@ func (s *prepareSuite) TesteProxyLocalhostFix(c *gc.C) {
 				// or expected value has bridge ip substituted for localhost variations
 				expectedAttValue = fmt.Sprintf(urlConstruct, expectedBridge, test.port)
 			}
-			c.Logf("env (%q) vs expected (%q) vs original (%q)\n", envConfig[anAttrKey].(string), expectedAttValue.(string), proxyAttrValues[anAttrKey])
-			c.Assert(envConfig[anAttrKey].(string), gc.Matches, expectedAttValue.(string))
+			c.Assert(envConfig[anAttrKey].(string), gc.Equals, expectedAttValue.(string))
 		}
 	}
 }
