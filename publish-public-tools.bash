@@ -90,6 +90,16 @@ publish_to_aws() {
     s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
         $STREAM_PATH $destination
     verify_stream $AWS_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 1.1: Publishing $PURPOSE to AWS one-tree."
+    s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
+        $JUJU_DIST/tools s3://juju-dist/
+    verify_stream $AWS_SITE $JUJU_DIST/tools
 }
 
 
@@ -108,6 +118,18 @@ publish_to_canonistack() {
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
     verify_stream $CAN_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 2.1: Publishing $PURPOSE to canonistack one-tree."
+    cd $JUJU_DIST/tools/$PURPOSE/
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    verify_stream $CAN_SITE $JUJU_DIST/tools
 }
 
 
@@ -125,6 +147,18 @@ publish_to_hp() {
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
     verify_stream $HP_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 3.1: Publishing $PURPOSE to HP Cloud one-tree."
+    cd $JUJU_DIST/tools/$PURPOSE/
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    verify_stream $HP_SITE $JUJU_DIST/tools
 }
 
 
@@ -134,6 +168,14 @@ publish_to_azure() {
     source $JUJU_DIR/azuretoolsrc
     ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
     verify_stream $AZURE_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish released $JUJU_DIST
+    verify_stream $AZURE_SITE $JUJU_DIST/tools
 }
 
 
@@ -152,6 +194,18 @@ publish_to_joyent() {
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
     verify_stream $JOYENT_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 5.1: Publishing $PURPOSE to Joyent one-tree."
+    cd $JUJU_DIST/tools/$PURPOSE/
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $tools/$PURPOSE/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    verify_stream $JOYENT_SITE $JUJU_DIST/tools
 }
 
 
