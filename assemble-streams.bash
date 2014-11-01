@@ -381,18 +381,7 @@ generate_streams() {
 
 generate_mirrors() {
     echo "Phase 8: Creating mirror json."
-    if [[ $PURPOSE == "release" ]]; then
-        local base_path="tools"
-    else
-        local base_path="$PURPOSE/tools"
-    fi
-    short_now=$(date +%Y%m%d)
-    sed -e "s/NOW/$short_now/" ${SCRIPT_DIR}/mirrors.json.template \
-        > ${DEST_DIST}/tools/streams/v1/mirrors.json
-    long_now=$(date -R)
-    sed -e "s/NOW/$long_now/; s,PURPOSE_TOOLS,$base_path,;" \
-        ${SCRIPT_DIR}/cpc-mirrors.json.template \
-        > ${DEST_DIST}/tools/streams/v1/cpc-mirrors.json
+    ${SCRIPT_DIR}/generate_mirrors.py -v ${DEST_DIST}/tools/
 }
 
 
@@ -523,6 +512,7 @@ if [[ $RELEASE != "IGNORE" ]]; then
     fi
 fi
 generate_streams
+generate_mirrors
 if [[ $SIGNING_KEY != "" ]]; then
     generate_mirrors
     sign_metadata
