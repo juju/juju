@@ -35,21 +35,29 @@ usage() {
 verify_stream() {
     [[ -z "$DRY_RUN" ]] || return 0
     local location="$1"
-    if [[ $PURPOSE == "released" ]]; then
-        local root="tools"
-    else
-        local root="$PURPOSE/tools"
-    fi
+    local stream_path="$2"
+    local root=$(echo "$stream_path" | sed -r 's,.*juju-dist/,,')
     echo "Verifying the streams at $location/$root"
     echo "are public and are identical to the source"
-    curl -s $location/$root/streams/v1/index.json > $WORK/index.json
-    diff $STREAM_PATH/streams/v1/index.json $WORK/index.json
-    # XXX sinzui 2014-11-01: This is not safe
-    curl -s $location/$root/streams/v1/index.json > \
-        $WORK/com.ubuntu.juju:$PURPOSE:tools.json
-    diff $STREAM_PATH/streams/v1/index.json \
-        $WORK/com.ubuntu.juju:$PURPOSE:tools.json
+    local json_files=$(find $stream_path/streams/v1 -name '*.json')
+    for json_file in $json_files; do
+        local file_name=$(basename $json_file)
+        curl -s $location/$root/streams/v1/$file_name > $WORK/$file_name
+        diff -u $json_file $WORK/$file_name
+    done
     rm $WORK/*
+}
+
+
+validate_cpcs() {
+    verify_stream $AWS_SITE $STREAM_PATH
+    verify_stream $CAN_SITE $STREAM_PATH
+    verify_stream $HP_SITE $STREAM_PATH
+    verify_stream $AZURE_SITE $STREAM_PATH
+    verify_stream $JOYENT_SITE $STREAM_PATH
+    rm -r $WORK
+    echo "Validated $PURPOSE data for all CPCs."
+    exit 0
 }
 
 
@@ -81,7 +89,7 @@ publish_to_aws() {
     echo "Phase 1: Publishing $PURPOSE to AWS."
     s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
         $STREAM_PATH $destination
-    verify_stream $AWS_SITE
+    verify_stream $AWS_SITE $STREAM_PATH
 }
 
 
@@ -99,7 +107,7 @@ publish_to_canonistack() {
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-    verify_stream $CAN_SITE
+    verify_stream $CAN_SITE $STREAM_PATH
 }
 
 
@@ -116,7 +124,7 @@ publish_to_hp() {
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-    verify_stream $HP_SITE
+    verify_stream $HP_SITE $STREAM_PATH
 }
 
 
@@ -125,7 +133,7 @@ publish_to_azure() {
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
     ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
-    verify_stream $AZURE_SITE
+    verify_stream $AZURE_SITE $STREAM_PATH
 }
 
 
@@ -143,7 +151,7 @@ publish_to_joyent() {
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/releases/ *.tgz
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-    verify_stream $JOYENT_SITE
+    verify_stream $JOYENT_SITE $STREAM_PATH
 }
 
 
@@ -160,9 +168,14 @@ publish_to_streams() {
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
 
 DRY_RUN=""
+ONLY_VALIDATE="false"
 if  [[ "$1" == "--dry-run" ]]; then
     DRY_RUN="--dry-run"
     echo "No changes will be made."
+    shift
+elif  [[ "$1" == "--validate" ]]; then
+    ONLY_VALIDATE="true"
+    echo "Validating streams, no changes will be made."
     shift
 fi
 
@@ -194,6 +207,9 @@ fi
 
 check_deps
 WORK=$(mktemp -d)
+if [[ $ONLY_VALIDATE == 'true' ]]; then
+    validate_cpcs
+fi
 publish_to_aws
 publish_to_canonistack
 publish_to_hp
