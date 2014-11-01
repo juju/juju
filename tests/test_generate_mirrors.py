@@ -46,10 +46,10 @@ class GenerateMirrors(TestCase):
             self.assertTrue(os.path.isfile(mirror_path))
             with open(mirror_path) as mirror_file:
                 data = json.load(mirror_file)
-        self.assertEqual(['mirrors'], data.keys())
-        self.assertEqual('mirrors:1.0', data['mirrors']['format'])
+        self.assertEqual(['format', 'mirrors', 'updated'], sorted(data.keys()))
+        self.assertEqual('mirrors:1.0', data['format'])
         expected_updated = updated.strftime('%a, %d %b %Y %H:%M:%S -0000')
-        self.assertEqual(expected_updated, data['mirrors']['updated'])
+        self.assertEqual(expected_updated, data['updated'])
         expected_produts = sorted(
             'com.ubuntu.juju:%s:tools' % p for p in PURPOSES)
         for product_name in expected_produts:

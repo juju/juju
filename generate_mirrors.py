@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 from argparse import ArgumentParser
+from collections import OrderedDict
 import datetime
 import json
 import os
@@ -15,10 +16,10 @@ PROPOSED = 'proposed'
 DEVEL = 'devel'
 TESTING = 'testing'
 PURPOSES = (RELEASED, PROPOSED, DEVEL, TESTING)
-AWS_MIRROR = {
-    "mirror": "https://juju-dist.s3.amazonaws.com/tools",
-    "path": "PRODUCT_FILE",
-    "clouds": [
+AWS_MIRROR = OrderedDict([
+    ("mirror", "https://juju-dist.s3.amazonaws.com/tools"),
+    ("path", None),
+    ("clouds", [
         {
             "endpoint": "https://ec2.us-east-1.amazonaws.com",
             "region": "us-east-1"
@@ -55,12 +56,12 @@ AWS_MIRROR = {
             "endpoint": "https://ec2.eu-central-1.amazonaws.com",
             "region": "eu-central-1"
         }
-    ]
-}
-AZURE_MIRROR = {
-    "mirror": "https://jujutools.blob.core.windows.net/juju-tools/tools",
-    "path": "streams/v1/com.ubuntu.juju:%s:tools.json",
-    "clouds": [
+    ])
+])
+AZURE_MIRROR = OrderedDict([
+    ("mirror", "https://jujutools.blob.core.windows.net/juju-tools/tools"),
+    ("path", None),
+    ("clouds", [
         {
             "endpoint": "https://core.windows.net/",
             "region": "Japan East"
@@ -129,13 +130,13 @@ AZURE_MIRROR = {
             "endpoint": "https://management.core.windows.net/",
             "region": "Brazil South"
         }
-    ]
-}
-HP_MIRROR = {
-    "mirror": ("https://region-a.geo-1.objects.hpcloudsvc.com/"
-               "v1/60502529753910/juju-dist/tools"),
-    "path": "streams/v1/com.ubuntu.juju:released:tools.json",
-    "clouds": [
+    ])
+])
+HP_MIRROR = OrderedDict([
+    ("mirror", ("https://region-a.geo-1.objects.hpcloudsvc.com/"
+                "v1/60502529753910/juju-dist/tools")),
+    ("path", None),
+    ("clouds", [
         {
             "endpoint": ("https://region-a.geo-1.identity.hpcloudsvc.com:"
                          "35357/v2.0/"),
@@ -146,13 +147,13 @@ HP_MIRROR = {
                          "35357/v2.0/"),
             "region": "region-b.geo-1"
         }
-    ]
-}
-JOYENT_MIRROR = {
-    "mirror": ("https://us-east.manta.joyent.com/"
-               "cpcjoyentsupport/public/juju-dist/tools"),
-    "path": "streams/v1/com.ubuntu.juju:released:tools.json",
-    "clouds": [
+    ])
+])
+JOYENT_MIRROR = OrderedDict([
+    ("mirror", ("https://us-east.manta.joyent.com/"
+                "cpcjoyentsupport/public/juju-dist/tools")),
+    ("path", None),
+    ("clouds", [
         {
             "region": "eu-ams-1",
             "endpoint": "https://eu-ams-1.api.joyentcloud.com"
@@ -177,8 +178,8 @@ JOYENT_MIRROR = {
             "region": "us-west-1",
             "endpoint": "https://us-west-1.api.joyentcloud.com"
         }
-    ]
-}
+    ])
+])
 
 
 def generate_mirrors_file(updated, streams_path,
@@ -188,7 +189,7 @@ def generate_mirrors_file(updated, streams_path,
         print('Creating mirrors.json')
     updated = updated.strftime('%Y%m%d')
     mirrors = {
-        "mirrors": {}
+        "mirrors": OrderedDict()
     }
     for purpose in PURPOSES:
         product_name = "com.ubuntu.juju:%s:tools" % purpose
@@ -200,7 +201,7 @@ def generate_mirrors_file(updated, streams_path,
             "updated": "%s" % updated,
             "format": "mirrors:1.0"
         }]
-    data = json.dumps(mirrors)
+    data = json.dumps(mirrors, indent=2)
     file_path = '%s/mirrors.json' % streams_path
     if not dry_run:
         with open(file_path, 'w') as mirror_file:
@@ -210,14 +211,14 @@ def generate_mirrors_file(updated, streams_path,
 def generate_cpc_mirrors_file(updated, streams_path,
                               verbose=False, dry_run=False):
     """Generate the cpc-mirrors for all the purposeful streams."""
-    if verbose:
-        print('Creating cpc-mirrors.json')
     updated = updated.strftime('%a, %d %b %Y %H:%M:%S -0000')
-    mirrors = {
-        "mirrors": {
-            "format": "mirrors:1.0",
-            "updated": updated}
-    }
+    if verbose:
+        print('Creating cpc-mirrors.json at %s' % updated)
+    mirrors = OrderedDict([
+        ("mirrors", OrderedDict()),
+        ("format", "mirrors:1.0"),
+        ("updated", updated),
+    ])
     for purpose in PURPOSES:
         product_name = "com.ubuntu.juju:%s:tools" % purpose
         product_path = "streams/v1/%s.json" % product_name
@@ -230,7 +231,7 @@ def generate_cpc_mirrors_file(updated, streams_path,
             mirrors['mirrors'][product_name].append(mirror)
             if verbose:
                 print("    Adding %s" % mirror['mirror'])
-    data = json.dumps(mirrors)
+    data = json.dumps(mirrors, indent=2)
     file_path = '%s/cpc-mirrors.json' % streams_path
     if not dry_run:
         with open(file_path, 'w') as mirror_file:
