@@ -512,7 +512,6 @@ if [[ $RELEASE != "IGNORE" ]]; then
     fi
 fi
 generate_streams
-generate_mirrors
 if [[ $SIGNING_KEY != "" ]]; then
     generate_mirrors
     sign_metadata
