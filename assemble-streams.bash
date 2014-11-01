@@ -32,7 +32,7 @@ usage() {
     options="[-t TEST_DEBS_DIR]"
     echo "usage: $0 $options PURPOSE RELEASE STREAMS_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
-    echo "  PURPOSE: testing, devel, proposed, release"
+    echo "  PURPOSE: testing, devel, proposed, released"
     echo "  RELEASE: The pattern (version) to match packages in the archives."
     echo "           Use IGNORE when you want to regenerate metadata without"
     echo "           downloading debs and extracting new tools."
@@ -76,8 +76,8 @@ sync_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
-    if [[ $PURPOSE == "release" ]]; then
-        # The directory layout doesn't describe the release dir as "release".
+    if [[ $PURPOSE == "released" ]]; then
+        # The directory layout doesn't describe the released dir as "release".
         local source_dist="juju-dist"
     elif [[ $PURPOSE == "testing" ]]; then
         # The testing purpose copies from "proposed" because this stream
@@ -129,11 +129,11 @@ init_tools_maybe() {
     fi
     count=$(find $DEST_DIST/tools/releases -name '*.tgz' | wc -l)
     if [[ $PURPOSE == "proposed" && $((count)) == 0 ]]; then
-        echo "Seeding proposed with all release agents"
+        echo "Seeding proposed with all released agents"
         cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
-        echo "Seeding devel with $INIT_VERSION release agents"
+        echo "Seeding devel with $INIT_VERSION released agents"
         cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
@@ -354,7 +354,7 @@ generate_streams() {
     # Backup the current json to old json if it exists for later validation.
     local can_validate="false"
     OLD_JSON="$DESTINATION/old-$PURPOSE.json"
-    NEW_JSON="$DEST_DIST/tools/streams/v1/com.ubuntu.juju:released:tools.json"
+    NEW_JSON="$DEST_DIST/tools/streams/v1/com.ubuntu.juju:$PURPOSE:tools.json"
     if [[ -f $NEW_JSON ]]; then
         cp  $NEW_JSON $OLD_JSON
         local can_validate="true"
@@ -370,7 +370,7 @@ generate_streams() {
     rm -r $JUJU_PATH
 
     # Ensure the new json metadata matches the expected removed and added.
-    if [[ $can_validate == "true" && $PURPOSE =~ ^(release|proposed)$ ]]; then
+    if [[ $can_validate == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
         $SCRIPT_DIR/validate_streams.py \
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
@@ -456,7 +456,7 @@ shift $((OPTIND - 1))
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
+if [[ ! $PURPOSE =~ ^(released|proposed|devel|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
@@ -467,7 +467,7 @@ if [[ $RELEASE =~ ^.*[a-z]+.*$ ]]; then
 else
     IS_DEVEL_VERSION="false"
 fi
-if [[ $IS_DEVEL_VERSION == "true" && $PURPOSE =~ ^(release|proposed)$ ]]; then
+if [[ $IS_DEVEL_VERSION == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
     echo "$RELEASE looks like a devel version."
     echo "$RELEASE cannot be proposed or released."
     exit 1
@@ -484,7 +484,7 @@ fi
 
 # Configure paths, arch, and series
 DEST_DEBS="${DESTINATION}/debs"
-if [[ $PURPOSE == "release" ]]; then
+if [[ $PURPOSE == "released" ]]; then
     DEST_DIST="$DESTINATION/juju-dist"
 else
     DEST_DIST="$DESTINATION/juju-dist/$PURPOSE"
@@ -505,7 +505,7 @@ retract_tools
 init_tools_maybe
 if [[ $RELEASE != "IGNORE" ]]; then
     retrieve_packages
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         copy_proposed_to_release
     else
         archive_tools
