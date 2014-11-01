@@ -18,8 +18,8 @@ JOYENT_SITE="https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"
 
 usage() {
     echo "usage: $0 PURPOSE DIST_DIRECTORY DESTINATIONS"
-    echo "  PURPOSE: 'release', 'proposed', 'devel', or  'testing'"
-    echo "    release installs tools/ at the top of juju-dist/tools."
+    echo "  PURPOSE: 'released', 'proposed', 'devel', or  'testing'"
+    echo "    released installs tools/ at the top of juju-dist/tools."
     echo "    proposed installs tools/ at the top of juju-dist/proposed/tools."
     echo "    devel installs tools/ at the top of juju-dist/devel/tools."
     echo "    testing installs tools/ at juju-dist/testing/tools."
@@ -35,7 +35,7 @@ usage() {
 verify_stream() {
     [[ -z "$DRY_RUN" ]] || return 0
     local location="$1"
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local root="tools"
     else
         local root="$PURPOSE/tools"
@@ -44,10 +44,11 @@ verify_stream() {
     echo "are public and are identical to the source"
     curl -s $location/$root/streams/v1/index.json > $WORK/index.json
     diff $STREAM_PATH/streams/v1/index.json $WORK/index.json
+    # XXX sinzui 2014-11-01: This is not safe
     curl -s $location/$root/streams/v1/index.json > \
-        $WORK/com.ubuntu.juju:released:tools.json
+        $WORK/com.ubuntu.juju:$PURPOSE:tools.json
     diff $STREAM_PATH/streams/v1/index.json \
-        $WORK/com.ubuntu.juju:released:tools.json
+        $WORK/com.ubuntu.juju:$PURPOSE:tools.json
     rm $WORK/*
 }
 
@@ -72,7 +73,7 @@ check_deps() {
 
 publish_to_aws() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="s3://juju-dist/"
     else
         local destination="s3://juju-dist/$PURPOSE/"
@@ -87,7 +88,7 @@ publish_to_aws() {
 publish_to_canonistack() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     [[ "${IGNORE_CANONISTACK-}" == 'true' ]] && return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
         local destination="$PURPOSE/tools"
@@ -104,7 +105,7 @@ publish_to_canonistack() {
 
 publish_to_hp() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
         local destination="$PURPOSE/tools"
@@ -131,7 +132,7 @@ publish_to_azure() {
 publish_to_joyent() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     [[ "${IGNORE_JOYENT-}" == 'true' ]] && return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
         local destination="$PURPOSE/tools"
@@ -168,13 +169,13 @@ fi
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
+if [[ ! $PURPOSE =~ ^(released|proposed|devel|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
 
 JUJU_DIST=$(cd $2; pwd)
-if [[ $PURPOSE == "release" ]]; then
+if [[ $PURPOSE == "released" ]]; then
     STREAM_PATH="$JUJU_DIST/tools"
 else
     STREAM_PATH="$JUJU_DIST/$PURPOSE/tools"
