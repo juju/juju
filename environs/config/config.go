@@ -87,6 +87,9 @@ const (
 	// AgentMetadataURLKey stores the key for this setting.
 	AgentMetadataURLKey = "agent-metadata-url"
 
+	// LxcClone stores the value for this setting.
+	LxcClone = "lxc-clone"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -102,6 +105,10 @@ const (
 	// Deprecated by agent-metadata-url
 	// ToolsMetadataURLKey stores the key for this setting.
 	ToolsMetadataURLKey = "tools-metadata-url"
+
+	// Deprecated by use-clone
+	// LxcUseClone stores the key for this setting.
+	LxcUseClone = "lxc-use-clone"
 )
 
 // ParseHarvestMode parses description of harvesting method and
@@ -349,39 +356,40 @@ func (c *Config) fillInStringDefault(attr string) {
 	}
 }
 
-// processDeprecatedAttributes ensures that the config is set up so that it works
-// correctly when used with older versions of Juju which require that deprecated
-// attribute values still be used.
-func (cfg *Config) processDeprecatedAttributes() {
+// ProcessDeprecatedAttributes gathers any deprecated attributes in attrs and adds or replaces
+// them with new name value pairs for the replacement attrs.
+// Ths ensures that older versions of Juju which require that deprecated
+// attribute values still be used will work as expected.
+func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interface{} {
+	processedAttrs := attrs
 	// The tools url has changed so ensure that both old and new values are in the config so that
 	// upgrades work. "agent-metadata-url" is the old attribute name.
-	if oldToolsURL := cfg.defined[ToolsMetadataURLKey]; oldToolsURL != nil && oldToolsURL.(string) != "" {
-		_, newToolsSpecified := cfg.AgentMetadataURL()
-		// Ensure the new attribute name "agent-metadata-url" is set.
-		if !newToolsSpecified {
-			cfg.defined[AgentMetadataURLKey] = oldToolsURL
+	if oldToolsURL, ok := attrs[ToolsMetadataURLKey]; ok && oldToolsURL.(string) != "" {
+		if newTools, ok := attrs[AgentMetadataURLKey]; !ok || newTools.(string) == "" {
+			// Ensure the new attribute name "agent-metadata-url" is set.
+			processedAttrs[AgentMetadataURLKey] = oldToolsURL
 		}
+		// Even if the user has edited their environment yaml to remove the deprecated tools-metadata-url value,
+		// we still want it in the config for upgrades.
+		processedAttrs[ToolsMetadataURLKey] = processedAttrs[AgentMetadataURLKey]
 	}
-	// Even if the user has edited their environment yaml to remove the deprecated tools-metadata-url value,
-	// we still want it in the config for upgrades.
-	cfg.defined[ToolsMetadataURLKey], _ = cfg.AgentMetadataURL()
 
 	// Copy across lxc-use-clone to lxc-clone.
-	if lxcUseClone, ok := cfg.defined["lxc-use-clone"]; ok {
-		_, newValSpecified := cfg.LXCUseClone()
+	if lxcUseClone, ok := attrs[LxcUseClone]; ok {
+		_, newValSpecified := attrs[LxcClone]
 		// Ensure the new attribute name "lxc-clone" is set.
 		if !newValSpecified {
-			cfg.defined["lxc-clone"] = lxcUseClone
+			processedAttrs[LxcClone] = lxcUseClone
 		}
 	}
 
 	// Update the provider type from null to manual.
-	if cfg.Type() == "null" {
-		cfg.defined["type"] = "manual"
+	if attrs["type"] == "null" {
+		processedAttrs["type"] = "manual"
 	}
 
-	if _, ok := cfg.defined[ProvisionerHarvestModeKey]; !ok {
-		if safeMode, ok := cfg.defined[ProvisionerSafeModeKey].(bool); ok {
+	if _, ok := attrs[ProvisionerHarvestModeKey]; !ok {
+		if safeMode, ok := attrs[ProvisionerSafeModeKey].(bool); ok {
 
 			var harvestModeDescr string
 			if safeMode {
@@ -390,7 +398,7 @@ func (cfg *Config) processDeprecatedAttributes() {
 				harvestModeDescr = HarvestAll.String()
 			}
 
-			cfg.defined[ProvisionerHarvestModeKey] = harvestModeDescr
+			processedAttrs[ProvisionerHarvestModeKey] = harvestModeDescr
 
 			logger.Infof(
 				`Based on your "%s" setting, configuring "%s" to "%s".`,
@@ -402,9 +410,9 @@ func (cfg *Config) processDeprecatedAttributes() {
 	}
 
 	//Update agent-stream from tools-stream if agent-stream was not specified but tools-stream was.
-	if _, ok := cfg.defined[AgentStreamKey]; !ok {
-		if toolsKey, ok := cfg.defined[ToolsStreamKey]; ok {
-			cfg.defined[AgentStreamKey] = toolsKey
+	if _, ok := attrs[AgentStreamKey]; !ok {
+		if toolsKey, ok := attrs[ToolsStreamKey]; ok {
+			processedAttrs[AgentStreamKey] = toolsKey
 			logger.Infof(
 				`Based on your "%s" setting, configuring "%s" to "%s".`,
 				ToolsStreamKey,
@@ -413,6 +421,7 @@ func (cfg *Config) processDeprecatedAttributes() {
 			)
 		}
 	}
+	return processedAttrs
 }
 
 // Validate ensures that config is a valid configuration.  If old is not nil,
@@ -521,7 +530,7 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	cfg.processDeprecatedAttributes()
+	cfg.defined = ProcessDeprecatedAttributes(cfg.defined)
 	return nil
 }
 
@@ -938,7 +947,7 @@ func (c *Config) TestMode() bool {
 // LXCUseClone reports whether the LXC provisioner should create a
 // template and use cloning to speed up container provisioning.
 func (c *Config) LXCUseClone() (bool, bool) {
-	v, ok := c.defined["lxc-clone"].(bool)
+	v, ok := c.defined[LxcClone].(bool)
 	return v, ok
 }
 
@@ -1035,7 +1044,7 @@ var fields = schema.Fields{
 	"bootstrap-addresses-delay":  schema.ForceInt(),
 	"test-mode":                  schema.Bool(),
 	"proxy-ssh":                  schema.Bool(),
-	"lxc-clone":                  schema.Bool(),
+	LxcClone:                     schema.Bool(),
 	"lxc-clone-aufs":             schema.Bool(),
 	"prefer-ipv6":                schema.Bool(),
 	"enable-os-refresh-update":   schema.Bool(),
@@ -1044,7 +1053,7 @@ var fields = schema.Fields{
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
-	"lxc-use-clone":        schema.Bool(),
+	LxcUseClone:            schema.Bool(),
 	ProvisionerSafeModeKey: schema.Bool(),
 	ToolsStreamKey:         schema.String(),
 }
@@ -1078,13 +1087,13 @@ var alwaysOptional = schema.Defaults{
 	"apt-https-proxy":            schema.Omit,
 	"apt-ftp-proxy":              schema.Omit,
 	"apt-mirror":                 schema.Omit,
-	"lxc-clone":                  schema.Omit,
+	LxcClone:                     schema.Omit,
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
-	"lxc-use-clone":        schema.Omit,
+	LxcUseClone:            schema.Omit,
 	ProvisionerSafeModeKey: schema.Omit,
 	ToolsStreamKey:         schema.Omit,
 
@@ -1181,7 +1190,7 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
-	"lxc-clone",
+	LxcClone,
 	"lxc-clone-aufs",
 	"syslog-port",
 	"prefer-ipv6",
