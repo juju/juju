@@ -226,7 +226,7 @@ def generate_cpc_mirrors_file(updated, streams_path,
             print("Adding %s to cpc-mirrors.json" % product_path)
         mirrors['mirrors'][product_name] = []
         for master in (AWS_MIRROR, AZURE_MIRROR, HP_MIRROR, JOYENT_MIRROR):
-            mirror = dict(master)
+            mirror = OrderedDict(master)
             mirror['path'] = product_path
             mirrors['mirrors'][product_name].append(mirror)
             if verbose:
