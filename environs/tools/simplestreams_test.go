@@ -813,7 +813,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataSingleStream(c *gc.C) {
 	out, err := tools.ReadAllMetadata(stor)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
 	c.Assert(out, gc.HasLen, 0)
-	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 
 	// Read back what was just written.
@@ -849,7 +849,7 @@ func (*metadataHelperSuite) TestReadWriteMetadataMultipleStream(c *gc.C) {
 	out, err := tools.ReadAllMetadata(stor)
 	c.Assert(out, gc.HasLen, 0)
 	c.Assert(err, gc.IsNil) // non-existence is not an error
-	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	err = tools.WriteMetadata(stor, metadata, []string{"released", "proposed"}, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 
 	// Read back what was just written.
@@ -881,7 +881,7 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 
 	s.PatchValue(tools.WriteMetadataFiles, func(stor storage.Storage, metadataInfo []tools.MetadataFile) error {
@@ -890,7 +890,7 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
 		c.Assert(metadataInfo[0].Path, gc.Equals, "streams/v1/index.json")
 		return nil
 	})
-	err = tools.WriteMetadata(stor, metadata, tools.DoNotWriteMirrors)
+	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 }
 

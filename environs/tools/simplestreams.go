@@ -453,8 +453,10 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 	return existingMetadata == newMetadata, nil
 }
 
-// WriteMetadata writes the given tools metadata to the given storage.
-func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
+// WriteMetadata writes the given tools metadata for the specified streams to the given storage.
+// streamMetadata contains all known metadata so that the correct index file can be written.
+// Only product files for the specified streams are written.
+func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, streams []string, writeMirrors ShouldWriteMirrors) error {
 	updated := time.Now()
 	index, products, err := MarshalToolsMetadataJSON(streamMetadata, updated)
 	if err != nil {
@@ -463,18 +465,20 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 	metadataInfo := []MetadataFile{
 		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
 	}
-	for stream, metadata := range products {
-		// If metadata hasn't changed, do not overwrite.
-		unchanged, err := metadataUnchanged(stor, stream, metadata)
-		if err != nil {
-			return err
+	for _, stream := range streams {
+		if metadata, ok := products[stream]; ok {
+			// If metadata hasn't changed, do not overwrite.
+			unchanged, err := metadataUnchanged(stor, stream, metadata)
+			if err != nil {
+				return err
+			}
+			if unchanged {
+				logger.Infof("Metadata for stream %q unchanged", stream)
+				continue
+			}
+			// Metadata is different, so include it.
+			metadataInfo = append(metadataInfo, MetadataFile{ProductMetadataPath(stream), metadata})
 		}
-		if unchanged {
-			logger.Infof("Metadata for stream %q unchanged", stream)
-			continue
-		}
-		// Metadata is different, so include it.
-		metadataInfo = append(metadataInfo, MetadataFile{ProductMetadataPath(stream), metadata})
 	}
 	if writeMirrors {
 		streamsMirrorsMetadata := make(map[string][]simplestreams.MirrorReference)
@@ -531,7 +535,7 @@ func MergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, tools 
 		return err
 	}
 	existing[stream] = metadata
-	return WriteMetadata(stor, existing, writeMirrors)
+	return WriteMetadata(stor, existing, []string{stream}, writeMirrors)
 }
 
 // fetchToolsHash fetches the tools from storage and calculates
