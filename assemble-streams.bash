@@ -391,8 +391,15 @@ generate_streams() {
     fi
     # XXX sinzui 2014-11-01: This cp step will be replaced when one-tree is
     # the default.
-    cp $DEST_DIST/tools/releases/juju-1.2{1,2,3,4,5,6,7,8,9}*.tgz \
-        $JUJU_DIST/tools/$PURPOSE/
+    if [[ $PURPOSE == "released" ]]; then
+        # Juju 1.15* can see released streams.
+        cp $DEST_DIST/tools/releases/juju-*.tgz $JUJU_DIST/tools/$PURPOSE/
+    else
+        # Only new juju 1.21* can see devel and proposed.
+        local agents=$(
+            find $DEST_DIST/tools/releases/ -name 'juju-1.2*' | sed -r /1.20/d)
+        cp $agents $JUJU_DIST/tools/$PURPOSE/
+    fi
 
     # Backup the current json to old json if it exists for later validation.
     local can_validate="false"
@@ -407,10 +414,10 @@ generate_streams() {
     # The index.json and the other product json files remain for
     # generate-tools to inspect.
     set -x
-    find $JUJU_DIST/tools/streams/v1/ -name '*$PURPOSE:tools*' -delete
-    find $JUJU_DIST/tools/streams/v1/ -name '*gpg' -delete
-    find $JUJU_DIST/tools/streams/v1/ -name '*sjson' -delete
-    find $JUJU_DIST/tools/streams/v1/ -name '*mirror*' -delete
+    find $JUJU_DIST/tools/streams/v1/ -name "*$PURPOSE:tools*" -delete -print
+    find $JUJU_DIST/tools/streams/v1/ -name "*gpg" -delete -print
+    find $JUJU_DIST/tools/streams/v1/ -name "*sjson" -delete -print
+    find $JUJU_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
     # Generate the json metadata.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools \
