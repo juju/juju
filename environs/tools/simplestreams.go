@@ -13,8 +13,10 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
 	"path"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,6 +24,7 @@ import (
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -316,6 +319,13 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		binary := md.binary()
 		logger.Infof("Fetching tools from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
+		// Older versions of Juju only know about ppc64, so if there's no metadata add metadata for that arch.
+		if errors.IsNotFound(err) && binary.Arch == arch.LEGACY_PPC64 {
+			ppc64elBinary := binary
+			ppc64elBinary.Arch = arch.PPC64EL
+			size, sha256hash, err = fetchToolsHash(stor, toolsDir, ppc64elBinary)
+			md.Path = strings.Replace(md.Path, binary.Arch, ppc64elBinary.Arch, -1)
+		}
 		if err != nil {
 			return err
 		}
@@ -397,6 +407,47 @@ func ReadAllMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, 
 	return streamMetadata, nil
 }
 
+// metadataUnchanged returns true if the content of metadata for stream in stor is the same
+// as metadata, ignoring the "updated" attribute.
+func metadataUnchanged(stor storage.Storage, stream string, metadata []byte) (bool, error) {
+	mdPath := ProductMetadataPath(stream)
+	filePath := path.Join(storage.BaseToolsPath, mdPath)
+	existingDataReader, err := stor.Get(filePath)
+	// If the file can't be retrieved, consider it has changed.
+	if err != nil {
+		return false, nil
+	}
+	// To do the comparison, we unmarshall the metadata, clear the
+	// updated value, and marshall back to a string.
+	existingData, err := ioutil.ReadAll(existingDataReader)
+	if err != nil {
+		return false, err
+	}
+	var existingMetadata map[string]interface{}
+	err = json.Unmarshal(existingData, &existingMetadata)
+	if err != nil {
+		return false, err
+	}
+	delete(existingMetadata, "updated")
+
+	var newMetadata map[string]interface{}
+	err = json.Unmarshal(metadata, &newMetadata)
+	if err != nil {
+		return false, err
+	}
+	delete(newMetadata, "updated")
+
+	existingMetadataJson, err := json.Marshal(existingMetadata)
+	if err != nil {
+		return false, err
+	}
+	newMetadataJson, err := json.Marshal(newMetadata)
+	if err != nil {
+		return false, err
+	}
+	return string(existingMetadataJson) == string(newMetadataJson), nil
+}
+
 // WriteMetadata writes the given tools metadata to the given storage.
 func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetadata, writeMirrors ShouldWriteMirrors) error {
 	updated := time.Now()
@@ -407,8 +458,18 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 	metadataInfo := []MetadataFile{
 		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
 	}
-	for file, metadata := range products {
-		metadataInfo = append(metadataInfo, MetadataFile{file, metadata})
+	for stream, metadata := range products {
+		// If metadata hasn't changed, do not overwrite.
+		unchanged, err := metadataUnchanged(stor, stream, metadata)
+		if err != nil {
+			return err
+		}
+		if unchanged {
+			logger.Infof("Metadata for stream %q unchanged", stream)
+			continue
+		}
+		// Metadata is different, so include it.
+		metadataInfo = append(metadataInfo, MetadataFile{ProductMetadataPath(stream), metadata})
 	}
 	if writeMirrors {
 		streamsMirrorsMetadata := make(map[string][]simplestreams.MirrorReference)
@@ -430,10 +491,14 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 		metadataInfo = append(
 			metadataInfo, MetadataFile{simplestreams.UnsignedMirror(currentStreamsVersion), mirrorsInfo})
 	}
+	return writeMetadataFiles(stor, metadataInfo)
+}
+
+var writeMetadataFiles = func(stor storage.Storage, metadataInfo []MetadataFile) error {
 	for _, md := range metadataInfo {
 		filePath := path.Join(storage.BaseToolsPath, md.Path)
 		logger.Infof("Writing %s", filePath)
-		err = stor.Put(filePath, bytes.NewReader(md.Data), int64(len(md.Data)))
+		err := stor.Put(filePath, bytes.NewReader(md.Data), int64(len(md.Data)))
 		if err != nil {
 			return err
 		}

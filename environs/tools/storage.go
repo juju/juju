@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -70,6 +71,12 @@ func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVe
 			return nil, err
 		}
 		list = append(list, &t)
+		// Older versions of Juju only know about ppc64, so add metadata for that arch.
+		if t.Version.Arch == arch.PPC64EL {
+			legacyPPC64Tools := t
+			legacyPPC64Tools.Version.Arch = arch.LEGACY_PPC64
+			list = append(list, &legacyPPC64Tools)
+		}
 	}
 	if len(list) == 0 {
 		if foundAnyTools {

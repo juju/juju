@@ -593,7 +593,7 @@ func (e *environ) checkBroken(method string) error {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64, arch.I386, arch.PPC64}, nil
+	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
