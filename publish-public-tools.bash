@@ -18,8 +18,8 @@ JOYENT_SITE="https://us-east.manta.joyent.com/cpcjoyentsupport/public/juju-dist"
 
 usage() {
     echo "usage: $0 PURPOSE DIST_DIRECTORY DESTINATIONS"
-    echo "  PURPOSE: 'release', 'proposed', 'devel', or  'testing'"
-    echo "    release installs tools/ at the top of juju-dist/tools."
+    echo "  PURPOSE: 'released', 'proposed', 'devel', or  'testing'"
+    echo "    released installs tools/ at the top of juju-dist/tools."
     echo "    proposed installs tools/ at the top of juju-dist/proposed/tools."
     echo "    devel installs tools/ at the top of juju-dist/devel/tools."
     echo "    testing installs tools/ at juju-dist/testing/tools."
@@ -35,20 +35,29 @@ usage() {
 verify_stream() {
     [[ -z "$DRY_RUN" ]] || return 0
     local location="$1"
-    if [[ $PURPOSE == "release" ]]; then
-        local root="tools"
-    else
-        local root="$PURPOSE/tools"
-    fi
+    local stream_path="$2"
+    local root=$(echo "$stream_path" | sed -r 's,.*juju-dist/,,')
     echo "Verifying the streams at $location/$root"
     echo "are public and are identical to the source"
-    curl -s $location/$root/streams/v1/index.json > $WORK/index.json
-    diff $STREAM_PATH/streams/v1/index.json $WORK/index.json
-    curl -s $location/$root/streams/v1/index.json > \
-        $WORK/com.ubuntu.juju:released:tools.json
-    diff $STREAM_PATH/streams/v1/index.json \
-        $WORK/com.ubuntu.juju:released:tools.json
+    local json_files=$(find $stream_path/streams/v1 -name '*.json')
+    for json_file in $json_files; do
+        local file_name=$(basename $json_file)
+        curl -s $location/$root/streams/v1/$file_name > $WORK/$file_name
+        diff -u $json_file $WORK/$file_name
+    done
     rm $WORK/*
+}
+
+
+validate_cpcs() {
+    verify_stream $AWS_SITE $STREAM_PATH
+    verify_stream $CAN_SITE $STREAM_PATH
+    verify_stream $HP_SITE $STREAM_PATH
+    verify_stream $AZURE_SITE $STREAM_PATH
+    verify_stream $JOYENT_SITE $STREAM_PATH
+    rm -r $WORK
+    echo "Validated $PURPOSE data for all CPCs."
+    exit 0
 }
 
 
@@ -72,7 +81,7 @@ check_deps() {
 
 publish_to_aws() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="s3://juju-dist/"
     else
         local destination="s3://juju-dist/$PURPOSE/"
@@ -80,14 +89,24 @@ publish_to_aws() {
     echo "Phase 1: Publishing $PURPOSE to AWS."
     s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
         $STREAM_PATH $destination
-    verify_stream $AWS_SITE
+    verify_stream $AWS_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 1.1: Publishing $PURPOSE to AWS one-tree."
+    s3cmd -c $JUJU_DIR/s3cfg $DRY_RUN sync --exclude '*mirror*' \
+        $JUJU_DIST/tools s3://juju-dist/
+    verify_stream $AWS_SITE $JUJU_DIST/tools
 }
 
 
 publish_to_canonistack() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     [[ "${IGNORE_CANONISTACK-}" == 'true' ]] && return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
         local destination="$PURPOSE/tools"
@@ -98,13 +117,25 @@ publish_to_canonistack() {
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-    verify_stream $CAN_SITE
+    verify_stream $CAN_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 2.1: Publishing $PURPOSE to canonistack one-tree."
+    cd $JUJU_DIST/tools/$PURPOSE/
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    verify_stream $CAN_SITE $JUJU_DIST/tools
 }
 
 
 publish_to_hp() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
         local destination="$PURPOSE/tools"
@@ -115,7 +146,19 @@ publish_to_hp() {
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/releases/ *.tgz
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/swift_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-    verify_stream $HP_SITE
+    verify_stream $HP_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 3.1: Publishing $PURPOSE to HP Cloud one-tree."
+    cd $JUJU_DIST/tools/$PURPOSE/
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/swift_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    verify_stream $HP_SITE $JUJU_DIST/tools
 }
 
 
@@ -124,14 +167,22 @@ publish_to_azure() {
     echo "Phase 4: Publishing $PURPOSE to Azure."
     source $JUJU_DIR/azuretoolsrc
     ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish $PURPOSE $JUJU_DIST
-    verify_stream $AZURE_SITE
+    verify_stream $AZURE_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    ${SCRIPT_DIR}/azure_publish_tools.py $DRY_RUN publish released $JUJU_DIST
+    verify_stream $AZURE_SITE $JUJU_DIST/tools
 }
 
 
 publish_to_joyent() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
     [[ "${IGNORE_JOYENT-}" == 'true' ]] && return 0
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         local destination="tools"
     else
         local destination="$PURPOSE/tools"
@@ -142,7 +193,19 @@ publish_to_joyent() {
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/releases/ *.tgz
     cd $STREAM_PATH/streams/v1
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $destination/streams/v1/ {index,com}*
-    verify_stream $JOYENT_SITE
+    verify_stream $JOYENT_SITE $STREAM_PATH
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    echo "Phase 5.1: Publishing $PURPOSE to Joyent one-tree."
+    cd $JUJU_DIST/tools/$PURPOSE/
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $tools/$PURPOSE/ *.tgz
+    cd $JUJU_DIST/tools/streams/v1
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
+    verify_stream $JOYENT_SITE $JUJU_DIST/tools
 }
 
 
@@ -159,22 +222,27 @@ publish_to_streams() {
 JUJU_DIR=${JUJU_HOME:-$HOME/.juju}
 
 DRY_RUN=""
+ONLY_VALIDATE="false"
 if  [[ "$1" == "--dry-run" ]]; then
     DRY_RUN="--dry-run"
     echo "No changes will be made."
+    shift
+elif  [[ "$1" == "--validate" ]]; then
+    ONLY_VALIDATE="true"
+    echo "Validating streams, no changes will be made."
     shift
 fi
 
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
+if [[ ! $PURPOSE =~ ^(released|proposed|devel|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
 
 JUJU_DIST=$(cd $2; pwd)
-if [[ $PURPOSE == "release" ]]; then
+if [[ $PURPOSE == "released" ]]; then
     STREAM_PATH="$JUJU_DIST/tools"
 else
     STREAM_PATH="$JUJU_DIST/$PURPOSE/tools"
@@ -193,6 +261,9 @@ fi
 
 check_deps
 WORK=$(mktemp -d)
+if [[ $ONLY_VALIDATE == 'true' ]]; then
+    validate_cpcs
+fi
 publish_to_aws
 publish_to_canonistack
 publish_to_hp

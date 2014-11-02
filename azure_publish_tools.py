@@ -34,11 +34,11 @@ LIST = 'list'
 PUBLISH = 'publish'
 DELETE = 'delete'
 COMMANDS = (LIST, PUBLISH, DELETE)
-RELEASE = 'release'
+RELEASED = 'released'
 PROPOSED = 'proposed'
 DEVEL = 'devel'
 TESTING = 'testing'
-PURPOSES = (RELEASE, PROPOSED, DEVEL, TESTING)
+PURPOSES = (RELEASED, PROPOSED, DEVEL, TESTING)
 JUJU_DIST = 'juju-tools'
 CHUNK_SIZE = 4 * 1024 * 1024
 
@@ -52,7 +52,7 @@ SyncFile = namedtuple(
 
 def get_prefix(purpose):
     """Return the top-level dir name for the purpose."""
-    if purpose == RELEASE:
+    if purpose == RELEASED:
         return 'tools'
     else:
         return purpose

@@ -32,7 +32,7 @@ usage() {
     options="[-t TEST_DEBS_DIR]"
     echo "usage: $0 $options PURPOSE RELEASE STREAMS_DIRECTORY [SIGNING_KEY]"
     echo "  TEST_DEBS_DIR: The optional directory with testing debs."
-    echo "  PURPOSE: testing, devel, proposed, release"
+    echo "  PURPOSE: testing, devel, proposed, released"
     echo "  RELEASE: The pattern (version) to match packages in the archives."
     echo "           Use IGNORE when you want to regenerate metadata without"
     echo "           downloading debs and extracting new tools."
@@ -69,6 +69,9 @@ build_tool_tree() {
     if [[ ! -d $DEST_DIST/tools/streams/v1 ]]; then
         mkdir -p $DEST_DIST/tools/streams/v1
     fi
+    if [[ ! -d $JUJU_DIST/tools/$PURPOSE ]]; then
+        mkdir -p $JUJU_DIST/tools/$PURPOSE
+    fi
 }
 
 
@@ -76,8 +79,8 @@ sync_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     echo "Phase 2: Retrieving released tools."
-    if [[ $PURPOSE == "release" ]]; then
-        # The directory layout doesn't describe the release dir as "release".
+    if [[ $PURPOSE == "released" ]]; then
+        # The directory layout doesn't describe the released dir as "release".
         local source_dist="juju-dist"
     elif [[ $PURPOSE == "testing" ]]; then
         # The testing purpose copies from "proposed" because this stream
@@ -129,11 +132,11 @@ init_tools_maybe() {
     fi
     count=$(find $DEST_DIST/tools/releases -name '*.tgz' | wc -l)
     if [[ $PURPOSE == "proposed" && $((count)) == 0 ]]; then
-        echo "Seeding proposed with all release agents"
+        echo "Seeding proposed with all released agents"
         cp $DESTINATION/juju-dist/tools/releases/juju-*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "devel" && $INIT_VERSION != "" ]]; then
-        echo "Seeding devel with $INIT_VERSION release agents"
+        echo "Seeding devel with $INIT_VERSION released agents"
         cp $DESTINATION/juju-dist/tools/releases/juju-$INIT_VERSION*.tgz \
             $DEST_DIST/tools/releases
     elif [[ $PURPOSE == "testing" && $((count)) < 16 ]]; then
@@ -351,12 +354,15 @@ generate_streams() {
     juju_version=$($JUJU_EXEC --version)
     echo "Using juju: $juju_version"
 
+    #
+    # Old many-tree support.
+    #
     # Backup the current json to old json if it exists for later validation.
     local can_validate="false"
     OLD_JSON="$DESTINATION/old-$PURPOSE.json"
     NEW_JSON="$DEST_DIST/tools/streams/v1/com.ubuntu.juju:released:tools.json"
     if [[ -f $NEW_JSON ]]; then
-        cp  $NEW_JSON $OLD_JSON
+        cp $NEW_JSON $OLD_JSON
         local can_validate="true"
     fi
 
@@ -367,21 +373,95 @@ generate_streams() {
     # Generate the json metadata.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
-    rm -r $JUJU_PATH
 
     # Ensure the new json metadata matches the expected removed and added.
-    if [[ $can_validate == "true" && $PURPOSE =~ ^(release|proposed)$ ]]; then
+    if [[ $can_validate == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
         $SCRIPT_DIR/validate_streams.py \
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
     set +x
     echo "The tools are in ${DEST_DIST}."
+
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        rm -r $JUJU_PATH
+        return
+    fi
+    # XXX sinzui 2014-11-01: This cp step will be replaced when one-tree is
+    # the default.
+    if [[ $PURPOSE == "released" ]]; then
+        # Juju 1.15* can see released streams.
+        cp $DEST_DIST/tools/releases/juju-*.tgz $JUJU_DIST/tools/$PURPOSE/
+    else
+        # Only new juju 1.21* can see devel and proposed.
+        local agents=$(
+            find $DEST_DIST/tools/releases/ -name 'juju-1.2*' | sed -r /1.20/d)
+        cp $agents $JUJU_DIST/tools/$PURPOSE/
+    fi
+
+    # Backup the current json to old json if it exists for later validation.
+    local can_validate="false"
+    local count=$(find $JUJU_DIST/tools/streams/v1 -name 'com*.json' | wc -l)
+    if [[ $((count)) != 0 ]]; then
+        cp $JUJU_DIST/tools/streams/v1/com*.json $DESTINATION/
+        local can_validate="true"
+    fi
+
+    # Alway delete the product json because juju wont validate checksums
+    # if the json exists. The mirror and signed data will be regenerated.
+    # The index.json and the other product json files remain for
+    # generate-tools to inspect.
+    set -x
+    find $JUJU_DIST/tools/streams/v1/ -name "*$PURPOSE:tools*" -delete -print
+    find $JUJU_DIST/tools/streams/v1/ -name "*gpg" -delete -print
+    find $JUJU_DIST/tools/streams/v1/ -name "*sjson" -delete -print
+    find $JUJU_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
+    # Generate the json metadata.
+    JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
+        $JUJU_EXEC metadata generate-tools \
+        -d $JUJU_DIST --stream $PURPOSE
+    rm -r $JUJU_PATH
+
+    # Ensure the new json metadata matches the expected removed and added.
+    if [[ $can_validate == "true" ]]; then
+        old_product_files=$(ls $DESTINATION/com*.json)
+        for old_product in $old_product_files; do
+            local product_name=$(basename $old_product)
+            local new_product="$JUJU_DIST/tools/streams/v1/$product_name"
+            local old_purpose=$(echo "$product_name" |
+                sed -r "s,.*:([^:]*):.*,\1,")
+            if [[ $old_purpose =~ ^(released|proposed)$ ]]; then
+                if [[ $old_purpose == $PURPOSE ]]; then
+                    # Ensure the added and removed are correct.
+                    $SCRIPT_DIR/validate_streams.py \
+                        $REMOVED $ADDED $PURPOSE $old_product $new_product
+                else
+                    # No changes are permitted.
+                    $SCRIPT_DIR/validate_streams.py \
+                        $old_purpose $old_product $new_product
+                fi
+            else
+                echo "! Manually inspect $new_product for expected changes."
+            fi
+        done
+    fi
+    set +x
+    echo "The agents are in $JUJU_DIST."
 }
 
 
 generate_mirrors() {
     echo "Phase 8: Creating mirror json."
-    ${SCRIPT_DIR}/generate_mirrors.py -v ${DEST_DIST}/tools/
+    ${SCRIPT_DIR}/generate_mirrors.py $DEST_DIST/tools/
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    ${SCRIPT_DIR}/generate_mirrors.py $JUJU_DIST/tools/
 }
 
 
@@ -394,6 +474,9 @@ sign_metadata() {
         gpg_options="$gpg_options --passphrase-file $SIGNING_PASSPHRASE_FILE"
     fi
     pattern='s/\(\.json\)/.sjson/'
+    #
+    # Old many-tree support.
+    #
     meta_files=$(ls ${DEST_DIST}/tools/streams/v1/*.json)
     for meta_file in $meta_files; do
         signed_file=$(echo "$meta_file" | sed -e $pattern)
@@ -406,6 +489,25 @@ sign_metadata() {
             gpg $gpg_options --detach-sign $key_option > $meta_file.gpg
     done
     echo "The signed tools are in ${DEST_DIST}."
+
+    #
+    # New one-tree support.
+    #
+    if [[ $PURPOSE =~ ^(released|proposed|testing)$ ]]; then
+        return
+    fi
+    meta_files=$(ls ${JUJU_DIST}/tools/streams/v1/*.json)
+    for meta_file in $meta_files; do
+        signed_file=$(echo "$meta_file" | sed -e $pattern)
+        echo "Creating $signed_file"
+        #echo "gpg $gpg_options --clearsign $key_option > $signed_file"
+        sed -e $pattern $meta_file |
+            gpg $gpg_options --clearsign $key_option > $signed_file
+        #echo "gpg $gpg_options --detach-sign $key_option > $meta_file.gpg"
+        cat $meta_file |
+            gpg $gpg_options --detach-sign $key_option > $meta_file.gpg
+    done
+    echo "The signed tools are in $JUJU_DIST."
 }
 
 
@@ -456,7 +558,7 @@ shift $((OPTIND - 1))
 test $# -eq 3 || usage
 
 PURPOSE=$1
-if [[ ! $PURPOSE =~ ^(release|proposed|devel|testing)$ ]]; then
+if [[ ! $PURPOSE =~ ^(released|proposed|devel|testing)$ ]]; then
     echo "Invalid PURPOSE."
     usage
 fi
@@ -467,7 +569,7 @@ if [[ $RELEASE =~ ^.*[a-z]+.*$ ]]; then
 else
     IS_DEVEL_VERSION="false"
 fi
-if [[ $IS_DEVEL_VERSION == "true" && $PURPOSE =~ ^(release|proposed)$ ]]; then
+if [[ $IS_DEVEL_VERSION == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
     echo "$RELEASE looks like a devel version."
     echo "$RELEASE cannot be proposed or released."
     exit 1
@@ -484,7 +586,8 @@ fi
 
 # Configure paths, arch, and series
 DEST_DEBS="${DESTINATION}/debs"
-if [[ $PURPOSE == "release" ]]; then
+JUJU_DIST="$DESTINATION/juju-dist"
+if [[ $PURPOSE == "released" ]]; then
     DEST_DIST="$DESTINATION/juju-dist"
 else
     DEST_DIST="$DESTINATION/juju-dist/$PURPOSE"
@@ -505,7 +608,7 @@ retract_tools
 init_tools_maybe
 if [[ $RELEASE != "IGNORE" ]]; then
     retrieve_packages
-    if [[ $PURPOSE == "release" ]]; then
+    if [[ $PURPOSE == "released" ]]; then
         copy_proposed_to_release
     else
         archive_tools
