@@ -391,7 +391,8 @@ generate_streams() {
     fi
     # XXX sinzui 2014-11-01: This cp step will be replaced when one-tree is
     # the default.
-    cp $DEST_DIST/tools/releases/*.tgz $JUJU_DIST/tools/$PURPOSE/
+    cp $DEST_DIST/tools/releases/juju-1.2{1,2,3,4,5,6,7,8,9}*.tgz \
+        $JUJU_DIST/tools/$PURPOSE/
 
     # Backup the current json to old json if it exists for later validation.
     local can_validate="false"
