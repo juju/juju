@@ -55,10 +55,10 @@ func (r *aboutToRestoreRoot) FindMethod(rootName string, version int, methodName
 }
 
 var allowedMethodsAboutToRestore = set.NewStrings(
-	"Backups.Restore", // for "juju restore"
+	"Backups.Restore", // for "juju backups restore"
 )
 
-// return true is this method is allowed when the server is in state.RestorePreparing mode
+// isMethodAllowedAboutToRestore return true is this method is allowed when the server is in state.RestorePreparing mode
 // at present only Backups.Restore is
 func isMethodAllowedAboutToRestore(rootName, methodName string) bool {
 	fullName := rootName + "." + methodName
