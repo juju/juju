@@ -3,7 +3,7 @@
 
 // +build !windows
 
-package restore
+package backups
 
 import (
 	"bytes"

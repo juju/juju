@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
 	"github.com/juju/juju/state/backups/metadata"
@@ -47,6 +48,13 @@ func (i *fakeBackups) List() ([]metadata.Metadata, error) {
 }
 
 func (i *fakeBackups) Remove(string) error {
+	if i.err != nil {
+		return errors.Trace(i.err)
+	}
+	return nil
+}
+
+func (i *fakeBackups) Restore(io.ReadCloser,*metadata.Metadata,string,*state.State) error {
 	if i.err != nil {
 		return errors.Trace(i.err)
 	}

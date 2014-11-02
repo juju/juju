@@ -3,7 +3,7 @@
 
 // +build !windows !linux
 
-package restore
+package backups
 
 import (
 	"bytes"
@@ -39,7 +39,7 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
-var logger = loggo.GetLogger("juju.state.restore")
+var logger = loggo.GetLogger("juju.state.backups")
 
 var runCommand = runExternalCommand
 
@@ -505,110 +505,3 @@ func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) in
 	return 1
 }
 
-// Restore is the entry point for this package:
-// * extracts the content of the given backup file and:
-// * runs mongorestore with the backed up mongo dump
-// * updates and writes configuration files
-// * updates existing db entries to make sure they hold no references to
-// old instances
-// * updates config in all agents.
-func Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, status *state.State) error {
-	machine, err := status.Machine("0")
-	if err != nil {
-		return errors.Annotate(err, "cannot find bootstrap machine in status")
-	}
-	newInstId, err := machine.InstanceId()
-	if err != nil {
-		return errors.Annotate(err, "cannot get instance id for bootstraped machine")
-	}
-
-	workDir := os.TempDir()
-
-	// TODO (perrito666) obtain this pat path from the proper place here and in backup
-	// if the backup contains the series of the machine we can generate it.
-	const agentFile string = "var/lib/juju/agents/machine-0/agent.conf"
-
-	// Extract outer container (a juju-backup folder inside the tar)
-	if err := untarFiles(backupFile, workDir, true); err != nil {
-		return errors.Annotate(err, "cannot extract files from backup")
-	}
-
-	// delete all the files to be replaced
-	if err := prepareMachineForRestore(); err != nil {
-		return errors.Annotate(err, "cannot delete existing files")
-	}
-	backupFilesPath := filepath.Join(workDir, "juju-backup")
-	// just in case, we dont want to leave these sensitive files hanging around.
-	defer os.RemoveAll(backupFilesPath)
-
-	// Extract inner container (root.tar inside the juju-backup)
-	innerBackup := filepath.Join(backupFilesPath, "root.tar")
-	innerBackupHandler, err := os.Open(innerBackup)
-	if err != nil {
-		return errors.Annotatef(err, "cannot open the backups inner tar file %q", innerBackup)
-	}
-	defer innerBackupHandler.Close()
-	if err := untarFiles(innerBackupHandler, filesystemRoot(), false); err != nil {
-		return errors.Annotate(err, "cannot obtain system files from backup")
-	}
-
-	version := backupVersion(backupMetadata, backupFilesPath)
-	// Restore backed up mongo
-	mongoDump := filepath.Join(backupFilesPath, "dump")
-	if err := placeNewMongo(mongoDump, version); err != nil {
-		return errors.Annotate(err, "error restoring state from backup")
-	}
-
-	// Load configuration values that are to remain
-	agentConfFile, err := os.Open(agentFile)
-	if err != nil {
-		return errors.Annotate(err, "cannot open agent configuration file")
-	}
-	defer agentConfFile.Close()
-
-	agentConf, err := fetchAgentConfigFromBackup(agentConfFile)
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain agent configuration information")
-	}
-
-	// Re-start replicaset with the new value for server address
-	dialInfo, err := newDialInfo(privateAddress, agentConf)
-	if err != nil {
-		return errors.Annotate(err, "cannot produce dial information")
-	}
-	memberHostPort := fmt.Sprintf("%s:%s", privateAddress, agentConf.statePort)
-	err = resetReplicaSet(dialInfo, memberHostPort)
-	if err != nil {
-		return errors.Annotate(err, "cannot reset replicaSet")
-	}
-
-	// Update entries for machine 0 to point to the newest instance
-	err = updateMongoEntries(newInstId, dialInfo)
-	if err != nil {
-		return errors.Annotate(err, "cannot update mongo entries")
-	}
-
-	st, err := newStateConnection(agentConf)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer st.Close()
-
-	// update all agents known to the new state server.
-	err = updateAllMachines(privateAddress, agentConf, st)
-	if err != nil {
-		return errors.Annotate(err, "cannot update agents")
-	}
-
-	rInfo, err := st.EnsureRestoreInfo()
-
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Mark restoreInfo as Finished so upon restart of the apiserver
-	// the client can reconnect and determine if we where succesful.
-	err = rInfo.SetStatus(state.RestoreFinished)
-
-	return errors.Annotate(err, "failed to set status to finished")
-}

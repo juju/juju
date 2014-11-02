@@ -6,6 +6,7 @@ package testing
 import (
 	"io"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
@@ -36,6 +37,11 @@ type FakeBackups struct {
 	OriginArg *metadata.Origin
 	// NotesArg holds the notes string that was passed in.
 	NotesArg string
+
+	// PrivateAddr holds the state server to be restored's address
+	PrivateAddr string
+	// State a pointer to the state server connection before restore
+	State *state.State
 }
 
 var _ backups.Backups = (*FakeBackups)(nil)
@@ -70,5 +76,14 @@ func (b *FakeBackups) List() ([]metadata.Metadata, error) {
 func (b *FakeBackups) Remove(id string) error {
 	b.Calls = append(b.Calls, "Remove")
 	b.IDArg = id
+	return b.Error
+}
+
+// Restore restores a machine to a backed up status
+func (b *FakeBackups) Restore(bkpFile io.ReadCloser,meta *metadata.Metadata, privateAddress string, st *state.State) error {
+	b.Calls = append(b.Calls, "Restore")
+	b.Meta = meta
+	b.PrivateAddr = privateAddress
+	b.State = st
 	return b.Error
 }

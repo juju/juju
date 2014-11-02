@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/metadata"
-	"github.com/juju/juju/state/restore"
 )
 
 const restoreUserHome = "/home/ubuntu/"
@@ -64,7 +63,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	err = rInfo.SetStatus(state.RestoreInProgress)
 
 	// Restore
-	if err := restore.Restore(fileHandler, meta, addr, a.st); err != nil {
+	if err := a.backups.Restore(fileHandler, meta, addr, a.st); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
