@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -381,7 +382,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 		// - the existing container is destroyed in the first failed
 		// createContainer call so we can retry and see if it goes
 		// better this time around
-		if strings.Contains(err.Error(), "failed to start") {
+		if _, ok := err.(lxc.ContainerCleanupError); ok {
 			inst, hardware, err := createContainer(env, args)
 			if err != nil {
 				return nil, nil, nil, err

@@ -56,6 +56,16 @@ func DefaultNetworkConfig() *container.NetworkConfig {
 // we can test what *would* be run without actually executing another program
 var FsCommandOutput = (*exec.Cmd).CombinedOutput
 
+// An error reporting that an error has occured during container starup
+// (possibly due to a failed container from on of previous deplyos) and
+// that after the container failed to start it was destroyed so it is safe
+// to retry container creation
+type ContainerCleanupError struct {
+	msg string // description of error
+}
+
+func (e ContainerCleanupError) Error() string { return e.msg }
+
 func containerDirFilesystem() (string, error) {
 	cmd := exec.Command("df", "--output=fstype", LxcContainerDir)
 	out, err := FsCommandOutput(cmd)
@@ -297,18 +307,17 @@ func (manager *containerManager) CreateContainer(
 	// setting it ourselves.
 	if err := lxcContainer.Start("", consoleFile); err != nil {
 		// if the container fails to start we should try to destroy it
-		if derr := lxcContainer.Destroy(); derr != nil {
-			// if golxc says the container has not been created yet that
-			// we can ignore that error since there is nothing to destroy
-			if strings.Contains(derr.Error(), "not yet created") {
-				return nil, nil, errors.Annotate(err, "container failed to start")
-			} else {
-				// if any other error is reported there is probably a leftover
+		// check if the container has been constructed
+		if lxcContainer.IsConstructed() {
+			// if so, then we need to destroy the leftover container
+			if derr := lxcContainer.Destroy(); derr != nil {
+				// if an error is reported there is probably a leftover
 				// container that the user should clean up manually
-				return nil, nil, errors.Annotate(derr, "container failed to start and failed to destroy: use lxc-destroy to clean up the failed container")
+				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: use lxc-destroy to destroy the leftover container "+lxcContainer.Name())
 			}
+			return nil, nil, ContainerCleanupError{"container failed to start and was destroyed :: " + lxcContainer.Name()}
 		}
-		return nil, nil, errors.Annotate(err, "container failed to start")
+		return nil, nil, err
 	}
 
 	hardware := &instance.HardwareCharacteristics{
