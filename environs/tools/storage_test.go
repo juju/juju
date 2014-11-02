@@ -67,7 +67,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		list, err := envtools.ReadList(stor, "proposed", t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
-			// ReadList doesn't set the Size of SHA256, so blank out those attributes.
+			// ReadList doesn't set the Size or SHA256, so blank out those attributes.
 			for _, tool := range t.list {
 				tool.Size = 0
 				tool.SHA256 = ""
@@ -95,7 +95,7 @@ func (s *StorageSuite) TestReadListLegacyPPC64(c *gc.C) {
 
 	list, err := envtools.ReadList(stor, "proposed", 1, 0)
 	c.Assert(err, gc.IsNil)
-	// ReadList doesn't set the Size of SHA256, so blank out those attributes.
+	// ReadList doesn't set the Size or SHA256, so blank out those attributes.
 	for _, tool := range expected {
 		tool.Size = 0
 		tool.SHA256 = ""

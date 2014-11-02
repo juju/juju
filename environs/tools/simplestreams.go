@@ -319,7 +319,8 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		binary := md.binary()
 		logger.Infof("Fetching tools from dir %q to generate hash: %v", toolsDir, binary)
 		size, sha256hash, err := fetchToolsHash(stor, toolsDir, binary)
-		// Older versions of Juju only know about ppc64, so if there's no metadata add metadata for that arch.
+		// Older versions of Juju only know about ppc64, not ppc64el,
+		// so if there's no metadata for ppc64, dd metadata for that arch.
 		if errors.IsNotFound(err) && binary.Arch == arch.LEGACY_PPC64 {
 			ppc64elBinary := binary
 			ppc64elBinary.Arch = arch.PPC64EL
@@ -407,6 +408,23 @@ func ReadAllMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, 
 	return streamMetadata, nil
 }
 
+// removeMetadataUpdated unmarshalls simplestreams metadata, clears the
+// updated attribute, and then marshalls back to a string.
+func removeMetadataUpdated(metadataBytes []byte) (string, error) {
+	var metadata map[string]interface{}
+	err := json.Unmarshal(metadataBytes, &metadata)
+	if err != nil {
+		return "", err
+	}
+	delete(metadata, "updated")
+
+	metadataJson, err := json.Marshal(metadata)
+	if err != nil {
+		return "", err
+	}
+	return string(metadataJson), nil
+}
+
 // metadataUnchanged returns true if the content of metadata for stream in stor is the same
 // as generatedMetadata, ignoring the "updated" attribute.
 func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []byte) (bool, error) {
@@ -417,35 +435,22 @@ func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []
 	if err != nil {
 		return false, nil
 	}
-	// To do the comparison, we unmarshall the metadata, clear the
-	// updated value, and marshall back to a string.
 	existingData, err := ioutil.ReadAll(existingDataReader)
 	if err != nil {
 		return false, err
 	}
-	var existingMetadata map[string]interface{}
-	err = json.Unmarshal(existingData, &existingMetadata)
-	if err != nil {
-		return false, err
-	}
-	delete(existingMetadata, "updated")
 
-	var newMetadata map[string]interface{}
-	err = json.Unmarshal(generatedMetadata, &newMetadata)
+	// To do the comparison, we unmarshall the metadata, clear the
+	// updated value, and marshall back to a string.
+	existingMetadata, err := removeMetadataUpdated(existingData)
 	if err != nil {
 		return false, err
 	}
-	delete(newMetadata, "updated")
-
-	existingMetadataJson, err := json.Marshal(existingMetadata)
+	newMetadata, err := removeMetadataUpdated(generatedMetadata)
 	if err != nil {
 		return false, err
 	}
-	newMetadataJson, err := json.Marshal(newMetadata)
-	if err != nil {
-		return false, err
-	}
-	return string(existingMetadataJson) == string(newMetadataJson), nil
+	return existingMetadata == newMetadata, nil
 }
 
 // WriteMetadata writes the given tools metadata to the given storage.
