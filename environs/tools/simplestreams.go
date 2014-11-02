@@ -323,8 +323,8 @@ func ResolveMetadata(stor storage.StorageReader, toolsDir string, metadata []*To
 		if errors.IsNotFound(err) && binary.Arch == arch.LEGACY_PPC64 {
 			ppc64elBinary := binary
 			ppc64elBinary.Arch = arch.PPC64EL
-			size, sha256hash, err = fetchToolsHash(stor, toolsDir, ppc64elBinary)
 			md.Path = strings.Replace(md.Path, binary.Arch, ppc64elBinary.Arch, -1)
+			size, sha256hash, err = fetchToolsHash(stor, toolsDir, ppc64elBinary)
 		}
 		if err != nil {
 			return err
@@ -408,8 +408,8 @@ func ReadAllMetadata(store storage.StorageReader) (map[string][]*ToolsMetadata, 
 }
 
 // metadataUnchanged returns true if the content of metadata for stream in stor is the same
-// as metadata, ignoring the "updated" attribute.
-func metadataUnchanged(stor storage.Storage, stream string, metadata []byte) (bool, error) {
+// as generatedMetadata, ignoring the "updated" attribute.
+func metadataUnchanged(stor storage.Storage, stream string, generatedMetadata []byte) (bool, error) {
 	mdPath := ProductMetadataPath(stream)
 	filePath := path.Join(storage.BaseToolsPath, mdPath)
 	existingDataReader, err := stor.Get(filePath)
@@ -431,7 +431,7 @@ func metadataUnchanged(stor storage.Storage, stream string, metadata []byte) (bo
 	delete(existingMetadata, "updated")
 
 	var newMetadata map[string]interface{}
-	err = json.Unmarshal(metadata, &newMetadata)
+	err = json.Unmarshal(generatedMetadata, &newMetadata)
 	if err != nil {
 		return false, err
 	}
