@@ -504,4 +504,3 @@ func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) in
 	}
 	return 1
 }
-

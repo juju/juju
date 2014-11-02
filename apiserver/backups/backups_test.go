@@ -54,7 +54,7 @@ func (i *fakeBackups) Remove(string) error {
 	return nil
 }
 
-func (i *fakeBackups) Restore(io.ReadCloser,*metadata.Metadata,string,*state.State) error {
+func (i *fakeBackups) Restore(io.ReadCloser, *metadata.Metadata, string, *state.State) error {
 	if i.err != nil {
 		return errors.Trace(i.err)
 	}

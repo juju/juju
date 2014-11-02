@@ -80,7 +80,7 @@ func (b *FakeBackups) Remove(id string) error {
 }
 
 // Restore restores a machine to a backed up status
-func (b *FakeBackups) Restore(bkpFile io.ReadCloser,meta *metadata.Metadata, privateAddress string, st *state.State) error {
+func (b *FakeBackups) Restore(bkpFile io.ReadCloser, meta *metadata.Metadata, privateAddress string, st *state.State) error {
 	b.Calls = append(b.Calls, "Restore")
 	b.Meta = meta
 	b.PrivateAddr = privateAddress
