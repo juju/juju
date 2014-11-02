@@ -305,7 +305,10 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
-			localID := st.localID(doc.DocID)
+			localID, err := st.strictLocalID(doc.DocID)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			switch name {
 			case machinesC:
 				agentTags = append(agentTags, names.NewMachineTag(localID).String())
@@ -1342,15 +1345,14 @@ func (st *State) localID(ID string) string {
 // strictLocalID returns the local id value by removing the
 // environment UUID prefix.
 //
-// A success flag is also returned. If there is no prefix matching the
-// State's environment, false is returned. True is returned if the
-// expected prefix was present.
-func (st *State) strictLocalID(ID string) (string, bool) {
+// If there is no prefix matching the State's environment, an error is
+// returned.
+func (st *State) strictLocalID(ID string) (string, error) {
 	prefix := st.EnvironUUID() + ":"
 	if !strings.HasPrefix(ID, prefix) {
-		return "", false
+		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
-	return ID[len(prefix):], true
+	return ID[len(prefix):], nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.

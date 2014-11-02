@@ -276,7 +276,7 @@ func LocalID(st *State, id string) string {
 	return st.localID(id)
 }
 
-func StrictLocalID(st *State, id string) (string, bool) {
+func StrictLocalID(st *State, id string) (string, error) {
 	return st.strictLocalID(id)
 }
 
