@@ -78,7 +78,10 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, stream, version,
 	}}
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.WriteMetadata(targetStorage, stream, tm, false)
+	streamMetadata := map[string][]*tools.ToolsMetadata{
+		stream: tm,
+	}
+	err = tools.WriteMetadata(targetStorage, streamMetadata, false)
 	if err != nil {
 		return err
 	}

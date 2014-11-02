@@ -73,7 +73,10 @@ func NewJujuCommand(ctx *cmd.Context) cmd.Command {
 		helpProviderStart+helpHPCloud+helpProviderEnd, "hpcloud", "hp-cloud")
 	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
 		helpProviderStart+helpAzureProvider+helpProviderEnd, "azure")
+	jcmd.AddHelpTopic("maas-provider", "How to configure a MAAS provider",
+		helpProviderStart+helpMAASProvider+helpProviderEnd, "maas")
 	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
+	jcmd.AddHelpTopic("placement", "How to use placement directives", helpPlacement)
 	jcmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
 	jcmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
 

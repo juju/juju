@@ -87,6 +87,11 @@ var sshTests = []struct {
 		sshArgs + "ubuntu@dummyenv-0.internal\n",
 	},
 	{
+		"connect to unit mongodb/1 as the mongo user",
+		[]string{"ssh", "mongo@mongodb/1"},
+		sshArgs + "mongo@dummyenv-2.internal\n",
+	},
+	{
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
 		sshArgs + "ubuntu@dummyenv-2.internal ls /\n",

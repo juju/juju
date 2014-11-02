@@ -963,10 +963,12 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		}
 		return nil
 	}
+	// Replace any deprecated attributes with their new values.
+	attrs := config.ProcessDeprecatedAttributes(args.Config)
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+	return c.api.state.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
 }
 
 // EnvironmentUnset implements the server-side part of the
