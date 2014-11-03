@@ -5,12 +5,13 @@ from __future__ import print_function
 from argparse import ArgumentParser
 import os
 import re
+import subprocess
 import sys
 import traceback
 
 
 # The set of agents to make.
-WIN_AGENT_TEMPLATES = [
+WIN_AGENT_TEMPLATES = (
     'juju-{}-win2012hvr2-amd64.tgz',
     'juju-{}-win2012hv-amd64.tgz',
     'juju-{}-win2012r2-amd64.tgz',
@@ -18,21 +19,34 @@ WIN_AGENT_TEMPLATES = [
     'juju-{}-win7-amd64.tgz',
     'juju-{}-win8-amd64.tgz',
     'juju-{}-win81-amd64.tgz',
-]
-# The versions of agent that may or will exist.
-AGENT_PATTERN = re.compile('juju-.+-win[^-]+-amd64.tgz')
+)
+# The versions of agent that may or will exist. The agents will
+# always start with juju, the series will start with "win" and the
+# arch is always amd64.
+AGENT_VERSION_PATTERN = re.compile('juju-(.+)-win[^-]+-amd64.tgz')
 
 
-def validate_souce_agent(source_agent):
-    return AGENT_PATTERN.match(source_agent) is not None
+def run(*command, **kwargs):
+    kwargs['stderr'] = subprocess.STDOUT
+    return subprocess.check_output(command, **kwargs)
+
+
+def get_source_agent_version(source_agent):
+    match = AGENT_VERSION_PATTERN.match(source_agent)
+    if match:
+        return match.group(1)
+    return None
 
 
 def add_agents(args):
-    source_path = os.path.abspath(args.source_agent)
-    source_agent = os.basename(args.source_agent)
-    if not validate_souce_agent(source_agent):
+    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
+    source_agent = os.path.basename(args.source_agent)
+    version = get_source_agent_version(source_agent)
+    if version is None:
         raise ValueError('%s does not look like a agent.' % source_agent)
-    pass
+    version = get_source_agent_version(source_agent)
+    for template in WIN_AGENT_TEMPLATES:
+        agent_name = template.format(version)
 
 
 def get_agents(args):
