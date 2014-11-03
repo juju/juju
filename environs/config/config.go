@@ -1250,7 +1250,10 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 	result := coerced.(map[string]interface{})
 	for name, value := range attrs {
 		if fields[name] == nil {
-			logger.Warningf("unknown config field %q", name)
+			if val, isString := value.(string); isString && val != "" {
+				// only warn about attributes with non-empty string values
+				logger.Warningf("unknown config field %q", name)
+			}
 			result[name] = value
 		}
 	}
