@@ -99,9 +99,11 @@ type Info struct {
 	EnvironTag names.EnvironTag
 }
 
-// ReauthHandler defines a function that can negotiate a ReauthRequest response
-// to make a follow-up LoginRequest.
-type ReauthHandler func(reauth *params.ReauthRequest) (params.LoginRequest, error)
+// ReauthHandler obtains follow-up credentials for responding to a
+// ReauthRequest challenge response.
+type ReauthHandler interface {
+	HandleReauth(*params.ReauthRequest) (string, string, error)
+}
 
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
@@ -133,6 +135,8 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+// Open connects to a state server with the given client credentials,
+// attributes and options.
 func Open(info *Info, opts DialOpts) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no API addresses to connect to")
@@ -200,11 +204,11 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 			conn.Close()
 			return nil, err
 		} else if reauth != nil {
-			rereq, err := opts.ReauthHandler(reauth)
+			creds, nonce, err := opts.ReauthHandler.HandleReauth(reauth)
 			if err != nil {
 				return nil, err
 			}
-			reauth, err = st.Login(rereq.AuthTag, rereq.Credentials, rereq.Nonce)
+			reauth, err = st.Login(info.Tag.String(), creds, nonce)
 			if err != nil {
 				return nil, err
 			}
@@ -298,6 +302,7 @@ func (s *State) heartbeatMonitor() {
 	}
 }
 
+// Ping checks if the client connection to the state server is still established.
 func (s *State) Ping() error {
 	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }

@@ -11,8 +11,10 @@ import (
 	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
 )
 
@@ -32,6 +34,8 @@ func (*loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bak
 	}
 	return nil, fmt.Errorf("unrecognized condition")
 }
+
+var reauthDialOpts = api.DialOpts{}
 
 var _ = gc.Suite(&remoteLoginSuite{
 	baseLoginSuite: baseLoginSuite{
@@ -79,8 +83,9 @@ func (s *remoteLoginSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
-	st, cleanup := s.setupServer(c)
+	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
+	st := s.openAPIWithoutLogin(c, info)
 
 	// Try to log in as a remote identity.
 	remoteUser := names.NewUserTag("bob")
@@ -115,6 +120,55 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	reauth, err = st.Login(remoteUser.String(), string(credBytes), reauth.Nonce)
 	c.Assert(err, gc.IsNil)
 	c.Assert(reauth, gc.IsNil)
+
+	// Should be logged in
+	c.Assert(st.Ping(), gc.IsNil)
+	c.Assert(st.AllFacadeVersions(), gc.Not(gc.HasLen), 0)
+}
+
+type testReauthHandler struct {
+	*remoteLoginSuite
+	c *gc.C
+}
+
+// HandleReauth implements the api.ReauthHandler interface.
+func (s *testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
+	// As the remote client, decode the reauth request, obtain a discharge
+	// macaroon from the identity-providing service, bind and serialize the
+	// followup credential.
+	var remoteCreds authentication.RemoteCredentials
+	err := remoteCreds.UnmarshalText([]byte(reauth.Prompt))
+	if err != nil {
+		return "", "", err
+	}
+	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
+		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
+			//c.Assert(loc, gc.Equals, s.info.IdentityProvider.Location)
+			return s.remoteIdService.Discharge(&loggedInChecker{}, cav.Id)
+		},
+	)
+	if err != nil {
+		return "", "", err
+	}
+	// TODO (cmars): move this to RemoteCredentials.Bind?
+	for _, dm := range remoteCreds.Discharges {
+		dm.Bind(remoteCreds.Primary.Signature())
+	}
+	credBytes, err := remoteCreds.MarshalText()
+	if err != nil {
+		return "", "", err
+	}
+	return string(credBytes), reauth.Nonce, nil
+}
+
+func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+	info.Tag = names.NewUserTag("bob")
+	st, err := api.Open(info, api.DialOpts{
+		ReauthHandler: &testReauthHandler{s, c},
+	})
+	c.Assert(err, gc.IsNil)
 
 	// Should be logged in
 	c.Assert(st.Ping(), gc.IsNil)
