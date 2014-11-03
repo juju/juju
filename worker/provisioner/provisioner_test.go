@@ -258,7 +258,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
-		c.Fatalf("unexpected operation", o)
+		c.Fatalf("unexpected operation %+v", o)
 	case <-time.After(coretesting.ShortWait):
 		return
 	}

@@ -93,6 +93,9 @@ func SampleConfig() testing.Attrs {
 // PatchTransientErrorInjectionChannel sets the transientInjectionError
 // channel which can be used to inject errors into StartInstance for
 // testing purposes
+// The injected errors will use the string received on the channel
+// and the instance's state will eventually go to error, while the
+// received string will appear in the info field of the machine's status
 func PatchTransientErrorInjectionChannel(c chan string) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
@@ -810,7 +813,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 	defer delay()
 	machineId := args.MachineConfig.MachineId
-	logger.Infof("dummy start instance, machine %s", machineId)
+	logger.Infof("dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, nil, err
 	}

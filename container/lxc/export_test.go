@@ -26,6 +26,8 @@ func GetCreateWithCloneValue(mgr container.Manager) bool {
 
 // PatchTransientErrorInjection is used to patch the transientErrorInjection channel in tests,
 // which is used to simulate errors in container creation
+// - lxc.CreateContainer will fail with a RetryableCreationError for each value received on this
+//channel
 func PatchTransientErrorInjectionChannel(n chan interface{}) func() {
 	return testing.PatchValue(&transientErrorInjectionChannel, n)
 }
