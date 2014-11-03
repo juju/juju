@@ -667,21 +667,16 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// check that StateServerInstances returns the id of the bootstrap machine.
-	//instanceIds, err := env.StateServerInstances()
-	//c.Assert(err, gc.IsNil)
-	//c.Assert(instanceIds, gc.HasLen, 1)
-
-	insts, err := env.AllInstances()
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	//c.Assert(insts, gc.HasLen, 1)
-	//c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
-	//instanceIds, err := env.StateServerInstances()
-	//c.Assert(err, gc.IsNil)
 
-	instId := insts[0].Id()
+	instId := instanceIds[0]
+
+	err = env.AllocateAddress(instId+"foo", "", network.Address{})
+	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
+
 	err = env.AllocateAddress(instId, "", network.Address{})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "Odd response from ec2. Network interface not found.")
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {

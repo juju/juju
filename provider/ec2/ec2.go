@@ -981,7 +981,11 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		_, err = ec2Inst.AssignPrivateIPAddresses(networkInterfaceId, []string{addr.Value}, 0, false)
 		if err == nil {
 			break
+		} else if strings.Contains(err.Error(), "IP in use") {
+			// XXX check the right error here
+			return common.IPAddressUnvailable
 		} else if strings.Contains(err.Error(), "PrivateIpAddressLimitExceeded") {
+			// XXX Annotate this with better end user message?
 			return common.IPAddressesExhausted
 		}
 
