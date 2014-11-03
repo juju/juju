@@ -37,7 +37,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series strin
 	streamMetadata := map[string][]*ToolsMetadata{
 		stream: tm,
 	}
-	err = WriteMetadata(stor, streamMetadata, false)
+	err = WriteMetadata(stor, streamMetadata, []string{stream}, false)
 	c.Assert(err, gc.IsNil)
 	return nil
 }

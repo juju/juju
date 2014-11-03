@@ -216,8 +216,8 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	objects := []metadataFile{
 		{simplestreams.UnsignedIndex("v1"), index},
 	}
-	for file, metadata := range products {
-		objects = append(objects, metadataFile{file, metadata})
+	for stream, metadata := range products {
+		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
 	}
 	return objects
 }
