@@ -30,7 +30,8 @@ type RestoreCommand struct {
 }
 
 var restoreDoc = `
-Restores a backup that was previously created with "juju backup".
+Restores a backup that was previously created with "juju backup" and
+"juju backups create".
 
 This command creates a new state server and arranges for it to replace
 the previous state server for an environment.  It does *not* restore
@@ -49,8 +50,8 @@ to that effect.
 func (c *RestoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore",
-		Purpose: "restore a state server backup made with juju backup",
-		Args:    "[-u] [-b] <backupfile.tar.gz>",
+		Purpose: "restore from a backup archive to a new state server",
+		Args:    "",
 		Doc:     strings.TrimSpace(restoreDoc),
 	}
 }
@@ -61,13 +62,19 @@ func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.BoolVar(&c.bootstrap, "b", false, "bootstrap a new state machine")
 	f.StringVar(&c.filename, "file", "", "provide a file to be used as the backup.")
-	f.StringVar(&c.backupId, "name", "", "provide the name of the backup to be restored.")
+	f.StringVar(&c.backupId, "id", "", "provide the name of the backup to be restored.")
 
 }
 
 func (c *RestoreCommand) Init(args []string) error {
 	if c.filename == "" && c.backupId == "" {
-		return errors.Errorf("you must specify either a file or a backup name.")
+		return errors.Errorf("you must specify either a file or a backup id.")
+	}
+	if c.filename != "" && c.backupId != "" {
+		return errors.Errorf("you must specify either a file or a backup id but not both.")
+	}
+	if c.backupId != "" && c.bootstrap {
+		return errors.Error("it is not possible to rebootstrap and restore from an id.")
 	}
 	return nil
 }
@@ -167,6 +174,7 @@ func (c *RestoreCommand) doUpload() error {
 		return errors.Annotate(err, "cannot connect to API for uploading")
 	}
 	defer client.Close()
+	//TODO (perrito666) Find the machine in a non hardcoded way
 	addr, err := client.PublicAddress("0")
 	if err != nil {
 		return errors.Trace(err)
@@ -189,7 +197,6 @@ func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// Empty string will get a client for current default
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
