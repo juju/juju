@@ -66,11 +66,14 @@ func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 
 func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)
+	err := s.machine.SetAddresses(network.NewAddress("example.com", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
-	waitForFile(c, filepath.Join(*rsyslog.LogDir, "ca-cert.pem"))
+	waitForFile(c, filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
 
 	rsyslogCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
 	c.Assert(err, gc.IsNil)
@@ -78,7 +81,7 @@ func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
 	cert, err := cert.ParseCert(string(rsyslogCertPEM))
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(cert.DNSNames, gc.DeepEquals, []string{"*"})
+	c.Assert(cert.DNSNames, gc.DeepEquals, []string{"example.com", "*"})
 
 	subject := cert.Subject
 	c.Assert(subject.CommonName, gc.Equals, "*")
