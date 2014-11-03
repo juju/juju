@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
@@ -164,22 +165,256 @@ func (s *debugLogSuite) TestBacklogWithMaxLines(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestFilter(c *gc.C) {
-	s.ensureLogFile(c)
-
-	reader := s.openWebsocket(c, url.Values{
-		"includeEntity": {"machine-0", "unit-ubuntu-0"},
-		"includeModule": {"juju.cmd"},
-		"excludeModule": {"juju.cmd.jujud"},
-	})
-	s.assertLogFollowing(c, reader)
-	s.writeLogLines(c, logLineCount)
-
-	expected := []string{logLines[0], logLines[40]}
-	linesRead := s.readLogLines(c, reader, len(expected))
-	c.Assert(linesRead, jc.DeepEquals, expected)
+type filterTest struct {
+	about    string
+	filter   url.Values
+	filtered []string
 }
 
+var filterTests []filterTest = []filterTest{
+	{
+		about: "Filter from original test",
+		filter: url.Values{
+			"includeEntity": {"machine-0", "unit-ubuntu-0"},
+			"includeModule": {"juju.cmd"},
+			"excludeModule": {"juju.cmd.jujud"},
+		},
+		filtered: []string{logLines[0], logLines[40]},
+	}, {
+		about: "Filter from original test inverted",
+		filter: url.Values{
+			"excludeEntity": {"machine-1"},
+		},
+		filtered: []string{logLines[0], logLines[1]},
+	}, {
+		about: "Include Entity Filter with only wildcard",
+		filter: url.Values{
+			"includeEntity": {"*"},
+		},
+		filtered: []string{logLines[0], logLines[1]},
+	}, {
+		about: "Include Entity Filter with 1 wildcard",
+		filter: url.Values{
+			"includeEntity": {"unit-*"},
+		},
+		filtered: []string{logLines[40], logLines[41]},
+	}, {
+		about: "Include Entity Filter using machine tag",
+		filter: url.Values{
+			"includeEntity": {"machine-1"},
+		},
+		filtered: []string{logLines[27], logLines[28]},
+	}, {
+		about: "Include Entity Filter using unit tag",
+		filter: url.Values{
+			"includeEntity": {"unit-ubuntu-0"},
+		},
+		filtered: []string{logLines[40], logLines[41]},
+	}, {
+		about: "Include Entity Filter using machine name",
+		filter: url.Values{
+			"includeEntity": {"1"},
+		},
+		filtered: []string{logLines[27], logLines[28]},
+	}, {
+		about: "Include Entity Filter using unit name",
+		filter: url.Values{
+			"includeEntity": {"ubuntu/0"},
+		},
+		filtered: []string{logLines[40], logLines[41]},
+	}, {
+		about: "Include Entity Filter using unit name with [nnnn]", // This seems to be the new format for log entries for units
+		filter: url.Values{
+			"includeEntity": {"ubuntu/0"},
+		},
+		filtered: []string{logLines[40], logLines[41]},
+	}, {
+		about: "Include Entity Filter using combination of machine tag and unit name",
+		filter: url.Values{
+			"includeEntity": {"machine-1", "ubuntu/0"},
+			"includeModule": {"juju.agent"},
+		},
+		filtered: []string{logLines[29], logLines[34], logLines[41]},
+	}, {
+		about: "Exclude Entity Filter with only wildcard",
+		filter: url.Values{
+			"excludeEntity": {"*"}, // exclude everything :-)
+		},
+		filtered: []string{},
+	}, {
+		about: "Exclude Entity Filter with 1 wildcard",
+		filter: url.Values{
+			"excludeEntity": {"machine-*"},
+		},
+		filtered: []string{logLines[40], logLines[41]},
+	}, {
+		about: "Exclude Entity Filter using machine tag",
+		filter: url.Values{
+			"excludeEntity": {"machine-0"},
+		},
+		filtered: []string{logLines[27], logLines[28]},
+	}, {
+		about: "Exclude Entity Filter using unit tag",
+		filter: url.Values{
+			"excludeEntity": {"machine-0", "machine-1", "unit-ubuntu-0"},
+		},
+		filtered: []string{logLines[54], logLines[55]},
+	}, {
+		about: "Exclude Entity Filter using machine name",
+		filter: url.Values{
+			"excludeEntity": {"0"},
+		},
+		filtered: []string{logLines[27], logLines[28]},
+	}, {
+		about: "Exclude Entity Filter using unit name",
+		filter: url.Values{
+			"excludeEntity": {"machine-0", "machine-1", "ubuntu/0"},
+		},
+		filtered: []string{logLines[54], logLines[55]},
+	}, {
+		about: "Exclude Entity Filter using combination of machine tag and unit name",
+		filter: url.Values{
+			"excludeEntity": {"0", "1", "ubuntu/0"},
+		},
+		filtered: []string{logLines[54], logLines[55]},
+	},
+}
+
+// TestFilter tests that filters are processed correctly given specific debug-log configuration.
+func (s *debugLogSuite) TestFilter(c *gc.C) {
+	for i, test := range filterTests {
+		c.Logf("test %d: %v\n", i, test.about)
+
+		// ensures log file
+		path := filepath.Join(s.LogDir, "all-machines.log")
+		var err error
+		s.logFile, err = os.Create(path)
+		c.Assert(err, gc.IsNil)
+
+		// opens web socket
+		conn, err := s.dialWebsocket(c, test.filter)
+		c.Assert(err, gc.IsNil)
+		reader := bufio.NewReader(conn)
+
+		s.assertLogFollowing(c, reader)
+		s.writeLogLines(c, logLineCount)
+		linesRead := s.readLogLines(c, reader, len(test.filtered))
+		// compare retrieved lines with expected
+		c.Assert(linesRead, jc.DeepEquals, test.filtered)
+
+		// release resources
+		conn.Close()
+		s.logFile.Close()
+		s.logFile = nil
+		s.last = 0
+	}
+}
+
+// TestAgentLineFragmentParsing tests that agent tag and name are parsed correctly from log line
+func (s *debugLogSuite) TestAgentLineFragmentParsing(c *gc.C) {
+	checkAgentParsing(c, "Drop trailing colon", "machine-1: sdscsc", "machine-1", "1")
+	checkAgentParsing(c, "Drop unit specific [", "unit-ubuntu-1[blah777787]: scscdcdc", "unit-ubuntu-1", "ubuntu/1")
+	checkAgentParsing(c, "No colon in log line - invalid", "unit-ubuntu-1 scscdcdc", "", "")
+}
+
+func checkAgentParsing(c *gc.C, about, line, tag, name string) {
+	c.Logf("test %q\n", about)
+	logLine := apiserver.ParseLogLine(line)
+	c.Assert(logLine.LogLineAgentTag(), gc.Equals, tag)
+	c.Assert(logLine.LogLineAgentName(), gc.Equals, name)
+}
+
+type agentMatchTest struct {
+	about    string
+	line     string
+	filter   string
+	expected bool
+}
+
+var agentMatchTests []agentMatchTest = []agentMatchTest{
+	{
+		about:    "Matching with wildcard - match everything",
+		line:     "machine-1: sdscsc",
+		filter:   "*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard as suffix - match machine tag...",
+		line:     "machine-1: sdscsc",
+		filter:   "mach*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard as prefix - match machine tag...",
+		line:     "machine-1: sdscsc",
+		filter:   "*ch*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard in the middle - match machine tag...",
+		line:     "machine-1: sdscsc",
+		filter:   "mach*1",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard - match machine name",
+		line:     "machine-1: sdscsc",
+		filter:   "1*",
+		expected: true,
+	}, {
+		about:    "Matching exact machine name",
+		line:     "machine-1: sdscsc",
+		filter:   "2",
+		expected: false,
+	}, {
+		about:    "Matching invalid filter",
+		line:     "machine-1: sdscsc",
+		filter:   "my-service",
+		expected: false,
+	}, {
+		about:    "Matching exact machine tag",
+		line:     "machine-1: sdscsc",
+		filter:   "machine-1",
+		expected: true,
+	}, {
+		about:    "Matching exact machine tag = not equal",
+		line:     "machine-1: sdscsc",
+		filter:   "machine-3",
+		expected: false,
+	}, {
+		about:    "Matching with wildcard - match unit tag...",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "un*",
+		expected: true,
+	}, {
+		about:    "Matching with wildcard - match unit name",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "ubuntu*",
+		expected: true,
+	}, {
+		about:    "Matching exact unit name",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "ubuntu/2",
+		expected: false,
+	}, {
+		about:    "Matching exact unit tag",
+		line:     "unit-ubuntu-1: sdscsc",
+		filter:   "unit-ubuntu-1",
+		expected: true,
+	}, {
+		about:    "Matching exact unit tag = not equal",
+		line:     "unit-ubuntu-2: sdscsc",
+		filter:   "unit-ubuntu-1",
+		expected: false,
+	},
+}
+
+// TestAgentMatchesFilter tests that line agent matches desired filter as expected
+func (s *debugLogSuite) TestAgentMatchesFilter(c *gc.C) {
+	for i, test := range agentMatchTests {
+		c.Logf("test %d: %v\n", i, test.about)
+		matched := apiserver.AgentMatchesFilter(apiserver.ParseLogLine(test.line), test.filter)
+		c.Assert(matched, gc.Equals, test.expected)
+	}
+}
+
+//want to test filter matching
 func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (linesRead []string) {
 	for len(linesRead) < count {
 		line, err := reader.ReadString('\n')
@@ -330,8 +565,8 @@ machine-1: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "upgrade-st
 machine-1: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "machiner"
 machine-1: 2014-03-24 22:36:28 INFO juju.cmd.jujud machine.go:458 upgrade to 1.17.7.1-precise-amd64 already completed.
 machine-1: 2014-03-24 22:36:28 INFO juju.cmd.jujud machine.go:445 upgrade to 1.17.7.1-precise-amd64 completed.
-unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju.cmd supercommand.go:297 running juju-1.17.7.1-precise-amd64 [gc]
-unit-ubuntu-0: 2014-03-24 22:36:28 DEBUG juju.agent agent.go:384 read agent config, format "1.18"
+unit-ubuntu-0[32423]: 2014-03-24 22:36:28 INFO juju.cmd supercommand.go:297 running juju-1.17.7.1-precise-amd64 [gc]
+unit-ubuntu-0[34543]: 2014-03-24 22:36:28 DEBUG juju.agent agent.go:384 read agent config, format "1.18"
 unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju.jujud unit.go:76 unit agent unit-ubuntu-0 start (1.17.7.1-precise-amd64 [gc])
 unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "api"
 unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju apiclient.go:114 api: dialing "wss://10.0.3.1:17070/"
@@ -344,6 +579,12 @@ unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "uniter
 unit-ubuntu-0: 2014-03-24 22:36:28 DEBUG juju.worker.logger logger.go:60 logger setup
 unit-ubuntu-0: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "rsyslog"
 unit-ubuntu-0: 2014-03-24 22:36:28 DEBUG juju.worker.rsyslog worker.go:76 starting rsyslog worker mode 1 for "unit-ubuntu-0" "tim-local"
+unit-ubuntu-1: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "logger"
+unit-ubuntu-1: 2014-03-24 22:36:28 DEBUG juju.worker.logger logger.go:35 initial log config: "<root>=DEBUG"
+unit-ubuntu-1: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "uniter"
+unit-ubuntu-1: 2014-03-24 22:36:28 DEBUG juju.worker.logger logger.go:60 logger setup
+unit-ubuntu-1: 2014-03-24 22:36:28 INFO juju runner.go:262 worker: start "rsyslog"
+unit-ubuntu-1: 2014-03-24 22:36:28 DEBUG juju.worker.rsyslog worker.go:76 starting rsyslog worker mode 1 for "unit-ubuntu-0" "tim-local"
 `[1:], "\n")
 	logLineCount = len(logLines)
 )

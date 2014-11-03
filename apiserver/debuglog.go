@@ -11,11 +11,14 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/tomb"
 
@@ -173,10 +176,11 @@ func (h *debugLogHandler) sendError(w io.Writer, err error) error {
 }
 
 type logLine struct {
-	line   string
-	agent  string
-	level  loggo.Level
-	module string
+	line      string
+	agent     string // contains agent tag
+	level     loggo.Level
+	module    string
+	agentName string
 }
 
 func parseLogLine(line string) *logLine {
@@ -191,8 +195,24 @@ func parseLogLine(line string) *logLine {
 	}
 	if len(fields) > agentField {
 		agent := fields[agentField]
+		// Drop mandatory trailing colon (:).
+		// Since colon is mandatory, agent without it is invalid and will be empty ("").
 		if strings.HasSuffix(agent, ":") {
 			result.agent = agent[:len(agent)-1]
+		}
+		// Drop unit suffix...Unit information is logged with unit_tag[nnnn] prefix
+		if bracketIndex := strings.Index(agent, "["); bracketIndex != -1 {
+			result.agent = agent[:bracketIndex]
+		}
+		// If, at this stage, result.agent is empty,  we could not deduce the tag. No point getting the name...
+		if result.agent != "" {
+			// Entity Name deduced from entity tag
+			entityTag, err := names.ParseTag(result.agent)
+			if err != nil {
+				// Logging error but effectively swallowing it as there is no where to propogate
+				logger.Errorf("Could not deduce name from tag", errors.Annotatef(err, "Could not parse tag %q", result.agent))
+			}
+			result.agentName = entityTag.Id()
 		}
 	}
 	if len(fields) > moduleField {
@@ -248,7 +268,7 @@ func (stream *logStream) loop() error {
 	return nil
 }
 
-// filterLine checks the received line for one of the confgured tags.
+// filterLine checks the received line for one of the configured tags.
 func (stream *logStream) filterLine(line []byte) bool {
 	log := parseLogLine(string(line))
 	return stream.checkIncludeEntity(log) &&
@@ -257,7 +277,7 @@ func (stream *logStream) filterLine(line []byte) bool {
 		stream.checkLevel(log)
 }
 
-// countedFilterLine checks the received line for one of the confgured tags,
+// countedFilterLine checks the received line for one of the configured tags,
 // and also checks to make sure the stream doesn't send more than the
 // specified number of lines.
 func (stream *logStream) countedFilterLine(line []byte) bool {
@@ -277,16 +297,31 @@ func (stream *logStream) checkIncludeEntity(line *logLine) bool {
 		return true
 	}
 	for _, value := range stream.includeEntity {
-		// special handling, if ends with '*', check prefix
-		if strings.HasSuffix(value, "*") {
-			if strings.HasPrefix(line.agent, value[:len(value)-1]) {
-				return true
-			}
-		} else if line.agent == value {
+		if agentMatchesFilter(line, value) {
 			return true
 		}
 	}
 	return false
+}
+
+// agentMatchesFilter checks if agent tag or agent name match given filter
+func agentMatchesFilter(line *logLine, aFilter string) bool {
+	return hasMatch(line.agentName, aFilter) || hasMatch(line.agent, aFilter)
+}
+
+// hasMatch determines if value contains filter using regular expressions.
+// All wildcard occurrences are changed to `.*`
+// Currently, all match exceptions are logged and not propagated.
+func hasMatch(value, aFilter string) bool {
+	// special handling, if contains wildcard (*), remove
+	aFilter = strings.Replace(aFilter, "*", `.*`, -1)
+	matches, err := regexp.MatchString("^"+aFilter+"$", value)
+	if err != nil {
+		// logging errors here... but really should they be swallowed?
+		logger.Errorf("\nCould not match filter to an entity name:\n%v\n",
+			errors.Annotatef(err, "Can't match %q and regular expression %q", value, aFilter))
+	}
+	return matches
 }
 
 func (stream *logStream) checkIncludeModule(line *logLine) bool {
@@ -303,12 +338,7 @@ func (stream *logStream) checkIncludeModule(line *logLine) bool {
 
 func (stream *logStream) exclude(line *logLine) bool {
 	for _, value := range stream.excludeEntity {
-		// special handling, if ends with '*', check prefix
-		if strings.HasSuffix(value, "*") {
-			if strings.HasPrefix(line.agent, value[:len(value)-1]) {
-				return true
-			}
-		} else if line.agent == value {
+		if agentMatchesFilter(line, value) {
 			return true
 		}
 	}
