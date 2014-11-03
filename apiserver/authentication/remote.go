@@ -4,6 +4,7 @@
 package authentication
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 
@@ -41,20 +42,45 @@ func (ru *RemoteUser) Tag() names.Tag {
 	return ru.authTag
 }
 
-type RemoteCredentials struct {
+type remoteCredentials struct {
 	Primary    *macaroon.Macaroon
 	Discharges []*macaroon.Macaroon
 }
 
-func DecodeRemoteCredentials(credentials string) (*RemoteCredentials, error) {
-	remoteCreds := &RemoteCredentials{}
-	if err := json.Unmarshal([]byte(credentials), &remoteCreds); err != nil {
+type RemoteCredentials struct {
+	remoteCredentials
+}
+
+func NewRemoteCredentials(primary *macaroon.Macaroon, discharges ...*macaroon.Macaroon) *RemoteCredentials {
+	return &RemoteCredentials{
+		remoteCredentials{
+			Primary:    primary,
+			Discharges: discharges,
+		},
+	}
+}
+
+func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
+	out, err := json.Marshal(rc.remoteCredentials)
+	if err != nil {
 		return nil, err
 	}
-	if remoteCreds.Primary == nil {
-		return nil, fmt.Errorf("missing primary credential")
+	return []byte(base64.URLEncoding.EncodeToString(out)), nil
+}
+
+func (rc *RemoteCredentials) UnmarshalText(text []byte) error {
+	in, err := base64.URLEncoding.DecodeString(string(text))
+	if err != nil {
+		return err
 	}
-	return remoteCreds, nil
+	err = json.Unmarshal(in, &rc.remoteCredentials)
+	if err != nil {
+		return err
+	}
+	if rc.Primary == nil {
+		return fmt.Errorf("missing primary credential")
+	}
+	return nil
 }
 
 func (rc *RemoteCredentials) AddToRequest(r *bakery.Request) {
@@ -93,12 +119,9 @@ func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonc
 	}
 
 	var remoteCreds RemoteCredentials
-	if err := json.Unmarshal([]byte(credential), &remoteCreds); err != nil {
+	err := remoteCreds.UnmarshalText([]byte(credential))
+	if err != nil {
 		return err
-	}
-	if remoteCreds.Primary == nil {
-		logger.Debugf("missing primary credential")
-		return common.ErrBadCreds
 	}
 	if remoteCreds.Primary.Id() != nonce {
 		logger.Debugf("invalid credential")

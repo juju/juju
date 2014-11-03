@@ -188,9 +188,11 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		certPool: pool,
 	}
 	if info.Tag != nil || info.Password != "" {
-		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
+		if reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
 			conn.Close()
 			return nil, err
+		} else if reauth != nil {
+			return nil, fmt.Errorf("TODO: support reauth handler")
 		}
 	}
 	st.broken = make(chan struct{})

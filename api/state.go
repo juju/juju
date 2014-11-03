@@ -34,16 +34,19 @@ import (
 // Subsequent requests on the state will act as that entity.  This
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
-func (st *State) Login(tag, password, nonce string) error {
-	err := st.loginV1(tag, password, nonce)
+func (st *State) Login(tag, password, nonce string) (*params.ReauthRequest, error) {
+	reauth, err := st.loginV1(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {
 		// TODO (cmars): remove fallback once we can drop v0 compatibility
-		return st.loginV0(tag, password, nonce)
+		return nil, st.loginV0(tag, password, nonce)
 	}
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return reauth, nil
 }
 
-func (st *State) loginV1(tag, password, nonce string) error {
+func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, error) {
 	var result struct {
 		// TODO (cmars): remove once we can drop 1.18 login compatibility
 		params.LoginResult
@@ -64,12 +67,17 @@ func (st *State) loginV1(tag, password, nonce string) error {
 		},
 	}, &result)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
 	// server.  The JSON field names between the structures are disjoint, so only
 	// one should have an environ tag set.
+
+	// Check for a reauth handshake request
+	if result.LoginResultV1.ReauthRequest != nil {
+		return result.LoginResultV1.ReauthRequest, nil
+	}
 
 	var environTag string
 	var servers [][]network.HostPort
@@ -86,9 +94,9 @@ func (st *State) loginV1(tag, password, nonce string) error {
 
 	err = st.setLoginResult(tag, environTag, servers, facades)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {

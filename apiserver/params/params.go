@@ -326,25 +326,12 @@ type Creds struct {
 	Nonce    string
 }
 
-// LoginMethod defines the login protocol method that the client is requesting.
-type LoginMethod string
-
-var (
-	// LoginMethodLocal is the default basic username/password login protocol.
-	LoginMethodLocal = LoginMethod("")
-
-	// LoginMethodRemote is a login handshake protocol involving a remote
-	// identity provider.
-	LoginMethodRemote = LoginMethod("remote")
-)
-
 // LoginRequest holds credentials for identifying an entity to the Login v1
 // facade.
 type LoginRequest struct {
-	AuthTag     string      `json:"auth-tag"`
-	Credentials string      `json:"credentials"`
-	Nonce       string      `json:"nonce"`
-	Method      LoginMethod `json:"method,omitempty"`
+	AuthTag     string `json:"auth-tag"`
+	Credentials string `json:"credentials"`
+	Nonce       string `json:"nonce"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

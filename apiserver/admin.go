@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"encoding/base64"
 	"sync"
 	"time"
 
@@ -142,12 +141,10 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 
 	// Issue a macaroon for the client to discharge and come back with,
 	// for an empty (initial) remote login request.
-	if req.Method == params.LoginMethodRemote && req.Credentials == "" {
+	if req.Credentials == "" {
 		if remoteChecker, ok := checker.(*RemoteCredentialChecker); ok {
 			return remoteChecker.ReauthRequest(req)
 		}
-		logger.Errorf("remote method used with invalid checker")
-		return fail, common.ErrBadRequest
 	}
 
 	entity, err := checker.Check(req)
@@ -352,14 +349,15 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 		// TODO (cmars): implement a time limit & scheme for refreshing the macaroon
 	})
 
-	mBytes, err := m.MarshalBinary()
+	remoteCreds := authentication.NewRemoteCredentials(m)
+	prompt, err := remoteCreds.MarshalText()
 	if err != nil {
 		return fail, err
 	}
 
 	return params.LoginResultV1{
 		ReauthRequest: &params.ReauthRequest{
-			Prompt: base64.URLEncoding.EncodeToString(mBytes),
+			Prompt: string(prompt),
 			Nonce:  m.Id(),
 		},
 	}, nil

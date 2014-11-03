@@ -154,7 +154,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 			// Since these are user login tests, the nonce is empty.
-			err = st.Login(t.tag, t.password, "")
+			_, err = st.Login(t.tag, t.password, "")
 			c.Assert(err, gc.ErrorMatches, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
@@ -180,7 +180,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(u.Tag().String(), password, "")
+	_, err = st.Login(u.Tag().String(), password, "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 	_, err = st.Client().Status([]string{})
@@ -651,7 +651,7 @@ func (s *loginSuite) TestFailedLoginDuringMaintenance(c *gc.C) {
 	checkLogin := func(tag names.Tag) {
 		st := s.openAPIWithoutLogin(c, info)
 		defer st.Close()
-		err := st.Login(tag.String(), "dummy-secret", "nonce")
+		_, err := st.Login(tag.String(), "dummy-secret", "nonce")
 		c.Assert(err, gc.ErrorMatches, "something")
 	}
 	checkLogin(names.NewUserTag("definitelywontexist"))
@@ -673,7 +673,7 @@ func (s *baseLoginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.Lo
 
 	adminUser := s.AdminUserTag(c)
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(adminUser.String(), "dummy-secret", "")
+	_, err = st.Login(adminUser.String(), "dummy-secret", "")
 
 	checker(c, err, st)
 }
