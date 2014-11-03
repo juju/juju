@@ -14,6 +14,7 @@ import (
 
 var (
 	MergeEnvironment  = mergeEnvironment
+	HookVars          = hookVars
 	SearchHook        = searchHook
 	HookCommand       = hookCommand
 	LookPath          = lookPath
@@ -21,6 +22,23 @@ var (
 	TryOpenPorts      = tryOpenPorts
 	TryClosePorts     = tryClosePorts
 )
+
+func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.RelationSettings) {
+	f := f0.(*factory)
+	members := f.relationCaches[relId].members
+	if members[unitName] == nil {
+		members[unitName] = params.RelationSettings{}
+	}
+	for key, value := range settings {
+		members[unitName][key] = value
+	}
+}
+
+func CachedSettings(f0 Factory, relId int, unitName string) (params.RelationSettings, bool) {
+	f := f0.(*factory)
+	settings, found := f.relationCaches[relId].members[unitName]
+	return settings, found
+}
 
 // PatchMeterStatus changes the meter status of the context.
 func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
@@ -56,10 +74,6 @@ func (c *HookContext) ActionData() *ActionData {
 	return c.actionData
 }
 
-func (cr *ContextRelation) StoredMemberSettings(remoteUnit string) params.RelationSettings {
-	return cr.members[remoteUnit]
-}
-
 func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
 		actionData: &ActionData{
@@ -90,6 +104,7 @@ func NewHookContext(
 		id:                 id,
 		uuid:               uuid,
 		envName:            envName,
+		unitName:           unit.Name(),
 		relationId:         relationId,
 		remoteUnitName:     remoteUnitName,
 		relations:          relations,
@@ -126,4 +141,41 @@ func NewHookContext(
 	}
 
 	return ctx, nil
+}
+
+// NewEnvironmentHookContext exists purely to set the fields used in hookVars.
+// The returned value is not otherwise valid.
+func NewEnvironmentHookContext(
+	id, envUUID, envName, unitName, meterCode, meterInfo string,
+	apiAddresses []string, proxySettings proxy.Settings,
+) *HookContext {
+	return &HookContext{
+		id:            id,
+		unitName:      unitName,
+		uuid:          envUUID,
+		envName:       envName,
+		apiAddrs:      apiAddresses,
+		proxySettings: proxySettings,
+		meterStatus: &meterStatus{
+			code: meterCode,
+			info: meterInfo,
+		},
+		relationId: -1,
+	}
+}
+
+// SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextRelation(
+	context *HookContext,
+	relationId int, endpointName, remoteUnitName string,
+) {
+	context.relationId = relationId
+	context.remoteUnitName = remoteUnitName
+	context.relations = map[int]*ContextRelation{
+		relationId: &ContextRelation{
+			endpointName: endpointName,
+			relationId:   relationId,
+		},
+	}
 }

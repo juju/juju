@@ -143,6 +143,17 @@ References:
   http://juju.ubuntu.com/docs/provider-configuration-openstack.html
   http://askubuntu.com/questions/132411/how-can-i-configure-juju-for-deployment-on-openstack
 
+Placement directives:
+
+  OpenStack environments support the following placement directives for use
+  with "juju bootstrap" and "juju add-machine":
+
+    zone=<availability-zone-name>
+      The "zone" placement directive instructs the OpenStack provider to
+      allocate a machine in the specified availability zone. If the zone
+      does not exist, or a machine cannot be allocated within it, then
+      the machine addition will fail.
+
 Other OpenStack Based Clouds:
 
 This answer is for generic OpenStack support, if you're using an OpenStack-based
@@ -174,6 +185,17 @@ has a "show" link for each access key that will reveal the associated secret
 key.
 
 And that's it, you're ready to go!
+
+Placement directives:
+
+  EC2 environments support the following placement directives for use with
+  "juju bootstrap" and "juju add-machine":
+
+    zone=<availability-zone-name>
+      The "zone" placement directive instructs the EC2 provider to
+      allocate a machine in the specified availability zone. If the zone
+      does not exist, or a machine cannot be allocated within it, then
+      the machine addition will fail.
 
 References:
 
@@ -249,6 +271,37 @@ your preference.
 See the online help for more information:
 
   https://juju.ubuntu.com/docs/config-azure.html
+`
+
+const helpMAASProvider = `
+A generic MAAS environment looks like this:
+
+  sample_maas:
+    type: maas
+    maas-server: 'http://<my-maas-server>:80/MAAS'
+    maas-oauth: 'MAAS-API-KEY'
+
+The API key can be obtained from the preferences page in the MAAS web UI.
+
+Placement directives:
+
+  MAAS environments support the following placement directives for use with
+  "juju bootstrap" and "juju add-machine":
+
+    zone=<physical-zone-name>
+      The "zone" placement directive instructs the MAAS provider to
+      allocate a machine in the specified availability zone. If the zone
+      does not exist, or a machine cannot be allocated within it, then
+      the machine addition will fail.
+
+    <hostname>
+      If the placement directive does not contain an "=" symbol, then
+      it is assumed to be the hostname of a node in MAAS. MAAS will attempt
+      to acquire that node and will fail if it cannot.
+
+See the online help for more information:
+
+  https://juju.ubuntu.com/docs/config-maas.html
 `
 
 const helpConstraints = `
@@ -360,6 +413,28 @@ See Also:
    juju help bootstrap
 `
 
+const helpPlacement = `
+Placement directives provide users with a means of providing instruction
+to the cloud provider on how to allocate a machine. For example, the MAAS
+provider can be directed to acquire a particular node by specifying its
+hostname.
+
+See provider-specific documentation for details of placement directives
+supported by that provider.
+
+Examples:
+
+  # Bootstrap using an instance in the "us-east-1a" EC2 availability zone.
+  juju bootstrap --to zone=us-east-1a
+
+  # Acquire the node "host01.maas" and add it to Juju.
+  juju add-machine host01.maas
+
+See also:
+  juju help add-machine
+  juju help bootstrap
+`
+
 const helpGlossary = `
 Bootstrap
   To boostrap an environment means initializing it so that Services may be
@@ -412,6 +487,10 @@ Machine Agent
   Software which runs inside each machine that is part of an Environment, and is
   able to handle the needs of deploying and managing Service Units in this
   machine.
+
+Placement Directive
+  A provider-specific string that directs the provisioner on how to allocate a
+  machine instance.
 
 Provisioning Agent
   Software responsible for automatically allocating and terminating machines in

@@ -249,7 +249,9 @@ var topicNames = []string{
 	"hpcloud-provider",
 	"local-provider",
 	"logging",
+	"maas-provider",
 	"openstack-provider",
+	"placement",
 	"plugins",
 	"topics",
 }

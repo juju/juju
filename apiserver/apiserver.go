@@ -230,6 +230,9 @@ func (srv *Server) run(lis net.Listener) {
 			httpHandler{state: srv.state},
 		}},
 	)
+	handleAll(mux, "/environment/:envuuid/backups",
+		&backupHandler{httpHandler{state: srv.state}},
+	)
 	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",

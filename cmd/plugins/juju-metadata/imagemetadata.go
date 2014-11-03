@@ -32,7 +32,11 @@ func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configsto
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get config from store")
 	}
-	return environs.Prepare(cfg, context, store)
+	// We are preparing an environment to access parameters needed to access
+	// image metadata. We don't need, nor want, credential verification.
+	// In most cases, credentials will not be available.
+	ctx := envcmd.BootstrapContextNoVerify(context)
+	return environs.Prepare(cfg, ctx, store)
 }
 
 // ImageMetadataCommand is used to write out simplestreams image metadata information.

@@ -82,11 +82,11 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
-	c.Assert(docID, gc.Equals, s.State.EnvironTag().Id()+":"+id)
+	c.Assert(docID, gc.Equals, s.State.EnvironUUID()+":"+id)
 }
 
 func (s *StateSuite) TestLocalID(c *gc.C) {
-	id := s.State.EnvironTag().Id() + ":wordpress"
+	id := s.State.EnvironUUID() + ":wordpress"
 	localID := state.LocalID(s.State, id)
 	c.Assert(localID, gc.Equals, "wordpress")
 }
@@ -96,6 +96,25 @@ func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
 	docID := state.DocID(s.State, id)
 	localID := state.LocalID(s.State, docID)
 	c.Assert(localID, gc.Equals, id)
+}
+
+func (s *StateSuite) TestStrictLocalID(c *gc.C) {
+	id := state.DocID(s.State, "wordpress")
+	localID, err := state.StrictLocalID(s.State, id)
+	c.Assert(localID, gc.Equals, "wordpress")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *StateSuite) TestStrictLocalIDWithWrongPrefix(c *gc.C) {
+	localID, err := state.StrictLocalID(s.State, "foo:wordpress")
+	c.Assert(localID, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `unexpected id: "foo:wordpress"`)
+}
+
+func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
+	localID, err := state.StrictLocalID(s.State, "wordpress")
+	c.Assert(localID, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `unexpected id: "wordpress"`)
 }
 
 func (s *StateSuite) TestDialAgain(c *gc.C) {
@@ -113,6 +132,10 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 	defer st.Close()
 
 	c.Assert(st.EnvironTag(), gc.Equals, s.envTag)
+}
+
+func (s *StateSuite) TestEnvironUUID(c *gc.C) {
+	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -667,9 +690,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	mhc, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(*mhc, gc.DeepEquals, hc)
-	// Clear the deprecated machineDoc InstanceId attribute and do it again.
-	// still works as expected with the new data model.
-	state.SetMachineInstanceId(m, "")
 	instId, err = m.InstanceId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(instId), gc.Equals, "inst-id")

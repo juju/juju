@@ -172,7 +172,11 @@ func (s *Service) WatchUnits() StringsWatcher {
 	members := bson.D{{"service", s.doc.Name}}
 	prefix := s.doc.Name + "/"
 	filter := func(unitDocID interface{}) bool {
-		return strings.HasPrefix(s.st.localID(unitDocID.(string)), prefix)
+		unitName, err := s.st.strictLocalID(unitDocID.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(unitName, prefix)
 	}
 	return newLifecycleWatcher(s.st, unitsC, members, filter)
 }
@@ -180,13 +184,20 @@ func (s *Service) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Service) WatchRelations() StringsWatcher {
+	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	members := bson.D{{"endpoints.servicename", s.doc.Name}}
+
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
-	filter := func(key interface{}) bool {
-		k := key.(string)
-		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+	filter := func(id interface{}) bool {
+		k, err := s.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		out := strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+		return out
 	}
+
 	return newLifecycleWatcher(s.st, relationsC, members, filter)
 }
 
@@ -570,8 +581,9 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 	defer closer()
 
 	docs := []relationScopeDoc{}
+	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	sel := bson.D{
-		{"_id", bson.D{{"$regex", "^" + w.prefix}}},
+		{"key", bson.D{{"$regex", "^" + w.prefix}}},
 		{"departing", bson.D{{"$ne", true}}},
 	}
 	if err = relationScopes.Find(sel).All(&docs); err != nil {
@@ -604,8 +616,11 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			if exists {
 				existIds = append(existIds, id)
 			} else {
-				doc := &relationScopeDoc{Key: id}
-				info.remove(doc.unitName())
+				key, err := w.st.strictLocalID(id)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				info.remove(unitNameFromScopeKey(key))
 			}
 		default:
 			logger.Warningf("ignoring bad relation scope id: %#v", id)
@@ -629,8 +644,9 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 
 func (w *RelationScopeWatcher) loop() error {
 	in := make(chan watcher.Change)
-	filter := func(key interface{}) bool {
-		return strings.HasPrefix(key.(string), w.prefix)
+	fullPrefix := w.st.docID(w.prefix)
+	filter := func(id interface{}) bool {
+		return strings.HasPrefix(id.(string), fullPrefix)
 	}
 	w.st.watcher.WatchCollectionWithFilter(relationScopesC, in, filter)
 	defer w.st.watcher.UnwatchCollection(relationScopesC, in)
@@ -910,7 +926,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	defer closer()
 	query := bson.D{
 		{"name", bson.D{{"$in", initialNames}}},
-		{"env-uuid", w.st.EnvironTag().Id()},
+		{"env-uuid", w.st.EnvironUUID()},
 	}
 	docs := []lifeWatchDoc{}
 	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
@@ -918,9 +934,13 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	}
 	changes := []string{}
 	for _, doc := range docs {
-		changes = append(changes, w.st.localID(doc.Id))
+		unitName, err := w.st.strictLocalID(doc.Id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		changes = append(changes, unitName)
 		if doc.Life != Dead {
-			w.life[w.st.localID(doc.Id)] = doc.Life
+			w.life[unitName] = doc.Life
 			w.st.watcher.Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
 		}
 	}
@@ -995,10 +1015,10 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	collection, closer := mongo.CollectionFromName(w.st.db, coll)
 	revno, err := getTxnRevno(collection, id)
 	closer()
-
 	if err != nil {
 		return err
 	}
+
 	w.st.watcher.Watch(coll, id, revno, w.in)
 	defer func() {
 		w.st.watcher.Unwatch(coll, id, w.in)
@@ -1010,6 +1030,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	if err != nil {
 		return err
 	}
+	rootLocalID := w.st.localID(id)
 	out := w.out
 	for {
 		select {
@@ -1018,11 +1039,11 @@ func (w *unitsWatcher) loop(coll, id string) error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-w.in:
-			name := w.st.localID(c.Id.(string))
-			if name == w.st.localID(id) {
+			localID := w.st.localID(c.Id.(string))
+			if localID == rootLocalID {
 				changes, err = w.update(changes)
 			} else {
-				changes, err = w.merge(changes, name)
+				changes, err = w.merge(changes, localID)
 			}
 			if err != nil {
 				return err
@@ -1206,6 +1227,12 @@ func (e *Environment) Watch() NotifyWatcher {
 // synchronisation state.
 func (st *State) WatchUpgradeInfo() NotifyWatcher {
 	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
+}
+
+// WatchRestoreInfoChanges returns a NotifyWatcher that will inform
+// when the restore status changes.
+func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
+	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
 }
 
 // WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ

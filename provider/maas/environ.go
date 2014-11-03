@@ -988,14 +988,14 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 	return result, nil
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // MAAS provider yet.
-func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
+func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
 	// TODO(dimitern) 2014-05-06 bug #1316627
 	// Once MAAS API allows allocating an address,
 	// implement this using the API.
-	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+	return errors.NotImplementedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known

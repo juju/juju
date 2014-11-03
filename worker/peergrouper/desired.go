@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/replicaset"
 )
 
-// jujuMachineTag is the key for the tag where we save the member's juju machine id.
-const jujuMachineTag = "juju-machine-id"
+// jujuMachineKey is the key for the tag where we save the member's juju machine id.
+const jujuMachineKey = "juju-machine-id"
 
 var logger = loggo.GetLogger("juju.worker.peergrouper")
 
@@ -105,10 +105,7 @@ func isVotingMember(member *replicaset.Member) bool {
 // ready to vote; toKeep holds machines with no desired
 // change to their voting status (this includes machines
 // that are not yet represented in the peer group).
-func possiblePeerGroupChanges(
-	info *peerGroupInfo,
-	members map[*machine]*replicaset.Member,
-) (toRemoveVote, toAddVote, toKeep []*machine) {
+func possiblePeerGroupChanges(info *peerGroupInfo, members map[*machine]*replicaset.Member) (toRemoveVote, toAddVote, toKeep []*machine) {
 	statuses := info.statusesMap(members)
 
 	logger.Debugf("assessing possible peer group changes:")
@@ -218,7 +215,7 @@ func addNewMembers(
 			maxId++
 			member := &replicaset.Member{
 				Tags: map[string]string{
-					jujuMachineTag: m.id,
+					jujuMachineKey: m.id,
 				},
 				Id: maxId,
 			}
@@ -260,9 +257,10 @@ func (l byId) Less(i, j int) bool { return l[i].id < l[j].id }
 func (info *peerGroupInfo) membersMap() (members map[*machine]*replicaset.Member, extra []replicaset.Member, maxId int) {
 	maxId = -1
 	members = make(map[*machine]*replicaset.Member)
-	for _, member := range info.members {
-		member := member
-		mid, ok := member.Tags[jujuMachineTag]
+	for key, _ := range info.members {
+		// key is used instead of value to have a loop scoped member value
+		member := info.members[key]
+		mid, ok := member.Tags[jujuMachineKey]
 		var found *machine
 		if ok {
 			found = info.machines[mid]

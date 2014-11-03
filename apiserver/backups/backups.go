@@ -58,7 +58,7 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	paths.DataDir = dataDir.String()
 	paths.LogsDir = logDir.String()
 
-	stor, err := newBackupsStorage(st)
+	backups, err := NewBackups(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -66,9 +66,19 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	b := API{
 		st:      st,
 		paths:   paths,
-		backups: backups.NewBackups(stor),
+		backups: backups,
 	}
 	return &b, nil
+}
+
+// NewBackups returns a new Backups based on the given state.
+func NewBackups(st *state.State) (backups.Backups, error) {
+	stor, err := newBackupsStorage(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return backups.NewBackups(stor), nil
 }
 
 var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {

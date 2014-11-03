@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -292,13 +293,14 @@ func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type": "ec2",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	ctx := testing.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env0, err := providerInstance.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	bucket0 := env0.(*environ).ecfg().controlBucket()
@@ -313,6 +315,7 @@ func (s *ConfigSuite) TestPrepareInsertsUniqueControlBucket(c *gc.C) {
 }
 
 func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*environ) error { return nil })
 	attrs := testing.FakeConfig().Merge(testing.Attrs{
 		"type":           "ec2",
 		"control-bucket": "burblefoo",
@@ -320,7 +323,7 @@ func (s *ConfigSuite) TestPrepareDoesNotTouchExistingControlBucket(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	env, err := providerInstance.Prepare(testing.Context(c), cfg)
+	env, err := providerInstance.Prepare(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, gc.IsNil)
 	bucket := env.(*environ).ecfg().controlBucket()
 	c.Assert(bucket, gc.Equals, "burblefoo")
