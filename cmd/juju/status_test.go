@@ -2324,24 +2324,30 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 		setUnitStatus{"logging/1", state.StatusError, "somehow lost in all those logs", nil},
 	}
 
-	for _, s := range steps {
-		s.step(c, ctx)
-	}
+	ctx.run(c, steps)
+
+	const expected = "\n" +
+		"- mysql/0: dummyenv-2.dns (started)\n" +
+		"  - logging/1: dummyenv-2.dns (error)\n" +
+		"- wordpress/0: dummyenv-1.dns (started)\n" +
+		"  - logging/0: dummyenv-1.dns (started)\n"
 
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
-
 	c.Check(code, gc.Equals, 0)
 	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stdout), gc.Equals, expected)
 
-	c.Assert(
-		string(stdout),
-		gc.Equals,
-		"\n"+
-			"- mysql/0: dummyenv-2.dns (started)\n"+
-			"  - logging/1: dummyenv-2.dns (error)\n"+
-			"- wordpress/0: dummyenv-1.dns (started)\n"+
-			"  - logging/0: dummyenv-1.dns (started)\n",
-	)
+	c.Log(`Check that "short" is an alias for oneline.`)
+	code, stdout, stderr = runStatus(c, "--format", "short")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stdout), gc.Equals, expected)
+
+	c.Log(`Check that "line" is an alias for oneline.`)
+	code, stdout, stderr = runStatus(c, "--format", "line")
+	c.Check(code, gc.Equals, 0)
+	c.Check(string(stderr), gc.Equals, "")
+	c.Assert(string(stdout), gc.Equals, expected)
 }
 func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	ctx := s.newContext(c)
@@ -2625,7 +2631,7 @@ func (s *StatusSuite) TestFilterOnPorts(c *gc.C) {
 	// Then I should receive output prefixed with:
 	const expected = `
 
-- wordpress/0: localhost (started)
+- wordpress/0: localhost (started) 80/tcp
   - logging/0: localhost (started)
 `
 
