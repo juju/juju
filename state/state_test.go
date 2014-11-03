@@ -100,21 +100,21 @@ func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
 
 func (s *StateSuite) TestStrictLocalID(c *gc.C) {
 	id := state.DocID(s.State, "wordpress")
-	localID, ok := state.StrictLocalID(s.State, id)
+	localID, err := state.StrictLocalID(s.State, id)
 	c.Assert(localID, gc.Equals, "wordpress")
-	c.Assert(ok, jc.IsTrue)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestStrictLocalIDWithWrongPrefix(c *gc.C) {
-	localID, ok := state.StrictLocalID(s.State, "foo:wordpress")
+	localID, err := state.StrictLocalID(s.State, "foo:wordpress")
 	c.Assert(localID, gc.Equals, "")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, `unexpected id: "foo:wordpress"`)
 }
 
 func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
-	localID, ok := state.StrictLocalID(s.State, "wordpress")
+	localID, err := state.StrictLocalID(s.State, "wordpress")
 	c.Assert(localID, gc.Equals, "")
-	c.Assert(ok, jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, `unexpected id: "wordpress"`)
 }
 
 func (s *StateSuite) TestDialAgain(c *gc.C) {
