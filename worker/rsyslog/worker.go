@@ -294,7 +294,7 @@ func (h *RsyslogConfigHandler) rsyslogHosts() ([]string, error) {
 		}
 	}
 
-	// Explicitly add the '*' wildcard host. This will ensure that RsyslogConfigHandler
+	// Explicitly add the '*' wildcard host. This will ensure that rsyslog
 	// clients will always be able to connect even if their hostnames and/or IPAddresses
 	// are changed. This also ensures we can continue to use SSL for our rsyslog connections
 	// and we can avoid having to use the skipVerify flag.
