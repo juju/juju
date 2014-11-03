@@ -984,7 +984,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		if err == nil {
 			break
 		}
-		if ec2Err, ok := err.(ec2.ErrorType); ok {
+		if ec2Err, ok := err.(ec2.Error); ok {
 			if ec2Err.Code == "InvalidParameterValue" {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
