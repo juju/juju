@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// RemoteUser represents a remote user defined by an external identity
+// provider.
 type RemoteUser struct {
 	authTag   names.UserTag
 	sessionId string
@@ -23,6 +25,7 @@ type RemoteUser struct {
 
 var _ state.Entity = (*RemoteUser)(nil)
 
+// NewRemoteUser creates a new RemoteUser instance.
 func NewRemoteUser(authTag, sessionId string) (*RemoteUser, error) {
 	tag, err := names.ParseTag(authTag)
 	if err != nil {
@@ -38,6 +41,7 @@ func NewRemoteUser(authTag, sessionId string) (*RemoteUser, error) {
 	}, nil
 }
 
+// Tag implements the names.Tag interface.
 func (ru *RemoteUser) Tag() names.Tag {
 	return ru.authTag
 }
@@ -47,10 +51,13 @@ type remoteCredentials struct {
 	Discharges []*macaroon.Macaroon
 }
 
+// RemoteCredentials defines a document struct for serializing macaroons.
 type RemoteCredentials struct {
 	remoteCredentials
 }
 
+// NewRemoteCredentials creates a new RemoteCredentials instance with the given
+// primary and discharge macaroons.
 func NewRemoteCredentials(primary *macaroon.Macaroon, discharges ...*macaroon.Macaroon) *RemoteCredentials {
 	return &RemoteCredentials{
 		remoteCredentials{
@@ -60,6 +67,14 @@ func NewRemoteCredentials(primary *macaroon.Macaroon, discharges ...*macaroon.Ma
 	}
 }
 
+// Bind binds all discharge macaroons to the primary macaroon.
+func (rc *RemoteCredentials) Bind() {
+	for _, dm := range rc.Discharges {
+		dm.Bind(rc.Primary.Signature())
+	}
+}
+
+// MarshalText implements the encoding.TextMarshaler interface.
 func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
 	out, err := json.Marshal(rc.remoteCredentials)
 	if err != nil {
@@ -68,6 +83,7 @@ func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
 	return []byte(base64.URLEncoding.EncodeToString(out)), nil
 }
 
+// UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (rc *RemoteCredentials) UnmarshalText(text []byte) error {
 	in, err := base64.URLEncoding.DecodeString(string(text))
 	if err != nil {
@@ -83,6 +99,8 @@ func (rc *RemoteCredentials) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// AddToRequest adds all macaroons contained in the credential to a
+// bakery.Request for target service verification.
 func (rc *RemoteCredentials) AddToRequest(r *bakery.Request) {
 	r.AddClientMacaroon(rc.Primary)
 	for _, dm := range rc.Discharges {
@@ -90,22 +108,27 @@ func (rc *RemoteCredentials) AddToRequest(r *bakery.Request) {
 	}
 }
 
+// RemoteAuthenticator authenticates credentials for remote identities.
 type RemoteAuthenticator struct {
 	*bakery.Service
 }
 
 var _ EntityAuthenticator = (*RemoteAuthenticator)(nil)
 
+// NewRemoteAuthenticator creates a new instance for authenticating credentials
+// from the perspective of the given target service.
 func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
 	return &RemoteAuthenticator{Service: service}
 }
 
+// CheckFirstPartyCaveat implements the bakery.FirstPartyChecker interface.
 func (*RemoteAuthenticator) CheckFirstPartyCaveat(caveat string) error {
 	// TODO (cmars): what first party caveats does the Juju server need to
 	// support?
 	return nil
 }
 
+// Authenticate implements the EntityAuthenticator interface.
 func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonce string) error {
 	remoteUser, ok := entity.(*RemoteUser)
 	if !ok {

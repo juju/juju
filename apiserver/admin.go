@@ -281,6 +281,7 @@ func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, e
 	return entity, nil
 }
 
+// RemoteCredentialChecker checks login credentials for remote identities.
 type RemoteCredentialChecker struct {
 	st  *state.State
 	srv *bakery.Service
@@ -290,10 +291,12 @@ var _ CredentialChecker = (*RemoteCredentialChecker)(nil)
 
 var newRemoteCredentialChecker = NewRemoteCredentialChecker
 
+// NewRemoteCredentialChecker creates a new remote CredentialChecker instance.
 func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) CredentialChecker {
 	return &RemoteCredentialChecker{st: st, srv: srv}
 }
 
+// Check implements the CredentialChecker interface.
 func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
 	entity, err := authentication.NewRemoteUser(req.AuthTag, req.Nonce)
 	if err != nil {
@@ -313,6 +316,8 @@ func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, 
 	return entity, nil
 }
 
+// ReauthRequest creates a challenge response consisting of a macaroon with a third-party caveat on
+// an identity providing service with the condition that the remote user is logged in.
 func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params.LoginResultV1, error) {
 	var fail params.LoginResultV1
 
