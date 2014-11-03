@@ -157,8 +157,6 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 			// transitory and potentially confusing errors from failed
 			// logins with a more helpful one.
 			return fail, MaintenanceNoLoginError
-		} else {
-			return fail, err
 		}
 		return fail, err
 	}
