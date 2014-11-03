@@ -170,6 +170,9 @@ func newUpgradeOpsIterator(from, to version.Number) *upgradeOpsIterator {
 	if from == version.Zero {
 		from = version.MustParse("1.16.0")
 	}
+	// Clear the version tag of the target release to ensure that all
+	// upgrade steps for the release are run for alpha and beta releases.
+	to.Tag = ""
 	return &upgradeOpsIterator{
 		from:    from,
 		to:      to,

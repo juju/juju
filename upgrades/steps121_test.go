@@ -48,5 +48,5 @@ func (s *steps121Suite) TestStepsFor121(c *gc.C) {
 		"create entries in meter status collection for existing units",
 		"migrate machine jobs into ones with JobManageNetworking based on rules",
 	}
-	assertSteps(c, version.MustParse("1.21-alpha1"), expectedSteps)
+	assertSteps(c, version.MustParse("1.21.0"), expectedSteps)
 }

@@ -213,10 +213,10 @@ func upgradeOperations() []upgrades.Operation {
 			},
 		},
 		&mockUpgradeOperation{
-			targetVersion: version.MustParse("1.21-alpha2"),
+			targetVersion: version.MustParse("1.21.0"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"mongo fix - 1.21-alpha2", targets(upgrades.StateServer)},
-				&mockUpgradeStep{"db schema - 1.21-alpha2", targets(upgrades.DatabaseMaster)},
+				&mockUpgradeStep{"mongo fix - 1.21.0", targets(upgrades.StateServer)},
+				&mockUpgradeStep{"db schema - 1.21.0", targets(upgrades.DatabaseMaster)},
 			},
 		},
 	}
@@ -348,14 +348,42 @@ var upgradeTests = []upgradeTest{
 		fromVersion:   "1.20.0",
 		toVersion:     "1.21.0",
 		target:        upgrades.StateServer,
-		expectedSteps: []string{"mongo fix - 1.21-alpha2"},
+		expectedSteps: []string{"mongo fix - 1.21.0"},
 	},
 	{
 		about:         "database masters are state servers",
 		fromVersion:   "1.20.0",
 		toVersion:     "1.21.0",
 		target:        upgrades.DatabaseMaster,
-		expectedSteps: []string{"mongo fix - 1.21-alpha2", "db schema - 1.21-alpha2"},
+		expectedSteps: []string{"mongo fix - 1.21.0", "db schema - 1.21.0"},
+	},
+	{
+		about:         "upgrade to alpha release runs steps for final release",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21-alpha1",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"mongo fix - 1.21.0"},
+	},
+	{
+		about:         "upgrade to beta release runs steps for final release",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21-beta2",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"mongo fix - 1.21.0"},
+	},
+	{
+		about:         "starting release steps included when upgrading from an alpha release",
+		fromVersion:   "1.20-alpha3",
+		toVersion:     "1.21.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0", "mongo fix - 1.21.0"},
+	},
+	{
+		about:         "starting release steps included when upgrading from an beta release",
+		fromVersion:   "1.20-beta1",
+		toVersion:     "1.21.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0", "mongo fix - 1.21.0"},
 	},
 }
 
@@ -399,12 +427,15 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0", "1.21-alpha1"}
+var expectedVersions = []string{"1.18.0", "1.21.0"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string
 	for _, utv := range (*upgrades.UpgradeOperations)() {
-		versions = append(versions, utv.TargetVersion().String())
+		vers := utv.TargetVersion()
+		// Upgrade steps should only be targeted at final versions (not alpha/beta).
+		c.Check(vers.Tag, gc.Equals, "")
+		versions = append(versions, vers.String())
 
 	}
 	c.Assert(versions, gc.DeepEquals, expectedVersions)
