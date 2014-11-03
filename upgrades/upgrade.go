@@ -6,30 +6,11 @@ package upgrades
 import (
 	"fmt"
 
-	"github.com/juju/loggo"
-	"github.com/juju/txn"
-	"gopkg.in/mgo.v2"
-
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/api"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
+	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.upgrade")
-
-// Step defines an idempotent operation that is run to perform
-// a specific upgrade step.
-type Step interface {
-	// Description is a human readable description of what the upgrade step does.
-	Description() string
-
-	// Targets returns the target machine types for which the upgrade step is applicable.
-	Targets() []Target
-
-	// Run executes the upgrade business logic.
-	Run(context Context) error
-}
 
 // Operation defines what steps to perform to upgrade to a target version.
 type Operation interface {
@@ -77,57 +58,6 @@ func (u upgradeToVersion) Steps() []Step {
 // TargetVersion is defined on the Operation interface.
 func (u upgradeToVersion) TargetVersion() version.Number {
 	return u.targetVersion
-}
-
-// Context is used give the upgrade steps attributes needed
-// to do their job.
-type Context interface {
-	// APIState returns an API connection to state.
-	APIState() *api.State
-
-	// State returns a connection to state. This will be non-nil
-	// only in the context of a state server.
-	State() *state.State
-
-	// AgentConfig returns the agent config for the machine that is being
-	// upgraded.
-	AgentConfig() agent.ConfigSetter
-}
-
-// upgradeContext is a default Context implementation.
-type upgradeContext struct {
-	// Work in progress........
-	// Exactly what a context needs is to be determined as the
-	// implementation evolves.
-	api         *api.State
-	st          *state.State
-	agentConfig agent.ConfigSetter
-	db          *mgo.Database
-	runner      txn.Runner
-}
-
-// APIState is defined on the Context interface.
-func (c *upgradeContext) APIState() *api.State {
-	return c.api
-}
-
-// State is defined on the Context interface.
-func (c *upgradeContext) State() *state.State {
-	return c.st
-}
-
-// AgentConfig is defined on the Context interface.
-func (c *upgradeContext) AgentConfig() agent.ConfigSetter {
-	return c.agentConfig
-}
-
-// NewContext returns a new upgrade context.
-func NewContext(agentConfig agent.ConfigSetter, api *api.State, st *state.State) Context {
-	return &upgradeContext{
-		api:         api,
-		st:          st,
-		agentConfig: agentConfig,
-	}
 }
 
 // upgradeError records a description of the step being performed and the error.
@@ -237,25 +167,4 @@ func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgra
 	}
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
-}
-
-type upgradeStep struct {
-	description string
-	targets     []Target
-	run         func(Context) error
-}
-
-// Description is defined on the Step interface.
-func (step *upgradeStep) Description() string {
-	return step.description
-}
-
-// Targets is defined on the Step interface.
-func (step *upgradeStep) Targets() []Target {
-	return step.targets
-}
-
-// Run is defined on the Step interface.
-func (step *upgradeStep) Run(context Context) error {
-	return step.run(context)
 }
