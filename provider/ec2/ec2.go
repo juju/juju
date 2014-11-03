@@ -975,8 +975,6 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
 
-	// XXX is this the best way?
-	assignedMessage := fmt.Sprintf("[%v] assigned", addr.Value)
 	for a := shortAttempt.Start(); a.Next(); {
 		// The response here is not useful - either the call succeeds or we get an
 		// error
@@ -984,7 +982,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		if err == nil {
 			break
 		}
-		if ec2Err, ok := err.(ec2.Error); ok {
+		if ec2Err, ok := err.(*ec2.Error); ok {
 			if ec2Err.Code == "InvalidParameterValue" {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
