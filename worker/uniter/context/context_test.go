@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 type InterfaceSuite struct {

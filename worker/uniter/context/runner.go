@@ -14,8 +14,8 @@ import (
 	utilexec "github.com/juju/utils/exec"
 
 	"github.com/juju/juju/version"
-	unitdebug "github.com/juju/juju/worker/uniter/debug"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/debug"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 // Runner is reponsible for invoking commands in a context.
@@ -109,7 +109,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 		env = mergeEnvironment(env)
 	}
 
-	debugctx := unitdebug.NewHooksContext(runner.context.unit.Name())
+	debugctx := debug.NewHooksContext(runner.context.unit.Name())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, runner.paths.GetCharmDir(), env)
