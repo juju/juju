@@ -111,6 +111,27 @@ const (
 	// LxcClone stores the value for this setting.
 	LxcClone = "lxc-clone"
 
+	// HttpProxyKey stores the key for this setting.
+	HttpProxyKey = "http-proxy"
+
+	// HttpsProxyKey stores the key for this setting.
+	HttpsProxyKey = "https-proxy"
+
+	// FtpProxyKey stores the key for this setting.
+	FtpProxyKey = "ftp-proxy"
+
+	// AptHttpProxyKey stores the key for this setting.
+	AptHttpProxyKey = "apt-http-proxy"
+
+	// AptHttpsProxyKey stores the key for this setting.
+	AptHttpsProxyKey = "apt-https-proxy"
+
+	// AptFtpProxyKey stores the key for this setting.
+	AptFtpProxyKey = "apt-ftp-proxy"
+
+	// NoProxyKey stores the key for this setting.
+	NoProxyKey = "no-proxy"
+
 	//
 	// Deprecated Settings Attributes
 	//
@@ -404,6 +425,9 @@ func ProcessDeprecatedAttributes(attrs map[string]interface{}) map[string]interf
 		// we still want it in the config for upgrades.
 		processedAttrs[ToolsMetadataURLKey] = processedAttrs[AgentMetadataURLKey]
 	}
+	// Even if the user has edited their environment yaml to remove the deprecated tools-metadata-url value,
+	// we still want it in the config for upgrades.
+	cfg.defined[ToolsMetadataURLKey], _ = cfg.AgentMetadataURL()
 
 	// Copy across lxc-use-clone to lxc-clone.
 	if lxcUseClone, ok := attrs[LxcUseClone]; ok {
