@@ -18,9 +18,26 @@ type adminApiV1 struct {
 // methods that are needed to log in.
 type adminV1 struct {
 	*admin
+	bakeryService *bakery.Service
 }
 
-func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error) {
+	var bakeryService *bakery.Service
+
+	info, err := srv.state.StateServingInfo()
+	if err != nil {
+		return nil, err
+	}
+	if info.TargetKeyPair != nil && info.IdentityProvider != nil {
+		bakeryService, err = bakery.NewService(bakery.NewServiceParams{
+			Location: srv.getEnvironUUID(),
+			Key:      info.TargetKeyPair,
+			Locator:  info.NewTargetLocator(),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &adminApiV1{
 		admin: &adminV1{
 			admin: &admin{
@@ -28,8 +45,9 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 				root:        root,
 				reqNotifier: reqNotifier,
 			},
+			bakeryService: bakeryService,
 		},
-	}
+	}, nil
 }
 
 // Admin returns an object that provides API access to methods that can be
@@ -45,22 +63,8 @@ func (r *adminApiV1) Admin(id string) (*adminV1, error) {
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	var fail params.LoginResultV1
-
-	info, err := a.srv.state.StateServingInfo()
-	if err != nil {
-		return fail, err
-	} else if info.TargetKeyPair != nil && info.IdentityProvider != nil {
-		bakerySrv, err := bakery.NewService(bakery.NewServiceParams{
-			Location: a.srv.getEnvironUUID(),
-			Key:      info.TargetKeyPair,
-			Locator:  info.NewTargetLocator(),
-		})
-		if err != nil {
-			return fail, err
-		}
-		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, bakerySrv))
+	if a.bakeryService != nil {
+		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, a.bakeryService))
 	}
-
 	return a.doLogin(req, newLocalCredentialChecker(a.srv.state))
 }

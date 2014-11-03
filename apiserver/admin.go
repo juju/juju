@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/state/presence"
 )
 
-type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{}
+type adminApiFactory func(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error)
 
 // adminApiV0 implements the API that a client first sees when connecting to
 // the API. We start serving a different API once the user has logged in.
@@ -42,7 +42,7 @@ type adminV0 struct {
 	*admin
 }
 
-func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error) {
 	return &adminApiV0{
 		admin: &adminV0{
 			&admin{
@@ -51,7 +51,7 @@ func newAdminApiV0(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 				reqNotifier: reqNotifier,
 			},
 		},
-	}
+	}, nil
 }
 
 // Admin returns an object that provides API access to methods that can be
@@ -308,14 +308,6 @@ func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
 		return nil, err
-	}
-
-	// For user logins, ensure the user is allowed to access the environment.
-	if user, ok := entity.Tag().(names.UserTag); ok {
-		_, err := c.st.EnvironmentUser(user)
-		if err != nil {
-			return nil, errors.Wrap(err, common.ErrBadCreds)
-		}
 	}
 
 	return entity, nil

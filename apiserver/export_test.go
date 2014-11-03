@@ -86,8 +86,8 @@ func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 
 type preFacadeAdminApi struct{}
 
-func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &preFacadeAdminApi{}
+func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error) {
+	return &preFacadeAdminApi{}, nil
 }
 
 func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
@@ -104,8 +104,8 @@ func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
 
 type failAdminApi struct{}
 
-func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
-	return &failAdminApi{}
+func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) (interface{}, error) {
+	return &failAdminApi{}, nil
 }
 
 func (r *failAdminApi) Admin(id string) (*failAdminApi, error) {

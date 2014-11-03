@@ -99,6 +99,10 @@ type Info struct {
 	EnvironTag names.EnvironTag
 }
 
+// ReauthHandler defines a function that can negotiate a ReauthRequest response
+// to make a follow-up LoginRequest.
+type ReauthHandler func(reauth *params.ReauthRequest) (params.LoginRequest, error)
+
 // DialOpts holds configuration parameters that control the
 // Dialing behavior when connecting to a state server.
 type DialOpts struct {
@@ -113,6 +117,10 @@ type DialOpts struct {
 	// RetryDelay is the amount of time to wait between
 	// unsucssful connection attempts.
 	RetryDelay time.Duration
+
+	// ReauthHandler negotiates a LoginResult ReauthRequest by logging in again
+	// with the requested follow-up credentials.
+	ReauthHandler ReauthHandler
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -192,7 +200,17 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 			conn.Close()
 			return nil, err
 		} else if reauth != nil {
-			return nil, fmt.Errorf("TODO: support reauth handler")
+			rereq, err := opts.ReauthHandler(reauth)
+			if err != nil {
+				return nil, err
+			}
+			reauth, err = st.Login(rereq.AuthTag, rereq.Credentials, rereq.Nonce)
+			if err != nil {
+				return nil, err
+			}
+			if reauth != nil {
+				return nil, fmt.Errorf("reauthentication failed")
+			}
 		}
 	}
 	st.broken = make(chan struct{})
