@@ -975,18 +975,23 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
 
+	// XXX is this the best way?
+	assignedMessage := fmt.Sprintf("[%v] assigned", addr.Value)
 	for a := shortAttempt.Start(); a.Next(); {
 		// The response here is not useful - either the call succeeds or we get an
 		// error
 		_, err = ec2Inst.AssignPrivateIPAddresses(networkInterfaceId, []string{addr.Value}, 0, false)
 		if err == nil {
 			break
-		} else if strings.Contains(err.Error(), "IP in use") {
-			// XXX check the right error here
-			return common.IPAddressUnvailable
-		} else if strings.Contains(err.Error(), "PrivateIpAddressLimitExceeded") {
-			// XXX Annotate this with better end user message?
-			return common.IPAddressesExhausted
+		}
+		if ec2Err, ok := err.(ec2.ErrorType); ok {
+			if ec2Err.Code == "InvalidParameterValue" {
+				// Note: this Code is also used if we specify
+				// an IP address outside the subnet. Take care!
+				return common.IPAddressUnvailable
+			} else if ec2Err.Code == "PrivateIpAddressLimitExceeded" {
+				return common.IPAddressesExhausted
+			}
 		}
 
 	}
