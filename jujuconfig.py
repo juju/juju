@@ -106,3 +106,28 @@ def get_awscli_env(current_env):
             del new_environ[key]
         new_environ[key] = current_env[value]
     return new_environ
+
+
+def describe_substrate(config):
+    if config['type'] == 'local':
+        return {
+            'kvm': 'KVM (local)',
+            'lxc': 'LXC (local)'
+        }[config.get('container', 'lxc')]
+    elif config['type'] == 'openstack':
+        if config['auth-url'].endswith('hpcloudsvc.com:35357/v2.0/'):
+            return 'HPCloud'
+        elif config['auth-url'] == (
+                'https://keystone.canonistack.canonical.com:443/v2.0/'):
+            return 'Canonistack'
+        else:
+            return 'Openstack'
+    try:
+        return {
+            'ec2': 'AWS',
+            'joyent': 'Joyent',
+            'azure': 'Azure',
+            'maas': 'MAAS',
+        }[config['type']]
+    except KeyError:
+        return config['type']
