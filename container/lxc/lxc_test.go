@@ -372,6 +372,22 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	c.Assert(autostartLink, jc.IsSymlink)
 }
 
+func (s *LxcSuite) TestCreateContainerFailWithInjectedError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan interface{}, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	lxc.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+
+	errorInjectionChannel <- 1
+	s.createTemplate(c)
+	s.PatchValue(&s.useClone, true)
+	manager := s.makeManager(c, "test")
+
+	_, err := containertesting.CreateContainerTest(c, manager, "1")
+	c.Assert(err, gc.NotNil)
+}
+
 func (s *LxcSuite) TestContainerState(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	c.Logf("%#v", manager)

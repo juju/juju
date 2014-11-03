@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"errors"
 	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
@@ -67,4 +68,35 @@ func AssertCloudInit(c *gc.C, filename string) []byte {
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), jc.HasPrefix, "#cloud-config\n")
 	return data
+}
+
+// CreateContainerTest tries to create a container and returns any errors encountered along the
+// way
+func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (instance.Instance, error) {
+	machineConfig, err := MockMachineConfig(machineId)
+	if err != nil {
+		return nil, err
+	}
+
+	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	if err != nil {
+		return nil, err
+	}
+	machineConfig.Config = envConfig
+
+	network := container.BridgeNetworkConfig("nic42")
+
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
+
+	if err != nil {
+		return nil, err
+	}
+	if hardware == nil {
+		return nil, errors.New("nil hardware characteristics")
+	}
+	if hardware.String() == "" {
+		return nil, errors.New("empty hardware characteristics")
+	}
+	return inst, nil
+
 }

@@ -568,10 +568,19 @@ func (task *provisionerTask) startMachine(
 
 	inst, metadata, networkInfo, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
-		// Set the state to error, so the machine will be skipped next
-		// time until the error is resolved, but don't return an
-		// error; just keep going with the other machines.
-		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		// If this is a retryable error, we retry once
+		if _, ok := err.(instance.RetryableCreationError); ok {
+			var derr error
+			inst, metadata, networkInfo, derr = task.broker.StartInstance(startInstanceParams)
+			if derr != nil {
+				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, err)
+			}
+		} else {
+			// Set the state to error, so the machine will be skipped next
+			// time until the error is resolved, but don't return an
+			// error; just keep going with the other machines.
+			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		}
 	}
 
 	nonce := startInstanceParams.MachineConfig.MachineNonce

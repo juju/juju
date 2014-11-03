@@ -3,7 +3,10 @@
 
 package lxc
 
-import "github.com/juju/juju/container"
+import (
+	"github.com/juju/juju/container"
+	"github.com/juju/testing"
+)
 
 var (
 	ContainerConfigFilename = containerConfigFilename
@@ -19,4 +22,10 @@ var (
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {
 	return mgr.(*containerManager).createWithClone
+}
+
+// PatchTransientErrorInjection is used to patch the transientErrorInjection channel in tests,
+// which is used to simulate errors in container creation
+func PatchTransientErrorInjectionChannel(n chan interface{}) func() {
+	return testing.PatchValue(&transientErrorInjectionChannel, n)
 }

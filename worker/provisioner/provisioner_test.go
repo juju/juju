@@ -258,7 +258,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
-		c.Fatalf("unexpected operation %#v", o)
+		c.Fatalf("unexpected operation", o)
 	case <-time.After(coretesting.ShortWait):
 		return
 	}
@@ -556,6 +556,70 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan string, 2)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message TWICE, because the provisioner will retry only ONCE
+	errorMessage := "Injected error"
+	errorInjectionChannel <- errorMessage
+	errorInjectionChannel <- errorMessage
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkNoOperations(c)
+
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, gc.IsNil)
+		if status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, state.StatusError)
+		// check that the status matches the error message
+		c.Assert(info, gc.Equals, errorMessage)
+		break
+	}
+
+}
+
+func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan string, 2)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message TWICE, because the provisioner will retry only ONCE
+	errorMessage := "Injected error"
+	errorInjectionChannel <- errorMessage
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	instance := s.checkStartInstance(c, m)
+
+	// ...and removed, along with the machine, when the machine is Dead.
+	c.Assert(m.EnsureDead(), gc.IsNil)
+	s.checkStopInstances(c, instance)
+	s.waitRemoved(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
