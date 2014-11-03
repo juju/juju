@@ -13,10 +13,12 @@ var upgradeOperations = func() []Operation {
 	steps := []Operation{
 		upgradeToVersion{
 			version.MustParse("1.18.0"),
+			nil,
 			stepsFor118(),
 		},
 		upgradeToVersion{
 			version.MustParse("1.21.0"),
+			nil,
 			stepsFor121(),
 		},
 	}

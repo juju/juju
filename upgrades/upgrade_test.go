@@ -60,11 +60,16 @@ var _ = gc.Suite(&upgradeSuite{})
 
 type mockUpgradeOperation struct {
 	targetVersion version.Number
+	stateSteps    []upgrades.StateStep
 	steps         []upgrades.Step
 }
 
 func (m *mockUpgradeOperation) TargetVersion() version.Number {
 	return m.targetVersion
+}
+
+func (m *mockUpgradeOperation) StateSteps() []upgrades.StateStep {
+	return m.stateSteps
 }
 
 func (m *mockUpgradeOperation) Steps() []upgrades.Step {

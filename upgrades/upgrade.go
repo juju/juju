@@ -20,6 +20,9 @@ type Operation interface {
 	// already have been used to get to the version we are running now.
 	TargetVersion() version.Number
 
+	// State requiring steps to perform during an upgrade. These go first.
+	StateSteps() []StateStep
+
 	// Steps to perform during an upgrade.
 	Steps() []Step
 }
@@ -47,7 +50,13 @@ const (
 // upgrade any prior version of Juju to targetVersion.
 type upgradeToVersion struct {
 	targetVersion version.Number
+	stateSteps    []StateStep
 	steps         []Step
+}
+
+// StateSteps is defined on the Operation interface.
+func (u upgradeToVersion) StateSteps() []StateStep {
+	return u.stateSteps
 }
 
 // Steps is defined on the Operation interface.
