@@ -157,7 +157,9 @@ retrieve_packages() {
     # or copy a locally built package.
     echo "Phase 5: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
-        for linked_file in $TEST_DEBS_DIR/juju-core_*.deb; do
+        linked_files=$(
+            find $TEST_DEBS_DIR -name 'juju-core_*.deb' -or -name 'juju-*.tgz')
+        for linked_file in $linked_files; do
             # We need the real file location which includes series and arch.
             deb_file=$(readlink -f $linked_file)
             cp $deb_file $DEST_DEBS
@@ -175,6 +177,11 @@ retrieve_packages() {
                 mv $DEST_DEBS/juju-core/*deb ./
             fi
             rm -r $DEST_DEBS/juju-core
+        fi
+        if [[ -e $JUJU_DIR/juju-qa.s3cfg ]]; then
+            echo "checking s3://juju-qa-data/win-agents for $RELEASE."
+            $SCRIPT_DIR/win_agent_archive.py --config $JUJU_DIR/juju-qa.s3cfg \
+                get $RELEASE $DEST_DEBS
         fi
     fi
 }
@@ -284,6 +291,17 @@ archive_tools() {
             fi
         fi
         rm -r ${WORK}/juju/*
+    done
+    AGENTS=$(find $DEST_DEBS -name "juju-*.tgz")
+    for agent in $AGENTS; do
+        local agent_name=$(basename $agent)
+        local dest_agent="$DEST_DIST/tools/releases/$agent_name"
+        if [[ -e $dest_agent ]]; then
+            echo "Skipping $agent_name because $dest_agent already exists."
+        else
+            cp $agent $dest_agent
+            added_tools[${#added_tools[@]}]="$dest_agent"
+        fi
     done
     # The extracted files are no longer needed. Clean them up now.
     rm -r $WORK
