@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/macaroon"
 	"github.com/juju/macaroon/bakery"
 	"github.com/juju/names"
@@ -83,18 +84,26 @@ func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
 	return []byte(base64.URLEncoding.EncodeToString(out)), nil
 }
 
+var malformedRemoteCredentialsErr = fmt.Errorf("malformed remote credentials")
+
+// IsMalformedRemoteCredentialsErr returns whether the error indicates a
+// credentials string was not a well-formed remote credential string.
+func IsMalformedRemoteCredentialsErr(err error) bool {
+	return errors.Cause(err) == malformedRemoteCredentialsErr
+}
+
 // UnmarshalText implements the encoding.TextUnmarshaler interface.
 func (rc *RemoteCredentials) UnmarshalText(text []byte) error {
 	in, err := base64.URLEncoding.DecodeString(string(text))
 	if err != nil {
-		return err
+		return errors.Wrap(err, malformedRemoteCredentialsErr)
 	}
 	err = json.Unmarshal(in, &rc.remoteCredentials)
 	if err != nil {
-		return err
+		return errors.Wrap(err, malformedRemoteCredentialsErr)
 	}
 	if rc.Primary == nil {
-		return fmt.Errorf("missing primary credential")
+		return errors.New("missing primary credential")
 	}
 	return nil
 }

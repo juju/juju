@@ -20,7 +20,7 @@ import (
 )
 
 type remoteLoginSuite struct {
-	baseLoginSuite
+	loginSuite
 
 	info            state.StateServingInfo
 	remoteIdKey     *bakery.KeyPair
@@ -40,15 +40,19 @@ func (*loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bak
 var reauthDialOpts = api.DialOpts{}
 
 var _ = gc.Suite(&remoteLoginSuite{
-	baseLoginSuite: baseLoginSuite{
-		setAdminApi: func(srv *apiserver.Server) {
-			apiserver.SetAdminApiVersions(srv, 1)
+	// Extend the base login suite, ensuring we test fallback to non-remote
+	// authentication.
+	loginSuite: loginSuite{
+		baseLoginSuite{
+			setAdminApi: func(srv *apiserver.Server) {
+				apiserver.SetAdminApiVersions(srv, 1)
+			},
 		},
 	},
 })
 
 func (s *remoteLoginSuite) SetUpTest(c *gc.C) {
-	s.baseLoginSuite.SetUpTest(c)
+	s.loginSuite.SetUpTest(c)
 
 	var err error
 	s.remoteIdKey, err = bakery.GenerateKey()
@@ -81,7 +85,7 @@ func (s *remoteLoginSuite) TearDownTest(c *gc.C) {
 	err = s.State.SetStateServingInfo(info)
 	c.Assert(err, gc.IsNil)
 
-	s.baseLoginSuite.TearDownTest(c)
+	s.loginSuite.TearDownTest(c)
 }
 
 func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {

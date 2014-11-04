@@ -6,6 +6,7 @@ package apiserver
 import (
 	"github.com/juju/macaroon/bakery"
 
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -60,10 +61,21 @@ func (r *adminApiV1) Admin(id string) (*adminV1, error) {
 	return r.admin, nil
 }
 
+func isRemoteLoginRequest(req params.LoginRequest) bool {
+	// Empty credentials is a request to handshake.
+	if req.Credentials == "" {
+		return true
+	}
+
+	// Otherwise, do we have well-formed remote credentials?
+	var remoteCreds authentication.RemoteCredentials
+	return remoteCreds.UnmarshalText([]byte(req.Credentials)) == nil
+}
+
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
-	if a.bakeryService != nil {
+	if a.bakeryService != nil && isRemoteLoginRequest(req) {
 		return a.doLogin(req, newRemoteCredentialChecker(a.srv.state, a.bakeryService))
 	}
 	return a.doLogin(req, newLocalCredentialChecker(a.srv.state))
