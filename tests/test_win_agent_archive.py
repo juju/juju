@@ -2,10 +2,10 @@ from mock import patch
 import os
 from unittest import TestCase
 
-from utils import temp_dir
 from win_agent_archive import (
     add_agents,
     delete_agents,
+    get_agents,
     get_source_agent_version,
     listing_to_files,
     main,
@@ -14,10 +14,11 @@ from win_agent_archive import (
 
 class FakeArgs:
 
-    def __init__(self, source_agent=None, version=None,
+    def __init__(self, source_agent=None, version=None, destination=None,
                  config=None, verbose=False, dry_run=False):
         self.source_agent = source_agent
         self.version = version
+        self.destination = destination
         self.config = None
         self.verbose = verbose
         self.dry_run = dry_run
@@ -37,10 +38,11 @@ class WinAgentArchive(TestCase):
 
     def test_main_get(self):
         with patch('win_agent_archive.get_agents') as mock:
-            main(['get', '1.21.0'])
+            main(['get', '1.21.0', './'])
             args, kwargs = mock.call_args
             args = args[0]
             self.assertEqual('1.21.0', args.version)
+            self.assertEqual('./', args.destination)
             self.assertFalse(args.verbose)
             self.assertFalse(args.dry_run)
 
@@ -151,6 +153,16 @@ class WinAgentArchive(TestCase):
             ('cp',
              's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz',
              's3://juju-qa-data/win-agents/juju-1.21.0-win81-amd64.tgz'),
+            args)
+
+    def test_get_agent(self):
+        cmd_args = FakeArgs(version='1.21.0', destination='./')
+        destination = os.path.abspath(cmd_args.destination)
+        with patch('win_agent_archive.run') as mock:
+            get_agents(cmd_args)
+        args, kwargs = mock.call_args
+        self.assertEqual(
+            ('get', 's3://juju-qa-data/win-agents/juju-1.21.0*', destination),
             args)
 
     def test_delete_agent_without_matches_error(self):

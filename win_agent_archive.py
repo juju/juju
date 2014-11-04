@@ -49,7 +49,7 @@ def get_source_agent_version(source_agent):
 
 
 def get_input(prompt):
-    return raw_input(prompt)
+    return raw_input(prompt)  # pyflakes:ignore
 
 
 def listing_to_files(listing):
@@ -96,7 +96,14 @@ def add_agents(args):
 
 
 def get_agents(args):
-    pass
+    version = args.version
+    agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
+    destination = os.path.abspath(os.path.expanduser(args.destination))
+    output = run(
+        'get', agent_glob, destination,
+        config=args.config, dry_run=args.dry_run)
+    if args.verbose:
+        print(output)
 
 
 def delete_agents(args):
@@ -138,6 +145,8 @@ def parse_args(args=None):
     get_parser = subparsers.add_parser('get', help='get win-agents')
     get_parser.add_argument(
         'version', help="The version of win-agent to download")
+    get_parser.add_argument(
+        'destination', help="The path to download the files to.")
     get_parser.set_defaults(func=get_agents)
     get_parser = subparsers.add_parser('delete', help='get win-agents')
     get_parser.add_argument(
