@@ -427,18 +427,18 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 	logger.Tracef("run commands: %s", args.Commands)
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer u.hookLock.Unlock()
 
 	remoteUnitName, err := ParseRemoteUnit(u.relationers, args)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	hctx, err := u.contextFactory.NewRunContext(args.RelationId, remoteUnitName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	result, err := context.NewRunner(hctx, u.paths).RunCommands(args.Commands)
@@ -453,7 +453,7 @@ func (u *Uniter) RunCommands(args RunCommandsArgs) (results *exec.ExecResponse, 
 		u.tomb.Kill(worker.ErrRebootMachine)
 		err = nil
 	}
-	return result, err
+	return result, errors.Trace(err)
 }
 
 func (u *Uniter) notifyHookInternal(hook string, hctx *context.HookContext, method func(string)) {
@@ -890,7 +890,7 @@ func ParseRemoteUnit(relationers map[int]*Relationer, args RunCommandsArgs) (str
 		}
 
 		if err != nil {
-			return "", err
+			return "", errors.Trace(err)
 		}
 	}
 	return remoteUnit, nil

@@ -399,8 +399,7 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 		RemoteUnitName: "",
 	}
 
-	// Check preparing a valid hook updates neither the context nor persistent
-	// relation state.
+	// Test with valid RemoteUnit
 	joined := hook.Info{
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
@@ -415,6 +414,42 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 	remoteUnit, err := uniter.ParseRemoteUnit(relationers, args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "u/1")
+
+	// Test with valid departed RemoteUnit
+	// We commit the RelationChanged and RelationDeparted hooks
+	// this gives us a valid relation with no remote unit.
+	changed := hook.Info{
+		Kind:       hooks.RelationChanged,
+		RemoteUnit: "u/1",
+	}
+	name, err = r.PrepareHook(changed)
+	c.Assert(err, gc.IsNil)
+	c.Assert(name, gc.Equals, "ring-relation-changed")
+
+	err = r.CommitHook(changed)
+	c.Assert(err, gc.IsNil)
+
+	departed := hook.Info{
+		Kind:       hooks.RelationDeparted,
+		RemoteUnit: "u/1",
+	}
+	name, err = r.PrepareHook(departed)
+	c.Assert(err, gc.IsNil)
+	c.Assert(name, gc.Equals, "ring-relation-departed")
+
+	err = r.CommitHook(departed)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the call with the same args fails, explicitly warning
+	// the user about the lack of a remote unit.
+	_, err = uniter.ParseRemoteUnit(relationers, args)
+	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, use --no-remote-unit to execute the commands anyway")
+
+	// Run the command passing in the NoRemoteUnit flag
+	args.NoRemoteUnit = true
+	remoteUnit, err = uniter.ParseRemoteUnit(relationers, args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(remoteUnit, gc.Equals, "")
 }
 
 type stopper interface {
