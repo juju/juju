@@ -497,7 +497,6 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err != nil {
 		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
 		logger.Errorf("action failed: %s", err.Error())
-		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
@@ -508,7 +507,6 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof(message)
-	u.notifyHookCompleted(actionName, hctx)
 	return u.commitHook(hi)
 }
 
