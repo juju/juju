@@ -2326,11 +2326,12 @@ func (s *StatusSuite) TestStatusWithFormatOneline(c *gc.C) {
 
 	ctx.run(c, steps)
 
-	const expected = "\n" +
-		"- mysql/0: dummyenv-2.dns (started)\n" +
-		"  - logging/1: dummyenv-2.dns (error)\n" +
-		"- wordpress/0: dummyenv-1.dns (started)\n" +
-		"  - logging/0: dummyenv-1.dns (started)\n"
+	const expected = `
+- mysql/0: dummyenv-2.dns (started)
+  - logging/1: dummyenv-2.dns (error)
+- wordpress/0: dummyenv-1.dns (started)
+  - logging/0: dummyenv-1.dns (started)
+`
 
 	code, stdout, stderr := runStatus(c, "--format", "oneline")
 	c.Check(code, gc.Equals, 0)
