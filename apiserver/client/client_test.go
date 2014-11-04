@@ -2322,10 +2322,10 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	c.Assert(err, gc.IsNil)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
-	c.Assert(store.TestMode, gc.Equals, true)
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
+	c.Assert(store.TestMode(), gc.Equals, true)
 
-	store.AuthAttrs = ""
+	store.SetAuthAttrs("")
 
 	curl, _ = addCharm(c, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
@@ -2333,13 +2333,14 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 
 	curl, _ = addCharm(c, "riak")
 	err = s.APIState.Client().AddCharm(curl)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	// TODO(dfc) what is this checking ?
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 }
 
 func (s *clientSuite) TestAddCharm(c *gc.C) {
@@ -2406,7 +2407,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	for i, test := range resolveCharmCases {
 		c.Logf("test %d: %#v", i, test)
 		// Mock charm store will use this to resolve a charm reference.
-		store.DefaultSeries = test.defaultSeries
+		store.SetDefaultSeries(test.defaultSeries)
 
 		client := s.APIState.Client()
 		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
