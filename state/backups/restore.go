@@ -29,6 +29,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
