@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
+	"github.com/juju/testing"
 	"github.com/juju/utils"
 	"launchpad.net/golxc"
 
@@ -23,6 +24,15 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc.mock")
 
 type Action int
+
+var transientErrorInjection chan interface{}
+
+// PatchTransientErrorInjectionChannel sets the transientInjectionError
+// channel which can be used to inject errors into Start function for
+// testing purposes
+func PatchTransientErrorInjectionChannel(c chan interface{}) func() {
+	return testing.PatchValue(&transientErrorInjection, c)
+}
 
 const (
 	// A container has been started.
@@ -132,6 +142,12 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 
 // Start runs the container as a daemon.
 func (mock *mockContainer) Start(configFile, consoleFile string) error {
+	select {
+	case <-transientErrorInjection:
+		return fmt.Errorf("container start failed due to error injection")
+	default:
+	}
+
 	state := mock.getState()
 	if state == golxc.StateUnknown {
 		return fmt.Errorf("container has not been created")
@@ -201,6 +217,12 @@ func (mock *mockContainer) Unfreeze() error {
 
 // Destroy stops and removes the container.
 func (mock *mockContainer) Destroy() error {
+	select {
+	case <-transientErrorInjection:
+		return fmt.Errorf("container start failed due to error injection")
+	default:
+	}
+
 	state := mock.getState()
 	// golxc destroy will stop the machine if it is running.
 	if state == golxc.StateRunning {
