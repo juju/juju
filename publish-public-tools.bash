@@ -202,7 +202,7 @@ publish_to_joyent() {
     fi
     echo "Phase 5.1: Publishing $PURPOSE to Joyent one-tree."
     cd $JUJU_DIST/tools/$PURPOSE/
-    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN $tools/$PURPOSE/ *.tgz
+    ${SCRIPT_DIR}/manta_sync.py $DRY_RUN tools/$PURPOSE/ *.tgz
     cd $JUJU_DIST/tools/streams/v1
     ${SCRIPT_DIR}/manta_sync.py $DRY_RUN tools/streams/v1/ {index,com}*
     verify_stream $JOYENT_SITE $JUJU_DIST/tools
