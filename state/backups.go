@@ -433,6 +433,7 @@ func newBackupMetadataStorage(dbWrap *backupDBWrapper) *backupsMetadataStorage {
 	return &stor
 }
 
+// AddDoc adds the document to storage and returns the new ID.
 func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	var metaDoc backupMetaDoc
 	metadata, ok := doc.(*metadata.Metadata)
@@ -448,6 +449,7 @@ func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	return id, errors.Trace(err)
 }
 
+// Doc returns the stored document associated with the given ID.
 func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
@@ -461,6 +463,7 @@ func (s *backupsDocStorage) Doc(id string) (filestorage.Document, error) {
 	return metadata, nil
 }
 
+// ListDocs returns the list of all stored documents.
 func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
@@ -478,6 +481,7 @@ func (s *backupsDocStorage) ListDocs() ([]filestorage.Document, error) {
 	return list, nil
 }
 
+// RemoveDoc removes the identified document from storage.
 func (s *backupsDocStorage) RemoveDoc(id string) error {
 	dbWrap := s.dbWrap.Copy()
 	defer dbWrap.Close()
@@ -534,15 +538,18 @@ func (s *backupBlobStorage) path(id string) string {
 	return path.Join(s.root, id)
 }
 
+// File returns the identified file from storage.
 func (s *backupBlobStorage) File(id string) (io.ReadCloser, error) {
 	file, _, err := s.storeImpl.GetForEnvironment(s.envUUID, s.path(id))
 	return file, err
 }
 
+// AddFile adds the file to storage.
 func (s *backupBlobStorage) AddFile(id string, file io.Reader, size int64) error {
 	return s.storeImpl.PutForEnvironment(s.envUUID, s.path(id), file, size)
 }
 
+// RemoveFile removes the identified file from storage.
 func (s *backupBlobStorage) RemoveFile(id string) error {
 	return s.storeImpl.RemoveForEnvironment(s.envUUID, s.path(id))
 }
