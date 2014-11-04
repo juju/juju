@@ -68,11 +68,15 @@ func uintStr(i uint64) string {
 // (e.g. due to a failed container from on of previous deploys) and
 // that it is safe to restart instance creation
 type RetryableCreationError struct {
-	Message string
+	message string
 }
 
 // Returns the error message
-func (e RetryableCreationError) Error() string { return e.Message }
+func (e RetryableCreationError) Error() string { return e.message }
+
+func NewRetryableCreationError(errorMessage string) RetryableCreationError {
+	return RetryableCreationError{errorMessage}
+}
 
 func (hc HardwareCharacteristics) String() string {
 	var strs []string

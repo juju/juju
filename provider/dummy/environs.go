@@ -827,7 +827,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	// check if an error has been injected on the transientErrorInjection channel (testing purposes)
 	select {
 	case errorMessage := <-transientErrorInjection:
-		return nil, nil, nil, instance.RetryableCreationError{errorMessage}
+		return nil, nil, nil, instance.NewRetryableCreationError(errorMessage)
 	default:
 	}
 

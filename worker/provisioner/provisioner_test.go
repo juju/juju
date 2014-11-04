@@ -608,7 +608,8 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedCreati
 	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
 	defer cleanup()
 
-	// send the error message TWICE, because the provisioner will retry only ONCE
+	// send the error message once
+	// - instance creation should succeed
 	errorMessage := "Injected error"
 	errorInjectionChannel <- errorMessage
 
@@ -616,7 +617,6 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedCreati
 	c.Assert(err, gc.IsNil)
 	instance := s.checkStartInstance(c, m)
 
-	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(m.EnsureDead(), gc.IsNil)
 	s.checkStopInstances(c, instance)
 	s.waitRemoved(c, m)

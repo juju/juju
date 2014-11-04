@@ -30,11 +30,6 @@ import (
 
 var logger = loggo.GetLogger("juju.container.lxc")
 
-// this channel can be used to simulate errors in lxc container creation
-// in tests
-// see: PatchTransientErrorInjectionChannel function in export_test.go
-var transientErrorInjectionChannel chan interface{}
-
 var (
 	defaultTemplate       = "ubuntu-cloud"
 	LxcContainerDir       = golxc.GetDefaultLXCContainerDir()
@@ -296,30 +291,11 @@ func (manager *containerManager) CreateContainer(
 	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
 
-	// if a transient error was injected on the error channel, return a
-	// instance.RetryableCreationError
-	select {
-	case <-transientErrorInjectionChannel:
-		return nil, nil, instance.RetryableCreationError{"container failed to start: " + lxcContainer.Name()}
-	default:
-	}
-
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
 	if err = lxcContainer.Start("", consoleFile); err != nil {
-		// if the container fails to start we should try to destroy it
-		// check if the container has been constructed
-		if lxcContainer.IsConstructed() {
-			// if so, then we need to destroy the leftover container
-			if derr := lxcContainer.Destroy(); derr != nil {
-				// if an error is reported there is probably a leftover
-				// container that the user should clean up manually
-				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: use lxc-destroy to destroy the leftover container "+lxcContainer.Name())
-			}
-			return nil, nil, instance.RetryableCreationError{"container failed to start and was destroyed: " + lxcContainer.Name()}
-		}
 		return nil, nil, err
 	}
 
