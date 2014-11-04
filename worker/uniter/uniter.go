@@ -204,7 +204,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 
-	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos)
+	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos, u.getCharm)
 	if err != nil {
 		return err
 	}
@@ -356,6 +356,14 @@ func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
 		relationInfos[id] = r.ContextInfo()
 	}
 	return relationInfos
+}
+
+func (u *Uniter) getCharm() (corecharm.Charm, error) {
+	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

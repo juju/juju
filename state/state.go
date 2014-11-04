@@ -1065,6 +1065,7 @@ func (st *State) updateCharmDoc(
 		{"meta", ch.Meta()},
 		{"config", escapedConfig},
 		{"actions", ch.Actions()},
+		{"metrics", ch.Metrics()},
 		{"storagepath", storagePath},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},

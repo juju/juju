@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -95,6 +96,7 @@ func NewHookContext(
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
+	metrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
@@ -112,6 +114,7 @@ func NewHookContext(
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
 		canAddMetrics:      canAddMetrics,
+		definedMetrics:     metrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
