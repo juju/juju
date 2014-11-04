@@ -58,7 +58,7 @@ var allowedMethodsAboutToRestore = set.NewStrings(
 	"Backups.Restore", // for "juju backups restore"
 )
 
-// isMethodAllowedAboutToRestore return true is this method is allowed when the server is in state.RestorePreparing mode
+// isMethodAllowedAboutToRestore return true if this method is allowed when the server is in state.RestorePreparing mode
 // at present only Backups.Restore is
 func isMethodAllowedAboutToRestore(rootName, methodName string) bool {
 	fullName := rootName + "." + methodName

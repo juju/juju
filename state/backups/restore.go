@@ -390,14 +390,16 @@ func updateAllMachines(privateAddress string, agentConf agentConfig, st *state.S
 	}
 	pendingMachineCount := 0
 	done := make(chan error)
-	for _, machine := range machines {
+	for key, _ := range machines {
+		// key is used to have machine be scope bound to the loop iteration
+		machine := machines[key]
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet supported by this code.
 		if machine.IsManager() || machine.Life() == state.Dead {
 			continue
 		}
 		pendingMachineCount++
-		machine := machine
+
 		go func() {
 			err := runMachineUpdate(machine, setAgentAddressScript(privateHostPorts))
 			if err != nil {
@@ -470,7 +472,7 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 	return runViaSSH(addr, sshArg)
 }
 
-// runViaSSH runs script in the remote machine with addres addr
+// runViaSSH runs script in the remote machine with address addr
 func runViaSSH(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr

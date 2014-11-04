@@ -36,7 +36,7 @@ Restores a backup that was previously created with "juju backup" and
 This command creates a new state server and arranges for it to replace
 the previous state server for an environment.  It does *not* restore
 an existing server to a previous state, but instead creates a new server
-with equivanlent state.  As part of restore, all known instances are
+with equivalent state.  As part of restore, all known instances are
 configured to treat the new state server as their master.
 
 The given constraints will be used to choose the new instance.
@@ -74,7 +74,7 @@ func (c *RestoreCommand) Init(args []string) error {
 		return errors.Errorf("you must specify either a file or a backup id but not both.")
 	}
 	if c.backupId != "" && c.bootstrap {
-		return errors.Error("it is not possible to rebootstrap and restore from an id.")
+		return errors.Errorf("it is not possible to rebootstrap and restore from an id.")
 	}
 	return nil
 }
@@ -138,7 +138,7 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot enable provisionar-safe-mode")
+		return nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
 	if err != nil {

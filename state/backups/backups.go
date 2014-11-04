@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
@@ -156,7 +157,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	// TODO(perrito666): I am sure there is a more elegant way to obtain the machine
 	// than pointing a finger to it, which could also avoid us the state passing
 	// I have not figured it yet
-	machine, err := status.Machine("0")
+	machine, err := status.Machine(agent.BootstrapMachineId)
 	if err != nil {
 		return errors.Annotate(err, "cannot find bootstrap machine in status")
 	}
