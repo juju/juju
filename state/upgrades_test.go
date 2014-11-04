@@ -509,8 +509,8 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	var ids []string
 	envTag := s.state.EnvironUUID()
 	for _, oldDoc := range oldDocs {
-		oldID := fmt.Sprint(oldDoc["_id"])
-		newID := s.state.docID(oldID)
+		oldID := oldDoc["_id"]
+		newID := s.state.docID(fmt.Sprint(oldID))
 
 		err = coll.FindId(oldID).One(&d)
 		c.Assert(err, gc.Equals, mgo.ErrNotFound)
