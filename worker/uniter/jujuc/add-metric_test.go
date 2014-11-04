@@ -4,6 +4,7 @@
 package jujuc_test
 
 import (
+	"sort"
 	"time"
 
 	"github.com/juju/cmd"
@@ -60,14 +61,6 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			"error: no metrics specified\n",
 			nil,
 		}, {
-			"invalid metric value",
-			[]string{"add-metric", "key=invalidvalue"},
-			true,
-			2,
-			"",
-			"error: invalid value type: expected float, got \"invalidvalue\"\n",
-			nil,
-		}, {
 			"invalid argument format",
 			[]string{"add-metric", "key"},
 			true,
@@ -120,9 +113,19 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 		c.Check(bufferString(ctx.Stdout), gc.Equals, t.stdout)
 		c.Check(bufferString(ctx.Stderr), gc.Equals, t.stderr)
 		c.Check(hctx.metrics, gc.HasLen, len(t.expect))
+
+		sort.Sort(SortedMetrics(hctx.metrics))
+		sort.Sort(SortedMetrics(t.expect))
+
 		for i, expected := range t.expect {
 			c.Check(expected.Key, gc.Equals, hctx.metrics[i].Key)
 			c.Check(expected.Value, gc.Equals, hctx.metrics[i].Value)
 		}
 	}
 }
+
+type SortedMetrics []jujuc.Metric
+
+func (m SortedMetrics) Len() int           { return len(m) }
+func (m SortedMetrics) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m SortedMetrics) Less(i, j int) bool { return m[i].Key < m[j].Key }

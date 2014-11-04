@@ -50,14 +50,14 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C, addMetrics bool) *context.HookContext {
+func (s *RunCommandSuite) getHookContext(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies, addMetrics)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
 }
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
-	ctx := s.getHookContext(c, false)
+	ctx := s.getHookContext(c)
 	paths := NewRealPaths(c)
 	runner := context.NewRunner(ctx, paths)
 
@@ -188,7 +188,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, noProxies, false)
+		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, noProxies)
 		paths := NewRealPaths(c)
 		runner := context.NewRunner(ctx, paths)
 		var hookExists bool
@@ -222,7 +222,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "something-happened",
@@ -263,7 +263,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	// Create a charm with a working hook, and mess with settings again.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "something-happened",
@@ -307,7 +307,7 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	// execution.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, true)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "collect-metrics",
@@ -315,7 +315,7 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	}, paths.charm)
 
 	now := time.Now()
-	ctx.AddMetrics("key", "50", now)
+	ctx.AddMetric("key", "50", now)
 
 	// Run the hook.
 	err = context.NewRunner(ctx, paths).RunHook("collect-metrics")
@@ -336,7 +336,7 @@ func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
 	// execution.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, false, s.metricsDefinition("key"))
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "some-hook",
@@ -344,7 +344,33 @@ func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
 	}, paths.charm)
 
 	now := time.Now()
-	err = ctx.AddMetrics("key", "50", now)
+	err = ctx.AddMetric("key", "50", now)
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+
+	// Run the hook.
+	err = context.NewRunner(ctx, paths).RunHook("some-hook")
+	c.Assert(err, gc.IsNil)
+
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 0)
+}
+
+func (s *RunHookSuite) TestRunHookMetricSendingUndeclared(c *gc.C) {
+	// TODO(fwereade): these should be testing a public Flush() method on
+	// the context, or something, instead of faking up an unnecessary hook
+	// execution.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, nil)
+	paths := NewRealPaths(c)
+	makeCharm(c, hookSpec{
+		name: "some-hook",
+		perm: 0700,
+	}, paths.charm)
+
+	now := time.Now()
+	err = ctx.AddMetric("key", "50", now)
 	c.Assert(err, gc.ErrorMatches, "metrics disabled")
 
 	// Run the hook.
@@ -389,7 +415,7 @@ func (s *RunHookSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	// Get the context.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "some-hook",

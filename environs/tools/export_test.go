@@ -8,6 +8,7 @@ var (
 	FindExecutable        = findExecutable
 	CheckToolsSeries      = checkToolsSeries
 	ArchiveAndSHA256      = archiveAndSHA256
+	WriteMetadataFiles    = &writeMetadataFiles
 	CurrentStreamsVersion = currentStreamsVersion
 )
 

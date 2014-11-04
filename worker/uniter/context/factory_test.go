@@ -4,9 +4,13 @@
 package context_test
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/apiserver/params"
@@ -18,6 +22,7 @@ type FactorySuite struct {
 	HookContextSuite
 	factory    context.Factory
 	membership map[int][]string
+	charm      charm.Charm
 }
 
 var _ = gc.Suite(&FactorySuite{})
@@ -37,6 +42,13 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 				}
 			}
 			return info
+		},
+		func() (charm.Charm, error) {
+			if s.charm != nil {
+				return s.charm, nil
+			} else {
+				return nil, fmt.Errorf("metrics charm not specified")
+			}
 		},
 	)
 	c.Assert(err, gc.IsNil)
@@ -298,4 +310,36 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 	c.Assert(ctx.ActionData(), jc.DeepEquals, context.NewActionData(
 		&tag, params,
 	))
+}
+
+func (s *FactorySuite) TestNewHookContextMetricsDisabledHook(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "metered")
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
+	c.Assert(err, gc.IsNil)
+	err = ctx.AddMetric("key", "value", time.Now())
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+}
+
+func (s *FactorySuite) TestNewHookContextMetricsDisabledUndeclared(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "mysql")
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
+	c.Assert(err, gc.IsNil)
+	err = ctx.AddMetric("key", "value", time.Now())
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+}
+
+func (s *FactorySuite) TestNewHookContextMetricsDeclarationError(c *gc.C) {
+	s.charm = nil
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
+	c.Assert(err, gc.ErrorMatches, "metrics charm not specified")
+	c.Assert(ctx, gc.IsNil)
+}
+
+func (s *FactorySuite) TestNewHookContextMetricsEnabled(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "metered")
+
+	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
+	c.Assert(err, gc.IsNil)
+	err = ctx.AddMetric("pings", "0.5", time.Now())
+	c.Assert(err, gc.IsNil)
 }

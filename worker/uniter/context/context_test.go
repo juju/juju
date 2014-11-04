@@ -26,7 +26,7 @@ func (s *InterfaceSuite) GetContext(
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	return s.HookContextSuite.getHookContext(
-		c, uuid.String(), relId, remoteName, noProxies, false,
+		c, uuid.String(), relId, remoteName, noProxies,
 	)
 }
 

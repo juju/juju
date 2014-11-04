@@ -614,9 +614,13 @@ func (s *UpgradeSuite) newAgentFromMachineId(c *gc.C, machineId string) *Machine
 
 // Return a version the same as the current software version, but with
 // the build number bumped.
+//
+// The version Tag is also cleared so that upgrades.PerformUpgrade
+// doesn't think it needs to run upgrade steps unnecessarily.
 func makeBumpedCurrentVersion() version.Binary {
 	v := version.Current
 	v.Build++
+	v.Tag = ""
 	return v
 }
 

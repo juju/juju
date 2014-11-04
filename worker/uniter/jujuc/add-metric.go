@@ -5,7 +5,6 @@ package jujuc
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
@@ -52,10 +51,6 @@ func (c *AddMetricCommand) Init(args []string) error {
 		return err
 	}
 	for key, value := range options {
-		_, err := strconv.ParseFloat(value, 64)
-		if err != nil {
-			return fmt.Errorf("invalid value type: expected float, got %q", value)
-		}
 		c.Metrics = append(c.Metrics, Metric{key, value, now})
 	}
 	return nil
@@ -64,7 +59,7 @@ func (c *AddMetricCommand) Init(args []string) error {
 // Run adds metrics to the hook context.
 func (c *AddMetricCommand) Run(ctx *cmd.Context) (err error) {
 	for _, metric := range c.Metrics {
-		err := c.ctx.AddMetrics(metric.Key, metric.Value, metric.Time)
+		err := c.ctx.AddMetric(metric.Key, metric.Value, metric.Time)
 		if err != nil {
 			return errors.Annotate(err, "cannot record metric")
 		}

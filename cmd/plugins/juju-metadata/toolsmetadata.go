@@ -127,23 +127,25 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	if c.public {
 		writeMirrors = envtools.WriteMirrors
 	}
-	return mergeAndWriteMetadata(targetStorage, c.stream, toolsDir, toolsList, writeMirrors)
+	return mergeAndWriteMetadata(targetStorage, toolsDir, c.stream, toolsList, writeMirrors)
 }
 
 // This is essentially the same as tools.MergeAndWriteMetadata, but also
 // resolves metadata for existing tools by fetching them and computing
 // size/sha256 locally.
-func mergeAndWriteMetadata(stor storage.Storage, stream, toolsDir string, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors) error {
-	existing, err := envtools.ReadMetadata(stor, stream)
+func mergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, toolsList coretools.List, writeMirrors envtools.ShouldWriteMirrors) error {
+	existing, err := envtools.ReadAllMetadata(stor)
 	if err != nil {
 		return err
 	}
 	metadata := envtools.MetadataFromTools(toolsList, toolsDir)
-	if metadata, err = envtools.MergeMetadata(metadata, existing); err != nil {
+	var mergedMetadata []*envtools.ToolsMetadata
+	if mergedMetadata, err = envtools.MergeMetadata(metadata, existing[stream]); err != nil {
 		return err
 	}
-	if err = envtools.ResolveMetadata(stor, toolsDir, metadata); err != nil {
+	if err = envtools.ResolveMetadata(stor, toolsDir, mergedMetadata); err != nil {
 		return err
 	}
-	return envtools.WriteMetadata(stor, stream, metadata, writeMirrors)
+	existing[stream] = mergedMetadata
+	return envtools.WriteMetadata(stor, existing, []string{stream}, writeMirrors)
 }
