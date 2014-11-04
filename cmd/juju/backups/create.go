@@ -44,8 +44,8 @@ type CreateCommand struct {
 	CommandBase
 	// Quiet indicates that the full metadata should not be dumped.
 	Quiet bool
-	// Download indicates that the backups archive should be downloaded.
-	Download bool
+	// NoDownload means the backups archive should not be downloaded.
+	NoDownload bool
 	// Filename is where the backup should be downloaded.
 	Filename string
 	// Notes is the custom message to associated with the new backup.
@@ -65,7 +65,7 @@ func (c *CreateCommand) Info() *cmd.Info {
 // SetFlags implements Command.SetFlags.
 func (c *CreateCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Quiet, "quiet", false, "do not print the metadata")
-	f.BoolVar(&c.Download, "download", false, "download the archive")
+	f.BoolVar(&c.NoDownload, "no-download", false, "do not download the archive")
 	f.StringVar(&c.Filename, "filename", notset, "download to this file")
 }
 
@@ -76,6 +76,11 @@ func (c *CreateCommand) Init(args []string) error {
 		return err
 	}
 	c.Notes = notes
+
+	if c.Filename != notset && c.NoDownload {
+		return errors.Errorf("cannot mix --no-download and --filename")
+	}
+
 	return nil
 }
 
@@ -112,13 +117,13 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
 	if filename == "" {
 		fmt.Fprintln(ctx.Stderr, "missing filename")
-	} else if c.Filename == notset {
-		if c.Download {
+	} else if filename == notset {
+		if c.NoDownload {
+			filename = ""
+		} else {
 			y, m, d := timestamp.Date()
 			H, M, S := timestamp.Clock()
 			filename = fmt.Sprintf(filenameTemplate, y, m, d, H, M, S)
-		} else {
-			filename = ""
 		}
 	}
 	return filename
