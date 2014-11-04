@@ -48,6 +48,18 @@ def get_source_agent_version(source_agent):
     return None
 
 
+def get_input(prompt):
+    return raw_input(prompt)
+
+
+def listing_to_files(listing):
+    agents = []
+    for line in listing.splitlines():
+        parts = line.split()
+        agents.append(parts[-1])
+    return agents
+
+
 def add_agents(args):
     source_agent = os.path.basename(args.source_agent)
     version = get_source_agent_version(source_agent)
@@ -73,7 +85,7 @@ def add_agents(args):
         print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
     run('put', source_path, S3_CONTAINER,
         config=args.config, dry_run=args.dry_run)
-    agent_version.remove(source_agent)
+    agent_versions.remove(source_agent)
     remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
@@ -85,6 +97,25 @@ def add_agents(args):
 
 def get_agents(args):
     pass
+
+
+def delete_agents(args):
+    version = args.version
+    agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
+    existing_versions = run('ls', agent_glob, config=args.config)
+    if args.verbose:
+        print('Checking for matching agents.')
+    if version not in existing_versions:
+        raise ValueError('No %s agents found.' % version)
+    print(existing_versions)
+    answer = get_input('Delete these versions? [y/N]')
+    if answer not in ('Y', 'y', 'yes'):
+        return
+    agents = listing_to_files(existing_versions)
+    for agent in agents:
+        deleted = run('del', agent, config=args.config, dry_run=args.dry_run)
+        if args.verbose:
+            print(deleted)
 
 
 def parse_args(args=None):
@@ -108,6 +139,10 @@ def parse_args(args=None):
     get_parser.add_argument(
         'version', help="The version of win-agent to download")
     get_parser.set_defaults(func=get_agents)
+    get_parser = subparsers.add_parser('delete', help='get win-agents')
+    get_parser.add_argument(
+        'version', help="The version of win-agent to delete")
+    get_parser.set_defaults(func=delete_agents)
     return parser.parse_args(args)
 
 
