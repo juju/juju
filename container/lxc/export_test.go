@@ -4,8 +4,9 @@
 package lxc
 
 import (
-	"github.com/juju/juju/container"
 	"github.com/juju/testing"
+
+	"github.com/juju/juju/container"
 )
 
 var (
