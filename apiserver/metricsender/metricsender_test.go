@@ -78,28 +78,3 @@ func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(sent, gc.Equals, 3)
 }
-
-func (s *MetricSenderSuite) TestToWire(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	now := time.Now().Round(time.Second)
-	metric := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
-	result := metricsender.ToWire(metric)
-	m := metric.Metrics()[0]
-	metrics := []metricsender.Metric{
-		{
-			Key:         m.Key,
-			Value:       m.Value,
-			Time:        m.Time.UTC(),
-			Credentials: m.Credentials,
-		},
-	}
-	expected := &metricsender.MetricBatch{
-		UUID:     metric.UUID(),
-		EnvUUID:  metric.EnvUUID(),
-		Unit:     metric.Unit(),
-		CharmUrl: metric.CharmURL(),
-		Created:  metric.Created().UTC(),
-		Metrics:  metrics,
-	}
-	c.Assert(result, gc.DeepEquals, expected)
-}

@@ -3,12 +3,16 @@
 
 package metricsender
 
+import (
+	"github.com/juju/juju/apiserver/metricsender/wireformat"
+)
+
 // NopSender is a sender that acts like everything worked fine
 // But doesn't do anything.
 type NopSender struct {
 }
 
 // Implement the send interface, act like everything is fine.
-func (n NopSender) Send([]*MetricBatch) error {
+func (n NopSender) Send([]*wireformat.MetricBatch) error {
 	return nil
 }

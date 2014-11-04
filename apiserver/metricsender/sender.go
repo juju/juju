@@ -11,6 +11,8 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/apiserver/metricsender/wireformat"
 )
 
 var (
@@ -24,7 +26,7 @@ type DefaultSender struct {
 }
 
 // Send sends the given metrics to the collector service.
-func (s *DefaultSender) Send(metrics []*MetricBatch) error {
+func (s *DefaultSender) Send(metrics []*wireformat.MetricBatch) error {
 	b, err := json.Marshal(metrics)
 	if err != nil {
 		return err

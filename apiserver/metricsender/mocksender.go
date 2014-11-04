@@ -3,13 +3,17 @@
 
 package metricsender
 
+import (
+	"github.com/juju/juju/apiserver/metricsender/wireformat"
+)
+
 // MockSender implements the metric sender interface.
 type MockSender struct {
-	Data [][]*MetricBatch
+	Data [][]*wireformat.MetricBatch
 }
 
 // Send implements the Send interface.
-func (m *MockSender) Send(d []*MetricBatch) error {
+func (m *MockSender) Send(d []*wireformat.MetricBatch) error {
 	m.Data = append(m.Data, d)
 	return nil
 }
