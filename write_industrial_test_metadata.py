@@ -2,7 +2,11 @@
 from argparse import ArgumentParser
 import json
 
-from jujupy import EnvJujuClient
+from jujuconfig import describe_substrate
+from jujupy import (
+    EnvJujuClient,
+    SimpleEnvironment,
+    )
 
 
 def parse_args(args=None):
@@ -10,16 +14,19 @@ def parse_args(args=None):
     parser = ArgumentParser()
     parser.add_argument('buildvars',
                         help="Path to the new client's buildvars.json.")
+    parser.add_argument('env', help='The name of the environment.')
     parser.add_argument('output', help='Path of the file to write.')
     return parser.parse_args(args)
 
 
-def make_metadata(buildvars_path):
+def make_metadata(buildvars_path, env_name):
     """Return metadata about the clients as json-compatible objects.
 
     :param buildbars_path: Path to the buildvars.json file for the new client.
+    :param env_name: Name of the environment being used.
     """
     old_version = EnvJujuClient.get_version()
+    env = SimpleEnvironment.from_config(env_name)
     with open(buildvars_path) as buildvars_file:
         buildvars = json.load(buildvars_file)
     metadata = {
@@ -31,6 +38,10 @@ def make_metadata(buildvars_path):
             'type': 'build',
             'buildvars': buildvars,
             },
+        'environment': {
+            'name': env_name,
+            'substrate': describe_substrate(env.config)
+            },
         }
     return metadata
 
@@ -38,7 +49,7 @@ def make_metadata(buildvars_path):
 def main(argv=None):
     """Generate the date and write it to disk."""
     args = parse_args(argv)
-    metadata = make_metadata(args.buildvars)
+    metadata = make_metadata(args.buildvars, args.env)
     with open(args.output, 'w') as output_file:
         json.dump(metadata, output_file, indent=2, sort_keys=True)
         output_file.write('\n')
