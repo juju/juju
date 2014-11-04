@@ -3,5 +3,5 @@
 12.10 quantal HISTORIC
 13.10 saucy HISTORIC
 14.04 trusty LTS
-14.10 utopic DEVEL
-15.04 vivid FUTURE
+14.10 utopic SUPPORTED
+15.04 vivid DEVEL
