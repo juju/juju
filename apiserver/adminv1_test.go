@@ -109,10 +109,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 		},
 	)
 	c.Assert(err, gc.IsNil)
-	// TODO (cmars): move this to RemoteCredentials.Bind?
-	for _, dm := range remoteCreds.Discharges {
-		dm.Bind(remoteCreds.Primary.Signature())
-	}
+	remoteCreds.Bind()
 	credBytes, err := remoteCreds.MarshalText()
 	c.Assert(err, gc.IsNil)
 
@@ -126,39 +123,48 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	c.Assert(st.AllFacadeVersions(), gc.Not(gc.HasLen), 0)
 }
 
-type testReauthHandler struct {
-	*remoteLoginSuite
-	c *gc.C
+type emptyCredReauthHandler struct{}
+
+// HandleReauth simulates a bad reauth scenario in which an empty credential is returned,
+// which triggers another reauth.
+func (h emptyCredReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
+	return "", reauth.Nonce, nil
 }
 
-// HandleReauth implements the api.ReauthHandler interface.
-func (s *testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
-	// As the remote client, decode the reauth request, obtain a discharge
-	// macaroon from the identity-providing service, bind and serialize the
-	// followup credential.
+type testReauthHandler struct {
+	*remoteLoginSuite
+	*gc.C
+	skipBind          bool
+	thirdPartyChecker bakery.ThirdPartyChecker
+}
+
+func failReauth(err error) (string, string, error) {
+	return "", "", err
+}
+
+func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
 	var remoteCreds authentication.RemoteCredentials
 	err := remoteCreds.UnmarshalText([]byte(reauth.Prompt))
 	if err != nil {
-		return "", "", err
+		return failReauth(err)
 	}
 	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
 		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
-			//c.Assert(loc, gc.Equals, s.info.IdentityProvider.Location)
-			return s.remoteIdService.Discharge(&loggedInChecker{}, cav.Id)
+			return h.remoteIdService.Discharge(h.thirdPartyChecker, cav.Id)
 		},
 	)
 	if err != nil {
-		return "", "", err
+		return failReauth(err)
 	}
-	// TODO (cmars): move this to RemoteCredentials.Bind?
-	for _, dm := range remoteCreds.Discharges {
-		dm.Bind(remoteCreds.Primary.Signature())
+	if !h.skipBind {
+		remoteCreds.Bind()
 	}
 	credBytes, err := remoteCreds.MarshalText()
 	if err != nil {
-		return "", "", err
+		return failReauth(err)
 	}
 	return string(credBytes), reauth.Nonce, nil
+
 }
 
 func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
@@ -166,11 +172,51 @@ func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
 	defer cleanup()
 	info.Tag = names.NewUserTag("bob")
 	st, err := api.Open(info, api.DialOpts{
-		ReauthHandler: &testReauthHandler{s, c},
+		ReauthHandler: testReauthHandler{
+			remoteLoginSuite:  s,
+			C:                 c,
+			thirdPartyChecker: &loggedInChecker{},
+		},
 	})
 	c.Assert(err, gc.IsNil)
 
 	// Should be logged in
 	c.Assert(st.Ping(), gc.IsNil)
 	c.Assert(st.AllFacadeVersions(), gc.Not(gc.HasLen), 0)
+}
+
+type failConditionChecker struct{}
+
+func (*failConditionChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
+	return nil, fmt.Errorf("unrecognized condition")
+}
+
+func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
+	testCases := []struct {
+		handler api.ReauthHandler
+		pattern string
+	}{
+		{testReauthHandler{
+			remoteLoginSuite:  s,
+			C:                 c,
+			skipBind:          true,
+			thirdPartyChecker: &loggedInChecker{},
+		}, "verification failed: signature mismatch after caveat verification"},
+		{testReauthHandler{
+			remoteLoginSuite:  s,
+			C:                 c,
+			thirdPartyChecker: &failConditionChecker{},
+		}, "cannot get discharge from \"remote-service-location\": unrecognized condition"},
+		{emptyCredReauthHandler{}, "reauthentication failed"},
+	}
+	for i, testCase := range testCases {
+		c.Log("test#", i)
+		info, cleanup := s.setupServerWithValidator(c, nil)
+		defer cleanup()
+		info.Tag = names.NewUserTag("bob")
+		_, err := api.Open(info, api.DialOpts{
+			ReauthHandler: testCase.handler,
+		})
+		c.Check(err, gc.ErrorMatches, testCase.pattern)
+	}
 }
