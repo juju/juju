@@ -54,3 +54,14 @@ func (c *upgradeContext) State() *state.State {
 func (c *upgradeContext) AgentConfig() agent.ConfigSetter {
 	return c.agentConfig
 }
+
+// StateContext is used give upgrade steps that need to interact
+// directly with state what they need to do their job.
+type StateContext interface {
+	// State returns a connection to state.
+	State() *state.State
+
+	// AgentConfig returns the agent config for the machine that is being
+	// upgraded.
+	AgentConfig() agent.ConfigSetter
+}

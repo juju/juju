@@ -89,12 +89,89 @@ func AreUpgradesDefined(from version.Number) bool {
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, target Target, context Context) error {
-	for ops := newUpgradeOpsIterator(from, version.Current.Number); ops.Next(); {
-		if err := runUpgradeSteps(context, target, ops.Get()); err != nil {
+	if isStateTarget(target) {
+		if err := runUpgradeSteps(from, target, getStateSteps, runStateStep, context); err != nil {
 			return err
 		}
 	}
+	if err := runUpgradeSteps(from, target, getSteps, runStep, context); err != nil {
+		return err
+	}
+	logger.Infof("All upgrade steps completed successfully")
 	return nil
+}
+
+func isStateTarget(target Target) bool {
+	return target == StateServer || target == DatabaseMaster
+}
+
+// runUpgradeSteps finds all the upgrade operations relevant to
+// target. The steps for each operation are retrieved by calling the
+// passed getSteps function on the operation and are run by calling
+// runStep.
+//
+// As soon as any error is encountered, the operation is aborted since
+// subsequent steps may required successful completion of earlier
+// ones. The steps must be idempotent so that the entire upgrade
+// operation can be retried.
+func runUpgradeSteps(
+	from version.Number,
+	target Target,
+	getSteps func(Operation) []GenericStep,
+	runStep func(Context, GenericStep) error,
+	context Context,
+) error {
+	for ops := newUpgradeOpsIterator(from, version.Current.Number); ops.Next(); {
+		steps := getSteps(ops.Get())
+		for _, step := range steps {
+			if !validTarget(target, step.Targets()) {
+				continue
+			}
+			logger.Infof("running upgrade step on target %q: %v", target, step.Description())
+			if err := runStep(context, step); err != nil {
+				logger.Errorf("state upgrade step %q failed: %v", step.Description(), err)
+				return &upgradeError{
+					description: step.Description(),
+					err:         err,
+				}
+			}
+		}
+
+	}
+	return nil
+}
+
+func getStateSteps(op Operation) (steps []GenericStep) {
+	for _, step := range op.StateSteps() {
+		steps = append(steps, step)
+	}
+	return
+}
+
+func runStateStep(context Context, step GenericStep) error {
+	return step.(StateStep).Run(context.(StateContext))
+}
+
+func getSteps(op Operation) (steps []GenericStep) {
+	for _, step := range op.Steps() {
+		steps = append(steps, step)
+	}
+	return
+}
+
+func runStep(context Context, step GenericStep) error {
+	return step.(Step).Run(context)
+}
+
+// validTarget returns true if target matches targets.
+func validTarget(target Target, targets []Target) bool {
+	for _, opTarget := range targets {
+		if opTarget == AllMachines || target == opTarget ||
+			(opTarget == StateServer && target == DatabaseMaster) {
+			return true
+		}
+	}
+	return len(targets) == 0
 }
 
 type upgradeOpsIterator struct {
@@ -142,38 +219,4 @@ func (it *upgradeOpsIterator) Next() bool {
 
 func (it *upgradeOpsIterator) Get() Operation {
 	return it.allOps[it.current]
-}
-
-// validTarget returns true if target is in step.Targets().
-func validTarget(target Target, step Step) bool {
-	for _, opTarget := range step.Targets() {
-		if opTarget == AllMachines || target == opTarget ||
-			(opTarget == StateServer && target == DatabaseMaster) {
-			return true
-		}
-	}
-	return len(step.Targets()) == 0
-}
-
-// runUpgradeSteps runs all the upgrade steps relevant to target.
-// As soon as any error is encountered, the operation is aborted since
-// subsequent steps may required successful completion of earlier ones.
-// The steps must be idempotent so that the entire upgrade operation can
-// be retried.
-func runUpgradeSteps(context Context, target Target, upgradeOp Operation) *upgradeError {
-	for _, step := range upgradeOp.Steps() {
-		if !validTarget(target, step) {
-			continue
-		}
-		logger.Infof("running upgrade step on target %q: %v", target, step.Description())
-		if err := step.Run(context); err != nil {
-			logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
-			return &upgradeError{
-				description: step.Description(),
-				err:         err,
-			}
-		}
-	}
-	logger.Infof("All upgrade steps completed successfully")
-	return nil
 }
