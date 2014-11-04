@@ -1449,10 +1449,6 @@ var statusTests = []testCase{
 								"instance-id": "dummyenv-2",
 								"series":      "quantal",
 							},
-							"1/lxc/1": M{
-								"instance-id": "pending",
-								"series":      "quantal",
-							},
 						},
 						"dns-name":    "dummyenv-1.dns",
 						"instance-id": "dummyenv-1",

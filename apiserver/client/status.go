@@ -43,14 +43,6 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	if len(args.Patterns) > 0 {
 		predicate := BuildPredicateFor(args.Patterns)
 
-		// TODO(katco-): BUG:1385456
-		//
-		// Uncomment to begin service functionality. WARNING: There is
-		// a bug in which filtering will fail on if the service would
-		// not otherwise be filtered because of a parent or child unit
-		// not being filtered. It is because it only considers units
-		// of its own type
-
 		// Filter units
 		var unfilteredSvcs set.Strings
 		var unfilteredMachines set.Strings
@@ -66,17 +58,17 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 					return noStatus, errors.Annotate(err, "could not filter units")
 				} else if !matches {
 					delete(unitMap, name)
-				} else {
-					// Track which services are utilized by the units
-					// so that we can be sure to not filter that
-					// service out.
-					unfilteredSvcs.Add(unit.ServiceName())
-					machineId, err := unit.AssignedMachineId()
-					if err != nil {
-						return noStatus, err
-					}
-					unfilteredMachines.Add(machineId)
+					continue
 				}
+
+				// Track which services are utilized by the units so
+				// that we can be sure to not filter that service out.
+				unfilteredSvcs.Add(unit.ServiceName())
+				machineId, err := unit.AssignedMachineId()
+				if err != nil {
+					return noStatus, err
+				}
+				unfilteredMachines.Add(machineId)
 			}
 		}
 
@@ -95,7 +87,8 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 
 		// Filter machines
 		for status, machineList := range context.machines {
-			for idx, m := range machineList {
+			filteredList := make([]*state.Machine, 0, len(machineList))
+			for _, m := range machineList {
 				machineContainers, err := m.Containers()
 				if err != nil {
 					return noStatus, err
@@ -106,16 +99,15 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 					// Don't filter machines which have an unfiltered
 					// unit running on them.
 					logger.Debugf("mid %s is hosting something.", m.Id())
+					filteredList = append(filteredList, m)
 					continue
 				} else if matches, err := predicate(m); err != nil {
 					return noStatus, errors.Annotate(err, "could not filter machines")
-				} else if !matches {
-					// TODO(katco-): Check for index errors.
-					context.machines[status] = append(machineList[:idx], machineList[idx+1:]...)
-				} else {
-					logger.Debugf("mid %s matches.", m.Id())
+				} else if matches {
+					filteredList = append(filteredList, m)
 				}
 			}
+			context.machines[status] = filteredList
 		}
 	}
 
