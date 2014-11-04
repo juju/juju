@@ -21,9 +21,7 @@ func backupFile(backupPath string) (io.ReadCloser, error) {
 	return os.Open(backupPath)
 }
 
-// Restore implements the server side of Backups.Restore
-func (a *API) Restore(p params.RestoreArgs) error {
-	// Get hold of a backup file Reader
+func (a *API) backupFileAndMeta() (io.ReadCloser, *metadata.Metadata, error) {
 	var (
 		fileHandler io.ReadCloser
 		meta        *metadata.Metadata
@@ -32,16 +30,27 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	switch {
 	case p.BackupId != "":
 		if meta, fileHandler, err = a.backups.Get(p.BackupId); err != nil {
-			return errors.Annotatef(err, "there was an error obtaining backup %q", p.BackupId)
+			return nil, nil, errors.Annotatef(err, "there was an error obtaining backup %q", p.BackupId)
 		}
 	case p.FileName != "":
 		filename := restoreUserHome + p.FileName
 		if fileHandler, err = backupFile(filename); err != nil {
-			return errors.Annotatef(err, "there was an error opening %q", filename)
+			return nil, nil, errors.Annotatef(err, "there was an error opening %q", filename)
 		}
 	default:
-		return errors.Errorf("no backup file or id given")
+		return nil, nil, errors.Errorf("no backup file or id given")
 
+	}
+	return fileHandler, meta, nil
+
+}
+
+// Restore implements the server side of Backups.Restore
+func (a *API) Restore(p params.RestoreArgs) error {
+	// Get hold of a backup file Reader
+	fileHandler, meta, err := a.backupFileAndMeta()
+	if err != nil {
+		return errors.Annotate(err, "cannot obtain a backup")
 	}
 	defer fileHandler.Close()
 

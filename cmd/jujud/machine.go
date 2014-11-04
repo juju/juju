@@ -262,7 +262,7 @@ func (a *MachineAgent) BeginRestore() error {
 // This will return a worker or err if there is a failure, the worker takes care
 // of watching the state of restoreInfo doc and put the agent in the different
 // restore modes
-func (a *MachineAgent) newRestoreStateWatcher(st *state.State) (worker.Worker, error) {
+func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
 	}
@@ -648,7 +648,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return peergrouperNew(st)
 			})
 			a.startWorkerAfterUpgrade(runner, "restore", func() (worker.Worker, error) {
-				return a.newRestoreStateWatcher(st)
+				return a.newRestoreStateWatcherWorker(st)
 			})
 
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
@@ -734,12 +734,10 @@ func init() {
 // limitLogins is called by the API server for each login attempt.
 // it returns an error if upgrads or restore are running.
 func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
-	err := a.limitLoginsDuringRestore(req)
-	if err != nil {
+	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
-	err = a.limitLoginsDuringUpgrade(req)
-	if err != nil {
+	if err := a.limitLoginsDuringUpgrade(req); err != nil {
 		return err
 	}
 	return nil

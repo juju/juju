@@ -153,11 +153,11 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, status *state.State) error {
+func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, st *state.State) error {
 	// TODO(perrito666): I am sure there is a more elegant way to obtain the machine
 	// than pointing a finger to it, which could also avoid us the state passing
 	// I have not figured it yet
-	machine, err := status.Machine(agent.BootstrapMachineId)
+	machine, err := st.Machine(agent.BootstrapMachineId)
 	if err != nil {
 		return errors.Annotate(err, "cannot find bootstrap machine in status")
 	}
@@ -233,7 +233,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	}
 
 	// From here we work with the restored state server
-	st, err := newStateConnection(agentConf)
+	st, err = newStateConnection(agentConf)
 	if err != nil {
 		return errors.Trace(err)
 	}

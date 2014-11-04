@@ -186,14 +186,6 @@ func getMongorestorePath() (string, error) {
 	return path, nil
 }
 
-var mongoDbPath = getMongoDbPath
-
-// getMongoDbPath returns the path where the data of mongo is stored.
-// TODO(perrito666) find a unified location to fetch this info from.
-func getMongoDbPath() string {
-	return "/var/lib/juju/db"
-}
-
 // updateMongoEntries will update the machine entries in the restored mongo to
 // reflect the real machine instanceid in case it changed (a newly bootstraped
 // server)
@@ -218,22 +210,22 @@ func getMongoRestoreArgsForVersion(version int, dumpPath string) ([]string, erro
 
 	MGORestoreVersions[0] = []string{
 		"--drop",
-		"--dbpath", mongoDbPath(),
+		"--dbpath", agent.DefaultDataDir,
 		dumpPath}
 
 	MGORestoreVersions[1] = []string{
 		"--drop",
 		"--oplogReplay",
-		"--dbpath", mongoDbPath(),
+		"--dbpath", agent.DefaultDataDir,
 		dumpPath}
 	if restoreCommand, ok := MGORestoreVersions[version]; ok {
 		return restoreCommand, nil
 	}
-	return nil, fmt.Errorf("no restore command for backup version %d", version)
+	return nil, errors.Errorf("this backup file is incompatible with the current version of juju")
 }
 
 // placeNewMongo tries to use mongorestore to replace an existing
-// mongo (obtained from mongoDbPath) with the dump in newMongoDumpPath
+// mongo with the dump in newMongoDumpPath
 // returns an error if its not possible
 func placeNewMongo(newMongoDumpPath string, version int) error {
 	mongoRestore, err := mongorestorePath()
@@ -241,7 +233,7 @@ func placeNewMongo(newMongoDumpPath string, version int) error {
 		return errors.Annotate(err, "mongorestore not available")
 	}
 
-	mgoRestoreArgs, err := getMongoRestoreArgsForVersion(0, newMongoDumpPath)
+	mgoRestoreArgs, err := getMongoRestoreArgsForVersion(version, newMongoDumpPath)
 	if err != nil {
 		return fmt.Errorf("cannot restore this backup version")
 	}
@@ -490,8 +482,10 @@ func runViaSSH(addr string, script string) error {
 	return nil
 }
 
+// backupVersion will use information from the backup file and metadata (if available)
+// to determine which backup version this file belongs to.
 // Once Metadata is given a version option we can version backups
-// we could use juju version to signal this
+// we could use juju version to signal this, but currently:
 // Version 0: juju backup plugin (a bash script)
 // Version 1: juju backups create (first implementation) for the
 // moment this version is determined by checking for metadata but not

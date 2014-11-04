@@ -21,6 +21,8 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
+// RestoreCommand is a subcommand of backups that implement the restore behaior
+// it is invoked with "juju backups restore"
 type RestoreCommand struct {
 	CommandBase
 	constraints constraints.Value
