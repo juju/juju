@@ -10,6 +10,8 @@ import sys
 import traceback
 
 
+# The s3 container and path to add to and get from.
+S3_CONTAINER = 's3://juju-qa-data/win-agents'
 # The set of agents to make.
 WIN_AGENT_TEMPLATES = (
     'juju-{}-win2012hvr2-amd64.tgz',
@@ -26,7 +28,15 @@ WIN_AGENT_TEMPLATES = (
 AGENT_VERSION_PATTERN = re.compile('juju-(.+)-win[^-]+-amd64.tgz')
 
 
-def run(*command, **kwargs):
+def run(*args, **kwargs):
+    command = ['s3cmd', '--no-progress']
+    if 'dry_run' in kwargs:
+        command.append('--dry_run')
+        del kwargs['dry_run']
+    if 'config' in kwargs:
+        command.extend(['-c', kwargs['config']])
+        del kwargs['config']
+    command.extend(args)
     kwargs['stderr'] = subprocess.STDOUT
     return subprocess.check_output(command, **kwargs)
 
@@ -39,14 +49,38 @@ def get_source_agent_version(source_agent):
 
 
 def add_agents(args):
-    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
     source_agent = os.path.basename(args.source_agent)
     version = get_source_agent_version(source_agent)
     if version is None:
         raise ValueError('%s does not look like a agent.' % source_agent)
-    version = get_source_agent_version(source_agent)
-    for template in WIN_AGENT_TEMPLATES:
-        agent_name = template.format(version)
+    agent_versions = [t.format(version) for t in WIN_AGENT_TEMPLATES]
+    if source_agent not in agent_versions:
+        raise ValueError(
+            '%s does not match an expected version.' % source_agent)
+    agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
+    existing_versions = run('ls', agent_glob, config=args.config)
+    if args.verbose:
+        print('Checking that %s does not already exist.' % version)
+    for agent_version in agent_versions:
+        if agent_version in existing_versions:
+            raise ValueError(
+                '%s already exists. Agents cannot be overwritten.' %
+                agent_version)
+    # The fastest way to put the files in place is to upload the source_agent
+    # then use the s3cmd cp to make remote versions.
+    source_path = os.path.abspath(os.path.expanduser(args.source_agent))
+    if args.verbose:
+        print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
+    run('put', source_path, S3_CONTAINER,
+        config=args.config, dry_run=args.dry_run)
+    agent_version.remove(source_agent)
+    remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
+    for agent_version in agent_versions:
+        destination = '%s/%s' % (S3_CONTAINER, agent_version)
+        if args.verbose:
+            print('Copying %s to %s' % (remote_source, destination))
+        run('cp', remote_source, destination,
+            config=args.config, dry_run=args.dry_run)
 
 
 def get_agents(args):
@@ -62,6 +96,8 @@ def parse_args(args=None):
     parser.add_argument(
         '-v', '--verbose', action="store_true", default=False,
         help='Increse verbosity.')
+    parser.add_argument(
+        '-c', '--config', default=None, help='The s3config file.')
     subparsers = parser.add_subparsers(help='sub-command help')
     add_parser = subparsers.add_parser('add', help='Add win-agents')
     add_parser.add_argument(
