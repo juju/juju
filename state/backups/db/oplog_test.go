@@ -41,29 +41,24 @@ func parseOplogEntryStr(entry string) (db, coll, op, value string) {
 	return db, coll, op, value
 }
 
-func buildOplog(c *gc.C, out io.Writer, entries ...string) int32 {
-	var size int
-
+func buildOplog(c *gc.C, out io.Writer, entries ...string) {
+	var docs []bson.D
 	for _, entry := range entries {
 		db, coll, op, value := parseOplogEntryStr(entry)
-
-		entry := bson.M{
-			"ts": time.Now().UTC(),
-			"h":  rand.Int63(),
-			"op": op,
-			"ns": db + "." + coll,
-			"o":  bson.M{"value": value},
+		entry := bson.D{
+			{"ts", time.Now().UTC()},
+			{"h", rand.Int63()},
+			{"op", op},
+			{"ns", db + "." + coll},
+			{"o", bson.M{"value": value}},
 		}
-		data, err := bson.Marshal(&entry)
-		c.Assert(err, gc.IsNil)
-		size += len(data) + 4
-
-		writeOplogSize(c, out, int32(len(data)+4))
-		_, err = out.Write(data)
-		c.Assert(err, gc.IsNil)
+		docs = append(docs, entry)
 	}
 
-	return int32(size)
+	data, err := bson.Marshal(&docs)
+	c.Assert(err, gc.IsNil)
+	_, err = out.Write(data)
+	c.Assert(err, gc.IsNil)
 }
 
 func writeOplogSize(c *gc.C, out io.Writer, size int32) {
@@ -83,14 +78,7 @@ func createOplog(c *gc.C, dumpDir string, entries ...string) {
 	c.Assert(err, gc.IsNil)
 	defer oplogFile.Close()
 
-	_, err = oplogFile.Write([]byte{0, 0, 0, 0})
-	c.Assert(err, gc.IsNil)
-	size := buildOplog(c, oplogFile, entries...) + 4
-
-	// Update doc size (first 4 bytes).
-	_, err = oplogFile.Seek(0, os.SEEK_SET)
-	c.Assert(err, gc.IsNil)
-	writeOplogSize(c, oplogFile, size)
+	buildOplog(c, oplogFile, entries...)
 
 	checkOplogSize(c, dumpDir)
 }
@@ -106,11 +94,8 @@ func checkOplog(c *gc.C, dumpDir string, entries ...string) {
 	}
 
 	var buf bytes.Buffer
-	size := buildOplog(c, &buf, entries...)
+	buildOplog(c, &buf, entries...)
 	expected := buf.Bytes()
-	buf.Reset()
-	writeOplogSize(c, &buf, size)
-	expected = append(buf.Bytes(), expected...)
 
 	data, err := ioutil.ReadFile(filename)
 	c.Assert(err, gc.IsNil)
