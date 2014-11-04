@@ -14,8 +14,5 @@ func (a *API) Remove(args params.BackupsRemoveArgs) error {
 	defer closer.Close()
 
 	err := backups.Remove(args.ID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
