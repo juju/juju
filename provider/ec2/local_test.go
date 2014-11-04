@@ -662,7 +662,7 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
-func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+func (t *localServerSuite) TestAllocateAddressFailure(c *gc.C) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -672,11 +672,30 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 
 	instId := instanceIds[0]
 
+	// Invalid instance found
 	err = env.AllocateAddress(instId+"foo", "", network.Address{})
 	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
 
+	// No network interface
 	err = env.AllocateAddress(instId, "", network.Address{})
 	c.Assert(err, gc.ErrorMatches, "Odd response from ec2. Network interface not found.")
+}
+
+func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+	// setting a default-vpc will create a network interface
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+
+	instId := instanceIds[0]
+	err = env.AllocateAddress(instId, "", network.Address{Value: "192.168.178.1"})
+	c.Assert(err, gc.IsNil)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
