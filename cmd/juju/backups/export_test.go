@@ -3,6 +3,8 @@
 
 package backups
 
+const NotSet = notset
+
 var (
 	NewAPIClient = &newAPIClient
 )

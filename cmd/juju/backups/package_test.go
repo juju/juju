@@ -6,6 +6,8 @@ package backups_test
 import (
 	"bytes"
 	"io"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -41,16 +43,33 @@ func TestPackage(t *testing.T) {
 
 type BaseBackupsSuite struct {
 	jujutesting.FakeJujuHomeSuite
+
 	command    *backups.Command
 	metaresult *params.BackupsMetadataResult
+	data       string
+
+	filename string
 }
 
 func (s *BaseBackupsSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
+
 	s.command = backups.NewCommand().(*backups.Command)
 	s.metaresult = &params.BackupsMetadataResult{
 		ID: "spam",
 	}
+	s.data = "<compressed archive data>"
+}
+
+func (s *BaseBackupsSuite) TearDownTest(c *gc.C) {
+	if s.filename != "" {
+		err := os.Remove(s.filename)
+		if !os.IsNotExist(err) {
+			c.Check(err, gc.IsNil)
+		}
+	}
+
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *BaseBackupsSuite) patchAPIClient(client backups.APIClient) {
@@ -71,6 +90,22 @@ func (s *BaseBackupsSuite) setFailure(failure string) *fakeAPIClient {
 	client := &fakeAPIClient{err: errors.New(failure)}
 	s.patchAPIClient(client)
 	return client
+}
+
+func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
+	client := s.setSuccess()
+	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
+	return client
+}
+
+func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
+	c.Assert(s.filename, gc.Not(gc.Equals), "")
+	archive, err := os.Open(s.filename)
+	c.Assert(err, gc.IsNil)
+	defer archive.Close()
+
+	data, err := ioutil.ReadAll(archive)
+	c.Check(string(data), gc.Equals, s.data)
 }
 
 func (s *BaseBackupsSuite) diffStrings(c *gc.C, value, expected string) {
