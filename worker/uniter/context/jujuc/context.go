@@ -80,7 +80,7 @@ type Context interface {
 	OwnerTag() string
 
 	// AddMetric records a metric to return after hook execution.
-	AddMetrics(string, string, time.Time) error
+	AddMetric(string, string, time.Time) error
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
