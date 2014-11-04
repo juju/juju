@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 type AddMetricSuite struct {
@@ -59,14 +59,6 @@ func (s *AddMetricSuite) TestAddMetric(c *gc.C) {
 			2,
 			"",
 			"error: no metrics specified\n",
-			nil,
-		}, {
-			"invalid metric value",
-			[]string{"add-metric", "key=invalidvalue"},
-			true,
-			2,
-			"",
-			"error: invalid value type: expected float, got \"invalidvalue\"\n",
 			nil,
 		}, {
 			"invalid argument format",

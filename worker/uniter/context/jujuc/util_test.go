@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 func bufferBytes(stream io.Writer) []byte {
@@ -86,7 +86,7 @@ type Context struct {
 	canAddMetrics bool
 }
 
-func (c *Context) AddMetrics(key, value string, created time.Time) error {
+func (c *Context) AddMetric(key, value string, created time.Time) error {
 	if !c.canAddMetrics {
 		return fmt.Errorf("metrics disabled")
 	}

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -175,7 +176,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	if err := EnsureJujucSymlinks(u.paths.ToolsDir); err != nil {
+	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
@@ -204,7 +205,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 
-	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos)
+	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos, u.getCharm)
 	if err != nil {
 		return err
 	}
@@ -356,6 +357,14 @@ func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
 		relationInfos[id] = r.ContextInfo()
 	}
 	return relationInfos
+}
+
+func (u *Uniter) getCharm() (corecharm.Charm, error) {
+	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {

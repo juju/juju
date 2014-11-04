@@ -10,10 +10,13 @@ import (
 )
 
 // Info provides the implementation of the API method.
-func (b *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, error) {
+func (a *API) Info(args params.BackupsInfoArgs) (params.BackupsMetadataResult, error) {
 	var result params.BackupsMetadataResult
 
-	meta, _, err := b.backups.Get(args.ID)
+	backups, closer := newBackups(a.st)
+	defer closer.Close()
+
+	meta, _, err := backups.Get(args.ID) // Ignore the archive file.
 	if err != nil {
 		return result, errors.Trace(err)
 	}

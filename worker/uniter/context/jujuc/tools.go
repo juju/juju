@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package jujuc
 
 import (
 	"fmt"
@@ -11,13 +11,12 @@ import (
 	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
-// EnsureJujucSymlinks creates a symbolic link to jujuc within dir for each
+// EnsureSymlinks creates a symbolic link to jujuc within dir for each
 // hook command. If the commands already exist, this operation does nothing.
-func EnsureJujucSymlinks(dir string) (err error) {
-	for _, name := range jujuc.CommandNames() {
+func EnsureSymlinks(dir string) (err error) {
+	for _, name := range CommandNames() {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
 		// exist.

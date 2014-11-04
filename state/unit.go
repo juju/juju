@@ -856,7 +856,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			// Already set
 			return nil, jujutxn.ErrNoOperations
 		}
-		if count, err := charms.FindId(curl).Count(); err != nil {
+		if count, err := charms.FindId(u.st.docID(curl.String())).Count(); err != nil {
 			return nil, err
 		} else if count < 1 {
 			return nil, fmt.Errorf("unknown charm url %q", curl)

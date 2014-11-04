@@ -21,7 +21,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 type RpcCommand struct {

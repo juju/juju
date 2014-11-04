@@ -14,7 +14,7 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 type ConfigGetSuite struct {
