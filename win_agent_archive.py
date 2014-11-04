@@ -28,7 +28,7 @@ WIN_AGENT_TEMPLATES = (
 AGENT_VERSION_PATTERN = re.compile('juju-(.+)-win[^-]+-amd64.tgz')
 
 
-def run(args, config=None, verbose=True, dry_run=False):
+def run(args, config=None, verbose=False, dry_run=False):
     """Run s3cmd with sensible options.
 
     s3cmd is guaranteed to be on every machine that juju-release-tools runs on.
@@ -87,7 +87,8 @@ def add_agents(args):
         raise ValueError(
             '%s does not match an expected version.' % source_agent)
     agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
-    existing_versions = run(['ls', agent_glob], config=args.config)
+    existing_versions = run(
+        ['ls', agent_glob], config=args.config, verbose=args.verbose)
     if args.verbose:
         print('Checking that %s does not already exist.' % version)
     for agent_version in agent_versions:
@@ -102,14 +103,14 @@ def add_agents(args):
         print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
     remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
     run(['put', source_path, remote_source],
-        config=args.config, dry_run=args.dry_run)
+        config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     agent_versions.remove(source_agent)
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
         if args.verbose:
             print('Copying %s to %s' % (remote_source, destination))
         run(['cp', remote_source, destination],
-            config=args.config, dry_run=args.dry_run)
+            config=args.config, dry_run=args.dry_run, verbose=args.verbose)
 
 
 def get_agents(args):
@@ -119,7 +120,7 @@ def get_agents(args):
     destination = os.path.abspath(os.path.expanduser(args.destination))
     output = run(
         ['get', agent_glob, destination],
-        config=args.config, dry_run=args.dry_run)
+        config=args.config, dry_run=args.dry_run, verbose=args.verbose)
     if args.verbose:
         print(output)
 
@@ -132,7 +133,8 @@ def delete_agents(args):
     """
     version = args.version
     agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
-    existing_versions = run(['ls', agent_glob], config=args.config)
+    existing_versions = run(
+        ['ls', agent_glob], config=args.config, verbose=args.verbose)
     if args.verbose:
         print('Checking for matching agents.')
     if version not in existing_versions:
@@ -143,7 +145,9 @@ def delete_agents(args):
         return
     agents = listing_to_files(existing_versions)
     for agent in agents:
-        deleted = run(['del', agent], config=args.config, dry_run=args.dry_run)
+        deleted = run(
+            ['del', agent], config=args.config, dry_run=args.dry_run,
+            verbose=args.verbose)
         if args.verbose:
             print(deleted)
 
