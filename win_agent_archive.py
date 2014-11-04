@@ -10,7 +10,7 @@ import sys
 import traceback
 
 
-# The s3 container and path to add to and get from.
+# The S3 container and path to add to and get from.
 S3_CONTAINER = 's3://juju-qa-data/win-agents'
 # The set of agents to make.
 WIN_AGENT_TEMPLATES = (
@@ -29,6 +29,10 @@ AGENT_VERSION_PATTERN = re.compile('juju-(.+)-win[^-]+-amd64.tgz')
 
 
 def run(*args, **kwargs):
+    """Run s3cmd with sensible options.
+
+    s3cmd is guaranteed to be on every machine that juju-release-tools runs on.
+    """
     command = ['s3cmd', '--no-progress']
     if 'dry_run' in kwargs:
         command.append('--dry_run')
@@ -42,6 +46,7 @@ def run(*args, **kwargs):
 
 
 def get_source_agent_version(source_agent):
+    """Parse the version from the source agent's file name."""
     match = AGENT_VERSION_PATTERN.match(source_agent)
     if match:
         return match.group(1)
@@ -49,10 +54,15 @@ def get_source_agent_version(source_agent):
 
 
 def get_input(prompt):
+    """Return the user input from a prompted question.
+
+    Wrap deprecated raw_input for testing.
+    """
     return raw_input(prompt)  # pyflakes:ignore
 
 
 def listing_to_files(listing):
+    """Convert an S3 ls output to a list of remote files."""
     agents = []
     for line in listing.splitlines():
         parts = line.split()
@@ -61,6 +71,14 @@ def listing_to_files(listing):
 
 
 def add_agents(args):
+    """Upload agents to the S3 win-agent location.
+
+    It is an error to overwrite an existing agent, or pass an agent that
+    does not appear to be a win agent.
+
+    As all win agents are functionally the same, only one agent is
+    uploaded, and the other agents are created as copies with s3.
+    """
     source_agent = os.path.basename(args.source_agent)
     version = get_source_agent_version(source_agent)
     if version is None:
@@ -96,6 +114,7 @@ def add_agents(args):
 
 
 def get_agents(args):
+    """Download agents matching a version to a destination path."""
     version = args.version
     agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
     destination = os.path.abspath(os.path.expanduser(args.destination))
@@ -107,6 +126,11 @@ def get_agents(args):
 
 
 def delete_agents(args):
+    """Delete agents that match a version.
+
+    Agents will only be deleted after a prompt to agree that the listing
+    matches the expected operation.
+    """
     version = args.version
     agent_glob = '%s/juju-%s*' % (S3_CONTAINER, version)
     existing_versions = run('ls', agent_glob, config=args.config)
@@ -133,9 +157,9 @@ def parse_args(args=None):
         help='Do not overwrite existing data.')
     parser.add_argument(
         '-v', '--verbose', action="store_true", default=False,
-        help='Increse verbosity.')
+        help='Increase verbosity.')
     parser.add_argument(
-        '-c', '--config', default=None, help='The s3config file.')
+        '-c', '--config', default=None, help='The S3 config file.')
     subparsers = parser.add_subparsers(help='sub-command help')
     add_parser = subparsers.add_parser('add', help='Add win-agents')
     add_parser.add_argument(
@@ -156,7 +180,7 @@ def parse_args(args=None):
 
 
 def main(argv):
-    """Add to get win-agents."""
+    """Manage win-agents in the archive."""
     args = parse_args(argv)
     try:
         args.func(args)
