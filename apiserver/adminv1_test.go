@@ -9,6 +9,7 @@ import (
 	"github.com/juju/macaroon"
 	"github.com/juju/macaroon/bakery"
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
@@ -28,6 +29,7 @@ type remoteLoginSuite struct {
 
 type loggedInChecker struct{}
 
+// CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
 func (*loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
 	if condition == "logged-in-user" {
 		return nil, nil
@@ -120,7 +122,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 
 	// Should be logged in
 	c.Assert(st.Ping(), gc.IsNil)
-	c.Assert(st.AllFacadeVersions(), gc.Not(gc.HasLen), 0)
+	c.Assert(len(st.AllFacadeVersions()), jc.GreaterThan, 0)
 }
 
 type emptyCredReauthHandler struct{}
@@ -142,6 +144,9 @@ func failReauth(err error) (string, string, error) {
 	return "", "", err
 }
 
+// HandleReauth implements a fully-functional reauthentication handler capable
+// of discharging the third-party caveat challenge issued by Juju. It also
+// contains logic to force failure modes for testing.
 func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
 	var remoteCreds authentication.RemoteCredentials
 	err := remoteCreds.UnmarshalText([]byte(reauth.Prompt))
@@ -187,6 +192,7 @@ func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
 
 type failConditionChecker struct{}
 
+// CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
 func (*failConditionChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
 	return nil, fmt.Errorf("unrecognized condition")
 }
