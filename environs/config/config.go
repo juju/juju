@@ -1275,7 +1275,7 @@ func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
 	return cert.NewServer(caCert, caKey, time.Now().UTC().AddDate(10, 0, 0), noHostnames)
 }
 
-// SpecializeCharmRepo returns a repository customized for given configuration.
+// SpecializeCharmRepo customizes a repository for a given configuration.
 // It adds authentication if necessary and sets a charm store's testMode flag.
 func SpecializeCharmRepo(repo charm.Repository, cfg *Config) {
 	type Specializer interface {

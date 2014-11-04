@@ -2339,7 +2339,6 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	err = s.APIState.Client().AddCharm(curl)
 
 	// check that the store's auth attributes were set
-	// TODO(dfc) what is this checking ?
 	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 }
 
