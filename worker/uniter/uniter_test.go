@@ -2191,14 +2191,13 @@ func (s waitActionResults) step(c *gc.C, ctx *context) {
 		case changes, ok := <-resultsWatcher.Changes():
 			c.Assert(ok, jc.IsTrue)
 			c.Logf("Got changes: %#v", changes)
-			if len(changes) != len(s.expectedResults) {
+			stateActionResults, err := ctx.unit.ActionResults()
+			c.Assert(err, gc.IsNil)
+			if len(stateActionResults) != len(s.expectedResults) {
 				continue
 			}
 			actualResults := make([]actionResult, len(changes))
-			for i, change := range changes {
-				c.Logf("Change: %s", change)
-				result, err := ctx.st.ActionResult(change)
-				c.Assert(err, gc.IsNil)
+			for i, result := range stateActionResults {
 				results, message := result.Results()
 				actualResults[i] = actionResult{
 					name:    result.Name(),
