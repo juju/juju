@@ -76,6 +76,7 @@ func (md *mongoDumper) options(dumpDir string) []string {
 		"--username", md.Username,
 		"--password", md.Password,
 		"--out", dumpDir,
+		"--oplog",
 	}
 	return options
 }
