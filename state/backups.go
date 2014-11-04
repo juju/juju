@@ -500,10 +500,7 @@ func (s *backupsMetadataStorage) SetStored(id string) error {
 	defer dbWrap.Close()
 
 	err := setBackupStored(dbWrap, id, time.Now())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(err)
 }
 
 //---------------------------
