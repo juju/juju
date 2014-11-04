@@ -143,7 +143,7 @@ func (s *createSuite) TestNoDownload(c *gc.C) {
 
 	client.Check(c, "", "", "Create")
 	out := MetaResultString + s.metaresult.ID + "\n"
-	s.checkStd(c, ctx, out, "")
+	s.checkStd(c, ctx, out, backups.DownloadWarning+"\n")
 	c.Check(s.subcommand.Filename, gc.Equals, backups.NotSet)
 }
 

@@ -17,6 +17,8 @@ import (
 const (
 	notset           = "juju-backup-<date>-<time>.tar.gz"
 	filenameTemplate = "juju-backup-%04d%02d%02d-%02d%02d%02d.tar.gz"
+	downloadWarning  = "WARNING: downloading backup archives is recommended; " +
+		"backups stored remotely are not guaranteed to be available"
 )
 
 const createDoc = `
@@ -119,6 +121,9 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 		fmt.Fprintln(ctx.Stderr, "missing filename")
 	} else if filename == notset {
 		if c.NoDownload {
+			if !c.Quiet {
+				fmt.Fprintln(ctx.Stderr, downloadWarning)
+			}
 			filename = ""
 		} else {
 			y, m, d := timestamp.Date()
