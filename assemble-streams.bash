@@ -213,6 +213,10 @@ get_series() {
         echo "Invalid series: $control_version, saw [$pkg_series]"
         exit 3
     fi
+    if ! distro-info --all | grep $series; then
+        echo "$series is not supported on this host."
+        series="UNSUPPORTED"
+    fi
 }
 
 
@@ -263,6 +267,8 @@ archive_tools() {
         tool="${DEST_DIST}/tools/releases/juju-${version}-${series}-${arch}.tgz"
         if [[ $arch == 'UNSUPPORTED' ]]; then
             echo "Skipping unsupported architecture $package"
+        elif [[ $series == 'UNSUPPORTED' ]]; then
+            echo "Skipping unsupported series $package"
         elif [[ -e $tool ]]; then
             echo "Skipping $package because $tool already exists."
         else
