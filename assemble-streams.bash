@@ -213,8 +213,7 @@ get_series() {
         echo "Invalid series: $control_version, saw [$pkg_series]"
         exit 3
     fi
-    supported_series=$(distro-info --all | grep $series || echo "UNSUPPORTED")
-    if [[ "$supported_series" == "UNSUPPORTED" ]]; then
+    if ! distro-info --all | grep $series; then
         echo "$series is not supported on this host."
         series="UNSUPPORTED"
     fi
