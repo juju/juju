@@ -117,21 +117,24 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
-	if filename == "" {
-		fmt.Fprintln(ctx.Stderr, "missing filename")
-	} else if filename == notset {
-		if c.NoDownload {
-			if !c.Quiet {
-				fmt.Fprintln(ctx.Stderr, downloadWarning)
-			}
-			filename = ""
-		} else {
-			y, m, d := timestamp.Date()
-			H, M, S := timestamp.Clock()
-			filename = fmt.Sprintf(filenameTemplate, y, m, d, H, M, S)
+	if filename != notset {
+		if filename == "" {
+			fmt.Fprintln(ctx.Stderr, "missing filename")
 		}
+		return filename
 	}
-	return filename
+
+	if c.NoDownload {
+		if !c.Quiet {
+			fmt.Fprintln(ctx.Stderr, downloadWarning)
+		}
+		return ""
+	}
+
+	// Downloading but no filename given, so generate one.
+	y, m, d := timestamp.Date()
+	H, M, S := timestamp.Clock()
+	return fmt.Sprintf(filenameTemplate, y, m, d, H, M, S)
 }
 
 func (c *CreateCommand) download(ctx *cmd.Context, client APIClient, id string, filename string) error {
