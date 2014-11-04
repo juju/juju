@@ -82,6 +82,9 @@ func (c *CreateCommand) Init(args []string) error {
 	if c.Filename != notset && c.NoDownload {
 		return errors.Errorf("cannot mix --no-download and --filename")
 	}
+	if c.Filename == "" {
+		return errors.Errorf("missing filename")
+	}
 
 	return nil
 }
@@ -100,6 +103,9 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if !c.Quiet {
+		if c.NoDownload {
+			fmt.Fprintln(ctx.Stderr, downloadWarning)
+		}
 		c.dumpMetadata(ctx, result)
 	}
 
@@ -118,16 +124,9 @@ func (c *CreateCommand) Run(ctx *cmd.Context) error {
 
 func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timestamp time.Time) string {
 	if filename != notset {
-		if filename == "" {
-			fmt.Fprintln(ctx.Stderr, "missing filename")
-		}
 		return filename
 	}
-
 	if c.NoDownload {
-		if !c.Quiet {
-			fmt.Fprintln(ctx.Stderr, downloadWarning)
-		}
 		return ""
 	}
 
