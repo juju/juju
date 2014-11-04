@@ -343,6 +343,22 @@ def uniquify_local(env):
 
 
 @contextmanager
+def _temp_env(new_config, parent=None):
+    """Use the supplied config as juju environment.
+
+    This is not a fully-formed version for bootstrapping.  See
+    temp_bootstrap_env.
+    """
+    with temp_dir(parent) as temp_juju_home:
+        temp_environments = get_environments_path(temp_juju_home)
+        with open(temp_environments, 'w') as config_file:
+            yaml.safe_dump(new_config, config_file)
+        with scoped_environ():
+            os.environ['JUJU_HOME'] = temp_juju_home
+            yield temp_juju_home
+
+
+@contextmanager
 def temp_bootstrap_env(juju_home, client):
     # Always bootstrap a matching environment.
     config = dict(client.env.config)
@@ -368,7 +384,7 @@ def temp_bootstrap_env(juju_home, client):
                 "/var/lib/lxc", 2000000, "LXC containers")
     new_config = {'environments': {client.env.environment: config}}
     jenv_path = get_jenv_path(juju_home, client.env.environment)
-    with temp_dir(juju_home) as temp_juju_home:
+    with _temp_env(new_config, juju_home) as temp_juju_home:
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, client.env.environment)
@@ -377,22 +393,17 @@ def temp_bootstrap_env(juju_home, client):
         # partway through bootstrap.
         ensure_dir(os.path.join(juju_home, 'environments'))
         os.symlink(new_jenv_path, jenv_path)
-        temp_environments = get_environments_path(temp_juju_home)
-        with open(temp_environments, 'w') as config_file:
-            yaml.safe_dump(new_config, config_file)
-        with scoped_environ():
-            os.environ['JUJU_HOME'] = temp_juju_home
+        try:
+            yield
+        finally:
+            # replace symlink with file before deleting temp home.
             try:
-                yield
-            finally:
-                # replace symlink with file before deleting temp home.
-                try:
-                    os.rename(new_jenv_path, jenv_path)
-                except OSError as e:
-                    if e.errno != errno.ENOENT:
-                        raise
-                    # Remove dangling symlink
-                    os.unlink(jenv_path)
+                os.rename(new_jenv_path, jenv_path)
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+                # Remove dangling symlink
+                os.unlink(jenv_path)
 
 
 class Status:
