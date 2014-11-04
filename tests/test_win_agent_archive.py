@@ -26,6 +26,15 @@ class FakeArgs:
 
 class WinAgentArchive(TestCase):
 
+    def test_main_options(self):
+        with patch('win_agent_archive.add_agents') as mock:
+            main(['-d', '-v', '-c', 'foo', 'add', 'bar'])
+            args, kwargs = mock.call_args
+            args = args[0]
+            self.assertTrue(args.verbose)
+            self.assertTrue(args.dry_run)
+            self.assertEqual('foo', args.config)
+
     def test_main_add(self):
         with patch('win_agent_archive.add_agents') as mock:
             main(['add', 'path/juju-1.21.0-win2012-amd64.tgz'])

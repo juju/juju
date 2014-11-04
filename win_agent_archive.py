@@ -151,31 +151,35 @@ def delete_agents(args):
 
 def parse_args(args=None):
     """Return the argument parser for this program."""
-    parser = ArgumentParser("Compare old and new stream data.")
+    parser = ArgumentParser("Manage win agents in the archive.")
     parser.add_argument(
         '-d', '--dry-run', action="store_true", default=False,
-        help='Do not overwrite existing data.')
+        help='Do not make changes.')
     parser.add_argument(
         '-v', '--verbose', action="store_true", default=False,
         help='Increase verbosity.')
     parser.add_argument(
-        '-c', '--config', default=None, help='The S3 config file.')
+        '-c', '--config', action='store', default=None,
+        help='The S3 config file.')
     subparsers = parser.add_subparsers(help='sub-command help')
-    add_parser = subparsers.add_parser('add', help='Add win-agents')
-    add_parser.add_argument(
+    # add juju-1.21.0-win2012-amd64.tgz
+    parser_add = subparsers.add_parser('add', help='Add win-agents')
+    parser_add.add_argument(
         'source_agent',
         help="The win-agent to create all the agents from.")
-    add_parser.set_defaults(func=add_agents)
-    get_parser = subparsers.add_parser('get', help='get win-agents')
-    get_parser.add_argument(
+    parser_add.set_defaults(func=add_agents)
+    # get 1.21.0 ./workspace
+    parser_get = subparsers.add_parser('get', help='get win-agents')
+    parser_get.add_argument(
         'version', help="The version of win-agent to download")
-    get_parser.add_argument(
+    parser_get.add_argument(
         'destination', help="The path to download the files to.")
-    get_parser.set_defaults(func=get_agents)
-    get_parser = subparsers.add_parser('delete', help='get win-agents')
-    get_parser.add_argument(
+    parser_get.set_defaults(func=get_agents)
+    # delete 1.21.0
+    parser_delete = subparsers.add_parser('delete', help='delete win-agents')
+    parser_delete.add_argument(
         'version', help="The version of win-agent to delete")
-    get_parser.set_defaults(func=delete_agents)
+    parser_delete.set_defaults(func=delete_agents)
     return parser.parse_args(args)
 
 
