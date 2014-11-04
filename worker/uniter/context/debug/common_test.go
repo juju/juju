@@ -6,7 +6,7 @@ package debug_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/worker/uniter/debug"
+	"github.com/juju/juju/worker/uniter/context/debug"
 )
 
 type DebugHooksCommonSuite struct{}
