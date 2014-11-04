@@ -371,11 +371,11 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
     running_domains = dict()
     if not upgrade:
         os.environ['PATH'] = new_path
+    if sys.platform == 'win32':
+        # Ensure OpenSSH is never in the path for win tests.
+        sys.path = [p for p in sys.path if 'OpenSSH' not in p]
+    env = Environment.from_config(base_env)
     try:
-        if sys.platform == 'win32':
-            # Ensure OpenSSH is never in the path for win tests.
-            sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-        env = Environment.from_config(base_env)
         env.client.debug = debug
         if env.config['type'] == 'manual' and bootstrap_host is None:
             instances = run_instances(3, job_name)
