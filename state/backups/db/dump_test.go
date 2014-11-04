@@ -55,9 +55,6 @@ func (s *dumpSuite) prepDB(c *gc.C, name string) string {
 	return dirName
 }
 
-func (s *dumpSuite) prepDBs(c *gc.C, dbNames ...string) {
-}
-
 func (s *dumpSuite) prep(c *gc.C) db.Dumper {
 	dumper, err := db.NewDumper(s.dbInfo)
 	c.Assert(err, gc.IsNil)
@@ -112,4 +109,45 @@ func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.checkDBs(c, s.targets.Values()...)
+}
+
+func (s *dumpSuite) TestDumpOplogEmpty(c *gc.C) {
+	s.patch(c)
+	dumper := s.prep(c)
+	s.prepDB(c, "backups") // ignored
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, gc.IsNil)
+
+	s.checkDBs(c, s.targets.Values()...)
+	s.checkStripped(c, "backups")
+	checkOplog(c, s.dumpDir)
+}
+
+func (s *dumpSuite) TestDumpOplogIgnored(c *gc.C) {
+	s.patch(c)
+	dumper := s.prep(c)
+	s.prepDB(c, "backups") // ignored
+	createOplog(c, s.dumpDir, "juju.machines", "backups.spam")
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, gc.IsNil)
+
+	s.checkDBs(c, s.targets.Values()...)
+	s.checkStripped(c, "backups")
+	checkOplog(c, s.dumpDir, "juju.machines")
+}
+
+func (s *dumpSuite) TestDumpOplogOnlyIgnored(c *gc.C) {
+	s.patch(c)
+	dumper := s.prep(c)
+	s.prepDB(c, "backups") // ignored
+	createOplog(c, s.dumpDir, "backups.spam")
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, gc.IsNil)
+
+	s.checkDBs(c, s.targets.Values()...)
+	s.checkStripped(c, "backups")
+	checkOplog(c, s.dumpDir)
 }
