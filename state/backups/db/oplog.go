@@ -4,6 +4,7 @@
 package db
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +102,17 @@ func stripOplogPath(dbnames *set.Strings, oldPath, newPath string) error {
 }
 
 func stripOplogFile(dbnames *set.Strings, oldFile, newFile *os.File) (int32, error) {
+	data, err := ioutil.ReadAll(oldFile)
+	if err != nil {
+		return -1, errors.Trace(err)
+	}
+
+	var oplog bson.M
+	if err := bson.Unmarshal(data, &oplog); err != nil {
+		return -1, errors.Trace(err)
+	}
+	panic(oplog)
+
 	bsonIter, _, err := mongo.IterBSON(oldFile)
 	if err != nil {
 		return -1, errors.Trace(err)
@@ -108,7 +120,7 @@ func stripOplogFile(dbnames *set.Strings, oldFile, newFile *os.File) (int32, err
 
 	size, totalSize := 0, 4
 	var doc bson.M
-	data := make([]byte, mongo.MaxBSONSize)
+	data = make([]byte, mongo.MaxBSONSize)
 
 	for bsonIter.NextRaw(data, &size) {
 		if bsonIter.Err() != nil {
