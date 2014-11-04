@@ -101,22 +101,20 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 		return errors.Trace(err)
 	}
 
-	for _, dbName := range found.Difference(*md.Targets).Values() {
-		if err := strip(dbName, baseDumpDir); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	return nil
+	// Strip the ignored database from the dump dir.
+	ignored := found.Difference(*md.Targets)
+	err = stripIgnored(&ignored, baseDumpDir)
+	return errors.Trace(err)
 }
 
-// strip removes the specified DB from the mongo dump files.  This will
-// involve deleting DB-specific directories and may involve removing
-// entries from oplog.bson.
-func strip(dbName, dumpDir string) error {
-	dirname := filepath.Join(dumpDir, dbName)
-	if err := os.RemoveAll(dirname); err != nil {
-		return errors.Trace(err)
+// stripIgnored removes the ignored DBs from the mongo dump files.
+// This involves deleting DB-specific directories.
+func stripIgnored(ignored *set.Strings, dumpDir string) error {
+	for _, dbName := range ignored.Values() {
+		dirname := filepath.Join(dumpDir, dbName)
+		if err := os.RemoveAll(dirname); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	return nil
