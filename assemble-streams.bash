@@ -533,6 +533,7 @@ cleanup() {
     # Remove the debs and testing tools so that they are not reused in
     # future runs of the script.
     find ${DEST_DEBS} -name "*.deb" -delete
+    find ${DEST_DEBS} -name "*.tgz" -delete
 }
 
 
