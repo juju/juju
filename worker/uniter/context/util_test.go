@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
@@ -100,7 +101,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 }
 
 func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings, addMetrics bool) *context.HookContext {
+	remote string, proxies proxy.Settings) *context.HookContext {
 	if relid != -1 {
 		_, found := s.apiRelunits[relid]
 		c.Assert(found, jc.IsTrue)
@@ -116,7 +117,33 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 
 	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
 		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
-		proxies, addMetrics, nil, s.machine.Tag().(names.MachineTag))
+		proxies, false, nil, nil, s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	return context
+}
+
+func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int,
+	remote string, proxies proxy.Settings, canAddMetrics bool, metrics *charm.Metrics) *context.HookContext {
+	if relid != -1 {
+		_, found := s.apiRelunits[relid]
+		c.Assert(found, jc.IsTrue)
+	}
+	facade, err := s.st.Uniter()
+	c.Assert(err, gc.IsNil)
+
+	relctxs := map[int]*context.ContextRelation{}
+	for relId, relUnit := range s.apiRelunits {
+		cache := context.NewRelationCache(relUnit.ReadSettings, nil)
+		relctxs[relId] = context.NewContextRelation(relUnit, cache)
+	}
+
+	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
+		"test-env-name", relid, remote, relctxs, apiAddrs, names.NewUserTag("owner"),
+		proxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag))
+	c.Assert(err, gc.IsNil)
+	return context
+}
+
+func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
+	return &charm.Metrics{Metrics: map[string]charm.Metric{name: {Type: charm.MetricTypeGauge, Description: "generated metric"}}}
 }

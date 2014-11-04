@@ -94,6 +94,9 @@ type HookContext struct {
 	// canAddMetrics specifies whether the hook allows recording metrics.
 	canAddMetrics bool
 
+	// definedMetrics specifies the metrics the charm has defined in its metrics.yaml file.
+	definedMetrics *charm.Metrics
+
 	// meterStatus is the status of the unit's metering.
 	meterStatus *meterStatus
 
@@ -243,8 +246,12 @@ func (ctx *HookContext) RelationIds() []int {
 
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetrics(key, value string, created time.Time) error {
-	if !ctx.canAddMetrics {
+	if !ctx.canAddMetrics || ctx.definedMetrics == nil {
 		return fmt.Errorf("metrics disabled")
+	}
+	err := ctx.definedMetrics.ValidateMetric(key, value)
+	if err != nil {
+		return errors.Annotatef(err, "invalid metric %q", key)
 	}
 	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
 	return nil
