@@ -132,7 +132,7 @@ class WinAgentArchive(TestCase):
         self.assertIn('Agents cannot be overwritten', str(e.exception))
         args, kwargs = mock.call_args
         self.assertEqual(
-            ('ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'),
+            (['ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'], ),
             args)
         self.assertIs(None, kwargs['config'])
 
@@ -143,25 +143,26 @@ class WinAgentArchive(TestCase):
         self.assertEqual(8, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            ('ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'),
+            (['ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'], ),
             args)
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
-            ('put', agent_path, 's3://juju-qa-data/win-agents'),
+            (['put', agent_path, 's3://juju-qa-data/win-agents'], ),
             args)
         # The remaining calls after the put is a fast cp to the other names.
         output, args, kwargs = mock.mock_calls[2]
         self.assertEqual(
-            ('cp',
+            (['cp',
              's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz',
-             's3://juju-qa-data/win-agents/juju-1.21.0-win2012hvr2-amd64.tgz'),
+             's3://juju-qa-data/win-agents/juju-1.21.0-win2012hvr2-amd64.tgz'
+              ], ),
             args)
         output, args, kwargs = mock.mock_calls[7]
         self.assertEqual(
-            ('cp',
+            (['cp',
              's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz',
-             's3://juju-qa-data/win-agents/juju-1.21.0-win81-amd64.tgz'),
+             's3://juju-qa-data/win-agents/juju-1.21.0-win81-amd64.tgz'], ),
             args)
 
     def test_get_agent(self):
@@ -171,7 +172,8 @@ class WinAgentArchive(TestCase):
             get_agents(cmd_args)
         args, kwargs = mock.call_args
         self.assertEqual(
-            ('get', 's3://juju-qa-data/win-agents/juju-1.21.0*', destination),
+            (['get', 's3://juju-qa-data/win-agents/juju-1.21.0*',
+              destination], ),
             args)
 
     def test_delete_agent_without_matches_error(self):
@@ -182,9 +184,9 @@ class WinAgentArchive(TestCase):
         self.assertIn('No 1.21.0 agents found', str(e.exception))
         args, kwargs = mock.call_args
         self.assertEqual(
-            ('ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'),
+            (['ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'], ),
             args)
-        self.assertIs(None, kwargs['config'])
+        self.assertIs(None, kwargs['config'], )
 
     def test_delete_agent_without_yes(self):
         cmd_args = FakeArgs(version='1.21.0')
@@ -195,7 +197,7 @@ class WinAgentArchive(TestCase):
         self.assertEqual(1, mock.call_count)
         args, kwargs = mock.call_args
         self.assertEqual(
-            ('ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'),
+            (['ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'], ),
             args)
 
     def test_delete_agent_with_yes(self):
@@ -215,17 +217,17 @@ class WinAgentArchive(TestCase):
         self.assertEqual(3, mock.call_count)
         output, args, kwargs = mock.mock_calls[0]
         self.assertEqual(
-            ('ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'),
+            (['ls', 's3://juju-qa-data/win-agents/juju-1.21.0*'], ),
             args)
         output, args, kwargs = mock.mock_calls[1]
         self.assertEqual(
-            ('del',
-             's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz'),
+            (['del',
+             's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz'], ),
             args)
         output, args, kwargs = mock.mock_calls[2]
         self.assertEqual(
-            ('del',
-             's3://juju-qa-data/win-agents/juju-1.21.0-win8.1-amd64.tgz'),
+            (['del',
+             's3://juju-qa-data/win-agents/juju-1.21.0-win8.1-amd64.tgz'], ),
             args)
         self.assertIs(None, kwargs['config'])
         self.assertFalse(kwargs['dry_run'])
