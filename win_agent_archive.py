@@ -28,7 +28,7 @@ WIN_AGENT_TEMPLATES = (
 AGENT_VERSION_PATTERN = re.compile('juju-(.+)-win[^-]+-amd64.tgz')
 
 
-def run(args, config=None, verbose=False, dry_run=False):
+def run(args, config=None, verbose=True, dry_run=False):
     """Run s3cmd with sensible options.
 
     s3cmd is guaranteed to be on every machine that juju-release-tools runs on.
@@ -100,10 +100,10 @@ def add_agents(args):
     source_path = os.path.abspath(os.path.expanduser(args.source_agent))
     if args.verbose:
         print('Uploading %s to %s' % (source_agent, S3_CONTAINER))
-    run(['put', source_path, S3_CONTAINER],
+    remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
+    run(['put', source_path, remote_source],
         config=args.config, dry_run=args.dry_run)
     agent_versions.remove(source_agent)
-    remote_source = '%s/%s' % (S3_CONTAINER, source_agent)
     for agent_version in agent_versions:
         destination = '%s/%s' % (S3_CONTAINER, agent_version)
         if args.verbose:

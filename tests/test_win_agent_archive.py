@@ -148,7 +148,8 @@ class WinAgentArchive(TestCase):
         output, args, kwargs = mock.mock_calls[1]
         agent_path = os.path.abspath(cmd_args.source_agent)
         self.assertEqual(
-            (['put', agent_path, 's3://juju-qa-data/win-agents'], ),
+            (['put', agent_path,
+              's3://juju-qa-data/win-agents/juju-1.21.0-win2012-amd64.tgz'], ),
             args)
         # The remaining calls after the put is a fast cp to the other names.
         output, args, kwargs = mock.mock_calls[2]
