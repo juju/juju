@@ -75,13 +75,13 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 	s.meta = meta
 }
 
-func (s *workspaceSuite) TestNewWorkspace(c *gc.C) {
-	ws, err := archive.NewWorkspace(s.archiveFile)
+func (s *workspaceSuite) TestNewWorkspaceFromFile(c *gc.C) {
+	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
 	root := ws.UnpackedRootDir + "/"
-	c.Check(ws.Filename, gc.Equals, "")
+	c.Check(ws.Filename, gc.Equals, root+"juju-backup.tar.gz")
 	c.Check(ws.ContentDir(), gc.Equals, root+"juju-backup")
 	c.Check(ws.FilesBundle(), gc.Equals, root+"juju-backup/root.tar")
 	c.Check(ws.DBDumpDir(), gc.Equals, root+"juju-backup/dump")
@@ -89,7 +89,7 @@ func (s *workspaceSuite) TestNewWorkspace(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestClose(c *gc.C) {
-	ws, err := archive.NewWorkspace(s.archiveFile)
+	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 
 	err = ws.Close()
@@ -100,7 +100,7 @@ func (s *workspaceSuite) TestClose(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
-	ws, err := archive.NewWorkspace(s.archiveFile)
+	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
@@ -115,13 +115,12 @@ func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestOpenFile(c *gc.C) {
-	ws, err := archive.NewWorkspace(s.archiveFile)
+	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
 	file, err := ws.OpenFile("var/lib/juju/system-identity")
 	c.Assert(err, gc.IsNil)
-	defer file.Close()
 
 	data, err := ioutil.ReadAll(file)
 	c.Assert(err, gc.IsNil)
@@ -129,7 +128,7 @@ func (s *workspaceSuite) TestOpenFile(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestMetadata(c *gc.C) {
-	ws, err := archive.NewWorkspace(s.archiveFile)
+	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 

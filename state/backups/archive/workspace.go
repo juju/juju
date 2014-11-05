@@ -20,45 +20,68 @@ import (
 // root directory and an archive unpacked in it.
 type Workspace struct {
 	Archive
+	rootDir string
 }
 
-func newWorkspace() (*Workspace, error) {
+func newWorkspace(filename string) (*Workspace, error) {
 	dirName, err := ioutil.TempDir("", "juju-backups-")
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating workspace dir")
 	}
 
-	// Populate the workspace info.
+	ar := NewArchive(filename, dirName)
 	ws := Workspace{
-		Archive: Archive{
-			UnpackedRootDir: dirName,
-		},
+		Archive: *ar,
+		rootDir: dirName,
 	}
 	return &ws, nil
 }
 
-// NewWorkspace returns a new workspace with the compressed archive
-// file unpacked into the workspace dir.
-func NewWorkspace(archiveFile io.Reader) (*Workspace, error) {
-	ws, err := newWorkspace()
+// NewWorkspace returns a new archive workspace with a new workspace dir.
+func NewWorkspace(filename string) (*Workspace, error) {
+	ws, err := newWorkspace(filename)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	// Unpack the archive.
-	tarFile, err := gzip.NewReader(archiveFile)
-	if err != nil {
-		return ws, errors.Annotate(err, "while uncompressing archive file")
+	if archiveFile, err := os.Open(ws.Filename); err != nil {
+		if !os.IsNotExist(err) {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		if err := unpack(archiveFile, ws.rootDir); err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	if err := tar.UntarFiles(tarFile, dirName); err != nil {
-		return ws, errors.Annotate(err, "while extracting files from archive")
-	}
+
 	return ws, nil
+}
+
+// NewWorkspace returns a new archive workspace with a new workspace dir
+// populated from the archive file.
+func NewWorkspaceFromFile(archiveFile io.Reader) (*Workspace, error) {
+	ws, err := newWorkspace("")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	err = unpack(archiveFile, ws.rootDir)
+	return ws, errors.Trace(err)
+}
+
+func unpack(tarFile io.Reader, targetDir string) error {
+	tarFile, err := gzip.NewReader(tarFile)
+	if err != nil {
+		return errors.Annotate(err, "while uncompressing archive file")
+	}
+	if err := tar.UntarFiles(tarFile, targetDir); err != nil {
+		return errors.Annotate(err, "while extracting files from archive")
+	}
+	return nil
 }
 
 // Close cleans up the workspace dir.
 func (ws *Workspace) Close() error {
-	err := os.RemoveAll(ws.UnpackedRootDir)
+	err := os.RemoveAll(ws.rootDir)
 	return errors.Trace(err)
 }
 
@@ -78,9 +101,9 @@ func (ws *Workspace) UnpackFiles(targetRoot string) error {
 
 // OpenFile returns an open ReadCloser for the corresponding file in
 // the archived files bundle.
-func (ws *Workspace) OpenFile(filename string) (io.ReadCloser, error) {
+func (ws *Workspace) OpenFile(filename string) (io.Reader, error) {
 	if filepath.IsAbs(filename) {
-		return nil, errors.Errorf("filename must not be relative, got %q", filename)
+		return nil, errors.Errorf("filename must be relative, got %q", filename)
 	}
 
 	tarFile, err := os.Open(ws.FilesBundle())
