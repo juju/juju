@@ -971,13 +971,13 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	}
 
 	if len(instancesResp.Reservations) == 0 {
-		return errors.Errorf("Odd response from ec2. Instance not found.")
+		return errors.Errorf("unexpected AWS response: instance not found")
 	}
 	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return errors.Errorf("Odd response from ec2. Reservation not found.")
+		return errors.Errorf("unexpected AWS response: reservation not found")
 	}
 	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
-		return errors.Errorf("Odd response from ec2. Network interface not found.")
+		return errors.Errorf("unexpected AWS response: network interface not found")
 	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
 	for a := shortAttempt.Start(); a.Next(); {
