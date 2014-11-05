@@ -4,7 +4,6 @@
 package archive
 
 import (
-	"archive/tar"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
@@ -12,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	utar "github.com/juju/utils/tar"
+	"github.com/juju/utils/tar"
 )
 
 // Workspace is a wrapper around backup archive info that has a concrete
@@ -34,7 +33,7 @@ func NewWorkspace(archiveFile io.Reader) (*Workspace, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "while uncompressing archive file")
 	}
-	if err := utar.UntarFiles(tarFile, dirName); err != nil {
+	if err := tar.UntarFiles(tarFile, dirName); err != nil {
 		return nil, errors.Annotate(err, "while extracting files from archive")
 	}
 
@@ -61,7 +60,7 @@ func (ws *Workspace) UnpackFiles(targetRoot string) error {
 	}
 	defer tarFile.Close()
 
-	if err := utar.UntarFiles(tarFile, targetRoot); err != nil {
+	if err := tar.UntarFiles(tarFile, targetRoot); err != nil {
 		return errors.Annotate(err, "while unpacking system files")
 	}
 
@@ -75,32 +74,15 @@ func (ws *Workspace) OpenFile(filename string) (_ io.ReadCloser, err error) {
 		return nil, errors.Errorf("filename must not be relative, got %q", filename)
 	}
 
-	// TODO(ericsnow) This should go in utils/tar.
-
 	tarFile, err := os.Open(ws.FilesBundle())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			tarFile.Close()
-		}
-	}()
 
-	reader := tar.NewReader(tarFile)
-	for {
-		header, err := reader.Next()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, errors.Trace(err)
-		}
-
-		if header.Name == filename {
-			return ioutil.NopCloser(reader), nil
-		}
+	_, file, err := tar.FindFile(tarFile, filename)
+	if err != nil {
+		tarFile.Close()
+		return nil, errors.Trace(err)
 	}
-
-	return nil, errors.NotFoundf(filename)
+	return file, nil
 }
