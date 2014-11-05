@@ -34,7 +34,11 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
-const none = "none"
+const (
+	none                        = "none"
+	invalidParameterValue       = "InvalidParameterValue"
+	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
+)
 
 // Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
@@ -986,11 +990,11 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 			break
 		}
 		if ec2Err, ok := err.(*ec2.Error); ok {
-			if ec2Err.Code == "InvalidParameterValue" {
+			if ec2Err.Code == invalidParameterValue {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
 				return environs.ErrIPAddressUnavailable
-			} else if ec2Err.Code == "PrivateIpAddressLimitExceeded" {
+			} else if ec2Err.Code == privateAddressLimitExceeded {
 				return environs.ErrIPAddressesExhausted
 			}
 		}
