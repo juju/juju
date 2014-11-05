@@ -71,7 +71,6 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 	err = rInfo.SetStatus(state.RestoreInProgress)
 
-
 	instanceId, err := machine.InstanceId()
 	if err != nil {
 		return errors.Annotate(err, "cannot obtain instance id for machine to be restored")

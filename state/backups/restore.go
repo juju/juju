@@ -320,7 +320,7 @@ func updateAllMachines(privateAddress string, agentConf agentConfig, st *state.S
 
 		go func() {
 			err := runMachineUpdate(machine, setAgentAddressScript(privateHostPorts))
-			done <-	errors.Annotatef(err, "failed to update machine %s", machine)
+			done <- errors.Annotatef(err, "failed to update machine %s", machine)
 		}()
 	}
 	err = nil

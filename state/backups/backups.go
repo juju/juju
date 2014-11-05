@@ -51,7 +51,7 @@ type Backups interface {
 	List() ([]metadata.Metadata, error)
 	// Remove deletes the backup from storage.
 	Remove(id string) error
-	// Restore updates juju's state to the contents of the backup archive. 
+	// Restore updates juju's state to the contents of the backup archive.
 	Restore(io.ReadCloser, *metadata.Metadata, string, instance.Id) error
 }
 
@@ -199,7 +199,6 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	if err := tar.UntarFiles(innerBackupHandler, filesystemRoot()); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
-
 
 	// Restore backed up mongo
 	mongoDump := filepath.Join(backupFilesPath, "dump")

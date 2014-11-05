@@ -259,8 +259,8 @@ func (a *MachineAgent) BeginRestore() error {
 	return nil
 }
 
-// newrestorestatewatcherworker will return a worker or err if there is a failure, 
-// the worker takes care of watching the state of restoreInfo doc and put the 
+// newrestorestatewatcherworker will return a worker or err if there is a failure,
+// the worker takes care of watching the state of restoreInfo doc and put the
 // agent in the different restore modes.
 func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {

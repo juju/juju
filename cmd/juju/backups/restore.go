@@ -47,7 +47,8 @@ an appropriate message.  For instance, if the existing bootstrap
 instance is already running then the command will fail with a message
 to that effect.
 `
-// Info returns the content for --help. 
+
+// Info returns the content for --help.
 func (c *RestoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore",
