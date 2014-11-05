@@ -132,3 +132,37 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 	}
 	return &outfile, nil
 }
+
+// NewFromJSONBuffer extracts a new metadata from the JSON file.
+func NewFromJSONBuffer(in io.Reader) (*Metadata, error) {
+	var flat flatMetadata
+	if err := json.NewDecoder(in).Decode(&flat); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var meta Metadata
+	meta.SetID(flat.ID)
+
+	err := meta.SetFile(flat.Size, flat.Checksum, flat.ChecksumFormat)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !flat.Stored.IsZero() {
+		meta.SetStored(&flat.Stored)
+	}
+
+	meta.Started = flat.Started
+	if !flat.Finished.IsZero() {
+		meta.Finished = &flat.Finished
+	}
+	meta.Notes = flat.Notes
+	meta.Origin = Origin{
+		Environment: flat.Environment,
+		Machine:     flat.Machine,
+		Hostname:    flat.Hostname,
+		Version:     flat.Version,
+	}
+
+	return &meta, nil
+}
