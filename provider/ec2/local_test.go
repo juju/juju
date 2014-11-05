@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -660,6 +661,85 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+
+	instId := instanceIds[0]
+	addr := network.Address{Value: "8.0.0.4"}
+
+	// Invalid instance found
+	err = env.AllocateAddress(instId+"foo", "", addr)
+	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
+
+	// No network interface
+	err = env.AllocateAddress(instId, "", addr)
+	c.Assert(err, gc.ErrorMatches, "unexpected AWS response: network interface not found")
+}
+
+func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Environ, instance.Id) {
+	// setting a default-vpc will create a network interface
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	return env, instanceIds[0]
+}
+
+func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	var actualAddr network.Address
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		actualAddr = addr
+		return nil
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(err, gc.IsNil)
+	c.Assert(actualAddr, gc.Equals, addr)
+}
+
+func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		return &amzec2.Error{Code: "InvalidParameterValue"}
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+
+	err = env.AllocateAddress(instId, "", network.Address{})
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+}
+
+func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		return &amzec2.Error{Code: "PrivateIpAddressLimitExceeded"}
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
