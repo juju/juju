@@ -7,6 +7,6 @@ import "github.com/juju/utils/apt"
 
 // installRsyslogGnutls installs the rsyslog-gnutls package,
 // which is required for our rsyslog configuration from 1.18.0.
-func installRsyslogGnutls(context Context) error {
+func installRsyslogGnutls(context APIContext) error {
 	return apt.GetInstall("rsyslog-gnutls")
 }

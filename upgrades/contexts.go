@@ -65,3 +65,18 @@ type StateContext interface {
 	// upgraded.
 	AgentConfig() agent.ConfigSetter
 }
+
+var _ StateContext = Context(nil) // Context must be a StateContext
+
+// APIContext is used give upgrade steps that need to interact
+// with state via the API what they need to do their job.
+type APIContext interface {
+	// APIState returns an API connection to state.
+	APIState() *api.State
+
+	// AgentConfig returns the agent config for the machine that is being
+	// upgraded.
+	AgentConfig() agent.ConfigSetter
+}
+
+var _ APIContext = Context(nil) // Context must be a APIContext

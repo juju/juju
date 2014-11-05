@@ -160,7 +160,7 @@ func getSteps(op Operation) (steps []GenericStep) {
 }
 
 func runStep(context Context, step GenericStep) error {
-	return step.(Step).Run(context)
+	return step.(Step).Run(context.(APIContext))
 }
 
 // validTarget returns true if target matches targets.

@@ -90,7 +90,7 @@ func (u *mockUpgradeStep) Targets() []upgrades.Target {
 	return u.targets
 }
 
-func (u *mockUpgradeStep) Run(context upgrades.Context) error {
+func (u *mockUpgradeStep) Run(context upgrades.APIContext) error {
 	if strings.HasSuffix(u.msg, "error") {
 		return errors.New("upgrade error occurred")
 	}

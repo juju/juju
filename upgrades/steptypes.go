@@ -27,7 +27,7 @@ type Step interface {
 	GenericStep
 
 	// Run executes the upgrade business logic.
-	Run(Context) error
+	Run(APIContext) error
 }
 
 // stateUpgradeStep is a default StateStep implementation.
@@ -58,7 +58,7 @@ func (step *stateUpgradeStep) Run(context StateContext) error {
 type upgradeStep struct {
 	description string
 	targets     []Target
-	run         func(Context) error
+	run         func(APIContext) error
 }
 
 var _ Step = (*upgradeStep)(nil)
@@ -74,6 +74,6 @@ func (step *upgradeStep) Targets() []Target {
 }
 
 // Run is defined on the Step interface.
-func (step *upgradeStep) Run(context Context) error {
+func (step *upgradeStep) Run(context APIContext) error {
 	return step.run(context)
 }
