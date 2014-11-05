@@ -14,7 +14,7 @@ import (
 // MetricBatch is a batch of metrics that will be sent to
 // the metric collector
 type MetricBatch struct {
-	UUID     string    `json:"_id"`
+	UUID     string    `json:"uuid"`
 	EnvUUID  string    `json:"env-uuid"`
 	Unit     string    `json:"unit"`
 	CharmUrl string    `json:"charm-url"`
@@ -50,4 +50,33 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 		Created:  mb.Created().UTC(),
 		Metrics:  metrics,
 	}
+}
+
+// Response represents the response from the metrics collector.
+type Response struct {
+	UUID         string               `json:"uuid"`
+	EnvResponses EnvironmentResponses `json:"envresponses"`
+}
+
+type EnvironmentResponses map[string]EnvResponse
+
+// Ack adds the specified the batch UUID to the list of acknowledged batches
+// for the specified environment.
+func (e EnvironmentResponses) Ack(envUUID, batchUUID string) {
+	env, exists := e[envUUID]
+	if !exists {
+		e[envUUID] = EnvResponse{
+			EnvUUID:             envUUID,
+			AcknowledgedBatches: []string{batchUUID},
+		}
+	} else {
+		env.AcknowledgedBatches = append(env.AcknowledgedBatches, batchUUID)
+		e[envUUID] = env
+	}
+}
+
+// EnvResponse contains the response data relevant to a concrete environment.
+type EnvResponse struct {
+	EnvUUID             string   `json:"env-uuid"`
+	AcknowledgedBatches []string `json:"acks"`
 }

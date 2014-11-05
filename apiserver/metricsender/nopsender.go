@@ -4,6 +4,8 @@
 package metricsender
 
 import (
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/apiserver/metricsender/wireformat"
 )
 
@@ -13,6 +15,14 @@ type NopSender struct {
 }
 
 // Implement the send interface, act like everything is fine.
-func (n NopSender) Send([]*wireformat.MetricBatch) error {
-	return nil
+func (n NopSender) Send(batches []*wireformat.MetricBatch) (*wireformat.Response, error) {
+	var resp = make(wireformat.EnvironmentResponses)
+	for _, batch := range batches {
+		resp.Ack(batch.EnvUUID, batch.UUID)
+	}
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	return &wireformat.Response{UUID: uuid.String(), EnvResponses: resp}, nil
 }

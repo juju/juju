@@ -20,6 +20,10 @@ type MetricSenderSuite struct {
 
 var _ = gc.Suite(&MetricSenderSuite{})
 
+var _ metricsender.MetricSender = (*metricsender.MockSender)(nil)
+
+var _ metricsender.MetricSender = (*metricsender.NopSender)(nil)
+
 // TestSendMetrics creates 2 unsent metrics and a sent metric
 // and checks that the 2 unsent metrics get sent and have their
 // sent field set to true.
