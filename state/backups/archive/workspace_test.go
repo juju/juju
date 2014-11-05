@@ -23,7 +23,7 @@ type workspaceSuite struct {
 	meta        *metadata.Metadata
 }
 
-var _ = gc.Suite(&workspaceSuite{}) // Register the suite.
+var _ = gc.Suite(&workspaceSuite{})
 
 func (s *workspaceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
