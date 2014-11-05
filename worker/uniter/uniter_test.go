@@ -28,7 +28,6 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent/tools"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
@@ -1681,7 +1681,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	testing.AddStateServerMachine(c, ctx.st)
 
 	// Create the subordinate service.
-	dir := charmtesting.Charms.ClonedDir(c.MkDir(), "logging")
+	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
 	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
@@ -1750,7 +1750,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
-	base := charmtesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
+	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true

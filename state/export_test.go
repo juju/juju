@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -141,7 +141,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
+	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
@@ -157,7 +157,7 @@ func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, o
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := charmtesting.Charms.ClonedDirPath(c.MkDir(), name)
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)

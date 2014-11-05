@@ -18,12 +18,12 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )
@@ -79,7 +79,7 @@ func (s *BundlesDirSuite) TearDownTest(c *gc.C) {
 func (s *BundlesDirSuite) AddCharm(c *gc.C) (charm.BundleInfo, *state.Charm, []byte) {
 	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
 	storagePath := "dummy-1"
-	bunpath := charmtesting.Charms.CharmArchivePath(c.MkDir(), "dummy")
+	bunpath := testcharms.Repo.CharmArchivePath(c.MkDir(), "dummy")
 	bun, err := corecharm.ReadCharmArchive(bunpath)
 	c.Assert(err, gc.IsNil)
 	bundata, hash := readHash(c, bunpath)
