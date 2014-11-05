@@ -45,20 +45,6 @@ type EnvSuite struct {
 
 var _ = gc.Suite(&EnvSuite{})
 
-type MockEnvPaths struct{}
-
-func (MockEnvPaths) GetToolsDir() string {
-	return "/path/to/tools"
-}
-
-func (MockEnvPaths) GetCharmDir() string {
-	return "/path/to/charm"
-}
-
-func (MockEnvPaths) GetJujucSocket() string {
-	return "/path/to/jujuc.socket"
-}
-
 func (s *EnvSuite) assertVars(c *gc.C, actual []string, expect ...[]string) {
 	var fullExpect []string
 	for _, someExpect := range expect {
