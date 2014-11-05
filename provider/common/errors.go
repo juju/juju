@@ -7,5 +7,5 @@ import "errors"
 
 // An error indicating that the provider can't allocate another IP address to
 // an instance.
-var IPAddressesExhausted = errors.New("Can't allocate a new IP address")
-var IPAddressUnvailable = errors.New("The requested IP address is unavailable")
+var ErrIPAddressesExhausted = errors.New("can't allocate a new IP address")
+var ErrIPAddressUnvailable = errors.New("the requested IP address is unavailable")

@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -730,7 +731,7 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
 	ec2.AssignPrivateIPAddress = mockAssign
 
 	err := env.AllocateAddress(instId, "", addr)
-	c.Assert(err, gc.DeepEquals, common.IPAddressUnvailable)
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrIPAddressUnvailable)
 }
 
 func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
@@ -747,7 +748,7 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	ec2.AssignPrivateIPAddress = mockAssign
 
 	err := env.AllocateAddress(instId, "", addr)
-	c.Assert(err, gc.DeepEquals, common.IPAddressesExhausted)
+	c.Assert(errors.Cause(err), gc.Equals, common.ErrIPAddressesExhausted)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
