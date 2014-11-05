@@ -49,6 +49,7 @@ func init() {
 type environProvider struct{}
 
 var providerInstance environProvider
+var AssignPrivateIPAddress = assignPrivateIPAddress
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
@@ -83,6 +84,11 @@ var _ state.InstanceDistributor = (*environ)(nil)
 type defaultVpc struct {
 	hasDefaultVpc bool
 	id            network.Id
+}
+
+func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
+	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
+	return err
 }
 
 type ec2Instance struct {
@@ -968,17 +974,14 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		return errors.Errorf("Odd response from ec2. Instance not found.")
 	}
 	if len(instancesResp.Reservations[0].Instances) == 0 {
-		return errors.Errorf("Odd response from ec2. Instance not found.")
+		return errors.Errorf("Odd response from ec2. Reservation not found.")
 	}
 	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
 		return errors.Errorf("Odd response from ec2. Network interface not found.")
 	}
 	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
-
 	for a := shortAttempt.Start(); a.Next(); {
-		// The response here is not useful - either the call succeeds or we get an
-		// error
-		_, err = ec2Inst.AssignPrivateIPAddresses(networkInterfaceId, []string{addr.Value}, 0, false)
+		err = AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
 		if err == nil {
 			break
 		}
@@ -996,8 +999,8 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
+	return AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
 }
 
 // ListNetworks returns basic information about all networks known

@@ -696,6 +696,10 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	instId := instanceIds[0]
 	err = env.AllocateAddress(instId, "", network.Address{Value: "192.168.178.1"})
 	c.Assert(err, gc.IsNil)
+
+	instance := t.srv.ec2srv.Instance(string(instId))
+	fmt.Printf("%#v", instance)
+	c.Assert(instance, gc.IsNil)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
