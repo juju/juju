@@ -16,7 +16,7 @@ import (
 
 const (
 	notset           = "juju-backup-<date>-<time>.tar.gz"
-	filenameTemplate = "juju-backup-%04d%02d%02d-%02d%02d%02d.tar.gz"
+	filenameTemplate = "juju-backup-20060102-150405.tar.gz"
 	downloadWarning  = "WARNING: downloading backup archives is recommended; " +
 		"backups stored remotely are not guaranteed to be available"
 )
@@ -131,9 +131,7 @@ func (c *CreateCommand) decideFilename(ctx *cmd.Context, filename string, timest
 	}
 
 	// Downloading but no filename given, so generate one.
-	y, m, d := timestamp.Date()
-	H, M, S := timestamp.Clock()
-	return fmt.Sprintf(filenameTemplate, y, m, d, H, M, S)
+	return timestamp.Format(filenameTemplate)
 }
 
 func (c *CreateCommand) download(ctx *cmd.Context, client APIClient, id string, filename string) error {
