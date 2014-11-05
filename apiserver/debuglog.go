@@ -185,28 +185,28 @@ type logLine struct {
 
 func parseLogLine(line string) *logLine {
 	const (
-		agentField  = 0
-		levelField  = 3
-		moduleField = 4
+		agentTagIndex = 0
+		levelIndex    = 3
+		moduleIndex   = 4
 	)
 	fields := strings.Fields(line)
 	result := &logLine{
 		line: line,
 	}
-	if len(fields) > agentField {
-		agent := fields[agentField]
+	if len(fields) > agentTagIndex {
+		agentTag := fields[agentTagIndex]
 		// Drop mandatory trailing colon (:).
 		// Since colon is mandatory, agentTag without it is invalid and will be empty ("").
-		if strings.HasSuffix(agent, ":") {
-			result.agentTag = agent[:len(agent)-1]
+		if strings.HasSuffix(agentTag, ":") {
+			result.agentTag = agentTag[:len(agentTag)-1]
 		}
 		/*
 		 Drop unit suffix.
-		 In logs, unit information maybe prefixed with either a unit_tag by itself or a unit_tag[nnnn].
+		 In logs, unit information may be prefixed with either a unit_tag by itself or a unit_tag[nnnn].
 		 The code below caters for both scenarios.
 		*/
-		if bracketIndex := strings.Index(agent, "["); bracketIndex != -1 {
-			result.agentTag = agent[:bracketIndex]
+		if bracketIndex := strings.Index(agentTag, "["); bracketIndex != -1 {
+			result.agentTag = agentTag[:bracketIndex]
 		}
 		// If, at this stage, result.agentTag is empty,  we could not deduce the tag. No point getting the name...
 		if result.agentTag != "" {
@@ -222,10 +222,10 @@ func parseLogLine(line string) *logLine {
 			result.agentName = entityTag.Id()
 		}
 	}
-	if len(fields) > moduleField {
-		if level, valid := loggo.ParseLevel(fields[levelField]); valid {
+	if len(fields) > moduleIndex {
+		if level, valid := loggo.ParseLevel(fields[levelIndex]); valid {
 			result.level = level
-			result.module = fields[moduleField]
+			result.module = fields[moduleIndex]
 		}
 	}
 
@@ -327,7 +327,7 @@ func hasMatch(value, aFilter string) bool {
 	   transform it into a regexp "any character(s)" sequence.
 	*/
 	aFilter = strings.Replace(aFilter, "*", `.*`, -1)
-	matches, err := regexp.MatchString(`^`+aFilter+`$`, value)
+	matches, err := regexp.MatchString("^"+aFilter+"$", value)
 	if err != nil {
 		// logging errors here... but really should they be swallowed?
 		logger.Errorf("\nCould not match filter %q and regular expression %q\n.%v\n", value, aFilter, err)
