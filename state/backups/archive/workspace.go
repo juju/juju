@@ -12,6 +12,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
+
+	"github.com/juju/juju/state/backups/metadata"
 )
 
 // Workspace is a wrapper around backup archive info that has a concrete
@@ -85,4 +87,16 @@ func (ws *Workspace) OpenFile(filename string) (_ io.ReadCloser, err error) {
 		return nil, errors.Trace(err)
 	}
 	return file, nil
+}
+
+// Metadata returns the metadata derived from the JSON file in the archive.
+func (ws *Workspace) Metadata() (*metadata.Metadata, error) {
+	metaFile, err := os.Open(ws.MetadataFile())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer metaFile.Close()
+
+	meta, err := metadata.NewFromJSONBuffer(metaFile)
+	return meta, errors.Trace(err)
 }
