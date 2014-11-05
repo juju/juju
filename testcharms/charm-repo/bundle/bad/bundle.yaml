@@ -1,0 +1,11 @@
+# This bundle has a bad relation, which will cause it to fail
+# its verification.
+services:
+    wordpress:
+        charm: wordpress
+        num_units: 1
+    mysql:
+        charm: mysql
+        num_units: 1
+relations:
+    - ["foo:db", "mysql:server"]

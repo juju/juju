@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/juju/sockets"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 var jujudDoc = `

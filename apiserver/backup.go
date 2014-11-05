@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 
-	apibackups "github.com/juju/juju/apiserver/backups"
 	apihttp "github.com/juju/juju/apiserver/http"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
@@ -21,8 +20,8 @@ import (
 
 // TODO(ericsnow) This code should be in the backups package.
 
-var newBackups = func(st *state.State) (backups.Backups, error) {
-	return apibackups.NewBackups(st)
+var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
+	return state.NewBackups(st)
 }
 
 // backupHandler handles backup requests.
@@ -41,11 +40,8 @@ func (h *backupHandler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	backups, err := newBackups(h.state)
-	if err != nil {
-		h.sendError(resp, http.StatusInternalServerError, err.Error())
-		return
-	}
+	backups, closer := newBackups(h.state)
+	defer closer.Close()
 
 	switch req.Method {
 	case "GET":

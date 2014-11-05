@@ -399,7 +399,8 @@ func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	stor, err := environs.LegacyStorage(s.State)
 	if !errors.IsNotSupported(err) {
 		c.Assert(err, gc.IsNil)
-		envtesting.AssertUploadFakeToolsVersions(c, stor, s.oldVersion)
+		envtesting.AssertUploadFakeToolsVersions(
+			c, stor, "releases", s.Environ.Config().AgentStream(), s.oldVersion)
 	}
 
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
@@ -519,7 +520,8 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 	s.PatchValue(&watcher.Period, 200*time.Millisecond)
 
 	// Provide (fake) tools so that the upgrader has something to downgrade to.
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, s.oldVersion)
+	envtesting.AssertUploadFakeToolsVersions(
+		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), s.oldVersion)
 
 	// Only the first machine is going to be ready for upgrade.
 	machineIdA, machineIdB, _ := s.createUpgradingStateServers(c)
@@ -579,7 +581,7 @@ func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 ) (error, *upgradeWorkerContext) {
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, []params.MachineJob{job})
-	s.setInstantRetryStrategy()
+	s.setInstantRetryStrategy(c)
 	return worker.Wait(), context
 }
 
@@ -612,9 +614,13 @@ func (s *UpgradeSuite) newAgentFromMachineId(c *gc.C, machineId string) *Machine
 
 // Return a version the same as the current software version, but with
 // the build number bumped.
+//
+// The version Tag is also cleared so that upgrades.PerformUpgrade
+// doesn't think it needs to run upgrade steps unnecessarily.
 func makeBumpedCurrentVersion() version.Binary {
 	v := version.Current
 	v.Build++
+	v.Tag = ""
 	return v
 }
 
@@ -629,8 +635,9 @@ func waitForUpgradeToStart(upgradeCh chan bool) bool {
 
 const maxUpgradeRetries = 3
 
-func (s *UpgradeSuite) setInstantRetryStrategy() {
+func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
+		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
 		return utils.AttemptStrategy{
 			Delay: 0,
 			Min:   maxUpgradeRetries,

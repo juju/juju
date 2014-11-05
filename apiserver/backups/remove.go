@@ -9,10 +9,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-func (b *API) Remove(args params.BackupsRemoveArgs) error {
-	err := b.backups.Remove(args.ID)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+func (a *API) Remove(args params.BackupsRemoveArgs) error {
+	backups, closer := newBackups(a.st)
+	defer closer.Close()
+
+	err := backups.Remove(args.ID)
+	return errors.Trace(err)
 }

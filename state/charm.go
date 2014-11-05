@@ -11,10 +11,13 @@ import (
 
 // charmDoc represents the internal state of a charm in MongoDB.
 type charmDoc struct {
-	URL     *charm.URL `bson:"_id"`
+	DocID   string     `bson:"_id"`
+	URL     *charm.URL `bson:"url"`
+	EnvUUID string     `bson:"env-uuid"`
 	Meta    *charm.Meta
 	Config  *charm.Config
 	Actions *charm.Actions
+	Metrics *charm.Metrics
 
 	// DEPRECATED: BundleURL is deprecated, and exists here
 	// only for migration purposes. We should remove this
@@ -72,6 +75,11 @@ func (c *Charm) Meta() *charm.Meta {
 // Config returns the configuration of the charm.
 func (c *Charm) Config() *charm.Config {
 	return c.doc.Config
+}
+
+// Metrics returns the metrics declared for the charm.
+func (c *Charm) Metrics() *charm.Metrics {
+	return c.doc.Metrics
 }
 
 // Actions returns the actions definition of the charm.

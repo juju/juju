@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -175,7 +176,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	if err := EnsureJujucSymlinks(u.paths.ToolsDir); err != nil {
+	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
@@ -204,7 +205,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 
-	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationContexts)
+	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos, u.getCharm)
 	if err != nil {
 		return err
 	}
@@ -350,12 +351,20 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason operation.Kind) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getRelationContexts() map[int]*context.ContextRelation {
-	ctxRelations := map[int]*context.ContextRelation{}
+func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
+	relationInfos := map[int]*context.RelationInfo{}
 	for id, r := range u.relationers {
-		ctxRelations[id] = r.Context()
+		relationInfos[id] = r.ContextInfo()
 	}
-	return ctxRelations
+	return relationInfos
+}
+
+func (u *Uniter) getCharm() (corecharm.Charm, error) {
+	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -488,7 +497,6 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err != nil {
 		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
 		logger.Errorf("action failed: %s", err.Error())
-		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
@@ -499,7 +507,6 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof(message)
-	u.notifyHookCompleted(actionName, hctx)
 	return u.commitHook(hi)
 }
 

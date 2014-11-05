@@ -80,6 +80,11 @@ type BootstrapParams struct {
 	// AvailableTools is a collection of tools which the Bootstrap method
 	// may use to decide which architecture/series to instantiate.
 	AvailableTools tools.List
+
+	// ContainerBridgeName, if non-empty, overrides the default
+	// network bridge device to use for LXC and KVM containers. See
+	// environs.DefaultBridgeName.
+	ContainerBridgeName string
 }
 
 // BootstrapFinalizer is a function returned from Environ.Bootstrap.
@@ -207,4 +212,8 @@ type BootstrapContext interface {
 	// StopInterruptNotify returns, no more signals will be
 	// delivered to the channel.
 	StopInterruptNotify(chan<- os.Signal)
+
+	// ShouldVerifyCredentials indicates whether the caller's cloud
+	// credentials should be verified.
+	ShouldVerifyCredentials() bool
 }

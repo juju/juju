@@ -3,6 +3,11 @@
 
 package backups
 
+const (
+	NotSet          = notset
+	DownloadWarning = downloadWarning
+)
+
 var (
 	NewAPIClient = &newAPIClient
 )

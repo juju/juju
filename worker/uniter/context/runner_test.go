@@ -4,9 +4,6 @@
 package context_test
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,36 +11,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
 )
-
-type RealPaths struct {
-	tools  string
-	charm  string
-	socket string
-}
-
-func NewRealPaths(c *gc.C) RealPaths {
-	return RealPaths{
-		tools:  c.MkDir(),
-		charm:  c.MkDir(),
-		socket: filepath.Join(c.MkDir(), "jujuc.socket"),
-	}
-}
-
-func (p RealPaths) GetToolsDir() string {
-	return p.tools
-}
-
-func (p RealPaths) GetCharmDir() string {
-	return p.charm
-}
-
-func (p RealPaths) GetJujucSocket() string {
-	return p.socket
-}
 
 type RunCommandSuite struct {
 	HookContextSuite
@@ -51,14 +21,14 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C, addMetrics bool) *context.HookContext {
+func (s *RunCommandSuite) getHookContext(c *gc.C) *context.HookContext {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies, addMetrics)
+	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
 }
 
 func (s *RunCommandSuite) TestRunCommandsEnvStdOutAndErrAndRC(c *gc.C) {
-	ctx := s.getHookContext(c, false)
+	ctx := s.getHookContext(c)
 	paths := NewRealPaths(c)
 	runner := context.NewRunner(ctx, paths)
 
@@ -80,56 +50,6 @@ type RunHookSuite struct {
 }
 
 var _ = gc.Suite(&RunHookSuite{})
-
-type hookSpec struct {
-	// name is the name of the hook.
-	name string
-	// perm is the file permissions of the hook.
-	perm os.FileMode
-	// code is the exit status of the hook.
-	code int
-	// stdout holds a string to print to stdout
-	stdout string
-	// stderr holds a string to print to stderr
-	stderr string
-	// background holds a string to print in the background after 0.2s.
-	background string
-}
-
-// makeCharm constructs a fake charm dir containing a single named hook
-// with permissions perm and exit code code.  If output is non-empty,
-// the charm will write it to stdout and stderr, with each one prefixed
-// by name of the stream.
-func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
-	hooksDir := filepath.Join(charmDir, "hooks")
-	err := os.Mkdir(hooksDir, 0755)
-	c.Assert(err, gc.IsNil)
-	c.Logf("openfile perm %v", spec.perm)
-	hook, err := os.OpenFile(filepath.Join(hooksDir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm)
-	c.Assert(err, gc.IsNil)
-	defer hook.Close()
-
-	printf := func(f string, a ...interface{}) {
-		_, err := fmt.Fprintf(hook, f+"\n", a...)
-		c.Assert(err, gc.IsNil)
-	}
-	printf("#!/bin/bash")
-	if spec.stdout != "" {
-		printf("echo %s", spec.stdout)
-	}
-	if spec.stderr != "" {
-		printf("echo %s >&2", spec.stderr)
-	}
-	if spec.background != "" {
-		// Print something fairly quickly, then sleep for
-		// quite a long time - if the hook execution is
-		// blocking because of the background process,
-		// the hook execution will take much longer than
-		// expected.
-		printf("(sleep 0.2; echo %s; sleep 10) &", spec.background)
-	}
-	printf("exit %d", spec.code)
-}
 
 // LineBufferSize matches the constant used when creating
 // the bufio line reader.
@@ -189,7 +109,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, noProxies, false)
+		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, noProxies)
 		paths := NewRealPaths(c)
 		runner := context.NewRunner(ctx, paths)
 		var hookExists bool
@@ -215,7 +135,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	}
 }
 
-func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
+func (s *RunHookSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	// TODO(fwereade): these should be testing a public Flush() method on
 	// the context, or something, instead of faking up an unnecessary hook
 	// execution.
@@ -223,7 +143,7 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "something-happened",
@@ -232,22 +152,20 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	}, paths.charm)
 
 	// Mess with multiple relation settings.
-	node0, err := s.relctxs[0].Settings()
+	relCtx0, ok := ctx.Relation(0)
+	c.Assert(ok, jc.IsTrue)
+	node0, err := relCtx0.Settings()
+	c.Assert(err, gc.IsNil)
 	node0.Set("foo", "1")
-	node1, err := s.relctxs[1].Settings()
+	relCtx1, ok := ctx.Relation(1)
+	c.Assert(ok, jc.IsTrue)
+	node1, err := relCtx1.Settings()
+	c.Assert(err, gc.IsNil)
 	node1.Set("bar", "2")
 
 	// Run the failing hook.
 	err = context.NewRunner(ctx, paths).RunHook("something-happened")
 	c.Assert(err, gc.ErrorMatches, "exit status 123")
-
-	// Check that the changes to the local settings nodes have been discarded.
-	node0, err = s.relctxs[0].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, params.RelationSettings{"relation-name": "db0"})
-	node1, err = s.relctxs[1].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, params.RelationSettings{"relation-name": "db1"})
 
 	// Check that the changes have not been written to state.
 	settings0, err := s.relunits[0].ReadSettings("u/0")
@@ -256,42 +174,47 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	settings1, err := s.relunits[1].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{"relation-name": "db1"})
+}
+
+func (s *RunHookSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
+	// TODO(fwereade): these should be testing a public Flush() method on
+	// the context, or something, instead of faking up an unnecessary hook
+	// execution.
 
 	// Create a charm with a working hook, and mess with settings again.
-	paths = NewRealPaths(c)
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
 	}, paths.charm)
+
+	// Mess with multiple relation settings.
+	relCtx0, ok := ctx.Relation(0)
+	c.Assert(ok, jc.IsTrue)
+	node0, err := relCtx0.Settings()
+	c.Assert(err, gc.IsNil)
 	node0.Set("baz", "3")
+	relCtx1, ok := ctx.Relation(1)
+	c.Assert(ok, jc.IsTrue)
+	node1, err := relCtx1.Settings()
+	c.Assert(err, gc.IsNil)
 	node1.Set("qux", "4")
 
 	// Run the hook.
 	err = context.NewRunner(ctx, paths).RunHook("something-happened")
 	c.Assert(err, gc.IsNil)
 
-	// Check that the changes to the local settings nodes are still there.
-	node0, err = s.relctxs[0].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node0.Map(), gc.DeepEquals, params.RelationSettings{
-		"relation-name": "db0",
-		"baz":           "3",
-	})
-	node1, err = s.relctxs[1].Settings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(node1.Map(), gc.DeepEquals, params.RelationSettings{
-		"relation-name": "db1",
-		"qux":           "4",
-	})
-
 	// Check that the changes have been written to state.
-	settings0, err = s.relunits[0].ReadSettings("u/0")
+	settings0, err := s.relunits[0].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings0, gc.DeepEquals, map[string]interface{}{
 		"relation-name": "db0",
 		"baz":           "3",
 	})
-	settings1, err = s.relunits[1].ReadSettings("u/0")
+	settings1, err := s.relunits[1].ReadSettings("u/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings1, gc.DeepEquals, map[string]interface{}{
 		"relation-name": "db1",
@@ -305,7 +228,7 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	// execution.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, true)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "collect-metrics",
@@ -313,7 +236,7 @@ func (s *RunHookSuite) TestRunHookMetricSending(c *gc.C) {
 	}, paths.charm)
 
 	now := time.Now()
-	ctx.AddMetrics("key", "50", now)
+	ctx.AddMetric("key", "50", now)
 
 	// Run the hook.
 	err = context.NewRunner(ctx, paths).RunHook("collect-metrics")
@@ -334,7 +257,7 @@ func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
 	// execution.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, false, s.metricsDefinition("key"))
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "some-hook",
@@ -342,7 +265,33 @@ func (s *RunHookSuite) TestRunHookMetricSendingDisabled(c *gc.C) {
 	}, paths.charm)
 
 	now := time.Now()
-	err = ctx.AddMetrics("key", "50", now)
+	err = ctx.AddMetric("key", "50", now)
+	c.Assert(err, gc.ErrorMatches, "metrics disabled")
+
+	// Run the hook.
+	err = context.NewRunner(ctx, paths).RunHook("some-hook")
+	c.Assert(err, gc.IsNil)
+
+	metricBatches, err := s.State.MetricBatches()
+	c.Assert(err, gc.IsNil)
+	c.Assert(metricBatches, gc.HasLen, 0)
+}
+
+func (s *RunHookSuite) TestRunHookMetricSendingUndeclared(c *gc.C) {
+	// TODO(fwereade): these should be testing a public Flush() method on
+	// the context, or something, instead of faking up an unnecessary hook
+	// execution.
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, nil)
+	paths := NewRealPaths(c)
+	makeCharm(c, hookSpec{
+		name: "some-hook",
+		perm: 0700,
+	}, paths.charm)
+
+	now := time.Now()
+	err = ctx.AddMetric("key", "50", now)
 	c.Assert(err, gc.ErrorMatches, "metrics disabled")
 
 	// Run the hook.
@@ -387,7 +336,7 @@ func (s *RunHookSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	// Get the context.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies, false)
+	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	paths := NewRealPaths(c)
 	makeCharm(c, hookSpec{
 		name: "some-hook",

@@ -154,6 +154,19 @@ func (manager *containerManager) CreateContainer(
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
+func (manager *containerManager) IsInitialized() bool {
+	requiredBinaries := []string{
+		"virsh",
+		"uvt-kvm",
+	}
+	for _, bin := range requiredBinaries {
+		if _, err := exec.LookPath(bin); err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	name := string(id)
 	kvmContainer := KvmObjectFactory.New(name)

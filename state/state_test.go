@@ -20,7 +20,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -82,11 +82,11 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TestDocID(c *gc.C) {
 	id := "wordpress"
 	docID := state.DocID(s.State, id)
-	c.Assert(docID, gc.Equals, s.State.EnvironTag().Id()+":"+id)
+	c.Assert(docID, gc.Equals, s.State.EnvironUUID()+":"+id)
 }
 
 func (s *StateSuite) TestLocalID(c *gc.C) {
-	id := s.State.EnvironTag().Id() + ":wordpress"
+	id := s.State.EnvironUUID() + ":wordpress"
 	localID := state.LocalID(s.State, id)
 	c.Assert(localID, gc.Equals, "wordpress")
 }
@@ -96,6 +96,25 @@ func (s *StateSuite) TestIDHelpersAreReversible(c *gc.C) {
 	docID := state.DocID(s.State, id)
 	localID := state.LocalID(s.State, docID)
 	c.Assert(localID, gc.Equals, id)
+}
+
+func (s *StateSuite) TestStrictLocalID(c *gc.C) {
+	id := state.DocID(s.State, "wordpress")
+	localID, err := state.StrictLocalID(s.State, id)
+	c.Assert(localID, gc.Equals, "wordpress")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *StateSuite) TestStrictLocalIDWithWrongPrefix(c *gc.C) {
+	localID, err := state.StrictLocalID(s.State, "foo:wordpress")
+	c.Assert(localID, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `unexpected id: "foo:wordpress"`)
+}
+
+func (s *StateSuite) TestStrictLocalIDWithNoPrefix(c *gc.C) {
+	localID, err := state.StrictLocalID(s.State, "wordpress")
+	c.Assert(localID, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `unexpected id: "wordpress"`)
 }
 
 func (s *StateSuite) TestDialAgain(c *gc.C) {
@@ -113,6 +132,10 @@ func (s *StateSuite) TestOpenSetsEnvironmentTag(c *gc.C) {
 	defer st.Close()
 
 	c.Assert(st.EnvironTag(), gc.Equals, s.envTag)
+}
+
+func (s *StateSuite) TestEnvironUUID(c *gc.C) {
+	c.Assert(s.State.EnvironUUID(), gc.Equals, s.envTag.Id())
 }
 
 func (s *StateSuite) TestMongoSession(c *gc.C) {
@@ -192,7 +215,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 }
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, storagePath, bundleSHA256 string) {
-	ch = charmtesting.Charms.CharmDir("dummy")
+	ch = testcharms.Repo.CharmDir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
 	} else {
@@ -213,7 +236,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(dummy.URL().String(), gc.Equals, curl.String())
 
 	doc := state.CharmDoc{}
-	err = s.charms.FindId(curl).One(&doc)
+	err = s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, gc.IsNil)
 	c.Logf("%#v", doc)
 	c.Assert(doc.URL, gc.DeepEquals, curl)
@@ -222,7 +245,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
@@ -238,7 +261,7 @@ func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 
 	// Charm doc has been updated.
 	var docs []state.CharmDoc
-	err = s.charms.FindId(curl).All(&docs)
+	err = s.charms.FindId(state.DocID(s.State, curl.String())).All(&docs)
 	c.Assert(err, gc.IsNil)
 	c.Assert(docs, gc.HasLen, 1)
 	c.Assert(docs[0].URL, gc.DeepEquals, curl)
@@ -253,7 +276,7 @@ func (s *StateSuite) assertPendingCharmExists(c *gc.C, curl *charm.URL) {
 	// Find charm directly and verify only the charm URL and
 	// PendingUpload are set.
 	doc := state.CharmDoc{}
-	err := s.charms.FindId(curl).One(&doc)
+	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, gc.IsNil)
 	c.Logf("%#v", doc)
 	c.Assert(doc.URL, gc.DeepEquals, curl)
@@ -283,7 +306,6 @@ func (s *StateSuite) TestPrepareLocalCharmUpload(c *gc.C) {
 	curl, err = s.State.PrepareLocalCharmUpload(testCurl)
 	c.Assert(err, gc.IsNil)
 	c.Assert(curl, gc.DeepEquals, testCurl)
-
 	s.assertPendingCharmExists(c, curl)
 
 	// Try adding it again with the same revision and ensure it gets bumped.
@@ -343,7 +365,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 		After: func() {
-			err := s.charms.RemoveId(curl)
+			err := s.charms.RemoveId(state.DocID(s.State, curl.String()))
 			c.Assert(err, gc.IsNil)
 		},
 	}
@@ -353,7 +375,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 		After: func() {
-			err := s.charms.UpdateId(curl, bson.D{{"$set", bson.D{
+			err := s.charms.UpdateId(state.DocID(s.State, curl.String()), bson.D{{"$set", bson.D{
 				{"bundlesha256", "fake"}},
 			}})
 			c.Assert(err, gc.IsNil)
@@ -412,7 +434,7 @@ options:
   ...: {description: oh boy, type: int}
   just$: {description: no no, type: float}
 `[1:])
-	chDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	chDir := testcharms.Repo.ClonedDirPath(c.MkDir(), "dummy")
 	err := utils.AtomicWriteFile(
 		filepath.Join(chDir, "config.yaml"),
 		configWithProblematicKeys,
@@ -442,7 +464,7 @@ func (s *StateSuite) assertPlaceholderCharmExists(c *gc.C, curl *charm.URL) {
 	// Find charm directly and verify only the charm URL and
 	// Placeholder are set.
 	doc := state.CharmDoc{}
-	err := s.charms.FindId(curl).One(&doc)
+	err := s.charms.FindId(state.DocID(s.State, curl.String())).One(&doc)
 	c.Assert(err, gc.IsNil)
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 	c.Assert(doc.PendingUpload, jc.IsFalse)
@@ -486,7 +508,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -667,9 +689,6 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 	mhc, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(*mhc, gc.DeepEquals, hc)
-	// Clear the deprecated machineDoc InstanceId attribute and do it again.
-	// still works as expected with the new data model.
-	state.SetMachineInstanceId(m, "")
 	instId, err = m.InstanceId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(instId), gc.Equals, "inst-id")

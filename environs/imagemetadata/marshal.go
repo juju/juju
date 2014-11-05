@@ -44,12 +44,12 @@ func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec []simple
 	}
 	var indices simplestreams.Indices
 	indices.Updated = updated.Format(time.RFC1123Z)
-	indices.Format = "index:1.0"
+	indices.Format = simplestreams.IndexFormat
 	indices.Indexes = map[string]*simplestreams.IndexMetadata{
 		ImageContentId: &simplestreams.IndexMetadata{
 			CloudName:        "custom",
 			Updated:          indices.Updated,
-			Format:           "products:1.0",
+			Format:           simplestreams.ProductFormat,
 			DataType:         "image-ids",
 			ProductsFilePath: ProductMetadataPath,
 			ProductIds:       set.NewStrings(productIds...).SortedValues(),
@@ -65,7 +65,7 @@ func MarshalImageMetadataIndexJSON(metadata []*ImageMetadata, cloudSpec []simple
 func MarshalImageMetadataProductsJSON(metadata []*ImageMetadata, updated time.Time) (out []byte, err error) {
 	var cloud simplestreams.CloudMetadata
 	cloud.Updated = updated.Format(time.RFC1123Z)
-	cloud.Format = "products:1.0"
+	cloud.Format = simplestreams.ProductFormat
 	cloud.ContentId = ImageContentId
 	cloud.Products = make(map[string]simplestreams.MetadataCatalog)
 	itemsversion := updated.Format("20060201") // YYYYMMDD
