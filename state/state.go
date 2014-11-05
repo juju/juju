@@ -133,10 +133,6 @@ type StateServingInfo struct {
 	IdentityProvider *IdentityProvider `bson:"identity-provider"`
 }
 
-// IdentityProviderKeySize defines the public key byte length for trusted
-// identity providers.
-const IdentityProviderKeySize = 32
-
 // IdentityProvider holds information about a remote identity provider
 // that the Juju server trusts to make inbound API connections.
 type IdentityProvider struct {

@@ -64,7 +64,7 @@ func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.Identit
 	if err != nil {
 		return nil, err
 	}
-	if len(pkBytes) != state.IdentityProviderKeySize {
+	if len(pkBytes) != bakery.KeyLen {
 		return nil, fmt.Errorf("invalid public key length")
 	}
 
