@@ -989,9 +989,9 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 			if ec2Err.Code == "InvalidParameterValue" {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
-				return common.ErrIPAddressUnvailable
+				return environs.ErrIPAddressUnvailable
 			} else if ec2Err.Code == "PrivateIpAddressLimitExceeded" {
-				return common.ErrIPAddressesExhausted
+				return environs.ErrIPAddressesExhausted
 			}
 		}
 
@@ -1000,7 +1000,6 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 		return errors.Trace(err)
 	}
 	return nil
-	return AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
 }
 
 // ListNetworks returns basic information about all networks known

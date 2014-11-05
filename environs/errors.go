@@ -12,4 +12,9 @@ var (
 	ErrAlreadyBootstrapped = errors.New("environment is already bootstrapped")
 	ErrNoInstances         = errors.New("no instances found")
 	ErrPartialInstances    = errors.New("only some instances were found")
+
+	// Errors indicating that the provider can't allocate an IP address to an
+	// instance.
+	ErrIPAddressesExhausted = errors.New("can't allocate a new IP address")
+	ErrIPAddressUnvailable  = errors.New("the requested IP address is unavailable")
 )
