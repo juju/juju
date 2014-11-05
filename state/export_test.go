@@ -27,6 +27,8 @@ import (
 const BackupsMetaC = backupsMetaC
 
 var (
+	NewMongoConnInfo = newMongoConnInfo
+
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )

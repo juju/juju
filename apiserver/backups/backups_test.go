@@ -28,7 +28,7 @@ type fakeBackups struct {
 	err     error
 }
 
-func (i *fakeBackups) Create(files.Paths, db.ConnInfo, metadata.Origin, string) (*metadata.Metadata, error) {
+func (i *fakeBackups) Create(files.Paths, db.Info, metadata.Origin, string) (*metadata.Metadata, error) {
 	if i.err != nil {
 		return nil, errors.Trace(i.err)
 	}

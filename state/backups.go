@@ -14,11 +14,14 @@ import (
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils/filestorage"
+	"github.com/juju/utils/set"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
+	backupsdb "github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
@@ -59,6 +62,9 @@ through functions that take State, rather than as methods on State.
 Furthermore, the bulk of the backup-related code, which does not need
 direct interaction with State, lives in the state/backups package.
 */
+
+//---------------------------
+// Backup metadata document
 
 // backupMetaDoc is a mirror of metadata.Metadata, used just for DB storage.
 type backupMetaDoc struct {
@@ -391,26 +397,6 @@ func setBackupStored(dbWrap *backupDBWrapper, id string, stored time.Time) error
 //---------------------------
 // metadata storage
 
-// NewBackupsOrigin returns a snapshot of where backup was run.  That
-// snapshot is a new backup Origin value, for use in a backup's
-// metadata.  Every value except for the machine name is populated
-// either from juju state or some other implicit mechanism.
-func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
-	// hostname could be derived from the environment...
-	hostname, err := os.Hostname()
-	if err != nil {
-		// If os.Hostname() is not working, something is woefully wrong.
-		// Run for the hills.
-		panic(fmt.Sprintf("could not get hostname (system unstable?): %v", err))
-	}
-	origin := metadata.NewOrigin(
-		st.EnvironUUID(),
-		machine,
-		hostname,
-	)
-	return origin
-}
-
 type backupsDocStorage struct {
 	dbWrap *backupDBWrapper
 }
@@ -519,7 +505,7 @@ type backupBlobStorage struct {
 func newBackupFileStorage(dbWrap *backupDBWrapper, root string) filestorage.RawFileStorage {
 	dbWrap = dbWrap.Copy()
 
-	managed := dbWrap.blobStorage(blobstoreDB)
+	managed := dbWrap.blobStorage(dbWrap.db.Name)
 	stor := backupBlobStorage{
 		dbWrap:    dbWrap,
 		envUUID:   dbWrap.envUUID,
@@ -559,13 +545,13 @@ func (s *backupBlobStorage) Close() error {
 //---------------------------
 // backup storage
 
-const backupDB = "juju"
+const backupDB = "backups"
 
 // NewBackupStorage returns a new FileStorage to use for storing backup
 // archives (and metadata).
 func NewBackupStorage(st *State) filestorage.FileStorage {
 	envUUID := st.EnvironTag().Id()
-	db := st.db
+	db := st.MongoSession().DB(backupDB)
 	dbWrap := newBackupDBWrapper(db, backupsMetaC, envUUID)
 	defer dbWrap.Close()
 
@@ -580,4 +566,74 @@ func NewBackups(st *State) (backups.Backups, io.Closer) {
 
 	backups := backups.NewBackups(stor)
 	return backups, stor
+}
+
+//---------------------------
+// utilities
+
+// ignoredDatabases is the list of databases that should not be
+// backed up.
+var ignoredDatabases = set.NewStrings(
+	"backups",
+	"presence",
+)
+
+// NewDBBackupInfo returns the information needed by backups to dump
+// the database.
+func NewDBBackupInfo(st *State) (*backupsdb.Info, error) {
+	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
+	targets, err := getBackupTargetDatabases(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	info := backupsdb.Info{
+		ConnInfo: *connInfo,
+		Targets:  targets,
+	}
+	return &info, nil
+}
+
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
+	info := backupsdb.ConnInfo{
+		Address:  mgoInfo.Addrs[0],
+		Password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		info.Username = mgoInfo.Tag.String()
+	}
+
+	return &info
+}
+
+func getBackupTargetDatabases(st *State) (*set.Strings, error) {
+	dbNames, err := st.MongoSession().DatabaseNames()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get DB names")
+	}
+
+	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
+	return &targets, nil
+}
+
+// NewBackupOrigin returns a snapshot of where backup was run.  That
+// snapshot is a new backup Origin value, for use in a backup's
+// metadata.  Every value except for the machine name is populated
+// either from juju state or some other implicit mechanism.
+func NewBackupOrigin(st *State, machine string) (*metadata.Origin, error) {
+	// hostname could be derived from the environment...
+	hostname, err := os.Hostname()
+	if err != nil {
+		// If os.Hostname() is not working, something is woefully wrong.
+		// Run for the hills.
+		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
+	}
+	origin := metadata.NewOrigin(
+		st.EnvironTag().Id(),
+		machine,
+		hostname,
+	)
+	return origin, nil
 }
