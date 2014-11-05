@@ -202,6 +202,7 @@ func newState(session *mgo.Session, mongoInfo *mongo.MongoInfo, policy Policy) (
 		policy:    policy,
 		db:        db,
 	}
+	st.LeasePersistor = NewLeasePersistor(leaseC, st.runTransaction, st.getCollection)
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
