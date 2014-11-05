@@ -615,11 +615,7 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetrya
 
 	m, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
-	instance := s.checkStartInstance(c, m)
-
-	c.Assert(m.EnsureDead(), gc.IsNil)
-	s.checkStopInstances(c, instance)
-	s.waitRemoved(c, m)
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
@@ -641,11 +637,7 @@ func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappe
 
 	m, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
-	instance := s.checkStartInstance(c, m)
-
-	c.Assert(m.EnsureDead(), gc.IsNil)
-	s.checkStopInstances(c, instance)
-	s.waitRemoved(c, m)
+	s.checkStartInstance(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {

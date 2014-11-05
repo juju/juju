@@ -80,13 +80,8 @@ func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
 
 // IsRetryableCreationError returns true if the given error is
 // RetryableCreationError
-func IsRetryableCreationError(e interface{}) bool {
-	value, ok := e.(error)
-	if !ok {
-		return false
-	}
-
-	_, ok = value.(*RetryableCreationError)
+func IsRetryableCreationError(err error) bool {
+	_, ok := err.(*RetryableCreationError)
 	return ok
 }
 
