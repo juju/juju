@@ -22,21 +22,10 @@ type Workspace struct {
 	Archive
 }
 
-// NewWorkspace returns a new workspace with the compressed archive
-// file unpacked into the workspace dir.
-func NewWorkspace(archiveFile io.Reader) (*Workspace, error) {
+func newWorkspace() (*Workspace, error) {
 	dirName, err := ioutil.TempDir("", "juju-backups-")
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating workspace dir")
-	}
-
-	// Unpack the archive.
-	tarFile, err := gzip.NewReader(archiveFile)
-	if err != nil {
-		return nil, errors.Annotate(err, "while uncompressing archive file")
-	}
-	if err := tar.UntarFiles(tarFile, dirName); err != nil {
-		return nil, errors.Annotate(err, "while extracting files from archive")
 	}
 
 	// Populate the workspace info.
@@ -46,6 +35,26 @@ func NewWorkspace(archiveFile io.Reader) (*Workspace, error) {
 		},
 	}
 	return &ws, nil
+}
+
+// NewWorkspace returns a new workspace with the compressed archive
+// file unpacked into the workspace dir.
+func NewWorkspace(archiveFile io.Reader) (*Workspace, error) {
+	ws, err := newWorkspace()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Unpack the archive.
+	tarFile, err := gzip.NewReader(archiveFile)
+	if err != nil {
+		return ws, errors.Annotate(err, "while uncompressing archive file")
+	}
+	if err := tar.UntarFiles(tarFile, dirName); err != nil {
+		return ws, errors.Annotate(err, "while extracting files from archive")
+	}
+
+	return ws, nil
 }
 
 // Close cleans up the workspace dir.
