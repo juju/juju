@@ -42,7 +42,7 @@ var isLocalEnviron = func(envConfig *config.Config) bool {
 	return envConfig.Type() == "local"
 }
 
-func migrateLocalProviderAgentConfig(context Context) error {
+func migrateLocalProviderAgentConfig(context StateContext) error {
 	st := context.State()
 	if st == nil {
 		logger.Debugf("no state connection, no migration required")

@@ -3,7 +3,7 @@
 
 package upgrades
 
-func processDeprecatedEnvSettings(context Context) error {
+func processDeprecatedEnvSettings(context StateContext) error {
 	st := context.State()
 	removeAttrs := []string{
 		"public-bucket",

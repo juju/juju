@@ -3,7 +3,28 @@
 
 package upgrades
 
-// stepsFor118 returns upgrade steps to upgrade to a Juju 1.18 deployment.
+// stateStepsFor118 returns upgrade steps that manipulate state directly for Juju 1.18.
+func stateStepsFor118() []StateStep {
+	return []StateStep{
+		&stateUpgradeStep{
+			description: "update rsyslog port",
+			targets:     []Target{StateServer},
+			run:         updateRsyslogPort,
+		},
+		&stateUpgradeStep{
+			description: "remove deprecated environment config settings",
+			targets:     []Target{StateServer},
+			run:         processDeprecatedEnvSettings,
+		},
+		&stateUpgradeStep{
+			description: "migrate local provider agent config",
+			targets:     []Target{StateServer},
+			run:         migrateLocalProviderAgentConfig,
+		},
+	}
+}
+
+// stepsFor118 returns upgrade steps for Juju 1.18.
 func stepsFor118() []Step {
 	return []Step{
 		&upgradeStep{
@@ -17,24 +38,9 @@ func stepsFor118() []Step {
 			run:         ensureSystemSSHKey,
 		},
 		&upgradeStep{
-			description: "update rsyslog port",
-			targets:     []Target{StateServer},
-			run:         updateRsyslogPort,
-		},
-		&upgradeStep{
 			description: "install rsyslog-gnutls",
 			targets:     []Target{AllMachines},
 			run:         installRsyslogGnutls,
-		},
-		&upgradeStep{
-			description: "remove deprecated environment config settings",
-			targets:     []Target{StateServer},
-			run:         processDeprecatedEnvSettings,
-		},
-		&upgradeStep{
-			description: "migrate local provider agent config",
-			targets:     []Target{StateServer},
-			run:         migrateLocalProviderAgentConfig,
 		},
 		&upgradeStep{
 			description: "make /home/ubuntu/.profile source .juju-proxy file",

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-func updateRsyslogPort(context Context) error {
+func updateRsyslogPort(context StateContext) error {
 	agentConfig := context.AgentConfig()
 	info, ok := agentConfig.MongoInfo()
 	if !ok {

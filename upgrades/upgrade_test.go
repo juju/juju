@@ -30,10 +30,11 @@ func TestPackage(t *stdtesting.T) {
 // assertSteps is a helper that ensures that the given upgrade steps
 // match what is expected for that version and that the steps have
 // been added to the global upgrade operations list.
-func assertSteps(c *gc.C, ver version.Number, expected []string) {
+func assertSteps(c *gc.C, ver version.Number, expectedStateSteps, expectedSteps []string) {
 	for _, op := range (*upgrades.UpgradeOperations)() {
 		if op.TargetVersion() == ver {
-			assertExpectedSteps(c, op.Steps(), expected)
+			assertExpectedSteps(c, upgrades.GetStateSteps(op), expectedStateSteps)
+			assertExpectedSteps(c, upgrades.GetSteps(op), expectedSteps)
 			return
 		}
 	}
@@ -42,7 +43,7 @@ func assertSteps(c *gc.C, ver version.Number, expected []string) {
 
 // assertExpectedSteps is a helper function used to check that the upgrade steps match
 // what is expected for a version.
-func assertExpectedSteps(c *gc.C, steps []upgrades.Step, expectedSteps []string) {
+func assertExpectedSteps(c *gc.C, steps []upgrades.GenericStep, expectedSteps []string) {
 	c.Assert(steps, gc.HasLen, len(expectedSteps))
 
 	var stepNames = make([]string, len(steps))

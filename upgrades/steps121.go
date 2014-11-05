@@ -7,123 +7,123 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// stepsFor121 returns upgrade steps to upgrade to a Juju 1.21 deployment.
-func stepsFor121() []Step {
-	return []Step{
-		&upgradeStep{
+// stateStepsFor121 returns upgrades steps that manipulate State directly for Juju 1.21.
+func stateStepsFor121() []StateStep {
+	return []StateStep{
+		&stateUpgradeStep{
 			description: "add environment uuid to state server doc",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvironmentUUIDToStateServerDoc(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "set environment owner and server uuid",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.SetOwnerAndServerUUIDForEnvironment(context.State())
 			},
 		},
 
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "migrate machine instanceId into instanceData",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.MigrateMachineInstanceIdToInstanceData(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all machine docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToMachines(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all instanceData docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToInstanceData(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all containerRef docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToContainerRefs(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all service docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToServices(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all unit docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToUnits(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all reboot docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToReboots(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all relations docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToRelations(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all relationscopes docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToRelationScopes(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all charm docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToCharms(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all minUnit docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToMinUnits(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all cleanup docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToCleanups(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all sequence docs",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddEnvUUIDToSequences(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all settings docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddEnvUUIDToSettings(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "prepend the environment UUID to the ID of all settingsRefs docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -131,57 +131,66 @@ func stepsFor121() []Step {
 			},
 		},
 
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "rename the user LastConnection field to LastLogin",
 			targets:     []Target{DatabaseMaster},
-			run:         migrateLastConnectionToLastLogin,
+			run: func(context StateContext) error {
+				return state.MigrateUserLastConnectionToLastLogin(context.State())
+			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "add all users in state as environment users",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.AddStateUsersAsEnvironUsers(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "migrate charm archives into environment storage",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return migrateCharmStorage(context.State(), context.AgentConfig())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "migrate custom image metadata into environment storage",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return migrateCustomImageMetadata(context.State(), context.AgentConfig())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "migrate tools into environment storage",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return migrateToolsStorage(context.State(), context.AgentConfig())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "migrate individual unit ports to openedPorts collection",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.MigrateUnitPortsToOpenedPorts(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "create entries in meter status collection for existing units",
 			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
+			run: func(context StateContext) error {
 				return state.CreateUnitMeterStatus(context.State())
 			},
 		},
-		&upgradeStep{
+		&stateUpgradeStep{
 			description: "migrate machine jobs into ones with JobManageNetworking based on rules",
 			targets:     []Target{DatabaseMaster},
-			run:         migrateJobManageNetworking,
+			run: func(context StateContext) error {
+				return state.MigrateJobManageNetworking(context.State())
+			},
 		},
 	}
+}
+
+// stepsFor121 returns upgrade steps for Juju 1.21.
+func stepsFor121() []Step {
+	return nil
 }
