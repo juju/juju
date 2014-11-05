@@ -5,7 +5,7 @@ package common
 
 import "errors"
 
-// An error indicating that the provider can't allocate another IP address to
-// an instance.
+// Errors indicating that the provider can't allocate an IP address to an
+// instance.
 var ErrIPAddressesExhausted = errors.New("can't allocate a new IP address")
 var ErrIPAddressUnvailable = errors.New("the requested IP address is unavailable")
