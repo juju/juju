@@ -2372,8 +2372,6 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
 
-	// blobs.Lock()
-
 	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
@@ -2445,17 +2443,17 @@ type blobs struct {
 // Add adds a path to the list of known paths.
 func (b *blobs) Add(path string) {
 	b.Lock()
+	defer b.Unlock()
 	b.check()
 	b.m[path] = true
-	b.Unlock()
 }
 
 // Remove marks a path as deleted, even if it was not previously Added.
 func (b *blobs) Remove(path string) {
 	b.Lock()
+	defer b.Unlock()
 	b.check()
 	b.m[path] = false
-	b.Unlock()
 }
 
 func (b *blobs) check() {
