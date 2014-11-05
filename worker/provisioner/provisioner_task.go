@@ -570,10 +570,11 @@ func (task *provisionerTask) startMachine(
 	if err != nil {
 		// If this is a retryable error, we retry once
 		if instance.IsRetryableCreationError(err) {
+			logger.Infof("retryable error received on start instance - retrying instance creation.")
 			var derr error
 			inst, metadata, networkInfo, derr = task.broker.StartInstance(startInstanceParams)
 			if derr != nil {
-				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, err)
+				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, derr)
 			}
 		} else {
 			// Set the state to error, so the machine will be skipped next

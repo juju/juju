@@ -59,7 +59,7 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.dummy")
 
-var transientErrorInjection chan string
+var transientErrorInjection chan error
 
 const (
 	BootstrapInstanceId = instance.Id("localhost")
@@ -96,7 +96,7 @@ func SampleConfig() testing.Attrs {
 // The injected errors will use the string received on the channel
 // and the instance's state will eventually go to error, while the
 // received string will appear in the info field of the machine's status
-func PatchTransientErrorInjectionChannel(c chan string) func() {
+func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
@@ -826,8 +826,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 	// check if an error has been injected on the transientErrorInjection channel (testing purposes)
 	select {
-	case errorMessage := <-transientErrorInjection:
-		return nil, nil, nil, instance.NewRetryableCreationError(errorMessage)
+	case injectedError := <-transientErrorInjection:
+		return nil, nil, nil, injectedError
 	default:
 	}
 
