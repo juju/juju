@@ -25,12 +25,12 @@ var logger = loggo.GetLogger("juju.container.lxc.mock")
 
 type Action int
 
-var transientErrorInjection chan interface{}
+var transientErrorInjection chan error
 
 // PatchTransientErrorInjectionChannel sets the transientInjectionError
 // channel which can be used to inject errors into Start function for
 // testing purposes
-func PatchTransientErrorInjectionChannel(c chan interface{}) func() {
+func PatchTransientErrorInjectionChannel(c chan error) func() {
 	return testing.PatchValue(&transientErrorInjection, c)
 }
 
@@ -143,8 +143,8 @@ func (mock *mockContainer) Create(configFile, template string, extraArgs []strin
 // Start runs the container as a daemon.
 func (mock *mockContainer) Start(configFile, consoleFile string) error {
 	select {
-	case <-transientErrorInjection:
-		return fmt.Errorf("container start failed due to error injection")
+	case injectedError := <-transientErrorInjection:
+		return injectedError
 	default:
 	}
 
@@ -218,8 +218,8 @@ func (mock *mockContainer) Unfreeze() error {
 // Destroy stops and removes the container.
 func (mock *mockContainer) Destroy() error {
 	select {
-	case <-transientErrorInjection:
-		return fmt.Errorf("container start failed due to error injection")
+	case injectedError := <-transientErrorInjection:
+		return injectedError
 	default:
 	}
 

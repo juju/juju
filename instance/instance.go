@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/errors"
-
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 )
@@ -83,13 +81,12 @@ func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
 // IsRetryableCreationError returns true if the given error is
 // RetryableCreationError
 func IsRetryableCreationError(e interface{}) bool {
-	value := e
-	// In case of a wrapped error, check the cause first.
-	cause := errors.Cause(e.(error))
-	if cause != nil {
-		value = cause
+	value, ok := e.(error)
+	if !ok {
+		return false
 	}
-	_, ok := value.(*RetryableCreationError)
+
+	_, ok = value.(*RetryableCreationError)
 	return ok
 }
 
