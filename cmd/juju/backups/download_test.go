@@ -4,10 +4,6 @@
 package backups_test
 
 import (
-	"bytes"
-	"io/ioutil"
-	"os"
-
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
@@ -19,7 +15,6 @@ import (
 type downloadSuite struct {
 	BaseBackupsSuite
 	subcommand *backups.DownloadCommand
-	data       string
 }
 
 var _ = gc.Suite(&downloadSuite{})
@@ -27,15 +22,18 @@ var _ = gc.Suite(&downloadSuite{})
 func (s *downloadSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.subcommand = &backups.DownloadCommand{}
-
-	s.data = "<compressed archive data>"
 }
 
 func (s *downloadSuite) TearDownTest(c *gc.C) {
 	filename := s.subcommand.ResolveFilename()
-	err := os.Remove(filename)
-	if !os.IsNotExist(err) {
-		c.Check(err, gc.IsNil)
+	if s.subcommand.Filename == "" {
+		filename = s.filename
+	}
+
+	if s.filename == "" {
+		s.filename = filename
+	} else {
+		c.Check(filename, gc.Equals, s.filename)
 	}
 
 	s.BaseBackupsSuite.TearDownTest(c)
@@ -43,18 +41,8 @@ func (s *downloadSuite) TearDownTest(c *gc.C) {
 
 func (s *downloadSuite) setSuccess() *fakeAPIClient {
 	s.subcommand.ID = s.metaresult.ID
-	client := s.BaseBackupsSuite.setSuccess()
-	client.archive = ioutil.NopCloser(bytes.NewBufferString(s.data))
+	client := s.BaseBackupsSuite.setDownload()
 	return client
-}
-
-func (s *downloadSuite) checkArchive(c *gc.C, filename string) {
-	archive, err := os.Open(filename)
-	c.Assert(err, gc.IsNil)
-	defer archive.Close()
-
-	data, err := ioutil.ReadAll(archive)
-	c.Check(string(data), gc.Equals, s.data)
 }
 
 func (s *downloadSuite) TestHelp(c *gc.C) {
@@ -76,9 +64,9 @@ func (s *downloadSuite) TestOkay(c *gc.C) {
 	err := s.subcommand.Run(ctx)
 	c.Check(err, gc.IsNil)
 
-	filename := "juju-backup-" + s.metaresult.ID + ".tar.gz"
-	s.checkStd(c, ctx, filename+"\n", "")
-	s.checkArchive(c, filename)
+	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
+	s.checkStd(c, ctx, s.filename+"\n", "")
+	s.checkArchive(c)
 }
 
 func (s *downloadSuite) TestFilename(c *gc.C) {
@@ -88,9 +76,9 @@ func (s *downloadSuite) TestFilename(c *gc.C) {
 	err := s.subcommand.Run(ctx)
 	c.Check(err, gc.IsNil)
 
-	filename := "backup.tar.gz"
-	s.checkStd(c, ctx, filename+"\n", "")
-	s.checkArchive(c, filename)
+	s.filename = "backup.tar.gz"
+	s.checkStd(c, ctx, s.filename+"\n", "")
+	s.checkArchive(c)
 }
 
 func (s *downloadSuite) TestError(c *gc.C) {
