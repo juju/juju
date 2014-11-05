@@ -18,8 +18,6 @@ import (
 type dumpSuite struct {
 	testing.BaseSuite
 
-	targets    *set.Strings
-	dbInfo     db.Info
 	dumpDir    string
 	ranCommand bool
 }
@@ -29,11 +27,6 @@ var _ = gc.Suite(&dumpSuite{}) // Register the suite.
 func (s *dumpSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	connInfo := db.ConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
-	targets := set.NewStrings("juju", "admin")
-
-	s.dbInfo = db.Info{connInfo, &targets}
-	s.targets = &targets
 	s.dumpDir = c.MkDir()
 }
 
@@ -55,11 +48,16 @@ func (s *dumpSuite) prepDB(c *gc.C, name string) string {
 	return dirName
 }
 
-func (s *dumpSuite) prep(c *gc.C) db.Dumper {
-	dumper, err := db.NewDumper(s.dbInfo)
+func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) db.Dumper {
+	// set up the dumper.
+	connInfo := db.ConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
+	targets := set.NewStrings(targetDBs...)
+	dbInfo := db.Info{connInfo, &targets}
+	dumper, err := db.NewDumper(dbInfo)
 	c.Assert(err, gc.IsNil)
 
-	for _, dbName := range s.targets.Values() {
+	// Prep each of the target databases.
+	for _, dbName := range targetDBs {
 		s.prepDB(c, dbName)
 	}
 
@@ -81,7 +79,7 @@ func (s *dumpSuite) checkStripped(c *gc.C, dbName string) {
 
 func (s *dumpSuite) TestDumpRanCommand(c *gc.C) {
 	s.patch(c)
-	dumper := s.prep(c)
+	dumper := s.prep(c, "juju", "admin")
 
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, gc.IsNil)
@@ -91,36 +89,36 @@ func (s *dumpSuite) TestDumpRanCommand(c *gc.C) {
 
 func (s *dumpSuite) TestDumpStripped(c *gc.C) {
 	s.patch(c)
-	dumper := s.prep(c)
+	dumper := s.prep(c, "juju", "admin")
 	s.prepDB(c, "backups") // ignored
 
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, gc.IsNil)
 
-	s.checkDBs(c, s.targets.Values()...)
+	s.checkDBs(c, "juju", "admin")
 	s.checkStripped(c, "backups")
 }
 
 func (s *dumpSuite) TestDumpStrippedMultiple(c *gc.C) {
 	s.patch(c)
-	dumper := s.prep(c)
+	dumper := s.prep(c, "juju", "admin")
 	s.prepDB(c, "backups")  // ignored
 	s.prepDB(c, "presence") // ignored
 
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, gc.IsNil)
 
-	s.checkDBs(c, s.targets.Values()...)
+	s.checkDBs(c, "juju", "admin")
 	s.checkDBs(c, "presence")
 	s.checkStripped(c, "backups")
 }
 
 func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
 	s.patch(c)
-	dumper := s.prep(c)
+	dumper := s.prep(c, "juju", "admin")
 
 	err := dumper.Dump(s.dumpDir)
 	c.Assert(err, gc.IsNil)
 
-	s.checkDBs(c, s.targets.Values()...)
+	s.checkDBs(c, "juju", "admin")
 }
