@@ -706,11 +706,7 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 		actualAddr = addr
 		return nil
 	}
-	original := ec2.AssignPrivateIPAddress
-	defer func() {
-		ec2.AssignPrivateIPAddress = original
-	}()
-	ec2.AssignPrivateIPAddress = mockAssign
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
 	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(err, gc.IsNil)
@@ -724,11 +720,7 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
 	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
 		return &amzec2.Error{Code: "InvalidParameterValue"}
 	}
-	original := ec2.AssignPrivateIPAddress
-	defer func() {
-		ec2.AssignPrivateIPAddress = original
-	}()
-	ec2.AssignPrivateIPAddress = mockAssign
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
 	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
@@ -741,12 +733,7 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
 		return &amzec2.Error{Code: "PrivateIpAddressLimitExceeded"}
 	}
-
-	original := ec2.AssignPrivateIPAddress
-	defer func() {
-		ec2.AssignPrivateIPAddress = original
-	}()
-	ec2.AssignPrivateIPAddress = mockAssign
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
 	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
