@@ -109,6 +109,8 @@ func (s *dumpSuite) TestDumpStrippedMultiple(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.checkDBs(c, "juju", "admin")
+	// Only "backups" is actually ignored when dumping.  Restore takes
+	// care of removing the other ignored databases (like presence).
 	s.checkDBs(c, "presence")
 	s.checkStripped(c, "backups")
 }
