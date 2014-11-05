@@ -78,7 +78,7 @@ func (ws *Workspace) UnpackFiles(targetRoot string) error {
 
 // OpenFile returns an open ReadCloser for the corresponding file in
 // the archived files bundle.
-func (ws *Workspace) OpenFile(filename string) (_ io.ReadCloser, err error) {
+func (ws *Workspace) OpenFile(filename string) (io.ReadCloser, error) {
 	if filepath.IsAbs(filename) {
 		return nil, errors.Errorf("filename must not be relative, got %q", filename)
 	}
