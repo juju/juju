@@ -665,7 +665,7 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 
 func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	instanceIds, err := env.StateServerInstances()
@@ -689,7 +689,7 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Enviro
 		"default-vpc": []string{"vpc-xxxxxxx"},
 	})
 	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	instanceIds, err := env.StateServerInstances()
