@@ -53,7 +53,6 @@ func NewWorkspace(archiveFile io.Reader) (*Workspace, error) {
 	if err := tar.UntarFiles(tarFile, dirName); err != nil {
 		return ws, errors.Annotate(err, "while extracting files from archive")
 	}
-
 	return ws, nil
 }
 
@@ -74,7 +73,6 @@ func (ws *Workspace) UnpackFiles(targetRoot string) error {
 	if err := tar.UntarFiles(tarFile, targetRoot); err != nil {
 		return errors.Annotate(err, "while unpacking system files")
 	}
-
 	return nil
 }
 
