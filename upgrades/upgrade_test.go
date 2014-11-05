@@ -77,48 +77,49 @@ func (m *mockUpgradeOperation) Steps() []upgrades.Step {
 	return m.steps
 }
 
-type mockUpgradeStep struct {
+type mockBaseUpgradeStep struct {
 	msg     string
 	targets []upgrades.Target
 }
 
-func (u *mockUpgradeStep) Description() string {
+func (u *mockBaseUpgradeStep) Description() string {
 	return u.msg
 }
 
-func (u *mockUpgradeStep) Targets() []upgrades.Target {
+func (u *mockBaseUpgradeStep) Targets() []upgrades.Target {
 	return u.targets
 }
 
-func (u *mockUpgradeStep) Run(context upgrades.APIContext) error {
+func (u *mockBaseUpgradeStep) run(context *mockContext) error {
 	if strings.HasSuffix(u.msg, "error") {
 		return errors.New("upgrade error occurred")
 	}
-	ctx := context.(*mockContext)
-	ctx.messages = append(ctx.messages, u.msg)
+	context.messages = append(context.messages, u.msg)
 	return nil
+}
+
+func newStateUpgradeStep(msg string, targets ...upgrades.Target) *mockStateUpgradeStep {
+	return &mockStateUpgradeStep{mockBaseUpgradeStep{msg, targets}}
 }
 
 type mockStateUpgradeStep struct {
-	msg     string
-	targets []upgrades.Target
-}
-
-func (u *mockStateUpgradeStep) Description() string {
-	return u.msg
-}
-
-func (u *mockStateUpgradeStep) Targets() []upgrades.Target {
-	return u.targets
+	mockBaseUpgradeStep
 }
 
 func (u *mockStateUpgradeStep) Run(context upgrades.StateContext) error {
-	if strings.HasSuffix(u.msg, "error") {
-		return errors.New("upgrade error occurred")
-	}
-	ctx := context.(*mockContext)
-	ctx.messages = append(ctx.messages, u.msg)
-	return nil
+	return u.run(context.(*mockContext))
+}
+
+func newUpgradeStep(msg string, targets ...upgrades.Target) *mockUpgradeStep {
+	return &mockUpgradeStep{mockBaseUpgradeStep{msg, targets}}
+}
+
+type mockUpgradeStep struct {
+	mockBaseUpgradeStep
+}
+
+func (u *mockUpgradeStep) Run(context upgrades.APIContext) error {
+	return u.run(context.(*mockContext))
 }
 
 type mockContext struct {
@@ -191,86 +192,79 @@ func (mock *mockAgentConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	return mock.mongoInfo, true
 }
 
-func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {
-	for _, t := range targets {
-		upgradeTargets = append(upgradeTargets, t)
-	}
-	return upgradeTargets
-}
-
 func upgradeOperations() []upgrades.Operation {
 	steps := []upgrades.Operation{
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.11.0"),
 			stateSteps: []upgrades.StateStep{
-				&mockStateUpgradeStep{"state step 1 - 1.11.0", nil},
-				&mockStateUpgradeStep{"state step 2 error", targets(upgrades.StateServer)},
-				&mockStateUpgradeStep{"state step 3 - 1.11.0", targets(upgrades.StateServer)},
+				newStateUpgradeStep("state step 1 - 1.11.0"),
+				newStateUpgradeStep("state step 2 error", upgrades.StateServer),
+				newStateUpgradeStep("state step 3 - 1.11.0", upgrades.StateServer),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.12.0"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.12.0", nil},
-				&mockUpgradeStep{"step 2 error", targets(upgrades.HostMachine)},
-				&mockUpgradeStep{"step 3", targets(upgrades.HostMachine)},
+				newUpgradeStep("step 1 - 1.12.0"),
+				newUpgradeStep("step 2 error", upgrades.HostMachine),
+				newUpgradeStep("step 3", upgrades.HostMachine),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.16.0"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.16.0", targets(upgrades.HostMachine)},
-				&mockUpgradeStep{"step 2 - 1.16.0", targets(upgrades.HostMachine)},
-				&mockUpgradeStep{"step 3 - 1.16.0", targets(upgrades.StateServer)},
+				newUpgradeStep("step 1 - 1.16.0", upgrades.HostMachine),
+				newUpgradeStep("step 2 - 1.16.0", upgrades.HostMachine),
+				newUpgradeStep("step 3 - 1.16.0", upgrades.StateServer),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.17.0"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.17.0", targets(upgrades.HostMachine)},
+				newUpgradeStep("step 1 - 1.17.0", upgrades.HostMachine),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.17.1"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.17.1", targets(upgrades.HostMachine)},
-				&mockUpgradeStep{"step 2 - 1.17.1", targets(upgrades.StateServer)},
+				newUpgradeStep("step 1 - 1.17.1", upgrades.HostMachine),
+				newUpgradeStep("step 2 - 1.17.1", upgrades.StateServer),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.18.0"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.18.0", targets(upgrades.HostMachine)},
-				&mockUpgradeStep{"step 2 - 1.18.0", targets(upgrades.StateServer)},
+				newUpgradeStep("step 1 - 1.18.0", upgrades.HostMachine),
+				newUpgradeStep("step 2 - 1.18.0", upgrades.StateServer),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.20.0"),
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.20.0", targets(upgrades.AllMachines)},
-				&mockUpgradeStep{"step 2 - 1.20.0", targets(upgrades.HostMachine)},
-				&mockUpgradeStep{"step 3 - 1.20.0", targets(upgrades.StateServer)},
+				newUpgradeStep("step 1 - 1.20.0", upgrades.AllMachines),
+				newUpgradeStep("step 2 - 1.20.0", upgrades.HostMachine),
+				newUpgradeStep("step 3 - 1.20.0", upgrades.StateServer),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.21.0"),
 			stateSteps: []upgrades.StateStep{
-				&mockStateUpgradeStep{"state step 1 - 1.21.0", targets(upgrades.DatabaseMaster)},
-				&mockStateUpgradeStep{"state step 2 - 1.21.0", targets(upgrades.StateServer)},
+				newStateUpgradeStep("state step 1 - 1.21.0", upgrades.DatabaseMaster),
+				newStateUpgradeStep("state step 2 - 1.21.0", upgrades.StateServer),
 			},
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.21.0", targets(upgrades.AllMachines)},
+				newUpgradeStep("step 1 - 1.21.0", upgrades.AllMachines),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.22.0"),
 			stateSteps: []upgrades.StateStep{
-				&mockStateUpgradeStep{"state step 1 - 1.22.0", targets(upgrades.DatabaseMaster)},
-				&mockStateUpgradeStep{"state step 2 - 1.22.0", targets(upgrades.StateServer)},
+				newStateUpgradeStep("state step 1 - 1.22.0", upgrades.DatabaseMaster),
+				newStateUpgradeStep("state step 2 - 1.22.0", upgrades.StateServer),
 			},
 			steps: []upgrades.Step{
-				&mockUpgradeStep{"step 1 - 1.22.0", targets(upgrades.AllMachines)},
-				&mockUpgradeStep{"step 2 - 1.22.0", targets(upgrades.AllMachines)},
+				newUpgradeStep("step 1 - 1.22.0", upgrades.AllMachines),
+				newUpgradeStep("step 2 - 1.22.0", upgrades.AllMachines),
 			},
 		},
 	}
