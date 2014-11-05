@@ -2346,10 +2346,10 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 func (s *clientSuite) TestAddCharm(c *gc.C) {
 	s.makeMockCharmStore()
 
-	blobs := make(map[string]bool)
+	var blobs blobs
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
 		storage := st.Storage()
-		return &recordingStorage{Mutex: new(sync.Mutex), Storage: storage, blobs: blobs}
+		return &recordingStorage{Storage: storage, blobs: &blobs}
 	})
 
 	client := s.APIState.Client()
@@ -2372,7 +2372,8 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	// AddCharm should see the charm in state and not upload it.
 	err = client.AddCharm(sch.URL())
 	c.Assert(err, gc.IsNil)
-	c.Assert(blobs, gc.HasLen, 0)
+
+	c.Assert(blobs.m, gc.HasLen, 0)
 
 	// Now try adding another charm completely.
 	curl, _ = addCharm(c, "wordpress")
@@ -2435,11 +2436,37 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	}
 }
 
+type blobs struct {
+	sync.Mutex
+	m map[string]bool // maps path to added (true), or deleted (false)
+}
+
+// Add adds a path to the list of known paths.
+func (b *blobs) Add(path string) {
+	b.Lock()
+	defer b.Unlock()
+	b.check()
+	b.m[path] = true
+}
+
+// Remove marks a path as deleted, even if it was not previously Added.
+func (b *blobs) Remove(path string) {
+	b.Lock()
+	defer b.Unlock()
+	b.check()
+	b.m[path] = false
+}
+
+func (b *blobs) check() {
+	if b.m == nil {
+		b.m = make(map[string]bool)
+	}
+}
+
 type recordingStorage struct {
-	*sync.Mutex
 	state.Storage
-	blobs      map[string]bool
 	putBarrier *sync.WaitGroup
+	blobs      *blobs
 }
 
 func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
@@ -2449,35 +2476,29 @@ func (s *recordingStorage) Put(path string, r io.Reader, size int64) error {
 		s.putBarrier.Done()
 		s.putBarrier.Wait()
 	}
-	err := s.Storage.Put(path, r, size)
-	if err == nil {
-		s.Lock()
-		defer s.Unlock()
-		s.blobs[path] = true
+	if err := s.Storage.Put(path, r, size); err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	s.blobs.Add(path)
+	return nil
 }
 
 func (s *recordingStorage) Remove(path string) error {
-	err := s.Storage.Remove(path)
-	if err == nil {
-		s.Lock()
-		defer s.Unlock()
-		s.blobs[path] = false
+	if err := s.Storage.Remove(path); err != nil {
+		return errors.Trace(err)
 	}
-	return err
+	s.blobs.Remove(path)
+	return nil
 }
 
 func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	s.makeMockCharmStore()
 
-	var blobsMu sync.Mutex
-	blobs := make(map[string]bool)
 	var putBarrier sync.WaitGroup
+	var blobs blobs
 	s.PatchValue(client.StateStorage, func(st *state.State) state.Storage {
 		storage := st.Storage()
-		return &recordingStorage{Mutex: &blobsMu, Storage: storage, blobs: blobs,
-			putBarrier: &putBarrier}
+		return &recordingStorage{Storage: storage, blobs: &blobs, putBarrier: &putBarrier}
 	})
 
 	client := s.APIState.Client()
@@ -2505,15 +2526,17 @@ func (s *clientSuite) TestAddCharmConcurrently(c *gc.C) {
 	}
 	wg.Wait()
 
-	c.Assert(blobs, gc.HasLen, 10)
+	blobs.Lock()
+
+	c.Assert(blobs.m, gc.HasLen, 10)
 
 	// Verify there is only a single uploaded charm remains and it
 	// contains the correct data.
 	sch, err := s.State.Charm(curl)
 	c.Assert(err, gc.IsNil)
 	storagePath := sch.StoragePath()
-	c.Assert(blobs[storagePath], jc.IsTrue)
-	for path, exists := range blobs {
+	c.Assert(blobs.m[storagePath], jc.IsTrue)
+	for path, exists := range blobs.m {
 		if path != storagePath {
 			c.Assert(exists, jc.IsFalse)
 		}
