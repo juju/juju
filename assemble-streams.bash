@@ -339,8 +339,11 @@ copy_proposed_to_release() {
         echo "Tools cannot be released without first being proposed."
         exit 6
     fi
+    count=$(find $DEST_DIST/tools/releases -name "juju-${RELEASE}*.tgz" | wc -l)
     cp $proposed_releases/juju-${RELEASE}*.tgz  $DEST_DIST/tools/releases
-    ADDED="--added $RELEASE"
+    if [[ $((count)) == 0  ]]; then
+        ADDED="--added $RELEASE"
+    fi
 }
 
 
