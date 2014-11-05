@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/parallel"
 	"github.com/juju/utils/shell"
 
+	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs"
@@ -60,6 +61,19 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	}
 	machineConfig.EnableOSRefreshUpdate = env.Config().EnableOSRefreshUpdate()
 	machineConfig.EnableOSUpgrade = env.Config().EnableOSUpgrade()
+	maybeSetBridge := func(mcfg *cloudinit.MachineConfig) {
+		// If we need to override the default bridge name, do it now. When
+		// args.ContainerBridgeName is empty, the default names for LXC
+		// (lxcbr0) and KVM (virbr0) will be used.
+		if args.ContainerBridgeName != "" {
+			logger.Debugf("using %q as network bridge for all container types", args.ContainerBridgeName)
+			if mcfg.AgentEnvironment == nil {
+				mcfg.AgentEnvironment = make(map[string]string)
+			}
+			mcfg.AgentEnvironment[agent.LxcBridge] = args.ContainerBridgeName
+		}
+	}
+	maybeSetBridge(machineConfig)
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
@@ -79,6 +93,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		if err := environs.FinishMachineConfig(mcfg, env.Config()); err != nil {
 			return err
 		}
+		maybeSetBridge(mcfg)
 		return FinishBootstrap(ctx, client, inst, mcfg)
 	}
 	return *hw.Arch, series, finalize, nil

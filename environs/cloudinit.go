@@ -32,6 +32,10 @@ var DataDir = agent.DefaultDataDir
 // may create a folder containing logs
 var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
+// DefaultBridgeName is the network bridge device name used for LXC
+// and KVM containers.
+const DefaultBridgeName = "juju-br0"
+
 // NewMachineConfig sets up a basic machine configuration, for a
 // non-bootstrap node. You'll still need to supply more information,
 // but this takes care of the fixed entries and the ones that are
@@ -58,7 +62,7 @@ func NewMachineConfig(
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
-		Jobs:                    []params.MachineJob{params.JobHostUnits, params.JobManageNetworking},
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -88,7 +92,6 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 	mcfg.Jobs = []params.MachineJob{
 		params.JobManageEnviron,
 		params.JobHostUnits,
-		params.JobManageNetworking,
 	}
 	mcfg.Constraints = cons
 	return mcfg, nil
