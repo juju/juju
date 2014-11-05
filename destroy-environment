@@ -10,9 +10,10 @@ from deploy_stack import destroy_environment
 
 
 def main():
-    for env in sys.argv[1:]:
-        environment = jujupy.Environment.from_config(env)
-        destroy_environment(environment)
+    for env_name in sys.argv[1:]:
+        env = jujupy.SimpleEnvironment.from_config(env_name)
+        client = jujupy.EnvJujuClient.by_version(env)
+        destroy_environment(client, os.environ.get('JOB_NAME'))
 
 
 if __name__ == '__main__':

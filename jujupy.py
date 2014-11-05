@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from cStringIO import StringIO
 import errno
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -305,6 +306,22 @@ class EnvJujuClient:
         if self.env.local:
             args += ('--upload-tools',)
         self.juju('upgrade-juju', args)
+
+    def backup(self):
+        environ = self._shell_environ()
+        # juju-backup does not support the -e flag.
+        environ['JUJU_ENV'] = self.env.environment
+        output = subprocess.check_output(['juju', 'backup'], env=environ)
+        print_now(output)
+        backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.tgz)')
+        match = backup_file_pattern.search(output)
+        if match is None:
+            raise Exception("The backup file was not found in output: %s" %
+                            output)
+        backup_file_name = match.group(1)
+        backup_file_path = os.path.abspath(backup_file_name)
+        print_now("State-Server backup at %s" % backup_file_path)
+        return backup_file_path
 
 
 def get_local_root(juju_home, env):

@@ -64,11 +64,11 @@ def prepare_environment(env, already_bootstrapped, machines):
     return env
 
 
-def destroy_environment(environment):
-    if environment.config['type'] == 'manual':
-        destroy_job_instances(os.environ['JOB_NAME'])
+def destroy_environment(client, instance_tag):
+    if client.env.config['type'] == 'manual':
+        destroy_job_instances(instance_tag)
     else:
-        environment.destroy_environment()
+        client.destroy_environment()
 
 
 def destroy_job_instances(job_name):
@@ -163,28 +163,28 @@ def get_random_string():
     return ''.join(random.choice(allowed_chars) for n in range(20))
 
 
-def dump_env_logs(env, bootstrap_host, directory, host_id=None):
-    machine_addrs = get_machines_for_logs(env, bootstrap_host)
+def dump_env_logs(client, bootstrap_host, directory, host_id=None):
+    machine_addrs = get_machines_for_logs(client, bootstrap_host)
 
     for machine_id, addr in machine_addrs.iteritems():
         logging.info("Retrieving logs for machine-%d", machine_id)
         machine_directory = os.path.join(directory, str(machine_id))
         os.mkdir(machine_directory)
-        dump_logs(env, addr, machine_directory)
+        dump_logs(client, addr, machine_directory)
 
     dump_euca_console(host_id, directory)
 
 
-def get_machines_for_logs(env, bootstrap_host):
+def get_machines_for_logs(client, bootstrap_host):
     # Try to get machine details from environment if possible.
-    machine_addrs = dict(get_machine_addrs(env))
+    machine_addrs = dict(get_machine_addrs(client))
 
     # The bootstrap host always overrides the status output if
     # provided.
     if bootstrap_host:
         machine_addrs['0'] = bootstrap_host
 
-    if env.local and machine_addrs:
+    if client.env.local and machine_addrs:
         # As per above, we only need one machine for the local
         # provider. Use machine-0 if possible.
         machine_id = min(machine_addrs)
@@ -193,9 +193,9 @@ def get_machines_for_logs(env, bootstrap_host):
     return machine_addrs
 
 
-def get_machine_addrs(env):
+def get_machine_addrs(client):
     try:
-        status = env.get_status()
+        status = client.get_status()
     except Exception as err:
         logging.warning("Failed to retrieve status for dumping logs: %s", err)
         return
@@ -205,9 +205,9 @@ def get_machine_addrs(env):
             yield machine_id, hostname
 
 
-def dump_logs(env, host, directory, host_id=None):
-    if env.local:
-        copy_local_logs(directory, env)
+def dump_logs(client, host, directory, host_id=None):
+    if client.env.local:
+        copy_local_logs(directory, client)
     else:
         copy_remote_logs(host, directory)
     subprocess.check_call(
@@ -217,8 +217,8 @@ def dump_logs(env, host, directory, host_id=None):
     dump_euca_console(host_id, directory)
 
 
-def copy_local_logs(directory, env):
-    local = get_local_root(get_juju_home(), env)
+def copy_local_logs(directory, client):
+    local = get_local_root(get_juju_home(), client.env)
     log_names = [os.path.join(local, 'cloud-init-output.log')]
     log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
 
@@ -423,7 +423,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 raise
             try:
                 if host is None:
-                    host = get_machine_dns_name(env, 0)
+                    host = get_machine_dns_name(env.client.get_env_client(env),
+                                                0)
                 if host is None:
                     raise Exception('Could not get machine 0 host')
                 try:
@@ -459,13 +460,13 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                     logging.info("%s" % status_msg)
 
 
-def get_machine_dns_name(env, machine):
-    if env.kvm:
+def get_machine_dns_name(client, machine):
+    if client.env.kvm:
         timeout = 1200
     else:
         timeout = 600
     for remaining in until_timeout(timeout):
-        bootstrap = env.get_status(
+        bootstrap = client.get_status(
             timeout=timeout).status['machines'][str(machine)]
         host = bootstrap.get('dns-name')
         if host is not None and not host.startswith('172.'):

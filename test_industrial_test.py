@@ -2,7 +2,6 @@ __metaclass__ = type
 
 from argparse import Namespace
 from contextlib import contextmanager
-import os.path
 from StringIO import StringIO
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
@@ -29,6 +28,7 @@ from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
+from test_jujupy import assert_juju_call
 
 
 @contextmanager
@@ -429,19 +429,6 @@ class FakeEnvJujuClient(EnvJujuClient):
         # Suppress stdout for juju commands.
         with patch('sys.stdout'):
             return super(FakeEnvJujuClient, self).juju(*args, **kwargs)
-
-
-def assert_juju_call(test_case, mock_method, client, expected_args,
-                     call_index=None):
-    if call_index is None:
-        test_case.assertEqual(len(mock_method.mock_calls), 1)
-        call_index = 0
-    empty, args, kwargs = mock_method.mock_calls[call_index]
-    test_case.assertEqual(args, (expected_args,))
-    test_case.assertEqual(kwargs.keys(), ['env'])
-    bin_dir = os.path.dirname(client.full_path)
-    test_case.assertRegexpMatches(kwargs['env']['PATH'],
-                                  r'^{}\:'.format(bin_dir))
 
 
 class TestBootstrapAttempt(TestCase):

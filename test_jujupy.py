@@ -44,6 +44,19 @@ from utility import (
     )
 
 
+def assert_juju_call(test_case, mock_method, client, expected_args,
+                     call_index=None):
+    if call_index is None:
+        test_case.assertEqual(len(mock_method.mock_calls), 1)
+        call_index = 0
+    empty, args, kwargs = mock_method.mock_calls[call_index]
+    test_case.assertEqual(args, (expected_args,))
+    test_case.assertEqual(kwargs.keys(), ['env'])
+    bin_dir = os.path.dirname(client.full_path)
+    test_case.assertRegexpMatches(kwargs['env']['PATH'],
+                                  r'^{}\:'.format(bin_dir))
+
+
 class TestErroredUnit(TestCase):
 
     def test_output(self):
@@ -517,6 +530,36 @@ class TestEnvJujuClient(TestCase):
             client.juju('foo', ('bar', 'baz'), check=False)
         self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
+
+    def test_juju_backup(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output',
+                   return_value='foojuju-backup-24.tgzz') as co_mock:
+            with patch('sys.stdout'):
+                backup_file = client.backup()
+        self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
+        assert_juju_call(self, co_mock, client, ['juju', 'backup'])
+        self.assertEqual(co_mock.mock_calls[0][2]['env']['JUJU_ENV'], 'qux')
+
+    def test_juju_backup_no_file(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output', return_value=''):
+            with self.assertRaisesRegexp(
+                    Exception, 'The backup file was not found in output'):
+                with patch('sys.stdout'):
+                    client.backup()
+
+    def test_juju_backup_wrong_file(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output',
+                   return_value='mumu-backup-24.tgz'):
+            with self.assertRaisesRegexp(
+                    Exception, 'The backup file was not found in output'):
+                with patch('sys.stdout'):
+                    client.backup()
 
 
 class TestUniquifyLocal(TestCase):

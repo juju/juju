@@ -18,7 +18,7 @@ from deploy_stack import (
 )
 from jujuconfig import translate_to_env
 from jujupy import (
-    Environment,
+    EnvJujuClient,
     until_timeout,
 )
 from utility import (
@@ -27,7 +27,6 @@ from utility import (
 )
 
 
-backup_file_pattern = re.compile('(juju-backup-[0-9-]+\.tgz)')
 running_instance_pattern = re.compile('\["([^"]+)"\]')
 
 
@@ -40,47 +39,32 @@ def setup_juju_path(juju_path):
     sys.path.insert(0, full_path)
 
 
-def deploy_stack(env, charm_prefix):
+def deploy_stack(client, charm_prefix):
     """"Deploy a simple stack, state-server and ubuntu."""
     if charm_prefix and not charm_prefix.endswith('/'):
         charm_prefix = charm_prefix + '/'
-    agent_version = env.get_matching_agent_version()
-    instance_id = env.get_status().status['machines']['0']['instance-id']
+    agent_version = client.get_matching_agent_version()
+    instance_id = client.get_status().status['machines']['0']['instance-id']
     for ignored in until_timeout(30):
-        agent_versions = env.get_status().get_agent_versions()
+        agent_versions = client.get_status().get_agent_versions()
         if 'unknown' not in agent_versions and len(agent_versions) == 1:
             break
     if agent_versions.keys() != [agent_version]:
         print_now("Current versions: %s" % ', '.join(agent_versions.keys()))
-        env.juju('upgrade-juju', '--version', agent_version)
-    env.wait_for_version(env.get_matching_agent_version())
-    env.juju('deploy', charm_prefix + 'ubuntu')
-    env.wait_for_started().status
-    print_now("%s is ready to testing" % env.environment)
+        client.juju('upgrade-juju', ('--version', agent_version))
+    client.wait_for_version(client.get_matching_agent_version())
+    client.juju('deploy', (charm_prefix + 'ubuntu',))
+    client.wait_for_started().status
+    print_now("%s is ready to testing" % client.env.environment)
     return instance_id
 
 
-def backup_state_server(env):
-    """juju-backup provides a tarball."""
-    environ = dict(os.environ)
-    # juju-backup does not support the -e flag.
-    environ['JUJU_ENV'] = env.environment
-    output = subprocess.check_output(["juju-backup"], env=environ)
-    print_now(output)
-    match = backup_file_pattern.search(output)
-    if match is None:
-        raise Exception("The backup file was not found in output: %s" % output)
-    backup_file_name = match.group(1)
-    backup_file_path = os.path.abspath(backup_file_name)
-    print_now("State-Server backup at %s" % backup_file_path)
-    return backup_file_path
-
-
-def restore_present_state_server(env, backup_file):
-    """juju-restore wont restore when the state-server is still present."""
+def restore_present_state_server(client, backup_file):
+    """juju-restore won't restore when the state-server is still present."""
     environ = dict(os.environ)
     proc = subprocess.Popen(
-        ['juju', '--show-log', 'restore', '-e', env.environment, backup_file],
+        ['juju', '--show-log', 'restore', '-e', client.env.environment,
+         backup_file],
         env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode == 0:
@@ -100,20 +84,20 @@ def restore_present_state_server(env, backup_file):
     return instance_id
 
 
-def delete_instance(env, instance_id):
+def delete_instance(client, instance_id):
     """Delete the instance using the providers tools."""
     print_now("Instrumenting a bootstrap node failure.")
-    provider_type = env.config.get('type')
+    provider_type = client.config.get('type')
     if provider_type == 'ec2':
         environ = dict(os.environ)
-        ec2_url = 'https://%s.ec2.amazonaws.com' % env.config['region']
+        ec2_url = 'https://%s.ec2.amazonaws.com' % client.env.config['region']
         environ['EC2_URL'] = ec2_url
-        environ['EC2_ACCESS_KEY'] = env.config['access-key']
-        environ['EC2_SECRET_KEY'] = env.config['secret-key']
+        environ['EC2_ACCESS_KEY'] = client.env.config['access-key']
+        environ['EC2_SECRET_KEY'] = client.env.config['secret-key']
         command_args = ['euca-terminate-instances', instance_id]
     elif provider_type == 'openstack':
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(client.env.config))
         command_args = ['nova', 'delete', instance_id]
     else:
         raise ValueError(
@@ -123,25 +107,25 @@ def delete_instance(env, instance_id):
     print_now(output)
 
 
-def delete_extra_state_servers(env, instance_id):
+def delete_extra_state_servers(client, instance_id):
     """Delete the extra state-server instances."""
-    status = env.get_status()
+    status = client.get_status()
     for machine, info in status.iter_machines():
         extra_instance_id = info.get('instance-id')
         status = info.get('state-server-member-status')
         if extra_instance_id != instance_id and status is not None:
             print_now("Deleting state-server-member {}".format(machine))
-            host = get_machine_dns_name(env, machine)
-            delete_instance(env, extra_instance_id)
-            wait_for_state_server_to_shutdown(host, env, extra_instance_id)
+            host = get_machine_dns_name(client, machine)
+            delete_instance(client, extra_instance_id)
+            wait_for_state_server_to_shutdown(host, client, extra_instance_id)
 
 
-def restore_missing_state_server(env, backup_file):
+def restore_missing_state_server(client, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     environ = dict(os.environ)
     print_now("Starting restore.")
     proc = subprocess.Popen(
-        ['juju', '--show-log', 'restore', '-e', env.environment,
+        ['juju', '--show-log', 'restore', '-e', client.env.environment,
          '--constraints', 'mem=2G', backup_file],
         env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
@@ -152,19 +136,19 @@ def restore_missing_state_server(env, backup_file):
         print_now('\n')
         raise Exception(message)
     print_now(output)
-    env.wait_for_started(600).status
-    print_now("%s restored" % env.environment)
+    client.env.wait_for_started(600).status
+    print_now("%s restored" % client.env.environment)
     print_now("PASS")
 
 
-def wait_for_state_server_to_shutdown(host, env, instance_id):
+def wait_for_state_server_to_shutdown(host, client, instance_id):
     print_now("Waiting for port to close on %s" % host)
     wait_for_port(host, 17070, closed=True)
     print_now("Closed.")
-    provider_type = env.config.get('type')
+    provider_type = client.env.config.get('type')
     if provider_type == 'openstack':
         environ = dict(os.environ)
-        environ.update(translate_to_env(env.config))
+        environ.update(translate_to_env(client.env.config))
         for ignored in until_timeout(300):
             output = subprocess.check_output(['nova', 'list'], env=environ)
             if instance_id not in output:
@@ -202,34 +186,35 @@ def main():
     args = parser.parse_args()
     try:
         setup_juju_path(args.juju_path)
-        env = Environment.from_config(args.env_name)
-        env.bootstrap()
-        bootstrap_host = get_machine_dns_name(env, 0)
+        client = EnvJujuClient.from_config(args.env_name)
+        client.bootstrap()
+        bootstrap_host = get_machine_dns_name(client, 0)
         try:
-            instance_id = deploy_stack(env, args.charm_prefix)
+            instance_id = deploy_stack(client, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
-                env.juju('ensure-availability', '-n', '3')
-                env.client.get_env_client(env).wait_for_ha()
+                client.juju('ensure-availability', ('-n', '3'))
+                client.wait_for_ha()
             if args.strategy in ('ha-backup', 'backup'):
-                backup_file = backup_state_server(env)
-                restore_present_state_server(env, backup_file)
+                backup_file = client.backup()
+                restore_present_state_server(client, backup_file)
             if args.strategy == 'ha-backup':
-                delete_extra_state_servers(env, instance_id)
-            delete_instance(env, instance_id)
-            wait_for_state_server_to_shutdown(bootstrap_host, env, instance_id)
+                delete_extra_state_servers(client, instance_id)
+            delete_instance(client, instance_id)
+            wait_for_state_server_to_shutdown(bootstrap_host, client,
+                                              instance_id)
             bootstrap_host = None
             if args.strategy == 'ha':
-                env.get_status(600)
+                client.get_status(600)
             else:
-                restore_missing_state_server(env, backup_file)
+                restore_missing_state_server(client, backup_file)
         except Exception as e:
             if bootstrap_host is None:
                 bootstrap_host = parse_new_state_server_from_error(e)
-            dump_env_logs(env, bootstrap_host,
+            dump_env_logs(client, bootstrap_host,
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
             raise
         finally:
-            destroy_environment(env)
+            destroy_environment(client, os.environ['JOB_NAME'])
     except Exception as e:
         print_now("\nEXCEPTION CAUGHT:\n")
         print_now(e)
