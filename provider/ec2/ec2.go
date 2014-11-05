@@ -989,7 +989,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 			if ec2Err.Code == "InvalidParameterValue" {
 				// Note: this Code is also used if we specify
 				// an IP address outside the subnet. Take care!
-				return environs.ErrIPAddressUnvailable
+				return environs.ErrIPAddressUnavailable
 			} else if ec2Err.Code == "PrivateIpAddressLimitExceeded" {
 				return environs.ErrIPAddressesExhausted
 			}

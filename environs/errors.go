@@ -16,5 +16,5 @@ var (
 	// Errors indicating that the provider can't allocate an IP address to an
 	// instance.
 	ErrIPAddressesExhausted = errors.New("can't allocate a new IP address")
-	ErrIPAddressUnvailable  = errors.New("the requested IP address is unavailable")
+	ErrIPAddressUnavailable = errors.New("the requested IP address is unavailable")
 )

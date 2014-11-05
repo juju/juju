@@ -731,7 +731,7 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
 	ec2.AssignPrivateIPAddress = mockAssign
 
 	err := env.AllocateAddress(instId, "", addr)
-	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnvailable)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 }
 
 func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
@@ -750,7 +750,6 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 
 	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
-	c.Assert("foo", gc.IsNil)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {
