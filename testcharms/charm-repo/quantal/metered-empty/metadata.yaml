@@ -1,0 +1,3 @@
+name: metered-empty
+summary: "Metered charm with empty metrics"
+description: "A charm that will not send metrics"
