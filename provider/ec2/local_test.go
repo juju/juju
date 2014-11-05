@@ -682,7 +682,7 @@ func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *g
 	c.Assert(err, gc.ErrorMatches, "Odd response from ec2. Network interface not found.")
 }
 
-func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (instance.Id, environs.Environ) {
 	// setting a default-vpc will create a network interface
 	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
 		"default-vpc": []string{"vpc-xxxxxxx"},
@@ -693,6 +693,11 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 
 	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
+	return instanceIds[0], env
+}
+
+func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+	instId, env := t.setUpInstanceWithDefaultVpc(c)
 
 	addr := network.Address{Value: "8.0.0.4"}
 	var actualAddr network.Address
@@ -706,23 +711,13 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	}()
 	ec2.AssignPrivateIPAddress = mockAssign
 
-	instId := instanceIds[0]
-	err = env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(err, gc.IsNil)
 	c.Assert(actualAddr, gc.Equals, addr)
 }
 
 func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
-	// setting a default-vpc will create a network interface
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
-	})
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
-
-	instanceIds, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	instId, env := t.setUpInstanceWithDefaultVpc(c)
 
 	addr := network.Address{Value: "8.0.0.4"}
 	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
@@ -734,22 +729,12 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
 	}()
 	ec2.AssignPrivateIPAddress = mockAssign
 
-	instId := instanceIds[0]
-	err = env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(err, gc.DeepEquals, common.IPAddressUnvailable)
 }
 
 func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
-	// setting a default-vpc will create a network interface
-	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
-		"default-vpc": []string{"vpc-xxxxxxx"},
-	})
-	env := t.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
-
-	instanceIds, err := env.StateServerInstances()
-	c.Assert(err, gc.IsNil)
+	instId, env := t.setUpInstanceWithDefaultVpc(c)
 
 	addr := network.Address{Value: "8.0.0.4"}
 	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
@@ -761,8 +746,7 @@ func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
 	}()
 	ec2.AssignPrivateIPAddress = mockAssign
 
-	instId := instanceIds[0]
-	err = env.AllocateAddress(instId, "", addr)
+	err := env.AllocateAddress(instId, "", addr)
 	c.Assert(err, gc.DeepEquals, common.IPAddressesExhausted)
 }
 
