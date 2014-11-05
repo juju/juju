@@ -89,7 +89,7 @@ func CreateContainerTest(c *gc.C, manager container.Manager, machineId string) (
 	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if hardware == nil {
 		return nil, errors.New("nil hardware characteristics")

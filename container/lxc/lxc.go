@@ -303,11 +303,11 @@ func (manager *containerManager) CreateContainer(
 			if derr := lxcContainer.Destroy(); derr != nil {
 				// if an error is reported there is probably a leftover
 				// container that the user should clean up manually
-				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: use lxc-destroy to destroy the leftover container "+lxcContainer.Name())
+				return nil, nil, errors.Annotate(err, "container failed to start and failed to destroy: use \"sudo lxc-destroy "+lxcContainer.Name()+"\" to destroy the leftover container")
 			}
-			return nil, nil, instance.NewRetryableCreationError("container failed to start and was destroyed: " + lxcContainer.Name() + err.Error())
+			return nil, nil, errors.Wrap(err, instance.NewRetryableCreationError("container failed to start and was destroyed: "+lxcContainer.Name()))
 		}
-		return nil, nil, err
+		return nil, nil, errors.Annotate(err, "container failed to start")
 	}
 
 	hardware := &instance.HardwareCharacteristics{

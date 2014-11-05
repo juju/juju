@@ -263,8 +263,8 @@ func (s *LxcSuite) TestCreateContainerFailsWithInjectedError(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 
 	// this should be a retryable error
-	_, isRetryable := err.(instance.RetryableCreationError)
-	c.Assert(isRetryable, gc.Equals, true)
+	isRetryable := instance.IsRetryableCreationError(err)
+	c.Assert(isRetryable, jc.IsTrue)
 }
 
 func (s *LxcSuite) TestCreateContainerWithInjectedErrorDestroyFails(c *gc.C) {
@@ -283,8 +283,8 @@ func (s *LxcSuite) TestCreateContainerWithInjectedErrorDestroyFails(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 
 	// this should not be a retryable error
-	_, isRetryable := err.(instance.RetryableCreationError)
-	c.Assert(isRetryable, gc.Equals, false)
+	isRetryable := instance.IsRetryableCreationError(err)
+	c.Assert(isRetryable, jc.IsFalse)
 }
 
 func (s *LxcSuite) ensureTemplateStopped(name string) <-chan struct{} {

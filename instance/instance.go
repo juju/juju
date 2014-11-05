@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 )
@@ -74,8 +76,21 @@ type RetryableCreationError struct {
 // Returns the error message
 func (e RetryableCreationError) Error() string { return e.message }
 
-func NewRetryableCreationError(errorMessage string) RetryableCreationError {
-	return RetryableCreationError{errorMessage}
+func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
+	return &RetryableCreationError{errorMessage}
+}
+
+// IsRetryableCreationError returns true if the given error is
+// RetryableCreationError
+func IsRetryableCreationError(e interface{}) bool {
+	value := e
+	// In case of a wrapped error, check the cause first.
+	cause := errors.Cause(e.(error))
+	if cause != nil {
+		value = cause
+	}
+	_, ok := value.(*RetryableCreationError)
+	return ok
 }
 
 func (hc HardwareCharacteristics) String() string {

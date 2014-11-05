@@ -569,7 +569,7 @@ func (task *provisionerTask) startMachine(
 	inst, metadata, networkInfo, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
 		// If this is a retryable error, we retry once
-		if _, ok := err.(instance.RetryableCreationError); ok {
+		if instance.IsRetryableCreationError(err) {
 			var derr error
 			inst, metadata, networkInfo, derr = task.broker.StartInstance(startInstanceParams)
 			if derr != nil {
