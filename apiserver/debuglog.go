@@ -320,9 +320,14 @@ func agentMatchesFilter(line *logLine, aFilter string) bool {
 // All wildcard occurrences are changed to `.*`
 // Currently, all match exceptions are logged and not propagated.
 func hasMatch(value, aFilter string) bool {
-	// special handling, if contains wildcard (*), remove
+	/* Special handling: out of 12 regexp metacharacters \^$.|?+()[*{
+	   only asterix (*) can be legally used as a wildcard in this context.
+	   Both machine and unit tag and name specifications do not allow any other metas.
+	   Consequently, if aFilter contains wildcard (*), do not escape it -
+	   transform it into a regexp "any character(s)" sequence.s
+	*/
 	aFilter = strings.Replace(aFilter, "*", `.*`, -1)
-	matches, err := regexp.MatchString("^"+aFilter+"$", value)
+	matches, err := regexp.MatchString(`^`+aFilter+`$`, value)
 	if err != nil {
 		// logging errors here... but really should they be swallowed?
 		logger.Errorf("\nCould not match filter %q and regular expression %q\n.%v\n", value, aFilter, err)
