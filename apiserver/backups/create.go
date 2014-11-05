@@ -21,8 +21,8 @@ func (a *API) Create(args params.BackupsCreateArgs) (p params.BackupsMetadataRes
 		return p, errors.Trace(err)
 	}
 
-	// TODO(ericsnow) The machine ID needs to be introspected from the
-	// API server, likely through a Resource.
+	// TODO(ericsnow) #1389362 The machine ID needs to be introspected
+	// from the API server, likely through a Resource.
 	machine := "0"
 	origin, err := state.NewBackupOrigin(a.st, machine)
 	if err != nil {
