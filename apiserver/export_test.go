@@ -138,7 +138,7 @@ func TestingAboutToRestoreRoot(st *state.State) *aboutToRestoreRoot {
 
 // LogLineAgentTag gives tests access to an internal logLine attribute
 func (logLine *logLine) LogLineAgentTag() string {
-	return logLine.agent
+	return logLine.agentTag
 }
 
 // LogLineAgentName gives tests access to an internal logLine attribute

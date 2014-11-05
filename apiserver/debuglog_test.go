@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/testing"
 )
@@ -193,9 +192,21 @@ var filterTests []filterTest = []filterTest{
 		},
 		filtered: []string{logLines[0], logLines[1]},
 	}, {
+		about: "Exclude Entity Filter with only wildcard",
+		filter: url.Values{
+			"excludeEntity": {"*"}, // exclude everything :-)
+		},
+		filtered: []string{},
+	}, {
 		about: "Include Entity Filter with 1 wildcard",
 		filter: url.Values{
 			"includeEntity": {"unit-*"},
+		},
+		filtered: []string{logLines[40], logLines[41]},
+	}, {
+		about: "Exclude Entity Filter with 1 wildcard",
+		filter: url.Values{
+			"excludeEntity": {"machine-*"},
 		},
 		filtered: []string{logLines[40], logLines[41]},
 	}, {
@@ -205,25 +216,19 @@ var filterTests []filterTest = []filterTest{
 		},
 		filtered: []string{logLines[27], logLines[28]},
 	}, {
-		about: "Include Entity Filter using unit tag",
-		filter: url.Values{
-			"includeEntity": {"unit-ubuntu-0"},
-		},
-		filtered: []string{logLines[40], logLines[41]},
-	}, {
 		about: "Include Entity Filter using machine name",
 		filter: url.Values{
 			"includeEntity": {"1"},
 		},
 		filtered: []string{logLines[27], logLines[28]},
 	}, {
-		about: "Include Entity Filter using unit name",
+		about: "Include Entity Filter using unit tag",
 		filter: url.Values{
-			"includeEntity": {"ubuntu/0"},
+			"includeEntity": {"unit-ubuntu-0"},
 		},
 		filtered: []string{logLines[40], logLines[41]},
 	}, {
-		about: "Include Entity Filter using unit name with [nnnn]", // This seems to be the new format for log entries for units
+		about: "Include Entity Filter using unit name",
 		filter: url.Values{
 			"includeEntity": {"ubuntu/0"},
 		},
@@ -236,21 +241,15 @@ var filterTests []filterTest = []filterTest{
 		},
 		filtered: []string{logLines[29], logLines[34], logLines[41]},
 	}, {
-		about: "Exclude Entity Filter with only wildcard",
-		filter: url.Values{
-			"excludeEntity": {"*"}, // exclude everything :-)
-		},
-		filtered: []string{},
-	}, {
-		about: "Exclude Entity Filter with 1 wildcard",
-		filter: url.Values{
-			"excludeEntity": {"machine-*"},
-		},
-		filtered: []string{logLines[40], logLines[41]},
-	}, {
 		about: "Exclude Entity Filter using machine tag",
 		filter: url.Values{
 			"excludeEntity": {"machine-0"},
+		},
+		filtered: []string{logLines[27], logLines[28]},
+	}, {
+		about: "Exclude Entity Filter using machine name",
+		filter: url.Values{
+			"excludeEntity": {"0"},
 		},
 		filtered: []string{logLines[27], logLines[28]},
 	}, {
@@ -259,12 +258,6 @@ var filterTests []filterTest = []filterTest{
 			"excludeEntity": {"machine-0", "machine-1", "unit-ubuntu-0"},
 		},
 		filtered: []string{logLines[54], logLines[55]},
-	}, {
-		about: "Exclude Entity Filter using machine name",
-		filter: url.Values{
-			"excludeEntity": {"0"},
-		},
-		filtered: []string{logLines[27], logLines[28]},
 	}, {
 		about: "Exclude Entity Filter using unit name",
 		filter: url.Values{
@@ -298,6 +291,11 @@ func (s *debugLogSuite) TestFilter(c *gc.C) {
 
 		s.assertLogFollowing(c, reader)
 		s.writeLogLines(c, logLineCount)
+		/*
+			This will filter and return as many lines as filtered wanted to examine.
+			 So, if specified filter can potentially return 40 lines from sample log but filtered only wanted 2,
+			 then the first 2 lines that match the filter will be returned here.
+		*/
 		linesRead := s.readLogLines(c, reader, len(test.filtered))
 		// compare retrieved lines with expected
 		c.Assert(linesRead, jc.DeepEquals, test.filtered)
@@ -310,111 +308,9 @@ func (s *debugLogSuite) TestFilter(c *gc.C) {
 	}
 }
 
-// TestAgentLineFragmentParsing tests that agent tag and name are parsed correctly from log line
-func (s *debugLogSuite) TestAgentLineFragmentParsing(c *gc.C) {
-	checkAgentParsing(c, "Drop trailing colon", "machine-1: sdscsc", "machine-1", "1")
-	checkAgentParsing(c, "Drop unit specific [", "unit-ubuntu-1[blah777787]: scscdcdc", "unit-ubuntu-1", "ubuntu/1")
-	checkAgentParsing(c, "No colon in log line - invalid", "unit-ubuntu-1 scscdcdc", "", "")
-}
-
-func checkAgentParsing(c *gc.C, about, line, tag, name string) {
-	c.Logf("test %q\n", about)
-	logLine := apiserver.ParseLogLine(line)
-	c.Assert(logLine.LogLineAgentTag(), gc.Equals, tag)
-	c.Assert(logLine.LogLineAgentName(), gc.Equals, name)
-}
-
-type agentMatchTest struct {
-	about    string
-	line     string
-	filter   string
-	expected bool
-}
-
-var agentMatchTests []agentMatchTest = []agentMatchTest{
-	{
-		about:    "Matching with wildcard - match everything",
-		line:     "machine-1: sdscsc",
-		filter:   "*",
-		expected: true,
-	}, {
-		about:    "Matching with wildcard as suffix - match machine tag...",
-		line:     "machine-1: sdscsc",
-		filter:   "mach*",
-		expected: true,
-	}, {
-		about:    "Matching with wildcard as prefix - match machine tag...",
-		line:     "machine-1: sdscsc",
-		filter:   "*ch*",
-		expected: true,
-	}, {
-		about:    "Matching with wildcard in the middle - match machine tag...",
-		line:     "machine-1: sdscsc",
-		filter:   "mach*1",
-		expected: true,
-	}, {
-		about:    "Matching with wildcard - match machine name",
-		line:     "machine-1: sdscsc",
-		filter:   "1*",
-		expected: true,
-	}, {
-		about:    "Matching exact machine name",
-		line:     "machine-1: sdscsc",
-		filter:   "2",
-		expected: false,
-	}, {
-		about:    "Matching invalid filter",
-		line:     "machine-1: sdscsc",
-		filter:   "my-service",
-		expected: false,
-	}, {
-		about:    "Matching exact machine tag",
-		line:     "machine-1: sdscsc",
-		filter:   "machine-1",
-		expected: true,
-	}, {
-		about:    "Matching exact machine tag = not equal",
-		line:     "machine-1: sdscsc",
-		filter:   "machine-3",
-		expected: false,
-	}, {
-		about:    "Matching with wildcard - match unit tag...",
-		line:     "unit-ubuntu-1: sdscsc",
-		filter:   "un*",
-		expected: true,
-	}, {
-		about:    "Matching with wildcard - match unit name",
-		line:     "unit-ubuntu-1: sdscsc",
-		filter:   "ubuntu*",
-		expected: true,
-	}, {
-		about:    "Matching exact unit name",
-		line:     "unit-ubuntu-1: sdscsc",
-		filter:   "ubuntu/2",
-		expected: false,
-	}, {
-		about:    "Matching exact unit tag",
-		line:     "unit-ubuntu-1: sdscsc",
-		filter:   "unit-ubuntu-1",
-		expected: true,
-	}, {
-		about:    "Matching exact unit tag = not equal",
-		line:     "unit-ubuntu-2: sdscsc",
-		filter:   "unit-ubuntu-1",
-		expected: false,
-	},
-}
-
-// TestAgentMatchesFilter tests that line agent matches desired filter as expected
-func (s *debugLogSuite) TestAgentMatchesFilter(c *gc.C) {
-	for i, test := range agentMatchTests {
-		c.Logf("test %d: %v\n", i, test.about)
-		matched := apiserver.AgentMatchesFilter(apiserver.ParseLogLine(test.line), test.filter)
-		c.Assert(matched, gc.Equals, test.expected)
-	}
-}
-
-//want to test filter matching
+// readLogLines filters and returns as many lines as filtered wanted to examine.
+// So, if specified filter can potentially return 40 lines from sample log but filtered only wanted 2,
+// then the first 2 lines that match the filter will be returned here.
 func (s *debugLogSuite) readLogLines(c *gc.C, reader *bufio.Reader, count int) (linesRead []string) {
 	for len(linesRead) < count {
 		line, err := reader.ReadString('\n')
