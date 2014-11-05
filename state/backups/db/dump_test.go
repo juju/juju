@@ -101,6 +101,20 @@ func (s *dumpSuite) TestDumpStripped(c *gc.C) {
 	s.checkStripped(c, "backups")
 }
 
+func (s *dumpSuite) TestDumpStrippedMultiple(c *gc.C) {
+	s.patch(c)
+	dumper := s.prep(c)
+	s.prepDB(c, "backups")  // ignored
+	s.prepDB(c, "presence") // ignored
+
+	err := dumper.Dump(s.dumpDir)
+	c.Assert(err, gc.IsNil)
+
+	s.checkDBs(c, s.targets.Values()...)
+	s.checkDBs(c, "presence")
+	s.checkStripped(c, "backups")
+}
+
 func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
 	s.patch(c)
 	dumper := s.prep(c)
@@ -109,45 +123,4 @@ func (s *dumpSuite) TestDumpNothingIgnored(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.checkDBs(c, s.targets.Values()...)
-}
-
-func (s *dumpSuite) TestDumpOplogEmpty(c *gc.C) {
-	s.patch(c)
-	dumper := s.prep(c)
-	s.prepDB(c, "backups") // ignored
-
-	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
-
-	s.checkDBs(c, s.targets.Values()...)
-	s.checkStripped(c, "backups")
-	checkOplog(c, s.dumpDir)
-}
-
-func (s *dumpSuite) TestDumpOplogIgnored(c *gc.C) {
-	s.patch(c)
-	dumper := s.prep(c)
-	s.prepDB(c, "backups") // ignored
-	createOplog(c, s.dumpDir, "juju.machines", "backups.spam")
-
-	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
-
-	s.checkDBs(c, s.targets.Values()...)
-	s.checkStripped(c, "backups")
-	checkOplog(c, s.dumpDir, "juju.machines")
-}
-
-func (s *dumpSuite) TestDumpOplogOnlyIgnored(c *gc.C) {
-	s.patch(c)
-	dumper := s.prep(c)
-	s.prepDB(c, "backups") // ignored
-	createOplog(c, s.dumpDir, "backups.spam")
-
-	err := dumper.Dump(s.dumpDir)
-	c.Assert(err, gc.IsNil)
-
-	s.checkDBs(c, s.targets.Values()...)
-	s.checkStripped(c, "backups")
-	checkOplog(c, s.dumpDir)
 }

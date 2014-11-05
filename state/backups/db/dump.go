@@ -110,11 +110,14 @@ func (md *mongoDumper) Dump(baseDumpDir string) error {
 // stripIgnored removes the ignored DBs from the mongo dump files.
 // This involves deleting DB-specific directories.
 func stripIgnored(ignored *set.Strings, dumpDir string) error {
-	if err := stripOplog(ignored, dumpDir); err != nil {
-		return errors.Trace(err)
-	}
-
 	for _, dbName := range ignored.Values() {
+		if dbName != "backups" {
+			// We allow all ignored databases except "backups" to be
+			// included in the archive file.  Restore will be
+			// responsible for deleting those databases after
+			// restoring them.
+			continue
+		}
 		dirname := filepath.Join(dumpDir, dbName)
 		if err := os.RemoveAll(dirname); err != nil {
 			return errors.Trace(err)
