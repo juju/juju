@@ -2189,14 +2189,14 @@ func (s waitActionResults) step(c *gc.C, ctx *context) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for action results")
 		case changes, ok := <-resultsWatcher.Changes():
-			c.Assert(ok, jc.IsTrue)
 			c.Logf("Got changes: %#v", changes)
+			c.Assert(ok, jc.IsTrue)
 			stateActionResults, err := ctx.unit.ActionResults()
 			c.Assert(err, gc.IsNil)
 			if len(stateActionResults) != len(s.expectedResults) {
 				continue
 			}
-			actualResults := make([]actionResult, len(changes))
+			actualResults := make([]actionResult, len(stateActionResults))
 			for i, result := range stateActionResults {
 				results, message := result.Results()
 				actualResults[i] = actionResult{
@@ -2238,6 +2238,7 @@ findMatch:
 type verifyNoActionResults struct{}
 
 func (s verifyNoActionResults) step(c *gc.C, ctx *context) {
+	time.Sleep(coretesting.ShortWait)
 	result, err := ctx.unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.HasLen, 0)
