@@ -1478,7 +1478,7 @@ var actionEventTests = []uniterTest{
 			name:    "snapshot",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
-			message: `action "snapshot" param validation failed: JSON validation failed: (root).outfile : must be of type string, given 2`,
+			message: `cannot run "snapshot" action: JSON validation failed: (root).outfile : must be of type string, given 2`,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(
@@ -1501,7 +1501,7 @@ var actionEventTests = []uniterTest{
 			name:    "snapshot",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
-			message: `action "snapshot" param validation failed: no spec was defined for action "snapshot"`,
+			message: `cannot run "snapshot" action: not defined`,
 		}}},
 		waitUnit{status: params.StatusStarted},
 	), ut(

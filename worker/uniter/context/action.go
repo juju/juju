@@ -7,8 +7,9 @@ import (
 	"github.com/juju/names"
 )
 
-// ActionData contains the tag, parameters, and results of an Action.
-type ActionData struct {
+// actionData contains the tag, parameters, and results of an Action.
+type actionData struct {
+	ActionName     string
 	ActionTag      names.ActionTag
 	ActionParams   map[string]interface{}
 	ActionFailed   bool
@@ -18,8 +19,9 @@ type ActionData struct {
 
 // newActionData builds a suitable actionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
-func NewActionData(tag *names.ActionTag, params map[string]interface{}) *ActionData {
-	return &ActionData{
+func newActionData(name string, tag *names.ActionTag, params map[string]interface{}) *actionData {
+	return &actionData{
+		ActionName:   name,
 		ActionTag:    *tag,
 		ActionParams: params,
 		ResultsMap:   map[string]interface{}{},

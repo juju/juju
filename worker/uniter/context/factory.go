@@ -33,8 +33,8 @@ type Factory interface {
 	NewHookContext(hookInfo hook.Info) (*HookContext, error)
 
 	// NewActionContext returns an execution context suitable for running the
-	// supplied action (which is assumed to be already validated).
-	NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error)
+	// action identified by the supplied id.
+	NewActionContext(actionId string) (*HookContext, error)
 }
 
 // CharmFunc is used to get a snapshot of the charm at context creation time.
@@ -158,12 +158,35 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 }
 
 // NewActionContext exists to satisfy the Factory interface.
-func (f *factory) NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error) {
+func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
+
+	ch, err := f.getCharm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tag := names.NewActionTag(actionId)
+	action, err := f.state.Action(tag)
+	if err != nil {
+		// TODO(fwereade) handle unauth/notfound
+		return nil, errors.Trace(err)
+	}
+	name := action.Name()
+	spec, ok := ch.Actions().ActionSpecs[name]
+	if !ok {
+		return nil, &badActionError{name, "not defined"}
+	}
+	params := action.Params()
+	_, err = spec.ValidateParams(params)
+	if err != nil {
+		return nil, &badActionError{name, err.Error()}
+	}
+
 	ctx, err := f.coreContext()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.actionData = NewActionData(&tag, params)
+	ctx.actionData = newActionData(name, &tag, params)
 	ctx.id = f.newId(name)
 	return ctx, nil
 }

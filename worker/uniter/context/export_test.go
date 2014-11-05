@@ -71,13 +71,9 @@ func (c *HookContext) EnvInfo() (name, uuid string) {
 	return c.envName, c.uuid
 }
 
-func (c *HookContext) ActionData() *ActionData {
-	return c.actionData
-}
-
 func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
-		actionData: &ActionData{
+		actionData: &actionData{
 			ResultsMap: in,
 		},
 	}
@@ -97,9 +93,12 @@ func NewHookContext(
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
 	metrics *charm.Metrics,
-	actionData *ActionData,
+	actionData interface{},
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
+	if actionData != nil {
+		return nil, errors.Errorf("OH FFS")
+	}
 	ctx := &HookContext{
 		unit:               unit,
 		state:              state,
@@ -115,7 +114,6 @@ func NewHookContext(
 		proxySettings:      proxySettings,
 		canAddMetrics:      canAddMetrics,
 		definedMetrics:     metrics,
-		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
 	}

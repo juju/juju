@@ -54,7 +54,7 @@ type HookContext struct {
 
 	// actionData contains the values relevant to the run of an Action:
 	// its tag, its parameters, and its results.
-	actionData *ActionData
+	actionData *actionData
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -174,6 +174,14 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 		result[name] = value
 	}
 	return result, nil
+}
+
+// ActionName returns the name of the action.
+func (ctx *HookContext) ActionName() (string, error) {
+	if ctx.actionData == nil {
+		return "", fmt.Errorf("not running an action")
+	}
+	return ctx.actionData.ActionName, nil
 }
 
 // ActionParams simply returns the arguments to the Action.
