@@ -324,7 +324,7 @@ func hasMatch(value, aFilter string) bool {
 	   only asterix (*) can be legally used as a wildcard in this context.
 	   Both machine and unit tag and name specifications do not allow any other metas.
 	   Consequently, if aFilter contains wildcard (*), do not escape it -
-	   transform it into a regexp "any character(s)" sequence.s
+	   transform it into a regexp "any character(s)" sequence.
 	*/
 	aFilter = strings.Replace(aFilter, "*", `.*`, -1)
 	matches, err := regexp.MatchString(`^`+aFilter+`$`, value)
