@@ -6,13 +6,16 @@
 package backups
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
+	"github.com/juju/utils/tar"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -20,6 +23,8 @@ import (
 	"github.com/juju/juju/state/backups/files"
 	"github.com/juju/juju/state/backups/metadata"
 )
+
+var logger = loggo.GetLogger("juju.state.backups")
 
 var (
 	getFilesToBackUp = files.GetFilesToBackUp
@@ -46,7 +51,7 @@ type Backups interface {
 	List() ([]metadata.Metadata, error)
 	// Remove deletes the backup from storage.
 	Remove(id string) error
-	// Restore restore a server to the backup's state.
+	// Restore updates juju's state to the contents of the backup archive. 
 	Restore(io.ReadCloser, *metadata.Metadata, string, instance.Id) error
 }
 
@@ -154,23 +159,28 @@ func (b *backups) Remove(id string) error {
 // * updates config in all agents.
 func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, newInstId instance.Id) error {
 	workDir := os.TempDir()
-
-	// TODO (perrito666) obtain this pat path from the proper place here and in backup
-	// if the backup contains the series of the machine we can generate it.
-	const agentFile string = "var/lib/juju/agents/machine-0/agent.conf"
+	defer os.RemoveAll(workDir)
 
 	// Extract outer container (a juju-backup folder inside the tar)
-	if err := untarFiles(backupFile, workDir, true); err != nil {
-		return errors.Annotate(err, "cannot extract files from backup")
+	tarFile, err := gzip.NewReader(backupFile)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := tar.UntarFiles(tarFile, workDir); err != nil {
+		return errors.Trace(err)
 	}
 
 	// delete all the files to be replaced
-	if err := prepareMachineForRestore(); err != nil {
+	if err := files.PrepareMachineForRestore(); err != nil {
 		return errors.Annotate(err, "cannot delete existing files")
 	}
 	backupFilesPath := filepath.Join(workDir, "juju-backup")
 	// just in case, we dont want to leave these sensitive files hanging around.
-	defer os.RemoveAll(backupFilesPath)
+
+	version, err := backupVersion(backupMetadata, backupFilesPath)
+	if err != nil {
+		return errors.Errorf("this is not a valid backup file")
+	}
 
 	// Extract inner container (root.tar inside the juju-backup)
 	innerBackup := filepath.Join(backupFilesPath, "root.tar")
@@ -179,27 +189,22 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 		return errors.Annotatef(err, "cannot open the backups inner tar file %q", innerBackup)
 	}
 	defer innerBackupHandler.Close()
-	if err := untarFiles(innerBackupHandler, filesystemRoot(), false); err != nil {
+	// Load configuration values that are to remain
+	// without these values, lets leave before doing any possible damage on the system
+	agentConf, err := fetchAgentConfigFromBackup(innerBackupHandler)
+	if err != nil {
+		return errors.Annotate(err, "cannot obtain agent configuration information")
+	}
+
+	if err := tar.UntarFiles(innerBackupHandler, filesystemRoot()); err != nil {
 		return errors.Annotate(err, "cannot obtain system files from backup")
 	}
 
-	version := backupVersion(backupMetadata, backupFilesPath)
+
 	// Restore backed up mongo
 	mongoDump := filepath.Join(backupFilesPath, "dump")
 	if err := placeNewMongo(mongoDump, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
-	}
-
-	// Load configuration values that are to remain
-	agentConfFile, err := os.Open(agentFile)
-	if err != nil {
-		return errors.Annotate(err, "cannot open agent configuration file")
-	}
-	defer agentConfFile.Close()
-
-	agentConf, err := fetchAgentConfigFromBackup(agentConfFile)
-	if err != nil {
-		return errors.Annotate(err, "cannot obtain agent configuration information")
 	}
 
 	// Re-start replicaset with the new value for server address

@@ -109,15 +109,15 @@ func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 
 // rebootstrap will bootstrap a new server in safe-mode (not killing any other agent)
 // if there is no current server available to restore to.
-func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error) {
+func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) error {
 	cons := c.constraints
 	store, err := configstore.Default()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	cfg, err := c.Config(store)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	// Turn on safe mode so that the newly bootstrapped instance
 	// will not destroy all the instances it does not know about.
@@ -125,32 +125,32 @@ func (c *RestoreCommand) rebootstrap(ctx *cmd.Context) (environs.Environ, error)
 		"provisioner-safe-mode": true,
 	})
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot enable provisioner-safe-mode")
+		return errors.Annotatef(err, "cannot enable provisioner-safe-mode")
 	}
 	env, err := environs.New(cfg)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
 	instanceIds, err := env.StateServerInstances()
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot determine state server instances")
+		return errors.Annotatef(err, "cannot determine state server instances")
 	}
 	if len(instanceIds) == 0 {
-		return nil, errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
+		return errors.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
 	inst, err := env.Instances(instanceIds)
 	if err == nil {
-		return nil, errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
+		return errors.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 	}
 	if err != environs.ErrNoInstances {
-		return nil, errors.Annotatef(err, "cannot detect whether old instance is still running")
+		return errors.Annotatef(err, "cannot detect whether old instance is still running")
 	}
 
 	args := bootstrap.BootstrapParams{Constraints: cons}
 	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
-		return nil, errors.Annotatef(err, "cannot bootstrap new instance")
+		return errors.Annotatef(err, "cannot bootstrap new instance")
 	}
-	return env, nil
+	return nil
 }
 
 // doUpload will copy a local backup file to a location in the ubuntu user
@@ -178,8 +178,7 @@ func (c *RestoreCommand) doUpload() error {
 // Run is the entry point for this command.
 func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
-		_, err := c.rebootstrap(ctx)
-		if err != nil {
+		if err := c.rebootstrap(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}

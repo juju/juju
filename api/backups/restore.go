@@ -38,7 +38,7 @@ func (c *Client) Restore(backupFileName, backupId string, apiRoot func() (*api.S
 	return client.facade.FacadeCall("FinishRestore", nil, nil)
 }
 
-// Preparerestore puts the server into a state that only allows
+// PrepareRestore puts the server into a state that only allows
 // for restore to be called. This is to avoid the data loss if
 // users try to perform actions that are going to be overwritten
 // by restore.

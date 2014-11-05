@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"syscall"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
@@ -119,4 +121,61 @@ func (s *filesSuite) TestGetFilesToBackUp(c *gc.C) {
 	}
 	c.Check(files, jc.SameContents, expected)
 	s.checkSameStrings(c, files, expected)
+}
+
+func (s *filesSuite) TestDirectoriesCleaned(c *gc.C) {
+	recreatableFolder := filepath.Join(s.root, "recreate_me")
+	os.MkdirAll(recreatableFolder, os.FileMode(0755))
+	recreatableFolderInfo, err := os.Stat(recreatableFolder)
+	c.Assert(err, gc.IsNil)
+
+	recreatableFolder1 := filepath.Join(recreatableFolder, "recreate_me_too")
+	os.MkdirAll(recreatableFolder1, os.FileMode(0755))
+	recreatableFolder1Info, err := os.Stat(recreatableFolder1)
+	c.Assert(err, gc.IsNil)
+
+	deletableFolder := filepath.Join(recreatableFolder, "dont_recreate_me")
+	os.MkdirAll(deletableFolder, os.FileMode(0755))
+
+	deletableFile := filepath.Join(recreatableFolder, "delete_me")
+	fh, err := os.Create(deletableFile)
+	c.Assert(err, gc.IsNil)
+	defer fh.Close()
+
+	deletableFile1 := filepath.Join(recreatableFolder1, "delete_me.too")
+	fhr, err := os.Create(deletableFile1)
+	c.Assert(err, gc.IsNil)
+	defer fhr.Close()
+
+	s.PatchValue(files.ReplaceableFolders, func() (map[string]os.FileMode, error) {
+		replaceables := map[string]os.FileMode{}
+		for _, replaceable := range []string{
+			recreatableFolder,
+			recreatableFolder1,
+		} {
+			dirStat, err := os.Stat(replaceable)
+			if err != nil {
+				return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
+			}
+			replaceables[replaceable] = dirStat.Mode()
+		}
+		return replaceables, nil
+	})
+
+	err = files.PrepareMachineForRestore()
+	c.Assert(err, gc.IsNil)
+
+	_, err = os.Stat(deletableFolder)
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(os.IsNotExist(err), gc.Equals, true)
+
+	recreatedFolderInfo, err := os.Stat(recreatableFolder)
+	c.Assert(err, gc.IsNil)
+	c.Assert(recreatableFolderInfo.Mode(), gc.Equals, recreatedFolderInfo.Mode())
+	c.Assert(recreatableFolderInfo.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolderInfo.Sys().(*syscall.Stat_t).Ino)
+
+	recreatedFolder1Info, err := os.Stat(recreatableFolder1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(recreatableFolder1Info.Mode(), gc.Equals, recreatedFolder1Info.Mode())
+	c.Assert(recreatableFolder1Info.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolder1Info.Sys().(*syscall.Stat_t).Ino)
 }

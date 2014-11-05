@@ -7,21 +7,18 @@ package backups
 
 import (
 	"bytes"
-	"compress/gzip"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"text/template"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/tar"
@@ -40,39 +37,18 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
-var logger = loggo.GetLogger("juju.state.backups")
-
 var runCommand = runExternalCommand
 
 // runExternalCommand will run the external comand cmd with args arguments and return nil on success
 // fails or the command output if it fails.
 func runExternalCommand(cmd string, args ...string) error {
-	command := exec.Command(cmd, args...)
-	out, err := command.CombinedOutput()
-
-	if err == nil {
-		return nil
-	}
-
-	if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
-		return errors.Annotatef(err, "error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
-	}
-	return errors.Annotatef(err, "cannot execute %q", cmd)
-}
-
-// untarFiles will take the reader and output folder for a tar file, wrap in a gzip
-// reader if uncompression is required and call utils/tar UntarFiles.
-func untarFiles(tarFile io.ReadCloser, outputFolder string, compress bool) error {
-	var r = tarFile
-	var err error
-	if compress {
-		r, err = gzip.NewReader(r)
-		if err != nil {
-			return errors.Annotatef(err, "cannot uncompress tar file %q", tarFile)
+	if out, err := utils.RunCommand(cmd, args...); err != nil {
+		if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
+			return errors.Annotatef(err, "error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
 		}
+		return errors.Annotatef(err, "cannot execute %q", cmd)
 	}
-
-	return tar.UntarFiles(r, outputFolder)
+	return nil
 }
 
 // resetReplicaSet re-initiates replica-set using the new state server
@@ -88,62 +64,10 @@ func resetReplicaSet(dialInfo *mgo.DialInfo, memberHostPort string) error {
 	return peergrouper.InitiateMongoServer(params, true)
 }
 
-var replaceableFiles = getReplaceableFiles
-
-// getReplaceableFiles will return a map with the files/folders that need to
-// be replaces so they can be deleted prior to a restore.
-func getReplaceableFiles() (map[string]os.FileMode, error) {
-	replaceables := map[string]os.FileMode{}
-
-	for _, replaceable := range []string{
-		"/var/lib/juju/db",
-		"/var/lib/juju",
-		"/var/log/juju",
-	} {
-		dirStat, err := os.Stat(replaceable)
-		if err != nil {
-			return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
-		}
-		replaceables[replaceable] = dirStat.Mode()
-	}
-	return replaceables, nil
-}
-
 var filesystemRoot = getFilesystemRoot
 
 func getFilesystemRoot() string {
 	return "/"
-}
-
-// prepareMachineForRestore deletes all files from the re-bootstrapped
-// machine that are to be replaced by the backup and recreates those
-// directories that are to contain new files; this is to avoid
-// possible mixup from new/old files that lead to an inconsistent
-// restored state machine.
-func prepareMachineForRestore() error {
-	replaceFiles, err := replaceableFiles()
-	if err != nil {
-		return errors.Annotate(err, "cannot retrieve the list of folders to be cleaned before restore")
-	}
-	var keys []string
-	for k := range replaceFiles {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, toBeRecreated := range keys {
-		fmode := replaceFiles[toBeRecreated]
-		_, err := os.Stat(toBeRecreated)
-		if err != nil && !os.IsNotExist(err) {
-			return errors.Trace(err)
-		}
-		if err := os.RemoveAll(toBeRecreated); err != nil {
-			return errors.Trace(err)
-		}
-		if err := os.MkdirAll(toBeRecreated, fmode); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
 }
 
 // newDialInfo returns mgo.DialInfo with the given address using the minimal
@@ -276,7 +200,14 @@ type agentConfig struct {
 // fetchAgentConfigFromBackup parses <dataDir>/machine-0/agents/machine-0/agent.conf
 // and returns an agentConfig struct filled with the data that will not change
 // from the backed up one (typically everything but the hosts).
-func fetchAgentConfigFromBackup(agentConf io.Reader) (agentConfig, error) {
+func fetchAgentConfigFromBackup(innerBackupHandler io.Reader) (agentConfig, error) {
+	// TODO (perrito666) obtain this pat path from the proper place here and in backup
+	// if the backup contains the series of the machine we can generate it.
+	_, agentConf, err := tar.FindFile(innerBackupHandler, "var/lib/juju/agents/machine-0/agent.conf")
+	if err != nil {
+		return agentConfig{}, errors.Annotatef(err, "could not find agent configuration in tar file")
+	}
+
 	data, err := ioutil.ReadAll(agentConf)
 	if err != nil {
 		return agentConfig{}, errors.Annotate(err, "failed to read agent config file")
@@ -483,13 +414,15 @@ func runViaSSH(addr string, script string) error {
 // Version 1: juju backups create (first implementation) for the
 // moment this version is determined by checking for metadata but not
 // its contents.
-func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) int {
+func backupVersion(backupMetadata *metadata.Metadata, backupFilesPath string) (int, error) {
 	backupMetadataFile := true
 	if _, err := os.Stat(filepath.Join(backupFilesPath, "metadata.json")); os.IsNotExist(err) {
 		backupMetadataFile = false
+	} else if err != nil {
+		return 0, errors.Annotate(err, "cannot read metadata file")
 	}
 	if backupMetadata == nil && !backupMetadataFile {
-		return 0
+		return 0, nil
 	}
-	return 1
+	return 1, nil
 }
