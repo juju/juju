@@ -82,8 +82,8 @@ func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
 	r.Version = meta.Origin.Version
 }
 
-// Restore Holds the backup file or id and the machine to
-// be used for the restore process
+// RestoreArgs Holds the backup file or id and the machine to
+// be used for the restore process.
 type RestoreArgs struct {
 	// FileName holds the name of the backup file if any
 	FileName string

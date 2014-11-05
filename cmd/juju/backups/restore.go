@@ -17,12 +17,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/utils/ssh"
 )
 
 // RestoreCommand is a subcommand of backups that implement the restore behaior
-// it is invoked with "juju backups restore"
+// it is invoked with "juju backups restore".
 type RestoreCommand struct {
 	CommandBase
 	constraints constraints.Value
@@ -48,7 +47,7 @@ an appropriate message.  For instance, if the existing bootstrap
 instance is already running then the command will fail with a message
 to that effect.
 `
-
+// Info returns the content for --help. 
 func (c *RestoreCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "restore",
@@ -58,6 +57,7 @@ func (c *RestoreCommand) Info() *cmd.Info {
 	}
 }
 
+// SetFlags handles known option flags.
 func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{Target: &c.constraints},
 		"constraints", "set environment constraints")
@@ -68,6 +68,7 @@ func (c *RestoreCommand) SetFlags(f *gnuflag.FlagSet) {
 
 }
 
+// Init is where the preconditions for this commands can be checked.
 func (c *RestoreCommand) Init(args []string) error {
 	if c.filename == "" && c.backupId == "" {
 		return errors.Errorf("you must specify either a file or a backup id.")
@@ -77,6 +78,9 @@ func (c *RestoreCommand) Init(args []string) error {
 	}
 	if c.backupId != "" && c.bootstrap {
 		return errors.Errorf("it is not possible to rebootstrap and restore from an id.")
+	}
+	if c.filename != "" {
+		c.filename = filepath.Base(c.filename)
 	}
 	return nil
 }
@@ -88,37 +92,18 @@ const restoreAPIIncompatibility = "server version not compatible for " +
 // of restore.
 func (c *RestoreCommand) runRestore(ctx *cmd.Context, client APIClient) error {
 
-	fileName := filepath.Base(c.filename)
-	if err := client.Restore(fileName, c.backupId); err != nil {
-
+	if err := client.Restore(c.filename, c.backupId, c.NewAPIRoot); err != nil {
 		// Backwards compatibility
 		if params.IsCodeNotImplemented(err) {
 			return errors.Errorf(restoreAPIIncompatibility)
 		}
-		// This signals that Restore almost certainly finished and
-		// triggered Exit
-		if err != rpc.ErrShutdown {
-			return errors.Trace(err)
-		}
-		// upstrart should have restarted the api server so we reconnect
-		client, err = c.NewAPIClient()
-		if err != nil {
-			return errors.Trace(err)
-		}
 
 	}
-	// We check that, after client reconnection, Restore actually set the state
-	// as state.RestoreCompleted and mark it as state.RestoreChecked
-	if err := client.FinishRestore(); err != nil {
-		if params.IsCodeNotImplemented(err) {
-			return errors.Errorf(restoreAPIIncompatibility)
-		}
-		return errors.Trace(err)
+	restoreTarget := c.filename
+	if c.filename == "" {
+		restoreTarget = c.backupId
 	}
-	if fileName == "" {
-		fileName = c.backupId
-	}
-	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", fileName)
+	fmt.Fprintf(ctx.Stdout, "restore from %q completed\n", restoreTarget)
 	return nil
 }
 
@@ -176,7 +161,7 @@ func (c *RestoreCommand) doUpload() error {
 		return errors.Annotate(err, "cannot connect to API for uploading")
 	}
 	defer client.Close()
-	//TODO (perrito666) Find the machine in a non hardcoded way
+	// TODO (perrito666) Find the machine in a non hardcoded way
 	addr, err := client.PublicAddress("0")
 	if err != nil {
 		return errors.Trace(err)
@@ -190,7 +175,7 @@ func (c *RestoreCommand) doUpload() error {
 	return nil
 }
 
-// Run is the entry point for this command
+// Run is the entry point for this command.
 func (c *RestoreCommand) Run(ctx *cmd.Context) error {
 	if c.bootstrap {
 		_, err := c.rebootstrap(ctx)

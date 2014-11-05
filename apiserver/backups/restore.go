@@ -45,7 +45,7 @@ func (a *API) backupFileAndMeta(backupId, fileName string) (io.ReadCloser, *meta
 
 }
 
-// Restore implements the server side of Backups.Restore
+// Restore implements the server side of Backups.Restore.
 func (a *API) Restore(p params.RestoreArgs) error {
 	// Get hold of a backup file Reader
 	fileHandler, meta, err := a.backupFileAndMeta(p.BackupId, p.FileName)
@@ -71,21 +71,23 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 	err = rInfo.SetStatus(state.RestoreInProgress)
 
+
+	instanceId, err := machine.InstanceId()
+	if err != nil {
+		return errors.Annotate(err, "cannot obtain instance id for machine to be restored")
+	}
+
 	// Restore
-	if err := a.backups.Restore(fileHandler, meta, addr, a.st); err != nil {
+	if err := a.backups.Restore(fileHandler, meta, addr, instanceId); err != nil {
 		return errors.Annotate(err, "restore failed")
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work
-	if err == nil {
-		os.Exit(1)
-	}
-
-	return errors.Annotate(err, "failed to restore")
-
+	os.Exit(1)
+	return nil
 }
 
-// PrepareRestore implements the server side of Backups.PrepareRestore
+// PrepareRestore implements the server side of Backups.PrepareRestore.
 func (a *API) PrepareRestore() error {
 	rInfo, err := a.st.EnsureRestoreInfo()
 	if err != nil {
@@ -95,7 +97,7 @@ func (a *API) PrepareRestore() error {
 	return errors.Annotatef(err, "cannot set restore status to %s", state.RestorePending)
 }
 
-// FinishRestore implements the server side of Backups.FinishRestore
+// FinishRestore implements the server side of Backups.FinishRestore.
 func (a *API) FinishRestore() error {
 	rInfo, err := a.st.EnsureRestoreInfo()
 	if err != nil {

@@ -39,21 +39,21 @@ type RestoreSuite struct {
 	testFiles []string
 }
 
-func (b *RestoreSuite) SetUpSuite(c *gc.C) {
-	b.BaseSuite.SetUpSuite(c)
+func (r *RestoreSuite) SetUpSuite(c *gc.C) {
+	r.BaseSuite.SetUpSuite(c)
 }
 
-func (b *RestoreSuite) SetUpTest(c *gc.C) {
-	b.cwd = c.MkDir()
-	b.BaseSuite.SetUpTest(c)
+func (r *RestoreSuite) SetUpTest(c *gc.C) {
+	r.cwd = c.MkDir()
+	r.BaseSuite.SetUpTest(c)
 }
 
-func (b *RestoreSuite) createTestFiles(c *gc.C) {
-	tarDirE := path.Join(b.cwd, "TarDirectoryEmpty")
+func (r *RestoreSuite) createTestFiles(c *gc.C) {
+	tarDirE := path.Join(r.cwd, "TarDirectoryEmpty")
 	err := os.Mkdir(tarDirE, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
-	tarDirP := path.Join(b.cwd, "TarDirectoryPopulated")
+	tarDirP := path.Join(r.cwd, "TarDirectoryPopulated")
 	err = os.Mkdir(tarDirP, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
@@ -67,18 +67,18 @@ func (b *RestoreSuite) createTestFiles(c *gc.C) {
 	err = os.Mkdir(tarSubDir, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
-	tarFile1 := path.Join(b.cwd, "TarFile1")
+	tarFile1 := path.Join(r.cwd, "TarFile1")
 	tarFile1Handle, err := os.Create(tarFile1)
 	c.Check(err, gc.IsNil)
 	tarFile1Handle.WriteString("TarFile1")
 	tarFile1Handle.Close()
 
-	tarFile2 := path.Join(b.cwd, "TarFile2")
+	tarFile2 := path.Join(r.cwd, "TarFile2")
 	tarFile2Handle, err := os.Create(tarFile2)
 	c.Check(err, gc.IsNil)
 	tarFile2Handle.WriteString("TarFile2")
 	tarFile2Handle.Close()
-	b.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
+	r.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
 }
 
 func (r *RestoreSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
@@ -147,7 +147,7 @@ func (r *RestoreSuite) TestDirectoriesCleaned(c *gc.C) {
 		} {
 			dirStat, err := os.Stat(replaceable)
 			if err != nil {
-				return map[string]os.FileMode{}, err
+				return map[string]os.FileMode{}, errors.Annotatef(err, "cannot stat %q", replaceable)
 			}
 			replaceables[replaceable] = dirStat.Mode()
 		}
@@ -170,7 +170,6 @@ func (r *RestoreSuite) TestDirectoriesCleaned(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(recreatableFolder1Info.Mode(), gc.Equals, recreatedFolder1Info.Mode())
 	c.Assert(recreatableFolder1Info.Sys().(*syscall.Stat_t).Ino, gc.Not(gc.Equals), recreatedFolder1Info.Sys().(*syscall.Stat_t).Ino)
-
 }
 
 type backupConfigTests struct {
@@ -226,7 +225,6 @@ func (r *RestoreSuite) TestFetchConfigFromBackupFailures(c *gc.C) {
 		logger.Infof(tCase.message)
 		c.Assert(err, gc.DeepEquals, tCase.expectedError)
 	}
-
 }
 
 func (r *RestoreSuite) TestFetchConfigFromBackupSuccess(c *gc.C) {

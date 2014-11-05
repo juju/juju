@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
 
@@ -81,7 +82,7 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
+		return errors.Errorf("can't dial mongo to initiate replicaset: %v", err)
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)
@@ -94,7 +95,7 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, f
 	}
 
 	if err != nil && err != mgo.ErrNotFound {
-		return fmt.Errorf("cannot get replica set configuration: %v", err)
+		return errors.Errorf("cannot get replica set configuration: %v", err)
 	}
 	return replicaset.Initiate(
 		session,

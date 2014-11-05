@@ -63,12 +63,10 @@ type APIClient interface {
 	// Remove removes the stored backup.
 	Remove(id string) error
 	// Restore will restore a backup file or id into the state server
-	Restore(string, string) error
+	Restore(string, string, func() (*api.State, error)) error
 	// PrepareRestore will lock the server into restore mode
 	// for preparation tasks
 	PrepareRestore() error
-	// FinishRestore will check that restore tasks where correctly finished
-	FinishRestore() error
 }
 
 // CommandBase is the base type for backups sub-commands.
@@ -81,6 +79,8 @@ func (c *CommandBase) NewAPIClient() (APIClient, error) {
 	return newAPIClient(c)
 }
 
+// NewBaseAPIClient calls EnvCommandBase NewAPIClient to obtain a
+// regular api.Client instead of the backups one.
 func (c *CommandBase) NewBaseAPIClient() (*api.Client, error) {
 	return c.EnvCommandBase.NewAPIClient()
 }

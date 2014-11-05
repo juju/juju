@@ -14,7 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
 
-	"github.com/juju/juju/agent"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
@@ -37,7 +37,6 @@ var (
 
 // Backups is an abstraction around all juju backup-related functionality.
 type Backups interface {
-
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
 	Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
@@ -47,8 +46,8 @@ type Backups interface {
 	List() ([]metadata.Metadata, error)
 	// Remove deletes the backup from storage.
 	Remove(id string) error
-	// Restore restore a server to the backup's state
-	Restore(io.ReadCloser, *metadata.Metadata, string, *state.State) error
+	// Restore restore a server to the backup's state.
+	Restore(io.ReadCloser, *metadata.Metadata, string, instance.Id) error
 }
 
 type backups struct {
@@ -153,19 +152,7 @@ func (b *backups) Remove(id string) error {
 // * updates existing db entries to make sure they hold no references to
 // old instances
 // * updates config in all agents.
-func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, st *state.State) error {
-	// TODO(perrito666): I am sure there is a more elegant way to obtain the machine
-	// than pointing a finger to it, which could also avoid us the state passing
-	// I have not figured it yet
-	machine, err := st.Machine(agent.BootstrapMachineId)
-	if err != nil {
-		return errors.Annotate(err, "cannot find bootstrap machine in status")
-	}
-	newInstId, err := machine.InstanceId()
-	if err != nil {
-		return errors.Annotate(err, "cannot get instance id for bootstraped machine")
-	}
-
+func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Metadata, privateAddress string, newInstId instance.Id) error {
 	workDir := os.TempDir()
 
 	// TODO (perrito666) obtain this pat path from the proper place here and in backup
@@ -233,7 +220,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 	}
 
 	// From here we work with the restored state server
-	st, err = newStateConnection(agentConf)
+	st, err := newStateConnection(agentConf)
 	if err != nil {
 		return errors.Trace(err)
 	}

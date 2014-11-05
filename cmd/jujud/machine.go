@@ -107,13 +107,13 @@ var (
 )
 
 // IsRestorePreparing returns bool representing if we are in restore mode
-// but not running restore
+// but not running restore.
 func (a *MachineAgent) IsRestorePreparing() bool {
 	return a.restoreMode && !a.restoring
 }
 
 // IsRestoreRunning returns bool representing if we are in restore mode
-// and running the actual restore process
+// and running the actual restore process.
 func (a *MachineAgent) IsRestoreRunning() bool {
 	return a.restoring
 }
@@ -239,7 +239,7 @@ func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 // it will return error if the machine is already in this state.
 func (a *MachineAgent) PrepareRestore() error {
 	if a.restoreMode {
-		return fmt.Errorf("already in restore mode")
+		return errors.Errorf("already in restore mode")
 	}
 	a.restoreMode = true
 	return nil
@@ -251,17 +251,17 @@ func (a *MachineAgent) PrepareRestore() error {
 func (a *MachineAgent) BeginRestore() error {
 	switch {
 	case !a.restoreMode:
-		return fmt.Errorf("not in restore mode, cannot begin restoration")
+		return errors.Errorf("not in restore mode, cannot begin restoration")
 	case a.restoring:
-		return fmt.Errorf("already restoring")
+		return errors.Errorf("already restoring")
 	}
 	a.restoring = true
 	return nil
 }
 
-// This will return a worker or err if there is a failure, the worker takes care
-// of watching the state of restoreInfo doc and put the agent in the different
-// restore modes
+// newrestorestatewatcherworker will return a worker or err if there is a failure, 
+// the worker takes care of watching the state of restoreInfo doc and put the 
+// agent in the different restore modes.
 func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Worker, error) {
 	rWorker := func(stopch <-chan struct{}) error {
 		return a.restoreStateWatcher(st, stopch)
@@ -270,7 +270,7 @@ func (a *MachineAgent) newRestoreStateWatcherWorker(st *state.State) (worker.Wor
 }
 
 // restoreChanged will be called whenever restoreInfo doc changes signaling a new
-// step in the restore process
+// step in the restore process.
 func (a *MachineAgent) restoreChanged(st *state.State) error {
 	rinfo, err := st.EnsureRestoreInfo()
 	if err != nil {
@@ -285,7 +285,7 @@ func (a *MachineAgent) restoreChanged(st *state.State) error {
 	return nil
 }
 
-// restoreStateWatcher watches for restoreInfo looking for changes in the restore process
+// restoreStateWatcher watches for restoreInfo looking for changes in the restore process.
 func (a *MachineAgent) restoreStateWatcher(st *state.State, stopch <-chan struct{}) error {
 	restoreWatch := st.WatchRestoreInfoChanges()
 	defer func() {
