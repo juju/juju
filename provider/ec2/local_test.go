@@ -713,7 +713,7 @@ func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
 	c.Assert(actualAddr, gc.Equals, addr)
 }
 
-func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
+func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
 
 	addr := network.Address{Value: "8.0.0.4"}
@@ -723,6 +723,9 @@ func (t *localServerSuite) TestAllocateAddressIPAddressInUse(c *gc.C) {
 	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
 
 	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+
+	err = env.AllocateAddress(instId, "", network.Address{})
 	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
 }
 
