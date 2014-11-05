@@ -971,7 +971,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 	if err != nil {
 		// either the instance doesn't exist or we couldn't get through to
 		// the ec2 api
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
 	}
 
 	if len(instancesResp.Reservations) == 0 {
@@ -1001,7 +1001,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 
 	}
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
 	}
 	return nil
 }
