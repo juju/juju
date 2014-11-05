@@ -5,6 +5,8 @@ package apiserver_test
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/juju/macaroon"
 	"github.com/juju/macaroon/bakery"
@@ -27,12 +29,42 @@ type remoteLoginSuite struct {
 	remoteIdService *bakery.Service
 }
 
-type loggedInChecker struct{}
+type loggedInChecker struct {
+	validUsers map[string]struct{}
+}
+
+func newLoggedInChecker(validUsers ...string) *loggedInChecker {
+	c := &loggedInChecker{
+		validUsers: make(map[string]struct{}),
+	}
+	for _, user := range validUsers {
+		c.validUsers[user] = struct{}{}
+	}
+	return c
+}
+
+func (c *loggedInChecker) isValidUser(user string) bool {
+	_, ok := c.validUsers[user]
+	return ok
+}
 
 // CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
-func (*loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
-	if condition == "logged-in-user" {
-		return nil, nil
+func (c *loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
+	fields := strings.Split(condition, " ")
+	if fields[0] == "is-authorized-user?" {
+		if len(fields) < 2 {
+			return nil, fmt.Errorf("%s: missing user tag", fields[0])
+		}
+		tag, err := names.ParseTag(fields[1])
+		if err != nil {
+			return nil, fmt.Errorf("%s: invalid user tag %q: %v", fields[0], fields[1], err)
+		}
+		if userTag, ok := tag.(names.UserTag); !ok {
+			return nil, fmt.Errorf("%s: %q is not a user tag", fields[0], fields[1])
+		} else if c.isValidUser(userTag.Name()) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("invalid user")
 	}
 	return nil, fmt.Errorf("unrecognized condition")
 }
@@ -111,7 +143,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
 		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
 			//c.Assert(loc, gc.Equals, s.info.IdentityProvider.Location)
-			return s.remoteIdService.Discharge(&loggedInChecker{}, cav.Id)
+			return s.remoteIdService.Discharge(newLoggedInChecker("bob"), cav.Id)
 		},
 	)
 	c.Assert(err, gc.IsNil)
@@ -184,7 +216,7 @@ func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
 		ReauthHandler: testReauthHandler{
 			remoteLoginSuite:  s,
 			C:                 c,
-			thirdPartyChecker: &loggedInChecker{},
+			thirdPartyChecker: newLoggedInChecker("bob"),
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -203,30 +235,69 @@ func (*failConditionChecker) CheckThirdPartyCaveat(caveatId, condition string) (
 
 func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 	testCases := []struct {
+		setup   func() func()
 		handler api.ReauthHandler
 		pattern string
 	}{
-		{testReauthHandler{
-			remoteLoginSuite:  s,
-			C:                 c,
-			skipBind:          true,
-			thirdPartyChecker: &loggedInChecker{},
-		}, "verification failed: signature mismatch after caveat verification"},
-		{testReauthHandler{
-			remoteLoginSuite:  s,
-			C:                 c,
-			thirdPartyChecker: &failConditionChecker{},
-		}, "cannot get discharge from \"remote-service-location\": unrecognized condition"},
-		{emptyCredReauthHandler{}, "reauthentication failed"},
+		{
+			handler: testReauthHandler{
+				remoteLoginSuite:  s,
+				C:                 c,
+				skipBind:          true,
+				thirdPartyChecker: newLoggedInChecker("bob"),
+			},
+			pattern: "verification failed: signature mismatch after caveat verification",
+		},
+		{
+			setup: func() func() {
+				originalTtl := apiserver.MaxMacaroonTtl
+				apiserver.MaxMacaroonTtl = -24 * time.Hour
+				return func() {
+					apiserver.MaxMacaroonTtl = originalTtl
+				}
+			},
+			handler: testReauthHandler{
+				remoteLoginSuite:  s,
+				C:                 c,
+				thirdPartyChecker: newLoggedInChecker("bob"),
+			},
+			pattern: `verification failed: is-before-time\?: authorization expired at .*`,
+		},
+		{
+			handler: testReauthHandler{
+				remoteLoginSuite:  s,
+				C:                 c,
+				thirdPartyChecker: newLoggedInChecker(),
+			},
+			pattern: "cannot get discharge from \"remote-service-location\": invalid user",
+		},
+		{
+			handler: testReauthHandler{
+				remoteLoginSuite:  s,
+				C:                 c,
+				thirdPartyChecker: &failConditionChecker{},
+			},
+			pattern: "cannot get discharge from \"remote-service-location\": unrecognized condition",
+		},
+		{
+			handler: emptyCredReauthHandler{},
+			pattern: "reauthentication failed",
+		},
 	}
 	for i, testCase := range testCases {
-		c.Log("test#", i)
-		info, cleanup := s.setupServerWithValidator(c, nil)
-		defer cleanup()
-		info.Tag = names.NewUserTag("bob")
-		_, err := api.Open(info, api.DialOpts{
-			ReauthHandler: testCase.handler,
-		})
-		c.Check(err, gc.ErrorMatches, testCase.pattern)
+		func() {
+			c.Log("test#", i)
+			if testCase.setup != nil {
+				cleanup := testCase.setup()
+				defer cleanup()
+			}
+			info, cleanup := s.setupServerWithValidator(c, nil)
+			defer cleanup()
+			info.Tag = names.NewUserTag("bob")
+			_, err := api.Open(info, api.DialOpts{
+				ReauthHandler: testCase.handler,
+			})
+			c.Check(err, gc.ErrorMatches, testCase.pattern)
+		}()
 	}
 }

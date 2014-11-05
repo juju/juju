@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -314,6 +315,14 @@ func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, 
 	return entity, nil
 }
 
+// MaxMacaroonTtl limits the lifetime of a macaroon issued by Juju for remote
+// authentication.
+//
+// This policy can be further restricted by adding more
+// caveats, and is primarily set as a baseline maximum to prevent indefinite
+// non-expiring authorization tokens from being issued to clients.
+var MaxMacaroonTtl = 2 * 7 * 24 * time.Hour
+
 // ReauthRequest creates a challenge response consisting of a macaroon with a third-party caveat on
 // an identity providing service with the condition that the remote user is logged in.
 func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params.LoginResultV1, error) {
@@ -339,9 +348,11 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
 		bakery.Caveat{
 			Location:  info.IdentityProvider.Location,
-			Condition: "logged-in-user",
+			Condition: fmt.Sprintf("is-authorized-user? %s", req.AuthTag),
 		},
-		// TODO (cmars): implement a time limit & scheme for refreshing the macaroon
+		bakery.Caveat{
+			Condition: fmt.Sprintf("is-before-time? %s", time.Now().UTC().Add(MaxMacaroonTtl).Format(time.RFC3339)),
+		},
 	})
 
 	remoteCreds := authentication.NewRemoteCredentials(m)

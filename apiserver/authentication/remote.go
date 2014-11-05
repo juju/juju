@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/macaroon"
@@ -132,8 +134,20 @@ func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
 
 // CheckFirstPartyCaveat implements the bakery.FirstPartyChecker interface.
 func (*RemoteAuthenticator) CheckFirstPartyCaveat(caveat string) error {
-	// TODO (cmars): what first party caveats does the Juju server need to
-	// support?
+	fields := strings.Split(caveat, " ")
+	switch fields[0] {
+	case "is-before-time?":
+		if len(fields) < 2 {
+			return errors.Errorf("%s: missing expiration", fields[0])
+		}
+		expiresAt, err := time.Parse(time.RFC3339, fields[1])
+		if err != nil {
+			return errors.Errorf("%s: invalid expiration %s", fields[0], fields[1])
+		}
+		if time.Now().UTC().After(expiresAt) {
+			return errors.Errorf("%s: authorization expired at %s", fields[0], fields[1])
+		}
+	}
 	return nil
 }
 
