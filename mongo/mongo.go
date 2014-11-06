@@ -131,6 +131,26 @@ func Path() (string, error) {
 	return path, nil
 }
 
+// constructCmdWrap returns a wrapper to be used when running mongoDB command.
+// This should elevate operational difficulties with db on some machines, eg. NUMA.
+// If wrapper is not needed, return empty string.
+func constructCmdWrap() string {
+	// Atm, this only needs to be done for NUMA machines.
+	desiredWrap := "numactl"
+	// Determine the executable path to run numactl on this machine.
+	path, err := exec.LookPath(desiredWrap)
+	if err != nil {
+		// This will happen for non-NUMA machines. No wrap is needed.
+		return ""
+	}
+	// When running MongoDB servers and clients on NUMA hardware,
+	// a memory interleave policy needs to be configured
+	// so that the host behaves in a non-NUMA fashion.
+	// Fix for Bug#1350337.
+	logger.Debugf("using %q to wrap the command", desiredWrap)
+	return fmt.Sprintf(" %v --interleave=all ", path)
+}
+
 // RemoveService removes the mongoDB upstart service from this machine.
 func RemoveService(namespace string) error {
 	svc := upstart.NewService(ServiceName(namespace), common.Conf{})
@@ -322,7 +342,7 @@ func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSize
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: mongoCmd,
+		Cmd: constructCmdWrap() + mongoCmd,
 	}
 	svc := upstart.NewService(ServiceName(namespace), conf)
 	return svc, nil
