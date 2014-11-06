@@ -58,7 +58,8 @@ func NewArchiveFile(filename string) *ArchiveData {
 	return &ad
 }
 
-func (af *ArchiveData) open() (io.ReadCloser, error) {
+// Open Returns a new io.ReadCloser containing the archive's data.
+func (af *ArchiveData) Open() (io.ReadCloser, error) {
 	if af.data != nil {
 		file := ioutil.NopCloser(bytes.NewBuffer(af.data))
 		return file, nil
@@ -71,6 +72,7 @@ func (af *ArchiveData) open() (io.ReadCloser, error) {
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
+		file.Close()
 		return nil, errors.Trace(err)
 	}
 
@@ -80,7 +82,7 @@ func (af *ArchiveData) open() (io.ReadCloser, error) {
 // Metadata returns the metadata stored in the backup archive.  If no
 // metadata is there, errors.NotFound is returned.
 func (af *ArchiveData) Metadata() (*metadata.Metadata, error) {
-	file, err := af.open()
+	file, err := af.Open()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

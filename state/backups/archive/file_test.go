@@ -5,7 +5,9 @@ package archive_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -21,6 +23,7 @@ import (
 type fileSuite struct {
 	testing.IsolationSuite
 	archiveFile *bytes.Buffer
+	data        []byte
 	meta        *metadata.Metadata
 }
 
@@ -71,8 +74,15 @@ func (s *fileSuite) SetUpTest(c *gc.C) {
 	}
 	archiveFile, err := bt.NewArchive(meta, files, dump)
 	c.Assert(err, gc.IsNil)
+	compressed, err := ioutil.ReadAll(archiveFile)
+	c.Assert(err, gc.IsNil)
+	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadAll(gzr)
+	c.Assert(err, gc.IsNil)
 
-	s.archiveFile = archiveFile
+	s.archiveFile = bytes.NewBuffer(compressed)
+	s.data = data
 	s.meta = meta
 }
 
@@ -100,6 +110,38 @@ func (s *fileSuite) TestNewArchiveFile(c *gc.C) {
 	ad := archive.NewArchiveFile(filename)
 
 	c.Check(ad.Filename, gc.Equals, filename)
+}
+
+func (s *fileSuite) TestOpen(c *gc.C) {
+	filename := s.dump(c)
+	ad := archive.NewArchiveFile(filename)
+	file, err := ad.Open()
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+
+	data, err := ioutil.ReadAll(file)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(data, jc.DeepEquals, s.data)
+}
+
+func (s *fileSuite) TestOpenMultiple(c *gc.C) {
+	filename := s.dump(c)
+	ad := archive.NewArchiveFile(filename)
+
+	file, err := ad.Open()
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+	first, err := ioutil.ReadAll(file)
+	c.Assert(err, gc.IsNil)
+
+	file, err = ad.Open()
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+	second, err := ioutil.ReadAll(file)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(second, jc.DeepEquals, first)
 }
 
 func (s *fileSuite) TestMetadata(c *gc.C) {
