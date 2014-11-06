@@ -59,7 +59,15 @@ func (c *ServerCommandBase) NewServerAdminClient() (*serveradmin.Client, error) 
 
 // ServerAdminAPI defines the serveradmin API methods used by the server commands.
 type ServerAdminAPI interface {
+
+	// IdentityProvider returns the identity provider trusted by the Juju state
+	// server, if any.
 	IdentityProvider() (*params.IdentityProviderInfo, error)
+
+	// SetIdentityProvider sets the identity provider public key and location
+	// that the Juju state server should trust.
 	SetIdentityProvider(publicKey, location string) error
+
+	// Close closes the API connection.
 	Close() error
 }

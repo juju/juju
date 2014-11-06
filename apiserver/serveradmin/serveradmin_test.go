@@ -13,6 +13,8 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
+var _ serveradmin.ServerAdmin = (*serveradmin.ServerAdminAPI)(nil)
+
 type serveradminSuite struct {
 	jujutesting.JujuConnSuite
 

@@ -13,8 +13,8 @@ import (
 
 var logger = loggo.GetLogger("juju.api.serveradmin")
 
-// Client provides methods that the Juju client command uses for
-// administration tasks on the Juju Server itself.
+// Client provides methods that the Juju client command uses for administration
+// tasks on the Juju Server itself.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
@@ -27,9 +27,8 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
-// IdentityProvider returns the remote identity provider trusted by the
-// Juju server. If an identity provider is not trusted by the server, returns
-// nil.
+// IdentityProvider returns the remote identity provider trusted by the Juju
+// server. If an identity provider is not trusted by the server, returns nil.
 func (c *Client) IdentityProvider() (*params.IdentityProviderInfo, error) {
 	var result params.IdentityProviderResult
 	err := c.facade.FacadeCall("IdentityProvider", nil, &result)

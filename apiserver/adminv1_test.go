@@ -51,6 +51,9 @@ func (c *loggedInChecker) isValidUser(user string) bool {
 // CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
 func (c *loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
 	fields := strings.Split(condition, " ")
+	if len(fields) < 1 {
+		return nil, fmt.Errorf("empty caveat")
+	}
 	if fields[0] == "is-authorized-user?" {
 		if len(fields) < 2 {
 			return nil, fmt.Errorf("%s: missing user tag", fields[0])

@@ -12,8 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/authentication"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
+
+var _ state.Entity = (*authentication.RemoteUser)(nil)
+
+var _ authentication.EntityAuthenticator = (*authentication.RemoteAuthenticator)(nil)
 
 type RemoteAuthSuite struct {
 	testing.BaseSuite

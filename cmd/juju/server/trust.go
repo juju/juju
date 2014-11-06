@@ -70,10 +70,7 @@ func (c *TrustCommand) Init(args []string) error {
 	}
 
 	_, err = url.Parse(c.Location)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (c *TrustCommand) getServerAdminAPI() (ServerAdminAPI, error) {
@@ -106,7 +103,6 @@ func (c *TrustCommand) Run(ctx *cmd.Context) error {
 			fmt.Fprintf(ctx.Stdout, "%s\t%s\n", info.PublicKey, info.Location)
 		}
 		return nil
-	} else {
-		return client.SetIdentityProvider(c.PublicKey, c.Location)
 	}
+	return client.SetIdentityProvider(c.PublicKey, c.Location)
 }

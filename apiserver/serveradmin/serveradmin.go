@@ -24,24 +24,25 @@ func init() {
 
 // ServerAdmin defines the methods on the serveradmin API end point.
 type ServerAdmin interface {
+
+	// IdentityProvider returns the identity provider trusted by the Juju state
+	// server, if any.
 	IdentityProvider() (params.IdentityProviderResult, error)
+
+	// SetIdentityProvider sets the identity provider that the Juju state
+	// server should trust.
 	SetIdentityProvider(args params.SetIdentityProvider) error
 }
 
-// ServerAdminAPI implements the Juju server admin interface and is the concrete
-// implementation of the api end point.
+// ServerAdminAPI implements the Juju server admin interface and is the
+// concrete implementation of the api end point.
 type ServerAdminAPI struct {
 	state      *state.State
 	authorizer common.Authorizer
 }
 
-var _ ServerAdmin = (*ServerAdminAPI)(nil)
-
-func NewServerAdminAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*ServerAdminAPI, error) {
+// NewServerAdminAPI returns a new ServerAdminAPI instance.
+func NewServerAdminAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ServerAdminAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}

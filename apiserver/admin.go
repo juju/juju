@@ -286,8 +286,6 @@ type RemoteCredentialChecker struct {
 	srv *bakery.Service
 }
 
-var _ CredentialChecker = (*RemoteCredentialChecker)(nil)
-
 var newRemoteCredentialChecker = NewRemoteCredentialChecker
 
 // NewRemoteCredentialChecker creates a new remote CredentialChecker instance.

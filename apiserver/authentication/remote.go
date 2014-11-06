@@ -26,22 +26,21 @@ type RemoteUser struct {
 	sessionId string
 }
 
-var _ state.Entity = (*RemoteUser)(nil)
-
 // NewRemoteUser creates a new RemoteUser instance.
 func NewRemoteUser(authTag, sessionId string) (*RemoteUser, error) {
 	tag, err := names.ParseTag(authTag)
 	if err != nil {
 		return nil, err
 	}
-	userTag, ok := tag.(names.UserTag)
-	if !ok {
+	switch tag := tag.(type) {
+	case names.UserTag:
+		return &RemoteUser{
+			authTag:   tag,
+			sessionId: sessionId,
+		}, nil
+	default:
 		return nil, fmt.Errorf("not a remote user tag: %q", tag)
 	}
-	return &RemoteUser{
-		authTag:   userTag,
-		sessionId: sessionId,
-	}, nil
 }
 
 // Tag implements the names.Tag interface.
@@ -110,9 +109,9 @@ func (rc *RemoteCredentials) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// AddToRequest adds all macaroons contained in the credential to a
+// AddCredsToRequest adds all macaroons contained in the credential to a
 // bakery.Request for target service verification.
-func (rc *RemoteCredentials) AddToRequest(r *bakery.Request) {
+func AddCredsToRequest(rc *RemoteCredentials, r *bakery.Request) {
 	r.AddClientMacaroon(rc.Primary)
 	for _, dm := range rc.Discharges {
 		r.AddClientMacaroon(dm)
@@ -124,8 +123,6 @@ type RemoteAuthenticator struct {
 	*bakery.Service
 }
 
-var _ EntityAuthenticator = (*RemoteAuthenticator)(nil)
-
 // NewRemoteAuthenticator creates a new instance for authenticating credentials
 // from the perspective of the given target service.
 func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
@@ -135,6 +132,9 @@ func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
 // CheckFirstPartyCaveat implements the bakery.FirstPartyChecker interface.
 func (*RemoteAuthenticator) CheckFirstPartyCaveat(caveat string) error {
 	fields := strings.Split(caveat, " ")
+	if len(fields) < 1 {
+		return errors.Errorf("empty caveat")
+	}
 	switch fields[0] {
 	case "is-before-time?":
 		if len(fields) < 2 {
@@ -155,12 +155,12 @@ func (*RemoteAuthenticator) CheckFirstPartyCaveat(caveat string) error {
 func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonce string) error {
 	remoteUser, ok := entity.(*RemoteUser)
 	if !ok {
-		logger.Debugf("not a remote user: %q", entity)
+		logger.Infof("not a remote user: %q", entity)
 		return common.ErrBadCreds
 	}
 	// TODO (cmars): necessary to check this?
 	if remoteUser.sessionId != nonce {
-		logger.Debugf("remote user session %q does not match nonce %q", remoteUser.sessionId, nonce)
+		logger.Infof("remote user session %q does not match nonce %q", remoteUser.sessionId, nonce)
 		return common.ErrBadCreds
 	}
 
@@ -170,11 +170,11 @@ func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonc
 		return err
 	}
 	if remoteCreds.Primary.Id() != nonce {
-		logger.Debugf("invalid credential")
+		logger.Infof("invalid credential")
 		return common.ErrBadCreds
 	}
 
 	r := a.NewRequest(a)
-	remoteCreds.AddToRequest(r)
+	AddCredsToRequest(&remoteCreds, r)
 	return r.Check()
 }

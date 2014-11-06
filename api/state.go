@@ -40,10 +40,7 @@ func (st *State) Login(tag, password, nonce string) (*params.ReauthRequest, erro
 		// TODO (cmars): remove fallback once we can drop v0 compatibility
 		return nil, st.loginV0(tag, password, nonce)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return reauth, nil
+	return reauth, err
 }
 
 func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, error) {
@@ -93,10 +90,7 @@ func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, er
 	}
 
 	err = st.setLoginResult(tag, environTag, servers, facades)
-	if err != nil {
-		return nil, err
-	}
-	return nil, nil
+	return nil, err
 }
 
 func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {

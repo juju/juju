@@ -200,10 +200,12 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		certPool: pool,
 	}
 	if info.Tag != nil || info.Password != "" {
-		if reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
+		reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce)
+		if err != nil {
 			conn.Close()
 			return nil, err
-		} else if reauth != nil {
+		}
+		if reauth != nil {
 			creds, nonce, err := opts.ReauthHandler.HandleReauth(reauth)
 			if err != nil {
 				return nil, err
