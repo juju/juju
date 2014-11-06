@@ -26,8 +26,18 @@ type ArchiveData struct {
 	data []byte
 }
 
-// NewArchiveData returns a new archive data wrapper for the provided file.
-func NewArchiveData(file io.Reader, filename string) (*ArchiveData, error) {
+// NewArchiveData returns a new archive data wrapper for the specified file.
+func NewArchiveData(filename string, data []byte) *ArchiveData {
+	return &ArchiveData{
+		Archive: Archive{
+			Filename: filename,
+		},
+		data: data,
+	}
+}
+
+// NewArchiveFile returns a new archive data wrapper for the provided file.
+func NewArchiveFile(file io.Reader, filename string) (*ArchiveData, error) {
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -39,20 +49,7 @@ func NewArchiveData(file io.Reader, filename string) (*ArchiveData, error) {
 		return nil, errors.Trace(err)
 	}
 
-	ad := NewArchiveFile(filename)
-	ad.data = data
-	return ad, nil
-}
-
-// NewArchiveFile returns a new archive data wrapper for the specified file.
-func NewArchiveFile(filename string) *ArchiveData {
-	ar := Archive{
-		Filename: filename,
-	}
-	ad := ArchiveData{
-		Archive: ar,
-	}
-	return &ad
+	return NewArchiveData(filename, data), nil
 }
 
 // Open Returns a new io.ReadCloser containing the archive's data.

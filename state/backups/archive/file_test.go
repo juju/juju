@@ -99,22 +99,22 @@ func (s *fileSuite) dump(c *gc.C) string {
 }
 
 func (s *fileSuite) TestNewArchiveData(c *gc.C) {
-	ad, err := archive.NewArchiveData(s.archiveFile, "")
+	filename := s.dump(c)
+	ad := archive.NewArchiveData(filename, nil)
+
+	c.Check(ad.Filename, gc.Equals, filename)
+}
+
+func (s *fileSuite) TestNewArchiveFile(c *gc.C) {
+	ad, err := archive.NewArchiveFile(s.archiveFile, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Check(ad.Filename, gc.Equals, "")
 }
 
-func (s *fileSuite) TestNewArchiveFile(c *gc.C) {
-	filename := s.dump(c)
-	ad := archive.NewArchiveFile(filename)
-
-	c.Check(ad.Filename, gc.Equals, filename)
-}
-
 func (s *fileSuite) TestOpen(c *gc.C) {
 	filename := s.dump(c)
-	ad := archive.NewArchiveFile(filename)
+	ad := archive.NewArchiveData(filename, nil)
 	file, err := ad.Open()
 	c.Assert(err, gc.IsNil)
 	defer file.Close()
@@ -127,7 +127,7 @@ func (s *fileSuite) TestOpen(c *gc.C) {
 
 func (s *fileSuite) TestOpenMultiple(c *gc.C) {
 	filename := s.dump(c)
-	ad := archive.NewArchiveFile(filename)
+	ad := archive.NewArchiveData(filename, nil)
 
 	file, err := ad.Open()
 	c.Assert(err, gc.IsNil)
@@ -145,7 +145,7 @@ func (s *fileSuite) TestOpenMultiple(c *gc.C) {
 }
 
 func (s *fileSuite) TestMetadata(c *gc.C) {
-	ad, err := archive.NewArchiveData(s.archiveFile, "")
+	ad, err := archive.NewArchiveFile(s.archiveFile, "")
 	c.Assert(err, gc.IsNil)
 
 	meta, err := ad.Metadata()
@@ -156,7 +156,7 @@ func (s *fileSuite) TestMetadata(c *gc.C) {
 
 func (s *fileSuite) TestMetadataUncached(c *gc.C) {
 	filename := s.dump(c)
-	ad := archive.NewArchiveFile(filename)
+	ad := archive.NewArchiveData(filename, nil)
 
 	meta, err := ad.Metadata()
 	c.Assert(err, gc.IsNil)
@@ -165,7 +165,7 @@ func (s *fileSuite) TestMetadataUncached(c *gc.C) {
 }
 
 func (s *fileSuite) TestVersion(c *gc.C) {
-	ad, err := archive.NewArchiveData(s.archiveFile, "")
+	ad, err := archive.NewArchiveFile(s.archiveFile, "")
 	c.Assert(err, gc.IsNil)
 
 	meta, err := ad.Metadata()
