@@ -84,11 +84,13 @@ ssh -i $JUJU_HOME/staging-juju-rsa \
 if [ $? -ne 0 ]; then
     exit 1
 fi
+FILES="$CI_DIR/juju-setup-$VERSION.exe"
+if [[ ! $VERSION =~ ^1\.20.+$ ]]; then
+    FILES="$FILES $CI_DIR/juju-$VERSION-win2012-amd64.tgz"
+fi
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    "Administrator@$HOST:$CI_DIR/juju-setup-$VERSION.exe \
-     $CI_DIR/juju-$VERSION-win2012-amd64.tgz" \
-    $WORKSPACE/artifacts
+    "Administrator@$HOST:$FILES" $WORKSPACE/artifacts
 EXIT_STATUS=$?
 set -e
 exit $EXIT_STATUS
