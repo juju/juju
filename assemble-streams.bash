@@ -406,6 +406,7 @@ generate_streams() {
         $SCRIPT_DIR/validate_streams.py \
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
+    $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
     set +x
     echo "The tools are in ${DEST_DIST}."
 
@@ -474,6 +475,7 @@ generate_streams() {
             fi
         done
     fi
+    $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     set +x
     echo "The agents are in $JUJU_DIST."
 }
