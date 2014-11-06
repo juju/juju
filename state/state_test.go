@@ -2116,7 +2116,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 
 	// Corrupt the environment configuration.
 	settings := s.Session.DB("juju").C("settings")
-	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
+	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$unset", bson.D{{"name", 1}}}})
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
@@ -2148,7 +2148,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	}
 
 	// Fix the configuration.
-	err = settings.UpdateId("e", bson.D{{"$set", bson.D{{"name", "foo"}}}})
+	err = settings.UpdateId(state.DocID(s.State, "e"), bson.D{{"$set", bson.D{{"name", "foo"}}}})
 	c.Assert(err, gc.IsNil)
 	fixed := cfg.AllAttrs()
 	err = s.State.UpdateEnvironConfig(fixed, nil, nil)

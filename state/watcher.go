@@ -748,22 +748,24 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
+		docID := w.st.docID(key)
 		revno, err := w.mergeSettings(changes, key)
 		if err != nil {
 			return err
 		}
 		changes.Departed = remove(changes.Departed, name)
-		w.st.watcher.Watch(settingsC, key, revno, w.updates)
-		w.watching.Add(key)
+		w.st.watcher.Watch(settingsC, docID, revno, w.updates)
+		w.watching.Add(docID)
 	}
 	for _, name := range c.Left {
 		key := w.sw.prefix + name
+		docID := w.st.docID(key)
 		changes.Departed = append(changes.Departed, name)
 		if changes.Changed != nil {
 			delete(changes.Changed, name)
 		}
-		w.st.watcher.Unwatch(settingsC, key, w.updates)
-		w.watching.Remove(key)
+		w.st.watcher.Unwatch(settingsC, docID, w.updates)
+		w.watching.Remove(docID)
 	}
 	return nil
 }
@@ -1149,8 +1151,8 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	} else if !errors.IsNotFound(err) {
 		return err
 	}
-	w.st.watcher.Watch(settingsC, key, revno, ch)
-	defer w.st.watcher.Unwatch(settingsC, key, ch)
+	w.st.watcher.Watch(settingsC, w.st.docID(key), revno, ch)
+	defer w.st.watcher.Unwatch(settingsC, w.st.docID(key), ch)
 	out := w.out
 	if revno == -1 {
 		out = nil
@@ -1227,7 +1229,7 @@ func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
 func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
-	return newEntityWatcher(st, settingsC, environGlobalKey)
+	return newEntityWatcher(st, settingsC, st.docID(environGlobalKey))
 }
 
 // WatchAPIHostPorts returns a NotifyWatcher that notifies
@@ -1247,7 +1249,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 		return nil, fmt.Errorf("unit charm not set")
 	}
 	settingsKey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
-	return newEntityWatcher(u.st, settingsC, settingsKey), nil
+	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 
 // WatchMeterStatus returns a watcher observing the changes to the unit's

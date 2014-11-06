@@ -213,6 +213,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 // removeOps returns the operations required to remove the service. Supplied
 // asserts will be included in the operation on the service document.
 func (s *Service) removeOps(asserts bson.D) []txn.Op {
+	settingsDocID := s.st.docID(s.settingsKey())
 	ops := []txn.Op{{
 		C:      servicesC,
 		Id:     s.doc.DocID,
@@ -220,11 +221,11 @@ func (s *Service) removeOps(asserts bson.D) []txn.Op {
 		Remove: true,
 	}, {
 		C:      settingsrefsC,
-		Id:     s.settingsKey(),
+		Id:     settingsDocID,
 		Remove: true,
 	}, {
 		C:      settingsC,
-		Id:     s.settingsKey(),
+		Id:     settingsDocID,
 		Remove: true,
 	}}
 	ops = append(ops, removeRequestedNetworksOp(s.st, s.globalKey()))
@@ -387,7 +388,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	// Create or replace service settings.
 	var settingsOp txn.Op
 	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
-	if count, err := settings.FindId(newKey).Count(); err != nil {
+	if count, err := settings.FindId(s.st.docID(newKey)).Count(); err != nil {
 		return nil, err
 	} else if count == 0 {
 		// No settings for this key yet, create it.
@@ -481,7 +482,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		if attempt > 0 {
 			// If the service is not alive, fail out immediately; otherwise,
 			// data changed underneath us, so retry.
-			if alive, err := isAliveWithSession(settings, s.doc.Name); err != nil {
+			if alive, err := isAliveWithSession(settings, s.st.docID(s.doc.Name)); err != nil {
 				return nil, err
 			} else if !alive {
 				return nil, fmt.Errorf("service %q is not alive", s.doc.Name)
@@ -856,7 +857,8 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
-	if count, err := settingsrefs.FindId(key).Count(); err != nil {
+	docID := st.docID(key)
+	if count, err := settingsrefs.FindId(docID).Count(); err != nil {
 		return txn.Op{}, err
 	} else if count == 0 {
 		if !canCreate {
@@ -864,14 +866,14 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 		}
 		return txn.Op{
 			C:      settingsrefsC,
-			Id:     key,
+			Id:     docID,
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1},
+			Insert: settingsRefsDoc{1, st.EnvironUUID()},
 		}, nil
 	}
 	return txn.Op{
 		C:      settingsrefsC,
-		Id:     key,
+		Id:     docID,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$inc", bson.D{{"refcount", 1}}}},
 	}, nil
@@ -886,8 +888,9 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	defer closer()
 
 	key := serviceSettingsKey(serviceName, curl)
+	docID := st.docID(key)
 	var doc settingsRefsDoc
-	if err := settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
+	if err := settingsrefs.FindId(docID).One(&doc); err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q settings for charm %q", serviceName, curl)
 	} else if err != nil {
 		return nil, err
@@ -895,18 +898,18 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 	if doc.RefCount == 1 {
 		return []txn.Op{{
 			C:      settingsrefsC,
-			Id:     key,
+			Id:     docID,
 			Assert: bson.D{{"refcount", 1}},
 			Remove: true,
 		}, {
 			C:      settingsC,
-			Id:     key,
+			Id:     docID,
 			Remove: true,
 		}}, nil
 	}
 	return []txn.Op{{
 		C:      settingsrefsC,
-		Id:     key,
+		Id:     docID,
 		Assert: bson.D{{"refcount", bson.D{{"$gt", 1}}}},
 		Update: bson.D{{"$inc", bson.D{{"refcount", -1}}}},
 	}}, nil
@@ -929,4 +932,5 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
 	RefCount int
+	EnvUUID  string `json:"env-uuid"`
 }
