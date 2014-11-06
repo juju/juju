@@ -19,15 +19,14 @@ import (
 
 var legacyVersion = version.Number{Major: 1, Minor: 20}
 
-// ArchiveData is a wrapper around a backup archive file.  It provides
+// ArchiveData is a wrapper around a backup archive file. It provides
 // access to the data stored in the archive.
 type ArchiveData struct {
 	Archive
 	data []byte
 }
 
-// NewArchiveData returns a new archive data wrapper for the provided
-// file.
+// NewArchiveData returns a new archive data wrapper for the provided file.
 func NewArchiveData(file io.Reader, filename string) (*ArchiveData, error) {
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
@@ -46,8 +45,7 @@ func NewArchiveData(file io.Reader, filename string) (*ArchiveData, error) {
 	return ad, nil
 }
 
-// NewArchiveFile returns a new archive data wrapper for the specified
-// file.
+// NewArchiveFile returns a new archive data wrapper for the specified file.
 func NewArchiveFile(filename string) *ArchiveData {
 	ar := Archive{
 		Filename: filename,
