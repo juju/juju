@@ -35,7 +35,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 		ValueTemplate: imagemetadata.ImageMetadata{},
 	}
 	const requireSigned = false
-	indexPath := simplestreams.UnsignedIndex("v1")
+	indexPath := simplestreams.UnsignedIndex("v1", 1)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
