@@ -25,12 +25,12 @@ func (s *BuiltinSuite) SetUpTest(c *gc.C) {
 
 // TestSend create 2 metrics, one sent and one not sent.
 // It confirms that one metric is sent.
-func (s *BuiltinSuite) TestBuiltin(c *gc.C) {
+func (s *BuiltinSuite) TestBuiltinMetricAdder(c *gc.C) {
 	notify := make(chan struct{})
 	cleanup := metricworker.PatchNotificationChannel(notify)
 	defer cleanup()
 	client := &mockClient{}
-	worker := metricworker.NewBuiltin(client)
+	worker := metricworker.NewBuiltinMetricAdder(client)
 	select {
 	case <-notify:
 	case <-time.After(coretesting.LongWait):

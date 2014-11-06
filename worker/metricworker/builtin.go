@@ -21,9 +21,8 @@ const (
 	bultinPeriod = 5 * time.Minute
 )
 
-// NewBuiltin creates a new periodic worker that adds builtin metrics
-// TODO (mattyw) Needs a better name
-func NewBuiltin(client metricsmanager.MetricsManagerClient) worker.Worker {
+// NewBuiltinMetricAdder creates a new periodic worker that adds builtin metrics.
+func NewBuiltinMetricAdder(client metricsmanager.MetricsManagerClient) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.AddBuiltinMetrics()
 		if err != nil {

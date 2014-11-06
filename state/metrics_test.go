@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -235,7 +236,7 @@ func (s *MetricSuite) TestUnitsRequiringMetric(c *gc.C) {
 	c.Assert(charms[0].String(), gc.Equals, "cs:quantal/metered")
 }
 
-func (s *MetricSuite) TestCharmCreatedTime(c *gc.C) {
+func (s *MetricSuite) TestCharmSetUrlDuration(c *gc.C) {
 	t0 := time.Now().Add(3 * time.Second)
 	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
 	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
@@ -243,10 +244,14 @@ func (s *MetricSuite) TestCharmCreatedTime(c *gc.C) {
 	meteredUnit := s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	charms, err := s.State.CharmsRequiringMetric("pings")
 	c.Assert(err, gc.IsNil)
-	times, err := s.State.CharmCreatedTimes(t0, charms)
+	times, err := s.State.CharmSetUrlDuration(t0, charms)
 	c.Assert(err, gc.IsNil)
 	c.Assert(times.M, gc.HasLen, 1)
-	unitTime := times.M[*meteredCharm.URL()][meteredUnit.Name()]
+	c.Assert(times.M[*meteredCharm.URL()][meteredUnit.Name()], gc.HasLen, 1)
+	metric := times.M[*meteredCharm.URL()][meteredUnit.Name()][0]
+	c.Assert(metric.Key, gc.Equals, "juju-unit-time")
+	unitTime, err := strconv.Atoi(metric.Value)
+	c.Assert(err, gc.IsNil)
 	c.Assert(unitTime > 1, jc.IsTrue)
 	c.Assert(unitTime < 3, jc.IsTrue)
 }
@@ -258,14 +263,14 @@ func (s *MetricSuite) TestAddBulkMetrics(c *gc.C) {
 	meteredUnit1 := s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 	url0, _ := meteredUnit0.CharmURL()
 	url1, _ := meteredUnit1.CharmURL()
-	ct0 := map[string]int{
-		meteredUnit0.Name(): 1,
+	ct0 := map[string][]state.Metric{
+		meteredUnit0.Name(): []state.Metric{{Key: "foobar", Value: "123"}},
 	}
-	ct1 := map[string]int{
-		meteredUnit1.Name(): 1,
+	ct1 := map[string][]state.Metric{
+		meteredUnit1.Name(): []state.Metric{{Key: "barbar", Value: "456"}},
 	}
 	bulkMetrics := state.BulkMetrics{
-		map[charm.URL]map[string]int{
+		map[charm.URL]map[string][]state.Metric{
 			*url0: ct0, *url1: ct1,
 		},
 	}
@@ -275,5 +280,12 @@ func (s *MetricSuite) TestAddBulkMetrics(c *gc.C) {
 	count, err := s.State.CountofUnsentMetrics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(count, gc.Equals, 2)
-	// TODO (mattyw) Can we add more checks for the metrics contents please
+	m0 := mb[0].Metrics()
+	c.Assert(m0, gc.HasLen, 1)
+	c.Assert(m0[0].Key, gc.Equals, "foobar")
+	c.Assert(m0[0].Value, gc.Equals, "123")
+	m1 := mb[1].Metrics()
+	c.Assert(m1, gc.HasLen, 1)
+	c.Assert(m1[0].Key, gc.Equals, "barbar")
+	c.Assert(m1[0].Value, gc.Equals, "456")
 }
