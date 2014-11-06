@@ -4,13 +4,16 @@
 package maas
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/juju/errors"
@@ -92,6 +95,10 @@ func (env *maasEnviron) Name() string {
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+	// Override the network bridge device used for both LXC and KVM
+	// containers, because we'll be creating juju-br0 at bootstrap
+	// time.
+	args.ContainerBridgeName = environs.DefaultBridgeName
 	return common.Bootstrap(ctx, env, args)
 }
 
@@ -451,25 +458,33 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
-// createBridgeNetwork returns a string representing the upstart command to
-// create a bridged interface.
-func createBridgeNetwork(iface string) string {
-	return fmt.Sprintf(`cat > /etc/network/%s.config << EOF
-iface %s inet manual
+const bridgeConfigTemplate = `cat >> {{.Config}} << EOF
 
-auto br0
-iface br0 inet dhcp
-  bridge_ports %s
+iface {{.PrimaryNIC}} inet manual
+
+auto {{.Bridge}}
+iface {{.Bridge}} inet dhcp
+    bridge_ports {{.PrimaryNIC}}
 EOF
-`, iface, iface, iface)
+grep -q 'iface {{.PrimaryNIC}} inet dhcp' {{.Config}} && \
+sed -i 's/iface {{.PrimaryNIC}} inet dhcp//' {{.Config}}`
 
-}
-
-// linkBridgeInInterfaces adds the file created by createBridgeNetwork to the
-// interfaces file.
-func linkBridgeInInterfaces(iface string) string {
-	return fmt.Sprintf(`sed -i "s/iface %s inet dhcp/source \/etc\/network\/%s.config/" /etc/network/interfaces`,
-		iface, iface)
+// setupJujuNetworking returns a string representing the script to run
+// in order to prepare the Juju-specific networking config on a node.
+func setupJujuNetworking(primaryIface string) (string, error) {
+	parsedTemplate := template.Must(
+		template.New("BridgeConfig").Parse(bridgeConfigTemplate),
+	)
+	var buf bytes.Buffer
+	err := parsedTemplate.Execute(&buf, map[string]interface{}{
+		"Config":     "/etc/network/interfaces",
+		"Bridge":     environs.DefaultBridgeName,
+		"PrimaryNIC": primaryIface,
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "bridge config template error")
+	}
+	return buf.String(), nil
 }
 
 var unsupportedConstraints = []string{
@@ -489,38 +504,39 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// setupNetworks prepares a []network.Info for the given instance, but
-// only interfaces on networks in networksToEnable will be configured
-// on the machine.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToEnable set.Strings) ([]network.Info, error) {
+// setupNetworks prepares a []network.Info for the given instance. Any
+// networks in networksToDisable will be configured as disabled on the
+// machine. The interface name discovered as primary is also returned.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToDisable set.Strings) ([]network.Info, string, error) {
 	// Get the instance network interfaces first.
-	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
+	interfaces, primaryIface, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
-		return nil, fmt.Errorf("getInstanceNetworkInterfaces failed: %v", err)
+		return nil, "", errors.Annotatef(err, "getInstanceNetworkInterfaces failed")
 	}
 	logger.Debugf("node %q has network interfaces %v", inst.Id(), interfaces)
 	networks, err := environ.getInstanceNetworks(inst)
 	if err != nil {
-		return nil, fmt.Errorf("getInstanceNetworks failed: %v", err)
+		return nil, "", errors.Annotatef(err, "getInstanceNetworks failed")
 	}
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
 	var tempNetworkInfo []network.Info
 	for _, netw := range networks {
-		disabled := !networksToEnable.Contains(netw.Name)
+		disabled := networksToDisable.Contains(netw.Name)
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
 		}
 		macs, err := environ.getNetworkMACs(netw.Name)
 		if err != nil {
-			return nil, fmt.Errorf("getNetworkMACs failed: %v", err)
+			return nil, "", errors.Annotatef(err, "getNetworkMACs failed")
 		}
 		logger.Debugf("network %q has MACs: %v", netw.Name, macs)
 		for _, mac := range macs {
-			if interfaceName, ok := interfaces[mac]; ok {
+			if ifinfo, ok := interfaces[mac]; ok {
 				tempNetworkInfo = append(tempNetworkInfo, network.Info{
 					MACAddress:    mac,
-					InterfaceName: interfaceName,
+					InterfaceName: ifinfo.InterfaceName,
+					DeviceIndex:   ifinfo.DeviceIndex,
 					CIDR:          netCIDR.String(),
 					VLANTag:       netw.VLANTag,
 					ProviderId:    network.Id(netw.Name),
@@ -545,7 +561,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToEnab
 		networkInfo = append(networkInfo, info)
 	}
 	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
-	return networkInfo, nil
+	return networkInfo, primaryIface, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -584,27 +600,26 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	var networkInfo []network.Info
-	if args.MachineConfig.HasNetworks() {
-		networkInfo, err = environ.setupNetworks(inst, set.NewStrings(requestedNetworks...))
-		if err != nil {
-			return nil, nil, nil, err
-		}
+	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	// Override the network bridge to use for both LXC and KVM
+	// containers on the new instance.
+	if args.MachineConfig.AgentEnvironment == nil {
+		args.MachineConfig.AgentEnvironment = make(map[string]string)
+	}
+	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = environs.DefaultBridgeName
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
 		return nil, nil, nil, err
 	}
-	// TODO(thumper): 2013-08-28 bug 1217614
-	// The machine envronment config values are being moved to the agent config.
-	// Explicitly specify that the lxc containers use the network bridge defined above.
-	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 
-	iface := environ.ecfg().networkBridge()
-	cloudcfg, err := environ.newCloudinitConfig(hostname, networkInfo, iface)
+	cloudcfg, err := environ.newCloudinitConfig(hostname, primaryIface, networkInfo)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -625,7 +640,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func (environ *maasEnviron) newCloudinitConfig(hostname string, networkInfo []network.Info, iface string) (*cloudinit.Config, error) {
+func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface string, networkInfo []network.Info) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 
@@ -639,23 +654,26 @@ func (environ *maasEnviron) newCloudinitConfig(hostname string, networkInfo []ne
 		logger.Infof("network management disabled - setting up br0, eth0 disabled")
 		cloudcfg.AddScripts("set -xe", runCmd)
 	} else {
+		bridgeScript, err := setupJujuNetworking(primaryIface)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		cloudcfg.AddPackage("bridge-utils")
 		cloudcfg.AddScripts(
 			"set -xe",
 			runCmd,
-			fmt.Sprintf("ifdown %s", iface),
-			createBridgeNetwork(iface),
-			linkBridgeInInterfaces(iface),
-			"ifup br0",
+			"ifdown "+primaryIface,
+			bridgeScript,
+			"ifup "+environs.DefaultBridgeName,
 		)
-		setupNetworksOnBoot(cloudcfg, networkInfo, iface)
+		setupNetworksOnBoot(cloudcfg, networkInfo, primaryIface)
 	}
 	return cloudcfg, nil
 }
 
 // setupNetworksOnBoot prepares a script to enable and start all
 // enabled network interfaces on boot.
-func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info, iface string) {
+func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info, primaryIface string) {
 	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
 
 auto %s
@@ -668,9 +686,9 @@ EOF
 	script := func(line string, args ...interface{}) {
 		cloudcfg.AddScripts(fmt.Sprintf(line, args...))
 	}
-	// Because eth0 is already configured in the br0 bridge, we
-	// don't want to break that.
-	configured := set.NewStrings(iface)
+	// Because the primary interface is already configured in the
+	// container bridge, we don't want to break that.
+	configured := set.NewStrings(primaryIface)
 
 	// In order to support VLANs, we need to include 8021q module
 	// configure vconfig's set_name_type, but due to bug #1316762,
@@ -958,39 +976,46 @@ func (environ *maasEnviron) getNetworkMACs(networkName string) ([]string, error)
 }
 
 // getInstanceNetworkInterfaces returns a map of interface MAC address
-// to name for each network interface of the given instance, as
-// discovered during the commissioning phase.
-func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]string, error) {
+// to ifaceInfo for each network interface of the given instance, as
+// discovered during the commissioning phase. In addition, it also
+// returns the interface name discovered as primary.
+func (environ *maasEnviron) getInstanceNetworkInterfaces(inst instance.Instance) (map[string]ifaceInfo, string, error) {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
 	result, err := maasObj.CallGet("details", nil)
 	if err != nil {
-		return nil, err
+		return nil, "", errors.Trace(err)
 	}
 	// Get the node's lldp / lshw details discovered at commissioning.
 	data, err := result.GetBytes()
 	if err != nil {
-		return nil, err
+		return nil, "", errors.Trace(err)
 	}
 	var parsed map[string]interface{}
 	if err := bson.Unmarshal(data, &parsed); err != nil {
-		return nil, err
+		return nil, "", errors.Trace(err)
 	}
 	lshwData, ok := parsed["lshw"]
 	if !ok {
-		return nil, fmt.Errorf("no hardware information available for node %q", inst.Id())
+		return nil, "", errors.Errorf("no hardware information available for node %q", inst.Id())
 	}
 	lshwXML, ok := lshwData.([]byte)
 	if !ok {
-		return nil, fmt.Errorf("invalid hardware information for node %q", inst.Id())
+		return nil, "", errors.Errorf("invalid hardware information for node %q", inst.Id())
 	}
 	// Now we have the lshw XML data, parse it to extract and return NICs.
 	return extractInterfaces(inst, lshwXML)
 }
 
+type ifaceInfo struct {
+	DeviceIndex   int
+	InterfaceName string
+}
+
 // extractInterfaces parses the XML output of lswh and extracts all
-// network interfaces, returing a map MAC address to interface name.
-func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]string, error) {
+// network interfaces, returing a map MAC address to ifaceInfo, as
+// well as the interface name discovered as primary.
+func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]ifaceInfo, string, error) {
 	type Node struct {
 		Id          string `xml:"id,attr"`
 		Description string `xml:"description"`
@@ -1003,18 +1028,40 @@ func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]strin
 	}
 	var lshw List
 	if err := xml.Unmarshal(lshwXML, &lshw); err != nil {
-		return nil, fmt.Errorf("cannot parse lshw XML details for node %q: %v", inst.Id(), err)
+		return nil, "", errors.Annotatef(err, "cannot parse lshw XML details for node %q", inst.Id())
 	}
-	interfaces := make(map[string]string)
-	var processNodes func(nodes []Node)
-	processNodes = func(nodes []Node) {
+	primaryIface := ""
+	interfaces := make(map[string]ifaceInfo)
+	var processNodes func(nodes []Node) error
+	processNodes = func(nodes []Node) error {
 		for _, node := range nodes {
 			if strings.HasPrefix(node.Id, "network") {
-				interfaces[node.Serial] = node.LogicalName
+				// If there's a single interface, the ID won't have an
+				// index suffix.
+				index := 0
+				if strings.HasPrefix(node.Id, "network:") {
+					// There is an index suffix, parse it.
+					var err error
+					index, err = strconv.Atoi(strings.TrimPrefix(node.Id, "network:"))
+					if err != nil {
+						return errors.Annotatef(err, "lshw output for node %q has invalid ID suffix for %q", inst.Id(), node.Id)
+					}
+				}
+				if index == 0 && primaryIface == "" {
+					primaryIface = node.LogicalName
+					logger.Debugf("node %q primary network interface is %q", inst.Id(), primaryIface)
+				}
+				interfaces[node.Serial] = ifaceInfo{
+					DeviceIndex:   index,
+					InterfaceName: node.LogicalName,
+				}
 			}
-			processNodes(node.Children)
+			if err := processNodes(node.Children); err != nil {
+				return err
+			}
 		}
+		return nil
 	}
-	processNodes(lshw.Nodes)
-	return interfaces, nil
+	err := processNodes(lshw.Nodes)
+	return interfaces, primaryIface, err
 }

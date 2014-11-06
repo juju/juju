@@ -32,6 +32,10 @@ type BasicInfo struct {
 // For providers that support networks, this will be available at
 // StartInstance() time.
 type Info struct {
+	// DeviceIndex specifies the order in which the network interface
+	// appears on the host. The primary interface has an index of 0.
+	DeviceIndex int
+
 	// MACAddress is the network interface's hardware MAC address
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string

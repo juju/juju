@@ -198,11 +198,11 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 var expectedCloudinitConfig = []interface{}{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+	// Network bridge setup.
 	"ifdown eth0",
-	"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
-	`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
-	"ifup br0",
-	// Networking/VLAN stuff.
+	"cat >> /etc/network/interfaces << EOF\n\niface eth0 inet manual\n\nauto juju-br0\niface juju-br0 inet dhcp\n    bridge_ports eth0\nEOF\ngrep -q 'iface eth0 inet dhcp' /etc/network/interfaces && \\\nsed -i 's/iface eth0 inet dhcp//' /etc/network/interfaces",
+	"ifup juju-br0",
+	// Configuring networks / VLANs.
 	"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",
 	"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
 	"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
@@ -257,7 +257,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, nil)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", nwInfo, "eth0")
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", nwInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
@@ -275,7 +275,7 @@ func (*environSuite) TestNewCloudinitConfigWithDisabledNetworkManagement(c *gc.C
 	cfg := getSimpleTestConfig(c, attrs)
 	env, err := maas.NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
-	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", nwInfo, "eth0")
+	cloudcfg, err := maas.NewCloudinitConfig(env, "testing.invalid", "eth0", nwInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfigWithoutNetworking)
