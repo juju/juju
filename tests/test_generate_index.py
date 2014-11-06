@@ -62,7 +62,13 @@ class GenerateIndex(TestCase):
              'com.ubuntu.juju:14.10:armhf',
              'com.ubuntu.juju:14.10:i386',
              'com.ubuntu.juju:14.10:ppc64',
-             'com.ubuntu.juju:14.10:ppc64el'],
+             'com.ubuntu.juju:14.10:ppc64el',
+             'com.ubuntu.juju:15.04:amd64',
+             'com.ubuntu.juju:15.04:arm64',
+             'com.ubuntu.juju:15.04:armhf',
+             'com.ubuntu.juju:15.04:i386',
+             'com.ubuntu.juju:15.04:ppc64',
+             'com.ubuntu.juju:15.04:ppc64el'],
             released_index['products'])
 
     def test_main(self):
