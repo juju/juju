@@ -1432,8 +1432,12 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 // constrained for the instance type being provisioned.
 func isZoneConstrainedError(err error) bool {
 	ec2err, ok := err.(*ec2.Error)
-	if ok && ec2err.Code == "Unsupported" {
-		// A big hammer, but we've now seen two different error messages
+	if !ok {
+		return false
+	}
+	switch ec2err.Code {
+	case "Unsupported", "InsufficientInstanceCapacity":
+		// A big hammer, but we've now seen several different error messages
 		// for constrained zones, and who knows how many more there might
 		// be. If the message contains "Availability Zone", it's a fair
 		// bet that it's constrained or otherwise unusable.
