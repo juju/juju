@@ -409,12 +409,14 @@ func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed 
 	cons := params.LookupConstraint
 
 	indexRef, indexURL, err := fetchIndex(
-		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams)
+		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
+	)
 	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 		logger.Debugf("%s not found, trying legacy index file", indexPath)
 		indexPath = makeIndexPath(defaultLegacyIndexPath)
 		indexRef, indexURL, err = fetchIndex(
-			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams)
+			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams,
+		)
 	}
 	resolveInfo.IndexURL = indexURL
 	if err != nil {
@@ -450,7 +452,8 @@ func fetchIndex(source DataSource, indexPath string, mirrorsPath string, cloudSp
 		indexURL = indexPath
 	}
 	indexRef, err = GetIndexWithFormat(
-		source, indexPath, IndexFormat, mirrorsPath, signed, cloudSpec, params)
+		source, indexPath, IndexFormat, mirrorsPath, signed, cloudSpec, params,
+	)
 	return indexRef, indexURL, err
 }
 

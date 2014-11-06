@@ -920,7 +920,8 @@ func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = os.Rename(
 		filepath.Join(metadataDir, "tools", "streams", "v1", "index2.json"),
-		filepath.Join(metadataDir, "tools", "streams", "v1", "index.json"))
+		filepath.Join(metadataDir, "tools", "streams", "v1", "index.json"),
+	)
 	c.Assert(err, gc.IsNil)
 
 	// Generate different metadata with index2.json
