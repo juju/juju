@@ -19,9 +19,9 @@ var _ = gc.Suite(&InfoSuite{})
 
 func (n *InfoSuite) SetUpTest(c *gc.C) {
 	n.info = []network.Info{
-		{VLANTag: 1, InterfaceName: "eth0"},
-		{VLANTag: 0, InterfaceName: "eth1"},
-		{VLANTag: 42, InterfaceName: "br2"},
+		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
+		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
+		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 	}
 }
 
