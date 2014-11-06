@@ -302,20 +302,24 @@ func newNoMatchingProductsError(message string, args ...interface{}) error {
 }
 
 const (
-	streamsDir       = "streams/%s"
-	unsignedIndex    = "streams/%s/index.json"
-	signedIndex      = "streams/%s/index.sjson"
-	unsignedMirror   = "streams/%s/mirrors.json"
-	defaultIndexPath = "streams/%s/index"
+	// These constants are used to specify the filenames used
+	// when generating simplestreams metadata for local consumption
+	// or for uploading to streams.canonical.com.
+	unsignedIndex  = "streams/%s/index%s.json"
+	unsignedMirror = "streams/%s/mirrors.json"
+	MirrorFile     = "streams/v1/cpc-mirrors.json"
 
-	defaultMirrorsPath = "streams/%s/mirrors"
-	signedSuffix       = ".sjson"
-	UnsignedSuffix     = ".json"
+	// These constants are used when searching for simplestreams metadata.
+	defaultLegacyIndexPath = "streams/%s/index"
+	defaultIndexPath       = "streams/%s/index2"
+	defaultMirrorsPath     = "streams/%s/mirrors"
+	SignedSuffix           = ".sjson"
+	UnsignedSuffix         = ".json"
 
+	// These constants define the currently supported simplestreams data formats.
 	IndexFormat   = "index:1.0"
 	ProductFormat = "products:1.0"
 	MirrorFormat  = "mirrors:1.0"
-	MirrorFile    = "streams/v1/cpc-mirrors.json"
 )
 
 type appendMatchingFunc func(DataSource, []interface{}, map[string]interface{}, LookupConstraint) []interface{}
@@ -334,24 +338,18 @@ type ValueParams struct {
 	PublicKey string
 }
 
-// StreamsDir returns the streams directory for streamsVersion.
-func StreamsDir(streamsVersion string) string {
-	return fmt.Sprintf(streamsDir, streamsVersion)
-}
-
 // MirrorsPath returns the mirrors path for streamsVersion.
 func MirrorsPath(streamsVersion string) string {
 	return fmt.Sprintf(defaultMirrorsPath, streamsVersion)
 }
 
 // UnsignedIndex returns an unsigned index file name for streamsVersion.
-func UnsignedIndex(streamsVersion string) string {
-	return fmt.Sprintf(unsignedIndex, streamsVersion)
-}
-
-// SignedIndex returns a signed index file name for streamsVersion.
-func SignedIndex(streamsVersion string) string {
-	return fmt.Sprintf(signedIndex, streamsVersion)
+func UnsignedIndex(streamsVersion string, indexFileVersion int) string {
+	indexFileSuffix := ""
+	if indexFileVersion > 1 {
+		indexFileSuffix = fmt.Sprintf("%d", indexFileVersion)
+	}
+	return fmt.Sprintf(unsignedIndex, streamsVersion, indexFileSuffix)
 }
 
 // UnsignedMirror returns an unsigned mirror file name for streamsVersion.
@@ -372,16 +370,12 @@ type GetMetadataParams struct {
 // Each source is tried in turn until at least one signed (or unsigned) match is found.
 func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interface{}, resolveInfo *ResolveInfo, err error) {
 
-	baseIndexPath := fmt.Sprintf(defaultIndexPath, params.StreamsVersion)
-	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
 	for _, source := range sources {
 		logger.Debugf("searching for metadata in datasource %q", source.Description())
-		items, resolveInfo, err = getMaybeSignedMetadata(
-			source, baseIndexPath, mirrorsPath, params.LookupConstraint, true, params.ValueParams)
+		items, resolveInfo, err = getMaybeSignedMetadata(source, params, true)
 		// If no items are found using signed metadata, check unsigned.
 		if err != nil && len(items) == 0 && !params.OnlySigned {
-			items, resolveInfo, err = getMaybeSignedMetadata(
-				source, baseIndexPath, mirrorsPath, params.LookupConstraint, false, params.ValueParams)
+			items, resolveInfo, err = getMaybeSignedMetadata(source, params, false)
 		}
 		if err == nil {
 			break
@@ -394,26 +388,35 @@ func GetMetadata(sources []DataSource, params GetMetadataParams) (items []interf
 	return items, resolveInfo, err
 }
 
-// getMaybeSignedMetadata returns metadata records matching the specified constraint.
-func getMaybeSignedMetadata(source DataSource, baseIndexPath, mirrorsPath string, cons LookupConstraint,
-	signed bool, params ValueParams) ([]interface{}, *ResolveInfo, error) {
+// getMaybeSignedMetadata returns metadata records matching the specified constraint in params.
+func getMaybeSignedMetadata(source DataSource, params GetMetadataParams, signed bool) ([]interface{}, *ResolveInfo, error) {
+
+	makeIndexPath := func(basePath string) string {
+		pathNoSuffix := fmt.Sprintf(basePath, params.StreamsVersion)
+		indexPath := pathNoSuffix + UnsignedSuffix
+		if signed {
+			indexPath = pathNoSuffix + SignedSuffix
+		}
+		return indexPath
+	}
 
 	resolveInfo := &ResolveInfo{}
-	indexPath := baseIndexPath + UnsignedSuffix
-	if signed {
-		indexPath = baseIndexPath + signedSuffix
-	}
-	var items []interface{}
-	indexURL, err := source.URL(indexPath)
-	if err != nil {
-		// Some providers return an error if asked for the URL of a non-existent file.
-		// So the best we can do is use the relative path for the URL when logging messages.
-		indexURL = indexPath
-	}
 	resolveInfo.Source = source.Description()
 	resolveInfo.Signed = signed
+	indexPath := makeIndexPath(defaultIndexPath)
+
+	mirrorsPath := fmt.Sprintf(defaultMirrorsPath, params.StreamsVersion)
+	cons := params.LookupConstraint
+
+	indexRef, indexURL, err := fetchIndex(
+		source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams)
+	if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
+		logger.Debugf("%s not found, trying legacy index file", indexPath)
+		indexPath = makeIndexPath(defaultLegacyIndexPath)
+		indexRef, indexURL, err = fetchIndex(
+			source, indexPath, mirrorsPath, cons.Params().CloudSpec, signed, params.ValueParams)
+	}
 	resolveInfo.IndexURL = indexURL
-	indexRef, err := GetIndexWithFormat(source, indexPath, IndexFormat, mirrorsPath, signed, cons.Params().CloudSpec, params)
 	if err != nil {
 		if errors.IsNotFound(err) || errors.IsUnauthorized(err) {
 			logger.Debugf("cannot load index %q: %v", indexURL, err)
@@ -421,7 +424,7 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath, mirrorsPath string
 		return nil, resolveInfo, err
 	}
 	logger.Debugf("read metadata index at %q", indexURL)
-	items, err = indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
+	items, err := indexRef.getLatestMetadataWithFormat(cons, ProductFormat, signed)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
@@ -435,6 +438,20 @@ func getMaybeSignedMetadata(source DataSource, baseIndexPath, mirrorsPath string
 		resolveInfo.MirrorURL = indexRef.Source.(*urlDataSource).baseURL
 	}
 	return items, resolveInfo, err
+}
+
+// fetchIndex attempts to load the index file at indexPath in source.
+func fetchIndex(source DataSource, indexPath string, mirrorsPath string, cloudSpec CloudSpec,
+	signed bool, params ValueParams) (indexRef *IndexReference, indexURL string, _ error) {
+	indexURL, err := source.URL(indexPath)
+	if err != nil {
+		// Some providers return an error if asked for the URL of a non-existent file.
+		// So the best we can do is use the relative path for the URL when logging messages.
+		indexURL = indexPath
+	}
+	indexRef, err = GetIndexWithFormat(
+		source, indexPath, IndexFormat, mirrorsPath, signed, cloudSpec, params)
+	return indexRef, indexURL, err
 }
 
 // fetchData gets all the data from the given source located at the specified path.
@@ -513,7 +530,7 @@ func getMirrorRefs(source DataSource, baseMirrorsPath string, requireSigned bool
 
 	mirrorsPath := baseMirrorsPath + UnsignedSuffix
 	if requireSigned {
-		mirrorsPath = baseMirrorsPath + signedSuffix
+		mirrorsPath = baseMirrorsPath + SignedSuffix
 	}
 	var mirrors MirrorRefs
 	data, url, err := fetchData(source, mirrorsPath, requireSigned, params.PublicKey)
