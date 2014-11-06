@@ -198,7 +198,7 @@ def generate_mirrors_file(updated, streams_path,
         mirrors['mirrors'][product_name] = [{
             "datatype": "content-download",
             "path": "streams/v1/cpc-mirrors.json",
-            "updated": "%s" % updated,
+            "updated": updated,
             "format": "mirrors:1.0"
         }]
     data = json.dumps(mirrors, indent=2)
