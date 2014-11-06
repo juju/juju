@@ -39,6 +39,9 @@ const (
 
 	// StreamsVersionV1 is used to construct the path for accessing streams data.
 	StreamsVersionV1 = "v1"
+
+	// IndexFileVersion is used to construct the streams index file.
+	IndexFileVersion = 2
 )
 
 var currentStreamsVersion = StreamsVersionV1
@@ -463,7 +466,7 @@ func WriteMetadata(stor storage.Storage, streamMetadata map[string][]*ToolsMetad
 		return err
 	}
 	metadataInfo := []MetadataFile{
-		{simplestreams.UnsignedIndex(currentStreamsVersion), index},
+		{simplestreams.UnsignedIndex(currentStreamsVersion, IndexFileVersion), index},
 	}
 	for _, stream := range streams {
 		if metadata, ok := products[stream]; ok {
