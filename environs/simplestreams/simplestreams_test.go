@@ -358,9 +358,9 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 		MirrorURL: "",
 	})
 
-	// There should be 2 calls to each data-source:
-	// one for .sjson, one for .json.
-	c.Assert(source.count, gc.Equals, 2*len(sources))
+	// There should be 4 calls to each data-source:
+	// one for .sjson, one for .json, repeated for legacy vs new index files.
+	c.Assert(source.count, gc.Equals, 4*len(sources))
 }
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
@@ -462,7 +462,7 @@ func (s *simplestreamsSuite) TestGetMirrorMetadata(c *gc.C) {
 			MirrorContentId: "com.ubuntu.juju:released:tools",
 		}
 		indexRef, err := simplestreams.GetIndexWithFormat(
-			s.Source, simplestreams.UnsignedIndex("v1"), sstesting.Index_v1,
+			s.Source, s.IndexPath(), sstesting.Index_v1,
 			simplestreams.MirrorsPath("v1"), s.RequireSigned, cloud, params)
 		if !c.Check(err, gc.IsNil) {
 			continue

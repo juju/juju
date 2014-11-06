@@ -581,7 +581,7 @@ func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 ) (error, *upgradeWorkerContext) {
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, []params.MachineJob{job})
-	s.setInstantRetryStrategy()
+	s.setInstantRetryStrategy(c)
 	return worker.Wait(), context
 }
 
@@ -614,9 +614,13 @@ func (s *UpgradeSuite) newAgentFromMachineId(c *gc.C, machineId string) *Machine
 
 // Return a version the same as the current software version, but with
 // the build number bumped.
+//
+// The version Tag is also cleared so that upgrades.PerformUpgrade
+// doesn't think it needs to run upgrade steps unnecessarily.
 func makeBumpedCurrentVersion() version.Binary {
 	v := version.Current
 	v.Build++
+	v.Tag = ""
 	return v
 }
 
@@ -631,8 +635,9 @@ func waitForUpgradeToStart(upgradeCh chan bool) bool {
 
 const maxUpgradeRetries = 3
 
-func (s *UpgradeSuite) setInstantRetryStrategy() {
+func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
+		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
 		return utils.AttemptStrategy{
 			Delay: 0,
 			Min:   maxUpgradeRetries,

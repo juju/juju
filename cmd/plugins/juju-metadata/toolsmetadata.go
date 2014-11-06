@@ -147,5 +147,5 @@ func mergeAndWriteMetadata(stor storage.Storage, toolsDir, stream string, toolsL
 		return err
 	}
 	existing[stream] = mergedMetadata
-	return envtools.WriteMetadata(stor, existing, writeMirrors)
+	return envtools.WriteMetadata(stor, existing, []string{stream}, writeMirrors)
 }

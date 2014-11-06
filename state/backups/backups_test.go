@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
@@ -41,9 +42,21 @@ func (s *backupsSuite) setStored(id string) *time.Time {
 	return &stored
 }
 
+type fakeDumper struct{}
+
+func (*fakeDumper) Dump(dumpDir string) error {
+	return nil
+}
+
 func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
+	s.PatchValue(backups.GetDBDumper, func(db.Info) (db.Dumper, error) {
+		return &fakeDumper{}, nil
+	})
+
 	paths := files.Paths{DataDir: "/var/lib/juju"}
-	dbInfo := db.ConnInfo{"a", "b", "c"}
+	connInfo := db.ConnInfo{"a", "b", "c"}
+	targets := set.NewStrings("juju", "admin")
+	dbInfo := db.Info{connInfo, &targets}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	_, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
@@ -70,17 +83,19 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 		return []string{"<some file>"}, nil
 	})
 
-	var receivedDBInfo *db.ConnInfo
-	s.PatchValue(backups.GetDBDumper, func(info db.ConnInfo) db.Dumper {
+	var receivedDBInfo *db.Info
+	s.PatchValue(backups.GetDBDumper, func(info db.Info) (db.Dumper, error) {
 		receivedDBInfo = &info
-		return nil
+		return nil, nil
 	})
 
 	stored := s.setStored("spam")
 
 	// Run the backup.
 	paths := files.Paths{DataDir: "/var/lib/juju"}
-	dbInfo := db.ConnInfo{"a", "b", "c"}
+	connInfo := db.ConnInfo{"a", "b", "c"}
+	targets := set.NewStrings("juju", "admin")
+	dbInfo := db.Info{connInfo, &targets}
 	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
@@ -94,6 +109,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	c.Check(receivedDBInfo.Address, gc.Equals, "a")
 	c.Check(receivedDBInfo.Username, gc.Equals, "b")
 	c.Check(receivedDBInfo.Password, gc.Equals, "c")
+	c.Check(*receivedDBInfo.Targets, gc.DeepEquals, targets)
 
 	c.Check(rootDir, gc.Equals, "")
 

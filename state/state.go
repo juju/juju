@@ -305,7 +305,10 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
-			localID := st.localID(doc.DocID)
+			localID, err := st.strictLocalID(doc.DocID)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			switch name {
 			case machinesC:
 				agentTags = append(agentTags, names.NewMachineTag(localID).String())
@@ -565,7 +568,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		// This is required to allow loading of machines before the
 		// environment UUID migration has been applied to the machines
 		// collection. Without this, a machine agent can't come up to
-		// run the database migration..
+		// run the database migration.
 		if mdoc.Id == "" {
 			mdoc.Id = mdoc.DocID
 		}
@@ -678,10 +681,12 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	err = charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
+	err = charms.Find(bson.D{{"_id", st.docID(curl.String())}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
 		cdoc := &charmDoc{
+			DocID:        st.docID(curl.String()),
 			URL:          curl,
+			EnvUUID:      st.EnvironTag().Id(),
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
 			Metrics:      ch.Metrics(),
@@ -721,7 +726,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 	cdoc := &charmDoc{}
 	what := bson.D{
-		{"_id", curl},
+		{"_id", st.docID(curl.String())},
 		{"placeholder", bson.D{{"$ne", true}}},
 		{"pendingupload", bson.D{{"$ne", true}}},
 	}
@@ -745,7 +750,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	defer closer()
 
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 	var docs []charmDoc
 	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
 	if err != nil {
@@ -780,7 +785,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	}
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
@@ -788,7 +793,8 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
-		err = charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
+		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
+		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -809,12 +815,14 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 		chosenUrl = curl.WithRevision(chosenRevision)
 
 		uploadedCharm := &charmDoc{
+			DocID:         st.docID(chosenUrl.String()),
+			EnvUUID:       st.EnvironTag().Id(),
 			URL:           chosenUrl,
 			PendingUpload: true,
 		}
 		ops := []txn.Op{{
 			C:      charmsC,
-			Id:     uploadedCharm.URL,
+			Id:     uploadedCharm.DocID,
 			Assert: txn.DocMissing,
 			Insert: uploadedCharm,
 		}}
@@ -853,7 +861,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(curl).One(&uploadedCharm)
+		err := charms.FindId(st.docID(curl.String())).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		} else if err == nil && !uploadedCharm.Placeholder {
@@ -864,6 +872,8 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
+				DocID:         st.docID(curl.String()),
+				EnvUUID:       st.EnvironTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
 				Placeholder:   false,
@@ -877,7 +887,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// changed yet.
 			ops = []txn.Op{{
 				C:  charmsC,
-				Id: curl,
+				Id: uploadedCharm.DocID,
 				Assert: bson.D{
 					{"bundlesha256", ""},
 					{"pendingupload", false},
@@ -895,7 +905,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// No charm document with this curl yet, insert it.
 			ops = []txn.Op{{
 				C:      charmsC,
-				Id:     curl,
+				Id:     uploadedCharm.DocID,
 				Assert: txn.DocMissing,
 				Insert: uploadedCharm,
 			}}
@@ -930,7 +940,8 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		query := bson.D{{"_id", st.docID(curl.String())}}
+		err := charms.Find(query).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -945,12 +956,14 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		}
 		// Add the new charm doc.
 		placeholderCharm := &charmDoc{
+			DocID:       st.docID(curl.String()),
+			EnvUUID:     st.EnvironTag().Id(),
 			URL:         curl,
 			Placeholder: true,
 		}
 		ops = append(ops, txn.Op{
 			C:      charmsC,
-			Id:     placeholderCharm.URL.String(),
+			Id:     placeholderCharm.DocID,
 			Assert: txn.DocMissing,
 			Insert: placeholderCharm,
 		})
@@ -964,14 +977,13 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
-
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
 	var docs []charmDoc
-	err := charms.Find(
-		bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}}).All(&docs)
+	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
+	err := charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -982,7 +994,7 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 		}
 		ops = append(ops, txn.Op{
 			C:      charmsC,
-			Id:     doc.URL.String(),
+			Id:     doc.DocID,
 			Assert: stillPlaceholder,
 			Remove: true,
 		})
@@ -1029,7 +1041,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(curl).One(&doc)
+	err := charms.FindId(st.docID(curl.String())).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -1062,6 +1074,7 @@ func (st *State) updateCharmDoc(
 		{"meta", ch.Meta()},
 		{"config", escapedConfig},
 		{"actions", ch.Actions()},
+		{"metrics", ch.Metrics()},
 		{"storagepath", storagePath},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
@@ -1069,7 +1082,7 @@ func (st *State) updateCharmDoc(
 	}}}
 	ops := []txn.Op{{
 		C:      charmsC,
-		Id:     curl,
+		Id:     st.docID(curl.String()),
 		Assert: preReq,
 		Update: updateFields,
 	}}
@@ -1169,7 +1182,9 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 			C:      settingsrefsC,
 			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1, st.EnvironUUID()},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		},
 		{
 			C:      servicesC,
@@ -1342,15 +1357,14 @@ func (st *State) localID(ID string) string {
 // strictLocalID returns the local id value by removing the
 // environment UUID prefix.
 //
-// A success flag is also returned. If there is no prefix matching the
-// State's environment, false is returned. True is returned if the
-// expected prefix was present.
-func (st *State) strictLocalID(ID string) (string, bool) {
+// If there is no prefix matching the State's environment, an error is
+// returned.
+func (st *State) strictLocalID(ID string) (string, error) {
 	prefix := st.EnvironUUID() + ":"
 	if !strings.HasPrefix(ID, prefix) {
-		return "", false
+		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
-	return ID[len(prefix):], true
+	return ID[len(prefix):], nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.

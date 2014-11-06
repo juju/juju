@@ -480,6 +480,12 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
+
+			// TODO(waigani) Below is a bug. s.doc.Name should be
+			// s.settingsKey(). A unit test needs to be added which engineers
+			// the first transaction attempt to fail, such that this code gets
+			// tested.
+
 			// If the service is not alive, fail out immediately; otherwise,
 			// data changed underneath us, so retry.
 			if alive, err := isAliveWithSession(settings, s.st.docID(s.doc.Name)); err != nil {
@@ -868,7 +874,9 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 			C:      settingsrefsC,
 			Id:     docID,
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1, st.EnvironUUID()},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		}, nil
 	}
 	return txn.Op{
@@ -932,5 +940,5 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
 	RefCount int
-	EnvUUID  string `json:"env-uuid"`
+	EnvUUID  string `bson:"env-uuid"`
 }

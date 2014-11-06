@@ -67,7 +67,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		list, err := envtools.ReadList(stor, "proposed", t.majorVersion, t.minorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
-			// ReadList doesn't set the Size of SHA256, so blank out those attributes.
+			// ReadList doesn't set the Size or SHA256, so blank out those attributes.
 			for _, tool := range t.list {
 				tool.Size = 0
 				tool.SHA256 = ""
@@ -77,6 +77,30 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 		}
 	}
+}
+
+func (s *StorageSuite) TestReadListLegacyPPC64(c *gc.C) {
+	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
+	c.Assert(err, gc.IsNil)
+	v100 := version.MustParseBinary("1.0.0-precise-amd64")
+	v101 := version.MustParseBinary("1.0.1-precise-ppc64el")
+	agentTools := envtesting.AssertUploadFakeToolsVersions(c, stor, "proposed", "proposed", v100, v101)
+
+	amd64Tools := agentTools[0]
+	ppc64elTools := agentTools[1]
+	// We also expect metadata for ppc64 to be added.
+	ppc64Tools := *ppc64elTools
+	ppc64Tools.Version.Arch = "ppc64"
+	expected := coretools.List{amd64Tools, ppc64elTools, &ppc64Tools}
+
+	list, err := envtools.ReadList(stor, "proposed", 1, 0)
+	c.Assert(err, gc.IsNil)
+	// ReadList doesn't set the Size or SHA256, so blank out those attributes.
+	for _, tool := range expected {
+		tool.Size = 0
+		tool.SHA256 = ""
+	}
+	c.Assert(list, gc.DeepEquals, expected)
 }
 
 var setenvTests = []struct {

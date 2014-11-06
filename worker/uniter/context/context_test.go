@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/worker/uniter/context"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 type InterfaceSuite struct {
@@ -26,7 +26,7 @@ func (s *InterfaceSuite) GetContext(
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	return s.HookContextSuite.getHookContext(
-		c, uuid.String(), relId, remoteName, noProxies, false,
+		c, uuid.String(), relId, remoteName, noProxies,
 	)
 }
 

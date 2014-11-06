@@ -26,6 +26,9 @@ const (
 	// StreamsVersionV1 is used to construct the path for accessing streams data.
 	StreamsVersionV1 = "v1"
 
+	// IndexFileVersion is used to construct the streams index file.
+	IndexFileVersion = 1
+
 	// currentStreamsVersion is the current version of image simplestreams data.
 	currentStreamsVersion = StreamsVersionV1
 )

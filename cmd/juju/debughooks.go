@@ -12,7 +12,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	unitdebug "github.com/juju/juju/worker/uniter/debug"
+	unitdebug "github.com/juju/juju/worker/uniter/context/debug"
 )
 
 // DebugHooksCommand is responsible for launching a ssh shell on a given unit or machine.

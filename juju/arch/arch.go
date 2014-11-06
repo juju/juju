@@ -11,11 +11,14 @@ import (
 
 // The following constants define the machine architectures supported by Juju.
 const (
-	AMD64 = "amd64"
-	I386  = "i386"
-	ARM   = "armhf"
-	ARM64 = "arm64"
-	PPC64 = "ppc64el"
+	AMD64   = "amd64"
+	I386    = "i386"
+	ARM     = "armhf"
+	ARM64   = "arm64"
+	PPC64EL = "ppc64el"
+
+	// Older versions of Juju used "ppc64" instead of ppc64el
+	LEGACY_PPC64 = "ppc64"
 )
 
 // AllSupportedArches records the machine architectures recognised by Juju.
@@ -24,16 +27,16 @@ var AllSupportedArches = []string{
 	I386,
 	ARM,
 	ARM64,
-	PPC64,
+	PPC64EL,
 }
 
 // Info records the information regarding each architecture recognised by Juju.
 var Info = map[string]ArchInfo{
-	AMD64: {64},
-	I386:  {32},
-	ARM:   {32},
-	ARM64: {64},
-	PPC64: {64},
+	AMD64:   {64},
+	I386:    {32},
+	ARM:     {32},
+	ARM64:   {64},
+	PPC64EL: {64},
 }
 
 // ArchInfo is a struct containing information about a supported architecture.
@@ -52,7 +55,7 @@ var archREs = []struct {
 	{regexp.MustCompile("i?[3-9]86"), I386},
 	{regexp.MustCompile("(arm$)|(armv.*)"), ARM},
 	{regexp.MustCompile("aarch64"), ARM64},
-	{regexp.MustCompile("ppc64|ppc64el|ppc64le"), PPC64},
+	{regexp.MustCompile("ppc64|ppc64el|ppc64le"), PPC64EL},
 }
 
 // Override for testing.

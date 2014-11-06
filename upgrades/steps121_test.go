@@ -35,6 +35,8 @@ func (s *steps121Suite) TestStepsFor121(c *gc.C) {
 		"prepend the environment UUID to the ID of all reboot docs",
 		"prepend the environment UUID to the ID of all relations docs",
 		"prepend the environment UUID to the ID of all relationscopes docs",
+		"prepend the environment UUID to the ID of all charm docs",
+		"prepend the environment UUID to the ID of all minUnit docs",
 		"prepend the environment UUID to the ID of all cleanup docs",
 		"prepend the environment UUID to the ID of all sequence docs",
 		"prepend the environment UUID to the ID of all settings docs",
@@ -50,5 +52,5 @@ func (s *steps121Suite) TestStepsFor121(c *gc.C) {
 		"create entries in meter status collection for existing units",
 		"migrate machine jobs into ones with JobManageNetworking based on rules",
 	}
-	assertSteps(c, version.MustParse("1.21-alpha1"), expectedSteps)
+	assertSteps(c, version.MustParse("1.21.0"), expectedSteps)
 }

@@ -1037,8 +1037,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	store := config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := store.Get(charmURL)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
+	downloadedCharm, err := CharmStore.Get(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}
@@ -1112,11 +1112,11 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	repo := config.SpecializeCharmRepo(CharmStore, envConfig)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, repo)
+		curl, err := c.resolveCharm(&ref, CharmStore)
 		if err != nil {
 			result.Error = err.Error()
 		} else {

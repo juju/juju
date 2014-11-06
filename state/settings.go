@@ -247,8 +247,18 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	defer closer()
 
 	config := map[string]interface{}{}
+
 	err := settings.FindId(st.docID(key)).One(config)
-	if err != nil {
+
+	// This is required to allow loading of environ settings before the
+	// environment UUID migration has been applied to the settings collection.
+	// Without this, an agent's version cannot be read, blocking the upgrade.
+	if err == mgo.ErrNotFound && key == environGlobalKey {
+		err := settings.FindId(environGlobalKey).One(config)
+		if err != nil {
+			return nil, 0, err
+		}
+	} else if err != nil {
 		return nil, 0, err
 	}
 	txnRevno := config["txn-revno"].(int64)

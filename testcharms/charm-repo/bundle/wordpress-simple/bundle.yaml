@@ -1,0 +1,9 @@
+services:
+    wordpress:
+        charm: wordpress
+        num_units: 1
+    mysql:
+        charm: mysql
+        num_units: 1
+relations:
+    - ["wordpress:db", "mysql:server"]

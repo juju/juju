@@ -132,7 +132,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	}
 
 	const requireSigned = false
-	indexPath := simplestreams.UnsignedIndex("v1")
+	indexPath := simplestreams.UnsignedIndex("v1", 2)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
@@ -214,10 +214,10 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 	index, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
 	c.Assert(err, gc.IsNil)
 	objects := []metadataFile{
-		{simplestreams.UnsignedIndex("v1"), index},
+		{simplestreams.UnsignedIndex("v1", 2), index},
 	}
-	for file, metadata := range products {
-		objects = append(objects, metadataFile{file, metadata})
+	for stream, metadata := range products {
+		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
 	}
 	return objects
 }
