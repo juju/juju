@@ -474,12 +474,21 @@ var azInsufficientInstanceCapacityErr = &amzec2.Error{
 		"us-east-1c, us-east-1a.",
 }
 
+var azNoDefaultSubnetErr = &amzec2.Error{
+	Code:    "InvalidInput",
+	Message: "No default subnet for availability zone: ''us-east-1e''.",
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
 	t.testStartInstanceAvailZoneAllConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azNoDefaultSubnetErr)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
@@ -514,6 +523,10 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneInsufficientInstanceCapacity(c *gc.C) {
 	t.testStartInstanceAvailZoneOneConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azNoDefaultSubnetErr)
 }
 
 func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
