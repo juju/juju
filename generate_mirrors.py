@@ -181,7 +181,7 @@ JOYENT_MIRROR = OrderedDict([
         }
     ])
 ])
-DEPRECATED_PATTERN = re.compile(r'.*(devel|proposed)/tools/streams/v[1-9]')
+DEPRECATED_PATTERN = re.compile(r'(devel|proposed)/tools/streams/v[1-9]')
 
 
 def get_deprecated_mirror(streams_path):
