@@ -198,31 +198,17 @@ var expectedCloudinitConfig = []interface{}{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
 	"ifdown eth0",
-	`mkdir -p etc/network/interfaces.d
-cat > /etc/network/interfaces.d/eth0.cfg << EOF
-# The primary network interface
-auto eth0
-iface eth0 inet dhcp
+	`cat >> /etc/network/interfaces << EOF
+
+iface eth0 inet manual
+
+auto juju-br0
+iface juju-br0 inet dhcp
+    bridge_ports eth0
 EOF
-sed -i '/auto eth0/{N;s/auto eth0\niface eth0 inet dhcp//}' /etc/network/interfaces
-cat >> /etc/network/interfaces << EOF
-# Source interfaces
-# Please check /etc/network/interfaces.d before changing this file
-# as interfaces may have been defined in /etc/network/interfaces.d
-# NOTE: the primary ethernet device is defined in
-# /etc/network/interfaces.d/eth0.cfg
-# See LP: #1262951
-source /etc/network/interfaces.d/*.cfg
-EOF
-`,
-	`cat > /etc/network/interfaces.d/br0.cfg << EOF
-auto br0
-iface br0 inet dhcp
-  bridge_ports eth0
-EOF
-sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.d/eth0.cfg
-`,
-	"ifup br0",
+grep -q 'iface eth0 inet dhcp' /etc/network/interfaces && \
+sed -i 's/iface eth0 inet dhcp//' /etc/network/interfaces`,
+	"ifup juju-br0",
 }
 
 var expectedCloudinitConfigWithoutNetworking = []interface{}{
