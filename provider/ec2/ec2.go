@@ -1374,7 +1374,8 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 
 // isZoneConstrainedError reports whether or not the error indicates
 // RunInstances failed due to the specified availability zone being
-// constrained for the instance type being provisioned.
+// constrained for the instance type being provisioned, or is
+// otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
 	switch err := err.(type) {
 	case *ec2.Error:
@@ -1385,6 +1386,11 @@ func isZoneConstrainedError(err error) bool {
 			// be. If the message contains "Availability Zone", it's a fair
 			// bet that it's constrained or otherwise unusable.
 			return strings.Contains(err.Message, "Availability Zone")
+		case "InvalidInput":
+			// If the region has a default VPC, then we will receive an error
+			// if the AZ does not have a default subnet. Until we have proper
+			// support for networks, we'll skip over these.
+			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
 		}
 	}
 	return false
