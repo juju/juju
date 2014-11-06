@@ -443,10 +443,10 @@ func (s *RelationerSuite) TestParseRemoteUnit(c *gc.C) {
 	// Ensure the call with the same args fails, explicitly warning
 	// the user about the lack of a remote unit.
 	_, err = uniter.ParseRemoteUnit(relationers, args)
-	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, use --no-remote-unit to execute the commands anyway")
+	c.Assert(err, gc.ErrorMatches, "no remote unit found for relation id: 0, use --skip-remote-unit-check to execute the commands anyway")
 
-	// Run the command passing in the NoRemoteUnit flag
-	args.NoRemoteUnit = true
+	// Run the command passing in the SkipRemoteUnit flag
+	args.SkipRemoteUnit = true
 	remoteUnit, err = uniter.ParseRemoteUnit(relationers, args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(remoteUnit, gc.Equals, "")

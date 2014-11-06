@@ -62,6 +62,7 @@ func (s *ListenerSuite) TestClientCall(c *gc.C) {
 		Commands:       "some-command",
 		RelationId:     -1,
 		RemoteUnitName: "",
+		SkipRemoteUnit: false,
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	c.Assert(err, gc.IsNil)

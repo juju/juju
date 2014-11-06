@@ -24,7 +24,7 @@ type RunCommandsArgs struct {
 	Commands       string
 	RelationId     int
 	RemoteUnitName string
-	NoRemoteUnit   bool
+	SkipRemoteUnit bool
 }
 
 // A CommandRunner is something that will actually execute the commands and

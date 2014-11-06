@@ -35,15 +35,15 @@ var _ = gc.Suite(&RunTestSuite{})
 
 func (*RunTestSuite) TestArgParsing(c *gc.C) {
 	for i, test := range []struct {
-		title        string
-		args         []string
-		errMatch     string
-		unit         names.UnitTag
-		commands     string
-		avoidContext bool
-		relationId   int
-		remoteUnit   string
-		noRemoteUnit bool
+		title          string
+		args           []string
+		errMatch       string
+		unit           names.UnitTag
+		commands       string
+		avoidContext   bool
+		relationId     string
+		remoteUnit     string
+		skipRemoteUnit bool
 	}{{
 		title:    "no args",
 		errMatch: "missing unit-name",
@@ -64,45 +64,45 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		args:       []string{"unit-name-2", "command"},
 		unit:       names.NewUnitTag("name/2"),
 		commands:   "command",
-		relationId: -1,
+		relationId: "",
 	}, {
 		title:      "unit id converted to tag",
 		args:       []string{"foo/1", "command"},
 		unit:       names.NewUnitTag("foo/1"),
 		commands:   "command",
-		relationId: -1,
+		relationId: "",
 	}, {
-		title:        "execute not in a context",
-		args:         []string{"--no-context", "command"},
-		commands:     "command",
-		avoidContext: true,
-		relationId:   -1,
-		noRemoteUnit: false,
+		title:          "execute not in a context",
+		args:           []string{"--no-context", "command"},
+		commands:       "command",
+		avoidContext:   true,
+		relationId:     "",
+		skipRemoteUnit: false,
 	}, {
-		title:        "relation-id",
-		args:         []string{"--relation-id", "1", "unit-name-2", "command"},
-		commands:     "command",
-		unit:         names.NewUnitTag("name/2"),
-		relationId:   1,
-		remoteUnit:   "",
-		avoidContext: false,
-		noRemoteUnit: false,
+		title:          "relation-id",
+		args:           []string{"--relation", "db:1", "unit-name-2", "command"},
+		commands:       "command",
+		unit:           names.NewUnitTag("name/2"),
+		relationId:     "db:1",
+		remoteUnit:     "",
+		avoidContext:   false,
+		skipRemoteUnit: false,
 	}, {
-		title:        "remote-unit",
-		args:         []string{"--remote-unit", "unit-name-1", "unit-name-2", "command"},
-		commands:     "command",
-		unit:         names.NewUnitTag("name/2"),
-		avoidContext: false,
-		relationId:   -1,
-		remoteUnit:   "unit-name-1",
-		noRemoteUnit: false,
+		title:          "remote-unit",
+		args:           []string{"--remote-unit", "unit-name-1", "unit-name-2", "command"},
+		commands:       "command",
+		unit:           names.NewUnitTag("name/2"),
+		avoidContext:   false,
+		relationId:     "",
+		remoteUnit:     "unit-name-1",
+		skipRemoteUnit: false,
 	}, {
-		title:        "no-remote-unit",
-		args:         []string{"--no-remote-unit", "--relation-id", "1", "unit-name-2", "command"},
-		commands:     "command",
-		unit:         names.NewUnitTag("name/2"),
-		relationId:   1,
-		noRemoteUnit: true,
+		title:          "no-remote-unit",
+		args:           []string{"--skip-remote-unit-check", "--relation", "mongodb:1", "unit-name-2", "command"},
+		commands:       "command",
+		unit:           names.NewUnitTag("name/2"),
+		relationId:     "mongodb:1",
+		skipRemoteUnit: true,
 	},
 	} {
 		c.Logf("\n%d: %s", i, test.title)
@@ -115,7 +115,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 			c.Assert(runCommand.noContext, gc.Equals, test.avoidContext)
 			c.Assert(runCommand.relationId, gc.Equals, test.relationId)
 			c.Assert(runCommand.remoteUnitName, gc.Equals, test.remoteUnit)
-			c.Assert(runCommand.noRemoteUnit, gc.Equals, test.noRemoteUnit)
+			c.Assert(runCommand.skipRemoteUnit, gc.Equals, test.skipRemoteUnit)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
 		}
@@ -211,6 +211,26 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")
+}
+
+func (s *RunTestSuite) TestRunningRelation(c *gc.C) {
+	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
+	s.runListenerForAgent(c, "unit-foo-1")
+
+	ctx, err := testing.RunCommand(c, &RunCommand{}, "--relation", "db:1", "foo/1", "bar")
+	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "bar stderr")
+}
+
+func (s *RunTestSuite) TestRunningBadRelation(c *gc.C) {
+	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
+	s.runListenerForAgent(c, "unit-foo-1")
+
+	_, err := testing.RunCommand(c, &RunCommand{}, "--relation", "badrelation:W", "foo/1", "bar")
+	c.Check(cmd.IsRcPassthroughError(err), jc.IsFalse)
+	c.Assert(err, gc.ErrorMatches, "invalid relation id")
 }
 
 func (s *RunTestSuite) runListenerForAgent(c *gc.C, agent string) {

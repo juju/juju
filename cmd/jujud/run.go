@@ -6,6 +6,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
@@ -24,8 +26,8 @@ type RunCommand struct {
 	commands       string
 	showHelp       bool
 	noContext      bool
-	noRemoteUnit   bool
-	relationId     int
+	skipRemoteUnit bool
+	relationId     string
 	remoteUnitName string
 }
 
@@ -57,9 +59,10 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.showHelp, "h", false, "show help on juju-run")
 	f.BoolVar(&c.showHelp, "help", false, "")
 	f.BoolVar(&c.noContext, "no-context", false, "do not run the command in a unit context")
-	f.IntVar(&c.relationId, "relation-id", -1, "run the commands for a specific relation context on a unit")
+	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
+	f.StringVar(&c.relationId, "relation", "", "")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
-	f.BoolVar(&c.noRemoteUnit, "no-remote-unit", false, "run the commands for a specific relation context even if there is no remote unit")
+	f.BoolVar(&c.skipRemoteUnit, "skip-remote-unit-check", false, "run the commands for a specific relation context, bypassing the remote unit check")
 }
 
 func (c *RunCommand) Init(args []string) error {
@@ -129,6 +132,12 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	} else if err != nil {
 		return nil, err
 	}
+
+	relationId, err := checkRelationId(c.relationId)
+	if err != nil {
+		return nil, err
+	}
+
 	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
 		return nil, err
@@ -138,9 +147,9 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	var result exec.ExecResponse
 	args := uniter.RunCommandsArgs{
 		Commands:       c.commands,
-		RelationId:     c.relationId,
+		RelationId:     relationId,
 		RemoteUnitName: c.remoteUnitName,
-		NoRemoteUnit:   c.noRemoteUnit,
+		SkipRemoteUnit: c.skipRemoteUnit,
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
 	return &result, err
@@ -180,4 +189,25 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 		exec.RunParams{
 			Commands: runCmd,
 		})
+}
+
+// checkRelationId verifies that the relationId
+// given by the user is of a valid syntax, it does
+// not check that the relationId is a valid one. This
+// is done by the NewRunContext method that is part of
+// the worker/uniter/context/factory package.
+func checkRelationId(value string) (int, error) {
+	if len(value) == 0 {
+		return -1, nil
+	}
+
+	trim := value
+	if idx := strings.LastIndex(trim, ":"); idx != -1 {
+		trim = trim[idx+1:]
+	}
+	id, err := strconv.Atoi(trim)
+	if err != nil {
+		return -1, fmt.Errorf("invalid relation id")
+	}
+	return id, nil
 }
