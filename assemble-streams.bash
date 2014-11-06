@@ -407,6 +407,9 @@ generate_streams() {
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
     set +x
+
+    # XXX sinzui 2014-11-06: add the index.json to ensure it is always
+    # present.
     echo "The tools are in ${DEST_DIST}."
 
     #
@@ -475,6 +478,9 @@ generate_streams() {
         done
     fi
     set +x
+
+    # XXX sinzui 2014-11-06: add the index.json to ensure it is always
+    # present.
     echo "The agents are in $JUJU_DIST."
 }
 
