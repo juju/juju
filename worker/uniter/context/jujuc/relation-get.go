@@ -47,6 +47,7 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
+	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "relation", "specify a relation by id")
 }
 
 func (c *RelationGetCommand) Init(args []string) error {
