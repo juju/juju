@@ -8,6 +8,7 @@ from utils import temp_dir
 from generate_mirrors import (
     generate_mirrors_file,
     generate_cpc_mirrors_file,
+    get_deprecated_mirror,
     main,
     PURPOSES,
 )
@@ -15,10 +16,19 @@ from generate_mirrors import (
 
 class GenerateMirrors(TestCase):
 
+    def test_get_deprecated_mirror(self):
+        self.assertEqual(
+            None, get_deprecated_mirror('juju-dist/tools/streams/v1'))
+        self.assertEqual(
+            'devel', get_deprecated_mirror('juju-dist/devel/tools/streams/v1'))
+        self.assertEqual(
+            'proposed',
+            get_deprecated_mirror('juju-dist/proposed/tools/streams/v1'))
+
     def test_generate_mirrors_file(self):
         updated = datetime.datetime.utcnow()
         with temp_dir() as base_path:
-            stream_path = '%s/streams/v1' % base_path
+            stream_path = '%s/tools/streams/v1' % base_path
             os.makedirs(stream_path)
             generate_mirrors_file(updated, stream_path)
             mirror_path = '%s/mirrors.json' % stream_path
@@ -39,7 +49,7 @@ class GenerateMirrors(TestCase):
     def test_cpc_generate_mirrors_file(self):
         updated = datetime.datetime.utcnow()
         with temp_dir() as base_path:
-            stream_path = '%s/streams/v1' % base_path
+            stream_path = '%s/tools/streams/v1' % base_path
             os.makedirs(stream_path)
             generate_cpc_mirrors_file(updated, stream_path)
             mirror_path = '%s/cpc-mirrors.json' % stream_path
@@ -76,6 +86,42 @@ class GenerateMirrors(TestCase):
                  "cpcjoyentsupport/public/juju-dist/tools"),
                 purposeful_mirrors[3]['mirror'])
             self.assertEqual(6, len(purposeful_mirrors[3]['clouds']))
+
+    def test_cpc_generate_mirrors_file_deprecated_tree(self):
+        updated = datetime.datetime.utcnow()
+        with temp_dir() as base_path:
+            stream_path = '%s/devel/tools/streams/v1' % base_path
+            os.makedirs(stream_path)
+            generate_cpc_mirrors_file(updated, stream_path)
+            mirror_path = '%s/cpc-mirrors.json' % stream_path
+            self.assertTrue(os.path.isfile(mirror_path))
+            with open(mirror_path) as mirror_file:
+                data = json.load(mirror_file)
+        product_name = 'com.ubuntu.juju:released:tools'
+        purposeful_mirrors = data['mirrors'][product_name]
+        purpose = product_name.split(':')[1]
+        self.assertEqual(
+            'streams/v1/com.ubuntu.juju:%s:tools.json' % purpose,
+            purposeful_mirrors[0]['path'])
+        self.assertEqual(
+            'https://juju-dist.s3.amazonaws.com/devel/tools',
+            purposeful_mirrors[0]['mirror'])
+        self.assertEqual(9, len(purposeful_mirrors[0]['clouds']))
+        self.assertEqual(
+            'https://jujutools.blob.core.windows.net'
+            '/juju-tools/devel/tools',
+            purposeful_mirrors[1]['mirror'])
+        self.assertEqual(17, len(purposeful_mirrors[1]['clouds']))
+        self.assertEqual(
+            ("https://region-a.geo-1.objects.hpcloudsvc.com/"
+             "v1/60502529753910/juju-dist/devel/tools"),
+            purposeful_mirrors[2]['mirror'])
+        self.assertEqual(2, len(purposeful_mirrors[2]['clouds']))
+        self.assertEqual(
+            ("https://us-east.manta.joyent.com/"
+             "cpcjoyentsupport/public/juju-dist/devel/tools"),
+            purposeful_mirrors[3]['mirror'])
+        self.assertEqual(6, len(purposeful_mirrors[3]['clouds']))
 
     def test_main(self):
         with patch('generate_mirrors.generate_mirrors_file') as gmf_mock:

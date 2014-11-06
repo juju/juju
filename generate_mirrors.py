@@ -7,6 +7,7 @@ from collections import OrderedDict
 import datetime
 import json
 import os
+import re
 import sys
 import traceback
 
@@ -180,6 +181,15 @@ JOYENT_MIRROR = OrderedDict([
         }
     ])
 ])
+DEPRECATED_PATTERN = re.compile(r'.*(devel|proposed)/tools/streams/v[1-9]')
+
+
+def get_deprecated_mirror(streams_path):
+    """Return the purpose of the deprecated mirror or None"""
+    match = DEPRECATED_PATTERN.search(streams_path)
+    if match:
+        return match.group(1)
+    return None
 
 
 def generate_mirrors_file(updated, streams_path,
@@ -219,7 +229,14 @@ def generate_cpc_mirrors_file(updated, streams_path,
         ("format", "mirrors:1.0"),
         ("updated", updated),
     ])
-    for purpose in PURPOSES:
+    deprecated_purpose = get_deprecated_mirror(streams_path)
+    if deprecated_purpose:
+        # Older jujus only looked for "released" purpose, which is why
+        # a seperate path in the tree was used to separate releases.
+        purposes = ['released']
+    else:
+        purposes = PURPOSES
+    for purpose in purposes:
         product_name = "com.ubuntu.juju:%s:tools" % purpose
         product_path = "streams/v1/%s.json" % product_name
         if verbose:
@@ -228,6 +245,9 @@ def generate_cpc_mirrors_file(updated, streams_path,
         for master in (AWS_MIRROR, AZURE_MIRROR, HP_MIRROR, JOYENT_MIRROR):
             mirror = OrderedDict(master)
             mirror['path'] = product_path
+            if deprecated_purpose:
+                mirror['mirror'] = mirror['mirror'].replace(
+                    '/tools', '/%s/tools' % deprecated_purpose)
             mirrors['mirrors'][product_name].append(mirror)
             if verbose:
                 print("    Adding %s" % mirror['mirror'])
