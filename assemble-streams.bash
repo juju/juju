@@ -406,10 +406,8 @@ generate_streams() {
         $SCRIPT_DIR/validate_streams.py \
             $REMOVED $ADDED $PURPOSE $OLD_JSON $NEW_JSON
     fi
+    $SCRIPT_DIR/generate_index.py -v $DEST_DIST/tools/
     set +x
-
-    # XXX sinzui 2014-11-06: add the index.json to ensure it is always
-    # present.
     echo "The tools are in ${DEST_DIST}."
 
     #
@@ -477,10 +475,8 @@ generate_streams() {
             fi
         done
     fi
+    $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     set +x
-
-    # XXX sinzui 2014-11-06: add the index.json to ensure it is always
-    # present.
     echo "The agents are in $JUJU_DIST."
 }
 
