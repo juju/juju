@@ -53,13 +53,13 @@ func NewArchiveFile(file io.Reader, filename string) (*ArchiveData, error) {
 }
 
 // Open Returns a new io.ReadCloser containing the archive's data.
-func (af *ArchiveData) Open() (io.ReadCloser, error) {
-	if af.data != nil {
-		file := ioutil.NopCloser(bytes.NewBuffer(af.data))
+func (ad *ArchiveData) Open() (io.ReadCloser, error) {
+	if ad.data != nil {
+		file := ioutil.NopCloser(bytes.NewBuffer(ad.data))
 		return file, nil
 	}
 
-	file, err := os.Open(af.Filename)
+	file, err := os.Open(ad.Filename)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,14 +75,14 @@ func (af *ArchiveData) Open() (io.ReadCloser, error) {
 
 // Metadata returns the metadata stored in the backup archive.  If no
 // metadata is there, errors.NotFound is returned.
-func (af *ArchiveData) Metadata() (*metadata.Metadata, error) {
-	file, err := af.Open()
+func (ad *ArchiveData) Metadata() (*metadata.Metadata, error) {
+	file, err := ad.Open()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	defer file.Close()
 
-	filename := af.MetadataFile()
+	filename := ad.MetadataFile()
 	_, metaFile, err := tar.FindFile(file, filename)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -96,8 +96,8 @@ func (af *ArchiveData) Metadata() (*metadata.Metadata, error) {
 // was created.  If no version is found in the archive, it must come
 // from before backup archives included the version.  In that case we
 // return version 1.20.
-func (af *ArchiveData) Version() (*version.Number, error) {
-	meta, err := af.Metadata()
+func (ad *ArchiveData) Version() (*version.Number, error) {
+	meta, err := ad.Metadata()
 	if errors.IsNotFound(err) {
 		return &legacyVersion, nil
 	}
