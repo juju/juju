@@ -28,8 +28,8 @@ func GetMAASClient(env environs.Environ) *gomaasapi.MAASObject {
 	return env.(*maasEnviron).getMAASClient()
 }
 
-func NewCloudinitConfig(env environs.Environ, hostname string, networkInfo []network.Info, iface string) (*cloudinit.Config, error) {
-	return env.(*maasEnviron).newCloudinitConfig(hostname, networkInfo, iface)
+func NewCloudinitConfig(env environs.Environ, hostname, primaryIface string, networkInfo []network.Info) (*cloudinit.Config, error) {
+	return env.(*maasEnviron).newCloudinitConfig(hostname, primaryIface, networkInfo)
 }
 
 var indexData = `

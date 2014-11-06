@@ -79,6 +79,11 @@ type BootstrapParams struct {
 	// KeepBroken, if true, ensures that any bootstrap instance is not stopped
 	// if there is an error during bootstrap.
 	KeepBroken bool
+
+	// ContainerBridgeName, if non-empty, overrides the default
+	// network bridge device to use for LXC and KVM containers. See
+	// environs.DefaultBridgeName.
+	ContainerBridgeName string
 }
 
 // An Environ represents a juju environment as specified
