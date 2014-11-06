@@ -1149,6 +1149,7 @@ func (environ *maasEnviron) getNetworkMACs(networkName string) ([]string, error)
 	return macs, nil
 }
 
+// getInstanceNetworkInterfaces returns a map of interface MAC address
 // to ifaceInfo for each network interface of the given instance, as
 // discovered during the commissioning phase. In addition, it also
 // returns the interface name discovered as primary.
@@ -1185,6 +1186,7 @@ type ifaceInfo struct {
 	InterfaceName string
 }
 
+// extractInterfaces parses the XML output of lswh and extracts all
 // network interfaces, returing a map MAC address to ifaceInfo, as
 // well as the interface name discovered as primary.
 func extractInterfaces(inst instance.Instance, lshwXML []byte) (map[string]ifaceInfo, string, error) {
