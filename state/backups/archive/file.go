@@ -33,9 +33,8 @@ func NewArchiveData(file io.Reader, filename string) (*ArchiveData, error) {
 		return nil, errors.Trace(err)
 	}
 	defer gzr.Close()
-	file = gzr
 
-	data, err := ioutil.ReadAll(file)
+	data, err := ioutil.ReadAll(gzr)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
