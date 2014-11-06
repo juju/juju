@@ -17,7 +17,7 @@ import (
 //
 // This upgrade step is to add the line to source the file if it is missing
 // from the file.
-func ensureUbuntuDotProfileSourcesProxyFile(context APIContext) error {
+func ensureUbuntuDotProfileSourcesProxyFile(context Context) error {
 	// We look to see if the proxy line is there already as the manual
 	// provider may have had it aleady. The ubuntu user may not exist
 	// (local provider only).

@@ -9,8 +9,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Context is used give the upgrade steps that interact with the API
-// what they need to do their job.
+// Context provides the dependencies used when executing upgrade steps.
 type Context interface {
 	// APIState returns an API connection to state.
 	APIState() *api.State
@@ -22,6 +21,14 @@ type Context interface {
 	// AgentConfig returns the agent config for the machine that is being
 	// upgraded.
 	AgentConfig() agent.ConfigSetter
+
+	// StateContext returns a new Context suitable for State-based
+	// upgrade steps.
+	StateContext() Context
+
+	// APIContext returns a new Context suitable for API-based upgrade
+	// steps.
+	APIContext() Context
 }
 
 // NewContext returns a new upgrade context.
@@ -41,12 +48,22 @@ type upgradeContext struct {
 }
 
 // APIState is defined on the Context interface.
+//
+// This will panic if called on a Context returned by StateContext.
 func (c *upgradeContext) APIState() *api.State {
+	if c.api == nil {
+		panic("API not available from this context")
+	}
 	return c.api
 }
 
 // State is defined on the Context interface.
+//
+// This will panic if called on a Context returned by APIContext.
 func (c *upgradeContext) State() *state.State {
+	if c.st == nil {
+		panic("State not available from this context")
+	}
 	return c.st
 }
 
@@ -55,28 +72,18 @@ func (c *upgradeContext) AgentConfig() agent.ConfigSetter {
 	return c.agentConfig
 }
 
-// StateContext is used give upgrade steps that need to interact
-// directly with state what they need to do their job.
-type StateContext interface {
-	// State returns a connection to state.
-	State() *state.State
-
-	// AgentConfig returns the agent config for the machine that is being
-	// upgraded.
-	AgentConfig() agent.ConfigSetter
+// StateContext is defined on the Context interface.
+func (c *upgradeContext) StateContext() Context {
+	return &upgradeContext{
+		agentConfig: c.agentConfig,
+		st:          c.st,
+	}
 }
 
-var _ StateContext = Context(nil) // Context must be a StateContext
-
-// APIContext is used give upgrade steps that need to interact
-// with state via the API what they need to do their job.
-type APIContext interface {
-	// APIState returns an API connection to state.
-	APIState() *api.State
-
-	// AgentConfig returns the agent config for the machine that is being
-	// upgraded.
-	AgentConfig() agent.ConfigSetter
+// APIContext is defined on the Context interface.
+func (c *upgradeContext) APIContext() Context {
+	return &upgradeContext{
+		agentConfig: c.agentConfig,
+		api:         c.api,
+	}
 }
-
-var _ APIContext = Context(nil) // Context must be a APIContext

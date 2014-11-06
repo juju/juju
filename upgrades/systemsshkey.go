@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-func ensureSystemSSHKey(context APIContext) error {
+func ensureSystemSSHKey(context Context) error {
 	identityFile := context.AgentConfig().SystemIdentityPath()
 	// Don't generate a key unless we have to.
 	keyExists, err := systemKeyExists(identityFile)

@@ -30,7 +30,4 @@ var (
 	MigrateCharmStorage        = migrateCharmStorage
 	MigrateCustomImageMetadata = migrateCustomImageMetadata
 	MigrateToolsStorage        = migrateToolsStorage
-
-	GetStateSteps = getStateSteps
-	GetSteps      = getSteps
 )

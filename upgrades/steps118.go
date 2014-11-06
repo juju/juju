@@ -3,20 +3,20 @@
 
 package upgrades
 
-// stateStepsFor118 returns upgrade steps that manipulate state directly for Juju 1.18.
-func stateStepsFor118() []StateStep {
-	return []StateStep{
-		&stateUpgradeStep{
+// stateStepsFor118 returns upgrade steps form Juju 1.18 that manipulate state directly.
+func stateStepsFor118() []Step {
+	return []Step{
+		&upgradeStep{
 			description: "update rsyslog port",
 			targets:     []Target{StateServer},
 			run:         updateRsyslogPort,
 		},
-		&stateUpgradeStep{
+		&upgradeStep{
 			description: "remove deprecated environment config settings",
 			targets:     []Target{StateServer},
 			run:         processDeprecatedEnvSettings,
 		},
-		&stateUpgradeStep{
+		&upgradeStep{
 			description: "migrate local provider agent config",
 			targets:     []Target{StateServer},
 			run:         migrateLocalProviderAgentConfig,
@@ -24,7 +24,7 @@ func stateStepsFor118() []StateStep {
 	}
 }
 
-// stepsFor118 returns upgrade steps for Juju 1.18.
+// stepsFor118 returns upgrade steps for Juju 1.18 that operate via the API.
 func stepsFor118() []Step {
 	return []Step{
 		&upgradeStep{

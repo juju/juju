@@ -12,6 +12,19 @@ import (
 
 var logger = loggo.GetLogger("juju.upgrade")
 
+// Step defines an idempotent operation that is run to perform
+// a specific upgrade step.
+type Step interface {
+	// Description is a human readable description of what the upgrade step does.
+	Description() string
+
+	// Targets returns the target machine types for which the upgrade step is applicable.
+	Targets() []Target
+
+	// Run executes the upgrade business logic.
+	Run(Context) error
+}
+
 // Operation defines what steps to perform to upgrade to a target version.
 type Operation interface {
 	// The Juju version for which this operation is applicable.
@@ -21,7 +34,7 @@ type Operation interface {
 	TargetVersion() version.Number
 
 	// State requiring steps to perform during an upgrade. These go first.
-	StateSteps() []StateStep
+	StateSteps() []Step
 
 	// Steps to perform during an upgrade.
 	Steps() []Step
@@ -50,12 +63,12 @@ const (
 // upgrade any prior version of Juju to targetVersion.
 type upgradeToVersion struct {
 	targetVersion version.Number
-	stateSteps    []StateStep
+	stateSteps    []Step
 	steps         []Step
 }
 
 // StateSteps is defined on the Operation interface.
-func (u upgradeToVersion) StateSteps() []StateStep {
+func (u upgradeToVersion) StateSteps() []Step {
 	return u.stateSteps
 }
 
@@ -90,15 +103,23 @@ func AreUpgradesDefined(from version.Number) bool {
 // version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, target Target, context Context) error {
 	if isStateTarget(target) {
-		if err := runUpgradeSteps(from, target, getStateSteps, runStateStep, context); err != nil {
+		if err := runUpgradeSteps(from, target, getStateSteps, context.StateContext()); err != nil {
 			return err
 		}
 	}
-	if err := runUpgradeSteps(from, target, getSteps, runStep, context); err != nil {
+	if err := runUpgradeSteps(from, target, getSteps, context.APIContext()); err != nil {
 		return err
 	}
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
+}
+
+func getStateSteps(op Operation) []Step {
+	return op.StateSteps()
+}
+
+func getSteps(op Operation) []Step {
+	return op.Steps()
 }
 
 func isStateTarget(target Target) bool {
@@ -117,8 +138,7 @@ func isStateTarget(target Target) bool {
 func runUpgradeSteps(
 	from version.Number,
 	target Target,
-	getSteps func(Operation) []GenericStep,
-	runStep func(Context, GenericStep) error,
+	getSteps func(Operation) []Step,
 	context Context,
 ) error {
 	for ops := newUpgradeOpsIterator(from, version.Current.Number); ops.Next(); {
@@ -128,8 +148,8 @@ func runUpgradeSteps(
 				continue
 			}
 			logger.Infof("running upgrade step on target %q: %v", target, step.Description())
-			if err := runStep(context, step); err != nil {
-				logger.Errorf("state upgrade step %q failed: %v", step.Description(), err)
+			if err := step.Run(context); err != nil {
+				logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
 				return &upgradeError{
 					description: step.Description(),
 					err:         err,
@@ -141,28 +161,6 @@ func runUpgradeSteps(
 	return nil
 }
 
-func getStateSteps(op Operation) (steps []GenericStep) {
-	for _, step := range op.StateSteps() {
-		steps = append(steps, step)
-	}
-	return
-}
-
-func runStateStep(context Context, step GenericStep) error {
-	return step.(StateStep).Run(context.(StateContext))
-}
-
-func getSteps(op Operation) (steps []GenericStep) {
-	for _, step := range op.Steps() {
-		steps = append(steps, step)
-	}
-	return
-}
-
-func runStep(context Context, step GenericStep) error {
-	return step.(Step).Run(context.(APIContext))
-}
-
 // validTarget returns true if target matches targets.
 func validTarget(target Target, targets []Target) bool {
 	for _, opTarget := range targets {
@@ -172,6 +170,30 @@ func validTarget(target Target, targets []Target) bool {
 		}
 	}
 	return len(targets) == 0
+}
+
+// upgradeStep is a default Step implementation.
+type upgradeStep struct {
+	description string
+	targets     []Target
+	run         func(Context) error
+}
+
+var _ Step = (*upgradeStep)(nil)
+
+// Description is defined on the Step interface.
+func (step *upgradeStep) Description() string {
+	return step.description
+}
+
+// Targets is defined on the Step interface.
+func (step *upgradeStep) Targets() []Target {
+	return step.targets
+}
+
+// Run is defined on the Step interface.
+func (step *upgradeStep) Run(context Context) error {
+	return step.run(context)
 }
 
 type upgradeOpsIterator struct {
