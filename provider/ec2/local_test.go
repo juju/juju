@@ -464,7 +464,24 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azInsufficientInstanceCapacityErr = &amzec2.Error{
+	Code: "InsufficientInstanceCapacity",
+	Message: "We currently do not have sufficient m1.small capacity in the " +
+		"Availability Zone you requested (us-east-1d). Our system will " +
+		"be working on provisioning additional capacity. You can currently get m1.small " +
+		"capacity by not specifying an Availability Zone in your request or choosing " +
+		"us-east-1c, us-east-1a.",
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -479,14 +496,26 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	var azArgs []string
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
-		return nil, azConstrainedErr
+		return nil, runInstancesError
 	})
 	_, _, _, err = testing.StartInstance(env, "1")
-	c.Assert(err, gc.ErrorMatches, `cannot run instances: The requested Availability Zone is currently constrained etc\. \(Unsupported\)`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"cannot run instances: %s \\(%s\\)",
+		regexp.QuoteMeta(runInstancesError.Message),
+		runInstancesError.Code,
+	))
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneInsufficientInstanceCapacity(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -505,7 +534,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
-			return nil, azConstrainedErr
+			return nil, runInstancesError
 		}
 		return realRunInstances(e, ri)
 	})
