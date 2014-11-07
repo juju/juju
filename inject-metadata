@@ -5,30 +5,14 @@ from argparse import ArgumentParser
 import json
 import os
 
-from jujuconfig import get_selected_environment
+from jujuconfig import (
+    describe_substrate,
+    get_selected_environment,
+    )
 
 
 def describe_env(env):
-    environ = get_selected_environment(env)[0]
-    if environ['type'] == 'local':
-        return {
-            'kvm': 'KVM (local)',
-            'lxc': 'LXC (local)'
-        }[environ.get('container', 'lxc')]
-    elif environ['type'] == 'openstack':
-        if environ['auth-url'].endswith('hpcloudsvc.com:35357/v2.0/'):
-            return 'HPCloud'
-        elif environ['auth-url'] == (
-                'https://keystone.canonistack.canonical.com:443/v2.0/'):
-            return 'Canonistack'
-    try:
-        return {
-            'ec2': 'AWS',
-            'joyent': 'Joyent',
-            'azure': 'Azure',
-        }[environ['type']]
-    except KeyError:
-        return environ['type']
+    return describe_substrate(get_selected_environment(env)[0])
 
 
 def main():
