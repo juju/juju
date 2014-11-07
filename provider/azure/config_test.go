@@ -226,7 +226,10 @@ func (*configSuite) TestEmptyImageStream1dot16Compat(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
+func (s *configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*azureEnviron) error {
+		return nil
+	})
 	userValues := []interface{}{nil, false, true}
 	for _, userValue := range userValues {
 		attrs := makeAzureConfigMap(c)
@@ -247,7 +250,10 @@ func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
 	}
 }
 
-func (*configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
+func (s *configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*azureEnviron) error {
+		return nil
+	})
 	cfg, err := config.New(config.UseDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
 	env, err := azureEnvironProvider{}.Prepare(envtesting.BootstrapContext(c), cfg)

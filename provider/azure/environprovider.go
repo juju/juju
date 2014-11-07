@@ -4,7 +4,9 @@
 package azure
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -48,5 +50,35 @@ func (prov azureEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *con
 			return nil, err
 		}
 	}
-	return prov.Open(cfg)
+	env, err := prov.Open(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(env.(*azureEnviron)); err != nil {
+			return nil, err
+		}
+	}
+	return env, nil
+}
+
+// verifyCredentials issues a cheap, non-modifying request to Joyent to
+// verify the configured credentials. If verification fails, a user-friendly
+// error will be returned, and the original error will be logged at debug
+// level.
+var verifyCredentials = func(e *azureEnviron) error {
+	_, err := e.updateStorageAccountKey(e.getSnapshot())
+	switch err := errors.Cause(err).(type) {
+	case *gwacl.AzureError:
+		if err.Code == "ForbiddenError" {
+			logger.Debugf("azure request failed: %v", err)
+			return errors.New(`authentication failed
+
+Please ensure the Azure subscription ID and certificate you have specified
+are correct. You can obtain your subscription ID from the "Settings" page
+in the Azure management console, where you can also upload a new certificate
+if necessary.`)
+		}
+	}
+	return err
 }
