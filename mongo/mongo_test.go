@@ -170,6 +170,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 		c.Assert(service.Conf.InitDir, gc.Equals, "/etc/init")
 		c.Assert(service.Conf.Desc, gc.Equals, "juju state database")
 		c.Assert(service.Conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
+		c.Assert(service.Conf.ExtraScript, gc.Matches, "")
 		// TODO(nate) set Out so that mongod output goes somewhere useful?
 		c.Assert(service.Conf.Out, gc.Equals, "")
 	}
@@ -262,6 +263,34 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 	c.Assert(s.installed, gc.HasLen, 0)
 }
 
+func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
+	dataDir := c.MkDir()
+	dbDir := filepath.Join(dataDir, "db")
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	testParams := makeEnsureServerParams(dataDir, namespace)
+	testParams.WantNumaCTL = true
+	err := mongo.EnsureServer(testParams)
+	c.Assert(err, gc.IsNil)
+
+	testJournalDirs(dbDir, c)
+
+	assertInstalled := func() {
+		c.Assert(s.installed, gc.HasLen, 1)
+		service := s.installed[0]
+		c.Assert(service.Name, gc.Equals, "juju-db-namespace")
+		c.Assert(service.Conf.InitDir, gc.Equals, "/etc/init")
+		c.Assert(service.Conf.Desc, gc.Equals, "juju state database")
+		c.Assert(service.Conf.ExtraScript, gc.Not(gc.Matches), "")
+		c.Assert(service.Conf.Cmd, gc.Matches, ".*"+regexp.QuoteMeta(s.mongodPath)+".*")
+		// TODO(nate) set Out so that mongod output goes somewhere useful?
+		c.Assert(service.Conf.Out, gc.Equals, "")
+	}
+	assertInstalled()
+}
+
 func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	type installs struct {
 		series string
@@ -330,15 +359,23 @@ func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Conf.Cmd, "--replSet"), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestUpstartServiceWithNumCtl(c *gc.C) {
+	dataDir := c.MkDir()
+
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.Conf.ExtraScript, gc.Not(gc.Matches), "")
 }
 
 func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Conf.Cmd, "--ipv6"), jc.IsTrue)
 }
@@ -346,7 +383,7 @@ func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024, false)
 	c.Assert(err, gc.IsNil)
 	journalPresent := strings.Contains(svc.Conf.Cmd, " --journal ") || strings.HasSuffix(svc.Conf.Cmd, " --journal")
 	c.Assert(journalPresent, jc.IsTrue)

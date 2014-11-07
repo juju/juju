@@ -55,6 +55,22 @@ var (
 	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
 	upstartServiceStop          = (*upstart.Service).Stop
 	upstartServiceStart         = (*upstart.Service).Start
+
+	// This is NUMACTL package name for apt-get
+	numaCtlPkg = "numactl"
+	// This is the name of the variable to use in ExtraScript
+	// fragment to substitu into upstart template.
+	multinodeVarName = "MULTI_NODE"
+	// This value will be used to wrap desired mongo cmd in numactl if wanted/needed
+	numaCtlWrap = "$%v"
+	// Extra shell script fragment for upstart template.
+	// This determines if we are dealing with multi-node environment
+	detectMultiNodeScript = `%v=""
+if [ $(find /sys/devices/system/node/ -maxdepth 1 -mindepth 1 -type d -name node\* | wc -l ) -gt 1 ]
+then
+    %v=" numactl --interleave=all "
+fi
+`
 )
 
 // WithAddresses represents an entity that has a set of
@@ -131,26 +147,6 @@ func Path() (string, error) {
 	return path, nil
 }
 
-// constructCmdWrap returns a wrapper to be used when running mongoDB command.
-// This should elevate operational difficulties with db on some machines, eg. NUMA.
-// If wrapper is not needed, return empty string.
-func constructCmdWrap() string {
-	// Atm, this only needs to be done for NUMA machines.
-	desiredWrap := "numactl"
-	// Determine the executable path to run numactl on this machine.
-	path, err := exec.LookPath(desiredWrap)
-	if err != nil {
-		// This will happen for non-NUMA machines. No wrap is needed.
-		return ""
-	}
-	// When running MongoDB servers and clients on NUMA hardware,
-	// a memory interleave policy needs to be configured
-	// so that the host behaves in a non-NUMA fashion.
-	// Fix for Bug#1350337.
-	logger.Debugf("using %q to wrap the command", desiredWrap)
-	return fmt.Sprintf(" %v --interleave=all ", path)
-}
-
 // RemoveService removes the mongoDB upstart service from this machine.
 func RemoveService(namespace string) error {
 	svc := upstart.NewService(ServiceName(namespace), common.Conf{})
@@ -189,6 +185,9 @@ type EnsureServerParams struct {
 	// calculate a default size according to the
 	// algorithm defined in Mongo.
 	OplogSize int
+
+	// Numactl preference - whether the user wants to run numactl.
+	WantNumaCTL bool
 }
 
 // EnsureServer ensures that the correct mongo upstart script is installed
@@ -219,7 +218,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := aptGetInstallMongod(); err != nil {
+	if err := aptGetInstallMongod(args.WantNumaCTL); err != nil {
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 	mongoPath, err := Path()
@@ -228,7 +227,7 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 	logVersion(mongoPath)
 
-	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB)
+	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.WantNumaCTL)
 	if err != nil {
 		return err
 	}
@@ -321,7 +320,7 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSizeMB int) (*upstart.Service, error) {
+func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSizeMB int, wantNumaCtl bool) (*upstart.Service, error) {
 	mongoCmd := mongoPath + " --auth" +
 		" --dbpath=" + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
@@ -336,28 +335,41 @@ func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSize
 		" --replSet " + ReplicaSetName +
 		" --ipv6 " +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
+	extraScript := ""
+	if wantNumaCtl {
+		extraScript = fmt.Sprintf(detectMultiNodeScript, multinodeVarName, multinodeVarName)
+		mongoCmd = fmt.Sprintf(numaCtlWrap, multinodeVarName) + mongoCmd
+	}
 	conf := common.Conf{
 		Desc: "juju state database",
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
-		Cmd: constructCmdWrap() + mongoCmd,
+		ExtraScript: extraScript,
+		Cmd:         mongoCmd,
 	}
 	svc := upstart.NewService(ServiceName(namespace), conf)
 	return svc, nil
 }
 
-func aptGetInstallMongod() error {
+func aptGetInstallMongod(numaCtl bool) error {
 	// Only Quantal requires the PPA.
 	if version.Current.Series == "quantal" {
 		if err := addAptRepository("ppa:juju/stable"); err != nil {
 			return err
 		}
 	}
-	pkg := packageForSeries(version.Current.Series)
-	cmds := apt.GetPreparePackages([]string{pkg}, version.Current.Series)
-	logger.Infof("installing %s", pkg)
+	mongoPkg := packageForSeries(version.Current.Series)
+
+	aptPkgs := []string{mongoPkg}
+	if numaCtl {
+		aptPkgs = []string{mongoPkg, numaCtlPkg}
+		logger.Infof("installing %s and %s", mongoPkg, numaCtlPkg)
+	} else {
+		logger.Infof("installing %s", mongoPkg)
+	}
+	cmds := apt.GetPreparePackages(aptPkgs, version.Current.Series)
 	for _, cmd := range cmds {
 		if err := apt.GetInstall(cmd...); err != nil {
 			return err

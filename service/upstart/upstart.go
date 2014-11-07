@@ -237,6 +237,7 @@ normal exit 0
 {{range $k, $v := .Limit}}limit {{$k}} {{$v}}
 {{end}}
 script
+{{if .ExtraScript}}{{.ExtraScript}}{{end}}
 {{if .Out}}
   # Ensure log files are properly protected
   touch {{.Out}}

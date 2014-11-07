@@ -243,6 +243,17 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		}
 	}
 
+	// If numa ctl preference is specified in the agent configuration, use that.
+	// Otherwise leave the default false value to indicate to EnsureServer
+	// that numactl should not be used.
+	var wantNumaCTL bool
+	if numaCtlString := agentConfig.Value(agent.NumaCtlPreference); numaCtlString != "" {
+		var err error
+		if wantNumaCTL, err = strconv.ParseBool(numaCtlString); err != nil {
+			return mongo.EnsureServerParams{}, fmt.Errorf("invalid numactl preference: %q", numaCtlString)
+		}
+	}
+
 	si, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
@@ -256,9 +267,10 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 		SharedSecret:   si.SharedSecret,
 		SystemIdentity: si.SystemIdentity,
 
-		DataDir:   agentConfig.DataDir(),
-		Namespace: agentConfig.Value(agent.Namespace),
-		OplogSize: oplogSize,
+		DataDir:     agentConfig.DataDir(),
+		Namespace:   agentConfig.Value(agent.Namespace),
+		OplogSize:   oplogSize,
+		WantNumaCTL: wantNumaCTL,
 	}
 	return params, nil
 }
