@@ -40,6 +40,7 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 		}
 		response, err := sender.Send(wireData)
 		if err != nil {
+			sendLogger.Errorf("%+v", err)
 			return errors.Trace(err)
 		}
 		if response != nil {
@@ -47,6 +48,17 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 				err = st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
 				if err != nil {
 					sendLogger.Errorf("failed to set sent on metrics %v", err)
+				}
+				for unitName, status := range envResp.UnitStatuses {
+					unit, err := st.Unit(unitName)
+					if err != nil {
+						sendLogger.Errorf("failed to retrieve unit %q: %v", unitName, err)
+					} else {
+						err = unit.SetMeterStatus(status.Status, status.Info)
+						if err != nil {
+							sendLogger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
+						}
+					}
 				}
 			}
 		}
