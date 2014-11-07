@@ -1370,6 +1370,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
@@ -1379,6 +1380,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			} else if svc.doc.Life != Alive {
 				return nil, fmt.Errorf("service %q is not alive", ep.ServiceName)
+			}
+			if svc.doc.Subordinate {
+				subordinateCount++
 			}
 			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
@@ -1398,6 +1402,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, fmt.Errorf("principal and subordinate services' series must match")
 		}
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
+			return nil, errors.Errorf("container scoped relation requires one subordinate service")
+		}
+
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
