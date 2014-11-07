@@ -19,41 +19,41 @@ import (
 // Workspace is a wrapper around backup archive info that has a concrete
 // root directory and an archive unpacked in it.
 type Workspace struct {
-	*Archive
+	Archive
 }
 
-func newWorkspace(filename string) (*Workspace, error) {
+func newWorkspace() (*Workspace, error) {
 	dirName, err := ioutil.TempDir("", "juju-backups-")
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating workspace dir")
 	}
 
 	ws := Workspace{
-		Archive: NewArchive(filename, dirName),
+		Archive: Archive{"", dirName},
 	}
 	return &ws, nil
 }
 
-// NewWorkspace creates a new workspace for backup archives. The
-// workspace is based in a new directory that will be deleted when the
-// workspace is closed.  If no filename is provided then the default
-// filename ("juju-backup.tar.gz") is used.
-func NewWorkspace(filename string) (*Workspace, error) {
-	ws, err := newWorkspace(filename)
+// NewWorkspaceFromFilename creates a new workspace for backup archives.
+// The workspace is based in a new directory that will be deleted when
+// the workspace is closed.  The given filename is opened and unpacked
+// into the workspace.
+func NewWorkspaceFromFilename(filename string) (*Workspace, error) {
+	if filename == "" {
+		return nil, errors.Errorf("missing filename")
+	}
+
+	ws, err := newWorkspace()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ws.Filename = filename
+
+	archiveFile, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	archiveFile, err := os.Open(ws.Filename)
-	if os.IsNotExist(err) {
-		// The file did not exist so bail out early.
-		return ws, nil
-	}
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// The file did exist, so unpack it into the workspace.
 	err = unpack(archiveFile, ws.UnpackedRootDir)
 	return ws, errors.Trace(err)
 }
@@ -61,7 +61,7 @@ func NewWorkspace(filename string) (*Workspace, error) {
 // NewWorkspace returns a new archive workspace with a new workspace dir
 // populated from the archive file.
 func NewWorkspaceFromFile(archiveFile io.Reader) (*Workspace, error) {
-	ws, err := newWorkspace("")
+	ws, err := newWorkspace()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

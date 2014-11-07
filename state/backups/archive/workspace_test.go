@@ -5,8 +5,10 @@ package archive_test
 
 import (
 	"bytes"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -75,17 +77,35 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 	s.meta = meta
 }
 
+func (s *workspaceSuite) dump(c *gc.C) string {
+	filename := filepath.Join(c.MkDir(), "juju-backup.tgz")
+	file, err := os.Create(filename)
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+
+	io.Copy(file, s.archiveFile)
+	c.Assert(err, gc.IsNil)
+
+	return filename
+}
+
+func (s *workspaceSuite) TestNewWorkspaceFromFilename(c *gc.C) {
+	filename := s.dump(c)
+	ws, err := archive.NewWorkspaceFromFilename(filename)
+	c.Assert(err, gc.IsNil)
+	defer ws.Close()
+
+	c.Check(ws.Filename, gc.Equals, filename)
+	c.Check(ws.UnpackedRootDir, gc.Not(gc.Equals), "")
+}
+
 func (s *workspaceSuite) TestNewWorkspaceFromFile(c *gc.C) {
 	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
-	root := ws.UnpackedRootDir + "/"
-	c.Check(ws.Filename, gc.Equals, root+"juju-backup.tar.gz")
-	c.Check(ws.ContentDir(), gc.Equals, root+"juju-backup")
-	c.Check(ws.FilesBundle(), gc.Equals, root+"juju-backup/root.tar")
-	c.Check(ws.DBDumpDir(), gc.Equals, root+"juju-backup/dump")
-	c.Check(ws.MetadataFile(), gc.Equals, root+"juju-backup/metadata.json")
+	c.Check(ws.Filename, gc.Equals, "")
+	c.Check(ws.UnpackedRootDir, gc.Not(gc.Equals), "")
 }
 
 func (s *workspaceSuite) TestClose(c *gc.C) {
