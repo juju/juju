@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -201,6 +202,47 @@ func (s *ToolsMetadataSuite) TestGenerateMultipleStreams(c *gc.C) {
 		obtainedVersionStrings[i] = s
 	}
 	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
+}
+
+func (s *ToolsMetadataSuite) TestGenerateDeleteExisting(c *gc.C) {
+	metadataDir := c.MkDir()
+	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
+
+	ctx := coretesting.Context(c)
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
+	c.Assert(code, gc.Equals, 0)
+	code = cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "released"})
+	c.Assert(code, gc.Equals, 0)
+
+	// Remove existing proposed tarballs, and create some different ones.
+	err := os.RemoveAll(filepath.Join(metadataDir, "tools", "proposed"))
+	c.Assert(err, gc.IsNil)
+	toolstesting.MakeTools(c, metadataDir, "proposed", currentVersionStrings)
+
+	// Generate proposed metadata again, using --clean.
+	code = cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "proposed", "--clean"})
+	c.Assert(code, gc.Equals, 0)
+
+	// Proposed metadata should just list the tarballs that were there, not the merged set.
+	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "proposed", false)
+	c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	obtainedVersionStrings := make([]string, len(currentVersionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, currentVersionStrings)
+
+	// Released metadata should be untouched.
+	metadata = toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
+	c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	obtainedVersionStrings = make([]string, len(currentVersionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, currentVersionStrings)
 }
 
 func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
