@@ -164,6 +164,20 @@ func UnregisterExternalTestImageMetadata() {
 	imagemetadata.DefaultBaseURL = origImagesUrl
 }
 
+// RegisterMachinesEndpoint creates a fake endpoint so that
+// machines api calls succeed.
+func RegisterMachinesEndpoint() {
+	files := map[string]string{
+		"/test/machines": "",
+	}
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+}
+
+// UnregisterMachinesEndpoint resets the machines endpoint.
+func UnregisterMachinesEndpoint() {
+	testRoundTripper.Sub = nil
+}
+
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*joyentEnviron)
 	spec, err = env.FindInstanceSpec(&instances.InstanceConstraint{
