@@ -202,7 +202,7 @@ func (b *backups) Restore(backupFile io.ReadCloser, backupMetadata *metadata.Met
 
 	// Restore backed up mongo
 	mongoDump := filepath.Join(backupFilesPath, "dump")
-	if err := placeNewMongo(mongoDump, version); err != nil {
+	if err := db.PlaceNewMongo(mongoDump, version); err != nil {
 		return errors.Annotate(err, "error restoring state from backup")
 	}
 
