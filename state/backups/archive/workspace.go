@@ -29,9 +29,8 @@ func newWorkspace(filename string) (*Workspace, error) {
 		return nil, errors.Annotate(err, "while creating workspace dir")
 	}
 
-	ar := NewArchive(filename, dirName)
 	ws := Workspace{
-		Archive: ar,
+		Archive: NewArchive(filename, dirName),
 		rootDir: dirName,
 	}
 	return &ws, nil
