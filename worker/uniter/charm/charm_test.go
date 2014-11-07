@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 
@@ -55,7 +55,7 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 
 func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
 	base := c.MkDir()
-	dirpath := charmtesting.Charms.ClonedDirPath(base, "dummy")
+	dirpath := testcharms.Repo.ClonedDirPath(base, "dummy")
 	if customize != nil {
 		customize(dirpath)
 	}

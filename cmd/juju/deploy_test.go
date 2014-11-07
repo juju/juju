@@ -11,7 +11,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -79,7 +79,7 @@ func (s *DeploySuite) TestNoCharm(c *gc.C) {
 }
 
 func (s *DeploySuite) TestCharmDir(c *gc.C) {
-	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -87,7 +87,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 }
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
-	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
+	testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy", "-u")
 	c.Assert(err, gc.IsNil)
 
@@ -102,7 +102,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	// picked in ServiceDeploy.
 	dummyCharm := s.AddTestingCharm(c, "dummy")
 
-	dirPath := charmtesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
+	dirPath := testcharms.Repo.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:quantal/dummy")
 	c.Assert(err, gc.IsNil)
 	upgradedRev := dummyCharm.Revision() + 1
@@ -115,7 +115,7 @@ func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 }
 
 func (s *DeploySuite) TestCharmBundle(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -123,7 +123,7 @@ func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/logging-1")
@@ -131,7 +131,7 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 }
 
 func (s *DeploySuite) TestConfig(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, "local:dummy", "dummy-service", "--config", path)
 	c.Assert(err, gc.IsNil)
@@ -146,7 +146,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 }
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	// Putting a config file in home is okay as $HOME is set to a tempdir
 	setupConfigFile(c, utils.Home())
 	err := runDeploy(c, "local:dummy", "dummy-service", "--config", "~/testconfig.yaml")
@@ -154,7 +154,7 @@ func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 }
 
 func (s *DeploySuite) TestConfigError(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, "local:dummy", "other-service", "--config", path)
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-service"`)
@@ -163,7 +163,7 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 }
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2 networks=net1,^net2")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -174,7 +174,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNetworks(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -188,13 +188,13 @@ func (s *DeploySuite) TestNetworks(c *gc.C) {
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging", "--constraints", "mem=1G")
 	c.Assert(err, gc.ErrorMatches, "cannot use --constraints with subordinate service")
 }
 
 func (s *DeploySuite) TestNumUnits(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -202,7 +202,7 @@ func (s *DeploySuite) TestNumUnits(c *gc.C) {
 }
 
 func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "--num-units", "3", "local:logging")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")
@@ -221,7 +221,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 }
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
@@ -230,7 +230,7 @@ func (s *DeploySuite) TestForceMachine(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	template := state.MachineTemplate{
 		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
@@ -246,7 +246,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
@@ -258,7 +258,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "--to", "42", "local:dummy", "portlandia")
 	c.Assert(err, gc.ErrorMatches, `cannot deploy "portlandia" to machine 42: machine 42 not found`)
 	_, err = s.State.Service("portlandia")
@@ -268,7 +268,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	machine, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), "local:logging")
 	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")

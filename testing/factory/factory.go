@@ -12,10 +12,10 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 )
 
 const (
@@ -265,7 +265,7 @@ func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
 		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
-	ch := charmtesting.Charms.CharmDir(params.Name)
+	ch := testcharms.Repo.CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
 	bundleSHA256 := factory.UniqueString("bundlesha")

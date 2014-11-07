@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -1500,7 +1501,7 @@ func addCharm(c *gc.C, name string) (*charm.URL, charm.Charm) {
 }
 
 func addSeriesCharm(c *gc.C, series, name string) (*charm.URL, charm.Charm) {
-	bundle := charmtesting.Charms.CharmArchive(c.MkDir(), name)
+	bundle := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := client.CharmStore.(*charmtesting.MockCharmStore).SetCharm(curl, bundle)
@@ -2322,10 +2323,10 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	c.Assert(err, gc.IsNil)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
-	c.Assert(store.TestMode, gc.Equals, true)
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
+	c.Assert(store.TestMode(), gc.Equals, true)
 
-	store.AuthAttrs = ""
+	store.SetAuthAttrs("")
 
 	curl, _ = addCharm(c, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
@@ -2333,13 +2334,13 @@ func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddChar
 	)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 
 	curl, _ = addCharm(c, "riak")
 	err = s.APIState.Client().AddCharm(curl)
 
 	// check that the store's auth attributes were set
-	c.Assert(store.AuthAttrs, gc.Equals, "token=value")
+	c.Assert(store.AuthAttrs(), gc.Equals, "token=value")
 }
 
 func (s *clientSuite) TestAddCharm(c *gc.C) {
@@ -2362,7 +2363,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := charmtesting.Charms.CharmDir("dummy")
+	charmDir := testcharms.Repo.CharmDir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	sch, err := s.State.AddCharm(charmDir, curl, "", ident+"-sha256")
@@ -2406,7 +2407,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 	for i, test := range resolveCharmCases {
 		c.Logf("test %d: %#v", i, test)
 		// Mock charm store will use this to resolve a charm reference.
-		store.DefaultSeries = test.defaultSeries
+		store.SetDefaultSeries(test.defaultSeries)
 
 		client := s.APIState.Client()
 		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))

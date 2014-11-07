@@ -6,7 +6,6 @@ package main
 import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -53,7 +53,7 @@ func runAddUnit(c *gc.C, args ...string) error {
 }
 
 func (s *AddUnitSuite) setupService(c *gc.C) *charm.URL {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")

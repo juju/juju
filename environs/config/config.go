@@ -1293,23 +1293,22 @@ func (cfg *Config) GenerateStateServerCertAndKey() (string, string, error) {
 }
 
 type Specializer interface {
-	WithAuthAttrs(string) charm.Repository
-	WithTestMode(testMode bool) charm.Repository
+	SetAuthAttrs(string)
+	SetTestMode(testMode bool)
 }
 
 // SpecializeCharmRepo returns a repository customized for given configuration.
 // It adds authentication if necessary and sets a charm store's testMode flag.
-func SpecializeCharmRepo(repo charm.Repository, cfg *Config) charm.Repository {
+func SpecializeCharmRepo(repo charm.Repository, cfg *Config) {
 	// If a charm store auth token is set, pass it on to the charm store
 	if auth, authSet := cfg.CharmStoreAuth(); authSet {
 		if CS, isCS := repo.(Specializer); isCS {
-			repo = CS.WithAuthAttrs(auth)
+			CS.SetAuthAttrs(auth)
 		}
 	}
 	if CS, isCS := repo.(Specializer); isCS {
-		repo = CS.WithTestMode(cfg.TestMode())
+		CS.SetTestMode(cfg.TestMode())
 	}
-	return repo
 }
 
 // SSHTimeoutOpts lists the amount of time we will wait for various

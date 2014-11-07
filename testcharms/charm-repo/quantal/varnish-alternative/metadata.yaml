@@ -1,0 +1,5 @@
+name: varnish-alternative
+summary: "Database engine"
+description: "Another popular database"
+provides:
+  webcache: varnish
