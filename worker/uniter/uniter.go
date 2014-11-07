@@ -464,6 +464,13 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	tag := names.NewActionTag(hi.ActionId)
 	action, err := u.st.Action(tag)
 	if err != nil {
+		if perr, ok := err.(*params.Error); ok {
+			if perr.Code == params.CodeNotFound {
+				logger.Infof("action '%s' not found, skipping", tag)
+				return nil
+			}
+		}
+		logger.Errorf("error retrieving action '%s': '%v' (%T)", tag, err, err)
 		return err
 	}
 

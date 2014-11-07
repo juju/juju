@@ -278,8 +278,8 @@ func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
 
-func WatcherMergeIds(st *State, preexisting []string, changeset *[]string, updates map[interface{}]bool) error {
-	return mergeIds(st, preexisting, changeset, updates)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changeset, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {

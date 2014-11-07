@@ -1658,19 +1658,18 @@ func (w *idPrefixWatcher) Changes() <-chan []string {
 // responding to Changes requests
 func (w *idPrefixWatcher) loop() error {
 	var (
-		changeset []string
-		in        = (<-chan watcher.Change)(w.source)
-		out       = (chan<- []string)(w.sink)
+		changes []string
+		in      = (<-chan watcher.Change)(w.source)
+		out     = (chan<- []string)(w.sink)
 	)
 
 	w.st.watcher.WatchCollectionWithFilter(w.targetC, w.source, w.filterFn)
 	defer w.st.watcher.UnwatchCollection(w.targetC, w.source)
 
-	preexisting, err := w.initial()
+	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	changeset = preexisting
 
 	for {
 		select {
@@ -1683,16 +1682,16 @@ func (w *idPrefixWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := mergeIds(w.st, preexisting, &changeset, updates); err != nil {
+			if err := mergeIds(w.st, &changes, updates); err != nil {
 				return err
 			}
-			if len(changeset) > 0 {
+			if len(changes) > 0 {
 				out = w.sink
 			} else {
 				out = nil
 			}
-		case out <- changeset:
-			changeset = []string{}
+		case out <- changes:
+			changes = []string{}
 			out = nil
 		}
 	}
@@ -1745,30 +1744,27 @@ func (w *idPrefixWatcher) initial() ([]string, error) {
 }
 
 // mergeIds is used for merging actionId's and actionResultId's that
-// come in via the updates map. It cleans up the pending changeset to
+// come in via the updates map. It cleans up the pending changes to
 // account for id's being removed before the watcher consumes them,
 // and to account for the potential overlap between the id's that were
 // pending before the watcher started, and the new id's detected by the
 // watcher.
 // Additionally, mergeIds strips the environment UUID prefix from the id
 // before emitting it through the watcher.
-func mergeIds(st *State, preexisting []string, changeset *[]string, updates map[interface{}]bool) error {
+func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
 	for id, idExists := range updates {
 		switch id := id.(type) {
 		case string:
 			localId := st.localID(id)
-
-			chIx, idAlreadyInChangeset := indexOf(localId, *changeset)
-			_, idAlreadyInPreexisting := indexOf(localId, preexisting)
-
+			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
 			if idExists {
-				if !idAlreadyInPreexisting && !idAlreadyInChangeset {
-					*changeset = append(*changeset, localId)
+				if !idAlreadyInChangeset {
+					*changes = append(*changes, localId)
 				}
 			} else {
 				if idAlreadyInChangeset {
-					// remove id from changeset
-					*changeset = append([]string(*changeset)[:chIx], []string(*changeset)[chIx+1:]...)
+					// remove id from changes
+					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
 				}
 			}
 		default:

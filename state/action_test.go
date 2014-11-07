@@ -332,35 +332,33 @@ func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
 
 func (s *ActionSuite) TestMergeIds(c *gc.C) {
 	var tests = []struct {
-		initial  string
 		changes  string
 		adds     string
 		removes  string
 		expected string
 	}{
-		{initial: "", changes: "", adds: "a0,a1", removes: "", expected: "a0,a1"},
-		{initial: "", changes: "a0,a1", adds: "", removes: "a0", expected: "a1"},
-		{initial: "", changes: "a0,a1", adds: "a2", removes: "a0", expected: "a1,a2"},
+		{changes: "", adds: "a0,a1", removes: "", expected: "a0,a1"},
+		{changes: "a0,a1", adds: "", removes: "a0", expected: "a1"},
+		{changes: "a0,a1", adds: "a2", removes: "a0", expected: "a1,a2"},
 
-		{initial: "a0", changes: "", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
-		{initial: "a0", changes: "", adds: "a0,a1,a2", removes: "a0,a1,a2", expected: ""},
+		{changes: "", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "", adds: "a0,a1,a2", removes: "a0,a1,a2", expected: ""},
 
-		{initial: "a0", changes: "a0", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
-		{initial: "a0", changes: "a1", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
-		{initial: "a0", changes: "a2", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "a0", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "a1", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "a2", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
 
-		{initial: "a0,a1,a2", changes: "a3,a4", adds: "a1,a4,a5", removes: "a1,a3", expected: "a4,a5"},
-		{initial: "a0,a1,a2", changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
+		{changes: "a3,a4", adds: "a1,a4,a5", removes: "a1,a3", expected: "a4,a5"},
+		{changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
 	}
 
 	for ix, test := range tests {
 		updates := mapify(test.adds, test.removes)
 		changes := sliceify(test.changes)
-		initial := sliceify(test.initial)
 		expected := sliceify(test.expected)
 
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
-		err := state.WatcherMergeIds(s.State, initial, &changes, updates)
+		err := state.WatcherMergeIds(s.State, &changes, updates)
 		c.Assert(err, gc.IsNil)
 		c.Assert(changes, jc.DeepEquals, expected)
 	}
@@ -381,10 +379,10 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		changes, initial, updates := []string{}, []string{}, map[interface{}]bool{}
+		changes, updates := []string{}, map[interface{}]bool{}
 
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, initial, &changes, updates)
+		err := state.WatcherMergeIds(s.State, &changes, updates)
 
 		if test.ok {
 			c.Assert(err, gc.IsNil)

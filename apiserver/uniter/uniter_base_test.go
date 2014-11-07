@@ -929,6 +929,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 		{Tag: "unit-wordpress-0"},
 	}}
 
+	s.State.StartSync()
 	results, err := facade.WatchActions(args)
 	c.Assert(err, gc.IsNil)
 
