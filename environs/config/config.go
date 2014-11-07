@@ -68,6 +68,9 @@ const (
 	// fallbackLtsSeries is the latest LTS series we'll use, if we fail to
 	// obtain this information from the system.
 	fallbackLtsSeries string = "trusty"
+
+	// Only use numactl if user specifically requests it
+	DefaultNumaControlPolicy = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -110,6 +113,9 @@ const (
 
 	// LxcClone stores the value for this setting.
 	LxcClone = "lxc-clone"
+
+	// NumaControlPolicyKey stores the value for this setting
+	SetNumaControlPolicyKey = "set-numa-control-policy"
 
 	//
 	// Deprecated Settings Attributes
@@ -702,6 +708,14 @@ func (c *Config) SyslogPort() int {
 	return c.mustInt("syslog-port")
 }
 
+// NumaCtlPreference returns if numactl is preferred.
+func (c *Config) NumaCtlPreference() bool {
+	if numa, ok := c.defined[SetNumaControlPolicyKey]; ok {
+		return numa.(bool)
+	}
+	return DefaultNumaControlPolicy
+}
+
 // RsyslogCACert returns the certificate of the CA that signed the
 // rsyslog certificate, in PEM format, or nil if one hasn't been
 // generated yet.
@@ -1081,6 +1095,7 @@ var fields = schema.Fields{
 	"enable-os-refresh-update":   schema.Bool(),
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
+	SetNumaControlPolicyKey:      schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1121,6 +1136,7 @@ var alwaysOptional = schema.Defaults{
 	LxcClone:                     schema.Omit,
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
+	SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1183,6 +1199,7 @@ func allDefaults() schema.Defaults {
 		"proxy-ssh":                  true,
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
+		SetNumaControlPolicyKey:      DefaultNumaControlPolicy,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
