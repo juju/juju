@@ -893,13 +893,14 @@ func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
 }
 
 func (s *UnitSuite) TestCharmURLSetTime(c *gc.C) {
-	t0 := time.Now()
+	t0 := time.Now().Add(-time.Second)
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, gc.IsNil)
 	t1 := time.Now()
 	err = s.unit.Refresh()
 	c.Assert(err, gc.IsNil)
 	charmUrlSetTime := s.unit.CharmURLSetTime()
+	c.Log(t0, t1, charmUrlSetTime)
 	c.Assert(charmUrlSetTime.After(t0), jc.IsTrue)
 	c.Assert(charmUrlSetTime.Before(t1), jc.IsTrue)
 }

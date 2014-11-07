@@ -15,6 +15,7 @@ import (
 
 type metricsManagerSuite struct {
 	jujutesting.JujuConnSuite
+	environment string
 
 	manager *metricsmanager.Client
 }
@@ -23,6 +24,9 @@ var _ = gc.Suite(&metricsManagerSuite{})
 
 func (s *metricsManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	s.environment = env.Tag().String()
 	s.manager = metricsmanager.NewClient(s.APIState)
 	c.Assert(s.manager, gc.NotNil)
 }
@@ -31,6 +35,7 @@ func (s *metricsManagerSuite) TestCleanupOldMetrics(c *gc.C) {
 	var called bool
 	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
 		called = true
+		c.Assert(args, gc.DeepEquals, params.Entities{Entities: []params.Entity{params.Entity{Tag: s.environment}}})
 		c.Assert(request, gc.Equals, "CleanupOldMetrics")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
@@ -45,6 +50,7 @@ func (s *metricsManagerSuite) TestSendMetrics(c *gc.C) {
 	var called bool
 	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
 		called = true
+		c.Assert(args, gc.DeepEquals, params.Entities{Entities: []params.Entity{params.Entity{Tag: s.environment}}})
 		c.Assert(request, gc.Equals, "SendMetrics")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
@@ -59,6 +65,7 @@ func (s *metricsManagerSuite) TestSendMetricsFails(c *gc.C) {
 	var called bool
 	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
 		called = true
+		c.Assert(args, gc.DeepEquals, params.Entities{Entities: []params.Entity{params.Entity{Tag: s.environment}}})
 		c.Assert(request, gc.Equals, "SendMetrics")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)
@@ -74,6 +81,7 @@ func (s *metricsManagerSuite) TestAddBuiltinMetrics(c *gc.C) {
 	var called bool
 	metricsmanager.PatchFacadeCall(s, s.manager, func(request string, args, response interface{}) error {
 		called = true
+		c.Assert(args, gc.DeepEquals, params.Entities{Entities: []params.Entity{params.Entity{Tag: s.environment}}})
 		c.Assert(request, gc.Equals, "AddBuiltinMetrics")
 		result := response.(*params.ErrorResults)
 		result.Results = make([]params.ErrorResult, 1)

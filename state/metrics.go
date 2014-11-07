@@ -303,17 +303,15 @@ func (st *State) CharmsRequiringMetric(metric string) ([]*charm.URL, error) {
 
 // BulkMetrics is used to define multiple metrics across charms and units
 // which can be added to state in a single call.
-type BulkMetrics struct {
-	M map[charm.URL]map[string][]Metric
-}
+type BulkMetrics map[charm.URL]map[string][]Metric
 
 // CharmSetUrlDuration returns the number of seconds that have elapsed since the
 // units using the given charm urls have been running that charm.
 // This is used to generate the juju-unit-time metric.
-func (st *State) CharmSetUrlDuration(now time.Time, urls []*charm.URL) (*BulkMetrics, error) {
+func (st *State) CharmSetUrlDuration(now time.Time, urls []*charm.URL) (BulkMetrics, error) {
 	coll, closer := st.getCollection(unitsC)
 	defer closer()
-	times := BulkMetrics{map[charm.URL]map[string][]Metric{}}
+	times := BulkMetrics{}
 
 	for _, url := range urls {
 		metrics := map[string][]Metric{}
@@ -335,16 +333,16 @@ func (st *State) CharmSetUrlDuration(now time.Time, urls []*charm.URL) (*BulkMet
 		if err := iter.Close(); err != nil {
 			return nil, err
 		}
-		times.M[*url] = metrics
+		times[*url] = metrics
 	}
-	return &times, nil
+	return times, nil
 }
 
 // AddBulkMetrics can be used to add a number of metrics across charms and units in a single call.
-func (st *State) AddBulkMetrics(metrics *BulkMetrics) ([]*MetricBatch, error) {
+func (st *State) AddBulkMetrics(metrics BulkMetrics) ([]*MetricBatch, error) {
 	batches := []*MetricBatch{}
 	now := time.Now()
-	for charmURL, units := range metrics.M {
+	for charmURL, units := range metrics {
 		for unitName, m := range units {
 			unitTag := names.NewUnitTag(unitName)
 			b, err := st.addMetrics(unitTag, &charmURL, now, m)

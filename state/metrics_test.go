@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -246,9 +245,9 @@ func (s *MetricSuite) TestCharmSetUrlDuration(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	times, err := s.State.CharmSetUrlDuration(t0, charms)
 	c.Assert(err, gc.IsNil)
-	c.Assert(times.M, gc.HasLen, 1)
-	c.Assert(times.M[*meteredCharm.URL()][meteredUnit.Name()], gc.HasLen, 1)
-	metric := times.M[*meteredCharm.URL()][meteredUnit.Name()][0]
+	c.Assert(times, gc.HasLen, 1)
+	c.Assert(times[*meteredCharm.URL()][meteredUnit.Name()], gc.HasLen, 1)
+	metric := times[*meteredCharm.URL()][meteredUnit.Name()][0]
 	c.Assert(metric.Key, gc.Equals, "juju-unit-time")
 	unitTime, err := strconv.Atoi(metric.Value)
 	c.Assert(err, gc.IsNil)
@@ -270,11 +269,9 @@ func (s *MetricSuite) TestAddBulkMetrics(c *gc.C) {
 		meteredUnit1.Name(): []state.Metric{{Key: "barbar", Value: "456"}},
 	}
 	bulkMetrics := state.BulkMetrics{
-		map[charm.URL]map[string][]state.Metric{
-			*url0: ct0, *url1: ct1,
-		},
+		*url0: ct0, *url1: ct1,
 	}
-	mb, err := s.State.AddBulkMetrics(&bulkMetrics)
+	mb, err := s.State.AddBulkMetrics(bulkMetrics)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mb, gc.HasLen, 2)
 	count, err := s.State.CountofUnsentMetrics()
