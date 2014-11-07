@@ -47,7 +47,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 			if s.charm != nil {
 				return s.charm, nil
 			} else {
-				return nil, fmt.Errorf("metrics charm not specified")
+				return nil, fmt.Errorf("charm not specified")
 			}
 		},
 	)
@@ -106,7 +106,9 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 }
 
 func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
-	c.Assert(ctx.ActionData(), gc.IsNil)
+	name, err := ctx.ActionName()
+	c.Assert(name, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int) *context.ContextRelation {
@@ -301,15 +303,22 @@ func (s *FactorySuite) TestNewHookContextWithBadRelation(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewActionContext(c *gc.C) {
-	tag := names.NewActionTag("blah_a_1")
-	params := map[string]interface{}{"foo": "bar"}
-	ctx, err := s.factory.NewActionContext(tag, "blah", params)
-	c.Assert(err, gc.IsNil)
-	s.AssertCoreContext(c, ctx)
-	s.AssertNotRelationContext(c, ctx)
-	c.Assert(ctx.ActionData(), jc.DeepEquals, context.NewActionData(
-		&tag, params,
-	))
+	c.Fatalf("")
+}
+
+func (s *FactorySuite) TestNewActionContextBadCharm(c *gc.C) {
+	ctx, err := s.factory.NewActionContext("irrelevant")
+	c.Assert(ctx, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "charm not specified")
+	c.Assert(err, gc.Not(jc.Satisfies), context.IsBadActionError)
+}
+
+func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
+	c.Fatalf("")
+}
+
+func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
+	c.Fatalf("")
 }
 
 func (s *FactorySuite) TestNewHookContextMetricsDisabledHook(c *gc.C) {
@@ -331,7 +340,7 @@ func (s *FactorySuite) TestNewHookContextMetricsDisabledUndeclared(c *gc.C) {
 func (s *FactorySuite) TestNewHookContextMetricsDeclarationError(c *gc.C) {
 	s.charm = nil
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
-	c.Assert(err, gc.ErrorMatches, "metrics charm not specified")
+	c.Assert(err, gc.ErrorMatches, "charm not specified")
 	c.Assert(ctx, gc.IsNil)
 }
 
