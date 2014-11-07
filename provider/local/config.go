@@ -11,6 +11,8 @@ import (
 	"github.com/juju/schema"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
@@ -34,7 +36,7 @@ var (
 	// range.
 	configDefaults = schema.Defaults{
 		"root-dir":       "",
-		"network-bridge": "lxcbr0",
+		"network-bridge": "",
 		"container":      string(instance.LXC),
 		"bootstrap-ip":   schema.Omit,
 		"storage-port":   8040,
@@ -70,7 +72,23 @@ func (c *environConfig) container() instance.ContainerType {
 }
 
 func (c *environConfig) networkBridge() string {
-	return c.attrs["network-bridge"].(string)
+	// We don't care if it's not a string, because Validate takes care
+	// of that.
+	name, _ := c.attrs["network-bridge"].(string)
+	switch c.container() {
+	case instance.LXC:
+		if name == "" {
+			return lxc.DefaultLxcBridge
+		}
+	case instance.KVM:
+		if name == "" || name == lxc.DefaultLxcBridge {
+			// Older versions of juju used "lxcbr0" by default,
+			// without checking the container type. See also
+			// http://pad.lv/1307677.
+			return kvm.DefaultKvmBridge
+		}
+	}
+	return name
 }
 
 func (c *environConfig) storageDir() string {
