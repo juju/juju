@@ -51,7 +51,7 @@ expected to be located in a directory named after the stream.
 
 Newly generated metadata will be merged with any exisitng metadata that is already there.
 To first remove metadata for the specified stream before generating new metadata,
- use the --clean option.
+use the --clean option.
 
 Examples:
 
