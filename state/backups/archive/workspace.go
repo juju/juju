@@ -36,7 +36,8 @@ func newWorkspace(filename string) (*Workspace, error) {
 
 // NewWorkspace creates a new workspace for backup archives. The
 // workspace is based in a new directory that will be deleted when the
-// workspace is closed.
+// workspace is closed.  If no filename is provided then the default
+// filename ("juju-backup.tar.gz") is used.
 func NewWorkspace(filename string) (*Workspace, error) {
 	ws, err := newWorkspace(filename)
 	if err != nil {
