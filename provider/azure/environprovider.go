@@ -62,7 +62,7 @@ func (prov azureEnvironProvider) Prepare(ctx environs.BootstrapContext, cfg *con
 	return env, nil
 }
 
-// verifyCredentials issues a cheap, non-modifying request to Joyent to
+// verifyCredentials issues a cheap, non-modifying request to Azure to
 // verify the configured credentials. If verification fails, a user-friendly
 // error will be returned, and the original error will be logged at debug
 // level.
