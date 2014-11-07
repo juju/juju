@@ -37,7 +37,9 @@ func newWorkspace(filename string) (*Workspace, error) {
 	return &ws, nil
 }
 
-// NewWorkspace returns a new archive workspace with a new workspace dir.
+// NewWorkspace creates a new workspace for backup archives. The
+// workspace is based in a new directory that will be deleted when the
+// workspace is closed.
 func NewWorkspace(filename string) (*Workspace, error) {
 	ws, err := newWorkspace(filename)
 	if err != nil {
