@@ -13,10 +13,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -107,7 +107,7 @@ var scpTests = []struct {
 
 func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	m := s.makeMachines(4, c, true)
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

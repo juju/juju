@@ -20,7 +20,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -215,7 +215,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 }
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, storagePath, bundleSHA256 string) {
-	ch = charmtesting.Charms.CharmDir("dummy")
+	ch = testcharms.Repo.CharmDir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
 	} else {
@@ -245,7 +245,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
@@ -435,7 +435,7 @@ options:
   ...: {description: oh boy, type: int}
   just$: {description: no no, type: float}
 `[1:])
-	chDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	chDir := testcharms.Repo.ClonedDirPath(c.MkDir(), "dummy")
 	err := utils.AtomicWriteFile(
 		filepath.Join(chDir, "config.yaml"),
 		configWithProblematicKeys,
@@ -509,7 +509,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

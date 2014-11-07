@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 )
 
 type CharmSuite struct {
@@ -93,7 +93,7 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 }
 
 func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := charmtesting.Charms.CharmDir(ch.Meta().Name)
+	chd := testcharms.Repo.CharmDir(ch.Meta().Name)
 	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Metrics(), chd.Revision())
 }
 
@@ -108,7 +108,7 @@ func forEachStandardCharm(c *gc.C, f func(name string)) {
 
 func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.CharmDir(name)
+		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		config := chd.Config()
 		metrics := chd.Metrics()
@@ -135,7 +135,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.CharmDir(name)
+		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		metrics := chd.Metrics()
 
@@ -176,7 +176,7 @@ func (s *CharmTestHelperSuite) TestMetricsCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.CharmDir(name)
+		chd := testcharms.Repo.CharmDir(name)
 		meta := chd.Meta()
 		config := chd.Config()
 
@@ -192,7 +192,7 @@ description: blah blah
 
 func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.CharmDir(name)
+		chd := testcharms.Repo.CharmDir(name)
 		config := chd.Config()
 		metrics := chd.Metrics()
 		metaYaml := "name: " + name + metaYamlSnippet
@@ -208,6 +208,6 @@ func (s *CharmTestHelperSuite) TestTestingCharm(c *gc.C) {
 	added := s.AddTestingCharm(c, "metered-custom")
 	c.Assert(added.Metrics(), gc.NotNil)
 
-	chd := charmtesting.Charms.CharmDir("metered-custom")
+	chd := testcharms.Repo.CharmDir("metered-custom")
 	c.Assert(chd.Metrics(), gc.DeepEquals, added.Metrics())
 }

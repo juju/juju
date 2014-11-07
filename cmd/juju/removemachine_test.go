@@ -7,11 +7,11 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,7 +28,7 @@ func runRemoveMachine(c *gc.C, args ...string) error {
 
 func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
 	// Create a machine running a unit.
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "riak")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 
@@ -88,7 +88,7 @@ func (s *RemoveMachineSuite) TestForce(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create a machine running a unit.
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "riak")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 

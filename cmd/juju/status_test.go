@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/api"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -1759,7 +1759,7 @@ type addCharm struct {
 }
 
 func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
 	dummy, err := ctx.st.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))
@@ -1768,7 +1768,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 }
 
 func (ac addCharm) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	ac.addCharmStep(c, ctx, "cs", ch.Revision())
 }
 
@@ -1836,7 +1836,7 @@ type addCharmPlaceholder struct {
 }
 
 func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.CharmDir(ac.name)
+	ch := testcharms.Repo.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
 	err := ctx.st.AddStoreCharmPlaceholder(curl)

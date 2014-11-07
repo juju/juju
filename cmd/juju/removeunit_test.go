@@ -8,11 +8,11 @@ import (
 
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,7 +28,7 @@ func runRemoveUnit(c *gc.C, args ...string) error {
 }
 
 func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "2", "local:dummy", "dummy")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/dummy-1", testing.FakeDefaultSeries))

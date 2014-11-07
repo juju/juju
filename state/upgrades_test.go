@@ -13,13 +13,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -185,7 +185,7 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -574,7 +574,7 @@ func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, do
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
