@@ -70,7 +70,7 @@ const (
 	fallbackLtsSeries string = "trusty"
 
 	// Only use numactl if user specifically requests it
-	DefaultNumaCtlPreference = false
+	DefaultNumaControlPolicy = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -114,8 +114,8 @@ const (
 	// LxcClone stores the value for this setting.
 	LxcClone = "lxc-clone"
 
-	// NumaCtlPreference stores the value for this setting
-	NumaCtlPreferenceKey = "use-numa-ctl"
+	// NumaControlPolicyKey stores the value for this setting
+	NumaControlPolicyKey = "set-numa-control-policy"
 
 	//
 	// Deprecated Settings Attributes
@@ -710,10 +710,10 @@ func (c *Config) SyslogPort() int {
 
 // NumaCtlPreference returns if numactl is preferred.
 func (c *Config) NumaCtlPreference() bool {
-	if numa, ok := c.defined[NumaCtlPreferenceKey]; ok {
+	if numa, ok := c.defined[NumaControlPolicyKey]; ok {
 		return numa.(bool)
 	}
-	return DefaultNumaCtlPreference
+	return DefaultNumaControlPolicy
 }
 
 // RsyslogCACert returns the certificate of the CA that signed the
@@ -1095,7 +1095,7 @@ var fields = schema.Fields{
 	"enable-os-refresh-update":   schema.Bool(),
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
-	NumaCtlPreferenceKey:         schema.Bool(),
+	NumaControlPolicyKey:         schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
@@ -1136,7 +1136,7 @@ var alwaysOptional = schema.Defaults{
 	LxcClone:                     schema.Omit,
 	"disable-network-management": schema.Omit,
 	AgentStreamKey:               schema.Omit,
-	NumaCtlPreferenceKey:         DefaultNumaCtlPreference,
+	NumaControlPolicyKey:         DefaultNumaControlPolicy,
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    "",
@@ -1199,7 +1199,7 @@ func allDefaults() schema.Defaults {
 		"proxy-ssh":                  true,
 		"prefer-ipv6":                false,
 		"disable-network-management": false,
-		NumaCtlPreferenceKey:         DefaultNumaCtlPreference,
+		NumaControlPolicyKey:         DefaultNumaControlPolicy,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {

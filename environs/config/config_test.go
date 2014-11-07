@@ -344,20 +344,20 @@ var configTests = []configTest{
 			"disable-network-management": true,
 		},
 	}, {
-		about:       "use-numa-ctl on",
+		about:       "set-numa-control-policy on",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
-			"use-numa-ctl": true,
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": true,
 		},
 	}, {
-		about:       "use-numa-ctl off",
+		about:       "set-numa-control-policy off",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
-			"type":         "my-type",
-			"name":         "my-name",
-			"use-numa-ctl": false,
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": false,
 		},
 	}, {
 		about:       "Invalid prefer-ipv6 flag",
@@ -1280,7 +1280,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
-	attrs["use-numa-ctl"] = false
+	attrs["set-numa-control-policy"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

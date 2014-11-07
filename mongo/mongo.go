@@ -69,6 +69,7 @@ var (
 if [ $(find /sys/devices/system/node/ -maxdepth 1 -mindepth 1 -type d -name node\* | wc -l ) -gt 1 ]
 then
     %v=" numactl --interleave=all "
+    #Ensure sysctl turns off zone_reclaim_mode if not already set
     (grep -q vm.zone_reclaim_mode /etc/sysctl.conf || echo vm.zone_reclaim_mode = 0 >> /etc/sysctl.conf) && sysctl -p
 fi
 `
@@ -187,8 +188,8 @@ type EnsureServerParams struct {
 	// algorithm defined in Mongo.
 	OplogSize int
 
-	// Numactl preference - whether the user wants to run numactl.
-	WantNumaCTL bool
+	// SetNumaControlPolicy preference - whether the user wants to run numactl.
+	SetNumaControlPolicy bool
 }
 
 // EnsureServer ensures that the correct mongo upstart script is installed
@@ -219,7 +220,7 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	if err := aptGetInstallMongod(args.WantNumaCTL); err != nil {
+	if err := aptGetInstallMongod(args.SetNumaControlPolicy); err != nil {
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 	mongoPath, err := Path()
@@ -228,7 +229,7 @@ func EnsureServer(args EnsureServerParams) error {
 	}
 	logVersion(mongoPath)
 
-	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.WantNumaCTL)
+	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB, args.SetNumaControlPolicy)
 	if err != nil {
 		return err
 	}

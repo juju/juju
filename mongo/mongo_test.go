@@ -152,29 +152,7 @@ func testJournalDirs(dir string, c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureServer(c *gc.C) {
-	dataDir := c.MkDir()
-	dbDir := filepath.Join(dataDir, "db")
-	namespace := "namespace"
-
-	mockShellCommand(c, &s.CleanupSuite, "apt-get")
-
-	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(err, gc.IsNil)
-
-	testJournalDirs(dbDir, c)
-
-	assertInstalled := func() {
-		c.Assert(s.installed, gc.HasLen, 1)
-		service := s.installed[0]
-		c.Assert(service.Name, gc.Equals, "juju-db-namespace")
-		c.Assert(service.Conf.InitDir, gc.Equals, "/etc/init")
-		c.Assert(service.Conf.Desc, gc.Equals, "juju state database")
-		c.Assert(service.Conf.Cmd, gc.Matches, regexp.QuoteMeta(s.mongodPath)+".*")
-		c.Assert(service.Conf.ExtraScript, gc.Matches, "")
-		// TODO(nate) set Out so that mongod output goes somewhere useful?
-		c.Assert(service.Conf.Out, gc.Equals, "")
-	}
-	assertInstalled()
+	dataDir := s.testEnsureServerNumaCtl(c, false)
 
 	contents, err := ioutil.ReadFile(s.mongodConfigPath)
 	c.Assert(err, gc.IsNil)
@@ -264,6 +242,10 @@ func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
 }
 
 func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
+	s.testEnsureServerNumaCtl(c, true)
+}
+
+func (s *MongoSuite) testEnsureServerNumaCtl(c *gc.C, setNumaPolicy bool) string {
 	dataDir := c.MkDir()
 	dbDir := filepath.Join(dataDir, "db")
 	namespace := "namespace"
@@ -271,7 +253,7 @@ func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
 	testParams := makeEnsureServerParams(dataDir, namespace)
-	testParams.WantNumaCTL = true
+	testParams.SetNumaControlPolicy = setNumaPolicy
 	err := mongo.EnsureServer(testParams)
 	c.Assert(err, gc.IsNil)
 
@@ -283,12 +265,16 @@ func (s *MongoSuite) TestEnsureServerNumaCtl(c *gc.C) {
 		c.Assert(service.Name, gc.Equals, "juju-db-namespace")
 		c.Assert(service.Conf.InitDir, gc.Equals, "/etc/init")
 		c.Assert(service.Conf.Desc, gc.Equals, "juju state database")
-		c.Assert(service.Conf.ExtraScript, gc.Not(gc.Matches), "")
+		if setNumaPolicy {
+			stripped := strings.Replace(service.Conf.ExtraScript, "\n", "", -1)
+			c.Assert(stripped, gc.Matches, `.* sysctl .*`)
+		}
 		c.Assert(service.Conf.Cmd, gc.Matches, ".*"+regexp.QuoteMeta(s.mongodPath)+".*")
 		// TODO(nate) set Out so that mongod output goes somewhere useful?
 		c.Assert(service.Conf.Out, gc.Equals, "")
 	}
 	assertInstalled()
+	return dataDir
 }
 
 func (s *MongoSuite) TestInstallMongod(c *gc.C) {
