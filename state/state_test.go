@@ -1397,6 +1397,12 @@ var inferEndpointsTests = []struct {
 		},
 		err: `no relations found`,
 	}, {
+		summary: "container scoped relations only considered when there's exactly one subordinate service",
+		inputs: [][]string{
+			{"lg-p", "wp"},
+		},
+		err: `no relations found`,
+	}, {
 		summary: "valid peer relation",
 		inputs: [][]string{
 			{"rk1"},
@@ -1521,6 +1527,7 @@ func (s *StateSuite) TestInferEndpoints(c *gc.C) {
 	riak := s.AddTestingCharm(c, "riak")
 	s.AddTestingService(c, "rk1", riak)
 	s.AddTestingService(c, "rk2", riak)
+	s.AddTestingService(c, "lg-p", s.AddTestingCharm(c, "logging-principal"))
 
 	for i, t := range inferEndpointsTests {
 		c.Logf("test %d", i)
