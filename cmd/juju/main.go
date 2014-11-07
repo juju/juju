@@ -12,7 +12,6 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
@@ -147,9 +146,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Charm tool commands.
 	r.Register(&HelpToolCommand{})
-
-	// Manage backups.
-	r.Register(backups.NewCommand())
 
 	// Manage authorized ssh keys.
 	r.Register(NewAuthorizedKeysCommand())
