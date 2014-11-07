@@ -194,15 +194,6 @@ func (ctx *HookContext) SetActionMessage(message string) error {
 	return nil
 }
 
-// ActionMessage returns any message set for the action. It exists purely to allow
-// us to factor HookContext into its own package, and may not be necessary at all.
-func (ctx *HookContext) ActionMessage() (string, error) {
-	if ctx.actionData == nil {
-		return "", fmt.Errorf("not running an action")
-	}
-	return ctx.actionData.ResultsMessage, nil
-}
-
 // SetActionFailed sets the fail state of the action.
 func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
@@ -258,8 +249,14 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	return nil
 }
 
-func (c *HookContext) ActionData() *ActionData {
-	return c.actionData
+// ActionData returns the context's internal action data. It's meant to be
+// transitory; it exists to allow uniter and runner code to keep working as
+// it did; it should be considered deprecated, and not used by new clients.
+func (c *HookContext) ActionData() (*ActionData, error) {
+	if c.actionData == nil {
+		return nil, fmt.Errorf("not running an action")
+	}
+	return c.actionData, nil
 }
 
 // HookVars returns an os.Environ-style list of strings necessary to run a hook

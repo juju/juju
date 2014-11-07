@@ -162,7 +162,9 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 		hctx := context.GetStubActionContext(t.initial)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, gc.IsNil)
-		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
+		actionData, err := hctx.ActionData()
+		c.Assert(err, gc.IsNil)
+		c.Assert(actionData.ResultsMap, jc.DeepEquals, t.expected)
 	}
 }
 
@@ -171,7 +173,9 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, gc.IsNil)
-	c.Check(hctx.ActionFailed(), jc.IsTrue)
+	actionData, err := hctx.ActionData()
+	c.Assert(err, gc.IsNil)
+	c.Check(actionData.ActionFailed, jc.IsTrue)
 }
 
 // TestSetActionMessage ensures SetActionMessage works properly.
@@ -179,7 +183,7 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	hctx := context.GetStubActionContext(nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, gc.IsNil)
-	message, err := hctx.ActionMessage()
+	actionData, err := hctx.ActionData()
 	c.Check(err, gc.IsNil)
-	c.Check(message, gc.Equals, "because reasons")
+	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
 }

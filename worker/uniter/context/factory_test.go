@@ -106,7 +106,9 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 }
 
 func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
-	c.Assert(ctx.ActionData(), gc.IsNil)
+	actionData, err := ctx.ActionData()
+	c.Assert(actionData, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
 func (s *FactorySuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int) *context.ContextRelation {
@@ -307,7 +309,9 @@ func (s *FactorySuite) TestNewActionContext(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotRelationContext(c, ctx)
-	c.Assert(ctx.ActionData(), jc.DeepEquals, context.NewActionData(
+	actionData, err := ctx.ActionData()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actionData, jc.DeepEquals, context.NewActionData(
 		&tag, params,
 	))
 }

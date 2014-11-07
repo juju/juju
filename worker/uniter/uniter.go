@@ -502,11 +502,11 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
-	message, err := hctx.ActionMessage()
+	actionData, err := hctx.ActionData()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	logger.Infof(message)
+	logger.Infof(actionData.ResultsMessage)
 	return u.commitHook(hi)
 }
 

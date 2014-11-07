@@ -36,7 +36,7 @@ type Context interface {
 	jujuc.Context
 	Id() string
 	HookVars(paths Paths) []string
-	ActionData() *ActionData // TODO THIS IS HORRIBLE DO NOT LAND
+	ActionData() (*ActionData, error)
 	FlushContext(badge string, failure error) error
 }
 
@@ -87,12 +87,13 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
-	if runner.context.ActionData() == nil {
-		return fmt.Errorf("not running an action")
+	actionData, err := runner.context.ActionData()
+	if err != nil {
+		return err
 	}
 	// If the action had already failed (i.e. from invalid params), we
 	// just want to finalize without running it.
-	if runner.context.ActionData().ActionFailed {
+	if actionData.ActionFailed {
 		return runner.context.FlushContext(actionName, nil)
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -154,8 +153,11 @@ func (ctx *MockContext) HookVars(paths context.Paths) []string {
 	return []string{"VAR=value"}
 }
 
-func (ctx *MockContext) ActionData() *context.ActionData {
-	return ctx.actionData
+func (ctx *MockContext) ActionData() (*context.ActionData, error) {
+	if ctx.actionData == nil {
+		return nil, errors.New("blam")
+	}
+	return ctx.actionData, nil
 }
 
 func (ctx *MockContext) FlushContext(badge string, failure error) error {
@@ -211,10 +213,9 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
 
 func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
-	tag := names.NewActionTag("blah_a_1")
 	ctx := &MockContext{
 		flushResult: expectErr,
-		actionData:  context.NewActionData(&tag, nil),
+		actionData:  &context.ActionData{},
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
@@ -229,10 +230,9 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 
 func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
-	tag := names.NewActionTag("blah_a_1")
 	ctx := &MockContext{
 		flushResult: expectErr,
-		actionData:  context.NewActionData(&tag, nil),
+		actionData:  &context.ActionData{},
 	}
 	makeCharm(c, hookSpec{
 		dir:  "actions",
