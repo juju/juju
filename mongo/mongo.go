@@ -69,7 +69,7 @@ var (
 if [ $(find /sys/devices/system/node/ -maxdepth 1 -mindepth 1 -type d -name node\* | wc -l ) -gt 1 ]
 then
     %v=" numactl --interleave=all "
-    #Ensure sysctl turns off zone_reclaim_mode if not already set
+    # Ensure sysctl turns off zone_reclaim_mode if not already set
     (grep -q vm.zone_reclaim_mode /etc/sysctl.conf || echo vm.zone_reclaim_mode = 0 >> /etc/sysctl.conf) && sysctl -p
 fi
 `
@@ -188,7 +188,8 @@ type EnsureServerParams struct {
 	// algorithm defined in Mongo.
 	OplogSize int
 
-	// SetNumaControlPolicy preference - whether the user wants to run numactl.
+	// SetNumaControlPolicy preference - whether the user
+	// wants to set the numa control policy when starting mongo.
 	SetNumaControlPolicy bool
 }
 
