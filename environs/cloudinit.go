@@ -163,7 +163,8 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
 		// Only makes sens for state server
 		logger.Debugf("Setting numa ctl preference to %q", cfg.NumaCtlPreference())
-		mcfg.AgentEnvironment[agent.NumaCtlPreference] = cfg.NumaCtlPreference()
+		// Unfortunately, AgentEnvironment can only take strings as values
+		mcfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
 	}
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this

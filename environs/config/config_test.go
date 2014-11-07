@@ -349,7 +349,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"use-numa-ctl": "true",
+			"use-numa-ctl": true,
 		},
 	}, {
 		about:       "use-numa-ctl off",
@@ -357,7 +357,7 @@ var configTests = []configTest{
 		attrs: testing.Attrs{
 			"type":         "my-type",
 			"name":         "my-name",
-			"use-numa-ctl": "false",
+			"use-numa-ctl": false,
 		},
 	}, {
 		about:       "Invalid prefer-ipv6 flag",
@@ -1280,7 +1280,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
-	attrs["use-numa-ctl"] = "false"
+	attrs["use-numa-ctl"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

@@ -70,7 +70,7 @@ const (
 	fallbackLtsSeries string = "trusty"
 
 	// Only use numactl if user specifically requests it
-	DefaultNumaCtlPreference = "false"
+	DefaultNumaCtlPreference = false
 )
 
 // TODO(katco-): Please grow this over time.
@@ -709,9 +709,9 @@ func (c *Config) SyslogPort() int {
 }
 
 // NumaCtlPreference returns if numactl is preferred.
-func (c *Config) NumaCtlPreference() string {
+func (c *Config) NumaCtlPreference() bool {
 	if numa, ok := c.defined[NumaCtlPreferenceKey]; ok {
-		return numa.(string)
+		return numa.(bool)
 	}
 	return DefaultNumaCtlPreference
 }
@@ -1095,7 +1095,7 @@ var fields = schema.Fields{
 	"enable-os-refresh-update":   schema.Bool(),
 	"enable-os-upgrade":          schema.Bool(),
 	"disable-network-management": schema.Bool(),
-	NumaCtlPreferenceKey:         schema.String(),
+	NumaCtlPreferenceKey:         schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	ToolsMetadataURLKey:    schema.String(),
