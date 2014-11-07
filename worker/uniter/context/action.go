@@ -16,7 +16,7 @@ type ActionData struct {
 	ResultsMap     map[string]interface{}
 }
 
-// newActionData builds a suitable actionData struct with no nil members.
+// NewActionData builds a suitable actionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
 func NewActionData(tag *names.ActionTag, params map[string]interface{}) *ActionData {
 	return &ActionData{

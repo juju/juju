@@ -15,7 +15,6 @@ import (
 
 var (
 	MergeEnvironment  = mergeEnvironment
-	HookVars          = hookVars
 	SearchHook        = searchHook
 	HookCommand       = hookCommand
 	LookPath          = lookPath
@@ -69,10 +68,6 @@ func (c *HookContext) ActionFailed() bool {
 
 func (c *HookContext) EnvInfo() (name, uuid string) {
 	return c.envName, c.uuid
-}
-
-func (c *HookContext) ActionData() *ActionData {
-	return c.actionData
 }
 
 func GetStubActionContext(in map[string]interface{}) *HookContext {

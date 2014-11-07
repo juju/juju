@@ -31,6 +31,15 @@ type Runner interface {
 	RunCommands(commands string) (*utilexec.ExecResponse, error)
 }
 
+// Context exposes jujuc.Context, and additional methods needed by Runner.
+type Context interface {
+	jujuc.Context
+	Id() string
+	HookVars(paths Paths) []string
+	ActionData() *ActionData // TODO THIS IS HORRIBLE DO NOT LAND
+	FlushContext(badge string, failure error) error
+}
+
 // Paths exposes the paths needed by Runner.
 type Paths interface {
 
@@ -49,13 +58,13 @@ type Paths interface {
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.
-func NewRunner(context *HookContext, paths Paths) Runner {
+func NewRunner(context Context, paths Paths) Runner {
 	return &runner{context, paths}
 }
 
 // runner implements Runner.
 type runner struct {
-	context *HookContext
+	context Context
 	paths   Paths
 }
 
@@ -67,24 +76,24 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	}
 	defer srv.Close()
 
-	env := hookVars(runner.context, runner.paths)
+	env := runner.context.HookVars(runner.paths)
 	result, err := utilexec.RunCommands(
 		utilexec.RunParams{
 			Commands:    commands,
 			WorkingDir:  runner.paths.GetCharmDir(),
 			Environment: env})
-	return result, runner.context.finalizeContext("run commands", err)
+	return result, runner.context.FlushContext("run commands", err)
 }
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
-	if runner.context.actionData == nil {
+	if runner.context.ActionData() == nil {
 		return fmt.Errorf("not running an action")
 	}
 	// If the action had already failed (i.e. from invalid params), we
 	// just want to finalize without running it.
-	if runner.context.actionData.ActionFailed {
-		return runner.context.finalizeContext(actionName, nil)
+	if runner.context.ActionData().ActionFailed {
+		return runner.context.FlushContext(actionName, nil)
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")
 }
@@ -101,7 +110,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 	}
 	defer srv.Close()
 
-	env := hookVars(runner.context, runner.paths)
+	env := runner.context.HookVars(runner.paths)
 	if version.Current.OS == version.Windows {
 		// TODO(fwereade): somehow consolidate with utils/exec?
 		// We don't do this on the other code path, which uses exec.RunCommands,
@@ -109,14 +118,14 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 		env = mergeEnvironment(env)
 	}
 
-	debugctx := debug.NewHooksContext(runner.context.unit.Name())
+	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, runner.paths.GetCharmDir(), env)
 	} else {
 		err = runner.runCharmHook(hookName, env, charmLocation)
 	}
-	return runner.context.finalizeContext(hookName, err)
+	return runner.context.FlushContext(hookName, err)
 }
 
 func (runner *runner) runCharmHook(hookName string, env []string, charmLocation string) error {

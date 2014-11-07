@@ -51,6 +51,7 @@ func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
 
 	charmDir := c.MkDir()
 	makeCharm(c, hookSpec{
+		dir:  "hooks",
 		name: "something-happened",
 		perm: 0755,
 	}, charmDir)
@@ -68,6 +69,7 @@ func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
 
 	charmDir := c.MkDir()
 	makeCharm(c, hookSpec{
+		dir:  "hooks",
 		name: "something-happened.ps1",
 		perm: 0755,
 	}, charmDir)
@@ -83,6 +85,7 @@ func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
 
 	charmDir := c.MkDir()
 	makeCharm(c, hookSpec{
+		dir:  "hooks",
 		name: "something-happened.linux",
 		perm: 0755,
 	}, charmDir)

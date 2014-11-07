@@ -5,6 +5,7 @@ package context
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -257,7 +258,40 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	return nil
 }
 
-func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
+func (c *HookContext) ActionData() *ActionData {
+	return c.actionData
+}
+
+// HookVars returns an os.Environ-style list of strings necessary to run a hook
+// such that it can know what environment it's operating in, and can call back
+// into context.
+func (context *HookContext) HookVars(paths Paths) []string {
+	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
+	// JUJU_ACTION_UUID, ...
+	vars := context.proxySettings.AsEnvironmentValues()
+	vars = append(vars,
+		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
+		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
+		"JUJU_CONTEXT_ID="+context.id,
+		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
+		"JUJU_UNIT_NAME="+context.unitName,
+		"JUJU_ENV_UUID="+context.uuid,
+		"JUJU_ENV_NAME="+context.envName,
+		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
+		"JUJU_METER_STATUS="+context.meterStatus.code,
+		"JUJU_METER_INFO="+context.meterStatus.info,
+	)
+	if r, found := context.HookRelation(); found {
+		vars = append(vars,
+			"JUJU_RELATION="+r.Name(),
+			"JUJU_RELATION_ID="+r.FakeId(),
+			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
+		)
+	}
+	return append(vars, osDependentEnvVars(paths)...)
+}
+
+func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	writeChanges := ctxErr == nil
 
 	// In the case of Actions, handle any errors using finalizeAction.
