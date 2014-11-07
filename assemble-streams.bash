@@ -393,13 +393,27 @@ generate_streams() {
         local can_validate="true"
     fi
 
-    # Alway delete the json because juju wont validate checksums if the
-    # json exists.
     set -x
-    find ${DEST_DIST}/tools/streams/v1/ -type f -delete
+    minor_version=$(echo "1.20.11" | sed -r 's,1.([^.]+).*,\1,')
+    if [[ $((minor_version)) > 20 ]]; then
+        CLEAN="--clean"
+    else
+        # Alway delete the released and index json because juju wont
+        # validate checksums if the json exists. We need to preserve
+        # index2.json and the devel, proposed, and testing product files.
+        CLEAN=""
+        find $DEST_DIST/tools/streams/v1/ \
+            -name "*released:tools*" -delete -print
+        find $DEST_DIST/tools/streams/v1/ -name "index*" -delete -print
+    fi
+    find $DEST_DIST/tools/streams/v1/ -name "*gpg" -delete -print
+    find $DEST_DIST/tools/streams/v1/ -name "*sjson" -delete -print
+    find $DEST_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
     # Generate the json metadata.
+    # When 1.21.0 is run this way, the released product file still uses
+    # the releases dir.
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
-        $JUJU_EXEC metadata generate-tools -d ${DEST_DIST}
+        $JUJU_EXEC metadata generate-tools $CLEAN -d $DEST_DIST
 
     # Ensure the new json metadata matches the expected removed and added.
     if [[ $can_validate == "true" && $PURPOSE =~ ^(released|proposed)$ ]]; then
@@ -425,7 +439,8 @@ generate_streams() {
     else
         # Only new juju 1.21* can see devel and proposed.
         local agents=$(
-            find $DEST_DIST/tools/releases/ -name 'juju-1.2*' | sed -r /1.20/d)
+            find $DEST_DIST/tools/releases/ -name 'juju-1.2*' |
+            sed -r '/1.20/d')
         cp $agents $JUJU_DIST/tools/$PURPOSE/
     fi
 
@@ -437,19 +452,17 @@ generate_streams() {
         local can_validate="true"
     fi
 
-    # Alway delete the product json because juju wont validate checksums
-    # if the json exists. The mirror and signed data will be regenerated.
-    # The index.json and the other product json files remain for
-    # generate-tools to inspect.
+    # Alway delete the mirrors and signings because these are optionally
+    # created.
     set -x
-    find $JUJU_DIST/tools/streams/v1/ -name "*$PURPOSE:tools*" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*gpg" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*sjson" -delete -print
     find $JUJU_DIST/tools/streams/v1/ -name "*mirror*" -delete -print
     # Generate the json metadata.
+    $SCRIPT_DIR/generate_index.py -v $JUJU_DIST/tools/
     JUJU_HOME=$JUJU_DIR PATH=$JUJU_BIN_PATH:$PATH \
         $JUJU_EXEC metadata generate-tools \
-        -d $JUJU_DIST --stream $PURPOSE
+        --clean -d $JUJU_DIST --stream $PURPOSE
     rm -r $JUJU_PATH
 
     # Ensure the new json metadata matches the expected removed and added.
