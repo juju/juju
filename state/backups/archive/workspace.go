@@ -46,17 +46,18 @@ func NewWorkspace(filename string) (*Workspace, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if archiveFile, err := os.Open(ws.Filename); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, errors.Trace(err)
-		}
-	} else {
-		if err := unpack(archiveFile, ws.rootDir); err != nil {
-			return nil, errors.Trace(err)
-		}
+	archiveFile, err := os.Open(ws.Filename)
+	if os.IsNotExist(err) {
+		// The file did not exist so bail out early.
+		return ws, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	return ws, nil
+	// The file did exist, so unpack it into the workspace.
+	err = unpack(archiveFile, ws.rootDir)
+	return ws, errors.Trace(err)
 }
 
 // NewWorkspace returns a new archive workspace with a new workspace dir
