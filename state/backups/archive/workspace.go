@@ -19,7 +19,7 @@ import (
 // Workspace is a wrapper around backup archive info that has a concrete
 // root directory and an archive unpacked in it.
 type Workspace struct {
-	Archive
+	*Archive
 	rootDir string
 }
 
@@ -31,7 +31,7 @@ func newWorkspace(filename string) (*Workspace, error) {
 
 	ar := NewArchive(filename, dirName)
 	ws := Workspace{
-		Archive: *ar,
+		Archive: ar,
 		rootDir: dirName,
 	}
 	return &ws, nil
