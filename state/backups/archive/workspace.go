@@ -20,7 +20,6 @@ import (
 // root directory and an archive unpacked in it.
 type Workspace struct {
 	*Archive
-	rootDir string
 }
 
 func newWorkspace(filename string) (*Workspace, error) {
@@ -31,7 +30,6 @@ func newWorkspace(filename string) (*Workspace, error) {
 
 	ws := Workspace{
 		Archive: NewArchive(filename, dirName),
-		rootDir: dirName,
 	}
 	return &ws, nil
 }
@@ -55,7 +53,7 @@ func NewWorkspace(filename string) (*Workspace, error) {
 	}
 
 	// The file did exist, so unpack it into the workspace.
-	err = unpack(archiveFile, ws.rootDir)
+	err = unpack(archiveFile, ws.UnpackedRootDir)
 	return ws, errors.Trace(err)
 }
 
@@ -66,7 +64,7 @@ func NewWorkspaceFromFile(archiveFile io.Reader) (*Workspace, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = unpack(archiveFile, ws.rootDir)
+	err = unpack(archiveFile, ws.UnpackedRootDir)
 	return ws, errors.Trace(err)
 }
 
@@ -83,7 +81,7 @@ func unpack(tarFile io.Reader, targetDir string) error {
 
 // Close cleans up the workspace dir.
 func (ws *Workspace) Close() error {
-	err := os.RemoveAll(ws.rootDir)
+	err := os.RemoveAll(ws.UnpackedRootDir)
 	return errors.Trace(err)
 }
 
