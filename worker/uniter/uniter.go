@@ -447,6 +447,22 @@ func (u *Uniter) validateAction(name string, params map[string]interface{}) (boo
 	return spec.ValidateParams(params)
 }
 
+// func (u *Uniter) handleReboot(ctx *context.HookContext, hi *hook.Info, err *error) {
+// 	switch ctx.GetRebootPriority() {
+// 	case jujuc.RebootNow:
+// 		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, hi, nil); stErr != nil {
+// 			logger.Errorf("failed to requeue hook: %s", stErr)
+// 		}
+// 		*err = worker.ErrRebootMachine
+// 	case jujuc.RebootAfterHook:
+// 		// Do not reboot if the hook errored out before finishing.
+// 		// RebootAfterHook is meant to execute after a successful hook run
+// 		if *err == nil {
+// 			*err = worker.ErrRebootMachine
+// 		}
+// 	}
+// }
+
 // runAction executes the supplied hook.Info as an Action.
 func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err = hi.Validate(); err != nil {
@@ -494,9 +510,12 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 
 	// err will be any unhandled error from finalizeContext.
 	err = context.NewRunner(hctx, u.paths).RunAction(actionName)
+
 	if err != nil {
-		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
-		logger.Errorf("action failed: %s", err.Error())
+		if hctx.GetRebootPriority() != jujuc.RebootNow {
+			err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
+			logger.Errorf("action failed: %s", err.Error())
+		}
 		return err
 	}
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
@@ -550,13 +569,23 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 
 	ranHook := true
 	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
-	if context.IsMissingHookError(err) {
+
+	switch {
+	case context.IsMissingHookError(err):
 		ranHook = false
-	} else if err != nil {
+	case err == context.ErrRequeueAndReboot:
+		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, &hi, nil); stErr != nil {
+			logger.Errorf("failed to requeue hook: %s", stErr)
+		}
+		fallthrough
+	case err == context.ErrReboot:
+		return worker.ErrRebootMachine
+	case err != nil:
 		logger.Errorf("hook %q failed: %s", hookName, err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
+
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
