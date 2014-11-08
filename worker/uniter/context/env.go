@@ -65,12 +65,10 @@ func ubuntuEnv(paths Paths) []string {
 // a semicolon instead of a colon
 func windowsEnv(paths Paths) []string {
 	charmDir := paths.GetCharmDir()
-	// TODO(fwereade, gsamfira): if anything we should just use <charm>/lib/Modules
-	charmModules := filepath.Join(charmDir, "Modules")
-	hookModules := filepath.Join(charmDir, "hooks", "Modules")
+	charmModules := filepath.Join(charmDir, "lib", "Modules")
 	return []string{
 		"Path=" + paths.GetToolsDir() + ";" + os.Getenv("Path"),
-		"PSModulePath=" + os.Getenv("PSModulePath") + ";" + charmModules + ";" + hookModules,
+		"PSModulePath=" + os.Getenv("PSModulePath") + ";" + charmModules,
 	}
 }
 

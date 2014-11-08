@@ -33,15 +33,15 @@ var expectedApiAddrs = strings.Join(apiAddrs, " ")
 type MockEnvPaths struct{}
 
 func (MockEnvPaths) GetToolsDir() string {
-	return "/path/to/tools"
+	return "path-to-tools"
 }
 
 func (MockEnvPaths) GetCharmDir() string {
-	return "/path/to/charm"
+	return "path-to-charm"
 }
 
 func (MockEnvPaths) GetJujucSocket() string {
-	return "/path/to/jujuc.socket"
+	return "path-to-jujuc.socket"
 }
 
 // RealPaths implements Paths for tests that do touch the filesystem.
