@@ -15,6 +15,7 @@ var (
 	SlideAddressToFront = slideAddressToFront
 	BestVersion         = bestVersion
 	FacadeVersions      = &facadeVersions
+	NewHTTPClient       = &newHTTPClient
 )
 
 // SetServerRoot allows changing the URL to the internal API server

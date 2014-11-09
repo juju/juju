@@ -21,7 +21,7 @@ func NewMetadata() *metadata.Metadata {
 	meta := NewMetadataStarted(id, notes)
 
 	FinishMetadata(meta)
-	meta.SetStored()
+	meta.SetStored(nil)
 	return meta
 }
 
@@ -41,18 +41,15 @@ func NewMetadataStarted(id, notes string) *metadata.Metadata {
 func FinishMetadata(meta *metadata.Metadata) {
 	var size int64 = 10
 	checksum := "787b8915389d921fa23fb40e16ae81ea979758bf"
-	finished := meta.Started().Add(time.Minute)
-	meta.Finish(size, checksum, metadata.ChecksumFormat, &finished)
+	meta.Finish(size, checksum)
+	finished := meta.Started.Add(time.Minute)
+	meta.Finished = &finished
 }
 
 // UpdateNotes derives a new Metadata with new notes.
 func UpdateNotes(meta *metadata.Metadata, notes string) *metadata.Metadata {
-	started := meta.Started()
-	newMeta := metadata.NewMetadata(meta.Origin(), notes, &started)
-	newMeta.SetID(meta.ID())
-	newMeta.Finish(meta.Size(), meta.Checksum(), meta.ChecksumFormat(), meta.Finished())
-	if meta.Stored() {
-		newMeta.SetStored()
-	}
-	return newMeta
+	copied := meta.Copy().(*metadata.Metadata)
+	copied.SetID(meta.ID())
+	copied.Notes = notes
+	return copied
 }

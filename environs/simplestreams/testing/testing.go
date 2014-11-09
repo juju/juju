@@ -625,9 +625,9 @@ type TestItem struct {
 
 func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
-		return simplestreams.SignedIndex(s.StreamsVersion) + ".sjson"
+		return fmt.Sprintf("streams/%s/index.sjson", s.StreamsVersion)
 	}
-	return simplestreams.UnsignedIndex(s.StreamsVersion)
+	return fmt.Sprintf("streams/%s/index.json", s.StreamsVersion)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {

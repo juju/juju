@@ -991,11 +991,11 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return instances, err
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // Azure provider yet.
-func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
-	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
+	return errors.NotImplementedf("AllocateAddress")
 }
 
 // ListNetworks returns basic information about all networks known

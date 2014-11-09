@@ -28,7 +28,6 @@ import (
 	"github.com/juju/utils/proxy"
 	gc "gopkg.in/check.v1"
 	corecharm "gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent/tools"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
@@ -195,14 +195,18 @@ juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
+func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
+	err := ioutil.WriteFile(path, []byte(contents), 0755)
+	c.Assert(err, gc.IsNil)
+}
+
 func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	hook := badHook
 	if good {
 		hook = goodHook
 	}
 	content := fmt.Sprintf(hook, filepath.Base(path))
-	err := ioutil.WriteFile(path, []byte(content), 0755)
-	c.Assert(err, gc.IsNil)
+	ctx.writeExplicitHook(c, path, content)
 }
 
 func (ctx *context) writeActions(c *gc.C, path string, names []string) {
@@ -215,7 +219,7 @@ func (ctx *context) writeAction(c *gc.C, path, name string) {
 	var actions = map[string]string{
 		"action-log": `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+juju-log $JUJU_ENV_UUID action-log
 `[1:],
 		"snapshot": `
 #!/bin/bash --norc
@@ -223,27 +227,28 @@ action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
 action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
 action-set completion.status="yes" completion.time="5m"
 action-set completion="yes"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail": `
 #!/bin/bash --norc
 action-fail "I'm afraid I can't let you do that, Dave."
 action-set foo="still works"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail-error": `
 #!/bin/bash --norc
 action-fail too many arguments
 action-set foo="still works"
 action-fail "A real message"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+`[1:],
+		"action-reboot": `
+#!/bin/bash --norc
+juju-reboot || action-set reboot-delayed="good"
+juju-reboot --now || action-set reboot-now="good"
 `[1:],
 	}
 
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
-	content := fmt.Sprintf(action, filepath.Base(actionPath))
-	err := ioutil.WriteFile(actionPath, []byte(content), 0755)
+	err := ioutil.WriteFile(actionPath, []byte(action), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -274,6 +279,10 @@ actions:
 `[1:],
 		"action-log-fail-error": `
    action-log-fail-error:
+      params:
+`[1:],
+		"action-reboot": `
+   action-reboot:
       params:
 `[1:],
 	}
@@ -1361,8 +1370,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log", nil},
-		waitHooks{"action-log"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
@@ -1385,8 +1393,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log-fail", nil},
-		waitHooks{"action-log-fail"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name: "action-log-fail",
 			results: map[string]interface{}{
 				"foo": "still works",
@@ -1412,8 +1419,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log-fail-error", nil},
-		waitHooks{"action-log-fail-error"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name: "action-log-fail-error",
 			results: map[string]interface{}{
 				"foo": "still works",
@@ -1442,8 +1448,7 @@ var actionEventTests = []uniterTest{
 			name:   "snapshot",
 			params: map[string]interface{}{"outfile": "foo.bar"},
 		},
-		waitHooks{"snapshot"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name: "snapshot",
 			results: map[string]interface{}{
 				"outfile": map[string]interface{}{
@@ -1478,8 +1483,7 @@ var actionEventTests = []uniterTest{
 			name:   "snapshot",
 			params: map[string]interface{}{"outfile": 2},
 		},
-		waitHooks{"snapshot"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
@@ -1502,8 +1506,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
-		waitHooks{"snapshot"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "snapshot",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
@@ -1529,12 +1532,7 @@ var actionEventTests = []uniterTest{
 		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
-		waitHooks{
-			"action-log",
-			"action-log",
-			"action-log",
-		},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
@@ -1564,8 +1562,7 @@ var actionEventTests = []uniterTest{
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
 		addAction{"action-log", nil},
-		waitNoHooks{"action-log", "fail-action-log"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionFailed,
@@ -1575,26 +1572,25 @@ var actionEventTests = []uniterTest{
 	), ut(
 		"actions are not attempted from ModeHookError and do not clear the error",
 		startupErrorWithCustomCharm{
-			badHook: "install",
+			badHook: "start",
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
 				ctx.writeActionsYaml(c, path, "action-log")
 			},
 		},
 		addAction{"action-log", nil},
-		waitNoHooks{"action-log", "fail-action-log"},
 		waitUnit{
 			status: params.StatusError,
-			info:   `hook failed: "install"`,
+			info:   `hook failed: "start"`,
 			data: map[string]interface{}{
-				"hook": "install",
+				"hook": "start",
 			},
 		},
-		fixHook{"install"},
+		verifyNoActionResults{},
+		verifyWaiting{},
 		resolveError{state.ResolvedNoHooks},
 		waitUnit{status: params.StatusStarted},
-		waitHooks{"config-changed", "start", "action-log"},
-		verifyActionResults{[]actionResult{{
+		waitActionResults{[]actionResult{{
 			name:    "action-log",
 			results: map[string]interface{}{},
 			status:  params.ActionCompleted,
@@ -1617,7 +1613,7 @@ var subordinatesTests = []uniterTest{
 		unitDying,
 		waitSubordinateDying{},
 		waitHooks{"stop"},
-		verifyRunning{true},
+		verifyWaiting{},
 		removeSubordinate{},
 		waitUniterDead{},
 	), ut(
@@ -1694,7 +1690,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	testing.AddStateServerMachine(c, ctx.st)
 
 	// Create the subordinate service.
-	dir := charmtesting.Charms.ClonedDir(c.MkDir(), "logging")
+	dir := testcharms.Repo.ClonedDir(c.MkDir(), "logging")
 	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
@@ -1733,6 +1729,160 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	})
 }
 
+var rebootHook = `
+#!/bin/bash --norc
+juju-reboot
+`[1:]
+
+var badRebootHook = `
+#!/bin/bash --norc
+juju-reboot
+exit 1
+`[1:]
+
+var rebootNowHook = `
+#!/bin/bash --norc
+
+if [ -f "i_have_risen" ]
+then
+	exit 0
+fi
+touch i_have_risen
+juju-reboot --now
+`[1:]
+
+var rebootTests = []uniterTest{
+	ut(
+		"test that juju-reboot disabled in actions",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-reboot")
+				ctx.writeActionsYaml(c, path, "action-reboot")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		addAction{"action-reboot", nil},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitActionResults{[]actionResult{{
+			name: "action-reboot",
+			results: map[string]interface{}{
+				"reboot-delayed": "good",
+				"reboot-now":     "good",
+			},
+			status: params.ActionCompleted,
+		}}},
+	),
+	ut(
+		"test that juju-reboot finishes hook, and reboots",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, rebootHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUniterDead{"machine needs to reboot"},
+		waitHooks{"install"},
+		startUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"config-changed", "start"},
+	),
+	ut(
+		"test that juju-reboot --now kills hook and exits",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, rebootNowHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUniterDead{"machine needs to reboot"},
+		waitHooks{},
+		startUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+	),
+	ut(
+		"test juju-reboot will not happen if hook errors out",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, badRebootHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{
+			status: params.StatusError,
+			info:   fmt.Sprintf(`hook failed: "install"`),
+		},
+	),
+}
+
+func (s *UniterSuite) TestReboot(c *gc.C) {
+	s.runUniterTests(c, rebootTests)
+}
+
+var jujuRunRebootTests = []uniterTest{
+	ut(
+		"test juju-reboot",
+		quickStart{},
+		runCommands{"juju-reboot"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"test juju-reboot with bad hook",
+		startupError{"install"},
+		runCommands{"juju-reboot"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{},
+	),
+	ut(
+		"test juju-reboot --now",
+		quickStart{},
+		runCommands{"juju-reboot --now"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"test juju-reboot --now with bad hook",
+		startupError{"install"},
+		runCommands{"juju-reboot --now"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{},
+	),
+}
+
+func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
+	s.runUniterTests(c, jujuRunRebootTests)
+}
+
 func step(c *gc.C, ctx *context, s stepper) {
 	c.Logf("%#v", s)
 	s.step(c, ctx)
@@ -1763,7 +1913,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
-	base := charmtesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
+	base := testcharms.Repo.ClonedDirPath(c.MkDir(), "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true
@@ -1978,17 +2128,12 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 }
 
 type verifyRunning struct {
-	noHooks bool
 }
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	if s.noHooks {
-		step(c, ctx, waitHooks{})
-	} else {
-		step(c, ctx, waitHooks{"config-changed"})
-	}
+	step(c, ctx, waitHooks{"config-changed"})
 }
 
 type startupErrorWithCustomCharm struct {
@@ -2184,13 +2329,16 @@ type actionResult struct {
 	message string
 }
 
-type verifyActionResults struct {
+type waitActionResults struct {
 	expectedResults []actionResult
 }
 
-func (s verifyActionResults) step(c *gc.C, ctx *context) {
-	timeout := time.After(worstCase)
+func (s waitActionResults) step(c *gc.C, ctx *context) {
 	resultsWatcher := ctx.st.WatchActionResults()
+	defer func() {
+		c.Assert(resultsWatcher.Stop(), gc.IsNil)
+	}()
+	timeout := time.After(worstCase)
 	for {
 		ctx.s.BackingState.StartSync()
 		select {
@@ -2198,14 +2346,16 @@ func (s verifyActionResults) step(c *gc.C, ctx *context) {
 			continue
 		case <-timeout:
 			c.Fatalf("timed out waiting for action results")
-		case changes := <-resultsWatcher.Changes():
+		case changes, ok := <-resultsWatcher.Changes():
 			c.Logf("Got changes: %#v", changes)
-			c.Assert(len(changes), gc.Equals, len(s.expectedResults))
-			actualResults := make([]actionResult, len(changes))
-			for i, change := range changes {
-				c.Logf("Change: %s", change)
-				result, err := ctx.st.ActionResult(change)
-				c.Assert(err, gc.IsNil)
+			c.Assert(ok, jc.IsTrue)
+			stateActionResults, err := ctx.unit.ActionResults()
+			c.Assert(err, gc.IsNil)
+			if len(stateActionResults) != len(s.expectedResults) {
+				continue
+			}
+			actualResults := make([]actionResult, len(stateActionResults))
+			for i, result := range stateActionResults {
 				results, message := result.Results()
 				actualResults[i] = actionResult{
 					name:    result.Name(),
@@ -2243,36 +2393,13 @@ findMatch:
 	c.Assert(matches, gc.Equals, desiredMatches)
 }
 
-// make sure no hooks are run from the given slice
-type waitNoHooks []string
+type verifyNoActionResults struct{}
 
-func (s waitNoHooks) step(c *gc.C, ctx *context) {
-	if len(s) == 0 {
-		// Give unwanted hooks a moment to run...
-		ctx.s.BackingState.StartSync()
-		time.Sleep(coretesting.ShortWait)
-	}
-	originalHooks := ctx.hooks
-	ctx.hooks = append(ctx.hooks, s...)
-	c.Logf("waiting to make sure hooks don't run: %#v", ctx.hooks)
-	match, _ := ctx.matchHooks(c)
-	if match {
-		c.Fatalf("received unwanted hook")
-	}
-	timeout := time.After(worstCase)
-	for {
-		ctx.s.BackingState.StartSync()
-		select {
-		case <-time.After(coretesting.ShortWait):
-			if match, _ = ctx.matchHooks(c); match {
-				c.Fatalf("received unwanted hook")
-			}
-		case <-timeout:
-			ctx.hooks = originalHooks
-			return
-		}
-	}
-	ctx.hooks = originalHooks
+func (s verifyNoActionResults) step(c *gc.C, ctx *context) {
+	time.Sleep(coretesting.ShortWait)
+	result, err := ctx.unit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.HasLen, 0)
 }
 
 type fixHook struct {

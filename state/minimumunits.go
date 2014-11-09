@@ -23,7 +23,9 @@ import (
 type minUnitsDoc struct {
 	// ServiceName is safe to be used here in place of its globalKey, since
 	// the referred entity type is always the Service.
-	ServiceName string `bson:"_id"`
+	DocID       string `bson:"_id"`
+	ServiceName string
+	EnvUUID     string `bson:"env-uuid"`
 	Revno       int
 }
 
@@ -76,7 +78,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 	if service.doc.MinUnits == 0 {
 		return append(ops, txn.Op{
 			C:      minUnitsC,
-			Id:     serviceName,
+			Id:     state.docID(serviceName),
 			Assert: txn.DocMissing,
 			Insert: &minUnitsDoc{ServiceName: serviceName},
 		})
@@ -101,7 +103,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,
-		Id:     serviceName,
+		Id:     st.docID(serviceName),
 		Update: bson.D{{"$inc", bson.D{{"revno", 1}}}},
 	}
 }
@@ -111,7 +113,7 @@ func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 func minUnitsRemoveOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
 		C:      minUnitsC,
-		Id:     serviceName,
+		Id:     st.docID(serviceName),
 		Remove: true,
 	}
 }

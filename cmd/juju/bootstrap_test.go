@@ -421,7 +421,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
-	environs.PrepareFromName("devenv", ctx, store)
+	environs.PrepareFromName("devenv", envcmd.BootstrapContext(ctx), store)
 
 	logger := "jenv.warning.test"
 	var testWriter loggo.TestWriter
@@ -645,7 +645,7 @@ func resetJujuHome(c *gc.C, envName string) environs.Environ {
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.PrepareFromName(envName, cmdtesting.NullContext(c), store)
+	env, err := environs.PrepareFromName(envName, envcmd.BootstrapContext(cmdtesting.NullContext(c)), store)
 	c.Assert(err, gc.IsNil)
 	return env
 }

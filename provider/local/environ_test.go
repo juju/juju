@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
-	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -177,7 +177,7 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs.Environ {
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
 	availableTools := coretools.List{&coretools.Tools{
@@ -219,6 +219,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		}
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
+		c.Assert(mcfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
@@ -360,7 +361,7 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
-	ctx := coretesting.Context(c)
+	ctx := envtesting.BootstrapContext(c)
 	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
 	validator, err := env.ConstraintsValidator()

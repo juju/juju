@@ -41,6 +41,7 @@ func NewCommand() cmd.Command {
 	backupsCmd.Register(envcmd.Wrap(&CreateCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&InfoCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&ListCommand{}))
+	backupsCmd.Register(envcmd.Wrap(&DownloadCommand{}))
 	backupsCmd.Register(envcmd.Wrap(&RemoveCommand{}))
 	return &backupsCmd
 }
@@ -55,6 +56,8 @@ type APIClient interface {
 	Info(id string) (*params.BackupsMetadataResult, error)
 	// List gets all stored metadata.
 	List() (*params.BackupsListResult, error)
+	// Download pulls the backup archive file.
+	Download(id string) (io.ReadCloser, error)
 	// Remove removes the stored backup.
 	Remove(id string) error
 }
@@ -80,12 +83,13 @@ var newAPIClient = func(c *CommandBase) (APIClient, error) {
 // dumpMetadata writes the formatted backup metadata to stdout.
 func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
 	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
-	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
-	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "checksum:        %q\n", result.Checksum)
 	fmt.Fprintf(ctx.Stdout, "checksum format: %q\n", result.ChecksumFormat)
 	fmt.Fprintf(ctx.Stdout, "size (B):        %d\n", result.Size)
-	fmt.Fprintf(ctx.Stdout, "stored:          %t\n", result.Stored)
+	fmt.Fprintf(ctx.Stdout, "stored:          %v\n", result.Stored)
+
+	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
+	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
 	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
 
 	fmt.Fprintf(ctx.Stdout, "environment ID:  %q\n", result.Environment)

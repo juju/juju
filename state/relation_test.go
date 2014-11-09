@@ -199,6 +199,38 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate services' series must match`)
 }
 
+func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressSubEP, err := wordpress.Endpoint("db")
+	c.Assert(err, gc.IsNil)
+	wordpressSubEP.Scope = charm.ScopeContainer
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.AddRelation(mysqlEP, wordpressSubEP)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot add relation "wordpress:db mysql:server": container scoped relation requires one subordinate service`)
+	assertNoRelations(c, wordpress)
+	assertNoRelations(c, mysql)
+}
+
+func (s *RelationSuite) TestAddContainerRelationWithTwoSubordinates(c *gc.C) {
+	loggingCharm := s.AddTestingCharm(c, "logging")
+	logging1 := s.AddTestingService(c, "logging1", loggingCharm)
+	logging1EP, err := logging1.Endpoint("juju-info")
+	c.Assert(err, gc.IsNil)
+	logging2 := s.AddTestingService(c, "logging2", loggingCharm)
+	logging2EP, err := logging2.Endpoint("info")
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.AddRelation(logging1EP, logging2EP)
+	c.Assert(err, gc.ErrorMatches,
+		`cannot add relation "logging2:info logging1:juju-info": container scoped relation requires one subordinate service`)
+	assertNoRelations(c, logging1)
+	assertNoRelations(c, logging2)
+}
+
 func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))

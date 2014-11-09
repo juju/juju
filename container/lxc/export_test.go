@@ -3,7 +3,9 @@
 
 package lxc
 
-import "github.com/juju/juju/container"
+import (
+	"github.com/juju/juju/container"
+)
 
 var (
 	ContainerConfigFilename = containerConfigFilename

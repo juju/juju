@@ -893,7 +893,7 @@ func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -929,6 +929,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 		{Tag: "unit-wordpress-0"},
 	}}
 
+	s.State.StartSync()
 	results, err := facade.WatchActions(args)
 	c.Assert(err, gc.IsNil)
 

@@ -34,7 +34,10 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series strin
 
 	stor, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, gc.IsNil)
-	err = WriteMetadata(stor, stream, tm, false)
+	streamMetadata := map[string][]*ToolsMetadata{
+		stream: tm,
+	}
+	err = WriteMetadata(stor, streamMetadata, []string{stream}, false)
 	c.Assert(err, gc.IsNil)
 	return nil
 }
@@ -68,7 +71,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index.json"),
+		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index2.json"),
 		MirrorURL: "",
 	})
 }
@@ -94,7 +97,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index.json"),
+		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index2.json"),
 		MirrorURL: "",
 	})
 }
@@ -120,7 +123,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 	c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 		Source:    "test",
 		Signed:    false,
-		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index.json"),
+		IndexURL:  "file://" + path.Join(s.metadataDir, "tools/streams/v1/index2.json"),
 		MirrorURL: "",
 	})
 }

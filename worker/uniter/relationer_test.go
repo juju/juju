@@ -253,7 +253,16 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	r := uniter.NewRelationer(s.apiRelUnit, s.dir, s.hooks)
 	err := r.Join()
 	c.Assert(err, gc.IsNil)
-	c.Assert(r.Context().UnitNames(), gc.HasLen, 0)
+
+	assertMembers := func(expect map[string]int64) {
+		c.Assert(s.dir.State().Members, jc.DeepEquals, expect)
+		expectNames := make([]string, 0, len(expect))
+		for name := range expect {
+			expectNames = append(expectNames, name)
+		}
+		c.Assert(r.ContextInfo().MemberNames, jc.SameContents, expectNames)
+	}
+	assertMembers(map[string]int64{})
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
@@ -263,8 +272,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	}
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
-	c.Assert(r.Context().UnitNames(), gc.HasLen, 0)
-	c.Assert(s.dir.State().Members, gc.HasLen, 0)
+	assertMembers(map[string]int64{})
 
 	// Check preparing a valid hook updates neither the context nor persistent
 	// relation state.
@@ -274,35 +282,30 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	}
 	name, err := r.PrepareHook(joined)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.dir.State().Members, gc.HasLen, 0)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
-	c.Assert(r.Context().UnitNames(), gc.IsNil)
+	assertMembers(map[string]int64{})
 
 	// Check that preparing the following hook fails as before...
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
-	c.Assert(s.dir.State().Members, gc.HasLen, 0)
-	c.Assert(r.Context().UnitNames(), gc.IsNil)
+	assertMembers(map[string]int64{})
 
 	// ...but that committing the previous hook updates the persistent
 	// relation state...
 	err = r.CommitHook(joined)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 0})
-	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
+	assertMembers(map[string]int64{"u/1": 0})
 
 	// ...and allows us to prepare the next hook...
 	name, err = r.PrepareHook(changed)
 	c.Assert(err, gc.IsNil)
 	c.Assert(name, gc.Equals, "ring-relation-changed")
-	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 0})
-	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
+	assertMembers(map[string]int64{"u/1": 0})
 
 	// ...and commit it.
 	err = r.CommitHook(changed)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 7})
-	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
+	assertMembers(map[string]int64{"u/1": 7})
 
 	// To verify implied behaviour above, prepare a new joined hook with
 	// missing membership information, and check relation context
@@ -311,15 +314,13 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 	joined.ChangeVersion = 3
 	name, err = r.PrepareHook(joined)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.dir.State().Members, gc.HasLen, 1)
 	c.Assert(name, gc.Equals, "ring-relation-joined")
-	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1"})
+	assertMembers(map[string]int64{"u/1": 7})
 
 	// ...until commit, at which point so is relation state.
 	err = r.CommitHook(joined)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.dir.State().Members, gc.DeepEquals, map[string]int64{"u/1": 7, "u/2": 3})
-	c.Assert(r.Context().UnitNames(), gc.DeepEquals, []string{"u/1", "u/2"})
+	assertMembers(map[string]int64{"u/1": 7, "u/2": 3})
 }
 
 func (s *RelationerSuite) TestSetDying(c *gc.C) {

@@ -97,7 +97,7 @@ var setEnvInitTests = []struct {
 		err:  `agent-version must be set via upgrade-juju`,
 	}, {
 		args: []string{"missing"},
-		err:  `missing "=" in arg 1: "missing"`,
+		err:  `expected "key=value", got "missing"`,
 	}, {
 		args: []string{"key=value"},
 		expected: attributes{
@@ -111,6 +111,11 @@ var setEnvInitTests = []struct {
 		expected: attributes{
 			"key":   "value",
 			"other": "embedded=equal",
+		},
+	}, {
+		args: []string{"key="},
+		expected: attributes{
+			"key": "",
 		},
 	},
 }

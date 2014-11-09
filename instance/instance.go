@@ -64,6 +64,27 @@ func uintStr(i uint64) string {
 	return fmt.Sprintf("%d", i)
 }
 
+// An error reporting that an error has occurred during instance creation
+// (e.g. due to a failed container from on of previous deploys) and
+// that it is safe to restart instance creation
+type RetryableCreationError struct {
+	message string
+}
+
+// Returns the error message
+func (e RetryableCreationError) Error() string { return e.message }
+
+func NewRetryableCreationError(errorMessage string) *RetryableCreationError {
+	return &RetryableCreationError{errorMessage}
+}
+
+// IsRetryableCreationError returns true if the given error is
+// RetryableCreationError
+func IsRetryableCreationError(err error) bool {
+	_, ok := err.(*RetryableCreationError)
+	return ok
+}
+
 func (hc HardwareCharacteristics) String() string {
 	var strs []string
 	if hc.Arch != nil {

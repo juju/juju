@@ -172,7 +172,11 @@ func (s *Service) WatchUnits() StringsWatcher {
 	members := bson.D{{"service", s.doc.Name}}
 	prefix := s.doc.Name + "/"
 	filter := func(unitDocID interface{}) bool {
-		return strings.HasPrefix(s.st.localID(unitDocID.(string)), prefix)
+		unitName, err := s.st.strictLocalID(unitDocID.(string))
+		if err != nil {
+			return false
+		}
+		return strings.HasPrefix(unitName, prefix)
 	}
 	return newLifecycleWatcher(s.st, unitsC, members, filter)
 }
@@ -180,13 +184,20 @@ func (s *Service) WatchUnits() StringsWatcher {
 // WatchRelations returns a StringsWatcher that notifies of changes to the
 // lifecycles of relations involving s.
 func (s *Service) WatchRelations() StringsWatcher {
+	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	members := bson.D{{"endpoints.servicename", s.doc.Name}}
+
 	prefix := s.doc.Name + ":"
 	infix := " " + prefix
-	filter := func(key interface{}) bool {
-		k := key.(string)
-		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+	filter := func(id interface{}) bool {
+		k, err := s.st.strictLocalID(id.(string))
+		if err != nil {
+			return false
+		}
+		out := strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+		return out
 	}
+
 	return newLifecycleWatcher(s.st, relationsC, members, filter)
 }
 
@@ -421,7 +432,7 @@ func (w *minUnitsWatcher) initial() (set.Strings, error) {
 }
 
 func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change) error {
-	serviceName := change.Id.(string)
+	serviceName := w.st.localID(change.Id.(string))
 	if change.Revno == -1 {
 		delete(w.known, serviceName)
 		serviceNames.Remove(serviceName)
@@ -430,7 +441,7 @@ func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change)
 	doc := minUnitsDoc{}
 	newMinUnits, closer := w.st.getCollection(minUnitsC)
 	defer closer()
-	if err := newMinUnits.FindId(serviceName).One(&doc); err != nil {
+	if err := newMinUnits.FindId(change.Id).One(&doc); err != nil {
 		return err
 	}
 	revno, known := w.known[serviceName]
@@ -570,8 +581,9 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 	defer closer()
 
 	docs := []relationScopeDoc{}
+	// TODO(mjs) - ENVUUID - filtering by env UUID needed here
 	sel := bson.D{
-		{"_id", bson.D{{"$regex", "^" + w.prefix}}},
+		{"key", bson.D{{"$regex", "^" + w.prefix}}},
 		{"departing", bson.D{{"$ne", true}}},
 	}
 	if err = relationScopes.Find(sel).All(&docs); err != nil {
@@ -604,8 +616,11 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 			if exists {
 				existIds = append(existIds, id)
 			} else {
-				doc := &relationScopeDoc{Key: id}
-				info.remove(doc.unitName())
+				key, err := w.st.strictLocalID(id)
+				if err != nil {
+					return errors.Trace(err)
+				}
+				info.remove(unitNameFromScopeKey(key))
 			}
 		default:
 			logger.Warningf("ignoring bad relation scope id: %#v", id)
@@ -629,8 +644,9 @@ func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}
 
 func (w *RelationScopeWatcher) loop() error {
 	in := make(chan watcher.Change)
-	filter := func(key interface{}) bool {
-		return strings.HasPrefix(key.(string), w.prefix)
+	fullPrefix := w.st.docID(w.prefix)
+	filter := func(id interface{}) bool {
+		return strings.HasPrefix(id.(string), fullPrefix)
 	}
 	w.st.watcher.WatchCollectionWithFilter(relationScopesC, in, filter)
 	defer w.st.watcher.UnwatchCollection(relationScopesC, in)
@@ -910,7 +926,7 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	defer closer()
 	query := bson.D{
 		{"name", bson.D{{"$in", initialNames}}},
-		{"env-uuid", w.st.EnvironTag().Id()},
+		{"env-uuid", w.st.EnvironUUID()},
 	}
 	docs := []lifeWatchDoc{}
 	if err := newUnits.Find(query).Select(lifeWatchFields).All(&docs); err != nil {
@@ -918,9 +934,13 @@ func (w *unitsWatcher) initial() ([]string, error) {
 	}
 	changes := []string{}
 	for _, doc := range docs {
-		changes = append(changes, w.st.localID(doc.Id))
+		unitName, err := w.st.strictLocalID(doc.Id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		changes = append(changes, unitName)
 		if doc.Life != Dead {
-			w.life[w.st.localID(doc.Id)] = doc.Life
+			w.life[unitName] = doc.Life
 			w.st.watcher.Watch(unitsC, doc.Id, doc.TxnRevno, w.in)
 		}
 	}
@@ -995,10 +1015,10 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	collection, closer := mongo.CollectionFromName(w.st.db, coll)
 	revno, err := getTxnRevno(collection, id)
 	closer()
-
 	if err != nil {
 		return err
 	}
+
 	w.st.watcher.Watch(coll, id, revno, w.in)
 	defer func() {
 		w.st.watcher.Unwatch(coll, id, w.in)
@@ -1010,6 +1030,7 @@ func (w *unitsWatcher) loop(coll, id string) error {
 	if err != nil {
 		return err
 	}
+	rootLocalID := w.st.localID(id)
 	out := w.out
 	for {
 		select {
@@ -1018,11 +1039,11 @@ func (w *unitsWatcher) loop(coll, id string) error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-w.in:
-			name := w.st.localID(c.Id.(string))
-			if name == w.st.localID(id) {
+			localID := w.st.localID(c.Id.(string))
+			if localID == rootLocalID {
 				changes, err = w.update(changes)
 			} else {
-				changes, err = w.merge(changes, name)
+				changes, err = w.merge(changes, localID)
 			}
 			if err != nil {
 				return err
@@ -1206,6 +1227,12 @@ func (e *Environment) Watch() NotifyWatcher {
 // synchronisation state.
 func (st *State) WatchUpgradeInfo() NotifyWatcher {
 	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
+}
+
+// WatchRestoreInfoChanges returns a NotifyWatcher that will inform
+// when the restore status changes.
+func (st *State) WatchRestoreInfoChanges() NotifyWatcher {
+	return newEntityWatcher(st, restoreInfoC, currentRestoreId)
 }
 
 // WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
@@ -1631,7 +1658,7 @@ func (w *idPrefixWatcher) Changes() <-chan []string {
 // responding to Changes requests
 func (w *idPrefixWatcher) loop() error {
 	var (
-		changes set.Strings
+		changes []string
 		in      = (<-chan watcher.Change)(w.source)
 		out     = (chan<- []string)(w.sink)
 	)
@@ -1639,11 +1666,10 @@ func (w *idPrefixWatcher) loop() error {
 	w.st.watcher.WatchCollectionWithFilter(w.targetC, w.source, w.filterFn)
 	defer w.st.watcher.UnwatchCollection(w.targetC, w.source)
 
-	initial, err := w.initial()
+	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	changes = initial
 
 	for {
 		select {
@@ -1656,16 +1682,16 @@ func (w *idPrefixWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := mergeIds(w.st, changes, initial, updates); err != nil {
+			if err := mergeIds(w.st, &changes, updates); err != nil {
 				return err
 			}
-			if !changes.IsEmpty() {
+			if len(changes) > 0 {
 				out = w.sink
 			} else {
 				out = nil
 			}
-		case out <- changes.Values():
-			changes = set.NewStrings()
+		case out <- changes:
+			changes = []string{}
 			out = nil
 		}
 	}
@@ -1700,9 +1726,9 @@ func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(in
 }
 
 // initial pre-loads the id's that have already been added to the
-// collection that would not normally trigger the watcher
-func (w *idPrefixWatcher) initial() (set.Strings, error) {
-	var ids set.Strings
+// collection that would otherwise not normally trigger the watcher
+func (w *idPrefixWatcher) initial() ([]string, error) {
+	var ids []string
 	var doc struct {
 		DocId string `bson:"_id"`
 	}
@@ -1711,7 +1737,7 @@ func (w *idPrefixWatcher) initial() (set.Strings, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filterFn == nil || w.filterFn(doc.DocId) {
-			ids.Add(w.st.localID(doc.DocId))
+			ids = append(ids, w.st.localID(doc.DocId))
 		}
 	}
 	return ids, iter.Close()
@@ -1719,28 +1745,42 @@ func (w *idPrefixWatcher) initial() (set.Strings, error) {
 
 // mergeIds is used for merging actionId's and actionResultId's that
 // come in via the updates map. It cleans up the pending changes to
-// account for id's being removed before the watcher consumes them, and
-// to account for the slight potential overlap between the inital id's
-// pending before the watcher starts, and the id's the watcher detects.
-// Additionally, mergeIds strips the environment UUID prefix from the
-// id before emitting it through the watcher.
-func mergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
-	for id, exists := range updates {
+// account for id's being removed before the watcher consumes them,
+// and to account for the potential overlap between the id's that were
+// pending before the watcher started, and the new id's detected by the
+// watcher.
+// Additionally, mergeIds strips the environment UUID prefix from the id
+// before emitting it through the watcher.
+func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
+	for id, idExists := range updates {
 		switch id := id.(type) {
 		case string:
 			localId := st.localID(id)
-			if exists {
-				if !initial.Contains(localId) {
-					changes.Add(localId)
+			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
+			if idExists {
+				if !idAlreadyInChangeset {
+					*changes = append(*changes, localId)
 				}
 			} else {
-				changes.Remove(localId)
+				if idAlreadyInChangeset {
+					// remove id from changes
+					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+				}
 			}
 		default:
 			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 	return nil
+}
+
+func indexOf(find string, in []string) (int, bool) {
+	for ix, cur := range in {
+		if cur == find {
+			return ix, true
+		}
+	}
+	return -1, false
 }
 
 // ensureSuffixFn returns a function that will make sure the passed in

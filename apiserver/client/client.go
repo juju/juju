@@ -262,7 +262,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
 		_, err = c.api.state.Machine(args.ToMachineSpec)
 		if err != nil {
-			return fmt.Errorf(`cannot deploy "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
 
@@ -469,6 +469,13 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	}
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
+	}
+
+	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
+		_, err = state.Machine(args.ToMachineSpec)
+		if err != nil {
+			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
+		}
 	}
 	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
@@ -956,10 +963,12 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		}
 		return nil
 	}
+	// Replace any deprecated attributes with their new values.
+	attrs := config.ProcessDeprecatedAttributes(args.Config)
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+	return c.api.state.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
 }
 
 // EnvironmentUnset implements the server-side part of the
@@ -1028,8 +1037,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	store := config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := store.Get(charmURL)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
+	downloadedCharm, err := CharmStore.Get(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}
@@ -1103,11 +1112,11 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	repo := config.SpecializeCharmRepo(CharmStore, envConfig)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, repo)
+		curl, err := c.resolveCharm(&ref, CharmStore)
 		if err != nil {
 			result.Error = err.Error()
 		} else {

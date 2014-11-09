@@ -4,12 +4,12 @@
 package backups
 
 import (
+	"io"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/files"
@@ -23,9 +23,8 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 
 // API serves backup-specific API methods.
 type API struct {
-	st      *state.State
-	paths   files.Paths
-	backups backups.Backups
+	st    *state.State
+	paths files.Paths
 }
 
 // NewAPI creates a new instance of the Backups API facade.
@@ -58,27 +57,14 @@ func NewAPI(st *state.State, resources *common.Resources, authorizer common.Auth
 	paths.DataDir = dataDir.String()
 	paths.LogsDir = logDir.String()
 
-	stor, err := newBackupsStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	b := API{
-		st:      st,
-		paths:   paths,
-		backups: backups.NewBackups(stor),
+		st:    st,
+		paths: paths,
 	}
 	return &b, nil
 }
 
-var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
-	// TODO(axw,ericsnow) 2014-09-24 #1373236
-	// Migrate away from legacy provider storage.
-	envStor, err := environs.LegacyStorage(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	storage := state.NewBackupsStorage(st, envStor)
-	return storage, nil
+var newBackups = func(st *state.State) (backups.Backups, io.Closer) {
+	backups, stor := state.NewBackups(st)
+	return backups, stor
 }

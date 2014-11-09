@@ -774,7 +774,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitZero.Name(), gc.Equals, "mysql/0")
 	c.Assert(unitZero.IsPrincipal(), gc.Equals, true)
 	c.Assert(unitZero.SubordinateNames(), gc.HasLen, 0)
-	c.Assert(state.GetUnitEnvUUID(unitZero), gc.Equals, s.State.EnvironTag().Id())
+	c.Assert(state.GetUnitEnvUUID(unitZero), gc.Equals, s.State.EnvironUUID())
 
 	unitOne, err := s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -1392,6 +1392,22 @@ func (s *ServiceSuite) TestWatchRelations(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(rel2.String())
 	wc.AssertNoChange()
+
+	// Watch relations on the requirer service too (exercises a
+	// different path of the WatchRelations filter function)
+	wpx := s.AddTestingService(c, "wpx", wpch)
+	wpxWatcher := wpx.WatchRelations()
+	defer testing.AssertStop(c, wpxWatcher)
+	wpxWatcherC := testing.NewStringsWatcherC(c, s.State, wpxWatcher)
+	wpxWatcherC.AssertChange()
+	wpxWatcherC.AssertNoChange()
+
+	wpxep, err := wpx.Endpoint("db")
+	c.Assert(err, gc.IsNil)
+	relx, err := s.State.AddRelation(mysqlep, wpxep)
+	c.Assert(err, gc.IsNil)
+	wpxWatcherC.AssertChange(relx.String())
+	wpxWatcherC.AssertNoChange()
 }
 
 func removeAllUnits(c *gc.C, s *state.Service) {

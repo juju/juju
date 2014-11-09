@@ -10,6 +10,8 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -28,8 +30,8 @@ This command will report on the runtime state of various system entities.
 
 There are a number of ways to format the status output:
 
-- oneline: List units and their subordinates. For each unit, the IP
-           address and agent status are listed.
+- {short|line|oneline}: List units and their subordinates. For each
+           unit, the IP address and agent status are listed.
 - summary: Displays the subnet(s) and port(s) the environment utilizes.
            Also displays aggregate information about:
            - MACHINES: total #, and # in each state.
@@ -68,7 +70,9 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
+		"short":   FormatOneline,
 		"oneline": FormatOneline,
+		"line":    FormatOneline,
 		"tabular": FormatTabular,
 		"summary": FormatSummary,
 	})
@@ -111,6 +115,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
+	} else if status == nil {
+		return errors.Errorf("unable to obtain the current status")
 	}
 
 	result := newStatusFormatter(status).format()

@@ -177,7 +177,7 @@ type fakeToolsUploader struct {
 	uploaded map[version.Binary]bool
 }
 
-func (u *fakeToolsUploader) UploadTools(stream string, tools *coretools.Tools, data []byte) error {
+func (u *fakeToolsUploader) UploadTools(toolsDir, stream string, tools *coretools.Tools, data []byte) error {
 	u.uploaded[tools.Version] = true
 	return nil
 }
@@ -300,7 +300,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 
 	list, err := envtools.ReadList(s.targetStorage, stream, version.Current.Major, version.Current.Minor)
 	c.Assert(err, gc.IsNil)
-	c.Assert(list, gc.HasLen, 3)
+	c.Assert(list.AllSeries(), gc.HasLen, 3)
 	expectSeries := []string{"quantal", uploadedSeries, version.Current.Series}
 	sort.Strings(expectSeries)
 	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
@@ -517,6 +517,7 @@ func (s *uploadSuite) testStorageToolsUploaderWriteMirrors(c *gc.C, writeMirrors
 	}
 
 	err = uploader.UploadTools(
+		"released",
 		"released",
 		&coretools.Tools{
 			Version: version.Current,

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -22,6 +23,23 @@ var (
 	TryOpenPorts      = tryOpenPorts
 	TryClosePorts     = tryClosePorts
 )
+
+func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.RelationSettings) {
+	f := f0.(*factory)
+	members := f.relationCaches[relId].members
+	if members[unitName] == nil {
+		members[unitName] = params.RelationSettings{}
+	}
+	for key, value := range settings {
+		members[unitName][key] = value
+	}
+}
+
+func CachedSettings(f0 Factory, relId int, unitName string) (params.RelationSettings, bool) {
+	f := f0.(*factory)
+	settings, found := f.relationCaches[relId].members[unitName]
+	return settings, found
+}
 
 // PatchMeterStatus changes the meter status of the context.
 func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
@@ -57,10 +75,6 @@ func (c *HookContext) ActionData() *ActionData {
 	return c.actionData
 }
 
-func (cr *ContextRelation) StoredMemberSettings(remoteUnit string) params.RelationSettings {
-	return cr.members[remoteUnit]
-}
-
 func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
 		actionData: &ActionData{
@@ -82,6 +96,7 @@ func NewHookContext(
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
+	metrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
@@ -99,6 +114,7 @@ func NewHookContext(
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
 		canAddMetrics:      canAddMetrics,
+		definedMetrics:     metrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,

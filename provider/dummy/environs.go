@@ -59,6 +59,8 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.dummy")
 
+var transientErrorInjection chan error
+
 const (
 	BootstrapInstanceId = instance.Id("localhost")
 )
@@ -86,6 +88,16 @@ func SampleConfig() testing.Attrs {
 		"state-server": true,
 		"prefer-ipv6":  true,
 	}
+}
+
+// PatchTransientErrorInjectionChannel sets the transientInjectionError
+// channel which can be used to inject errors into StartInstance for
+// testing purposes
+// The injected errors will use the string received on the channel
+// and the instance's state will eventually go to error, while the
+// received string will appear in the info field of the machine's status
+func PatchTransientErrorInjectionChannel(c chan error) func() {
+	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
 // AdminUserTag returns the user tag used to bootstrap the dummy environment.
@@ -593,7 +605,7 @@ func (e *environ) checkBroken(method string) error {
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
-	return []string{arch.AMD64, arch.I386, arch.PPC64}, nil
+	return []string{arch.AMD64, arch.I386, arch.PPC64EL}, nil
 }
 
 // SupportNetworks is specified on the EnvironCapability interface.
@@ -811,6 +823,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
+
+	// check if an error has been injected on the transientErrorInjection channel (testing purposes)
+	select {
+	case injectedError := <-transientErrorInjection:
+		return nil, nil, nil, injectedError
+	default:
+	}
+
 	if args.MachineConfig.MachineNonce == "" {
 		return nil, nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
@@ -967,16 +987,16 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	return
 }
 
-// AllocateAddress requests a new address to be allocated for the
+// AllocateAddress requests an address to be allocated for the
 // given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error) {
+func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr network.Address) error {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
-		return network.Address{}, err
+		return err
 	}
 
 	estate, err := env.state()
 	if err != nil {
-		return network.Address{}, err
+		return err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
@@ -985,17 +1005,13 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (netwo
 	// and addresses, make sure we return a valid address
 	// for the given network, and we also have the network
 	// already registered.
-	newAddress := network.NewAddress(
-		fmt.Sprintf("0.1.2.%d", estate.maxAddr),
-		network.ScopeCloudLocal,
-	)
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
 		InstanceId: instId,
 		NetworkId:  netId,
-		Address:    newAddress,
+		Address:    addr,
 	}
-	return newAddress, nil
+	return nil
 }
 
 // ListNetworks implements environs.Environ.ListNetworks.

@@ -6,7 +6,6 @@ package main
 import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/envcmd"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -53,7 +53,7 @@ func runAddUnit(c *gc.C, args ...string) error {
 }
 
 func (s *AddUnitSuite) setupService(c *gc.C) *charm.URL {
-	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "dummy")
+	testcharms.Repo.CharmArchivePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:trusty/dummy-1")
@@ -137,6 +137,12 @@ func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 func (s *AddUnitSuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	err := runAddUnit(c, "some-service-name", "--to", "0")
 	c.Assert(err, gc.Not(gc.ErrorMatches), "machine 0 is the state server for a local environment and cannot host units")
+}
+
+func (s *AddUnitSuite) TestCannotDeployToNonExistentMachine(c *gc.C) {
+	s.setupService(c)
+	err := runAddUnit(c, "some-service-name", "--to", "42")
+	c.Assert(err, gc.ErrorMatches, `cannot add units for service "some-service-name" to machine 42: machine 42 not found`)
 }
 
 type AddUnitLocalSuite struct {

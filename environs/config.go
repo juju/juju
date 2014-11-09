@@ -82,7 +82,7 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		)
 	}
 	// lxc-use-clone has been renamed to lxc-clone
-	envs.logDeprecatedWarnings(attrs, "lxc-use-clone", "lxc-clone")
+	envs.logDeprecatedWarnings(attrs, config.LxcUseClone, config.LxcClone)
 
 	// provisioner-safe-mode has been renamed to provisioner-harvest-mode, so log warnings to the user
 	envs.logDeprecatedWarnings(attrs, config.ProvisionerSafeModeKey, config.ProvisionerHarvestModeKey)

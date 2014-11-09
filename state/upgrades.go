@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
@@ -456,7 +459,7 @@ func AddCharmStoragePaths(st *State, storagePaths map[*charm.URL]string) error {
 		upgradesLogger.Debugf("adding storage path %q to %s", storagePath, curl)
 		op := txn.Op{
 			C:      charmsC,
-			Id:     curl.String(),
+			Id:     st.docID(curl.String()),
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{{"storagepath", storagePath}}},
@@ -499,6 +502,67 @@ func SetOwnerAndServerUUIDForEnvironment(st *State) error {
 	return st.runTransaction(ops)
 }
 
+// MigrateMachineInstanceIdToInstanceData migrates the deprecated "instanceid"
+// machine field into "instanceid" in the instanceData doc.
+func MigrateMachineInstanceIdToInstanceData(st *State) error {
+	err := st.ResumeTransactions()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	instDatas, closer := st.getCollection(instanceDataC)
+	defer closer()
+	machines, closer := st.getCollection(machinesC)
+	defer closer()
+
+	var ops []txn.Op
+	var doc bson.M
+	iter := machines.Find(nil).Iter()
+	defer iter.Close()
+	for iter.Next(&doc) {
+		var instID interface{}
+		mID := doc["_id"].(string)
+		i, err := instDatas.FindId(mID).Count()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if i == 0 {
+			var ok bool
+			if instID, ok = doc["instanceid"]; !ok || instID == "" {
+				upgradesLogger.Warningf("machine %q doc has no instanceid", mID)
+				continue
+			}
+
+			// Insert instanceData doc.
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     mID,
+				Assert: txn.DocMissing,
+				Insert: instanceData{
+					DocID:      mID,
+					MachineId:  mID,
+					EnvUUID:    st.EnvironUUID(),
+					InstanceId: instance.Id(instID.(string)),
+				},
+			})
+		}
+
+		// Remove instanceid field from machine doc.
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     mID,
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$unset", bson.D{{"instanceid", nil}}},
+			},
+		})
+	}
+	if err = iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(ops)
+}
+
 // AddEnvUUIDToServices prepends the environment UUID to the ID of
 // all service docs and adds new "env-uuid" field.
 func AddEnvUUIDToServices(st *State) error {
@@ -515,6 +579,24 @@ func AddEnvUUIDToUnits(st *State) error {
 // all machine docs and adds new "env-uuid" field.
 func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
+}
+
+// AddEnvUUIDToCharms prepends the environment UUID to the ID of
+// all charm docs and adds new "env-uuid" field.
+func AddEnvUUIDToCharms(st *State) error {
+	return addEnvUUIDToEntityCollection(st, charmsC, "url")
+}
+
+// AddEnvUUIDToMinUnits prepends the environment UUID to the ID of
+// all minUnits docs and adds new "env-uuid" field.
+func AddEnvUUIDToMinUnits(st *State) error {
+	return addEnvUUIDToEntityCollection(st, minUnitsC, "servicename")
+}
+
+// AddEnvUUIDToSequences prepends the environment UUID to the ID of
+// all sequence docs and adds new "env-uuid" field.
+func AddEnvUUIDToSequences(st *State) error {
+	return addEnvUUIDToEntityCollection(st, sequenceC, "name")
 }
 
 // AddEnvUUIDToReboots prepends the environment UUID to the ID of
@@ -535,6 +617,24 @@ func AddEnvUUIDToInstanceData(st *State) error {
 	return addEnvUUIDToEntityCollection(st, instanceDataC, "machineid")
 }
 
+// AddEnvUUIDToCleanups prepends the environment UUID to the ID of
+// all cleanup docs and adds new "env-uuid" field.
+func AddEnvUUIDToCleanups(st *State) error {
+	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
+}
+
+// AddEnvUUIDToRelations prepends the environment UUID to the ID of
+// all relations docs and adds new "env-uuid" and "key" fields.
+func AddEnvUUIDToRelations(st *State) error {
+	return addEnvUUIDToEntityCollection(st, relationsC, "key")
+}
+
+// AddEnvUUIDToRelationScopes prepends the environment UUID to the ID of
+// all relationscopes docs and adds new "env-uuid" field and "key" fields.
+func AddEnvUUIDToRelationScopes(st *State) error {
+	return addEnvUUIDToEntityCollection(st, relationScopesC, "key")
+}
+
 func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) error {
 	env, err := st.Environment()
 	if err != nil {
@@ -551,10 +651,11 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	ops := []txn.Op{}
 	var doc bson.M
 	for iter.Next(&doc) {
-		// The "_id" field becomes the new "name" field.
-		oldID := doc["_id"].(string)
-		id := st.docID(oldID)
-		doc[fieldForOldID] = oldID
+		oldID := doc["_id"]
+		id := st.docID(fmt.Sprint(oldID))
+		if fieldForOldID != "" {
+			doc[fieldForOldID] = oldID
+		}
 		doc["_id"] = id
 		doc["env-uuid"] = uuid
 		ops = append(ops,
@@ -574,5 +675,64 @@ func addEnvUUIDToEntityCollection(st *State, collName, fieldForOldID string) err
 	if err = iter.Err(); err != nil {
 		return errors.Trace(err)
 	}
+	return st.runTransaction(ops)
+}
+
+// migrateJobManageNetworking adds the job JobManageNetworking to all
+// machines except for:
+//
+// - machines in a MAAS environment,
+// - machines in a manual environment,
+// - bootstrap node (host machine) in a local environment, and
+// - manually provisioned machines.
+func MigrateJobManageNetworking(st *State) error {
+	// Retrieve the provider.
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return errors.Annotate(err, "failed to read current config")
+	}
+	envType := envConfig.Type()
+
+	// Check for MAAS or manual (aka null) provider.
+	if envType == provider.MAAS || provider.IsManual(envType) {
+		// No job adding for these environment types.
+		return nil
+	}
+
+	// Iterate over all machines and create operations.
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+
+	iter := machinesCollection.Find(nil).Iter()
+	defer iter.Close()
+
+	ops := []txn.Op{}
+	mdoc := machineDoc{}
+
+	for iter.Next(&mdoc) {
+		// Check possible exceptions.
+		localID := st.localID(mdoc.Id)
+		if localID == "0" && envType == provider.Local {
+			// Skip machine 0 in local environment.
+			continue
+		}
+		if strings.HasPrefix(mdoc.Nonce, manualMachinePrefix) {
+			// Skip manually provisioned machine in non-manual environments.
+			continue
+		}
+		if hasJob(mdoc.Jobs, JobManageNetworking) {
+			// Should not happen during update, but just to
+			// prevent double entries.
+			continue
+		}
+		// Everything fine, now add job.
+		ops = append(ops, txn.Op{
+			C:      machinesC,
+			Id:     mdoc.DocID,
+			Update: bson.D{{"$addToSet", bson.D{{"jobs", JobManageNetworking}}}},
+		})
+	}
+
+	// Run transaction.
 	return st.runTransaction(ops)
 }

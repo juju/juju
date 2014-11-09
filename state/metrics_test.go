@@ -34,7 +34,7 @@ func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
 
 func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	now := state.NowToTheSecond()
-	envUUID := s.State.EnvironTag().Id()
+	envUUID := s.State.EnvironUUID()
 	m := state.Metric{"item", "5", now, []byte("creds")}
 	metricBatch, err := s.unit.AddMetrics(now, []state.Metric{m})
 	c.Assert(err, gc.IsNil)
@@ -181,7 +181,11 @@ func (s *MetricSuite) TestSetMetricBatchesSent(c *gc.C) {
 	for i := range metrics {
 		metrics[i] = s.factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
 	}
-	err := s.State.SetMetricBatchesSent(metrics)
+	uuids := make([]string, len(metrics))
+	for i, m := range metrics {
+		uuids[i] = m.UUID()
+	}
+	err := s.State.SetMetricBatchesSent(uuids)
 	c.Assert(err, gc.IsNil)
 	sent, err := s.State.CountofSentMetrics()
 	c.Assert(err, gc.IsNil)
@@ -214,7 +218,11 @@ func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
 		result, err := s.State.MetricsToSend(2)
 		c.Assert(err, gc.IsNil)
 		c.Assert(result, gc.HasLen, 2)
-		s.State.SetMetricBatchesSent(result)
+		uuids := make([]string, len(result))
+		for i, m := range result {
+			uuids[i] = m.UUID()
+		}
+		s.State.SetMetricBatchesSent(uuids)
 	}
 	result, err := s.State.MetricsToSend(2)
 	c.Assert(err, gc.IsNil)

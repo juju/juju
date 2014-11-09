@@ -9,8 +9,12 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/testing"
@@ -53,7 +57,30 @@ func localConfig(c *gc.C, extra map[string]interface{}) *config.Config {
 func (s *configSuite) TestDefaultNetworkBridge(c *gc.C) {
 	config := minimalConfig(c)
 	unknownAttrs := config.UnknownAttrs()
-	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "lxcbr0")
+	c.Assert(unknownAttrs["container"], gc.Equals, "lxc")
+	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "")
+}
+
+func (s *configSuite) TestDefaultNetworkBridgeForKVMContainers(c *gc.C) {
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"container": "kvm",
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, gc.IsNil)
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.KVM))
+	c.Check(bridgeName, gc.Equals, kvm.DefaultKvmBridge)
+}
+
+func (s *configSuite) TestDefaultNetworkBridgeForLXCContainers(c *gc.C) {
+	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		"container": "lxc",
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, gc.IsNil)
+	containerType, bridgeName := local.ContainerAndBridge(c, testConfig)
+	c.Check(containerType, gc.Equals, string(instance.LXC))
+	c.Check(bridgeName, gc.Equals, lxc.DefaultLxcBridge)
 }
 
 func (s *configSuite) TestSetNetworkBridge(c *gc.C) {
@@ -62,6 +89,8 @@ func (s *configSuite) TestSetNetworkBridge(c *gc.C) {
 	})
 	unknownAttrs := config.UnknownAttrs()
 	c.Assert(unknownAttrs["network-bridge"], gc.Equals, "br0")
+	_, bridgeName := local.ContainerAndBridge(c, config)
+	c.Check(bridgeName, gc.Equals, "br0")
 }
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
@@ -107,14 +136,13 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 
 func (s *configSuite) TestBootstrapAsRoot(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
-	env, err := local.Provider.Prepare(testing.Context(c), minimalConfig(c))
+	env, err := local.Provider.Prepare(envtesting.BootstrapContext(c), minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	_, _, _, err = env.Bootstrap(testing.Context(c), environs.BootstrapParams{})
+	_, _, _, err = env.Bootstrap(envtesting.BootstrapContext(c), environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "bootstrapping a local environment must not be done as root")
 }
 
 func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
-
 	// Default config files set these to true.
 	testConfig := minimalConfig(c)
 	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
@@ -134,7 +162,6 @@ func (s *configSuite) TestLocalDisablesUpgradesWhenCloning(c *gc.C) {
 
 // If settings are provided, don't overwrite with defaults.
 func (s *configSuite) TestLocalRespectsUpgradeSettings(c *gc.C) {
-
 	minAttrs := testing.FakeConfig().Merge(testing.Attrs{
 		"lxc-clone":          true,
 		"enable-os-upgrades": true,

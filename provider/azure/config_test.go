@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -225,7 +226,10 @@ func (*configSuite) TestEmptyImageStream1dot16Compat(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
+func (s *configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*azureEnviron) error {
+		return nil
+	})
 	userValues := []interface{}{nil, false, true}
 	for _, userValue := range userValues {
 		attrs := makeAzureConfigMap(c)
@@ -239,17 +243,20 @@ func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
 		}
 		cfg, err := config.New(config.UseDefaults, attrs)
 		c.Assert(err, gc.IsNil)
-		env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+		env, err := azureEnvironProvider{}.Prepare(envtesting.BootstrapContext(c), cfg)
 		c.Assert(err, gc.IsNil)
 		azureEnv := env.(*azureEnviron)
 		c.Assert(azureEnv.ecfg.availabilitySetsEnabled(), checker)
 	}
 }
 
-func (*configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
+func (s *configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
+	s.PatchValue(&verifyCredentials, func(*azureEnviron) error {
+		return nil
+	})
 	cfg, err := config.New(config.UseDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
-	env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+	env, err := azureEnvironProvider{}.Prepare(envtesting.BootstrapContext(c), cfg)
 	c.Assert(err, gc.IsNil)
 	cfg, err = env.Config().Apply(map[string]interface{}{"availability-sets-enabled": false})
 	c.Assert(err, gc.IsNil)
