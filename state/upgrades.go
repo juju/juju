@@ -623,6 +623,18 @@ func AddEnvUUIDToCleanups(st *State) error {
 	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
 }
 
+// AddEnvUUIDToSettings prepends the environment UUID to the ID of
+// all settings docs and adds new "env-uuid" field.
+func AddEnvUUIDToSettings(st *State) error {
+	return addEnvUUIDToEntityCollection(st, settingsC, "")
+}
+
+// AddEnvUUIDToSettingsRefs prepends the environment UUID to the ID of
+// all settingRef docs and adds new "env-uuid" field.
+func AddEnvUUIDToSettingsRefs(st *State) error {
+	return addEnvUUIDToEntityCollection(st, settingsrefsC, "")
+}
+
 // AddEnvUUIDToRelations prepends the environment UUID to the ID of
 // all relations docs and adds new "env-uuid" and "key" fields.
 func AddEnvUUIDToRelations(st *State) error {

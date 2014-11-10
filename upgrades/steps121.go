@@ -7,8 +7,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// stepsFor121 returns upgrade steps to upgrade to a Juju 1.21 deployment.
-func stepsFor121() []Step {
+// stateStepsFor121 returns upgrade steps form Juju 1.21 that manipulate state directly.
+func stateStepsFor121() []Step {
 	return []Step{
 		&upgradeStep{
 			description: "add environment uuid to state server doc",
@@ -117,9 +117,26 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToSettings(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all settingsRefs docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToSettingsRefs(context.State())
+			},
+		},
+
+		&upgradeStep{
 			description: "rename the user LastConnection field to LastLogin",
 			targets:     []Target{DatabaseMaster},
-			run:         migrateLastConnectionToLastLogin,
+			run: func(context Context) error {
+				return state.MigrateUserLastConnectionToLastLogin(context.State())
+			},
 		},
 		&upgradeStep{
 			description: "add all users in state as environment users",
@@ -166,7 +183,9 @@ func stepsFor121() []Step {
 		&upgradeStep{
 			description: "migrate machine jobs into ones with JobManageNetworking based on rules",
 			targets:     []Target{DatabaseMaster},
-			run:         migrateJobManageNetworking,
+			run: func(context Context) error {
+				return state.MigrateJobManageNetworking(context.State())
+			},
 		},
 	}
 }
