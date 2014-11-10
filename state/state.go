@@ -368,7 +368,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     environGlobalKey,
+				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
 				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 			},
@@ -568,7 +568,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		// This is required to allow loading of machines before the
 		// environment UUID migration has been applied to the machines
 		// collection. Without this, a machine agent can't come up to
-		// run the database migration..
+		// run the database migration.
 		if mdoc.Id == "" {
 			mdoc.Id = mdoc.DocID
 		}
@@ -1180,9 +1180,11 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      settingsrefsC,
-			Id:     svc.settingsKey(),
+			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		},
 		{
 			C:      servicesC,

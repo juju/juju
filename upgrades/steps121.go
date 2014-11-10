@@ -117,6 +117,21 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToSettings(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all settingsRefs docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToSettingsRefs(context.State())
+			},
+		},
+
+		&upgradeStep{
 			description: "rename the user LastConnection field to LastLogin",
 			targets:     []Target{DatabaseMaster},
 			run:         migrateLastConnectionToLastLogin,
