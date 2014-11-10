@@ -512,6 +512,16 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
 }
 
+func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 409}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.IsNil)
+}
+
 func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 	env := suite.makeEnviron()
 	_, err := env.StateServerInstances()
