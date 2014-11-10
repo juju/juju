@@ -129,8 +129,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.attempt_count, 6)
         self.assertEqual(mit.max_attempts, 12)
         self.assertEqual(
-            mit.stages, [BootstrapAttempt, DeployManyAttempt,
-                         EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+            mit.stages, [
+                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
+                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
 
     def test_from_args_new_agent_url(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
@@ -619,8 +620,27 @@ class TestBackupRestoreAttempt(TestCase):
                 with patch('sys.stdout'):
                     br_attempt._operation(client)
         assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
-        cc_mock.assert_called_with(['euca-terminate-instances', 'asdf'],
-                                   env=environ)
+        self.assertEqual(
+            cc_mock.mock_calls[0],
+            call(['euca-terminate-instances', 'asdf'], env=environ))
+        assert_juju_call(
+            self, cc_mock, client, (
+                'juju', '--show-log', 'restore', '-e', 'baz',
+                os.path.abspath('juju-backup-24.tgz')), 1)
+
+    def test__result(self):
+        br_attempt = BackupRestoreAttempt()
+        client = FakeEnvJujuClient()
+        output = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'started'},
+                },
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output) as co_mock:
+            br_attempt._result(client)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'steve'), assign_stderr=True)
 
 
 class TestMaybeWriteJson(TestCase):

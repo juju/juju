@@ -45,13 +45,17 @@ from utility import (
 
 
 def assert_juju_call(test_case, mock_method, client, expected_args,
-                     call_index=None):
+                     call_index=None, assign_stderr=False):
     if call_index is None:
         test_case.assertEqual(len(mock_method.mock_calls), 1)
         call_index = 0
     empty, args, kwargs = mock_method.mock_calls[call_index]
     test_case.assertEqual(args, (expected_args,))
-    test_case.assertEqual(kwargs.keys(), ['env'])
+    kwarg_keys = ['env']
+    if assign_stderr:
+        kwarg_keys = ['stderr'] + kwarg_keys
+        test_case.assertEqual(type(kwargs['stderr']), file)
+    test_case.assertEqual(kwargs.keys(), kwarg_keys)
     bin_dir = os.path.dirname(client.full_path)
     test_case.assertRegexpMatches(kwargs['env']['PATH'],
                                   r'^{}\:'.format(bin_dir))

@@ -35,7 +35,7 @@ class MultiIndustrialTest:
             stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
         else:
             stages = [BootstrapAttempt, DeployManyAttempt,
-                      EnsureAvailabilityAttempt,
+                      BackupRestoreAttempt, EnsureAvailabilityAttempt,
                       DestroyEnvironmentAttempt]
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
@@ -288,13 +288,20 @@ class DeployManyAttempt(StageAttempt):
 
 class BackupRestoreAttempt(StageAttempt):
 
+    title = 'Back-up / restore'
+
     def _operation(self, client):
-        client.backup()
+        backup_file = client.backup()
         status = client.get_status()
         instance_id = status.get_instance_id('0')
         host = get_machine_dns_name(client, 0)
         terminate_instances(client.env, [instance_id])
         wait_for_state_server_to_shutdown(host, client, instance_id)
+        client.juju('restore', (backup_file,))
+
+    def _result(self, client):
+        client.wait_for_started()
+        return True
 
 
 def parse_args(args=None):
