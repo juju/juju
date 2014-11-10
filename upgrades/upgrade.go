@@ -33,9 +33,6 @@ type Operation interface {
 	// already have been used to get to the version we are running now.
 	TargetVersion() version.Number
 
-	// State requiring steps to perform during an upgrade. These go first.
-	StateSteps() []Step
-
 	// Steps to perform during an upgrade.
 	Steps() []Step
 }
@@ -63,13 +60,7 @@ const (
 // upgrade any prior version of Juju to targetVersion.
 type upgradeToVersion struct {
 	targetVersion version.Number
-	stateSteps    []Step
 	steps         []Step
-}
-
-// StateSteps is defined on the Operation interface.
-func (u upgradeToVersion) StateSteps() []Step {
-	return u.stateSteps
 }
 
 // Steps is defined on the Operation interface.
@@ -96,30 +87,25 @@ func (e *upgradeError) Error() string {
 // defined between the version supplied and the running software
 // version.
 func AreUpgradesDefined(from version.Number) bool {
-	return newUpgradeOpsIterator(from, version.Current.Number).Next()
+	return newUpgradeOpsIterator(from, version.Current.Number, upgradeOperations()).Next() ||
+		newUpgradeOpsIterator(from, version.Current.Number, stateUpgradeOperations()).Next()
 }
 
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, target Target, context Context) error {
 	if isStateTarget(target) {
-		if err := runUpgradeSteps(from, target, getStateSteps, context.StateContext()); err != nil {
+		ops := newUpgradeOpsIterator(from, version.Current.Number, stateUpgradeOperations())
+		if err := runUpgradeSteps(ops, target, context.StateContext()); err != nil {
 			return err
 		}
 	}
-	if err := runUpgradeSteps(from, target, getSteps, context.APIContext()); err != nil {
+	ops := newUpgradeOpsIterator(from, version.Current.Number, upgradeOperations())
+	if err := runUpgradeSteps(ops, target, context.APIContext()); err != nil {
 		return err
 	}
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
-}
-
-func getStateSteps(op Operation) []Step {
-	return op.StateSteps()
-}
-
-func getSteps(op Operation) []Step {
-	return op.Steps()
 }
 
 func isStateTarget(target Target) bool {
@@ -127,23 +113,15 @@ func isStateTarget(target Target) bool {
 }
 
 // runUpgradeSteps finds all the upgrade operations relevant to
-// target. The steps for each operation are retrieved by calling the
-// passed getSteps function on the operation and are run by calling
-// runStep.
+// target and runs the associated upgrade steps.
 //
 // As soon as any error is encountered, the operation is aborted since
 // subsequent steps may required successful completion of earlier
 // ones. The steps must be idempotent so that the entire upgrade
 // operation can be retried.
-func runUpgradeSteps(
-	from version.Number,
-	target Target,
-	getSteps func(Operation) []Step,
-	context Context,
-) error {
-	for ops := newUpgradeOpsIterator(from, version.Current.Number); ops.Next(); {
-		steps := getSteps(ops.Get())
-		for _, step := range steps {
+func runUpgradeSteps(ops *upgradeOpsIterator, target Target, context Context) error {
+	for ops.Next() {
+		for _, step := range ops.Get().Steps() {
 			if !validTarget(target, step.Targets()) {
 				continue
 			}
@@ -203,7 +181,7 @@ type upgradeOpsIterator struct {
 	current int
 }
 
-func newUpgradeOpsIterator(from, to version.Number) *upgradeOpsIterator {
+func newUpgradeOpsIterator(from, to version.Number, ops []Operation) *upgradeOpsIterator {
 	// If from is not known, it is 1.16.
 	if from == version.Zero {
 		from = version.MustParse("1.16.0")
@@ -214,7 +192,7 @@ func newUpgradeOpsIterator(from, to version.Number) *upgradeOpsIterator {
 	return &upgradeOpsIterator{
 		from:    from,
 		to:      to,
-		allOps:  upgradeOperations(),
+		allOps:  ops,
 		current: -1,
 	}
 }

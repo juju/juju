@@ -189,8 +189,3 @@ func stateStepsFor121() []Step {
 		},
 	}
 }
-
-// stepsFor121 returns upgrade steps for Juju 1.21 that operate via the API.
-func stepsFor121() []Step {
-	return nil
-}

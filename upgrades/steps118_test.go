@@ -16,17 +16,21 @@ type steps118Suite struct {
 
 var _ = gc.Suite(&steps118Suite{})
 
-func (s *steps118Suite) TestStepsFor118(c *gc.C) {
-	expectedStateSteps := []string{
+func (s *steps118Suite) TestStateStepsFor118(c *gc.C) {
+	expected := []string{
 		"update rsyslog port",
 		"remove deprecated environment config settings",
 		"migrate local provider agent config",
 	}
-	expectedSteps := []string{
+	assertStateSteps(c, version.MustParse("1.18.0"), expected)
+}
+
+func (s *steps118Suite) TestStepsFor118(c *gc.C) {
+	expected := []string{
 		"make $DATADIR/locks owned by ubuntu:ubuntu",
 		"generate system ssh key",
 		"install rsyslog-gnutls",
 		"make /home/ubuntu/.profile source .juju-proxy file",
 	}
-	assertSteps(c, version.MustParse("1.18.0"), expectedStateSteps, expectedSteps)
+	assertSteps(c, version.MustParse("1.18.0"), expected)
 }

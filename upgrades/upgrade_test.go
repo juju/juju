@@ -5,7 +5,6 @@ package upgrades_test
 
 import (
 	"errors"
-	"fmt"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
@@ -28,18 +27,31 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-// assertSteps is a helper that ensures that the given upgrade steps
-// match what is expected for that version and that the steps have
-// been added to the global upgrade operations list.
-func assertSteps(c *gc.C, ver version.Number, expectedStateSteps, expectedSteps []string) {
-	for _, op := range (*upgrades.UpgradeOperations)() {
+// assertStateSteps is a helper that ensures that the given
+// state-based upgrade steps match what is expected for that version
+// and that the steps have been added to the global upgrade operations
+// list.
+func assertStateSteps(c *gc.C, ver version.Number, expectedSteps []string) {
+	findAndCheckSteps(c, (*upgrades.StateUpgradeOperations)(), ver, expectedSteps)
+}
+
+// assertSteps is a helper that ensures that the given API-based
+// upgrade steps match what is expected for that version and that the
+// steps have been added to the global upgrade operations list.
+func assertSteps(c *gc.C, ver version.Number, expectedSteps []string) {
+	findAndCheckSteps(c, (*upgrades.UpgradeOperations)(), ver, expectedSteps)
+}
+
+func findAndCheckSteps(c *gc.C, ops []upgrades.Operation, ver version.Number, expectedSteps []string) {
+	for _, op := range ops {
 		if op.TargetVersion() == ver {
-			assertExpectedSteps(c, op.StateSteps(), expectedStateSteps)
 			assertExpectedSteps(c, op.Steps(), expectedSteps)
 			return
 		}
 	}
-	c.Fatal("upgrade operations for this version are not hooked up")
+	if len(expectedSteps) > 0 {
+		c.Fatal("upgrade operations for this version are not hooked up")
+	}
 }
 
 // assertExpectedSteps is a helper function used to check that the upgrade steps match
@@ -62,16 +74,11 @@ var _ = gc.Suite(&upgradeSuite{})
 
 type mockUpgradeOperation struct {
 	targetVersion version.Number
-	stateSteps    []upgrades.Step
 	steps         []upgrades.Step
 }
 
 func (m *mockUpgradeOperation) TargetVersion() version.Number {
 	return m.targetVersion
-}
-
-func (m *mockUpgradeOperation) StateSteps() []upgrades.Step {
-	return m.stateSteps
 }
 
 func (m *mockUpgradeOperation) Steps() []upgrades.Step {
@@ -181,16 +188,36 @@ func (mock *mockAgentConfig) MongoInfo() (*mongo.MongoInfo, bool) {
 	return mock.mongoInfo, true
 }
 
-func upgradeOperations() []upgrades.Operation {
+func stateUpgradeOperations() []upgrades.Operation {
 	steps := []upgrades.Operation{
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.11.0"),
-			stateSteps: []upgrades.Step{
+			steps: []upgrades.Step{
 				newUpgradeStep("state step 1 - 1.11.0"),
 				newUpgradeStep("state step 2 error", upgrades.StateServer),
 				newUpgradeStep("state step 3 - 1.11.0", upgrades.StateServer),
 			},
 		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.21.0"),
+			steps: []upgrades.Step{
+				newUpgradeStep("state step 1 - 1.21.0", upgrades.DatabaseMaster),
+				newUpgradeStep("state step 2 - 1.21.0", upgrades.StateServer),
+			},
+		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.22.0"),
+			steps: []upgrades.Step{
+				newUpgradeStep("state step 1 - 1.22.0", upgrades.DatabaseMaster),
+				newUpgradeStep("state step 2 - 1.22.0", upgrades.StateServer),
+			},
+		},
+	}
+	return steps
+}
+
+func upgradeOperations() []upgrades.Operation {
+	steps := []upgrades.Operation{
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.12.0"),
 			steps: []upgrades.Step{
@@ -237,20 +264,12 @@ func upgradeOperations() []upgrades.Operation {
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.21.0"),
-			stateSteps: []upgrades.Step{
-				newUpgradeStep("state step 1 - 1.21.0", upgrades.DatabaseMaster),
-				newUpgradeStep("state step 2 - 1.21.0", upgrades.StateServer),
-			},
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.21.0", upgrades.AllMachines),
 			},
 		},
 		&mockUpgradeOperation{
 			targetVersion: version.MustParse("1.22.0"),
-			stateSteps: []upgrades.Step{
-				newUpgradeStep("state step 1 - 1.22.0", upgrades.DatabaseMaster),
-				newUpgradeStep("state step 2 - 1.22.0", upgrades.StateServer),
-			},
 			steps: []upgrades.Step{
 				newUpgradeStep("step 1 - 1.22.0", upgrades.AllMachines),
 				newUpgradeStep("step 2 - 1.22.0", upgrades.AllMachines),
@@ -286,6 +305,12 @@ var areUpgradesDefinedTests = []areUpgradesDefinedTest{
 		expected:    false,
 	},
 	{
+		about:       "true when just state ops defined ",
+		fromVersion: "1.10.0",
+		toVersion:   "1.11.0",
+		expected:    true,
+	},
+	{
 		about:       "from version is defaulted when not supplied",
 		fromVersion: "",
 		expected:    true,
@@ -293,6 +318,7 @@ var areUpgradesDefinedTests = []areUpgradesDefinedTest{
 }
 
 func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
+	s.PatchValue(upgrades.StateUpgradeOperations, stateUpgradeOperations)
 	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
 	for i, test := range areUpgradesDefinedTests {
 		c.Logf("%d: %s", i, test.about)
@@ -447,10 +473,9 @@ var upgradeTests = []upgradeTest{
 }
 
 func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
+	s.PatchValue(upgrades.StateUpgradeOperations, stateUpgradeOperations)
 	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
 	for i, test := range upgradeTests {
-		fmt.Println((*upgrades.UpgradeOperations)())
-
 		c.Logf("%d: %s", i, test.about)
 		var messages []string
 		ctx := &mockContext{
@@ -477,19 +502,19 @@ func (s *upgradeSuite) TestPerformUpgrade(c *gc.C) {
 	}
 }
 
-type contextTestStep struct {
+type contextStep struct {
 	useAPI bool
 }
 
-func (s *contextTestStep) Description() string {
+func (s *contextStep) Description() string {
 	return "something"
 }
 
-func (s *contextTestStep) Targets() []upgrades.Target {
+func (s *contextStep) Targets() []upgrades.Target {
 	return []upgrades.Target{upgrades.StateServer}
 }
 
-func (s *contextTestStep) Run(context upgrades.Context) error {
+func (s *contextStep) Run(context upgrades.Context) error {
 	if s.useAPI {
 		context.APIState()
 	} else {
@@ -499,35 +524,40 @@ func (s *contextTestStep) Run(context upgrades.Context) error {
 }
 
 func (s *upgradeSuite) TestStateStepsGetRestrictedContext(c *gc.C) {
-	op := &mockUpgradeOperation{
-		stateSteps: []upgrades.Step{
-			&contextTestStep{useAPI: true},
-		},
-	}
-	s.checkContextRestriction(c, op, "API not available from this context")
+	s.PatchValue(upgrades.StateUpgradeOperations, func() []upgrades.Operation {
+		return []upgrades.Operation{
+			&mockUpgradeOperation{
+				targetVersion: version.MustParse("1.21.0"),
+				steps:         []upgrades.Step{&contextStep{useAPI: true}},
+			},
+		}
+	})
+
+	s.PatchValue(upgrades.UpgradeOperations,
+		func() []upgrades.Operation { return nil })
+
+	s.checkContextRestriction(c, "API not available from this context")
 }
 
 func (s *upgradeSuite) TestApiStepsGetRestrictedContext(c *gc.C) {
-	op := &mockUpgradeOperation{
-		steps: []upgrades.Step{
-			&contextTestStep{useAPI: false},
-		},
-	}
-	s.checkContextRestriction(c, op, "State not available from this context")
+	s.PatchValue(upgrades.StateUpgradeOperations,
+		func() []upgrades.Operation { return nil })
+
+	s.PatchValue(upgrades.UpgradeOperations, func() []upgrades.Operation {
+		return []upgrades.Operation{
+			&mockUpgradeOperation{
+				targetVersion: version.MustParse("1.21.0"),
+				steps:         []upgrades.Step{&contextStep{useAPI: false}},
+			},
+		}
+	})
+
+	s.checkContextRestriction(c, "State not available from this context")
 }
 
-type fakeAgentConfigSetter struct {
-	agent.ConfigSetter
-}
-
-func (s *upgradeSuite) checkContextRestriction(c *gc.C, op *mockUpgradeOperation, expectedPanic string) {
-	op.targetVersion = version.MustParse("1.21.0")
-	upgradeOperations := func() []upgrades.Operation {
-		return []upgrades.Operation{op}
-	}
-	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
-
+func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
 	fromVersion := version.MustParse("1.20.0")
+	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
 	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, new(api.State), new(state.State))
 	c.Assert(
 		func() { upgrades.PerformUpgrade(fromVersion, upgrades.StateServer, ctx) },
@@ -536,28 +566,35 @@ func (s *upgradeSuite) checkContextRestriction(c *gc.C, op *mockUpgradeOperation
 }
 
 func (s *upgradeSuite) TestStateStepsNotAttemptedWhenNoStateTarget(c *gc.C) {
-	count := 0
+	stateCount := 0
+	stateUpgradeOperations := func() []upgrades.Operation {
+		stateCount++
+		return nil
+	}
+	s.PatchValue(upgrades.StateUpgradeOperations, stateUpgradeOperations)
+
+	apiCount := 0
 	upgradeOperations := func() []upgrades.Operation {
-		count++
+		apiCount++
 		return nil
 	}
 	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
 
 	fromVers := version.MustParse("1.18.0")
 	ctx := new(mockContext)
-	check := func(target upgrades.Target, expectedCallCount int) {
-		count = 0
+	check := func(target upgrades.Target, expectedStateCallCount int) {
+		stateCount = 0
+		apiCount = 0
 		err := upgrades.PerformUpgrade(fromVers, target, ctx)
 		c.Assert(err, gc.IsNil)
-		c.Assert(count, gc.Equals, expectedCallCount)
+		c.Assert(stateCount, gc.Equals, expectedStateCallCount)
+		c.Assert(apiCount, gc.Equals, 1)
 	}
 
-	// Expect 2 iterations through the list of operations when the
-	// target could involve updates to State directly; 1 otherwise.
-	check(upgrades.StateServer, 2)
-	check(upgrades.DatabaseMaster, 2)
-	check(upgrades.AllMachines, 1)
-	check(upgrades.HostMachine, 1)
+	check(upgrades.StateServer, 1)
+	check(upgrades.DatabaseMaster, 1)
+	check(upgrades.AllMachines, 0)
+	check(upgrades.HostMachine, 0)
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
@@ -571,16 +608,23 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0", "1.21.0"}
+func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
+	versions := extractUpgradeVersions(c, (*upgrades.StateUpgradeOperations)())
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0", "1.21.0"})
+}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
+	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
+	c.Assert(versions, gc.DeepEquals, []string{"1.18.0"})
+}
+
+func extractUpgradeVersions(c *gc.C, ops []upgrades.Operation) []string {
 	var versions []string
-	for _, utv := range (*upgrades.UpgradeOperations)() {
+	for _, utv := range ops {
 		vers := utv.TargetVersion()
 		// Upgrade steps should only be targeted at final versions (not alpha/beta).
 		c.Check(vers.Tag, gc.Equals, "")
 		versions = append(versions, vers.String())
-
 	}
-	c.Assert(versions, gc.DeepEquals, expectedVersions)
+	return versions
 }

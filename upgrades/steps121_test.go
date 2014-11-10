@@ -16,8 +16,8 @@ type steps121Suite struct {
 
 var _ = gc.Suite(&steps121Suite{})
 
-func (s *steps121Suite) TestStepsFor121(c *gc.C) {
-	expectedStateSteps := []string{
+func (s *steps121Suite) TestStateStepsFor121(c *gc.C) {
+	expected := []string{
 		// Environment UUID related migrations should come first as
 		// other upgrade steps may rely on them.
 		"add environment uuid to state server doc",
@@ -52,6 +52,9 @@ func (s *steps121Suite) TestStepsFor121(c *gc.C) {
 		"create entries in meter status collection for existing units",
 		"migrate machine jobs into ones with JobManageNetworking based on rules",
 	}
-	expectedSteps := []string{}
-	assertSteps(c, version.MustParse("1.21.0"), expectedStateSteps, expectedSteps)
+	assertStateSteps(c, version.MustParse("1.21.0"), expected)
+}
+
+func (s *steps121Suite) TestStepsFor121(c *gc.C) {
+	assertSteps(c, version.MustParse("1.21.0"), []string{})
 }
