@@ -29,6 +29,7 @@ func hookVars(context *HookContext, paths Paths) []string {
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
 		"JUJU_METER_STATUS="+context.meterStatus.code,
 		"JUJU_METER_INFO="+context.meterStatus.info,
+		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
 	)
 	if r, found := context.HookRelation(); found {
 		vars = append(vars,

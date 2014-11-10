@@ -75,6 +75,10 @@ func (c *HookContext) ActionData() *ActionData {
 	return c.actionData
 }
 
+func (c *HookContext) AssignedMachineTag() names.MachineTag {
+	return c.assignedMachineTag
+}
+
 func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
 		actionData: &ActionData{
@@ -151,6 +155,7 @@ func NewHookContext(
 func NewEnvironmentHookContext(
 	id, envUUID, envName, unitName, meterCode, meterInfo string,
 	apiAddresses []string, proxySettings proxy.Settings,
+	machineTag names.MachineTag,
 ) *HookContext {
 	return &HookContext{
 		id:            id,
@@ -163,7 +168,8 @@ func NewEnvironmentHookContext(
 			code: meterCode,
 			info: meterInfo,
 		},
-		relationId: -1,
+		relationId:         -1,
+		assignedMachineTag: machineTag,
 	}
 }
 

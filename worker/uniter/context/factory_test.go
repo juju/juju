@@ -75,6 +75,7 @@ func (s *FactorySuite) getCache(relId int, unitName string) (params.RelationSett
 func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	c.Assert(ctx.OwnerTag(), gc.Equals, s.service.GetOwnerTag())
+	c.Assert(ctx.AssignedMachineTag(), jc.DeepEquals, names.NewMachineTag("0"))
 
 	expect, expectOK := s.unit.PrivateAddress()
 	actual, actualOK := ctx.PrivateAddress()
