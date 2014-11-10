@@ -567,14 +567,6 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
 	expected := []network.Address{{
-		Value: "*.testing.invalid",
-		Type:  network.HostName,
-		Scope: network.ScopePublic,
-	}, {
-		Value: "*.internal.invalid",
-		Type:  network.HostName,
-		Scope: network.ScopeCloudLocal,
-	}, {
 		Value: "8.0.0.*",
 		Type:  network.IPv4Address,
 		Scope: network.ScopePublic,
