@@ -39,3 +39,58 @@ var upgradeOperations = func() []Operation {
 	}
 	return steps
 }
+
+type opsIterator struct {
+	from    version.Number
+	to      version.Number
+	allOps  []Operation
+	current int
+}
+
+func newStateUpgradeOpsIterator(from version.Number) *opsIterator {
+	return newOpsIterator(from, version.Current.Number, stateUpgradeOperations())
+}
+
+func newUpgradeOpsIterator(from version.Number) *opsIterator {
+	return newOpsIterator(from, version.Current.Number, upgradeOperations())
+}
+
+func newOpsIterator(from, to version.Number, ops []Operation) *opsIterator {
+	// If from is not known, it is 1.16.
+	if from == version.Zero {
+		from = version.MustParse("1.16.0")
+	}
+	// Clear the version tag of the target release to ensure that all
+	// upgrade steps for the release are run for alpha and beta releases.
+	to.Tag = ""
+	return &opsIterator{
+		from:    from,
+		to:      to,
+		allOps:  ops,
+		current: -1,
+	}
+}
+
+func (it *opsIterator) Next() bool {
+	for {
+		it.current++
+		if it.current >= len(it.allOps) {
+			return false
+		}
+		targetVersion := it.allOps[it.current].TargetVersion()
+
+		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
+		if targetVersion.Compare(it.from) <= 0 {
+			continue
+		}
+		// Do not run steps for versions of Juju later than we are upgrading to.
+		if targetVersion.Compare(it.to) > 0 {
+			continue
+		}
+		return true
+	}
+}
+
+func (it *opsIterator) Get() Operation {
+	return it.allOps[it.current]
+}

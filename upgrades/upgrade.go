@@ -87,20 +87,19 @@ func (e *upgradeError) Error() string {
 // defined between the version supplied and the running software
 // version.
 func AreUpgradesDefined(from version.Number) bool {
-	return newUpgradeOpsIterator(from, version.Current.Number, upgradeOperations()).Next() ||
-		newUpgradeOpsIterator(from, version.Current.Number, stateUpgradeOperations()).Next()
+	return newUpgradeOpsIterator(from).Next() || newStateUpgradeOpsIterator(from).Next()
 }
 
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, target Target, context Context) error {
 	if isStateTarget(target) {
-		ops := newUpgradeOpsIterator(from, version.Current.Number, stateUpgradeOperations())
+		ops := newStateUpgradeOpsIterator(from)
 		if err := runUpgradeSteps(ops, target, context.StateContext()); err != nil {
 			return err
 		}
 	}
-	ops := newUpgradeOpsIterator(from, version.Current.Number, upgradeOperations())
+	ops := newUpgradeOpsIterator(from)
 	if err := runUpgradeSteps(ops, target, context.APIContext()); err != nil {
 		return err
 	}
@@ -119,7 +118,7 @@ func isStateTarget(target Target) bool {
 // subsequent steps may required successful completion of earlier
 // ones. The steps must be idempotent so that the entire upgrade
 // operation can be retried.
-func runUpgradeSteps(ops *upgradeOpsIterator, target Target, context Context) error {
+func runUpgradeSteps(ops *opsIterator, target Target, context Context) error {
 	for ops.Next() {
 		for _, step := range ops.Get().Steps() {
 			if !validTarget(target, step.Targets()) {
@@ -172,51 +171,4 @@ func (step *upgradeStep) Targets() []Target {
 // Run is defined on the Step interface.
 func (step *upgradeStep) Run(context Context) error {
 	return step.run(context)
-}
-
-type upgradeOpsIterator struct {
-	from    version.Number
-	to      version.Number
-	allOps  []Operation
-	current int
-}
-
-func newUpgradeOpsIterator(from, to version.Number, ops []Operation) *upgradeOpsIterator {
-	// If from is not known, it is 1.16.
-	if from == version.Zero {
-		from = version.MustParse("1.16.0")
-	}
-	// Clear the version tag of the target release to ensure that all
-	// upgrade steps for the release are run for alpha and beta releases.
-	to.Tag = ""
-	return &upgradeOpsIterator{
-		from:    from,
-		to:      to,
-		allOps:  ops,
-		current: -1,
-	}
-}
-
-func (it *upgradeOpsIterator) Next() bool {
-	for {
-		it.current++
-		if it.current >= len(it.allOps) {
-			return false
-		}
-		targetVersion := it.allOps[it.current].TargetVersion()
-
-		// Do not run steps for versions of Juju earlier or same as we are upgrading from.
-		if targetVersion.Compare(it.from) <= 0 {
-			continue
-		}
-		// Do not run steps for versions of Juju later than we are upgrading to.
-		if targetVersion.Compare(it.to) > 0 {
-			continue
-		}
-		return true
-	}
-}
-
-func (it *upgradeOpsIterator) Get() Operation {
-	return it.allOps[it.current]
 }
