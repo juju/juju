@@ -53,13 +53,14 @@ type JujuRunServer struct {
 
 // RunCommands delegates the actual running to the runner and populates the
 // response structure.
-func (r *JujuRunServer) RunCommands(args RunCommandsArgs) (*exec.ExecResponse, error) {
+func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecResponse) error {
 	logger.Debugf("RunCommands: %+v", args)
 	runResult, err := r.runner.RunCommands(args)
 	if err != nil {
-		return nil, errors.Annotate(err, "r.runner.RunCommands")
+		return errors.Annotate(err, "r.runner.RunCommands")
 	}
-	return runResult, err
+	*result = *runResult
+	return err
 }
 
 // NewRunListener returns a new RunListener that is listening on given
