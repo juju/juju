@@ -1122,6 +1122,19 @@ class TestStatus(TestCase):
         self.assertItemsEqual(new_status.iter_new_machines(old_status),
                               [('foo', 'foo_info')])
 
+    def test_get_instance_id(self):
+        status = Status({
+            'machines': {
+                '0': {'instance-id': 'foo-bar'},
+                '1': {},
+                }
+            })
+        self.assertEqual(status.get_instance_id('0'), 'foo-bar')
+        with self.assertRaises(KeyError):
+            status.get_instance_id('1')
+        with self.assertRaises(KeyError):
+            status.get_instance_id('2')
+
 
 def fast_timeout(count):
     if False:

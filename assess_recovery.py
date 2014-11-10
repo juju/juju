@@ -12,18 +12,24 @@ import subprocess
 import sys
 
 from deploy_stack import (
-    destroy_environment,
     dump_env_logs,
     get_machine_dns_name,
+    wait_for_state_server_to_shutdown,
 )
-from jujuconfig import translate_to_env
+from jujuconfig import (
+    get_juju_home,
+    )
 from jujupy import (
     EnvJujuClient,
+    SimpleEnvironment,
+    temp_bootstrap_env,
     until_timeout,
 )
+from substrate import (
+    terminate_instances,
+    )
 from utility import (
     print_now,
-    wait_for_port,
 )
 
 
@@ -87,24 +93,7 @@ def restore_present_state_server(client, backup_file):
 def delete_instance(client, instance_id):
     """Delete the instance using the providers tools."""
     print_now("Instrumenting a bootstrap node failure.")
-    provider_type = client.config.get('type')
-    if provider_type == 'ec2':
-        environ = dict(os.environ)
-        ec2_url = 'https://%s.ec2.amazonaws.com' % client.env.config['region']
-        environ['EC2_URL'] = ec2_url
-        environ['EC2_ACCESS_KEY'] = client.env.config['access-key']
-        environ['EC2_SECRET_KEY'] = client.env.config['secret-key']
-        command_args = ['euca-terminate-instances', instance_id]
-    elif provider_type == 'openstack':
-        environ = dict(os.environ)
-        environ.update(translate_to_env(client.env.config))
-        command_args = ['nova', 'delete', instance_id]
-    else:
-        raise ValueError(
-            "This test does not support the %s provider" % provider_type)
-    print_now("Deleting %s." % instance_id)
-    output = subprocess.check_output(command_args, env=environ)
-    print_now(output)
+    return terminate_instances(client.env, [instance_id])
 
 
 def delete_extra_state_servers(client, instance_id):
@@ -136,27 +125,9 @@ def restore_missing_state_server(client, backup_file):
         print_now('\n')
         raise Exception(message)
     print_now(output)
-    client.env.wait_for_started(600).status
+    client.wait_for_started(600).status
     print_now("%s restored" % client.env.environment)
     print_now("PASS")
-
-
-def wait_for_state_server_to_shutdown(host, client, instance_id):
-    print_now("Waiting for port to close on %s" % host)
-    wait_for_port(host, 17070, closed=True)
-    print_now("Closed.")
-    provider_type = client.env.config.get('type')
-    if provider_type == 'openstack':
-        environ = dict(os.environ)
-        environ.update(translate_to_env(client.env.config))
-        for ignored in until_timeout(300):
-            output = subprocess.check_output(['nova', 'list'], env=environ)
-            if instance_id not in output:
-                print_now('{} was removed from nova list'.format(instance_id))
-                break
-        else:
-            raise Exception(
-                '{} was not deleted:\n{}'.format(instance_id, output))
 
 
 def parse_new_state_server_from_error(error):
@@ -186,8 +157,10 @@ def main():
     args = parser.parse_args()
     try:
         setup_juju_path(args.juju_path)
-        client = EnvJujuClient.from_config(args.env_name)
-        client.bootstrap()
+        env = SimpleEnvironment.from_config(args.env_name)
+        client = EnvJujuClient.by_version(env)
+        with temp_bootstrap_env(get_juju_home(), client):
+            client.bootstrap()
         bootstrap_host = get_machine_dns_name(client, 0)
         try:
             instance_id = deploy_stack(client, args.charm_prefix)
@@ -214,8 +187,9 @@ def main():
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
             raise
         finally:
-            destroy_environment(client, os.environ['JOB_NAME'])
+            client.destroy_environment()
     except Exception as e:
+        raise
         print_now("\nEXCEPTION CAUGHT:\n")
         print_now(e)
         if getattr(e, 'output', None):

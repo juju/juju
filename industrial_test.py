@@ -6,6 +6,10 @@ import json
 import logging
 import sys
 
+from deploy_stack import (
+    get_machine_dns_name,
+    wait_for_state_server_to_shutdown,
+    )
 from jujuconfig import get_juju_home
 from jujupy import (
     EnvJujuClient,
@@ -13,6 +17,7 @@ from jujupy import (
     temp_bootstrap_env,
     uniquify_local,
     )
+from substrate import terminate_instances
 
 
 class MultiIndustrialTest:
@@ -279,6 +284,17 @@ class DeployManyAttempt(StageAttempt):
     def _result(self, client):
         client.wait_for_started()
         return True
+
+
+class BackupRestoreAttempt(StageAttempt):
+
+    def _operation(self, client):
+        client.backup()
+        status = client.get_status()
+        instance_id = status.get_instance_id('0')
+        host = get_machine_dns_name(client, 0)
+        terminate_instances(client.env, [instance_id])
+        wait_for_state_server_to_shutdown(host, client, instance_id)
 
 
 def parse_args(args=None):

@@ -479,6 +479,9 @@ class Status:
             versions[item.get('agent-version', 'unknown')].add(item_name)
         return versions
 
+    def get_instance_id(self, machine_id):
+        return self.status['machines'][machine_id]['instance-id']
+
 
 class SimpleEnvironment:
 

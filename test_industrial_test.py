@@ -2,6 +2,7 @@ __metaclass__ = type
 
 from argparse import Namespace
 from contextlib import contextmanager
+import os
 from StringIO import StringIO
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
@@ -14,6 +15,7 @@ from mock import (
 import yaml
 
 from industrial_test import (
+    BackupRestoreAttempt,
     BootstrapAttempt,
     DeployManyAttempt,
     DestroyEnvironmentAttempt,
@@ -24,11 +26,13 @@ from industrial_test import (
     parse_args,
     StageAttempt,
     )
+from jujuconfig import get_euca_env
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
 from test_jujupy import assert_juju_call
+from test_substrate import get_aws_env
 
 
 @contextmanager
@@ -587,6 +591,36 @@ class TestDeployManyAttempt(TestCase):
                     Exception,
                     'Timed out waiting for agents to start in steve.'):
                 deploy_many._result(client)
+
+
+class TestBackupRestoreAttempt(TestCase):
+
+    def test__operation(self):
+        br_attempt = BackupRestoreAttempt()
+        client = FakeEnvJujuClient()
+        client.env = get_aws_env()
+        environ = dict(os.environ)
+        environ.update(get_euca_env(client.env.config))
+
+        def check_output(*args, **kwargs):
+            if args == (['juju', 'backup'],):
+                return 'juju-backup-24.tgz'
+            if args == (('juju', '--show-log', 'status', '-e', 'baz'),):
+                return yaml.safe_dump({
+                    'machines': {'0': {
+                        'instance-id': 'asdf',
+                        'dns-name': '128.100.100.128',
+                        }}
+                    })
+            self.assertEqual([], args)
+        with patch('subprocess.check_output',
+                   side_effect=check_output) as co_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                with patch('sys.stdout'):
+                    br_attempt._operation(client)
+        assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
+        cc_mock.assert_called_with(['euca-terminate-instances', 'asdf'],
+                                   env=environ)
 
 
 class TestMaybeWriteJson(TestCase):

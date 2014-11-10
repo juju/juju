@@ -18,6 +18,7 @@ from time import sleep
 from jujuconfig import (
     get_jenv_path,
     get_juju_home,
+    translate_to_env,
 )
 from jujupy import (
     bootstrap_from_env,
@@ -29,6 +30,7 @@ from jujupy import (
 )
 from utility import (
     PortTimeoutError,
+    print_now,
     scoped_environ,
     until_timeout,
     wait_for_port,
@@ -471,6 +473,24 @@ def get_machine_dns_name(client, machine):
         host = bootstrap.get('dns-name')
         if host is not None and not host.startswith('172.'):
             return host
+
+
+def wait_for_state_server_to_shutdown(host, client, instance_id):
+    print_now("Waiting for port to close on %s" % host)
+    wait_for_port(host, 17070, closed=True)
+    print_now("Closed.")
+    provider_type = client.env.config.get('type')
+    if provider_type == 'openstack':
+        environ = dict(os.environ)
+        environ.update(translate_to_env(client.env.config))
+        for ignored in until_timeout(300):
+            output = subprocess.check_output(['nova', 'list'], env=environ)
+            if instance_id not in output:
+                print_now('{} was removed from nova list'.format(instance_id))
+                break
+        else:
+            raise Exception(
+                '{} was not deleted:\n{}'.format(instance_id, output))
 
 
 def main():
