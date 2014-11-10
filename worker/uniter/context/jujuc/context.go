@@ -132,15 +132,15 @@ type Settings interface {
 
 // newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
 // ids in ctx.
-func newRelationIdValue(ctx Context, result *int) *relationIdValue {
-	v := &relationIdValue{result: result, ctx: ctx}
+func newRelationIdValue(rV *relationIdValue, result *int) *relationIdValue {
+	rV.result = result
 	id := -1
-	if r, found := ctx.HookRelation(); found {
+	if r, found := rV.ctx.HookRelation(); found {
 		id = r.Id()
-		v.value = r.FakeId()
+		rV.value = r.FakeId()
 	}
 	*result = id
-	return v
+	return rV
 }
 
 // relationIdValue implements gnuflag.Value for use in relation commands.

@@ -41,7 +41,7 @@ purpose: set relation settings
 options:
 --format (= "")
     deprecated format flag
--r  (= %s)
+-r, --relation  (= %s)
     specify a relation by id
 `[1:], t.expect))
 		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")

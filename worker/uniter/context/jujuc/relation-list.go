@@ -35,9 +35,11 @@ func (c *RelationListCommand) Info() *cmd.Info {
 }
 
 func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
+	rV := relationIdValue{ctx: c.ctx}
+
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
-	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "relation", "specify a relation by id")
+	f.Var(newRelationIdValue(&rV, &c.RelationId), "r", "specify a relation by id")
+	f.Var(newRelationIdValue(&rV, &c.RelationId), "relation", "specify a relation by id")
 }
 
 func (c *RelationListCommand) Init(args []string) (err error) {
