@@ -147,6 +147,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
+		agent.LxcBridge:   env.config.networkBridge(),
 
 		// The local provider only supports a single state server,
 		// so we make the oplog size to a small value. This makes

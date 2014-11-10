@@ -5,7 +5,9 @@ package context
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,6 +23,7 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
+var mutex = sync.Mutex{}
 
 // meterStatus describes the unit's meter status.
 type meterStatus struct {
@@ -113,6 +116,53 @@ type HookContext struct {
 	// assignedMachineTag contains the tag of the unit's assigned
 	// machine.
 	assignedMachineTag names.MachineTag
+
+	// process is the process of the command that is being run in the local context,
+	// like a juju-run command or a hook
+	process *os.Process
+
+	// rebootPriority tells us when the hook wants to reboot. If rebootPriority is jujuc.RebootNow
+	// the hook will be killed and requeued
+	rebootPriority jujuc.RebootPriority
+}
+
+func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
+	var err error
+	if priority == jujuc.RebootNow {
+		// At this point, the hook should be running
+		err = ctx.killCharmHook()
+	}
+
+	switch err {
+	case nil, ErrNoProcess:
+		// ErrNoProcess almost certainly means we are running in debug hooks
+		ctx.SetRebootPriority(priority)
+	}
+	return err
+}
+
+func (ctx *HookContext) GetRebootPriority() jujuc.RebootPriority {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return ctx.rebootPriority
+}
+
+func (ctx *HookContext) SetRebootPriority(priority jujuc.RebootPriority) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	ctx.rebootPriority = priority
+}
+
+func (ctx *HookContext) GetProcess() *os.Process {
+	mutex.Lock()
+	defer mutex.Unlock()
+	return ctx.process
+}
+
+func (ctx *HookContext) SetProcess(process *os.Process) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	ctx.process = process
 }
 
 func (ctx *HookContext) Id() string {
@@ -180,7 +230,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 // ActionParams simply returns the arguments to the Action.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
-		return nil, fmt.Errorf("not running an action")
+		return nil, errors.New("not running an action")
 	}
 	return ctx.actionData.ActionParams, nil
 }
@@ -188,7 +238,7 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 // SetActionMessage sets a message for the Action, usually an error message.
 func (ctx *HookContext) SetActionMessage(message string) error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("not running an action")
+		return errors.New("not running an action")
 	}
 	ctx.actionData.ResultsMessage = message
 	return nil
@@ -197,7 +247,7 @@ func (ctx *HookContext) SetActionMessage(message string) error {
 // SetActionFailed sets the fail state of the action.
 func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("not running an action")
+		return errors.New("not running an action")
 	}
 	ctx.actionData.ActionFailed = true
 	return nil
@@ -209,7 +259,7 @@ func (ctx *HookContext) SetActionFailed() error {
 // Action-containing HookContext.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("not running an action")
+		return errors.New("not running an action")
 	}
 	addValueToMap(keys, value, ctx.actionData.ResultsMap)
 	return nil
@@ -239,7 +289,7 @@ func (ctx *HookContext) RelationIds() []int {
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	if !ctx.canAddMetrics || ctx.definedMetrics == nil {
-		return fmt.Errorf("metrics disabled")
+		return errors.New("metrics disabled")
 	}
 	err := ctx.definedMetrics.ValidateMetric(key, value)
 	if err != nil {
@@ -254,7 +304,7 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 // it did; it should be considered deprecated, and not used by new clients.
 func (c *HookContext) ActionData() (*ActionData, error) {
 	if c.actionData == nil {
-		return nil, fmt.Errorf("not running an action")
+		return nil, errors.New("not running an action")
 	}
 	return c.actionData, nil
 }
@@ -288,6 +338,27 @@ func (context *HookContext) HookVars(paths Paths) []string {
 	return append(vars, osDependentEnvVars(paths)...)
 }
 
+func (ctx *HookContext) handleReboot(err *error) {
+	logger.Infof("handling reboot")
+	rebootPriority := ctx.GetRebootPriority()
+	switch rebootPriority {
+	case jujuc.RebootSkip:
+		return
+	case jujuc.RebootAfterHook:
+		// Reboot should happen only after hook has finished.
+		if *err != nil {
+			return
+		}
+		*err = ErrReboot
+	case jujuc.RebootNow:
+		*err = ErrRequeueAndReboot
+	}
+	reqErr := ctx.unit.RequestReboot()
+	if reqErr != nil {
+		*err = reqErr
+	}
+}
+
 func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	writeChanges := ctxErr == nil
 
@@ -302,12 +373,15 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 			err = ctx.finalizeAction(ctxErr, err)
 		}(ctxErr)
 		ctxErr = nil
+	} else {
+		// TODO(gsamfira): Just for now, reboot will not be supported in actions.
+		defer ctx.handleReboot(&err)
 	}
 
 	for id, rctx := range ctx.relations {
 		if writeChanges {
 			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
+				e = errors.Errorf(
 					"could not write settings from %q to relation %d: %v",
 					process, id, e,
 				)
@@ -320,7 +394,7 @@ func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	}
 
 	for rangeKey, rangeInfo := range ctx.pendingPorts {
-		if ctxErr == nil {
+		if writeChanges {
 			var e error
 			var op string
 			if rangeInfo.ShouldOpen {
@@ -401,4 +475,37 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		unhandledErr = errors.Wrap(unhandledErr, callErr)
 	}
 	return unhandledErr
+}
+
+// killCharmHook tries to kill the current running charm hook.
+func (ctx *HookContext) killCharmHook() error {
+	proc := ctx.GetProcess()
+	if proc == nil {
+		// nothing to kill
+		return ErrNoProcess
+	}
+	logger.Infof("trying to kill context process %d", proc.Pid)
+
+	tick := time.After(0)
+	timeout := time.After(30 * time.Second)
+	for {
+		// We repeatedly try to kill the process until we fail; this is
+		// because we don't control the *Process, and our clients expect
+		// to be able to Wait(); so we can't Wait. We could do better,
+		//   but not with a single implementation across all platforms.
+		// TODO(gsamfira): come up with a better cross-platform approach.
+		select {
+		case <-tick:
+			err := proc.Kill()
+			if err != nil {
+				logger.Infof("kill returned: %s", err)
+				logger.Infof("assuming already killed")
+				return nil
+			}
+		case <-timeout:
+			return errors.Errorf("failed to kill context process %d", proc.Pid)
+		}
+		logger.Infof("waiting for context process %d to die", proc.Pid)
+		tick = time.After(100 * time.Millisecond)
+	}
 }

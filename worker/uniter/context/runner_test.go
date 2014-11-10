@@ -4,6 +4,10 @@
 package context_test
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -44,6 +48,7 @@ exit 42
 	c.Assert(result.Code, gc.Equals, 42)
 	c.Assert(string(result.Stdout), gc.Equals, paths.charm+"\n")
 	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
+	c.Assert(ctx.GetProcess(), gc.NotNil)
 }
 
 type RunHookSuite struct {
@@ -140,6 +145,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 type MockContext struct {
 	context.Context
 	actionData   *context.ActionData
+	gotPid       int
 	flushBadge   string
 	flushFailure error
 	flushResult  error
@@ -160,6 +166,10 @@ func (ctx *MockContext) ActionData() (*context.ActionData, error) {
 	return ctx.actionData, nil
 }
 
+func (ctx *MockContext) SetProcess(process *os.Process) {
+	ctx.gotPid = process.Pid
+}
+
 func (ctx *MockContext) FlushContext(badge string, failure error) error {
 	ctx.flushBadge = badge
 	ctx.flushFailure = failure
@@ -178,6 +188,14 @@ func (s *RunMockContextSuite) SetUpTest(c *gc.C) {
 	s.paths = NewRealPaths(c)
 }
 
+func (s *RunMockContextSuite) assertPid(c *gc.C, pid int) {
+	path := filepath.Join(s.paths.charm, "pid")
+	content, err := ioutil.ReadFile(path)
+	c.Assert(err, gc.IsNil)
+	expect := fmt.Sprintf("%d\n", pid)
+	c.Assert(string(content), gc.Equals, expect)
+}
+
 func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
 	expectErr := errors.New("pew pew pew")
 	ctx := &MockContext{
@@ -192,6 +210,7 @@ func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertPid(c, ctx.gotPid)
 }
 
 func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
@@ -209,6 +228,7 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
+	s.assertPid(c, ctx.gotPid)
 }
 
 func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
@@ -226,6 +246,7 @@ func (s *RunMockContextSuite) TestRunActionFlushSuccess(c *gc.C) {
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "do-something")
 	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertPid(c, ctx.gotPid)
 }
 
 func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
@@ -244,6 +265,7 @@ func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "do-something")
 	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")
+	s.assertPid(c, ctx.gotPid)
 }
 
 func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {
@@ -251,10 +273,11 @@ func (s *RunMockContextSuite) TestRunCommandsFlushSuccess(c *gc.C) {
 	ctx := &MockContext{
 		flushResult: expectErr,
 	}
-	_, actualErr := context.NewRunner(ctx, s.paths).RunCommands("")
+	_, actualErr := context.NewRunner(ctx, s.paths).RunCommands("echo $$ > pid")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil)
+	s.assertPid(c, ctx.gotPid)
 }
 
 func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
@@ -262,8 +285,9 @@ func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
 	ctx := &MockContext{
 		flushResult: expectErr,
 	}
-	_, actualErr := context.NewRunner(ctx, s.paths).RunCommands("exit 123")
+	_, actualErr := context.NewRunner(ctx, s.paths).RunCommands("echo $$ > pid; exit 123")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "run commands")
 	c.Assert(ctx.flushFailure, gc.IsNil) // exit code in _ result, as tested elsewhere
+	s.assertPid(c, ctx.gotPid)
 }

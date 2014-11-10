@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	utilexec "github.com/juju/utils/exec"
 
@@ -37,6 +38,7 @@ type Context interface {
 	Id() string
 	HookVars(paths Paths) []string
 	ActionData() (*ActionData, error)
+	SetProcess(process *os.Process)
 	FlushContext(badge string, failure error) error
 }
 
@@ -77,11 +79,19 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	defer srv.Close()
 
 	env := runner.context.HookVars(runner.paths)
-	result, err := utilexec.RunCommands(
-		utilexec.RunParams{
-			Commands:    commands,
-			WorkingDir:  runner.paths.GetCharmDir(),
-			Environment: env})
+	command := utilexec.RunParams{
+		Commands:    commands,
+		WorkingDir:  runner.paths.GetCharmDir(),
+		Environment: env,
+	}
+	err = command.Run()
+	if err != nil {
+		return nil, err
+	}
+	runner.context.SetProcess(command.Process())
+
+	// Block and wait for process to finish
+	result, err := command.Wait()
 	return result, runner.context.FlushContext("run commands", err)
 }
 
@@ -145,7 +155,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()
 	if err != nil {
-		return fmt.Errorf("cannot make logging pipe: %v", err)
+		return errors.Errorf("cannot make logging pipe: %v", err)
 	}
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
@@ -158,17 +168,20 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	err = ps.Start()
 	outWriter.Close()
 	if err == nil {
+		// Record the *os.Process of the hook
+		runner.context.SetProcess(ps.Process)
+		// Block until execution finishes
 		err = ps.Wait()
 	}
 	hookLogger.stop()
-	return err
+	return errors.Trace(err)
 }
 
 func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		if ctxId != runner.context.Id() {
-			return nil, fmt.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
+			return nil, errors.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
 		}
 		return jujuc.NewCommand(runner.context, cmdName)
 	}

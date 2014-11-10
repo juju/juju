@@ -239,6 +239,7 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		c.Assert(err, gc.IsNil)
 	}
 	printf("#!/bin/bash")
+	printf("echo $$ > pid")
 	if spec.stdout != "" {
 		printf("echo %s", spec.stdout)
 	}
