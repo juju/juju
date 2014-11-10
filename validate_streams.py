@@ -162,7 +162,7 @@ def parse_args(args=None):
     parser = ArgumentParser("Compare old and new stream data.")
     parser.add_argument(
         '-v', '--verbose', action="store_true", default=False,
-        help='Increse verbosity.')
+        help='Increase verbosity.')
     parser.add_argument(
         '-r', '--removed', default=None, help='The release version removed')
     parser.add_argument(
