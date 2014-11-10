@@ -318,7 +318,15 @@ def deploy_job():
                         action='append', default=[])
     parser.add_argument('--agent-url', default=None,
                         help='URL to use for retrieving agent binaries.')
+    parser.add_argument('--verbose', '-v', action="store_true", default=False,
+                        help='Increase logging verbosity.')
     args = parser.parse_args()
+    log_level = logging.INFO
+    if args.verbose:
+        log_level = logging.DEBUG
+    logging.basicConfig(
+        level=log_level, format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S')
     if not args.run_startup:
         juju_path = args.new_juju_bin
     else:
@@ -363,9 +371,6 @@ def update_env(env, new_env_name, series=None, bootstrap_host=None,
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 bootstrap_host, machines, series, log_dir, debug, agent_url):
-    logging.basicConfig(
-        level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S')
     bootstrap_id = None
     created_machines = False
     running_domains = dict()
