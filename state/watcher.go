@@ -1660,7 +1660,7 @@ func (w *idPrefixWatcher) Changes() <-chan []string {
 // responding to Changes requests
 func (w *idPrefixWatcher) loop() error {
 	var (
-		changes set.Strings
+		changes []string
 		in      = (<-chan watcher.Change)(w.source)
 		out     = (chan<- []string)(w.sink)
 	)
@@ -1668,11 +1668,10 @@ func (w *idPrefixWatcher) loop() error {
 	w.st.watcher.WatchCollectionWithFilter(w.targetC, w.source, w.filterFn)
 	defer w.st.watcher.UnwatchCollection(w.targetC, w.source)
 
-	initial, err := w.initial()
+	changes, err := w.initial()
 	if err != nil {
 		return err
 	}
-	changes = initial
 
 	for {
 		select {
@@ -1685,16 +1684,16 @@ func (w *idPrefixWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := mergeIds(w.st, changes, initial, updates); err != nil {
+			if err := mergeIds(w.st, &changes, updates); err != nil {
 				return err
 			}
-			if !changes.IsEmpty() {
+			if len(changes) > 0 {
 				out = w.sink
 			} else {
 				out = nil
 			}
-		case out <- changes.Values():
-			changes = set.NewStrings()
+		case out <- changes:
+			changes = []string{}
 			out = nil
 		}
 	}
@@ -1729,9 +1728,9 @@ func makeIdFilter(st *State, marker string, receivers ...ActionReceiver) func(in
 }
 
 // initial pre-loads the id's that have already been added to the
-// collection that would not normally trigger the watcher
-func (w *idPrefixWatcher) initial() (set.Strings, error) {
-	var ids set.Strings
+// collection that would otherwise not normally trigger the watcher
+func (w *idPrefixWatcher) initial() ([]string, error) {
+	var ids []string
 	var doc struct {
 		DocId string `bson:"_id"`
 	}
@@ -1740,7 +1739,7 @@ func (w *idPrefixWatcher) initial() (set.Strings, error) {
 	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filterFn == nil || w.filterFn(doc.DocId) {
-			ids.Add(w.st.localID(doc.DocId))
+			ids = append(ids, w.st.localID(doc.DocId))
 		}
 	}
 	return ids, iter.Close()
@@ -1748,28 +1747,42 @@ func (w *idPrefixWatcher) initial() (set.Strings, error) {
 
 // mergeIds is used for merging actionId's and actionResultId's that
 // come in via the updates map. It cleans up the pending changes to
-// account for id's being removed before the watcher consumes them, and
-// to account for the slight potential overlap between the inital id's
-// pending before the watcher starts, and the id's the watcher detects.
-// Additionally, mergeIds strips the environment UUID prefix from the
-// id before emitting it through the watcher.
-func mergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
-	for id, exists := range updates {
+// account for id's being removed before the watcher consumes them,
+// and to account for the potential overlap between the id's that were
+// pending before the watcher started, and the new id's detected by the
+// watcher.
+// Additionally, mergeIds strips the environment UUID prefix from the id
+// before emitting it through the watcher.
+func mergeIds(st *State, changes *[]string, updates map[interface{}]bool) error {
+	for id, idExists := range updates {
 		switch id := id.(type) {
 		case string:
 			localId := st.localID(id)
-			if exists {
-				if !initial.Contains(localId) {
-					changes.Add(localId)
+			chIx, idAlreadyInChangeset := indexOf(localId, *changes)
+			if idExists {
+				if !idAlreadyInChangeset {
+					*changes = append(*changes, localId)
 				}
 			} else {
-				changes.Remove(localId)
+				if idAlreadyInChangeset {
+					// remove id from changes
+					*changes = append([]string(*changes)[:chIx], []string(*changes)[chIx+1:]...)
+				}
 			}
 		default:
 			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 	return nil
+}
+
+func indexOf(find string, in []string) (int, bool) {
+	for ix, cur := range in {
+		if cur == find {
+			return ix, true
+		}
+	}
+	return -1, false
 }
 
 // ensureSuffixFn returns a function that will make sure the passed in

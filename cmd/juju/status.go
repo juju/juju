@@ -10,6 +10,8 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
@@ -113,6 +115,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		}
 		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
+	} else if status == nil {
+		return errors.Errorf("unable to obtain the current status")
 	}
 
 	result := newStatusFormatter(status).format()

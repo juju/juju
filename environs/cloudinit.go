@@ -159,6 +159,13 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 		return err
 	}
 
+	if isStateMachineConfig(mcfg) {
+		// Add NUMACTL preference. Needed to work for both bootstrap and high availability
+		// Only makes sense for state server
+		logger.Debugf("Setting numa ctl preference to %q", cfg.NumaCtlPreference())
+		// Unfortunately, AgentEnvironment can only take strings as values
+		mcfg.AgentEnvironment[agent.NumaCtlPreference] = fmt.Sprintf("%v", cfg.NumaCtlPreference())
+	}
 	// The following settings are only appropriate at bootstrap time. At the
 	// moment, the only state server is the bootstrap node, but this
 	// will probably change.
@@ -198,6 +205,18 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 	}
 
 	return nil
+}
+
+// isStateMachineConfig determines if given machine configuration
+// is for State Server by iterating over machine's jobs.
+// If JobManageEnviron is present, this is a state server.
+func isStateMachineConfig(mcfg *cloudinit.MachineConfig) bool {
+	for _, aJob := range mcfg.Jobs {
+		if aJob == params.JobManageEnviron {
+			return true
+		}
+	}
+	return false
 }
 
 func configureCloudinit(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) (cloudinit.UserdataConfig, error) {

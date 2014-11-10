@@ -30,12 +30,12 @@ func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
 func validAttrs() coretesting.Attrs {
 	return coretesting.FakeConfig().Merge(coretesting.Attrs{
 		"type":             "joyent",
-		"sdc-user":         "juju-test",
+		"sdc-user":         "test",
 		"sdc-key-id":       "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"sdc-url":          "https://test.api.joyentcloud.com",
-		"manta-user":       "juju-test",
+		"sdc-url":          "test://test.api.joyentcloud.com",
+		"manta-user":       "test",
 		"manta-key-id":     "00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff",
-		"manta-url":        "https://test.manta.joyent.com",
+		"manta-url":        "test://test.manta.joyent.com",
 		"private-key-path": "~/.ssh/provider_id_rsa",
 		"algorithm":        "rsa-sha256",
 		"control-dir":      "juju-test",
@@ -61,6 +61,8 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
 	s.privateKeyData = generatePrivateKey(c)
+	jp.RegisterMachinesEndpoint()
+	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
 }
 
 func generatePrivateKey(c *gc.C) string {
@@ -135,15 +137,15 @@ var newConfigTests = []struct {
 	},
 }, {
 	info:   "sdc-url is inserted if missing",
-	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "sdc-url cannot be empty",
 	insert: coretesting.Attrs{"sdc-url": ""},
 	err:    ".* cannot get sdc-url value from environment variable .*",
 }, {
 	info:   "sdc-url is untouched if present",
-	insert: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
-	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "manta-user is required",
 	remove: []string{"manta-user"},
@@ -190,15 +192,15 @@ var newConfigTests = []struct {
 	},
 }, {
 	info:   "manta-url is inserted if missing",
-	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "manta-url cannot be empty",
 	insert: coretesting.Attrs{"manta-url": ""},
 	err:    ".* cannot get manta-url value from environment variable .*",
 }, {
 	info:   "manta-url is untouched if present",
-	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "private-key-path is inserted if missing",
 	remove: []string{"private-key-path"},
@@ -275,8 +277,8 @@ var changeConfigTests = []struct {
 	expect: coretesting.Attrs{"sdc-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can change sdc-url",
-	insert: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
-	expect: coretesting.Attrs{"sdc-url": "https://test.api.joyentcloud.com"},
+	insert: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
+	expect: coretesting.Attrs{"sdc-url": "test://test.api.joyentcloud.com"},
 }, {
 	info:   "can change manta-user",
 	insert: coretesting.Attrs{"manta-user": "manta_user"},
@@ -287,8 +289,8 @@ var changeConfigTests = []struct {
 	expect: coretesting.Attrs{"manta-key-id": "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00"},
 }, {
 	info:   "can change manta-url",
-	insert: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
-	expect: coretesting.Attrs{"manta-url": "https://test.manta.joyent.com"},
+	insert: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
+	expect: coretesting.Attrs{"manta-url": "test://test.manta.joyent.com"},
 }, {
 	info:   "can insert unknown field",
 	insert: coretesting.Attrs{"unknown": "ignoti"},

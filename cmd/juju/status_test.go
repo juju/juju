@@ -2430,6 +2430,34 @@ func (s *StatusSuite) TestStatusWithFormatTabular(c *gc.C) {
 	)
 }
 
+func (s *StatusSuite) TestStatusWithNilStatusApi(c *gc.C) {
+	ctx := s.newContext(c)
+	defer s.resetContext(c, ctx)
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", state.StatusStarted, ""},
+	}
+
+	for _, s := range steps {
+		s.step(c, ctx)
+	}
+
+	client := fakeApiClient{}
+	var status = client.Status
+	s.PatchValue(&status, func(_ []string) (*api.Status, error) {
+		return nil, nil
+	})
+	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
+		return &client, nil
+	})
+
+	code, _, stderr := runStatus(c, "--format", "tabular")
+	c.Check(code, gc.Equals, 1)
+	c.Check(string(stderr), gc.Equals, "error: unable to obtain the current status\n")
+}
+
 //
 // Filtering Feature
 //
