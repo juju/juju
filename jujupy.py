@@ -6,6 +6,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from cStringIO import StringIO
 import errno
+import logging
 import os
 import re
 import subprocess
@@ -193,7 +194,11 @@ class EnvJujuClient:
         env = self._shell_environ()
         with tempfile.TemporaryFile() as stderr:
             try:
-                return subprocess.check_output(args, stderr=stderr, env=env)
+                logging.debug(args)
+                sub_output = subprocess.check_output(args, stderr=stderr,
+                                                     env=env)
+                logging.debug(sub_output)
+                return sub_output
             except subprocess.CalledProcessError as e:
                 stderr.seek(0)
                 e.stderr = stderr.read()
