@@ -15,7 +15,6 @@ import (
 
 var (
 	MergeEnvironment  = mergeEnvironment
-	HookVars          = hookVars
 	SearchHook        = searchHook
 	HookCommand       = hookCommand
 	LookPath          = lookPath
@@ -53,27 +52,13 @@ func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	}
 }
 
-func (c *HookContext) ActionResultsMap() map[string]interface{} {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ResultsMap
-}
-
-func (c *HookContext) ActionFailed() bool {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ActionFailed
-}
-
 func (c *HookContext) EnvInfo() (name, uuid string) {
 	return c.envName, c.uuid
 }
 
 func GetStubActionContext(in map[string]interface{}) *HookContext {
 	return &HookContext{
-		actionData: &actionData{
+		actionData: &ActionData{
 			ResultsMap: in,
 		},
 	}
@@ -93,12 +78,9 @@ func NewHookContext(
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
 	metrics *charm.Metrics,
-	actionData interface{},
+	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
-	if actionData != nil {
-		return nil, errors.Errorf("OH FFS")
-	}
 	ctx := &HookContext{
 		unit:               unit,
 		state:              state,
@@ -114,6 +96,7 @@ func NewHookContext(
 		proxySettings:      proxySettings,
 		canAddMetrics:      canAddMetrics,
 		definedMetrics:     metrics,
+		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
 	}

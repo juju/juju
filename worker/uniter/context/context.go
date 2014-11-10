@@ -6,6 +6,7 @@ package context
 import (
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,7 +58,7 @@ type HookContext struct {
 
 	// actionData contains the values relevant to the run of an Action:
 	// its tag, its parameters, and its results.
-	actionData *actionData
+	actionData *ActionData
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -237,7 +238,7 @@ func (ctx *HookContext) ActionName() (string, error) {
 // ActionParams simply returns the arguments to the Action.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
-		return nil, fmt.Errorf("not running an action")
+		return nil, errors.New("not running an action")
 	}
 	return ctx.actionData.ActionParams, nil
 }
@@ -245,25 +246,16 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 // SetActionMessage sets a message for the Action, usually an error message.
 func (ctx *HookContext) SetActionMessage(message string) error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("not running an action")
+		return errors.New("not running an action")
 	}
 	ctx.actionData.ResultsMessage = message
 	return nil
 }
 
-// ActionMessage returns any message set for the action. It exists purely to allow
-// us to factor HookContext into its own package, and may not be necessary at all.
-func (ctx *HookContext) ActionMessage() (string, error) {
-	if ctx.actionData == nil {
-		return "", fmt.Errorf("not running an action")
-	}
-	return ctx.actionData.ResultsMessage, nil
-}
-
 // SetActionFailed sets the fail state of the action.
 func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("not running an action")
+		return errors.New("not running an action")
 	}
 	ctx.actionData.ActionFailed = true
 	return nil
@@ -275,7 +267,7 @@ func (ctx *HookContext) SetActionFailed() error {
 // Action-containing HookContext.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	if ctx.actionData == nil {
-		return fmt.Errorf("not running an action")
+		return errors.New("not running an action")
 	}
 	addValueToMap(keys, value, ctx.actionData.ResultsMap)
 	return nil
@@ -305,7 +297,7 @@ func (ctx *HookContext) RelationIds() []int {
 // AddMetrics adds metrics to the hook context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	if !ctx.canAddMetrics || ctx.definedMetrics == nil {
-		return fmt.Errorf("metrics disabled")
+		return errors.New("metrics disabled")
 	}
 	err := ctx.definedMetrics.ValidateMetric(key, value)
 	if err != nil {
@@ -313,6 +305,45 @@ func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	}
 	ctx.metrics = append(ctx.metrics, jujuc.Metric{key, value, created})
 	return nil
+}
+
+// ActionData returns the context's internal action data. It's meant to be
+// transitory; it exists to allow uniter and runner code to keep working as
+// it did; it should be considered deprecated, and not used by new clients.
+func (c *HookContext) ActionData() (*ActionData, error) {
+	if c.actionData == nil {
+		return nil, errors.New("not running an action")
+	}
+	return c.actionData, nil
+}
+
+// HookVars returns an os.Environ-style list of strings necessary to run a hook
+// such that it can know what environment it's operating in, and can call back
+// into context.
+func (context *HookContext) HookVars(paths Paths) []string {
+	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
+	// JUJU_ACTION_UUID, ...
+	vars := context.proxySettings.AsEnvironmentValues()
+	vars = append(vars,
+		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
+		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
+		"JUJU_CONTEXT_ID="+context.id,
+		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
+		"JUJU_UNIT_NAME="+context.unitName,
+		"JUJU_ENV_UUID="+context.uuid,
+		"JUJU_ENV_NAME="+context.envName,
+		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
+		"JUJU_METER_STATUS="+context.meterStatus.code,
+		"JUJU_METER_INFO="+context.meterStatus.info,
+	)
+	if r, found := context.HookRelation(); found {
+		vars = append(vars,
+			"JUJU_RELATION="+r.Name(),
+			"JUJU_RELATION_ID="+r.FakeId(),
+			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
+		)
+	}
+	return append(vars, osDependentEnvVars(paths)...)
 }
 
 func (ctx *HookContext) handleReboot(err *error) {
@@ -336,7 +367,7 @@ func (ctx *HookContext) handleReboot(err *error) {
 	}
 }
 
-func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error) {
+func (ctx *HookContext) FlushContext(process string, ctxErr error) (err error) {
 	writeChanges := ctxErr == nil
 
 	// In the case of Actions, handle any errors using finalizeAction.
@@ -358,7 +389,7 @@ func (ctx *HookContext) finalizeContext(process string, ctxErr error) (err error
 	for id, rctx := range ctx.relations {
 		if writeChanges {
 			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
+				e = errors.Errorf(
 					"could not write settings from %q to relation %d: %v",
 					process, id, e,
 				)

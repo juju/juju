@@ -472,12 +472,12 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return errors.Trace(err)
 	}
-	message, err := hctx.ActionMessage()
+	actionData, err := hctx.ActionData()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Infof(message)
-	return errors.Trace(u.commitHook(hi))
+	logger.Infof(actionData.ResultsMessage)
+	return u.commitHook(hi)
 }
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If

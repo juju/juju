@@ -106,8 +106,8 @@ func (s *FactorySuite) AssertCoreContext(c *gc.C, ctx *context.HookContext) {
 }
 
 func (s *FactorySuite) AssertNotActionContext(c *gc.C, ctx *context.HookContext) {
-	name, err := ctx.ActionName()
-	c.Assert(name, gc.Equals, "")
+	actionData, err := ctx.ActionData()
+	c.Assert(actionData, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "not running an action")
 }
 
