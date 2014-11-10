@@ -6,6 +6,7 @@ package config_test
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -341,6 +342,22 @@ var configTests = []configTest{
 			"type": "my-type",
 			"name": "my-name",
 			"disable-network-management": true,
+		},
+	}, {
+		about:       "set-numa-control-policy on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": true,
+		},
+	}, {
+		about:       "set-numa-control-policy off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"set-numa-control-policy": false,
 		},
 	}, {
 		about:       "Invalid prefer-ipv6 flag",
@@ -1263,6 +1280,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
+	attrs["set-numa-control-policy"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1453,6 +1471,51 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
 	c.Assert(err, gc.ErrorMatches, `known: expected int, got string\("this"\)`)
+}
+
+type testAttr struct {
+	message string
+	aKey    string
+	aValue  string
+	checker gc.Checker
+}
+
+var emptyAttributeTests = []testAttr{
+	{
+		message: "Warning message about unknown attribute (%v) is expected because attribute value exists",
+		aKey:    "unknown",
+		aValue:  "unknown value",
+		checker: gc.Matches,
+	}, {
+		message: "Warning message about unknown attribute (%v) is unexpected because attribute value is empty",
+		aKey:    "unknown-empty",
+		aValue:  "",
+		checker: gc.Not(gc.Matches),
+	},
+}
+
+func (s *ConfigSuite) TestValidateUnknownEmptyAttr(c *gc.C) {
+	s.addJujuFiles(c)
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
+		"name": "myenv",
+		"type": "other",
+	})
+	c.Assert(err, gc.IsNil)
+	warningTxt := `.* unknown config field %q.*`
+
+	for i, test := range emptyAttributeTests {
+		c.Logf("test %d: %v\n", i, fmt.Sprintf(test.message, test.aKey))
+		testCfg, err := cfg.Apply(map[string]interface{}{test.aKey: test.aValue})
+		c.Assert(err, gc.IsNil)
+		attrs, err := testCfg.ValidateUnknownAttrs(nil, nil)
+		c.Assert(err, gc.IsNil)
+		// all attrs passed through
+		c.Assert(attrs, gc.DeepEquals, map[string]interface{}{test.aKey: test.aValue})
+		expectedWarning := fmt.Sprintf(warningTxt, test.aKey)
+		logOutputText := strings.Replace(c.GetTestLog(), "\n", "", -1)
+		// warning displayed or not based on test expectation
+		c.Assert(logOutputText, test.checker, expectedWarning, gc.Commentf(test.message, test.aKey))
+	}
 }
 
 func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {

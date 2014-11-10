@@ -50,7 +50,7 @@ type Backups interface {
 
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
-	Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
+	Create(paths files.Paths, dbInfo db.Info, origin metadata.Origin, notes string) (*metadata.Metadata, error)
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*metadata.Metadata, io.ReadCloser, error)
 	// List returns the metadata for all stored backups.
@@ -74,7 +74,7 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *backups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
+func (b *backups) Create(paths files.Paths, dbInfo db.Info, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
 
 	// Prep the metadata.
 	meta := metadata.NewMetadata(origin, notes, nil)
@@ -93,7 +93,10 @@ func (b *backups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.
 	if err != nil {
 		return nil, errors.Annotate(err, "while listing files to back up")
 	}
-	dumper := getDBDumper(dbInfo)
+	dumper, err := getDBDumper(dbInfo)
+	if err != nil {
+		return nil, errors.Annotate(err, "while preparing for DB dump")
+	}
 	args := createArgs{filesToBackUp, dumper, metadataFile}
 	result, err := runCreate(&args)
 	if err != nil {

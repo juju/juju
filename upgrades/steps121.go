@@ -89,6 +89,20 @@ func stepsFor121() []Step {
 			},
 		},
 		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all charm docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToCharms(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all minUnit docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToMinUnits(context.State())
+			},
+		},
+		&upgradeStep{
 			description: "prepend the environment UUID to the ID of all cleanup docs",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
@@ -100,6 +114,20 @@ func stepsFor121() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return state.AddEnvUUIDToSequences(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all settings docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToSettings(context.State())
+			},
+		},
+		&upgradeStep{
+			description: "prepend the environment UUID to the ID of all settingsRefs docs",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return state.AddEnvUUIDToSettingsRefs(context.State())
 			},
 		},
 

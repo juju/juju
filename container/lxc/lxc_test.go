@@ -13,6 +13,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -28,6 +29,7 @@ import (
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -245,6 +247,45 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	location, err := symlink.Read(expectedLinkLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(location, gc.Equals, expectedTarget)
+}
+
+func (s *LxcSuite) TestCreateContainerFailsWithInjectedError(c *gc.C) {
+	errorChannel := make(chan error, 1)
+	cleanup := mock.PatchTransientErrorInjectionChannel(errorChannel)
+	defer cleanup()
+
+	// One injected error means the container creation will fail
+	// but the destroy function will clean up the remaining container
+	// resulting in a RetryableCreationError
+	errorChannel <- errors.New("start error")
+
+	manager := s.makeManager(c, "test")
+	_, err := containertesting.CreateContainerTest(c, manager, "1/lxc/0")
+	c.Assert(err, gc.NotNil)
+
+	// this should be a retryable error
+	isRetryable := instance.IsRetryableCreationError(errors.Cause(err))
+	c.Assert(isRetryable, jc.IsTrue)
+}
+
+func (s *LxcSuite) TestCreateContainerWithInjectedErrorDestroyFails(c *gc.C) {
+	errorChannel := make(chan error, 2)
+	cleanup := mock.PatchTransientErrorInjectionChannel(errorChannel)
+	defer cleanup()
+
+	// Two injected errors mean that the container creation and subsequent
+	// destroy will fail. This should not result in a RetryableCreationError
+	// as the container was left in an error state
+	errorChannel <- errors.New("create error")
+	errorChannel <- errors.New("destroy error")
+
+	manager := s.makeManager(c, "test")
+	_, err := containertesting.CreateContainerTest(c, manager, "1/lxc/0")
+	c.Assert(err, gc.NotNil)
+
+	// this should not be a retryable error
+	isRetryable := instance.IsRetryableCreationError(errors.Cause(err))
+	c.Assert(isRetryable, jc.IsFalse)
 }
 
 func (s *LxcSuite) ensureTemplateStopped(name string) <-chan struct{} {

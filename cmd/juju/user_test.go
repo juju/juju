@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/names"
@@ -85,10 +87,11 @@ func (s *UserSuite) TestUserEnable(c *gc.C) {
 func (s *UserSuite) TestUserList(c *gc.C) {
 	ctx, err := s.RunUserCommand(c, "list")
 	c.Assert(err, gc.IsNil)
-	expected := `
-NAME         DISPLAY NAME  DATE CREATED  LAST CONNECTION
-dummy-admin  dummy-admin   just now      just now
+	periodPattern := `(just now|\d+ \S+ ago)`
+	expected := fmt.Sprintf(`
+NAME\s+DISPLAY NAME\s+DATE CREATED\s+LAST CONNECTION
+dummy-admin\s+dummy-admin\s+%s\s+%s
 
-`[1:]
-	c.Assert(testing.Stdout(ctx), gc.Equals, expected)
+`[1:], periodPattern, periodPattern)
+	c.Assert(testing.Stdout(ctx), gc.Matches, expected)
 }

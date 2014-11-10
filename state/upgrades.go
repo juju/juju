@@ -459,7 +459,7 @@ func AddCharmStoragePaths(st *State, storagePaths map[*charm.URL]string) error {
 		upgradesLogger.Debugf("adding storage path %q to %s", storagePath, curl)
 		op := txn.Op{
 			C:      charmsC,
-			Id:     curl.String(),
+			Id:     st.docID(curl.String()),
 			Assert: txn.DocExists,
 			Update: bson.D{
 				{"$set", bson.D{{"storagepath", storagePath}}},
@@ -581,6 +581,18 @@ func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
 }
 
+// AddEnvUUIDToCharms prepends the environment UUID to the ID of
+// all charm docs and adds new "env-uuid" field.
+func AddEnvUUIDToCharms(st *State) error {
+	return addEnvUUIDToEntityCollection(st, charmsC, "url")
+}
+
+// AddEnvUUIDToMinUnits prepends the environment UUID to the ID of
+// all minUnits docs and adds new "env-uuid" field.
+func AddEnvUUIDToMinUnits(st *State) error {
+	return addEnvUUIDToEntityCollection(st, minUnitsC, "servicename")
+}
+
 // AddEnvUUIDToSequences prepends the environment UUID to the ID of
 // all sequence docs and adds new "env-uuid" field.
 func AddEnvUUIDToSequences(st *State) error {
@@ -609,6 +621,18 @@ func AddEnvUUIDToInstanceData(st *State) error {
 // all cleanup docs and adds new "env-uuid" field.
 func AddEnvUUIDToCleanups(st *State) error {
 	return addEnvUUIDToEntityCollection(st, cleanupsC, "")
+}
+
+// AddEnvUUIDToSettings prepends the environment UUID to the ID of
+// all settings docs and adds new "env-uuid" field.
+func AddEnvUUIDToSettings(st *State) error {
+	return addEnvUUIDToEntityCollection(st, settingsC, "")
+}
+
+// AddEnvUUIDToSettingsRefs prepends the environment UUID to the ID of
+// all settingRef docs and adds new "env-uuid" field.
+func AddEnvUUIDToSettingsRefs(st *State) error {
+	return addEnvUUIDToEntityCollection(st, settingsrefsC, "")
 }
 
 // AddEnvUUIDToRelations prepends the environment UUID to the ID of

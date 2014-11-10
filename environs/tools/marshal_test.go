@@ -40,7 +40,7 @@ func (s *marshalSuite) TestLargeNumber(c *gc.C) {
 	}
 	_, products, err := tools.MarshalToolsMetadataJSON(metadata, time.Now())
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(products[tools.ProductMetadataPath("released")]), jc.Contains, `"size": 9223372036854775807`)
+	c.Assert(string(products["released"]), jc.Contains, `"size": 9223372036854775807`)
 }
 
 var expectedIndex = `{
@@ -253,8 +253,8 @@ func (s *marshalSuite) TestMarshalProducts(c *gc.C) {
 
 func assertProducts(c *gc.C, obtainedProducts map[string][]byte) {
 	c.Assert(obtainedProducts, gc.HasLen, 2)
-	c.Assert(string(obtainedProducts["streams/v1/com.ubuntu.juju:released:tools.json"]), gc.Equals, expectedReleasedProducts)
-	c.Assert(string(obtainedProducts["streams/v1/com.ubuntu.juju:proposed:tools.json"]), gc.Equals, expectedProposedProducts)
+	c.Assert(string(obtainedProducts["released"]), gc.Equals, expectedReleasedProducts)
+	c.Assert(string(obtainedProducts["proposed"]), gc.Equals, expectedProposedProducts)
 }
 
 func (s *marshalSuite) TestMarshal(c *gc.C) {

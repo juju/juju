@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/context"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -175,7 +176,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err = u.setupLocks(); err != nil {
 		return err
 	}
-	if err := EnsureJujucSymlinks(u.paths.ToolsDir); err != nil {
+	if err := jujuc.EnsureSymlinks(u.paths.ToolsDir); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(u.paths.State.RelationsDir, 0755); err != nil {
@@ -204,7 +205,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		return err
 	}
 
-	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos)
+	u.contextFactory, err = context.NewFactory(u.st, unitTag, u.getRelationInfos, u.getCharm)
 	if err != nil {
 		return err
 	}
@@ -358,6 +359,14 @@ func (u *Uniter) getRelationInfos() map[int]*context.RelationInfo {
 	return relationInfos
 }
 
+func (u *Uniter) getCharm() (corecharm.Charm, error) {
+	ch, err := corecharm.ReadCharm(u.paths.State.CharmDir)
+	if err != nil {
+		return nil, err
+	}
+	return ch, nil
+}
+
 func (u *Uniter) acquireHookLock(message string) (err error) {
 	// We want to make sure we don't block forever when locking, but take the
 	// tomb into account.
@@ -392,6 +401,14 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	result, err := context.NewRunner(hctx, u.paths).RunCommands(commands)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
+	}
+	switch err {
+	case context.ErrRequeueAndReboot:
+		logger.Warningf("not requeueing anything. Command run via juju-run.")
+		fallthrough
+	case context.ErrReboot:
+		u.tomb.Kill(worker.ErrRebootMachine)
+		err = nil
 	}
 	return result, err
 }
@@ -447,6 +464,13 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	tag := names.NewActionTag(hi.ActionId)
 	action, err := u.st.Action(tag)
 	if err != nil {
+		if perr, ok := err.(*params.Error); ok {
+			if perr.Code == params.CodeNotFound {
+				logger.Infof("action '%s' not found, skipping", tag)
+				return nil
+			}
+		}
+		logger.Errorf("error retrieving action '%s': '%v' (%T)", tag, err, err)
 		return err
 	}
 
@@ -488,9 +512,9 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 	if err != nil {
 		err = errors.Annotatef(err, "action %q had unexpected failure", actionName)
 		logger.Errorf("action failed: %s", err.Error())
-		u.notifyHookFailed(actionName, hctx)
 		return err
 	}
+
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}
@@ -499,7 +523,6 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof(message)
-	u.notifyHookCompleted(actionName, hctx)
 	return u.commitHook(hi)
 }
 
@@ -543,13 +566,29 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 
 	ranHook := true
 	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
-	if context.IsMissingHookError(err) {
+
+	switch {
+	case context.IsMissingHookError(err):
 		ranHook = false
-	} else if err != nil {
-		logger.Errorf("hook %q failed: %s", hookName, err)
+	case err == context.ErrRequeueAndReboot:
+		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, &hi, nil); stErr != nil {
+			logger.Errorf("failed to requeue hook: %v", stErr)
+		}
+		return worker.ErrRebootMachine
+	case err == context.ErrReboot:
+		// Reboot after hook. We want to commit the running hook
+		defer func() {
+			if err != nil {
+				logger.Errorf("error while preparing for reboot: %v", err)
+			}
+			err = worker.ErrRebootMachine
+		}()
+	case err != nil:
+		logger.Errorf("hook %q failed: %v", hookName, err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
+
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}

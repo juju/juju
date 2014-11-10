@@ -45,6 +45,14 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 	}
 }
 
+// ContainerAndBridge returns the "container" and "network-bridge"
+// settings as seen by the local provider.
+func ContainerAndBridge(c *gc.C, cfg *config.Config) (string, string) {
+	localConfig, err := providerInstance.newConfig(cfg)
+	c.Assert(err, gc.IsNil)
+	return string(localConfig.container()), localConfig.networkBridge()
+}
+
 // MockAddressForInterface replaces the getAddressForInterface with a function
 // that returns a constant localhost ip address.
 func MockAddressForInterface() func() {

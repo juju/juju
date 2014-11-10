@@ -13,13 +13,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -185,7 +185,7 @@ func (s *upgradesSuite) TestAddEnvironmentUUIDToStateServerDocIdempotent(c *gc.C
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePaths(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -303,6 +303,29 @@ func (s *upgradesSuite) TestAddEnvUUIDToMachinesIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMachines, machinesC)
 }
 
+func (s *upgradesSuite) TestAddEnvUUIDToMinUnits(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToMinUnits, minUnitsC,
+		bson.M{
+			"_id":   "wordpress",
+			"revno": 1,
+		},
+		bson.M{
+			"_id":   "mediawiki",
+			"revno": 2,
+		},
+	)
+	defer closer()
+
+	var newDoc minUnitsDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.ServiceName, gc.Equals, "wordpress")
+	c.Assert(newDoc.Revno, gc.Equals, 1)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.ServiceName, gc.Equals, "mediawiki")
+	c.Assert(newDoc.Revno, gc.Equals, 2)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToCleanups(c *gc.C) {
 	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToCleanups, cleanupsC,
 		bson.M{
@@ -326,8 +349,83 @@ func (s *upgradesSuite) TestAddEnvUUIDToCleanups(c *gc.C) {
 	c.Assert(string(newDoc.Kind), gc.Equals, "service")
 }
 
+func (s *upgradesSuite) checkAddEnvUUIDToCleanups(
+	c *gc.C,
+	upgradeStep func(*State) error,
+	collName string,
+	oldDocs ...bson.M,
+) (*mgo.Collection, func(), []string) {
+	coll, closer, ids, count := s.checkEnvUUID(c, bson.NewObjectId(), upgradeStep, collName, oldDocs)
+	c.Assert(count, gc.Equals, len(oldDocs))
+	return coll, closer, ids
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToMinUnitsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToMinUnits, minUnitsC)
+}
+
 func (s *upgradesSuite) TestAddEnvUUIDToCleanupsIdempotent(c *gc.C) {
-	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToCleanups, cleanupsC)
+	oldID := bson.NewObjectId()
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToCleanups, cleanupsC)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettingsRefs(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToSettingsRefs, settingsrefsC,
+		bson.M{
+			"_id":      "something",
+			"refcount": 3,
+		},
+		bson.M{
+			"_id":      "config",
+			"refcount": 8,
+		},
+	)
+	defer closer()
+
+	var newDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc["refcount"], gc.Equals, 3)
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc["refcount"], gc.Equals, 8)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettingsRefsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToSettingsRefs, settingsrefsC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettings(c *gc.C) {
+	oldID := "foo"
+	coll, closer, newIDs, count := s.checkEnvUUID(c, oldID, AddEnvUUIDToSettings, settingsC,
+		[]bson.M{
+			{
+				"_id":  "something",
+				"key2": "value2",
+			},
+			{
+				"_id":  "config",
+				"key3": "value3",
+			}},
+	)
+	defer closer()
+	c.Assert(count, gc.Equals, 3)
+
+	var newDoc bson.M
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc["key2"], gc.Equals, "value2")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc["key3"], gc.Equals, "value3")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToSettingsIdempotent(c *gc.C) {
+	oldID := "foo"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, AddEnvUUIDToSettings, settingsC)
+	c.Assert(docs, gc.HasLen, 2)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint("e")))
+	c.Assert(docs[1]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
@@ -351,6 +449,33 @@ func (s *upgradesSuite) TestAddEnvUUIDToReboots(c *gc.C) {
 
 func (s *upgradesSuite) TestAddEnvUUIDToRebootsIdempotent(c *gc.C) {
 	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToReboots, rebootC)
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToCharms(c *gc.C) {
+	coll, closer, newIDs := s.checkAddEnvUUIDToCollection(c, AddEnvUUIDToCharms, charmsC,
+		bson.M{
+			"_id":          "local:series/dummy-1",
+			"bundlesha256": "series-dummy-1-sha256",
+		},
+		bson.M{
+			"_id":          "local:anotherseries/dummy-2",
+			"bundlesha256": "anotherseries-dummy-2-sha256",
+		},
+	)
+	defer closer()
+
+	var newDoc charmDoc
+	s.FindId(c, coll, newIDs[0], &newDoc)
+	c.Assert(newDoc.URL.String(), gc.Equals, "local:series/dummy-1")
+	c.Assert(newDoc.BundleSha256, gc.Equals, "series-dummy-1-sha256")
+
+	s.FindId(c, coll, newIDs[1], &newDoc)
+	c.Assert(newDoc.URL.String(), gc.Equals, "local:anotherseries/dummy-2")
+	c.Assert(newDoc.BundleSha256, gc.Equals, "anotherseries-dummy-2-sha256")
+}
+
+func (s *upgradesSuite) TestAddEnvUUIDToCharmsIdempotent(c *gc.C) {
+	s.checkAddEnvUUIDToCollectionIdempotent(c, AddEnvUUIDToCharms, charmsC)
 }
 
 func (s *upgradesSuite) TestAddEnvUUIDToSequences(c *gc.C) {
@@ -494,6 +619,19 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	collName string,
 	oldDocs ...bson.M,
 ) (*mgo.Collection, func(), []string) {
+	oldID := "foo"
+	coll, closer, ids, count := s.checkEnvUUID(c, oldID, upgradeStep, collName, oldDocs)
+	c.Assert(count, gc.Equals, len(oldDocs))
+	return coll, closer, ids
+}
+
+func (s *upgradesSuite) checkEnvUUID(
+	c *gc.C,
+	oldID interface{},
+	upgradeStep func(*State) error,
+	collName string,
+	oldDocs []bson.M,
+) (*mgo.Collection, func(), []string, int) {
 	c.Assert(len(oldDocs) >= 2, jc.IsTrue)
 	for _, oldDoc := range oldDocs {
 		s.addLegacyDoc(c, collName, oldDoc)
@@ -523,9 +661,7 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollection(
 	}
 	count, err := coll.Find(nil).Count()
 	c.Assert(err, gc.IsNil)
-	c.Assert(count, gc.Equals, len(oldDocs))
-
-	return coll, closer, ids
+	return coll, closer, ids, count
 }
 
 func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
@@ -533,13 +669,18 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 	upgradeStep func(*State) error,
 	collName string,
 ) {
-	var oldID interface{}
-	if collName == cleanupsC {
-		oldID = bson.NewObjectId()
-	} else {
-		oldID = "foo"
-	}
+	oldID := "foo"
+	docs := s.checkEnvUUIDIdempotent(c, oldID, upgradeStep, collName)
+	c.Assert(docs, gc.HasLen, 1)
+	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+}
 
+func (s *upgradesSuite) checkEnvUUIDIdempotent(
+	c *gc.C,
+	oldID interface{},
+	upgradeStep func(*State) error,
+	collName string,
+) (docs []map[string]string) {
 	s.addLegacyDoc(c, collName, bson.M{"_id": oldID})
 
 	err := upgradeStep(s.state)
@@ -550,11 +691,9 @@ func (s *upgradesSuite) checkAddEnvUUIDToCollectionIdempotent(
 
 	coll, closer := s.state.getCollection(collName)
 	defer closer()
-	var docs []map[string]string
 	err = coll.Find(nil).All(&docs)
 	c.Assert(err, gc.IsNil)
-	c.Assert(docs, gc.HasLen, 1)
-	c.Assert(docs[0]["_id"], gc.Equals, s.state.docID(fmt.Sprint(oldID)))
+	return docs
 }
 
 func (s *upgradesSuite) addLegacyDoc(c *gc.C, collName string, legacyDoc bson.M) {
@@ -574,7 +713,7 @@ func (s *upgradesSuite) FindId(c *gc.C, coll *mgo.Collection, id interface{}, do
 }
 
 func (s *upgradesSuite) TestAddCharmStoragePathsAllOrNothing(c *gc.C) {
-	ch := charmtesting.Charms.CharmDir("dummy")
+	ch := testcharms.Repo.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

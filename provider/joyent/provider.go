@@ -7,6 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joyent/gocommon/client"
+	joyenterrors "github.com/joyent/gocommon/errors"
+	"github.com/joyent/gosdc/cloudapi"
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/loggo"
 
@@ -35,7 +38,43 @@ func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config)
 	if err != nil {
 		return nil, err
 	}
-	return providerInstance.Open(preparedCfg)
+	e, err := providerInstance.Open(preparedCfg)
+	if err != nil {
+		return nil, err
+	}
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(e.(*joyentEnviron)); err != nil {
+			return nil, err
+		}
+	}
+	return e, nil
+}
+
+const unauthorisedMessage = `
+Please ensure the Manta username and SSH access key you have
+specified are correct. You can create or import an SSH key via
+the "Account Summary" page in the Joyent console.`
+
+// verifyCredentials issues a cheap, non-modifying request to Joyent to
+// verify the configured credentials. If verification fails, a user-friendly
+// error will be returned, and the original error will be logged at debug
+// level.
+var verifyCredentials = func(e *joyentEnviron) error {
+	creds, err := credentials(e.Ecfg())
+	if err != nil {
+		return err
+	}
+	httpClient := client.NewClient(e.Ecfg().sdcUrl(), cloudapi.DefaultAPIVersion, creds, nil)
+	apiClient := cloudapi.New(httpClient)
+	_, err = apiClient.CountMachines()
+	if err != nil {
+		logger.Debugf("joyent request failed: %v", err)
+		if joyenterrors.IsInvalidCredentials(err) || joyenterrors.IsNotAuthorized(err) {
+			return errors.New("authentication failed.\n" + unauthorisedMessage)
+		}
+		return err
+	}
+	return nil
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {

@@ -100,8 +100,7 @@ func MarshalToolsMetadataProductsJSON(
 				cloud.Products[id] = catalog
 			}
 		}
-		productPath := ProductMetadataPath(stream)
-		if out[productPath], err = json.MarshalIndent(&cloud, "", "    "); err != nil {
+		if out[stream], err = json.MarshalIndent(&cloud, "", "    "); err != nil {
 			return nil, err
 		}
 	}

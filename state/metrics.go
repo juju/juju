@@ -244,7 +244,7 @@ func (m *MetricBatch) Metrics() []Metric {
 
 // SetSent sets the sent flag to true
 func (m *MetricBatch) SetSent() error {
-	ops := setSentOps([]*MetricBatch{m})
+	ops := setSentOps([]string{m.UUID()})
 	if err := m.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent for metric %q", m.UUID())
 	}
@@ -253,12 +253,12 @@ func (m *MetricBatch) SetSent() error {
 	return nil
 }
 
-func setSentOps(metrics []*MetricBatch) []txn.Op {
-	ops := make([]txn.Op, len(metrics))
-	for i, m := range metrics {
+func setSentOps(batchUUIDs []string) []txn.Op {
+	ops := make([]txn.Op, len(batchUUIDs))
+	for i, u := range batchUUIDs {
 		ops[i] = txn.Op{
 			C:      metricsC,
-			Id:     m.UUID(),
+			Id:     u,
 			Assert: txn.DocExists,
 			Update: bson.M{"$set": bson.M{"sent": true}},
 		}
@@ -266,14 +266,11 @@ func setSentOps(metrics []*MetricBatch) []txn.Op {
 	return ops
 }
 
-// SetMetricBatchesSent sets sent on each MetricBatch in the slice provided.
-func (st *State) SetMetricBatchesSent(metrics []*MetricBatch) error {
-	ops := setSentOps(metrics)
+// SetMetricBatchesSent sets sent on each MetricBatch corresponding to the uuids provided.
+func (st *State) SetMetricBatchesSent(batchUUIDs []string) error {
+	ops := setSentOps(batchUUIDs)
 	if err := st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot set metric sent in bulk call")
-	}
-	for _, m := range metrics {
-		m.doc.Sent = true
 	}
 	return nil
 }
