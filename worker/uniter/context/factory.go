@@ -199,17 +199,18 @@ func (f *factory) newId(name string) string {
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *factory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
-		unit:           f.unit,
-		state:          f.state,
-		uuid:           f.envUUID,
-		envName:        f.envName,
-		unitName:       f.unit.Name(),
-		serviceOwner:   f.ownerTag,
-		relations:      f.getContextRelations(),
-		relationId:     -1,
-		canAddMetrics:  false,
-		definedMetrics: nil,
-		pendingPorts:   make(map[PortRange]PortRangeInfo),
+		unit:               f.unit,
+		state:              f.state,
+		uuid:               f.envUUID,
+		envName:            f.envName,
+		unitName:           f.unit.Name(),
+		assignedMachineTag: f.machineTag,
+		serviceOwner:       f.ownerTag,
+		relations:          f.getContextRelations(),
+		relationId:         -1,
+		canAddMetrics:      false,
+		definedMetrics:     nil,
+		pendingPorts:       make(map[PortRange]PortRangeInfo),
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
