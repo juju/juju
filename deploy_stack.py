@@ -463,10 +463,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
 
 
 def get_machine_dns_name(client, machine):
-    if client.env.kvm:
-        timeout = 1200
-    else:
-        timeout = 600
+    timeout = 600
     for remaining in until_timeout(timeout):
         bootstrap = client.get_status(
             timeout=timeout).status['machines'][str(machine)]
