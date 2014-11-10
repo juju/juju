@@ -915,11 +915,6 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	// TODO(axw) 2014-05-13 #1319016
-	// Nodes that have been removed out of band will cause
-	// the release call to fail. We should parse the error
-	// returned from MAAS and retry, or otherwise request
-	// an enhancement to MAAS to ignore unknown node IDs.
 	nodes := environ.getMAASClient().GetSubObject("nodes")
 	err := ReleaseNodes(nodes, getSystemIdValues("nodes", ids))
 	if err != nil {
