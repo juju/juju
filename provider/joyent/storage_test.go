@@ -36,6 +36,8 @@ var _ = gc.Suite(&storageSuite{})
 func (s *storageSuite) SetUpSuite(c *gc.C) {
 	s.providerSuite.SetUpSuite(c)
 	s.localMantaServer.setupServer(c)
+	jp.RegisterMachinesEndpoint()
+	s.AddSuiteCleanup(func(*gc.C) { jp.UnregisterMachinesEndpoint() })
 }
 
 func (s *storageSuite) TearDownSuite(c *gc.C) {
@@ -45,7 +47,7 @@ func (s *storageSuite) TearDownSuite(c *gc.C) {
 
 // makeStorage creates a Manta storage object for the running test.
 func (s *storageSuite) makeStorage(name string, c *gc.C) *jp.JoyentStorage {
-	stor := joyent.MakeStorage(c, GetFakeConfig("localhost", s.localMantaServer.Server.URL))
+	stor := joyent.MakeStorage(c, GetFakeConfig("test://test.api.joyentcloud.com", s.localMantaServer.Server.URL))
 	return stor.(*jp.JoyentStorage)
 }
 

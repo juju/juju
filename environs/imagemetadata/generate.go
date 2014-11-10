@@ -18,7 +18,7 @@ import (
 
 // IndexStoragePath returns the storage path for the image metadata index file.
 func IndexStoragePath() string {
-	return path.Join(storage.BaseImagesPath, simplestreams.UnsignedIndex(currentStreamsVersion))
+	return path.Join(storage.BaseImagesPath, simplestreams.UnsignedIndex(currentStreamsVersion, IndexFileVersion))
 }
 
 // ProductMetadataStoragePath returns the storage path for the image metadata products file.

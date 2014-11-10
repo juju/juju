@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -887,11 +889,63 @@ func (s *metadataHelperSuite) TestReadWriteMetadataUnchanged(c *gc.C) {
 	s.PatchValue(tools.WriteMetadataFiles, func(stor storage.Storage, metadataInfo []tools.MetadataFile) error {
 		// The product data is the same, we only write the index.
 		c.Assert(metadataInfo, gc.HasLen, 1)
-		c.Assert(metadataInfo[0].Path, gc.Equals, "streams/v1/index.json")
+		c.Assert(metadataInfo[0].Path, gc.Equals, "streams/v1/index2.json")
 		return nil
 	})
 	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
+}
+
+func (*metadataHelperSuite) TestReadMetadataPrefersNewIndex(c *gc.C) {
+	metadataDir := c.MkDir()
+
+	// Generate metadata and rename index to index.json
+	metadata := map[string][]*tools.ToolsMetadata{
+		"proposed": []*tools.ToolsMetadata{{
+			Release: "precise",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path1",
+		}},
+		"released": []*tools.ToolsMetadata{{
+			Release: "trusty",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path1",
+		}},
+	}
+	stor, err := filestorage.NewFileStorageWriter(metadataDir)
+	c.Assert(err, gc.IsNil)
+	err = tools.WriteMetadata(stor, metadata, []string{"proposed", "released"}, tools.DoNotWriteMirrors)
+	c.Assert(err, gc.IsNil)
+	err = os.Rename(
+		filepath.Join(metadataDir, "tools", "streams", "v1", "index2.json"),
+		filepath.Join(metadataDir, "tools", "streams", "v1", "index.json"),
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Generate different metadata with index2.json
+	metadata = map[string][]*tools.ToolsMetadata{
+		"released": []*tools.ToolsMetadata{{
+			Release: "precise",
+			Version: "1.2.3",
+			Arch:    "amd64",
+			Path:    "path1",
+		}},
+	}
+	err = tools.WriteMetadata(stor, metadata, []string{"released"}, tools.DoNotWriteMirrors)
+	c.Assert(err, gc.IsNil)
+
+	// Read back all metadata, expecting to find metadata in index2.json.
+	out, err := tools.ReadAllMetadata(stor)
+	for _, outMetadata := range out {
+		for _, md := range outMetadata {
+			// FullPath is set by ReadAllMetadata.
+			c.Assert(md.FullPath, gc.Not(gc.Equals), "")
+			md.FullPath = ""
+		}
+	}
+	c.Assert(out, jc.DeepEquals, metadata)
 }
 
 type signedSuite struct {

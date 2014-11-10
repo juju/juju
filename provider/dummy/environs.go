@@ -59,6 +59,8 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.dummy")
 
+var transientErrorInjection chan error
+
 const (
 	BootstrapInstanceId = instance.Id("localhost")
 )
@@ -86,6 +88,16 @@ func SampleConfig() testing.Attrs {
 		"state-server": true,
 		"prefer-ipv6":  true,
 	}
+}
+
+// PatchTransientErrorInjectionChannel sets the transientInjectionError
+// channel which can be used to inject errors into StartInstance for
+// testing purposes
+// The injected errors will use the string received on the channel
+// and the instance's state will eventually go to error, while the
+// received string will appear in the info field of the machine's status
+func PatchTransientErrorInjectionChannel(c chan error) func() {
+	return gitjujutesting.PatchValue(&transientErrorInjection, c)
 }
 
 // AdminUserTag returns the user tag used to bootstrap the dummy environment.
@@ -811,6 +823,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
+
+	// check if an error has been injected on the transientErrorInjection channel (testing purposes)
+	select {
+	case injectedError := <-transientErrorInjection:
+		return nil, nil, nil, injectedError
+	default:
+	}
+
 	if args.MachineConfig.MachineNonce == "" {
 		return nil, nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}

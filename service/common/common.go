@@ -19,6 +19,7 @@ type Conf struct {
 	// InitDir is the folder in which the init/upstart script should be written
 	// defaults to "/etc/init" on Ubuntu
 	// Currently not used on Windows
-
 	InitDir string
+	// ExtraScript allows to insert script before command execution
+	ExtraScript string
 }

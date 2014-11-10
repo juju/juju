@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -464,7 +465,33 @@ var azConstrainedErr = &amzec2.Error{
 	Message: "The requested Availability Zone is currently constrained etc.",
 }
 
+var azInsufficientInstanceCapacityErr = &amzec2.Error{
+	Code: "InsufficientInstanceCapacity",
+	Message: "We currently do not have sufficient m1.small capacity in the " +
+		"Availability Zone you requested (us-east-1d). Our system will " +
+		"be working on provisioning additional capacity. You can currently get m1.small " +
+		"capacity by not specifying an Availability Zone in your request or choosing " +
+		"us-east-1c, us-east-1a.",
+}
+
+var azNoDefaultSubnetErr = &amzec2.Error{
+	Code:    "InvalidInput",
+	Message: "No default subnet for availability zone: ''us-east-1e''.",
+}
+
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllInsufficientInstanceCapacity(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllNoDefaultSubnet(c *gc.C) {
+	t.testStartInstanceAvailZoneAllConstrained(c, azNoDefaultSubnetErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneAllConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -479,14 +506,30 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	var azArgs []string
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
-		return nil, azConstrainedErr
+		return nil, runInstancesError
 	})
 	_, _, _, err = testing.StartInstance(env, "1")
-	c.Assert(err, gc.ErrorMatches, `cannot run instances: The requested Availability Zone is currently constrained etc\. \(Unsupported\)`)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
+		"cannot run instances: %s \\(%s\\)",
+		regexp.QuoteMeta(runInstancesError.Message),
+		runInstancesError.Code,
+	))
 	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
 }
 
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azConstrainedErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneInsufficientInstanceCapacity(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azInsufficientInstanceCapacityErr)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneNoDefaultSubnetErr(c *gc.C) {
+	t.testStartInstanceAvailZoneOneConstrained(c, azNoDefaultSubnetErr)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZoneOneConstrained(c *gc.C, runInstancesError *amzec2.Error) {
 	env := t.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -505,7 +548,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
 		azArgs = append(azArgs, ri.AvailZone)
 		if len(azArgs) == 1 {
-			return nil, azConstrainedErr
+			return nil, runInstancesError
 		}
 		return realRunInstances(e, ri)
 	})
@@ -525,14 +568,6 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
 	expected := []network.Address{{
-		Value: "*.testing.invalid",
-		Type:  network.HostName,
-		Scope: network.ScopePublic,
-	}, {
-		Value: "*.internal.invalid",
-		Type:  network.HostName,
-		Scope: network.ScopeCloudLocal,
-	}, {
 		Value: "8.0.0.*",
 		Type:  network.IPv4Address,
 		Scope: network.ScopePublic,
@@ -660,6 +695,85 @@ func (t *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	env := t.Prepare(c)
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
+}
+
+func (t *localServerSuite) TestAllocateAddressFailureToFindNetworkInterface(c *gc.C) {
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+
+	instId := instanceIds[0]
+	addr := network.Address{Value: "8.0.0.4"}
+
+	// Invalid instance found
+	err = env.AllocateAddress(instId+"foo", "", addr)
+	c.Assert(err, gc.ErrorMatches, ".*InvalidInstanceID.NotFound.*")
+
+	// No network interface
+	err = env.AllocateAddress(instId, "", addr)
+	c.Assert(err, gc.ErrorMatches, "unexpected AWS response: network interface not found")
+}
+
+func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Environ, instance.Id) {
+	// setting a default-vpc will create a network interface
+	t.srv.ec2srv.SetInitialAttributes(map[string][]string{
+		"default-vpc": []string{"vpc-xxxxxxx"},
+	})
+	env := t.Prepare(c)
+	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	instanceIds, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	return env, instanceIds[0]
+}
+
+func (t *localServerSuite) TestAllocateAddress(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	var actualAddr network.Address
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		actualAddr = addr
+		return nil
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(err, gc.IsNil)
+	c.Assert(actualAddr, gc.Equals, addr)
+}
+
+func (t *localServerSuite) TestAllocateAddressIPAddressInUseOrEmpty(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		return &amzec2.Error{Code: "InvalidParameterValue"}
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+
+	err = env.AllocateAddress(instId, "", network.Address{})
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressUnavailable)
+}
+
+func (t *localServerSuite) TestAllocateAddressNetworkInterfaceFull(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+
+	addr := network.Address{Value: "8.0.0.4"}
+	mockAssign := func(ec2Inst *amzec2.EC2, netId string, addr network.Address) error {
+		return &amzec2.Error{Code: "PrivateIpAddressLimitExceeded"}
+	}
+	t.PatchValue(&ec2.AssignPrivateIPAddress, mockAssign)
+
+	err := env.AllocateAddress(instId, "", addr)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrIPAddressesExhausted)
 }
 
 func (t *localServerSuite) TestSupportAddressAllocationTrue(c *gc.C) {

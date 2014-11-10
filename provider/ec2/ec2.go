@@ -34,9 +34,13 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
-const none = "none"
+const (
+	none                        = "none"
+	invalidParameterValue       = "InvalidParameterValue"
+	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
+)
 
-// Use shortAttempt to poll for short-term events.
+// Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
@@ -49,6 +53,7 @@ func init() {
 type environProvider struct{}
 
 var providerInstance environProvider
+var AssignPrivateIPAddress = assignPrivateIPAddress
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
@@ -80,16 +85,21 @@ var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
 
+type defaultVpc struct {
+	hasDefaultVpc bool
+	id            network.Id
+}
+
+func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
+	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
+	return err
+}
+
 type ec2Instance struct {
 	e *environ
 
 	mu sync.Mutex
 	*ec2.Instance
-}
-
-type defaultVpc struct {
-	hasDefaultVpc bool
-	id            network.Id
 }
 
 func (inst *ec2Instance) String() string {
@@ -137,27 +147,8 @@ func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
 func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
 	instInstance := inst.getInstance()
-	if instInstance.DNSName == "" {
-		// Fetch the instance information again, in case
-		// the DNS information has become available.
-		var err error
-		instInstance, err = inst.refresh()
-		if err != nil {
-			return nil, err
-		}
-	}
 	var addresses []network.Address
 	possibleAddresses := []network.Address{
-		{
-			Value: instInstance.DNSName,
-			Type:  network.HostName,
-			Scope: network.ScopePublic,
-		},
-		{
-			Value: instInstance.PrivateDNSName,
-			Type:  network.HostName,
-			Scope: network.ScopeCloudLocal,
-		},
 		{
 			Value: instInstance.IPAddress,
 			Type:  network.IPv4Address,
@@ -949,8 +940,53 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("AllocateAddress")
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+
+	var err error
+	var instancesResp *ec2.InstancesResp
+	for a := shortAttempt.Start(); a.Next(); {
+		instancesResp, err = ec2Inst.Instances([]string{string(instId)}, nil)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		// either the instance doesn't exist or we couldn't get through to
+		// the ec2 api
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+	}
+
+	if len(instancesResp.Reservations) == 0 {
+		return errors.New("unexpected AWS response: instance not found")
+	}
+	if len(instancesResp.Reservations[0].Instances) == 0 {
+		return errors.New("unexpected AWS response: reservation not found")
+	}
+	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
+		return errors.New("unexpected AWS response: network interface not found")
+	}
+	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
+	for a := shortAttempt.Start(); a.Next(); {
+		err = AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
+		if err == nil {
+			break
+		}
+		if ec2Err, ok := err.(*ec2.Error); ok {
+			if ec2Err.Code == invalidParameterValue {
+				// Note: this Code is also used if we specify
+				// an IP address outside the subnet. Take care!
+				return environs.ErrIPAddressUnavailable
+			} else if ec2Err.Code == privateAddressLimitExceeded {
+				return environs.ErrIPAddressesExhausted
+			}
+		}
+
+	}
+	if err != nil {
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+	}
+	return nil
 }
 
 // ListNetworks returns basic information about all networks known
@@ -1374,15 +1410,24 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 
 // isZoneConstrainedError reports whether or not the error indicates
 // RunInstances failed due to the specified availability zone being
-// constrained for the instance type being provisioned.
+// constrained for the instance type being provisioned, or is
+// otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
-	ec2err, ok := err.(*ec2.Error)
-	if ok && ec2err.Code == "Unsupported" {
-		// A big hammer, but we've now seen two different error messages
-		// for constrained zones, and who knows how many more there might
-		// be. If the message contains "Availability Zone", it's a fair
-		// bet that it's constrained or otherwise unusable.
-		return strings.Contains(ec2err.Message, "Availability Zone")
+	switch err := err.(type) {
+	case *ec2.Error:
+		switch err.Code {
+		case "Unsupported", "InsufficientInstanceCapacity":
+			// A big hammer, but we've now seen several different error messages
+			// for constrained zones, and who knows how many more there might
+			// be. If the message contains "Availability Zone", it's a fair
+			// bet that it's constrained or otherwise unusable.
+			return strings.Contains(err.Message, "Availability Zone")
+		case "InvalidInput":
+			// If the region has a default VPC, then we will receive an error
+			// if the AZ does not have a default subnet. Until we have proper
+			// support for networks, we'll skip over these.
+			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+		}
 	}
 	return false
 }

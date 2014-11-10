@@ -359,7 +359,8 @@ func (c *backingConstraints) mongoId() interface{} {
 type backingSettings map[string]interface{}
 
 func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	parentId, url, ok := backingEntityIdForSettingsKey(id.(string))
+	localID := st.localID(id.(string))
+	parentId, url, ok := backingEntityIdForSettingsKey(localID)
 	if !ok {
 		return nil
 	}

@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -95,11 +96,11 @@ func makeExpectedOutput(templ, stream, toolsDir string) string {
 }
 
 var expectedOutputDirectoryTemplate = expectedOutputCommon + `
-.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju:{{.Stream}}:tools\.json
 `
 var expectedOutputMirrorsTemplate = expectedOutputCommon + `
-.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju:{{.Stream}}:tools\.json
 .*Writing tools/streams/v1/mirrors\.json
 `
@@ -203,6 +204,47 @@ func (s *ToolsMetadataSuite) TestGenerateMultipleStreams(c *gc.C) {
 	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
+func (s *ToolsMetadataSuite) TestGenerateDeleteExisting(c *gc.C) {
+	metadataDir := c.MkDir()
+	toolstesting.MakeTools(c, metadataDir, "proposed", versionStrings)
+	toolstesting.MakeTools(c, metadataDir, "released", currentVersionStrings)
+
+	ctx := coretesting.Context(c)
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "proposed"})
+	c.Assert(code, gc.Equals, 0)
+	code = cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "released"})
+	c.Assert(code, gc.Equals, 0)
+
+	// Remove existing proposed tarballs, and create some different ones.
+	err := os.RemoveAll(filepath.Join(metadataDir, "tools", "proposed"))
+	c.Assert(err, gc.IsNil)
+	toolstesting.MakeTools(c, metadataDir, "proposed", currentVersionStrings)
+
+	// Generate proposed metadata again, using --clean.
+	code = cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir, "--stream", "proposed", "--clean"})
+	c.Assert(code, gc.Equals, 0)
+
+	// Proposed metadata should just list the tarballs that were there, not the merged set.
+	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, "proposed", false)
+	c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	obtainedVersionStrings := make([]string, len(currentVersionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, currentVersionStrings)
+
+	// Released metadata should be untouched.
+	metadata = toolstesting.ParseMetadataFromDir(c, metadataDir, "released", false)
+	c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	obtainedVersionStrings = make([]string, len(currentVersionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, currentVersionStrings)
+}
+
 func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	// Write tools and metadata to the public tools location.
 	toolstesting.MakeToolsWithCheckSum(c, s.publicStorageDir, "released", versionStrings)
@@ -267,7 +309,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 Finding tools in .*
 .*Fetching tools from dir "released" to generate hash: %s
 .*Fetching tools from dir "released" to generate hash: %s
-.*Writing tools/streams/v1/index\.json
+.*Writing tools/streams/v1/index2\.json
 .*Writing tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)

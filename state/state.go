@@ -368,7 +368,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     environGlobalKey,
+				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
 				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 			},
@@ -568,7 +568,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		// This is required to allow loading of machines before the
 		// environment UUID migration has been applied to the machines
 		// collection. Without this, a machine agent can't come up to
-		// run the database migration..
+		// run the database migration.
 		if mdoc.Id == "" {
 			mdoc.Id = mdoc.DocID
 		}
@@ -1180,9 +1180,11 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      settingsrefsC,
-			Id:     svc.settingsKey(),
+			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		},
 		{
 			C:      servicesC,
@@ -1393,7 +1395,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		}
 		for _, ep1 := range eps1 {
 			for _, ep2 := range eps2 {
-				if ep1.CanRelateTo(ep2) {
+				if ep1.CanRelateTo(ep2) && containerScopeOk(st, ep1, ep2) {
 					candidates = append(candidates, []Endpoint{ep1, ep2})
 				}
 			}
@@ -1436,6 +1438,23 @@ func isPeer(ep Endpoint) bool {
 
 func notPeer(ep Endpoint) bool {
 	return ep.Role != charm.RolePeer
+}
+
+func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
+	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
+		return true
+	}
+	var subordinateCount int
+	for _, ep := range []Endpoint{ep1, ep2} {
+		svc, err := st.Service(ep.ServiceName)
+		if err != nil {
+			return false
+		}
+		if svc.doc.Subordinate {
+			subordinateCount++
+		}
+	}
+	return subordinateCount == 1
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1517,6 +1536,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
@@ -1526,6 +1546,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			} else if svc.doc.Life != Alive {
 				return nil, errors.Errorf("service %q is not alive", ep.ServiceName)
+			}
+			if svc.doc.Subordinate {
+				subordinateCount++
 			}
 			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
@@ -1545,6 +1568,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
+			return nil, errors.Errorf("container scoped relation requires one subordinate service")
+		}
+
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {

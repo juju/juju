@@ -165,7 +165,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	sort.Sort(itemChangeSlice(changes))
 	ops := []txn.Op{{
 		C:      settingsC,
-		Id:     c.key,
+		Id:     c.st.docID(c.key),
 		Assert: txn.DocExists,
 		Update: setUnsetUpdate(updates, deletions),
 	}}
@@ -188,9 +188,10 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanSettingsMap cleans the map of version and _id fields and also unescapes
-// keys coming out of MongoDB.
+// cleanSettingsMap cleans the map of version, env-uuid and _id fields and
+// also unescapes keys coming out of MongoDB.
 func cleanSettingsMap(in map[string]interface{}) {
+	delete(in, "env-uuid")
 	delete(in, "_id")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
@@ -246,8 +247,18 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	defer closer()
 
 	config := map[string]interface{}{}
-	err := settings.FindId(key).One(config)
-	if err != nil {
+
+	err := settings.FindId(st.docID(key)).One(config)
+
+	// This is required to allow loading of environ settings before the
+	// environment UUID migration has been applied to the settings collection.
+	// Without this, an agent's version cannot be read, blocking the upgrade.
+	if err == mgo.ErrNotFound && key == environGlobalKey {
+		err := settings.FindId(environGlobalKey).One(config)
+		if err != nil {
+			return nil, 0, err
+		}
+	} else if err != nil {
 		return nil, 0, err
 	}
 	txnRevno := config["txn-revno"].(int64)
@@ -268,9 +279,10 @@ var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
 	newValues := copyMap(values, escapeReplacer.Replace)
+	newValues["env-uuid"] = st.EnvironUUID()
 	return txn.Op{
 		C:      settingsC,
-		Id:     key,
+		Id:     st.docID(key),
 		Assert: txn.DocMissing,
 		Insert: newValues,
 	}
@@ -296,7 +308,7 @@ func removeSettings(st *State, key string) error {
 	settings, closer := st.getCollection(settingsC)
 	defer closer()
 
-	err := settings.RemoveId(key)
+	err := settings.RemoveId(st.docID(key))
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("settings")
 	}
@@ -334,7 +346,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 func (s *Settings) assertUnchangedOp() txn.Op {
 	return txn.Op{
 		C:      settingsC,
-		Id:     s.key,
+		Id:     s.st.docID(s.key),
 		Assert: bson.D{{"txn-revno", s.txnRevno}},
 	}
 }

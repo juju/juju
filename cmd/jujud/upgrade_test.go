@@ -581,7 +581,7 @@ func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 ) (error, *upgradeWorkerContext) {
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, []params.MachineJob{job})
-	s.setInstantRetryStrategy()
+	s.setInstantRetryStrategy(c)
 	return worker.Wait(), context
 }
 
@@ -635,8 +635,9 @@ func waitForUpgradeToStart(upgradeCh chan bool) bool {
 
 const maxUpgradeRetries = 3
 
-func (s *UpgradeSuite) setInstantRetryStrategy() {
+func (s *UpgradeSuite) setInstantRetryStrategy(c *gc.C) {
 	s.PatchValue(&getUpgradeRetryStrategy, func() utils.AttemptStrategy {
+		c.Logf("setting instant retry strategy for upgrade: retries=%d", maxUpgradeRetries)
 		return utils.AttemptStrategy{
 			Delay: 0,
 			Min:   maxUpgradeRetries,
