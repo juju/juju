@@ -29,6 +29,7 @@ var _ = gc.Suite(&FactorySuite{})
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.HookContextSuite.SetUpTest(c)
+	s.charm = nil
 	s.membership = map[int][]string{}
 	factory, err := context.NewFactory(
 		s.uniter,
@@ -302,25 +303,6 @@ func (s *FactorySuite) TestNewHookContextWithBadRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown relation id: 12345`)
 }
 
-func (s *FactorySuite) TestNewActionContext(c *gc.C) {
-	c.Fatalf("")
-}
-
-func (s *FactorySuite) TestNewActionContextBadCharm(c *gc.C) {
-	ctx, err := s.factory.NewActionContext("irrelevant")
-	c.Assert(ctx, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "charm not specified")
-	c.Assert(err, gc.Not(jc.Satisfies), context.IsBadActionError)
-}
-
-func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
-	c.Fatalf("")
-}
-
-func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
-	c.Fatalf("")
-}
-
 func (s *FactorySuite) TestNewHookContextMetricsDisabledHook(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "metered")
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
@@ -351,4 +333,58 @@ func (s *FactorySuite) TestNewHookContextMetricsEnabled(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ctx.AddMetric("pings", "0.5", time.Now())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *FactorySuite) TestNewActionContextBadCharm(c *gc.C) {
+	ctx, err := s.factory.NewActionContext("irrelevant")
+	c.Assert(ctx, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "charm not specified")
+	c.Assert(err, gc.Not(jc.Satisfies), context.IsBadActionError)
+}
+
+func (s *FactorySuite) TestNewActionContext(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
+		"outfile": "/some/file.bz2",
+	})
+	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Assert(err, gc.IsNil)
+	data, err := ctx.ActionData()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, jc.DeepEquals, &context.ActionData{
+		ActionName: "snapshot",
+		ActionTag:  action.ActionTag(),
+		ActionParams: map[string]interface{}{
+			"outfile": "/some/file.bz2",
+		},
+		ResultsMap: map[string]interface{}{},
+	})
+}
+
+func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("no-such-action", nil)
+	c.Assert(err, gc.IsNil) // this will fail when state is done right
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
+	c.Check(err, jc.Satisfies, context.IsBadActionError)
+}
+
+func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
+		"outfile": 123,
+	})
+	c.Assert(err, gc.IsNil) // this will fail when state is done right
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
+	c.Check(err, jc.Satisfies, context.IsBadActionError)
+
+	spec := s.charm.Actions().ActionSpecs["snapshot"]
+	params := map[string]interface{}{
+		"outfile": 123,
+	}
 }

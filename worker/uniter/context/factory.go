@@ -177,8 +177,7 @@ func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
 		return nil, &badActionError{name, "not defined"}
 	}
 	params := action.Params()
-	_, err = spec.ValidateParams(params)
-	if err != nil {
+	if _, err := spec.ValidateParams(params); err != nil {
 		return nil, &badActionError{name, err.Error()}
 	}
 
