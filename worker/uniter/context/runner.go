@@ -32,6 +32,16 @@ type Runner interface {
 	RunCommands(commands string) (*utilexec.ExecResponse, error)
 }
 
+// Context exposes jujuc.Context, and additional methods needed by Runner.
+type Context interface {
+	jujuc.Context
+	Id() string
+	HookVars(paths Paths) []string
+	ActionData() (*ActionData, error)
+	SetProcess(process *os.Process)
+	FlushContext(badge string, failure error) error
+}
+
 // Paths exposes the paths needed by Runner.
 type Paths interface {
 
@@ -50,13 +60,13 @@ type Paths interface {
 }
 
 // NewRunner returns a Runner backed by the supplied context and paths.
-func NewRunner(context *HookContext, paths Paths) Runner {
+func NewRunner(context Context, paths Paths) Runner {
 	return &runner{context, paths}
 }
 
 // runner implements Runner.
 type runner struct {
-	context *HookContext
+	context Context
 	paths   Paths
 }
 
@@ -68,7 +78,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	}
 	defer srv.Close()
 
-	env := hookVars(runner.context, runner.paths)
+	env := runner.context.HookVars(runner.paths)
 	command := utilexec.RunParams{
 		Commands:    commands,
 		WorkingDir:  runner.paths.GetCharmDir(),
@@ -82,18 +92,19 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 
 	// Block and wait for process to finish
 	result, err := command.Wait()
-	return result, runner.context.finalizeContext("run commands", err)
+	return result, runner.context.FlushContext("run commands", err)
 }
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
-	if runner.context.actionData == nil {
-		return fmt.Errorf("not running an action")
+	actionData, err := runner.context.ActionData()
+	if err != nil {
+		return err
 	}
 	// If the action had already failed (i.e. from invalid params), we
 	// just want to finalize without running it.
-	if runner.context.actionData.ActionFailed {
-		return runner.context.finalizeContext(actionName, nil)
+	if actionData.ActionFailed {
+		return runner.context.FlushContext(actionName, nil)
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")
 }
@@ -110,7 +121,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 	}
 	defer srv.Close()
 
-	env := hookVars(runner.context, runner.paths)
+	env := runner.context.HookVars(runner.paths)
 	if version.Current.OS == version.Windows {
 		// TODO(fwereade): somehow consolidate with utils/exec?
 		// We don't do this on the other code path, which uses exec.RunCommands,
@@ -118,14 +129,14 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string) e
 		env = mergeEnvironment(env)
 	}
 
-	debugctx := debug.NewHooksContext(runner.context.unit.Name())
+	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, runner.paths.GetCharmDir(), env)
 	} else {
 		err = runner.runCharmHook(hookName, env, charmLocation)
 	}
-	return runner.context.finalizeContext(hookName, err)
+	return runner.context.FlushContext(hookName, err)
 }
 
 func (runner *runner) runCharmHook(hookName string, env []string, charmLocation string) error {
@@ -144,7 +155,7 @@ func (runner *runner) runCharmHook(hookName string, env []string, charmLocation 
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()
 	if err != nil {
-		return fmt.Errorf("cannot make logging pipe: %v", err)
+		return errors.Errorf("cannot make logging pipe: %v", err)
 	}
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
@@ -170,7 +181,7 @@ func (runner *runner) startJujucServer() (*jujuc.Server, error) {
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		if ctxId != runner.context.Id() {
-			return nil, fmt.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
+			return nil, errors.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
 		}
 		return jujuc.NewCommand(runner.context, cmdName)
 	}

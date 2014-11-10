@@ -11,36 +11,6 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// hookVars returns an os.Environ-style list of strings necessary to run a hook
-// such that it can know what environment it's operating in, and can call back
-// into context.
-func hookVars(context *HookContext, paths Paths) []string {
-	// TODO(binary132): add Action env variables: JUJU_ACTION_NAME,
-	// JUJU_ACTION_UUID, ...
-	vars := context.proxySettings.AsEnvironmentValues()
-	vars = append(vars,
-		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
-		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
-		"JUJU_CONTEXT_ID="+context.id,
-		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
-		"JUJU_UNIT_NAME="+context.unitName,
-		"JUJU_ENV_UUID="+context.uuid,
-		"JUJU_ENV_NAME="+context.envName,
-		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
-		"JUJU_METER_STATUS="+context.meterStatus.code,
-		"JUJU_METER_INFO="+context.meterStatus.info,
-		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
-	)
-	if r, found := context.HookRelation(); found {
-		vars = append(vars,
-			"JUJU_RELATION="+r.Name(),
-			"JUJU_RELATION_ID="+r.FakeId(),
-			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
-		)
-	}
-	return append(vars, osDependentEnvVars(paths)...)
-}
-
 func osDependentEnvVars(paths Paths) []string {
 	switch version.Current.OS {
 	case version.Windows:
