@@ -2,7 +2,7 @@ __metaclass__ = type
 
 from argparse import Namespace
 from contextlib import contextmanager
-import os.path
+import os
 from StringIO import StringIO
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
@@ -15,6 +15,7 @@ from mock import (
 import yaml
 
 from industrial_test import (
+    BackupRestoreAttempt,
     BootstrapAttempt,
     DeployManyAttempt,
     DestroyEnvironmentAttempt,
@@ -25,10 +26,13 @@ from industrial_test import (
     parse_args,
     StageAttempt,
     )
+from jujuconfig import get_euca_env
 from jujupy import (
     EnvJujuClient,
     SimpleEnvironment,
     )
+from test_jujupy import assert_juju_call
+from test_substrate import get_aws_env
 
 
 @contextmanager
@@ -125,8 +129,9 @@ class TestMultiIndustrialTest(TestCase):
         self.assertEqual(mit.attempt_count, 6)
         self.assertEqual(mit.max_attempts, 12)
         self.assertEqual(
-            mit.stages, [BootstrapAttempt, DeployManyAttempt,
-                         EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
+            mit.stages, [
+                BootstrapAttempt, DeployManyAttempt, BackupRestoreAttempt,
+                EnsureAvailabilityAttempt, DestroyEnvironmentAttempt])
 
     def test_from_args_new_agent_url(self):
         args = Namespace(env='foo', new_juju_path='new-path', attempts=7,
@@ -431,19 +436,6 @@ class FakeEnvJujuClient(EnvJujuClient):
             return super(FakeEnvJujuClient, self).juju(*args, **kwargs)
 
 
-def assert_juju_call(test_case, mock_method, client, expected_args,
-                     call_index=None):
-    if call_index is None:
-        test_case.assertEqual(len(mock_method.mock_calls), 1)
-        call_index = 0
-    empty, args, kwargs = mock_method.mock_calls[call_index]
-    test_case.assertEqual(args, (expected_args,))
-    test_case.assertEqual(kwargs.keys(), ['env'])
-    bin_dir = os.path.dirname(client.full_path)
-    test_case.assertRegexpMatches(kwargs['env']['PATH'],
-                                  r'^{}\:'.format(bin_dir))
-
-
 class TestBootstrapAttempt(TestCase):
 
     def test_do_operation(self):
@@ -600,6 +592,55 @@ class TestDeployManyAttempt(TestCase):
                     Exception,
                     'Timed out waiting for agents to start in steve.'):
                 deploy_many._result(client)
+
+
+class TestBackupRestoreAttempt(TestCase):
+
+    def test__operation(self):
+        br_attempt = BackupRestoreAttempt()
+        client = FakeEnvJujuClient()
+        client.env = get_aws_env()
+        environ = dict(os.environ)
+        environ.update(get_euca_env(client.env.config))
+
+        def check_output(*args, **kwargs):
+            if args == (['juju', 'backup'],):
+                return 'juju-backup-24.tgz'
+            if args == (('juju', '--show-log', 'status', '-e', 'baz'),):
+                return yaml.safe_dump({
+                    'machines': {'0': {
+                        'instance-id': 'asdf',
+                        'dns-name': '128.100.100.128',
+                        }}
+                    })
+            self.assertEqual([], args)
+        with patch('subprocess.check_output',
+                   side_effect=check_output) as co_mock:
+            with patch('subprocess.check_call') as cc_mock:
+                with patch('sys.stdout'):
+                    br_attempt._operation(client)
+        assert_juju_call(self, co_mock, client, ['juju', 'backup'], 0)
+        self.assertEqual(
+            cc_mock.mock_calls[0],
+            call(['euca-terminate-instances', 'asdf'], env=environ))
+        assert_juju_call(
+            self, cc_mock, client, (
+                'juju', '--show-log', 'restore', '-e', 'baz',
+                os.path.abspath('juju-backup-24.tgz')), 1)
+
+    def test__result(self):
+        br_attempt = BackupRestoreAttempt()
+        client = FakeEnvJujuClient()
+        output = yaml.safe_dump({
+            'machines': {
+                '0': {'agent-state': 'started'},
+                },
+            'services': {},
+            })
+        with patch('subprocess.check_output', return_value=output) as co_mock:
+            br_attempt._result(client)
+        assert_juju_call(self, co_mock, client, (
+            'juju', '--show-log', 'status', '-e', 'steve'), assign_stderr=True)
 
 
 class TestMaybeWriteJson(TestCase):

@@ -6,6 +6,10 @@ import json
 import logging
 import sys
 
+from deploy_stack import (
+    get_machine_dns_name,
+    wait_for_state_server_to_shutdown,
+    )
 from jujuconfig import get_juju_home
 from jujupy import (
     EnvJujuClient,
@@ -13,6 +17,7 @@ from jujupy import (
     temp_bootstrap_env,
     uniquify_local,
     )
+from substrate import terminate_instances
 
 
 class MultiIndustrialTest:
@@ -30,7 +35,7 @@ class MultiIndustrialTest:
             stages = [BootstrapAttempt, DestroyEnvironmentAttempt]
         else:
             stages = [BootstrapAttempt, DeployManyAttempt,
-                      EnsureAvailabilityAttempt,
+                      BackupRestoreAttempt, EnsureAvailabilityAttempt,
                       DestroyEnvironmentAttempt]
         return cls(args.env, args.new_juju_path,
                    stages, args.attempts, args.attempts * 2,
@@ -275,6 +280,24 @@ class DeployManyAttempt(StageAttempt):
             for container in range(self.container_count):
                 service = 'ubuntu{}x{}'.format(machine_name, container)
                 client.juju('deploy', ('--to', target, 'ubuntu', service))
+
+    def _result(self, client):
+        client.wait_for_started()
+        return True
+
+
+class BackupRestoreAttempt(StageAttempt):
+
+    title = 'Back-up / restore'
+
+    def _operation(self, client):
+        backup_file = client.backup()
+        status = client.get_status()
+        instance_id = status.get_instance_id('0')
+        host = get_machine_dns_name(client, 0)
+        terminate_instances(client.env, [instance_id])
+        wait_for_state_server_to_shutdown(host, client, instance_id)
+        client.juju('restore', (backup_file,))
 
     def _result(self, client):
         client.wait_for_started()

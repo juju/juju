@@ -44,6 +44,23 @@ from utility import (
     )
 
 
+def assert_juju_call(test_case, mock_method, client, expected_args,
+                     call_index=None, assign_stderr=False):
+    if call_index is None:
+        test_case.assertEqual(len(mock_method.mock_calls), 1)
+        call_index = 0
+    empty, args, kwargs = mock_method.mock_calls[call_index]
+    test_case.assertEqual(args, (expected_args,))
+    kwarg_keys = ['env']
+    if assign_stderr:
+        kwarg_keys = ['stderr'] + kwarg_keys
+        test_case.assertEqual(type(kwargs['stderr']), file)
+    test_case.assertEqual(kwargs.keys(), kwarg_keys)
+    bin_dir = os.path.dirname(client.full_path)
+    test_case.assertRegexpMatches(kwargs['env']['PATH'],
+                                  r'^{}\:'.format(bin_dir))
+
+
 class TestErroredUnit(TestCase):
 
     def test_output(self):
@@ -517,6 +534,36 @@ class TestEnvJujuClient(TestCase):
             client.juju('foo', ('bar', 'baz'), check=False)
         self.assertRegexpMatches(call_mock.call_args[1]['env']['PATH'],
                                  r'/foobar\:')
+
+    def test_juju_backup(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output',
+                   return_value='foojuju-backup-24.tgzz') as co_mock:
+            with patch('sys.stdout'):
+                backup_file = client.backup()
+        self.assertEqual(backup_file, os.path.abspath('juju-backup-24.tgz'))
+        assert_juju_call(self, co_mock, client, ['juju', 'backup'])
+        self.assertEqual(co_mock.mock_calls[0][2]['env']['JUJU_ENV'], 'qux')
+
+    def test_juju_backup_no_file(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output', return_value=''):
+            with self.assertRaisesRegexp(
+                    Exception, 'The backup file was not found in output'):
+                with patch('sys.stdout'):
+                    client.backup()
+
+    def test_juju_backup_wrong_file(self):
+        env = SimpleEnvironment('qux')
+        client = EnvJujuClient(env, None, '/foobar/baz')
+        with patch('subprocess.check_output',
+                   return_value='mumu-backup-24.tgz'):
+            with self.assertRaisesRegexp(
+                    Exception, 'The backup file was not found in output'):
+                with patch('sys.stdout'):
+                    client.backup()
 
 
 class TestUniquifyLocal(TestCase):
@@ -1078,6 +1125,19 @@ class TestStatus(TestCase):
             })
         self.assertItemsEqual(new_status.iter_new_machines(old_status),
                               [('foo', 'foo_info')])
+
+    def test_get_instance_id(self):
+        status = Status({
+            'machines': {
+                '0': {'instance-id': 'foo-bar'},
+                '1': {},
+                }
+            })
+        self.assertEqual(status.get_instance_id('0'), 'foo-bar')
+        with self.assertRaises(KeyError):
+            status.get_instance_id('1')
+        with self.assertRaises(KeyError):
+            status.get_instance_id('2')
 
 
 def fast_timeout(count):
