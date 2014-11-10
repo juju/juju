@@ -311,41 +311,35 @@ func (c *upgradeWorkerContext) waitForOtherStateServers(info *state.UpgradeInfo)
 	}
 }
 
-// runUpgradeSteps runs the required upgrade steps, retrying on
-// failure. The agent's UpgradedToVersion is set once the upgrade is
-// complete.
+// runUpgradeSteps runs the required upgrade steps for the machine
+// agent, retrying on failure. The agent's UpgradedToVersion is set
+// once the upgrade is complete.
 //
 // This function conforms to the AgentConfigMutator type and is
 // designed to be called via a machine agent's ChangeConfig method.
 func (c *upgradeWorkerContext) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	var upgradeErr error
-
 	a := c.agent
+
 	a.setMachineStatus(c.apiState, params.StatusStarted,
 		fmt.Sprintf("upgrading to %v", c.toVersion))
 
 	context := upgrades.NewContext(agentConfig, c.apiState, c.st)
-	for _, job := range c.jobs {
-		target := upgradeTarget(job, c.isMaster)
-		if target == "" {
-			continue
-		}
-		logger.Infof("starting upgrade from %v to %v for %v %q",
-			c.fromVersion, c.toVersion, target, c.tag)
+	logger.Infof("starting upgrade from %v to %v for %q", c.fromVersion, c.toVersion, c.tag)
 
-		attempts := getUpgradeRetryStrategy()
-		for attempt := attempts.Start(); attempt.Next(); {
-			upgradeErr = upgradesPerformUpgrade(c.fromVersion, target, context)
-			if upgradeErr == nil {
-				break
-			}
-			if connectionIsDead(c.apiState) {
-				// API connection has gone away - abort!
-				return &apiLostDuringUpgrade{upgradeErr}
-			}
-			if attempt.HasNext() {
-				c.reportUpgradeFailure(upgradeErr, true)
-			}
+	targets := jobsToTargets(c.jobs, c.isMaster)
+	attempts := getUpgradeRetryStrategy()
+	for attempt := attempts.Start(); attempt.Next(); {
+		upgradeErr = upgradesPerformUpgrade(c.fromVersion, targets, context)
+		if upgradeErr == nil {
+			break
+		}
+		if connectionIsDead(c.apiState) {
+			// API connection has gone away - abort!
+			return &apiLostDuringUpgrade{upgradeErr}
+		}
+		if attempt.HasNext() {
+			c.reportUpgradeFailure(upgradeErr, true)
 		}
 	}
 	if upgradeErr != nil {
@@ -450,15 +444,21 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 	}
 }
 
-func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
-	switch job {
-	case params.JobManageEnviron:
-		if isMaster {
-			return upgrades.DatabaseMaster
+// jobsToTargets determines the upgrade targets corresponding to the
+// jobs assigned to a machine agent. This determines the upgrade steps
+// which will run during an upgrade.
+func jobsToTargets(jobs []params.MachineJob, isMaster bool) (targets []upgrades.Target) {
+	for _, job := range jobs {
+		switch job {
+		case params.JobManageEnviron:
+			if isMaster {
+				targets = append(targets, upgrades.DatabaseMaster)
+			} else {
+				targets = append(targets, upgrades.StateServer)
+			}
+		case params.JobHostUnits:
+			targets = append(targets, upgrades.HostMachine)
 		}
-		return upgrades.StateServer
-	case params.JobHostUnits:
-		return upgrades.HostMachine
 	}
-	return ""
+	return
 }
