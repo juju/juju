@@ -148,18 +148,12 @@ func runUpgradeSteps(ops *opsIterator, targets []Target, context Context) error 
 func targetsMatch(machineTargets []Target, stepTargets []Target) bool {
 	for _, machineTarget := range machineTargets {
 		for _, stepTarget := range stepTargets {
-			if targetsCompatible(machineTarget, stepTarget) {
+			if machineTarget == stepTarget || stepTarget == AllMachines {
 				return true
 			}
 		}
 	}
 	return false
-}
-
-func targetsCompatible(machineTarget Target, stepTarget Target) bool {
-	return stepTarget == AllMachines ||
-		machineTarget == stepTarget ||
-		(machineTarget == DatabaseMaster && stepTarget == StateServer)
 }
 
 // upgradeStep is a default Step implementation.

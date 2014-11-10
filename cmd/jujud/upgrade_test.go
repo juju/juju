@@ -401,11 +401,12 @@ func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
 
 	check([]params.MachineJob{params.JobHostUnits}, false, upgrades.HostMachine)
 	check([]params.MachineJob{params.JobManageEnviron}, false, upgrades.StateServer)
-	check([]params.MachineJob{params.JobManageEnviron}, true, upgrades.DatabaseMaster)
-	check(
-		[]params.MachineJob{params.JobManageEnviron, params.JobHostUnits}, false,
-		upgrades.StateServer, upgrades.HostMachine,
-	)
+	check([]params.MachineJob{params.JobManageEnviron}, true,
+		upgrades.StateServer, upgrades.DatabaseMaster)
+	check([]params.MachineJob{params.JobManageEnviron, params.JobHostUnits}, false,
+		upgrades.StateServer, upgrades.HostMachine)
+	check([]params.MachineJob{params.JobManageEnviron, params.JobHostUnits}, true,
+		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
 }
 
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {

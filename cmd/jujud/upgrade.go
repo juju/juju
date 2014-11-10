@@ -451,10 +451,9 @@ func jobsToTargets(jobs []params.MachineJob, isMaster bool) (targets []upgrades.
 	for _, job := range jobs {
 		switch job {
 		case params.JobManageEnviron:
+			targets = append(targets, upgrades.StateServer)
 			if isMaster {
 				targets = append(targets, upgrades.DatabaseMaster)
-			} else {
-				targets = append(targets, upgrades.StateServer)
 			}
 		case params.JobHostUnits:
 			targets = append(targets, upgrades.HostMachine)

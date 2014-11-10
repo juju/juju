@@ -396,13 +396,6 @@ var upgradeTests = []upgradeTest{
 		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
-		about:         "the database master target is also a state server",
-		fromVersion:   "1.18.1",
-		toVersion:     "1.20.0",
-		targets:       targets(upgrades.DatabaseMaster),
-		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
-	},
-	{
 		about:         "state step error aborts, subsequent state steps not run",
 		fromVersion:   "1.10.0",
 		targets:       targets(upgrades.StateServer),
@@ -430,20 +423,17 @@ var upgradeTests = []upgradeTest{
 		expectedSteps: []string{"state step 2 - 1.21.0", "step 1 - 1.21.0"},
 	},
 	{
-		about:       "database masters are state servers",
-		fromVersion: "1.20.0",
-		toVersion:   "1.21.0",
-		targets:     targets(upgrades.DatabaseMaster),
-		expectedSteps: []string{
-			"state step 1 - 1.21.0", "state step 2 - 1.21.0",
-			"step 1 - 1.21.0",
-		},
+		about:         "database master only (not actually possible in reality)",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		targets:       targets(upgrades.DatabaseMaster),
+		expectedSteps: []string{"state step 1 - 1.21.0", "step 1 - 1.21.0"},
 	},
 	{
 		about:       "all state steps are run first",
 		fromVersion: "1.20.0",
 		toVersion:   "1.22.0",
-		targets:     targets(upgrades.DatabaseMaster),
+		targets:     targets(upgrades.DatabaseMaster, upgrades.StateServer),
 		expectedSteps: []string{
 			"state step 1 - 1.21.0", "state step 2 - 1.21.0",
 			"state step 1 - 1.22.0", "state step 2 - 1.22.0",
