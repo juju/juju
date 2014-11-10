@@ -189,7 +189,6 @@ def main():
         finally:
             client.destroy_environment()
     except Exception as e:
-        raise
         print_now("\nEXCEPTION CAUGHT:\n")
         print_now(e)
         if getattr(e, 'output', None):
