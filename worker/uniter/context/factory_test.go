@@ -383,9 +383,4 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 	c.Check(ctx, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
-
-	spec := s.charm.Actions().ActionSpecs["snapshot"]
-	params := map[string]interface{}{
-		"outfile": 123,
-	}
 }
