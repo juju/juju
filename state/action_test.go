@@ -360,7 +360,7 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
 		err := state.WatcherMergeIds(s.State, &changes, updates)
 		c.Assert(err, gc.IsNil)
-		c.Assert(changes, jc.DeepEquals, expected)
+		c.Assert(changes, jc.SameContents, expected)
 	}
 }
 
