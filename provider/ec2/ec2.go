@@ -147,27 +147,8 @@ func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
 func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
 	instInstance := inst.getInstance()
-	if instInstance.DNSName == "" {
-		// Fetch the instance information again, in case
-		// the DNS information has become available.
-		var err error
-		instInstance, err = inst.refresh()
-		if err != nil {
-			return nil, err
-		}
-	}
 	var addresses []network.Address
 	possibleAddresses := []network.Address{
-		{
-			Value: instInstance.DNSName,
-			Type:  network.HostName,
-			Scope: network.ScopePublic,
-		},
-		{
-			Value: instInstance.PrivateDNSName,
-			Type:  network.HostName,
-			Scope: network.ScopeCloudLocal,
-		},
 		{
 			Value: instInstance.IPAddress,
 			Type:  network.IPv4Address,
