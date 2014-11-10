@@ -52,9 +52,13 @@ type Metric struct {
 	Credentials []byte    `bson:"credentials"`
 }
 
-// ValidateMetrics checks that the metrics provided are valid for the corresponding charm url.
-func (st *State) ValidateMetrics(charmUrl *charm.URL, metrics []Metric) error {
-	chrm, err := st.Charm(charmUrl)
+// validate checks that the MetricBatch contains valid metrics.
+func (m *MetricBatch) validate() error {
+	charmUrl, err := charm.ParseURL(m.doc.CharmUrl)
+	if err != nil {
+		return err
+	}
+	chrm, err := m.st.Charm(charmUrl)
 	if err != nil {
 		return err
 	}
@@ -62,7 +66,7 @@ func (st *State) ValidateMetrics(charmUrl *charm.URL, metrics []Metric) error {
 	if chrmMetrics == nil {
 		return errors.Errorf("charm doesn't implement metrics")
 	}
-	for _, m := range metrics {
+	for _, m := range m.doc.Metrics {
 		if err := chrmMetrics.ValidateMetric(m.Key, m.Value); err != nil {
 			return err
 		}
@@ -75,9 +79,6 @@ func (st *State) ValidateMetrics(charmUrl *charm.URL, metrics []Metric) error {
 func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
 	if len(metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
-	}
-	if err := st.ValidateMetrics(charmUrl, metrics); err != nil {
-		return nil, err
 	}
 	uuid, err := utils.NewUUID()
 	if err != nil {
@@ -95,6 +96,9 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 			Created:  created,
 			Metrics:  metrics,
 		}}
+	if err := metric.validate(); err != nil {
+		return nil, err
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
