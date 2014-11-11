@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package actions
+package action
 
 import (
 	"github.com/juju/loggo"
@@ -12,26 +12,26 @@ import (
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.actions")
+var logger = loggo.GetLogger("juju.apiserver.action")
 
 func init() {
-	common.RegisterStandardFacade("Actions", 0, NewActionsAPI)
+	common.RegisterStandardFacade("Action", 0, NewActionAPI)
 }
 
-// ActionsAPI implements the client API for interacting with Actions
-type ActionsAPI struct {
+// ActionAPI implements the client API for interacting with Actions
+type ActionAPI struct {
 	state      *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
-// NewActionsAPI returns an initialized ActionsAPI
-func NewActionsAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ActionsAPI, error) {
+// NewActionAPI returns an initialized ActionAPI
+func NewActionAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ActionAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
-	return &ActionsAPI{
+	return &ActionAPI{
 		state:      st,
 		resources:  resources,
 		authorizer: authorizer,
@@ -42,7 +42,7 @@ func NewActionsAPI(st *state.State, resources *common.Resources, authorizer comm
 // the designated ActionReceiver, returning the params.Action for each
 // queued Action, or an error if there was a problem queueing up the
 // Action.
-func (a *ActionsAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
 		current := &response.Results[i]
@@ -77,26 +77,26 @@ func (a *ActionsAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 // ListAll takes a list of Tags representing ActionReceivers and returns
 // all of the Actions that have been queued or run by each of those
 // Entities.
-func (a *ActionsAPI) ListAll(arg params.Tags) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) ListAll(arg params.Tags) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, combine(actionReceiverToActions, actionReceiverToActionResults))
 }
 
 // ListPending takes a list of Tags representing ActionReceivers
 // and returns all of the Actions that are queued for each of those
 // Entities.
-func (a *ActionsAPI) ListPending(arg params.Tags) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) ListPending(arg params.Tags) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, actionReceiverToActions)
 }
 
 // ListCompleted takes a list of Tags representing ActionReceivers
 // and returns all of the Actions that have been run on each of those
 // Entities.
-func (a *ActionsAPI) ListCompleted(arg params.Tags) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) ListCompleted(arg params.Tags) (params.ActionsByReceivers, error) {
 	return a.internalList(arg, actionReceiverToActionResults)
 }
 
 // Cancel attempts to cancel queued up Actions from running.
-func (a *ActionsAPI) Cancel(arg params.ActionTags) (params.ActionResults, error) {
+func (a *ActionAPI) Cancel(arg params.ActionTags) (params.ActionResults, error) {
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, tag := range arg.Actions {
 		current := &response.Results[i]
@@ -133,7 +133,7 @@ func (a *ActionsAPI) Cancel(arg params.ActionTags) (params.ActionResults, error)
 }
 
 // ServicesCharmActions returns a slice of charm Actions for a slice of services.
-func (a *ActionsAPI) ServicesCharmActions(args params.ServiceTags) (params.ServicesCharmActionsResults, error) {
+func (a *ActionAPI) ServicesCharmActions(args params.ServiceTags) (params.ServicesCharmActionsResults, error) {
 	result := params.ServicesCharmActionsResults{}
 	for _, svcTag := range args.ServiceTags {
 		newResult := params.ServiceCharmActionsResult{ServiceTag: svcTag}
@@ -159,7 +159,7 @@ func (a *ActionsAPI) ServicesCharmActions(args params.ServiceTags) (params.Servi
 // internalList takes a list of Tags representing ActionReceivers and
 // returns all of the Actions the extractorFn can get out of the
 // ActionReceiver.
-func (a *ActionsAPI) internalList(arg params.Tags, fn extractorFn) (params.ActionsByReceivers, error) {
+func (a *ActionAPI) internalList(arg params.Tags, fn extractorFn) (params.ActionsByReceivers, error) {
 	response := params.ActionsByReceivers{Actions: make([]params.ActionsByReceiver, len(arg.Tags))}
 	for i, tag := range arg.Tags {
 		current := &response.Actions[i]
