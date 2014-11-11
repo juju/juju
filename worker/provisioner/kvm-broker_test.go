@@ -92,13 +92,13 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
-	kvm, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
 	c.Assert(err, gc.IsNil)
-	return kvm
+	return result.Instance
 }
 
 func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {

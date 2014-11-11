@@ -94,13 +94,13 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}}
-	lxc, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
+	result, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
 	c.Assert(err, gc.IsNil)
-	return lxc
+	return result.Instance
 }
 
 func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {

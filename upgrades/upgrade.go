@@ -92,61 +92,68 @@ func AreUpgradesDefined(from version.Number) bool {
 
 // PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
 // version of Juju on the "target" type of machine.
-func PerformUpgrade(from version.Number, target Target, context Context) error {
-	if isStateTarget(target) {
+func PerformUpgrade(from version.Number, targets []Target, context Context) error {
+	if hasStateTarget(targets) {
 		ops := newStateUpgradeOpsIterator(from)
-		if err := runUpgradeSteps(ops, target, context.StateContext()); err != nil {
+		if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
 			return err
 		}
 	}
+
 	ops := newUpgradeOpsIterator(from)
-	if err := runUpgradeSteps(ops, target, context.APIContext()); err != nil {
+	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {
 		return err
 	}
+
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
 }
 
-func isStateTarget(target Target) bool {
-	return target == StateServer || target == DatabaseMaster
+func hasStateTarget(targets []Target) bool {
+	for _, target := range targets {
+		if target == StateServer || target == DatabaseMaster {
+			return true
+		}
+	}
+	return false
 }
 
 // runUpgradeSteps finds all the upgrade operations relevant to
-// target and runs the associated upgrade steps.
+// the targets given and runs the associated upgrade steps.
 //
 // As soon as any error is encountered, the operation is aborted since
 // subsequent steps may required successful completion of earlier
 // ones. The steps must be idempotent so that the entire upgrade
 // operation can be retried.
-func runUpgradeSteps(ops *opsIterator, target Target, context Context) error {
+func runUpgradeSteps(ops *opsIterator, targets []Target, context Context) error {
 	for ops.Next() {
 		for _, step := range ops.Get().Steps() {
-			if !validTarget(target, step.Targets()) {
-				continue
-			}
-			logger.Infof("running upgrade step on target %q: %v", target, step.Description())
-			if err := step.Run(context); err != nil {
-				logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
-				return &upgradeError{
-					description: step.Description(),
-					err:         err,
+			if targetsMatch(targets, step.Targets()) {
+				logger.Infof("running upgrade step: %v", step.Description())
+				if err := step.Run(context); err != nil {
+					logger.Errorf("upgrade step %q failed: %v", step.Description(), err)
+					return &upgradeError{
+						description: step.Description(),
+						err:         err,
+					}
 				}
 			}
 		}
-
 	}
 	return nil
 }
 
-// validTarget returns true if target matches targets.
-func validTarget(target Target, targets []Target) bool {
-	for _, opTarget := range targets {
-		if opTarget == AllMachines || target == opTarget ||
-			(opTarget == StateServer && target == DatabaseMaster) {
-			return true
+// targetsMatch returns true if any machineTargets match any of
+// stepTargets.
+func targetsMatch(machineTargets []Target, stepTargets []Target) bool {
+	for _, machineTarget := range machineTargets {
+		for _, stepTarget := range stepTargets {
+			if machineTarget == stepTarget || stepTarget == AllMachines {
+				return true
+			}
 		}
 	}
-	return len(targets) == 0
+	return false
 }
 
 // upgradeStep is a default Step implementation.
