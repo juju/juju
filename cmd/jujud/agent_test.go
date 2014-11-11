@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -109,8 +110,8 @@ func (fakeAPIOpenConfig) OldPassword() string {
 	return "old"
 }
 
-func (fakeAPIOpenConfig) Jobs() []params.MachineJob {
-	return []params.MachineJob{}
+func (fakeAPIOpenConfig) Jobs() []juju.MachineJob {
+	return []juju.MachineJob{}
 }
 
 var _ = gc.Suite(&apiOpenSuite{})

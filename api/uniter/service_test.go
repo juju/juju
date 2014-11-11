@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -39,7 +39,7 @@ func (s *serviceSuite) TestNameTagAndString(c *gc.C) {
 }
 
 func (s *serviceSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiService.Life(), gc.Equals, juju.Alive)
 
 	w, err := s.apiService.Watch()
 	c.Assert(err, gc.IsNil)
@@ -96,15 +96,15 @@ func (s *serviceSuite) TestWatchRelations(c *gc.C) {
 }
 
 func (s *serviceSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiService.Life(), gc.Equals, juju.Alive)
 
 	err := s.wordpressService.Destroy()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiService.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiService.Life(), gc.Equals, juju.Alive)
 
 	err = s.apiService.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiService.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiService.Life(), gc.Equals, juju.Dying)
 }
 
 func (s *serviceSuite) TestCharmURL(c *gc.C) {

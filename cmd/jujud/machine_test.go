@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	jj "github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
@@ -32,7 +33,6 @@ import (
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/juju/apiserver/params"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -633,24 +633,24 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 
 func (s *MachineSuite) TestUpgradeTarget(c *gc.C) {
 	for i, test := range []struct {
-		job      params.MachineJob
+		job      jj.MachineJob
 		master   bool
 		expected upgrades.Target
 	}{
 		{
 		// empty gives empty
 		}, {
-			job:      params.JobManageEnviron,
+			job:      jj.JobManageEnviron,
 			expected: upgrades.StateServer,
 		}, {
-			job:      params.JobManageEnviron,
+			job:      jj.JobManageEnviron,
 			master:   true,
 			expected: upgrades.DatabaseMaster,
 		}, {
-			job:      params.JobHostUnits,
+			job:      jj.JobHostUnits,
 			expected: upgrades.HostMachine,
 		}, {
-			job:      params.JobHostUnits,
+			job:      jj.JobHostUnits,
 			master:   true,
 			expected: upgrades.HostMachine,
 		},
@@ -768,7 +768,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, params.Alive)
+		c.Assert(m.Life(), gc.Equals, jj.Alive)
 	})
 }
 
