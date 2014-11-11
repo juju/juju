@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 )
 
 type ActionSuite struct {
@@ -81,11 +82,11 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	c.Assert(action.Name(), gc.Equals, name)
 	c.Assert(action.Parameters(), jc.DeepEquals, params)
 
-	// Enqueued time should be within five seconds after the beginning
+	// Enqueued time should be within a reasonable time of the beginning
 	// of the test
-	diff := action.Enqueued().Sub(before).Seconds()
+	diff := action.Enqueued().Sub(before)
 	c.Assert(diff >= 0, jc.IsTrue)
-	c.Assert(diff < 5, jc.IsTrue)
+	c.Assert(diff < testing.LongWait, jc.IsTrue)
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -194,11 +195,11 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 
-	// Verify the ActionResult Completed time was within five seconds of
-	// the Enqueued time.
-	diff := results[0].Completed().Sub(action.Enqueued()).Seconds()
+	// Verify the ActionResult Completed time was within a reasonable
+	// time of the Enqueued time.
+	diff := results[0].Completed().Sub(action.Enqueued())
 	c.Assert(diff >= 0, jc.IsTrue)
-	c.Assert(diff < 5, jc.IsTrue)
+	c.Assert(diff < testing.LongWait, jc.IsTrue)
 
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, reason)
