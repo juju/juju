@@ -28,7 +28,7 @@ func (s *backupSuite) metadata(c *gc.C) *backups.Metadata {
 		"0",
 		"localhost",
 	)
-	meta := backups.NewMetadata(*origin, "", nil)
+	meta := backups.NewMetadata(origin, "", nil)
 	err := meta.Finish(int64(42), "some hash")
 	c.Assert(err, gc.IsNil)
 	return meta
@@ -58,7 +58,7 @@ func (s *backupSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id st
 func (s *backupSuite) TestNewBackupID(c *gc.C) {
 	origin := backups.NewOrigin("spam", "0", "localhost")
 	started := time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
-	meta := backups.NewMetadata(*origin, "", &started)
+	meta := backups.NewMetadata(origin, "", &started)
 	id := state.NewBackupID(meta)
 
 	c.Check(id, gc.Equals, "20140912-131927.spam")

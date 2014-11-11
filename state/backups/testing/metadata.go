@@ -32,7 +32,7 @@ func NewMetadataStarted(id, notes string) *backups.Metadata {
 	origin := backups.NewOrigin(envID, machine, hostname)
 	started := time.Now().UTC()
 
-	meta := backups.NewMetadata(*origin, notes, &started)
+	meta := backups.NewMetadata(origin, notes, &started)
 	meta.SetID(id)
 	return meta
 }

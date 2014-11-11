@@ -55,7 +55,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := backups.DBInfo{connInfo, targets}
 	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	_, err := s.api.Create(paths, dbInfo, *origin, "some notes")
+	_, err := s.api.Create(paths, dbInfo, origin, "some notes")
 
 	c.Check(err, gc.ErrorMatches, expected)
 }
@@ -94,7 +94,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := backups.DBInfo{connInfo, targets}
 	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
+	meta, err := s.api.Create(paths, dbInfo, origin, "some notes")
 
 	// Test the call values.
 	s.Storage.CheckCalled(c, "spam", meta, archiveFile, "Add", "Metadata")

@@ -633,5 +633,5 @@ func NewBackupOrigin(st *State, machine string) (*backups.Origin, error) {
 		machine,
 		hostname,
 	)
-	return origin, nil
+	return &origin, nil
 }

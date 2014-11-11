@@ -32,14 +32,13 @@ type Origin struct {
 }
 
 // NewOrigin returns a new backups origin.
-func NewOrigin(env, machine, hostname string) *Origin {
-	origin := Origin{
+func NewOrigin(env, machine, hostname string) Origin {
+	return Origin{
 		Environment: env,
 		Machine:     machine,
 		Hostname:    hostname,
 		Version:     version.Current.Number,
 	}
-	return &origin
 }
 
 // Metadata contains the metadata for a single state backup archive.
