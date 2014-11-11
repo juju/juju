@@ -23,6 +23,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -77,7 +78,7 @@ type MachineStatus struct {
 	Id            string
 	Containers    map[string]MachineStatus
 	Hardware      string
-	Jobs          []params.MachineJob
+	Jobs          []juju.MachineJob
 	HasVote       bool
 	WantsVote     bool
 }

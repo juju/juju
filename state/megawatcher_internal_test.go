@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -94,7 +95,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Status:                  params.StatusPending,
 		Life:                    params.Alive,
 		Series:                  "quantal",
-		Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+		Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 	})
@@ -187,7 +188,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			StatusInfo:              m.Tag().String(),
 			Life:                    params.Alive,
 			Series:                  "quantal",
-			Jobs:                    []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:                    []juju.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		})
@@ -312,7 +313,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						StatusInfo: "failure",
 						Life:       params.Alive,
 						Series:     "quantal",
-						Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
+						Jobs:       []juju.MachineJob{JobHostUnits.ToParams()},
 						Addresses:  []network.Address{},
 					}}}
 		},
@@ -346,7 +347,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 						StatusInfo:               "another failure",
 						Life:                     params.Alive,
 						Series:                   "trusty",
-						Jobs:                     []params.MachineJob{JobManageEnviron.ToParams()},
+						Jobs:                     []juju.MachineJob{JobManageEnviron.ToParams()},
 						Addresses:                []network.Address{},
 						HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 						SupportedContainers:      []instance.ContainerType{instance.LXC},
@@ -985,7 +986,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "trusty",
-			Jobs:      []params.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:      []juju.MachineJob{JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -994,7 +995,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "saucy",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}}, "")
@@ -1046,7 +1047,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:                  params.StatusPending,
 			Life:                    params.Alive,
 			Series:                  "trusty",
-			Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []juju.MachineJob{JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		},
@@ -1057,7 +1058,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "saucy",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1066,7 +1067,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "quantal",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []juju.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {

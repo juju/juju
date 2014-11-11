@@ -487,7 +487,7 @@ type AgentGetEntitiesResults struct {
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
 	Life          Life
-	Jobs          []MachineJob
+	Jobs          []juju.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error
 }
@@ -621,7 +621,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
-	Jobs        []MachineJob
+	Jobs        []juju.MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

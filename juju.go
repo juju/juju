@@ -13,12 +13,41 @@ package juju
 // When remote units leave scope, their ids will be noted in the
 // Departed field, and no further events will be sent for those units.
 type RelationUnitsChange struct {
-        Changed  map[string]UnitSettings
-        Departed []string
+	Changed  map[string]UnitSettings
+	Departed []string
 }
 
 // UnitSettings holds information about a service unit's settings
 // within a relation.
 type UnitSettings struct {
-        Version int64
+	Version int64
+}
+
+// MachineJob values define responsibilities that machines may be
+// expected to fulfil.
+type MachineJob string
+
+const (
+	JobHostUnits        MachineJob = "JobHostUnits"
+	JobManageEnviron    MachineJob = "JobManageEnviron"
+	JobManageNetworking MachineJob = "JobManageNetworking"
+
+	// Deprecated in 1.18
+	JobManageStateDeprecated MachineJob = "JobManageState"
+)
+
+// NeedsState returns true if the job requires a state connection.
+func (job MachineJob) NeedsState() bool {
+	return job == JobManageEnviron
+}
+
+// AnyJobNeedsState returns true if any of the provided jobs
+// require a state connection.
+func AnyJobNeedsState(jobs ...MachineJob) bool {
+	for _, j := range jobs {
+		if j.NeedsState() {
+			return true
+		}
+	}
+	return false
 }
