@@ -97,14 +97,8 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
-	actionData, err := runner.context.ActionData()
-	if err != nil {
+	if _, err := runner.context.ActionData(); err != nil {
 		return err
-	}
-	// If the action had already failed (i.e. from invalid params), we
-	// just want to finalize without running it.
-	if actionData.ActionFailed {
-		return runner.context.FlushContext(actionName, nil)
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")
 }
