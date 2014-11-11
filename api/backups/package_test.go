@@ -39,9 +39,7 @@ func (s *baseSuite) metadataResult() *params.BackupsMetadataResult {
 	return result
 }
 
-func (s *baseSuite) checkMetadataResult(
-	c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata,
-) {
+func (s *baseSuite) checkMetadataResult(c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata) {
 	var finished, stored time.Time
 	if meta.Finished != nil {
 		finished = *meta.Finished
