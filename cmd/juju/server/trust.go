@@ -9,6 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 )
 
@@ -66,7 +67,7 @@ func (c *TrustCommand) Init(args []string) error {
 		return err
 	}
 	if len(pkBytes) == 0 {
-		return fmt.Errorf("invalid public key length")
+		return errors.Errorf("invalid public key length")
 	}
 
 	_, err = url.Parse(c.Location)

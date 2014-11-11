@@ -5,9 +5,9 @@ package serveradmin
 
 import (
 	"encoding/base64"
-	"fmt"
 	"net/url"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/macaroon/bakery"
 
@@ -66,7 +66,7 @@ func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.Identit
 		return nil, err
 	}
 	if len(pkBytes) != bakery.KeyLen {
-		return nil, fmt.Errorf("invalid public key length")
+		return nil, errors.Errorf("invalid public key length")
 	}
 
 	u, err := url.Parse(info.Location)

@@ -226,22 +226,27 @@ func (a *admin) maintenanceInProgress() bool {
 	return a.srv.validator(req) != nil
 }
 
+// CredentialChecker checks login request credentials.
 type CredentialChecker interface {
+
+	// Check returns the resolved login entity if credentials are valid,
+	// an error if they are invalid.
 	Check(params.LoginRequest) (state.Entity, error)
 }
 
+// LocalCredentialChecker checks login credentials for local identities.
 type LocalCredentialChecker struct {
 	st *state.State
 }
 
-var _ CredentialChecker = (*LocalCredentialChecker)(nil)
-
 var newLocalCredentialChecker = NewLocalCredentialChecker
 
+// NewLocalCredentialChecker creates a new local CredentialChecker instance.
 func NewLocalCredentialChecker(st *state.State) CredentialChecker {
 	return &LocalCredentialChecker{st: st}
 }
 
+// Check implements the CredentialChecker interface.
 func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
 	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
@@ -344,14 +349,17 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	}
 
 	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
-		bakery.Caveat{
+		{
 			Location:  info.IdentityProvider.Location,
 			Condition: fmt.Sprintf("is-authorized-user? %s", req.AuthTag),
 		},
-		bakery.Caveat{
+		{
 			Condition: fmt.Sprintf("is-before-time? %s", time.Now().UTC().Add(MaxMacaroonTtl).Format(time.RFC3339)),
 		},
 	})
+	if err != nil {
+		return fail, err
+	}
 
 	remoteCreds := authentication.NewRemoteCredentials(m)
 	prompt, err := remoteCreds.MarshalText()

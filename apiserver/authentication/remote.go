@@ -6,7 +6,6 @@ package authentication
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -39,7 +38,7 @@ func NewRemoteUser(authTag, sessionId string) (*RemoteUser, error) {
 			sessionId: sessionId,
 		}, nil
 	default:
-		return nil, fmt.Errorf("not a remote user tag: %q", tag)
+		return nil, errors.Errorf("not a remote user tag: %q", tag)
 	}
 }
 
@@ -85,7 +84,7 @@ func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
 	return []byte(base64.URLEncoding.EncodeToString(out)), nil
 }
 
-var malformedRemoteCredentialsErr = fmt.Errorf("malformed remote credentials")
+var malformedRemoteCredentialsErr = errors.Errorf("malformed remote credentials")
 
 // IsMalformedRemoteCredentialsErr returns whether the error indicates a
 // credentials string was not a well-formed remote credential string.

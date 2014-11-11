@@ -4,10 +4,10 @@
 package apiserver_test
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/macaroon"
 	"github.com/juju/macaroon/bakery"
 	"github.com/juju/names"
@@ -52,24 +52,24 @@ func (c *loggedInChecker) isValidUser(user string) bool {
 func (c *loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
 	fields := strings.Split(condition, " ")
 	if len(fields) < 1 {
-		return nil, fmt.Errorf("empty caveat")
+		return nil, errors.Errorf("empty caveat")
 	}
 	if fields[0] == "is-authorized-user?" {
 		if len(fields) < 2 {
-			return nil, fmt.Errorf("%s: missing user tag", fields[0])
+			return nil, errors.Errorf("%s: missing user tag", fields[0])
 		}
 		tag, err := names.ParseTag(fields[1])
 		if err != nil {
-			return nil, fmt.Errorf("%s: invalid user tag %q: %v", fields[0], fields[1], err)
+			return nil, errors.Errorf("%s: invalid user tag %q: %v", fields[0], fields[1], err)
 		}
 		if userTag, ok := tag.(names.UserTag); !ok {
-			return nil, fmt.Errorf("%s: %q is not a user tag", fields[0], fields[1])
+			return nil, errors.Errorf("%s: %q is not a user tag", fields[0], fields[1])
 		} else if c.isValidUser(userTag.Name()) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("invalid user")
+		return nil, errors.Errorf("invalid user")
 	}
-	return nil, fmt.Errorf("unrecognized condition")
+	return nil, errors.Errorf("unrecognized condition")
 }
 
 var reauthDialOpts = api.DialOpts{}
@@ -143,9 +143,12 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	var remoteCreds authentication.RemoteCredentials
 	err = remoteCreds.UnmarshalText([]byte(reauth.Prompt))
 	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
 	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
 		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
-			//c.Assert(loc, gc.Equals, s.info.IdentityProvider.Location)
+			// The first-party location is the target Juju environment's tag.
+			c.Assert(loc, gc.Equals, env.EnvironTag().String())
 			return s.remoteIdService.Discharge(newLoggedInChecker("bob"), cav.Id)
 		},
 	)
@@ -180,7 +183,7 @@ type testReauthHandler struct {
 }
 
 func failReauth(err error) (string, string, error) {
-	return "", "", err
+	return "", "", errors.Trace(err)
 }
 
 // HandleReauth implements a fully-functional reauthentication handler capable
@@ -233,7 +236,7 @@ type failConditionChecker struct{}
 
 // CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
 func (*failConditionChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
-	return nil, fmt.Errorf("unrecognized condition")
+	return nil, errors.Errorf("unrecognized condition")
 }
 
 func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {

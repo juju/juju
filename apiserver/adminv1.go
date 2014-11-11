@@ -29,9 +29,13 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 	if err != nil {
 		return nil, err
 	}
+	env, err := srv.state.Environment()
+	if err != nil {
+		return nil, err
+	}
 	if info.TargetKeyPair != nil && info.IdentityProvider != nil {
 		bakeryService, err = bakery.NewService(bakery.NewServiceParams{
-			Location: srv.getEnvironUUID(),
+			Location: env.Tag().String(),
 			Key:      info.TargetKeyPair,
 			Locator:  info.NewTargetLocator(),
 		})
@@ -72,7 +76,7 @@ func isRemoteLoginRequest(req params.LoginRequest) bool {
 	return remoteCreds.UnmarshalText([]byte(req.Credentials)) == nil
 }
 
-// Login logs in with the provided credentials.  All subsequent requests on the
+// Login logs in with the provided credentials. All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminV1) Login(req params.LoginRequest) (params.LoginResultV1, error) {
 	if a.bakeryService != nil && isRemoteLoginRequest(req) {

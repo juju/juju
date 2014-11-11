@@ -6,12 +6,12 @@ package api
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -135,11 +135,17 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+func warnError(err error) {
+	if err != nil {
+		logger.Warningf("%v", err)
+	}
+}
+
 // Open connects to a state server with the given client credentials,
 // attributes and options.
 func Open(info *Info, opts DialOpts) (*State, error) {
 	if len(info.Addrs) == 0 {
-		return nil, fmt.Errorf("no API addresses to connect to")
+		return nil, errors.Errorf("no API addresses to connect to")
 	}
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
@@ -202,7 +208,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	if info.Tag != nil || info.Password != "" {
 		reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce)
 		if err != nil {
-			conn.Close()
+			warnError(errors.Trace(conn.Close()))
 			return nil, err
 		}
 		if reauth != nil {
@@ -215,7 +221,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 				return nil, err
 			}
 			if reauth != nil {
-				return nil, fmt.Errorf("reauthentication failed")
+				return nil, errors.Errorf("reauthentication failed")
 			}
 		}
 	}
@@ -284,7 +290,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, fmt.Errorf("unable to connect to %q", cfg.Location)
+				return nil, errors.Errorf("unable to connect to %q", cfg.Location)
 			}
 		}
 		panic("unreachable")
