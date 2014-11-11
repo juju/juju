@@ -6,7 +6,7 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 const (
@@ -14,7 +14,7 @@ const (
 )
 
 // NewMetadata returns a Metadata to use for testing.
-func NewMetadata() *metadata.Metadata {
+func NewMetadata() *backups.Metadata {
 	timestamp := "20140924-010319"
 	id := envID + "." + timestamp
 	notes := ""
@@ -26,19 +26,19 @@ func NewMetadata() *metadata.Metadata {
 }
 
 // NewMetadataStarted returns a Metadata to use for testing.
-func NewMetadataStarted(id, notes string) *metadata.Metadata {
+func NewMetadataStarted(id, notes string) *backups.Metadata {
 	machine := "0"
 	hostname := "main-host"
-	origin := metadata.NewOrigin(envID, machine, hostname)
+	origin := backups.NewOrigin(envID, machine, hostname)
 	started := time.Now().UTC()
 
-	meta := metadata.NewMetadata(*origin, notes, &started)
+	meta := backups.NewMetadata(*origin, notes, &started)
 	meta.SetID(id)
 	return meta
 }
 
 // FinishMetadata finishes a metadata with test values.
-func FinishMetadata(meta *metadata.Metadata) {
+func FinishMetadata(meta *backups.Metadata) {
 	var size int64 = 10
 	checksum := "787b8915389d921fa23fb40e16ae81ea979758bf"
 	meta.Finish(size, checksum)
@@ -47,7 +47,7 @@ func FinishMetadata(meta *metadata.Metadata) {
 }
 
 // UpdateNotes derives a new Metadata with new notes.
-func UpdateNotes(meta *metadata.Metadata, notes string) *metadata.Metadata {
+func UpdateNotes(meta *backups.Metadata, notes string) *backups.Metadata {
 	copied := *meta
 	copied.Notes = notes
 	return &copied

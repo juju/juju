@@ -20,7 +20,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 const (
@@ -40,7 +40,7 @@ var (
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
 var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
 
-func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
+func newBackupDoc(meta *backups.Metadata) *backupMetaDoc {
 	var doc backupMetaDoc
 	doc.UpdateFromMetadata(meta)
 	return &doc
@@ -52,12 +52,12 @@ func getBackupDBWrapper(st *State) *backupDBWrapper {
 	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
 }
 
-func NewBackupID(meta *metadata.Metadata) string {
+func NewBackupID(meta *backups.Metadata) string {
 	doc := newBackupDoc(meta)
 	return newBackupID(doc)
 }
 
-func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
+func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc, err := getBackupMetadata(db, id)
@@ -67,14 +67,14 @@ func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
-func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
+func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)
 	return addBackupMetadata(db, doc)
 }
 
-func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
+func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
 	doc := newBackupDoc(meta)

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 type backupSuite struct {
@@ -22,19 +22,19 @@ type backupSuite struct {
 
 var _ = gc.Suite(&backupSuite{})
 
-func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
-	origin := metadata.NewOrigin(
+func (s *backupSuite) metadata(c *gc.C) *backups.Metadata {
+	origin := backups.NewOrigin(
 		s.State.EnvironUUID(),
 		"0",
 		"localhost",
 	)
-	meta := metadata.NewMetadata(*origin, "", nil)
+	meta := backups.NewMetadata(*origin, "", nil)
 	err := meta.Finish(int64(42), "some hash")
 	c.Assert(err, gc.IsNil)
 	return meta
 }
 
-func (s *backupSuite) checkMeta(c *gc.C, meta, expected *metadata.Metadata, id string,
+func (s *backupSuite) checkMeta(c *gc.C, meta, expected *backups.Metadata, id string,
 ) {
 	if id != "" {
 		c.Check(meta.ID(), gc.Equals, id)
@@ -56,9 +56,9 @@ func (s *backupSuite) checkMeta(c *gc.C, meta, expected *metadata.Metadata, id s
 }
 
 func (s *backupSuite) TestNewBackupID(c *gc.C) {
-	origin := metadata.NewOrigin("spam", "0", "localhost")
+	origin := backups.NewOrigin("spam", "0", "localhost")
 	started := time.Date(2014, time.Month(9), 12, 13, 19, 27, 0, time.UTC)
-	meta := metadata.NewMetadata(*origin, "", &started)
+	meta := backups.NewMetadata(*origin, "", &started)
 	id := state.NewBackupID(meta)
 
 	c.Check(id, gc.Equals, "20140912-131927.spam")
@@ -102,7 +102,7 @@ func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 }
 
 func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
-	original := &metadata.Metadata{}
+	original := &backups.Metadata{}
 	c.Assert(original.Started, gc.NotNil)
 	_, err := state.AddBackupMetadata(s.State, original)
 

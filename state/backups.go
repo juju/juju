@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
 	backupsdb "github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
 
@@ -66,7 +65,7 @@ direct interaction with State, lives in the state/backups package.
 //---------------------------
 // Backup metadata document
 
-// backupMetaDoc is a mirror of metadata.Metadata, used just for DB storage.
+// backupMetaDoc is a mirror of backups.Metadata, used just for DB storage.
 type backupMetaDoc struct {
 	ID string `bson:"_id"`
 
@@ -151,9 +150,9 @@ func (doc *backupMetaDoc) validate() error {
 	return nil
 }
 
-// asMetadata returns a new metadata.Metadata based on the backupMetaDoc.
-func (doc *backupMetaDoc) asMetadata() *metadata.Metadata {
-	meta := metadata.Metadata{
+// asMetadata returns a new backups.Metadata based on the backupMetaDoc.
+func (doc *backupMetaDoc) asMetadata() *backups.Metadata {
+	meta := backups.Metadata{
 		Started: time.Unix(doc.Started, 0).UTC(),
 		Notes:   doc.Notes,
 	}
@@ -187,7 +186,7 @@ func (doc *backupMetaDoc) asMetadata() *metadata.Metadata {
 
 // UpdateFromMetadata copies the corresponding data from the backup
 // Metadata into the backupMetaDoc.
-func (doc *backupMetaDoc) UpdateFromMetadata(meta *metadata.Metadata) {
+func (doc *backupMetaDoc) UpdateFromMetadata(meta *backups.Metadata) {
 	// Ignore metadata.ID.
 
 	doc.Checksum = meta.Checksum()
@@ -422,9 +421,9 @@ func newBackupMetadataStorage(dbWrap *backupDBWrapper) *backupsMetadataStorage {
 // AddDoc adds the document to storage and returns the new ID.
 func (s *backupsDocStorage) AddDoc(doc filestorage.Document) (string, error) {
 	var metaDoc backupMetaDoc
-	metadata, ok := doc.(*metadata.Metadata)
+	metadata, ok := doc.(*backups.Metadata)
 	if !ok {
-		return "", errors.Errorf("doc must be of type *metadata.Metadata")
+		return "", errors.Errorf("doc must be of type *backups.Metadata")
 	}
 	metaDoc.UpdateFromMetadata(metadata)
 
@@ -622,7 +621,7 @@ func getBackupTargetDatabases(st *State) (set.Strings, error) {
 // snapshot is a new backup Origin value, for use in a backup's
 // metadata.  Every value except for the machine name is populated
 // either from juju state or some other implicit mechanism.
-func NewBackupOrigin(st *State, machine string) (*metadata.Origin, error) {
+func NewBackupOrigin(st *State, machine string) (*backups.Origin, error) {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -630,7 +629,7 @@ func NewBackupOrigin(st *State, machine string) (*metadata.Origin, error) {
 		// Run for the hills.
 		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
 	}
-	origin := metadata.NewOrigin(
+	origin := backups.NewOrigin(
 		st.EnvironTag().Id(),
 		machine,
 		hostname,

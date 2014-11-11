@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 type createSuite struct {
@@ -27,9 +26,9 @@ func (d *TestDBDumper) Dump(dumpDir string) error {
 	return nil
 }
 
-func (s *createSuite) metadata(notes string) *metadata.Metadata {
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return metadata.NewMetadata(*origin, notes, nil)
+func (s *createSuite) metadata(notes string) *backups.Metadata {
+	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
+	return backups.NewMetadata(*origin, notes, nil)
 }
 
 func (s *createSuite) TestLegacy(c *gc.C) {

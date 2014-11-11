@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 )
 
 // File represents a file during testing.
@@ -38,7 +38,7 @@ func (f *File) AddToArchive(archive *tar.Writer) error {
 }
 
 // NewArchive returns a new archive file containing the files.
-func NewArchive(meta *metadata.Metadata, files, dump []File) (*bytes.Buffer, error) {
+func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, error) {
 	var rootFile bytes.Buffer
 	if err := writeToTar(&rootFile, files); err != nil {
 		return nil, errors.Trace(err)
@@ -71,7 +71,7 @@ func NewArchive(meta *metadata.Metadata, files, dump []File) (*bytes.Buffer, err
 }
 
 // NewArchiveBasic returns a new archive file with a few files provided.
-func NewArchiveBasic(meta *metadata.Metadata) (*bytes.Buffer, error) {
+func NewArchiveBasic(meta *backups.Metadata) (*bytes.Buffer, error) {
 	files := []File{
 		File{
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",

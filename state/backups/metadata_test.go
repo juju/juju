@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metadata_test
+package backups_test
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -21,14 +21,14 @@ type metadataSuite struct {
 var _ = gc.Suite(&metadataSuite{}) // Register the suite.
 
 func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
-	origin := metadata.Origin{
+	origin := backups.Origin{
 		Environment: "asdf-zxcv-qwe",
 		Machine:     "0",
 		Hostname:    "myhost",
 		Version:     version.MustParse("1.21-alpha3"),
 	}
 	started := time.Date(2014, time.Month(9), 9, 11, 59, 34, 0, time.UTC)
-	meta := metadata.NewMetadata(origin, "", &started)
+	meta := backups.NewMetadata(origin, "", &started)
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
 	err := meta.Finish(10, "123af2cef")

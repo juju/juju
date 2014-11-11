@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 var logger = loggo.GetLogger("juju.state.backups")
@@ -23,7 +22,7 @@ var (
 	getFilesToBackUp = files.GetFilesToBackUp
 	getDBDumper      = db.NewDumper
 	runCreate        = create
-	finishMeta       = func(meta *metadata.Metadata, result *createResult) error {
+	finishMeta       = func(meta *Metadata, result *createResult) error {
 		return meta.Finish(result.size, result.checksum)
 	}
 	storeArchive = StoreArchive
@@ -31,7 +30,7 @@ var (
 
 // StoreArchive sends the backup archive and its metadata to storage.
 // It also sets the metadata's ID and Stored values.
-func StoreArchive(stor filestorage.FileStorage, meta *metadata.Metadata, file io.Reader) error {
+func StoreArchive(stor filestorage.FileStorage, meta *Metadata, file io.Reader) error {
 	id, err := stor.Add(meta, file)
 	if err != nil {
 		return errors.Trace(err)
@@ -50,11 +49,11 @@ type Backups interface {
 
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
-	Create(paths files.Paths, dbInfo db.Info, origin metadata.Origin, notes string) (*metadata.Metadata, error)
+	Create(paths files.Paths, dbInfo db.Info, origin Origin, notes string) (*Metadata, error)
 	// Get returns the metadata and archive file associated with the ID.
-	Get(id string) (*metadata.Metadata, io.ReadCloser, error)
+	Get(id string) (*Metadata, io.ReadCloser, error)
 	// List returns the metadata for all stored backups.
-	List() ([]metadata.Metadata, error)
+	List() ([]Metadata, error)
 	// Remove deletes the backup from storage.
 	Remove(id string) error
 }
@@ -74,10 +73,10 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *backups) Create(paths files.Paths, dbInfo db.Info, origin metadata.Origin, notes string) (*metadata.Metadata, error) {
+func (b *backups) Create(paths files.Paths, dbInfo db.Info, origin Origin, notes string) (*Metadata, error) {
 
 	// Prep the metadata.
-	meta := metadata.NewMetadata(origin, notes, nil)
+	meta := NewMetadata(origin, notes, nil)
 	// The metadata file will not contain the ID or the "finished" data.
 	// However, that information is not as critical.  The alternatives
 	// are either adding the metadata file to the archive after the fact
@@ -120,13 +119,13 @@ func (b *backups) Create(paths files.Paths, dbInfo db.Info, origin metadata.Orig
 }
 
 // Get returns the metadata and archive file associated with the ID.
-func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
+func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
 	rawmeta, archiveFile, err := b.storage.Get(id)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	meta, ok := rawmeta.(*metadata.Metadata)
+	meta, ok := rawmeta.(*Metadata)
 	if !ok {
 		return nil, nil, errors.New("did not get a backups.Metadata value from storage")
 	}
@@ -135,14 +134,14 @@ func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
 }
 
 // List returns the metadata for all stored backups.
-func (b *backups) List() ([]metadata.Metadata, error) {
+func (b *backups) List() ([]Metadata, error) {
 	metaList, err := b.storage.List()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]metadata.Metadata, len(metaList))
+	result := make([]Metadata, len(metaList))
 	for i, meta := range metaList {
-		m, ok := meta.(*metadata.Metadata)
+		m, ok := meta.(*Metadata)
 		if !ok {
 			msg := "expected backups.Metadata value from storage for %q, got %T"
 			return nil, errors.Errorf(msg, meta.ID(), meta)

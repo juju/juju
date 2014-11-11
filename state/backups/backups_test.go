@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
@@ -57,7 +56,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 	connInfo := db.ConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := db.Info{connInfo, targets}
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
+	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	_, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
 	c.Check(err, gc.ErrorMatches, expected)
@@ -96,7 +95,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	connInfo := db.ConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := db.Info{connInfo, targets}
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
+	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
 	meta, err := s.api.Create(paths, dbInfo, *origin, "some notes")
 
 	// Test the call values.

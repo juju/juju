@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package metadata
+package backups
 
 import (
 	"bytes"
@@ -18,6 +18,29 @@ import (
 // ChecksumFormat identifies how to interpret the checksum for a backup
 // generated with this version of juju.
 const ChecksumFormat = "SHA-1, base64 encoded"
+
+// Origin identifies where a backup archive came from.  While it is
+// more about where and Metadata about what and when, that distinction
+// does not merit special consideration.  Instead, Origin exists
+// separately from Metadata due to its use as an argument when
+// requesting the creation of a new backup.
+type Origin struct {
+	Environment string
+	Machine     string
+	Hostname    string
+	Version     version.Number
+}
+
+// NewOrigin returns a new backups origin.
+func NewOrigin(env, machine, hostname string) *Origin {
+	origin := Origin{
+		Environment: env,
+		Machine:     machine,
+		Hostname:    hostname,
+		Version:     version.Current.Number,
+	}
+	return &origin
+}
 
 // Metadata contains the metadata for a single state backup archive.
 type Metadata struct {

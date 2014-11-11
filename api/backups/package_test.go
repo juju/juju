@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/backups/metadata"
+	stbackups "github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -40,7 +40,7 @@ func (s *baseSuite) metadataResult() *params.BackupsMetadataResult {
 }
 
 func (s *baseSuite) checkMetadataResult(
-	c *gc.C, result *params.BackupsMetadataResult, meta *metadata.Metadata,
+	c *gc.C, result *params.BackupsMetadataResult, meta *stbackups.Metadata,
 ) {
 	var finished, stored time.Time
 	if meta.Finished != nil {

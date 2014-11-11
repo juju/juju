@@ -19,34 +19,33 @@ import (
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/state/backups/files"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 type fakeBackups struct {
-	meta    *metadata.Metadata
+	meta    *backups.Metadata
 	archive io.ReadCloser
 	err     error
 }
 
-func (i *fakeBackups) Create(files.Paths, db.Info, metadata.Origin, string) (*metadata.Metadata, error) {
+func (i *fakeBackups) Create(files.Paths, db.Info, backups.Origin, string) (*backups.Metadata, error) {
 	if i.err != nil {
 		return nil, errors.Trace(i.err)
 	}
 	return i.meta, nil
 }
 
-func (i *fakeBackups) Get(string) (*metadata.Metadata, io.ReadCloser, error) {
+func (i *fakeBackups) Get(string) (*backups.Metadata, io.ReadCloser, error) {
 	if i.err != nil {
 		return nil, nil, errors.Trace(i.err)
 	}
 	return i.meta, i.archive, nil
 }
 
-func (i *fakeBackups) List() ([]metadata.Metadata, error) {
+func (i *fakeBackups) List() ([]backups.Metadata, error) {
 	if i.err != nil {
 		return nil, errors.Trace(i.err)
 	}
-	return []metadata.Metadata{*i.meta}, nil
+	return []backups.Metadata{*i.meta}, nil
 }
 
 func (i *fakeBackups) Remove(string) error {
@@ -61,7 +60,7 @@ type backupsSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	api        *backupsAPI.API
-	meta       *metadata.Metadata
+	meta       *backups.Metadata
 }
 
 var _ = gc.Suite(&backupsSuite{})
@@ -78,12 +77,12 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 	s.meta = s.newMeta("")
 }
 
-func (s *backupsSuite) newMeta(notes string) *metadata.Metadata {
-	origin := metadata.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return metadata.NewMetadata(*origin, notes, nil)
+func (s *backupsSuite) newMeta(notes string) *backups.Metadata {
+	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
+	return backups.NewMetadata(*origin, notes, nil)
 }
 
-func (s *backupsSuite) setBackups(c *gc.C, meta *metadata.Metadata, err string) *fakeBackups {
+func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *fakeBackups {
 	fake := fakeBackups{
 		meta: meta,
 	}

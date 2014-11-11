@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils/filestorage"
 
 	"github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/metadata"
 )
 
 var (
@@ -73,8 +72,8 @@ func NewTestCreateFailure(failure string) func(*createArgs) (*createResult, erro
 	}
 }
 
-func NewTestMetaFinisher(failure string) func(*metadata.Metadata, *createResult) error {
-	return func(*metadata.Metadata, *createResult) error {
+func NewTestMetaFinisher(failure string) func(*Metadata, *createResult) error {
+	return func(*Metadata, *createResult) error {
 		if failure == "" {
 			return nil
 		}
@@ -82,8 +81,8 @@ func NewTestMetaFinisher(failure string) func(*metadata.Metadata, *createResult)
 	}
 }
 
-func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *metadata.Metadata, io.Reader) error {
-	return func(filestorage.FileStorage, *metadata.Metadata, io.Reader) error {
+func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadata, io.Reader) error {
+	return func(filestorage.FileStorage, *Metadata, io.Reader) error {
 		if failure == "" {
 			return nil
 		}
