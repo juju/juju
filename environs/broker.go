@@ -39,6 +39,20 @@ type StartInstanceParams struct {
 	DistributionGroup func() ([]instance.Id, error)
 }
 
+// StartInstanceResult holds the result of an
+// InstanceBroker.StartInstance method call.
+type StartInstanceResult struct {
+	// Instance is an interface representing a cloud instance.
+	Instance instance.Instance
+
+	// HardwareCharacteristics represents the hardware characteristics
+	// of the newly created instance.
+	Hardware *instance.HardwareCharacteristics
+
+	// NetworkInfo contains information about configured networks.
+	NetworkInfo []network.Info
+}
+
 // TODO(wallyworld) - we want this in the environs/instance package but import loops
 // stop that from being possible right now.
 type InstanceBroker interface {
@@ -48,7 +62,7 @@ type InstanceBroker interface {
 	// unique within an environment, is used by juju to protect against the
 	// consequences of multiple instances being started with the same machine
 	// id.
-	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
+	StartInstance(args StartInstanceParams) (*StartInstanceResult, error)
 
 	// StopInstances shuts down the instances with the specified IDs.
 	// Unknown instance IDs are ignored, to enable idempotency.

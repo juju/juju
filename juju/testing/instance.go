@@ -185,5 +185,10 @@ func StartInstanceWithParams(
 	}
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig
-	return env.StartInstance(params)
+	// TODO(axw) refactor these test helpers to return StartInstanceResult
+	result, err := env.StartInstance(params)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return result.Instance, result.Hardware, result.NetworkInfo, nil
 }

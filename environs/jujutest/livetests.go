@@ -731,15 +731,15 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.toolsStorage, "released", "released", version.MustParseBinary("5.4.5-trusty-amd64"))
-	inst, _, _, err := t.Env.StartInstance(environs.StartInstanceParams{
+	result, err := t.Env.StartInstance(environs.StartInstanceParams{
 		Tools:         possibleTools,
 		MachineConfig: machineConfig,
 	})
-	if inst != nil {
-		err := t.Env.StopInstances(inst.Id())
+	if result != nil && result.Instance != nil {
+		err := t.Env.StopInstances(result.Instance.Id())
 		c.Check(err, gc.IsNil)
 	}
-	c.Assert(inst, gc.IsNil)
+	c.Assert(result, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*missing machine nonce")
 }
 
