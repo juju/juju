@@ -54,7 +54,7 @@ func NewWorkspaceFromFilename(filename string) (*Workspace, error) {
 		return nil, errors.Trace(err)
 	}
 
-	err = unpack(archiveFile, ws.UnpackedRootDir)
+	err = unpack(ws.UnpackedRootDir, archiveFile)
 	return ws, errors.Trace(err)
 }
 
@@ -65,11 +65,11 @@ func NewWorkspaceReader(archiveFile io.Reader) (*Workspace, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = unpack(archiveFile, ws.UnpackedRootDir)
+	err = unpack(ws.UnpackedRootDir, archiveFile)
 	return ws, errors.Trace(err)
 }
 
-func unpack(tarFile io.Reader, targetDir string) error {
+func unpack(targetDir string, tarFile io.Reader) error {
 	tarFile, err := gzip.NewReader(tarFile)
 	if err != nil {
 		return errors.Annotate(err, "while uncompressing archive file")
