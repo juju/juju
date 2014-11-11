@@ -550,6 +550,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
 				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
+			a.startWorkerAfterUpgrade(runner, "builtinmetricadderworker", func() (worker.Worker, error) {
+				return metricworker.NewBuiltinMetricAdder(getMetricAPI(st)), nil
+			})
 		case params.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:

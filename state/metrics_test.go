@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -227,4 +228,69 @@ func (s *MetricSuite) TestMetricsToSendBatches(c *gc.C) {
 	result, err := s.State.MetricsToSend(2)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.HasLen, 0)
+}
+
+// TestUnitsRequiringMetric checks that the correct number of units are returned by the call
+func (s *MetricSuite) TestUnitsRequiringMetric(c *gc.C) {
+	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	//TODO (mattyw) Would be useful to be able to create a unit directly from a charm in the factory
+	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	charms, err := s.State.CharmsRequiringMetric("pings")
+	c.Assert(err, gc.IsNil)
+	c.Assert(charms, gc.HasLen, 1)
+	c.Assert(charms[0].String(), gc.Equals, "cs:quantal/metered")
+}
+
+func (s *MetricSuite) TestCharmSetUrlDuration(c *gc.C) {
+	t0 := time.Now().Add(3 * time.Second)
+	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	meteredUnit := s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	charms, err := s.State.CharmsRequiringMetric("pings")
+	c.Assert(err, gc.IsNil)
+	times, err := s.State.CharmSetUrlDuration(t0, charms)
+	c.Assert(err, gc.IsNil)
+	c.Assert(times, gc.HasLen, 1)
+	c.Assert(times[*meteredCharm.URL()][meteredUnit.Name()], gc.HasLen, 1)
+	metric := times[*meteredCharm.URL()][meteredUnit.Name()][0]
+	c.Assert(metric.Key, gc.Equals, "juju-unit-time")
+	unitTime, err := strconv.Atoi(metric.Value)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unitTime > 1, jc.IsTrue)
+	c.Assert(unitTime < 3, jc.IsTrue)
+}
+
+func (s *MetricSuite) TestAddBulkMetrics(c *gc.C) {
+	meteredUnit0 := s.factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
+	meteredCharm := s.factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	meteredUnit1 := s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+	url0, _ := meteredUnit0.CharmURL()
+	url1, _ := meteredUnit1.CharmURL()
+	ct0 := map[string][]state.Metric{
+		meteredUnit0.Name(): []state.Metric{{Key: "foobar", Value: "123"}},
+	}
+	ct1 := map[string][]state.Metric{
+		meteredUnit1.Name(): []state.Metric{{Key: "barbar", Value: "456"}},
+	}
+	bulkMetrics := state.BulkMetrics{
+		*url0: ct0, *url1: ct1,
+	}
+	mb, err := s.State.AddBulkMetrics(bulkMetrics)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mb, gc.HasLen, 2)
+	count, err := s.State.CountofUnsentMetrics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(count, gc.Equals, 2)
+	m0 := mb[0].Metrics()
+	c.Assert(m0, gc.HasLen, 1)
+	c.Assert(m0[0].Key, gc.Equals, "foobar")
+	c.Assert(m0[0].Value, gc.Equals, "123")
+	m1 := mb[1].Metrics()
+	c.Assert(m1, gc.HasLen, 1)
+	c.Assert(m1[0].Key, gc.Equals, "barbar")
+	c.Assert(m1[0].Value, gc.Equals, "456")
 }

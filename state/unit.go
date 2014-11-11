@@ -65,20 +65,21 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in apiserver/params.
 type unitDoc struct {
-	DocID        string `bson:"_id"`
-	Name         string `bson:"name"`
-	EnvUUID      string `bson:"env-uuid"`
-	Service      string
-	Series       string
-	CharmURL     *charm.URL
-	Principal    string
-	Subordinates []string
-	MachineId    string
-	Resolved     ResolvedMode
-	Tools        *tools.Tools `bson:",omitempty"`
-	Life         Life
-	TxnRevno     int64 `bson:"txn-revno"`
-	PasswordHash string
+	DocID           string `bson:"_id"`
+	Name            string `bson:"name"`
+	EnvUUID         string `bson:"env-uuid"`
+	Service         string
+	Series          string
+	CharmURL        *charm.URL
+	CharmURLSetTime time.Time `bson:"charmurlsettime"`
+	Principal       string
+	Subordinates    []string
+	MachineId       string
+	Resolved        ResolvedMode
+	Tools           *tools.Tools `bson:",omitempty"`
+	Life            Life
+	TxnRevno        int64 `bson:"txn-revno"`
+	PasswordHash    string
 
 	// No longer used - to be removed.
 	Ports          []network.Port
@@ -110,6 +111,18 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
 	return u.st.Service(u.doc.Service)
+}
+
+func (u *Unit) setCharmURLSetTimeOps(t time.Time) txn.Op {
+	return txn.Op{
+		C:      unitsC,
+		Id:     u.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$set", bson.D{{"charmurlsettime", t}}}}}
+}
+
+func (u *Unit) CharmURLSetTime() time.Time {
+	return u.doc.CharmURLSetTime
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -842,6 +855,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	defer closer()
 	units := db.C(unitsC)
 	charms := db.C(charmsC)
+	charmSetTime := time.Now()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
@@ -877,7 +891,9 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 				Id:     u.doc.DocID,
 				Assert: append(notDeadDoc, differentCharm...),
 				Update: bson.D{{"$set", bson.D{{"charmurl", curl}}}},
-			}}
+			},
+			u.setCharmURLSetTimeOps(charmSetTime),
+		}
 		if u.doc.CharmURL != nil {
 			// Drop the reference to the old charm.
 			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
@@ -888,7 +904,13 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 		}
 		return ops, nil
 	}
-	return u.st.run(buildTxn)
+	err = u.st.run(buildTxn)
+	if err != nil {
+		return err
+	}
+	u.doc.CharmURLSetTime = charmSetTime
+
+	return nil
 }
 
 // AgentPresence returns whether the respective remote agent is alive.

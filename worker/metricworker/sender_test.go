@@ -8,20 +8,14 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/metricworker"
 )
 
 type SenderSuite struct {
-	testing.JujuConnSuite
 }
 
 var _ = gc.Suite(&SenderSuite{})
-
-func (s *SenderSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-}
 
 // TestSend create 2 metrics, one sent and one not sent.
 // It confirms that one metric is sent.
@@ -34,7 +28,7 @@ func (s *SenderSuite) TestSender(c *gc.C) {
 	select {
 	case <-notify:
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("the cleanup function should have fired by now")
+		c.Fatalf("the sender function should have fired by now")
 	}
 	c.Assert(client.calls, gc.DeepEquals, []string{"SendMetrics"})
 	worker.Kill()
@@ -51,5 +45,10 @@ func (m *mockClient) CleanupOldMetrics() error {
 }
 func (m *mockClient) SendMetrics() error {
 	m.calls = append(m.calls, "SendMetrics")
+	return nil
+}
+
+func (m *mockClient) AddBuiltinMetrics() error {
+	m.calls = append(m.calls, "AddBuiltinMetrics")
 	return nil
 }

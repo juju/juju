@@ -22,8 +22,16 @@ type Client struct {
 
 // MetricsManagerClient defines the methods on the metricsmanager API end point.
 type MetricsManagerClient interface {
+
+	// CleanupOldMetrics returns the result of making a request to remove all metrics
+	// that have been sent.
 	CleanupOldMetrics() error
+
+	// SendMetrics returns the result of attempting to send all unsent metrics.
 	SendMetrics() error
+
+	// AddBuiltinMetrics returns the result of adding builtin metrics.
+	AddBuiltinMetrics() error
 }
 
 var _ MetricsManagerClient = (*Client)(nil)
@@ -63,6 +71,23 @@ func (c *Client) SendMetrics() error {
 	}}
 	results := new(params.ErrorResults)
 	err = c.facade.FacadeCall("SendMetrics", p, results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}
+
+// AddBuiltinMetrics adds builtin metrics to state
+func (c *Client) AddBuiltinMetrics() error {
+	envTag, err := c.st.EnvironTag()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	p := params.Entities{Entities: []params.Entity{
+		{envTag.String()},
+	}}
+	results := new(params.ErrorResults)
+	err = c.facade.FacadeCall("AddBuiltinMetrics", p, results)
 	if err != nil {
 		return errors.Trace(err)
 	}
