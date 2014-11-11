@@ -76,7 +76,7 @@ func (m *backingMachine) removed(st *State, store *multiwatcher.Store, id interf
 	// environment UUID prefixed ids but we can't fix it properly
 	// until davecheney smashes the allwatcher to apiserver/params
 	// dependency.
-	store.Remove(params.NewEntityId("machine", id))
+	store.Remove(params.NewEntityId("machine", st.localID(id.(string))))
 }
 
 func (m *backingMachine) mongoId() interface{} {
@@ -202,7 +202,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 
 func (svc *backingService) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(params.NewEntityId("service", id))
+	store.Remove(params.NewEntityId("service", st.localID(id.(string))))
 }
 
 // SCHEMACHANGE
