@@ -230,7 +230,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 // ActionName returns the name of the action.
 func (ctx *HookContext) ActionName() (string, error) {
 	if ctx.actionData == nil {
-		return "", fmt.Errorf("not running an action")
+		return "", errors.New("not running an action")
 	}
 	return ctx.actionData.ActionName, nil
 }

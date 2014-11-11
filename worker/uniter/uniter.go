@@ -447,7 +447,7 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 			err.Error(),
 		)
 	} else if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "cannot create context for action %q", hi.ActionId)
 	}
 
 	actionName, err := hctx.ActionName()
@@ -455,7 +455,7 @@ func (u *Uniter) runAction(hi hook.Info) (err error) {
 		// this should *really* never happen, but let's not panic
 		return errors.Trace(err)
 	}
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), actionName)
+	lockMessage := fmt.Sprintf("%s: running action %q", u.unit.Name(), actionName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return errors.Trace(err)
 	}

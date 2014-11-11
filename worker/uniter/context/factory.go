@@ -159,7 +159,6 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 
 // NewActionContext exists to satisfy the Factory interface.
 func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
-
 	ch, err := f.getCharm()
 	if err != nil {
 		return nil, errors.Trace(err)

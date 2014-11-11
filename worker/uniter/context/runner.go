@@ -98,7 +98,7 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 // RunAction exists to satisfy the Runner interface.
 func (runner *runner) RunAction(actionName string) error {
 	if _, err := runner.context.ActionData(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return runner.runCharmHookWithLocation(actionName, "actions")
 }
