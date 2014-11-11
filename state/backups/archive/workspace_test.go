@@ -99,8 +99,8 @@ func (s *workspaceSuite) TestNewWorkspaceFromFilename(c *gc.C) {
 	c.Check(ws.UnpackedRootDir, gc.Not(gc.Equals), "")
 }
 
-func (s *workspaceSuite) TestNewWorkspaceFromFile(c *gc.C) {
-	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
+func (s *workspaceSuite) TestNewWorkspaceReader(c *gc.C) {
+	ws, err := archive.NewWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
@@ -109,7 +109,7 @@ func (s *workspaceSuite) TestNewWorkspaceFromFile(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestClose(c *gc.C) {
-	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
+	ws, err := archive.NewWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 
 	err = ws.Close()
@@ -120,7 +120,7 @@ func (s *workspaceSuite) TestClose(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
-	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
+	ws, err := archive.NewWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
@@ -135,7 +135,7 @@ func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestOpenFile(c *gc.C) {
-	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
+	ws, err := archive.NewWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
@@ -148,7 +148,7 @@ func (s *workspaceSuite) TestOpenFile(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestMetadata(c *gc.C) {
-	ws, err := archive.NewWorkspaceFromFile(s.archiveFile)
+	ws, err := archive.NewWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
