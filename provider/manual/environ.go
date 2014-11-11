@@ -263,7 +263,7 @@ func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the manual provider yet.
-func (*manualEnviron) ListNetworks() ([]network.BasicInfo, error) {
+func (*manualEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 

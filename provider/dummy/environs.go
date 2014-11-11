@@ -1019,7 +1019,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 }
 
 // ListNetworks implements environs.Environ.ListNetworks.
-func (env *environ) ListNetworks() ([]network.BasicInfo, error) {
+func (env *environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	if err := env.checkBroken("ListNetworks"); err != nil {
 		return nil, err
 	}

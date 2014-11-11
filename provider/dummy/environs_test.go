@@ -157,7 +157,7 @@ func (s *suite) TestListNetworks(c *gc.C) {
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
-	netInfo, err := e.ListNetworks()
+	netInfo, err := e.ListNetworks("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
 	assertListNetworks(c, e, opc, expectInfo)

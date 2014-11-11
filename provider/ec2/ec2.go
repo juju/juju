@@ -996,7 +996,7 @@ func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the EC2 provider yet.
-func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+func (*environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 
