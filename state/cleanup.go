@@ -112,7 +112,7 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 	// delete directly.
 	settings, closer := st.getCollection(settingsC)
 	defer closer()
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + st.docID(prefix)}}}}
 	if count, err := settings.Find(sel).Count(); err != nil {
 		return fmt.Errorf("cannot detect cleanup targets: %v", err)
 	} else if count != 0 {

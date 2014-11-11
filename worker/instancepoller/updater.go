@@ -254,7 +254,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 		instInfo.status = ""
 	} else {
 		if instInfo.status != currentInstStatus {
-			logger.Infof("machine %q has new instance status: %v", m.Id(), instInfo.status)
+			logger.Infof("machine %q instance status changed from %q to %q", m.Id(), currentInstStatus, instInfo.status)
 			if err = m.SetInstanceStatus(instInfo.status); err != nil {
 				logger.Errorf("cannot set instance status on %q: %v", m, err)
 			}

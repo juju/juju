@@ -447,10 +447,10 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 		return nil, err
 	}
 	var floatingIP string
-	if inst.floatingIP != nil {
+	if inst.floatingIP != nil && inst.floatingIP.IP != "" {
 		floatingIP = inst.floatingIP.IP
+		logger.Debugf("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	}
-	logger.Infof("instance %v has floating IP address: %v", inst.Id(), floatingIP)
 	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
@@ -910,7 +910,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 		if err != nil {
 			return nil, err
 		}
-		logger.Debugf("allocated new public ip: %v", newfip.IP)
+		logger.Debugf("allocated new public IP: %v", newfip.IP)
 	}
 	return newfip, nil
 }
@@ -1167,7 +1167,7 @@ func (e *environ) collectInstances(ids []instance.Id, out map[string]instance.In
 		if server, found := serversById[string(id)]; found {
 			// HPCloud uses "BUILD(spawning)" as an intermediate BUILD states once networking is available.
 			switch server.Status {
-			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning:
+			case nova.StatusActive, nova.StatusBuild, nova.StatusBuildSpawning, nova.StatusShutoff, nova.StatusSuspended:
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 				out[string(id)] = &openstackInstance{e: e, serverDetail: &server}
 				continue

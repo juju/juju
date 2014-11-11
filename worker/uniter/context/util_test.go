@@ -198,6 +198,8 @@ func (s *HookContextSuite) metricsDefinition(name string) *charm.Metrics {
 
 // hookSpec supports makeCharm.
 type hookSpec struct {
+	// dir is the directory to create the hook in.
+	dir string
 	// name is the name of the hook.
 	name string
 	// perm is the file permissions of the hook.
@@ -217,19 +219,27 @@ type hookSpec struct {
 // the charm will write it to stdout and stderr, with each one prefixed
 // by name of the stream.
 func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
-	hooksDir := filepath.Join(charmDir, "hooks")
-	err := os.Mkdir(hooksDir, 0755)
-	c.Assert(err, gc.IsNil)
+	dir := charmDir
+	if spec.dir != "" {
+		dir = filepath.Join(dir, spec.dir)
+		err := os.Mkdir(dir, 0755)
+		c.Assert(err, gc.IsNil)
+	}
 	c.Logf("openfile perm %v", spec.perm)
-	hook, err := os.OpenFile(filepath.Join(hooksDir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm)
+	hook, err := os.OpenFile(
+		filepath.Join(dir, spec.name), os.O_CREATE|os.O_WRONLY, spec.perm,
+	)
 	c.Assert(err, gc.IsNil)
-	defer hook.Close()
+	defer func() {
+		c.Assert(hook.Close(), gc.IsNil)
+	}()
 
 	printf := func(f string, a ...interface{}) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, gc.IsNil)
 	}
 	printf("#!/bin/bash")
+	printf("echo $$ > pid")
 	if spec.stdout != "" {
 		printf("echo %s", spec.stdout)
 	}
