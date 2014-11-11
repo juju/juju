@@ -133,8 +133,8 @@ func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
 	return &outfile, nil
 }
 
-// NewFromJSONBuffer extracts a new metadata from the JSON file.
-func NewFromJSONBuffer(in io.Reader) (*Metadata, error) {
+// NewMetadataJSONReader extracts a new metadata from the JSON file.
+func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	var flat flatMetadata
 	if err := json.NewDecoder(in).Decode(&flat); err != nil {
 		return nil, errors.Trace(err)

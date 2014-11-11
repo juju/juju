@@ -56,7 +56,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 		`}`+"\n")
 }
 
-func (s *metadataSuite) TestNewFromJSONBuffer(c *gc.C) {
+func (s *metadataSuite) TestNewMetadataJSONReader(c *gc.C) {
 	file := bytes.NewBufferString(`{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
 		`"Checksum":"123af2cef",` +
@@ -71,7 +71,7 @@ func (s *metadataSuite) TestNewFromJSONBuffer(c *gc.C) {
 		`"Hostname":"myhost",` +
 		`"Version":"1.21-alpha3"` +
 		`}` + "\n")
-	meta, err := backups.NewFromJSONBuffer(file)
+	meta, err := backups.NewMetadataJSONReader(file)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(meta.ID(), gc.Equals, "20140909-115934.asdf-zxcv-qwe")

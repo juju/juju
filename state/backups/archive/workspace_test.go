@@ -28,7 +28,7 @@ var _ = gc.Suite(&workspaceSuite{})
 func (s *workspaceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	meta, err := metadata.NewFromJSONBuffer(bytes.NewBufferString(`{` +
+	meta, err := metadata.NewMetadataJSONReader(bytes.NewBufferString(`{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
 		`"Checksum":"123af2cef",` +
 		`"ChecksumFormat":"SHA-1, base64 encoded",` +

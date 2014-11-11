@@ -100,6 +100,6 @@ func (ws *Workspace) Metadata() (*metadata.Metadata, error) {
 	}
 	defer metaFile.Close()
 
-	meta, err := metadata.NewFromJSONBuffer(metaFile)
+	meta, err := metadata.NewMetadataJSONReader(metaFile)
 	return meta, errors.Trace(err)
 }
