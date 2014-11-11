@@ -481,7 +481,7 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 // CpuPower is ignored because it cannot translated into something
 // meaningful for MAAS right now.
 func convertConstraints(cons constraints.Value) url.Values {
-	var params url.Values
+	params := url.Values{}
 	if cons.Arch != nil {
 		// Note: Juju and MAAS use the same architecture names.
 		// MAAS also accepts a subarchitecture (e.g. "highbank"
