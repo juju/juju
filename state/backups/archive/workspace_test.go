@@ -5,10 +5,8 @@ package archive_test
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -75,28 +73,6 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 
 	s.archiveFile = archiveFile
 	s.meta = meta
-}
-
-func (s *workspaceSuite) dump(c *gc.C) string {
-	filename := filepath.Join(c.MkDir(), "juju-backup.tgz")
-	file, err := os.Create(filename)
-	c.Assert(err, gc.IsNil)
-	defer file.Close()
-
-	io.Copy(file, s.archiveFile)
-	c.Assert(err, gc.IsNil)
-
-	return filename
-}
-
-func (s *workspaceSuite) TestNewWorkspaceFromFilename(c *gc.C) {
-	filename := s.dump(c)
-	ws, err := archive.NewWorkspaceFromFilename(filename)
-	c.Assert(err, gc.IsNil)
-	defer ws.Close()
-
-	c.Check(ws.Filename, gc.Equals, filename)
-	c.Check(ws.UnpackedRootDir, gc.Not(gc.Equals), "")
 }
 
 func (s *workspaceSuite) TestNewWorkspaceReader(c *gc.C) {

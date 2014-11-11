@@ -34,30 +34,6 @@ func newWorkspace() (*Workspace, error) {
 	return &ws, nil
 }
 
-// NewWorkspaceFromFile creates a new workspace for backup archives.
-// The workspace is based in a new directory that will be deleted when
-// the workspace is closed.  The given filename is opened and unpacked
-// into the workspace.
-func NewWorkspaceFromFilename(filename string) (*Workspace, error) {
-	if filename == "" {
-		return nil, errors.Errorf("missing filename")
-	}
-
-	ws, err := newWorkspace()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ws.Filename = filename
-
-	archiveFile, err := os.Open(filename)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	err = unpack(ws.UnpackedRootDir, archiveFile)
-	return ws, errors.Trace(err)
-}
-
 // NewWorkspaceReader returns a new archive workspace with a new
 // workspace dir populated from the archive file.
 func NewWorkspaceReader(archiveFile io.Reader) (*Workspace, error) {
