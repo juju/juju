@@ -211,7 +211,6 @@ func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, s
 		return failReauth(err)
 	}
 	return string(credBytes), reauth.Nonce, nil
-
 }
 
 func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {

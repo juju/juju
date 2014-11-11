@@ -4,8 +4,7 @@
 package serveradmin_test
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +35,7 @@ func (s *serveradminSuite) TestIdentityProvider(c *gc.C) {
 			}
 			return nil
 		}
-		return fmt.Errorf("wrong result type: %T", response)
+		return errors.Errorf("wrong result type: %T", response)
 	})
 	defer cleanup()
 	info, err := s.client.IdentityProvider()

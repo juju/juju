@@ -81,6 +81,7 @@ func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.Identit
 	return result, nil
 }
 
+// IdentityProvider implements the ServerAdmin interface.
 func (api *API) IdentityProvider() (params.IdentityProviderResult, error) {
 	info, err := api.state.StateServingInfo()
 	if err != nil {
@@ -94,6 +95,7 @@ func (api *API) IdentityProvider() (params.IdentityProviderResult, error) {
 	}, nil
 }
 
+// SetIdentityProvider implements the ServerAdmin interface.
 func (api *API) SetIdentityProvider(args params.SetIdentityProvider) error {
 	info, err := api.state.StateServingInfo()
 	if err != nil {
