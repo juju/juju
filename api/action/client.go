@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package actions
+package action
 
 import (
 	"github.com/juju/errors"
@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
-// Client provides access to the actions facade.
+// Client provides access to the action facade.
 type Client struct {
 	base.ClientFacade
 	facade base.FacadeCaller
@@ -20,7 +20,7 @@ type Client struct {
 
 // NewClient returns a new actions client.
 func NewClient(st base.APICallCloser) *Client {
-	frontend, backend := base.NewClientFacade(st, "Actions")
+	frontend, backend := base.NewClientFacade(st, "Action")
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
