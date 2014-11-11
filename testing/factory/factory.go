@@ -6,6 +6,7 @@ package factory
 import (
 	"fmt"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/juju/names"
@@ -334,13 +335,15 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params = &MetricParams{}
 	}
 	if params.Unit == nil {
-		params.Unit = factory.MakeUnit(c, &UnitParams{SetCharmURL: true})
+		meteredCharm := factory.MakeCharm(c, &CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+		meteredService := factory.MakeService(c, &ServiceParams{Charm: meteredCharm})
+		params.Unit = factory.MakeUnit(c, &UnitParams{Service: meteredService, SetCharmURL: true})
 	}
 	if params.Time == nil {
 		params.Time = &now
 	}
 	if params.Metrics == nil {
-		params.Metrics = []state.Metric{{factory.UniqueString("metric"), factory.UniqueString(""), *params.Time, []byte("creds")}}
+		params.Metrics = []state.Metric{{"pings", strconv.Itoa(factory.UniqueInteger()), *params.Time, []byte("creds")}}
 	}
 
 	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)

@@ -25,6 +25,8 @@ import (
 
 type SenderSuite struct {
 	jujutesting.JujuConnSuite
+	unit           *state.Unit
+	meteredService *state.Service
 }
 
 var _ = gc.Suite(&SenderSuite{})
@@ -39,6 +41,13 @@ func createCerts(c *gc.C, serverName string) (*x509.CertPool, tls.Certificate) {
 	certPool := x509.NewCertPool()
 	certPool.AppendCertsFromPEM([]byte(certCaPem))
 	return certPool, cert
+}
+
+func (s *SenderSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	s.meteredService = s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
 }
 
 // startServer starts a server with TLS and the specified handler, returning a
@@ -59,12 +68,11 @@ func (s *SenderSuite) startServer(c *gc.C, handler http.Handler) func() {
 
 var _ metricsender.MetricSender = (*metricsender.DefaultSender)(nil)
 
-// TestDefaultSender check that if the default sender
+// TestDefaultSender checks that if the default sender
 // is in use metrics get sent
 func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	metricCount := 3
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-	expectedCharmUrl, _ := unit.CharmURL()
+	expectedCharmUrl, _ := s.unit.CharmURL()
 
 	receiverChan := make(chan wireformat.MetricBatch, metricCount)
 	cleanup := s.startServer(c, testHandler(c, receiverChan, nil))
@@ -73,7 +81,7 @@ func (s *SenderSuite) TestDefaultSender(c *gc.C) {
 	now := time.Now()
 	metrics := make([]*state.MetricBatch, metricCount)
 	for i, _ := range metrics {
-		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+		metrics[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
 	var sender metricsender.DefaultSender
 	err := metricsender.SendMetrics(s.State, &sender, 10)
@@ -148,7 +156,6 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		{http.StatusServiceUnavailable, "failed to send metrics http 503"},
 		{http.StatusMovedPermanently, "failed to send metrics http 301"},
 	}
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 
 	for _, test := range tests {
 		killServer := s.startServer(c, errorHandler(c, test.errorCode))
@@ -156,7 +163,7 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 		now := time.Now()
 		batches := make([]*state.MetricBatch, 3)
 		for i, _ := range batches {
-			batches[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+			batches[i] = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 		}
 		var sender metricsender.DefaultSender
 		err := metricsender.SendMetrics(s.State, &sender, 10)
@@ -174,8 +181,6 @@ func (s *SenderSuite) TestErrorCodes(c *gc.C) {
 // by the collector service is propagated to the unit.
 // is in use metrics get sent
 func (s *SenderSuite) TestMeterStatus(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
-
 	statusFunc := func(unitName string) (string, string, string) {
 		return unitName, "GREEN", ""
 	}
@@ -183,9 +188,9 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	cleanup := s.startServer(c, testHandler(c, nil, statusFunc))
 	defer cleanup()
 
-	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false})
+	_ = s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false})
 
-	status, info, err := unit.GetMeterStatus()
+	status, info, err := s.unit.GetMeterStatus()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, "NOT SET")
 	c.Assert(info, gc.Equals, "")
@@ -194,7 +199,7 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 	err = metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, gc.IsNil)
 
-	status, info, err = unit.GetMeterStatus()
+	status, info, err = s.unit.GetMeterStatus()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, "GREEN")
 	c.Assert(info, gc.Equals, "")
@@ -203,10 +208,9 @@ func (s *SenderSuite) TestMeterStatus(c *gc.C) {
 // TestMeterStatusInvalid checks that the metric sender deals with invalid
 // meter status data properly.
 func (s *SenderSuite) TestMeterStatusInvalid(c *gc.C) {
-	service := s.Factory.MakeService(c, nil)
-	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: service, SetCharmURL: true})
-	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: service, SetCharmURL: true})
-	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: service, SetCharmURL: true})
+	unit1 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit2 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
+	unit3 := s.Factory.MakeUnit(c, &factory.UnitParams{Service: s.meteredService, SetCharmURL: true})
 
 	statusFunc := func(unitName string) (string, string, string) {
 		switch unitName {

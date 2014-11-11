@@ -11,11 +11,13 @@ import (
 
 	"github.com/juju/juju/apiserver/metricsender"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
 
 type MetricSenderSuite struct {
 	jujutesting.JujuConnSuite
+	unit *state.Unit
 }
 
 var _ = gc.Suite(&MetricSenderSuite{})
@@ -24,16 +26,22 @@ var _ metricsender.MetricSender = (*metricsender.MockSender)(nil)
 
 var _ metricsender.MetricSender = (*metricsender.NopSender)(nil)
 
+func (s *MetricSenderSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	meteredCharm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "metered", URL: "cs:quantal/metered"})
+	meteredService := s.Factory.MakeService(c, &factory.ServiceParams{Charm: meteredCharm})
+	s.unit = s.Factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
+}
+
 // TestSendMetrics creates 2 unsent metrics and a sent metric
 // and checks that the 2 unsent metrics get sent and have their
 // sent field set to true.
 func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 	var sender metricsender.MockSender
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
-	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
-	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
-	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: true, Time: &now})
+	unsent1 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
+	unsent2 := s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
+	s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: true, Time: &now})
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, gc.IsNil)
 	c.Assert(sender.Data, gc.HasLen, 1)
@@ -54,10 +62,9 @@ func (s *MetricSenderSuite) TestSendMetrics(c *gc.C) {
 // will be made to the sender
 func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 	var sender metricsender.MockSender
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	for i := 0; i < 100; i++ {
-		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Time: &now})
+		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Time: &now})
 	}
 	err := metricsender.SendMetrics(s.State, &sender, 10)
 	c.Assert(err, gc.IsNil)
@@ -71,10 +78,9 @@ func (s *MetricSenderSuite) TestSendBulkMetrics(c *gc.C) {
 // TestDontSendWithNopSender check that if the default sender
 // is nil we don't send anything, but still mark the items as sent
 func (s *MetricSenderSuite) TestDontSendWithNopSender(c *gc.C) {
-	unit := s.Factory.MakeUnit(c, &factory.UnitParams{SetCharmURL: true})
 	now := time.Now()
 	for i := 0; i < 3; i++ {
-		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: unit, Sent: false, Time: &now})
+		s.Factory.MakeMetric(c, &factory.MetricParams{Unit: s.unit, Sent: false, Time: &now})
 	}
 	err := metricsender.SendMetrics(s.State, metricsender.NopSender{}, 10)
 	c.Assert(err, gc.IsNil)

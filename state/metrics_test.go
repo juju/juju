@@ -82,7 +82,7 @@ func (s *MetricSuite) assertAddUnit(c *gc.C) {
 	s.unit = s.factory.MakeUnit(c, &factory.UnitParams{Service: meteredService, SetCharmURL: true})
 }
 
-func (s *MetricSuite) TestAddMetricNonExitentUnit(c *gc.C) {
+func (s *MetricSuite) TestAddMetricNonExistentUnit(c *gc.C) {
 	assertUnitRemoved(c, s.unit)
 	now := state.NowToTheSecond()
 	m := state.Metric{"pings", "5", now, []byte{}}
@@ -258,7 +258,6 @@ func (s *MetricSuite) TestMetricValidation(c *gc.C) {
 		[]state.Metric{{"pings", "1", now, []byte("creds")}},
 		dyingUnit,
 		"metered-service/1 not found",
-		//TODO (mattyw) let's put this in another test
 	}, {
 		"assert charm doesn't implement key returns error",
 		[]state.Metric{{"not-implemented", "1", now, []byte("creds")}},

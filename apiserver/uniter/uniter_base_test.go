@@ -39,6 +39,7 @@ type uniterBaseSuite struct {
 	mysql         *state.Service
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
+	meteredUnit   *state.Unit
 }
 
 func (s *uniterBaseSuite) setUpTest(c *gc.C) {
@@ -77,6 +78,18 @@ func (s *uniterBaseSuite) setUpTest(c *gc.C) {
 	s.mysqlUnit = factory.MakeUnit(c, &jujuFactory.UnitParams{
 		Service: s.mysql,
 		Machine: s.machine1,
+	})
+
+	meteredCharm := s.Factory.MakeCharm(c, &jujuFactory.CharmParams{
+		Name: "metered",
+		URL:  "cs:quantal/metered",
+	})
+	meteredService := s.Factory.MakeService(c, &jujuFactory.ServiceParams{
+		Charm: meteredCharm,
+	})
+	s.meteredUnit = s.Factory.MakeUnit(c, &jujuFactory.UnitParams{
+		Service:     meteredService,
+		SetCharmURL: true,
 	})
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -1957,14 +1970,11 @@ type addMetrics interface {
 }
 
 func (s *uniterBaseSuite) testAddMetrics(c *gc.C, facade addMetrics) {
-	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
-	c.Assert(err, gc.IsNil)
-
 	now := time.Now()
-	sentMetrics := []params.Metric{{"A", "5", now}, {"B", "0.71", now}}
+	sentMetrics := []params.Metric{{"pings", "5", now}, {"juju-unit-time", "0.71", now}}
 	args := params.MetricsParams{
 		Metrics: []params.MetricsParam{{
-			Tag:     s.wordpressUnit.Tag().String(),
+			Tag:     s.meteredUnit.Tag().String(),
 			Metrics: sentMetrics,
 		}},
 	}
