@@ -52,6 +52,13 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+var ReleaseNodes = releaseNodes
+
+func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
+	_, err := nodes.CallPost("release", ids)
+	return err
+}
+
 type maasEnviron struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -908,15 +915,20 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	// TODO(axw) 2014-05-13 #1319016
-	// Nodes that have been removed out of band will cause
-	// the release call to fail. We should parse the error
-	// returned from MAAS and retry, or otherwise request
-	// an enhancement to MAAS to ignore unknown node IDs.
 	nodes := environ.getMAASClient().GetSubObject("nodes")
-	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
+	err := ReleaseNodes(nodes, getSystemIdValues("nodes", ids))
 	if err != nil {
-		return errors.Annotate(err, "cannot not release nodes")
+		maasErr, ok := err.(gomaasapi.ServerError)
+		// StatusCode 409 means a node couldn't be released due to
+		// a state conflict. Likely it's already released or disk
+		// erasing. We're assuming an error of 409 *only* means it's
+		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
+		if !ok || maasErr.StatusCode != 409 {
+			return errors.Annotate(err, "cannot release nodes")
+		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 }
