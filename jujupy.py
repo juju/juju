@@ -584,22 +584,11 @@ def start_libvirt_domain(URI, domain):
         if 'already active' in e.output:
             return '%s is already running; nothing to do.' % domain
         raise Exception('%s failed:\n %s' % (command, e.output))
-    sleep(60)
-    if verify_libvirt_domain_running(URI, domain):
-        return "%s is now running" % domain
-    else:
-        raise Exception('libvirt domain %s did not start.' % domain)
-
-
-def verify_libvirt_domain_running(URI, domain):
-    """Check if the domain is running and return a bool accordingly
-
-    @Parms URI: The address of the libvirt service.
-    @Parm domain: The name of the domain.
-    """
-
-    dom_status = get_libvirt_domstate(URI, domain)
-    return True if 'running' in dom_status else False
+    sleep(30)
+    for ignored in until_timeout(120):
+        if verify_libvirt_domain(URI, domain, 'running'):
+            return "%s is now running" % domain
+    raise Exception('libvirt domain %s did not start.' % domain)
 
 
 def stop_libvirt_domain(URI, domain):
@@ -616,22 +605,23 @@ def stop_libvirt_domain(URI, domain):
         if 'domain is not running' in e.output:
             return ('%s is not running; nothing to do.' % domain)
         raise Exception('%s failed:\n %s' % (command, e.output))
-    sleep(60)
-    if verify_libvirt_domain_shut_off(URI, domain):
-        return ('%s has been stopped' % domain)
-    else:
-        raise Exception('libvirt domain %s is not shut off.' % domain)
+    sleep(30)
+    for ignored in until_timeout(120):
+        if verify_libvirt_domain(URI, domain, 'shut off'):
+            return "%s is now shut off" % domain
+    raise Exception('libvirt domain %s is not shut off.' % domain)
 
 
-def verify_libvirt_domain_shut_off(URI, domain):
-    """Check if the domain is shut off and return a bool accordingly
+def verify_libvirt_domain(URI, domain, state="running"):
+    """Returns a bool based on if the domain is in the given state.
 
     @Parms URI: The address of the libvirt service.
     @Parm domain: The name of the domain.
+    @Parm state: The state to verify (e.g. "running or "shut off").
     """
 
     dom_status = get_libvirt_domstate(URI, domain)
-    return True if 'shut off' in dom_status else False
+    return True if state in dom_status else False
 
 
 def get_libvirt_domstate(URI, domain):
