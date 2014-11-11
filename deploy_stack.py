@@ -426,7 +426,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 bootstrap_from_env(juju_home, env.client.get_env_client(env))
             except:
                 if host is not None:
-                    dump_logs(env, host, log_dir, bootstrap_id)
+                    dump_logs(env.client.get_env_client(env), host, log_dir,
+                              bootstrap_id)
                 raise
             try:
                 if host is None:
@@ -448,7 +449,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                             test_upgrade(env)
                 except:
                     if host is not None:
-                        dump_logs(env, host, log_dir, bootstrap_id)
+                        dump_logs(env.client.get_env_client(env), host,
+                                  log_dir, bootstrap_id)
                     raise
             finally:
                 env.destroy_environment()
