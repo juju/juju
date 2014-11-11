@@ -82,7 +82,7 @@ func (a *adminV0) Login(c params.Creds) (params.LoginResult, error) {
 		Nonce:       c.Nonce,
 	}, newLocalCredentialChecker(a.srv.state))
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	resultV0 := params.LoginResult{
@@ -122,13 +122,13 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 		case nil:
 			// in this case no need to wrap authed api so we do nothing
 		default:
-			return fail, err
+			return fail, errors.Trace(err)
 		}
 	}
 
 	authKind, err := names.TagKind(req.AuthTag)
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	// Users are not rate limited, all other entities are
@@ -159,7 +159,7 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 			// logins with a more helpful one.
 			return fail, MaintenanceNoLoginError
 		}
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	a.root.entity = entity
 
@@ -172,7 +172,7 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 	a.loggedIn = true
 
 	if err := startPingerIfAgent(a.root, entity); err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	var maybeUserInfo *params.AuthUserInfo
@@ -188,13 +188,13 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
 	environ, err := a.root.state.Environment()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	a.root.rpcConn.ServeFinder(authedApi, serverError)
@@ -250,7 +250,7 @@ func NewLocalCredentialChecker(st *state.State) CredentialChecker {
 func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
 	tag, err := names.ParseTag(req.AuthTag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	entity, err := c.st.FindEntity(tag)
 	if errors.IsNotFound(err) {
@@ -266,12 +266,12 @@ func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, e
 
 	authenticator, err := authentication.FindEntityAuthenticator(entity)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// For user logins, ensure the user is allowed to access the environment.
@@ -302,17 +302,17 @@ func NewRemoteCredentialChecker(st *state.State, srv *bakery.Service) Credential
 func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, error) {
 	entity, err := authentication.NewRemoteUser(req.AuthTag, req.Nonce)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	authenticator := authentication.NewRemoteAuthenticator(c.srv)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
 		logger.Debugf("bad credentials")
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	return entity, nil
@@ -333,7 +333,7 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 
 	authKind, err := names.TagKind(req.AuthTag)
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 	if authKind != names.UserTagKind {
 		logger.Debugf("remote login must be a user, got: %q", req.AuthTag)
@@ -342,7 +342,7 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 
 	info, err := c.st.StateServingInfo()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	} else if info.IdentityProvider == nil {
 		logger.Debugf("empty credentials, remote identity provider not configured")
 		return fail, common.ErrBadCreds
@@ -358,13 +358,13 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 		},
 	})
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	remoteCreds := authentication.NewRemoteCredentials(m)
 	prompt, err := remoteCreds.MarshalText()
 	if err != nil {
-		return fail, err
+		return fail, errors.Trace(err)
 	}
 
 	return params.LoginResultV1{
@@ -405,7 +405,7 @@ type machinePinger struct {
 // connection closing time to properly stop the wrapped pinger.
 func (p *machinePinger) Stop() error {
 	if err := p.Pinger.Stop(); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return p.Pinger.Kill()
 }
@@ -422,7 +422,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 
 	pinger, err := agentPresencer.SetAgentPresence()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	root.getResources().Register(&machinePinger{pinger})
@@ -434,7 +434,7 @@ func startPingerIfAgent(root *apiHandler, entity state.Entity) error {
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
 	err = root.getResources().RegisterNamed("pingTimeout", pingTimeout)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -448,5 +448,5 @@ type errRoot struct {
 
 // Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
 func (r *errRoot) Admin(id string) (*adminV0, error) {
-	return nil, r.err
+	return nil, errors.Trace(r.err)
 }

@@ -40,7 +40,7 @@ func (st *State) Login(tag, password, nonce string) (*params.ReauthRequest, erro
 		// TODO (cmars): remove fallback once we can drop v0 compatibility
 		return nil, st.loginV0(tag, password, nonce)
 	}
-	return reauth, err
+	return reauth, errors.Trace(err)
 }
 
 func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, error) {
@@ -64,7 +64,7 @@ func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, er
 		},
 	}, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	// We've either logged into an Admin v1 facade, or a pre-facade (1.18) API
@@ -90,13 +90,13 @@ func (st *State) loginV1(tag, password, nonce string) (*params.ReauthRequest, er
 	}
 
 	err = st.setLoginResult(tag, environTag, servers, facades)
-	return nil, err
+	return nil, errors.Trace(err)
 }
 
 func (st *State) setLoginResult(tag, environTag string, servers [][]network.HostPort, facades []params.FacadeVersions) error {
 	authtag, err := names.ParseTag(tag)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	st.authTag = authtag
 	st.environTag = environTag
@@ -106,7 +106,7 @@ func (st *State) setLoginResult(tag, environTag string, servers [][]network.Host
 		if clerr := st.Close(); clerr != nil {
 			err = errors.Annotatef(err, "error closing state: %v", clerr)
 		}
-		return err
+		return errors.Trace(err)
 	}
 	st.hostPorts = hostPorts
 
@@ -125,10 +125,10 @@ func (st *State) loginV0(tag, password, nonce string) error {
 		Nonce:    nonce,
 	}, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if err = st.setLoginResult(tag, result.EnvironTag, result.Servers, result.Facades); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -163,11 +163,11 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 	}
 	host, portString, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	port, err := strconv.Atoi(portString)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	hostPort := network.HostPort{
 		Address: network.NewAddress(host, network.ScopeUnknown),

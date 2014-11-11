@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -85,7 +86,7 @@ func (s *errRootSuite) TestErrorRoot(c *gc.C) {
 	errRoot := apiserver.NewErrRoot(origErr)
 	st, err := errRoot.Admin("")
 	c.Check(st, gc.IsNil)
-	c.Check(err, gc.Equals, origErr)
+	c.Check(errors.Cause(err), gc.Equals, origErr)
 }
 
 func (s *errRootSuite) TestErrorRootViaRPC(c *gc.C) {
@@ -95,7 +96,7 @@ func (s *errRootSuite) TestErrorRootViaRPC(c *gc.C) {
 	caller, err := val.FindMethod("Admin", 0, "Login")
 	c.Assert(err, jc.ErrorIsNil)
 	resp, err := caller.Call("", reflect.Value{})
-	c.Check(err, gc.Equals, origErr)
+	c.Check(errors.Cause(err), gc.Equals, origErr)
 	c.Check(resp.IsValid(), jc.IsFalse)
 }
 

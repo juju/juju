@@ -63,7 +63,7 @@ func newIdentityProviderParams(idp *state.IdentityProvider) *params.IdentityProv
 func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.IdentityProvider, error) {
 	pkBytes, err := base64.URLEncoding.DecodeString(info.PublicKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(pkBytes) != bakery.KeyLen {
 		return nil, errors.Errorf("invalid public key length")
@@ -71,7 +71,7 @@ func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.Identit
 
 	u, err := url.Parse(info.Location)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	result := &state.IdentityProvider{
@@ -84,7 +84,7 @@ func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.Identit
 func (api *ServerAdminAPI) IdentityProvider() (params.IdentityProviderResult, error) {
 	info, err := api.state.StateServingInfo()
 	if err != nil {
-		return params.IdentityProviderResult{}, err
+		return params.IdentityProviderResult{}, errors.Trace(err)
 	}
 	if info.IdentityProvider == nil {
 		return params.IdentityProviderResult{}, nil
@@ -97,20 +97,20 @@ func (api *ServerAdminAPI) IdentityProvider() (params.IdentityProviderResult, er
 func (api *ServerAdminAPI) SetIdentityProvider(args params.SetIdentityProvider) error {
 	info, err := api.state.StateServingInfo()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if args.IdentityProvider == nil {
 		info.IdentityProvider = nil
 	} else {
 		info.IdentityProvider, err = newIdentityProviderState(args.IdentityProvider)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	if info.TargetKeyPair == nil {
 		info.TargetKeyPair, err = bakery.GenerateKey()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return api.state.SetStateServingInfo(info)

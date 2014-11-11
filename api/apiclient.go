@@ -150,7 +150,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	pool := x509.NewCertPool()
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	pool.AddCert(xcert)
 
@@ -177,7 +177,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		select {
 		case <-time.After(opts.DialAddressInterval):
@@ -187,7 +187,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	try.Close()
 	result, err := try.Result()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	conn := result.(*websocket.Conn)
 	logger.Infof("connection established to %q", conn.RemoteAddr())
@@ -209,16 +209,16 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		reauth, err := st.Login(info.Tag.String(), info.Password, info.Nonce)
 		if err != nil {
 			warnError(errors.Trace(conn.Close()))
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		if reauth != nil {
 			creds, nonce, err := opts.ReauthHandler.HandleReauth(reauth)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			reauth, err = st.Login(info.Tag.String(), creds, nonce)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			if reauth != nil {
 				return nil, errors.Errorf("reauthentication failed")

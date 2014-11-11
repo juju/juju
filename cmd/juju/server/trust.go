@@ -64,14 +64,14 @@ func (c *TrustCommand) Init(args []string) error {
 
 	pkBytes, err := base64.URLEncoding.DecodeString(c.PublicKey)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if len(pkBytes) == 0 {
 		return errors.Errorf("invalid public key length")
 	}
 
 	_, err = url.Parse(c.Location)
-	return err
+	return errors.Trace(err)
 }
 
 func (c *TrustCommand) getServerAdminAPI() (ServerAdminAPI, error) {
@@ -89,14 +89,14 @@ var (
 func (c *TrustCommand) Run(ctx *cmd.Context) error {
 	client, err := getServerTrustAPI(c)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
 	if c.showTrust {
 		info, err := client.IdentityProvider()
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		if info == nil {
 			fmt.Fprintln(ctx.Stderr, "not set")

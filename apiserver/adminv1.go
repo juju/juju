@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/macaroon/bakery"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -27,11 +28,11 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 
 	info, err := srv.state.StateServingInfo()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	env, err := srv.state.Environment()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if info.TargetKeyPair != nil && info.IdentityProvider != nil {
 		bakeryService, err = bakery.NewService(bakery.NewServiceParams{

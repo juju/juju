@@ -5,6 +5,7 @@ package server
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/api/serveradmin"
@@ -52,7 +53,7 @@ type ServerCommandBase struct {
 func (c *ServerCommandBase) NewServerAdminClient() (*serveradmin.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return serveradmin.NewClient(root), nil
 }

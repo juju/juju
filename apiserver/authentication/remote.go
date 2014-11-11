@@ -29,7 +29,7 @@ type RemoteUser struct {
 func NewRemoteUser(authTag, sessionId string) (*RemoteUser, error) {
 	tag, err := names.ParseTag(authTag)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	switch tag := tag.(type) {
 	case names.UserTag:
@@ -79,7 +79,7 @@ func (rc *RemoteCredentials) Bind() {
 func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
 	out, err := json.Marshal(rc.remoteCredentials)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return []byte(base64.URLEncoding.EncodeToString(out)), nil
 }
@@ -166,7 +166,7 @@ func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonc
 	var remoteCreds RemoteCredentials
 	err := remoteCreds.UnmarshalText([]byte(credential))
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	if remoteCreds.Primary.Id() != nonce {
 		logger.Infof("invalid credential")
