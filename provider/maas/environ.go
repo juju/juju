@@ -923,6 +923,9 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 		// a state conflict. Likely it's already released or disk
 		// erasing. We're assuming an error of 409 *only* means it's
 		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
 		if !ok || maasErr.StatusCode != 409 {
 			return errors.Annotate(err, "cannot release nodes")
 		}
