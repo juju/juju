@@ -19,8 +19,8 @@ import (
 	"github.com/juju/utils/shell"
 	"github.com/juju/utils/symlink"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -140,7 +140,7 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 
 	// No JobManageNetworking added in order not to change the network
 	// configuration of the user's machine.
-	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron}
+	mcfg.Jobs = []juju.MachineJob{juju.JobManageEnviron}
 
 	mcfg.MachineAgentServiceName = env.machineAgentServiceName()
 	mcfg.AgentEnvironment = map[string]string{

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -679,7 +679,7 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 	// All other machines get an auto-generated public port for SSH.
 	stateServer := false
 	for _, job := range args.MachineConfig.Jobs {
-		if job == params.JobManageEnviron {
+		if job == juju.JobManageEnviron {
 			stateServer = true
 			break
 		}

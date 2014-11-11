@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4/hooks"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
@@ -165,7 +165,7 @@ func (s *HookQueueSuite) TestAliveHookQueue(c *gc.C) {
 	for i, t := range aliveHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := make(chan hook.Info)
-		in := make(chan params.RelationUnitsChange)
+		in := make(chan juju.RelationUnitsChange)
 		ruw := &RUW{in, false}
 		q := relation.NewAliveHookQueue(t.initial, out, ruw)
 		for i, step := range t.steps {
@@ -214,11 +214,11 @@ func (s *HookQueueSuite) TestDyingHookQueue(c *gc.C) {
 // RUW exists entirely to send RelationUnitsChanged events to a tested
 // HookQueue in a synchronous and predictable fashion.
 type RUW struct {
-	in      chan params.RelationUnitsChange
+	in      chan juju.RelationUnitsChange
 	stopped bool
 }
 
-func (w *RUW) Changes() <-chan params.RelationUnitsChange {
+func (w *RUW) Changes() <-chan juju.RelationUnitsChange {
 	return w.in
 }
 
@@ -233,7 +233,7 @@ func (w *RUW) Err() error {
 }
 
 type checker interface {
-	check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info)
+	check(c *gc.C, in chan juju.RelationUnitsChange, out chan hook.Info)
 	checkDirect(c *gc.C, q relation.HookSource)
 }
 
@@ -242,10 +242,10 @@ type send struct {
 	departed []string
 }
 
-func (d send) event() params.RelationUnitsChange {
-	ruc := params.RelationUnitsChange{Changed: map[string]params.UnitSettings{}}
+func (d send) event() juju.RelationUnitsChange {
+	ruc := juju.RelationUnitsChange{Changed: map[string]juju.UnitSettings{}}
 	for name, version := range d.changed {
-		ruc.Changed[name] = params.UnitSettings{Version: version}
+		ruc.Changed[name] = juju.UnitSettings{Version: version}
 	}
 	for _, name := range d.departed {
 		ruc.Departed = append(ruc.Departed, name)
@@ -253,7 +253,7 @@ func (d send) event() params.RelationUnitsChange {
 	return ruc
 }
 
-func (d send) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
+func (d send) check(c *gc.C, in chan juju.RelationUnitsChange, out chan hook.Info) {
 	in <- d.event()
 }
 
@@ -265,7 +265,7 @@ type advance struct {
 	count int
 }
 
-func (d advance) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
+func (d advance) check(c *gc.C, in chan juju.RelationUnitsChange, out chan hook.Info) {
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
@@ -297,7 +297,7 @@ func (d expect) info() hook.Info {
 	}
 }
 
-func (d expect) check(c *gc.C, in chan params.RelationUnitsChange, out chan hook.Info) {
+func (d expect) check(c *gc.C, in chan juju.RelationUnitsChange, out chan hook.Info) {
 	if d.hook == "" {
 		select {
 		case unexpected := <-out:

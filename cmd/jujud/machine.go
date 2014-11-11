@@ -25,6 +25,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
@@ -424,7 +425,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageEnviron {
+		if job == juju.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)
@@ -490,7 +491,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageNetworking {
+		if job == juju.JobManageNetworking {
 			intrusiveMode = true
 			break
 		}
@@ -518,13 +519,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	for _, job := range entity.Jobs() {
 		switch job {
-		case params.JobHostUnits:
+		case juju.JobHostUnits:
 			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
-		case params.JobManageEnviron:
+		case juju.JobManageEnviron:
 			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
@@ -550,7 +551,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
 				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
-		case params.JobManageStateDeprecated:
+		case juju.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
@@ -601,7 +602,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	machine, err := pr.Machine(tag)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
+	if errors.IsNotFound(err) || err == nil && machine.Life() == juju.Dead {
 		return worker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -1053,7 +1054,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status juju.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {

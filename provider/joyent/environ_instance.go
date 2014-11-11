@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -158,7 +158,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (inst
 		env:     env,
 	}
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}

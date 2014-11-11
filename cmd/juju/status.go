@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -136,7 +136,7 @@ type errorStatus struct {
 
 type machineStatus struct {
 	Err            error                    `json:"-" yaml:",omitempty"`
-	AgentState     params.Status            `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentState     juju.Status              `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                   `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
 	AgentVersion   string                   `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
@@ -205,7 +205,7 @@ func (s serviceStatus) GetYAML() (tag string, value interface{}) {
 type unitStatus struct {
 	Err            error                 `json:"-" yaml:",omitempty"`
 	Charm          string                `json:"upgrading-from,omitempty" yaml:"upgrading-from,omitempty"`
-	AgentState     params.Status         `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentState     juju.Status           `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
 	AgentStateInfo string                `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
@@ -341,7 +341,7 @@ func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatu
 	}
 
 	for _, job := range machine.Jobs {
-		if job == params.JobManageEnviron {
+		if job == juju.JobManageEnviron {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}
@@ -399,7 +399,7 @@ func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName st
 		return unit.AgentStateInfo
 	}
 	statusInfo := unit.Agent.Info
-	if unit.Agent.Status == params.StatusError {
+	if unit.Agent.Status == juju.StatusError {
 		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
 			// Append the details of the other endpoint on to the status info string.
 			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
@@ -461,8 +461,8 @@ func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.
 // adjustInfoIfAgentDown modifies the agent status info string if the
 // agent is down. The original status and info is included in
 // parentheses.
-func adjustInfoIfAgentDown(status, origStatus params.Status, info string) string {
-	if status == params.StatusDown {
+func adjustInfoIfAgentDown(status, origStatus juju.Status, info string) string {
+	if status == juju.StatusDown {
 		if info == "" {
 			return fmt.Sprintf("(%s)", origStatus)
 		}

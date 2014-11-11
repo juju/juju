@@ -23,8 +23,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -474,7 +474,7 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 // CpuPower is ignored because it cannot translated into something
 // meaningful for MAAS right now.
 func convertConstraints(cons constraints.Value) url.Values {
-	params := url.Values{}
+	var params url.Values
 	if cons.Arch != nil {
 		// Note: Juju and MAAS use the same architecture names.
 		// MAAS also accepts a subarchitecture (e.g. "highbank"
@@ -849,7 +849,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
