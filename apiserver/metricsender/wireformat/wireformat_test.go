@@ -37,7 +37,7 @@ func (s *WireFormatSuite) TestToWire(c *gc.C) {
 	expected := &wireformat.MetricBatch{
 		UUID:     metric.UUID(),
 		EnvUUID:  metric.EnvUUID(),
-		Unit:     metric.Unit(),
+		UnitName: metric.Unit(),
 		CharmUrl: metric.CharmURL(),
 		Created:  metric.Created().UTC(),
 		Metrics:  metrics,
@@ -61,4 +61,36 @@ func (s *WireFormatSuite) TestAck(c *gc.C) {
 
 	c.Assert(resp[envUUID].AcknowledgedBatches, jc.SameContents, []string{batchUUID, batchUUID2})
 	c.Assert(resp[envUUID2].AcknowledgedBatches, jc.SameContents, []string{batchUUID})
+}
+
+func (s *WireFormatSuite) TestSetStatus(c *gc.C) {
+	resp := wireformat.EnvironmentResponses{}
+	c.Assert(resp, gc.HasLen, 0)
+
+	envUUID := "env-uuid"
+	envUUID2 := "env-uuid2"
+	unitName := "some-unit/0"
+	unitName2 := "some-unit/1"
+
+	resp.SetStatus(envUUID, unitName, "GREEN", "")
+	c.Assert(resp, gc.HasLen, 1)
+	c.Assert(resp[envUUID].UnitStatuses[unitName].Status, gc.Equals, "GREEN")
+	c.Assert(resp[envUUID].UnitStatuses[unitName].Info, gc.Equals, "")
+
+	resp.SetStatus(envUUID, unitName2, "RED", "Unit unresponsive.")
+	c.Assert(resp, gc.HasLen, 1)
+	c.Assert(resp[envUUID].UnitStatuses[unitName].Status, gc.Equals, "GREEN")
+	c.Assert(resp[envUUID].UnitStatuses[unitName].Info, gc.Equals, "")
+	c.Assert(resp[envUUID].UnitStatuses[unitName2].Status, gc.Equals, "RED")
+	c.Assert(resp[envUUID].UnitStatuses[unitName2].Info, gc.Equals, "Unit unresponsive.")
+
+	resp.SetStatus(envUUID2, unitName, "UNKNOWN", "")
+	c.Assert(resp, gc.HasLen, 2)
+	c.Assert(resp[envUUID2].UnitStatuses[unitName].Status, gc.Equals, "UNKNOWN")
+	c.Assert(resp[envUUID2].UnitStatuses[unitName].Info, gc.Equals, "")
+
+	resp.SetStatus(envUUID, unitName, "RED", "Invalid data received.")
+	c.Assert(resp, gc.HasLen, 2)
+	c.Assert(resp[envUUID].UnitStatuses[unitName].Status, gc.Equals, "RED")
+	c.Assert(resp[envUUID].UnitStatuses[unitName].Info, gc.Equals, "Invalid data received.")
 }

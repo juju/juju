@@ -356,9 +356,9 @@ func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
@@ -367,7 +367,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// TODO: evaluate the impact of setting the contstraints on the
 	// machineConfig for all machines rather than just state server nodes.
@@ -376,9 +376,12 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
 	inst, hardware, err := createContainer(env, args)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	return inst, hardware, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: hardware,
+	}, nil
 }
 
 // Override for testing.

@@ -68,8 +68,8 @@ type manualEnviron struct {
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	return nil, nil, nil, errNoStartInstance
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return nil, errNoStartInstance
 }
 
 func (*manualEnviron) StopInstances(...instance.Id) error {

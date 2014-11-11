@@ -944,15 +944,15 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		if !placement.availabilityZone.State.Available {
-			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+			return nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
@@ -966,7 +966,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(e, group)
@@ -974,7 +974,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
 		} else if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		} else {
 			for _, zone := range zoneInstances {
 				availabilityZones = append(availabilityZones, zone.ZoneName)
@@ -987,7 +987,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
 
 	series := args.Tools.OneSeries()
@@ -999,21 +999,21 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints: args.Constraints,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 	var networks = []nova.ServerNetworks{}
@@ -1021,7 +1021,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if usingNetwork != "" {
 		networkId, err := e.resolveNetwork(usingNetwork)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		logger.Debugf("using network id %q", networkId)
 		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
@@ -1031,7 +1031,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if withPublicIP {
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			logger.Infof("allocated public IP %s", publicIP.IP)
@@ -1040,7 +1040,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
@@ -1070,11 +1070,11 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &openstackInstance{
 		e:            e,
@@ -1089,7 +1089,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
@@ -1099,7 +1099,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
 	}
-	return inst, inst.hardwareCharacteristics(), nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: inst.hardwareCharacteristics(),
+	}, nil
 }
 
 func isNoValidHostsError(err error) bool {

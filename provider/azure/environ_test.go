@@ -1515,12 +1515,13 @@ func (s *startInstanceSuite) startInstance(c *gc.C) (serviceName string, stateSe
 		return nil, nil
 	})
 	defer restore()
-	_, hardware, _, err := s.env.StartInstance(s.params)
+	result, err := s.env.StartInstance(s.params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(hardware, gc.NotNil)
+	c.Assert(result, gc.NotNil)
+	c.Assert(result.Hardware, gc.NotNil)
 	arch := "amd64"
-	c.Assert(hardware, gc.DeepEquals, &instance.HardwareCharacteristics{
+	c.Assert(result.Hardware, gc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,
 		Mem:      &roleSize.Mem,
 		RootDisk: &roleSize.OSDiskSpace,
@@ -1534,7 +1535,7 @@ func (s *startInstanceSuite) TestStartInstanceDistributionGroupError(c *gc.C) {
 		return nil, fmt.Errorf("DistributionGroupError")
 	}
 	s.env.ecfg.attrs["availability-sets-enabled"] = true
-	_, _, _, err := s.env.StartInstance(s.params)
+	_, err := s.env.StartInstance(s.params)
 	c.Assert(err, gc.ErrorMatches, "DistributionGroupError")
 	// DistributionGroup should not be called if availability-sets-enabled=false.
 	s.env.ecfg.attrs["availability-sets-enabled"] = false

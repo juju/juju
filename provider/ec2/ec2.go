@@ -635,15 +635,15 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		if placement.availabilityZone.State != "available" {
-			return nil, nil, nil, fmt.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
+			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
@@ -657,28 +657,28 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(e, group)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		for _, z := range zoneInstances {
 			availabilityZones = append(availabilityZones, z.ZoneName)
 		}
 		if len(availabilityZones) == 0 {
-			return nil, nil, nil, fmt.Errorf("failed to determine availability zones")
+			return nil, errors.New("failed to determine availability zones")
 		}
 	}
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 	arches := args.Tools.Arches()
 	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	series := args.Tools.OneSeries()
@@ -690,27 +690,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Storage:     []string{ssdStorage, ebsStorage},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 	var instResp *ec2.RunInstancesResp
 
@@ -733,10 +733,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, errors.Annotate(err, "cannot run instances")
 	}
 	if len(instResp.Instances) != 1 {
-		return nil, nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
+		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
 	inst := &ec2Instance{
@@ -759,7 +759,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		RootDisk: &diskSize,
 		// Tags currently not supported by EC2
 	}
-	return inst, &hc, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: &hc,
+	}, nil
 }
 
 var runInstances = _runInstances
