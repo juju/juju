@@ -691,6 +691,39 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	c.Assert(instances[0].Status(), gc.Equals, nova.StatusBuildSpawning)
 }
 
+func (s *localServerSuite) TestInstancesShutoffSuspended(c *gc.C) {
+	env := s.Prepare(c)
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			details := args[0].(*nova.ServerDetail)
+			switch {
+			case strings.HasSuffix(details.Name, "-100"):
+				details.Status = nova.StatusShutoff
+			case strings.HasSuffix(details.Name, "-101"):
+				details.Status = nova.StatusSuspended
+			default:
+				c.Fatalf("unexpected instance details: %#v", details)
+			}
+			return nil
+		},
+	)
+	defer cleanup()
+	stateInst1, _ := testing.AssertStartInstance(c, env, "100")
+	stateInst2, _ := testing.AssertStartInstance(c, env, "101")
+	defer func() {
+		err := env.StopInstances(stateInst1.Id(), stateInst2.Id())
+		c.Assert(err, gc.IsNil)
+	}()
+
+	instances, err := env.Instances([]instance.Id{stateInst1.Id(), stateInst2.Id()})
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.HasLen, 2)
+	c.Assert(instances[0].Status(), gc.Equals, nova.StatusShutoff)
+	c.Assert(instances[1].Status(), gc.Equals, nova.StatusSuspended)
+}
+
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {

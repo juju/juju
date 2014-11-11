@@ -15,7 +15,6 @@ import (
 
 var (
 	MergeEnvironment  = mergeEnvironment
-	HookVars          = hookVars
 	SearchHook        = searchHook
 	HookCommand       = hookCommand
 	LookPath          = lookPath
@@ -53,26 +52,12 @@ func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	}
 }
 
-func (c *HookContext) ActionResultsMap() map[string]interface{} {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ResultsMap
-}
-
-func (c *HookContext) ActionFailed() bool {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ActionFailed
-}
-
 func (c *HookContext) EnvInfo() (name, uuid string) {
 	return c.envName, c.uuid
 }
 
-func (c *HookContext) ActionData() *ActionData {
-	return c.actionData
+func (c *HookContext) AssignedMachineTag() names.MachineTag {
+	return c.assignedMachineTag
 }
 
 func GetStubActionContext(in map[string]interface{}) *HookContext {
@@ -151,6 +136,7 @@ func NewHookContext(
 func NewEnvironmentHookContext(
 	id, envUUID, envName, unitName, meterCode, meterInfo string,
 	apiAddresses []string, proxySettings proxy.Settings,
+	machineTag names.MachineTag,
 ) *HookContext {
 	return &HookContext{
 		id:            id,
@@ -163,7 +149,8 @@ func NewEnvironmentHookContext(
 			code: meterCode,
 			info: meterInfo,
 		},
-		relationId: -1,
+		relationId:         -1,
+		assignedMachineTag: machineTag,
 	}
 }
 

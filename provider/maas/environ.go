@@ -52,6 +52,13 @@ var shortAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
+var ReleaseNodes = releaseNodes
+
+func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
+	_, err := nodes.CallPost("release", ids)
+	return err
+}
+
 type maasEnviron struct {
 	common.SupportsUnitPlacementPolicy
 
@@ -720,14 +727,14 @@ var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
-	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+	*environs.StartInstanceResult, error,
 ) {
 	var availabilityZones []string
 	var nodeName string
 	if args.Placement != "" {
 		placement, err := environ.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		switch {
 		case placement.zoneName != "":
@@ -746,7 +753,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
-				return nil, nil, nil, errors.Annotate(err, "cannot get distribution group")
+				return nil, errors.Annotate(err, "cannot get distribution group")
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(environ, group)
@@ -754,7 +761,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
 		} else if err != nil {
-			return nil, nil, nil, errors.Annotate(err, "cannot get availability zone allocations")
+			return nil, errors.Annotate(err, "cannot get availability zone allocations")
 		} else if len(zoneInstances) > 0 {
 			for _, z := range zoneInstances {
 				availabilityZones = append(availabilityZones, z.ZoneName)
@@ -786,7 +793,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			}
 		}
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
+			return nil, fmt.Errorf("cannot run instances: %v", err)
 		}
 	}
 
@@ -801,26 +808,26 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	hc, err := inst.hardwareCharacteristics()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch: *hc.Arch,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	args.MachineConfig.Tools = selectedTools[0]
 
 	var networkInfo []network.Info
 	networkInfo, primaryIface, err := environ.setupNetworks(inst, set.NewStrings(excludeNetworks...))
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	hostname, err := inst.hostname()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	// Override the network bridge to use for both LXC and KVM
 	// containers on the new instance.
@@ -829,23 +836,23 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = environs.DefaultBridgeName
 	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	series := args.MachineConfig.Tools.Version.Series
 
 	cloudcfg, err := environ.newCloudinitConfig(hostname, primaryIface, series)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	userdata, err := environs.ComposeUserData(args.MachineConfig, cloudcfg)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, nil, nil, msg
+		return nil, msg
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
 	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
@@ -855,7 +862,11 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	}
 
-	return inst, hc, networkInfo, nil
+	return &environs.StartInstanceResult{
+		Instance:    inst,
+		Hardware:    hc,
+		NetworkInfo: networkInfo,
+	}, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure
@@ -908,15 +919,20 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	// TODO(axw) 2014-05-13 #1319016
-	// Nodes that have been removed out of band will cause
-	// the release call to fail. We should parse the error
-	// returned from MAAS and retry, or otherwise request
-	// an enhancement to MAAS to ignore unknown node IDs.
 	nodes := environ.getMAASClient().GetSubObject("nodes")
-	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
+	err := ReleaseNodes(nodes, getSystemIdValues("nodes", ids))
 	if err != nil {
-		return errors.Annotate(err, "cannot not release nodes")
+		maasErr, ok := err.(gomaasapi.ServerError)
+		// StatusCode 409 means a node couldn't be released due to
+		// a state conflict. Likely it's already released or disk
+		// erasing. We're assuming an error of 409 *only* means it's
+		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
+		if !ok || maasErr.StatusCode != 409 {
+			return errors.Annotate(err, "cannot release nodes")
+		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 }
@@ -1006,7 +1022,7 @@ func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addre
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the MAAS provider yet.
-func (*maasEnviron) ListNetworks() ([]network.BasicInfo, error) {
+func (*maasEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 

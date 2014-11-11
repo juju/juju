@@ -4,8 +4,7 @@
 package context_test
 
 import (
-	"fmt"
-
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -79,7 +78,7 @@ func (s *RelationCacheSuite) TestPruneChangesMembership(c *gc.C) {
 
 func (s *RelationCacheSuite) TestSettingsPropagatesError(c *gc.C) {
 	s.results = []settingsResult{{
-		nil, fmt.Errorf("blam"),
+		nil, errors.New("blam"),
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
