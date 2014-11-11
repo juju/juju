@@ -50,7 +50,7 @@ var ErrWatcherStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
-func (w *Watcher) Next() ([]juju.Delta, error) {
+func (w *Watcher) Next() ([]Delta, error) {
 	req := &request{
 		w:     w,
 		reply: make(chan bool),
@@ -127,7 +127,7 @@ type request struct {
 
 	// On reply, changes will hold changes that have occurred since
 	// the last replied-to Next request.
-	changes []juju.Delta
+	changes []Delta
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
@@ -466,7 +466,7 @@ func (a *Store) Get(id juju.EntityId) EntityInfo {
 
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *Store) ChangesSince(revno int64) []juju.Delta {
+func (a *Store) ChangesSince(revno int64) []Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -484,7 +484,7 @@ func (a *Store) ChangesSince(revno int64) []juju.Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]juju.Delta, 0, n)
+	changes := make([]Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
 		if entry.removed && entry.creationRevno > revno {
@@ -492,7 +492,7 @@ func (a *Store) ChangesSince(revno int64) []juju.Delta {
 			// and removed since the revno.
 			continue
 		}
-		changes = append(changes, juju.Delta{
+		changes = append(changes, Delta{
 			Removed: entry.removed,
 			Entity:  entry.info,
 		})
