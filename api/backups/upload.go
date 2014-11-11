@@ -4,9 +4,10 @@
 package backups
 
 import (
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/juju/errors"
 
@@ -20,12 +21,16 @@ func dumpFile(file io.Reader) (string, error) {
 	}
 	defer tempfile.Close()
 
-	_, err := io.Copy(tempfile, file)
+	_, err = io.Copy(tempfile, file)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	return tempfile.Name(), nil
+}
+
+var sshCopy = func(filename, remote string) error {
+	return ssh.Copy([]string{filename, remote}, nil)
 }
 
 // Upload sends the backup archive to the server when it is stored.
@@ -40,8 +45,9 @@ func (c *Client) Upload(archive io.Reader) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	defer os.Remove(filename)
 
 	remote := fmt.Sprintf("ubuntu@%s:%s", addr, filename)
-	err = ssh.Copy([]string{filename, remote}, nil)
+	err = sshCopy(filename, remote)
 	return "file://" + filename, errors.Trace(err)
 }

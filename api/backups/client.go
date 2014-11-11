@@ -24,29 +24,30 @@ type httpAPICallCloser interface {
 // Client wraps the backups API for the client.
 type Client struct {
 	base.ClientFacade
-	facade base.FacadeCaller
-	http   httpClient
-	st     base.APICallCloser
+	facade     base.FacadeCaller
+	http       httpClient
+	baseFacade base.FacadeCaller
 }
 
 // NewClient returns a new backups API client.
 func NewClient(st httpAPICallCloser) *Client {
+	_, baseFacade := base.NewClientFacade(st, "Client")
+
 	frontend, backend := base.NewClientFacade(st, "Backups")
 	return &Client{
 		ClientFacade: frontend,
 		facade:       backend,
 		http:         st,
-		st:           st,
+		baseFacade:   baseFacade,
 	}
 }
 
 func (c *Client) publicAddress() (string, error) {
-	_, facade := base.NewClientFacade(c.st, "Client")
 
 	// TODO (ericsnow) #1389362 Find the machine in a non-hardcoded way.
-	args := params.PrivateAddress{Target: "0"}
+	args := params.PublicAddress{Target: "0"}
 
-	var results params.PrivateAddressResults
-	err := facade.FacadeCall("PublicAddress", args, &results)
+	var results params.PublicAddressResults
+	err := c.baseFacade.FacadeCall("PublicAddress", args, &results)
 	return results.PublicAddress, errors.Trace(err)
 }
