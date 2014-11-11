@@ -88,6 +88,8 @@ func create(args *createArgs) (_ *createResult, err error) {
 type builder struct {
 	// archive is the backups archive summary.
 	archive *Archive
+	// filename is the path to the archive file.
+	filename string
 	// checksum is the checksum of the archive file.
 	checksum string
 	// filesToBackUp is the paths to every file to include in the archive.
@@ -123,8 +125,8 @@ func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "while making backups workspace")
 	}
-	filename := filepath.Join(rootDir, tempFilename)
-	b.archive = &Archive{filename, rootDir}
+	b.filename = filepath.Join(rootDir, tempFilename)
+	b.archive = &Archive{rootDir}
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
@@ -136,7 +138,7 @@ func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 
 	// Create the archive files.  We do so here to fail as early as
 	// possible.
-	b.archiveFile, err = os.Create(filename)
+	b.archiveFile, err = os.Create(b.filename)
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating archive file")
 	}
@@ -292,7 +294,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 }
 
 func (b *builder) buildArchiveAndChecksum() error {
-	logger.Infof("building archive file (%s)", b.archive.Filename)
+	logger.Infof("building archive file (%s)", b.filename)
 	if b.archiveFile == nil {
 		return errors.New("missing archiveFile")
 	}
@@ -349,7 +351,7 @@ func (b *builder) buildAll() error {
 // the file (hence io.ReadCloser).
 func (b *builder) result() (*createResult, error) {
 	// Open the file in read-only mode.
-	file, err := os.Open(b.archive.Filename)
+	file, err := os.Open(b.filename)
 	if err != nil {
 		return nil, errors.Annotate(err, "while opening archive file")
 	}

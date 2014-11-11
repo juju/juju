@@ -19,9 +19,6 @@ const (
 // directory on the filesystem, or both.  Regardless, the contents
 // remain the same.
 type Archive struct {
-	// The path to the archive file.  An empty filename indicates that
-	// you are dealing exclusively with an unpacked archive.
-	Filename string
 	// The path to the directory into which the archive has been (or may
 	// be) unpacked.  This path is prepended to all paths returned by
 	// getter methods of an Archive.  It may be left blank (e.g. when
