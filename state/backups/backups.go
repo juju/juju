@@ -11,15 +11,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
-
-	"github.com/juju/juju/state/backups/db"
 )
 
 var logger = loggo.GetLogger("juju.state.backups")
 
 var (
 	getFilesToBackUp = GetFilesToBackUp
-	getDBDumper      = db.NewDumper
+	getDBDumper      = NewDBDumper
 	runCreate        = create
 	finishMeta       = func(meta *Metadata, result *createResult) error {
 		return meta.Finish(result.size, result.checksum)
@@ -48,7 +46,7 @@ type Backups interface {
 
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
-	Create(paths Paths, dbInfo db.Info, origin Origin, notes string) (*Metadata, error)
+	Create(paths Paths, dbInfo DBInfo, origin Origin, notes string) (*Metadata, error)
 	// Get returns the metadata and archive file associated with the ID.
 	Get(id string) (*Metadata, io.ReadCloser, error)
 	// List returns the metadata for all stored backups.
@@ -72,7 +70,7 @@ func NewBackups(stor filestorage.FileStorage) Backups {
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *backups) Create(paths Paths, dbInfo db.Info, origin Origin, notes string) (*Metadata, error) {
+func (b *backups) Create(paths Paths, dbInfo DBInfo, origin Origin, notes string) (*Metadata, error) {
 
 	// Prep the metadata.
 	meta := NewMetadata(origin, notes, nil)

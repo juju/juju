@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/db"
 )
 
 type fakeBackups struct {
@@ -26,7 +25,7 @@ type fakeBackups struct {
 	err     error
 }
 
-func (i *fakeBackups) Create(backups.Paths, db.Info, backups.Origin, string) (*backups.Metadata, error) {
+func (i *fakeBackups) Create(backups.Paths, backups.DBInfo, backups.Origin, string) (*backups.Metadata, error) {
 	if i.err != nil {
 		return nil, errors.Trace(i.err)
 	}

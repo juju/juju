@@ -10,8 +10,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/filestorage"
-
-	"github.com/juju/juju/state/backups/db"
 )
 
 var (
@@ -22,13 +20,15 @@ var (
 	RunCreate            = &runCreate
 	FinishMeta           = &finishMeta
 	StoreArchiveRef      = &storeArchive
+	GetMongodumpPath     = &getMongodumpPath
+	RunCommand           = &runCommand
 )
 
 func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 	return result.archiveFile, result.size, result.checksum
 }
 
-func NewTestCreateArgs(filesToBackUp []string, db db.Dumper, mfile io.Reader) *createArgs {
+func NewTestCreateArgs(filesToBackUp []string, db DBDumper, mfile io.Reader) *createArgs {
 	args := createArgs{
 		filesToBackUp: filesToBackUp,
 		db:            db,
@@ -37,7 +37,7 @@ func NewTestCreateArgs(filesToBackUp []string, db db.Dumper, mfile io.Reader) *c
 	return &args
 }
 
-func ExposeCreateArgs(args *createArgs) ([]string, db.Dumper) {
+func ExposeCreateArgs(args *createArgs) ([]string, DBDumper) {
 	return args.filesToBackUp, args.db
 }
 

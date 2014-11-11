@@ -16,8 +16,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/hash"
 	"github.com/juju/utils/tar"
-
-	"github.com/juju/juju/state/backups/db"
 )
 
 // TODO(ericsnow) One concern is files that get out of date by the time
@@ -31,7 +29,7 @@ const (
 
 type createArgs struct {
 	filesToBackUp []string
-	db            db.Dumper
+	db            DBDumper
 	metadataFile  io.Reader
 }
 
@@ -95,7 +93,7 @@ type builder struct {
 	// filesToBackUp is the paths to every file to include in the archive.
 	filesToBackUp []string
 	// db is the wrapper around the DB dump command and args.
-	db db.Dumper
+	db DBDumper
 	// archiveFile is the backup archive file.
 	archiveFile io.WriteCloser
 	// bundleFile is the inner archive file containing all the juju
@@ -107,7 +105,7 @@ type builder struct {
 // directories which backup uses as its staging area while building the
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
-func newBuilder(filesToBackUp []string, db db.Dumper) (_ *builder, err error) {
+func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 	b := builder{
 		filesToBackUp: filesToBackUp,
 		db:            db,

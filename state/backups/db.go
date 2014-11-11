@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package db
+package backups
 
 import (
 	"io/ioutil"
@@ -13,12 +13,67 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/mongo"
+	coreutils "github.com/juju/juju/utils"
 )
+
+// db is a surrogate for the proverbial DB layer abstraction that we
+// wish we had for juju state.  To that end, the package holds the DB
+// implementation-specific details and functionality needed for backups.
+// Currently that means mongo-specific details.  However, as a stand-in
+// for a future DB layer abstraction, the db package does not expose any
+// low-level details publicly.  Thus the backups implementation remains
+// oblivious to the underlying DB implementation.
+
+var runCommand = coreutils.RunCommand
+
+// DBConnInfo is a simplification of authentication.MongoInfo, focused
+// on the needs of juju state backups.  To ensure that the info is valid
+// for use in backups, use the Check() method to get the contained
+// values.
+type DBConnInfo struct {
+	// Address is the DB system's host address.
+	Address string
+	// Username is used when connecting to the DB system.
+	Username string
+	// Password is used when connecting to the DB system.
+	Password string
+}
+
+// Validate checks the DB connection info.  If it isn't valid for use in
+// juju state backups, it returns an error.  Make sure that the ConnInfo
+// values do not change between the time you call this method and when
+// you actually need the values.
+func (ci *DBConnInfo) Validate() error {
+	var err error
+	var address, username, password string
+
+	address = ci.Address
+	username = ci.Username
+	password = ci.Password
+
+	if address == "" {
+		err = errors.New("missing address")
+	} else if username == "" {
+		err = errors.New("missing username")
+	} else if password == "" {
+		err = errors.New("missing password")
+	}
+
+	return err
+}
+
+// DBInfo wraps all the DB-specific information backups needs to dump
+// and restore the database.
+type DBInfo struct {
+	DBConnInfo
+	// Targets is a list of databases to dump.
+	Targets set.Strings
+}
 
 const dumpName = "mongodump"
 
-// Dumper is any type that dumps something to a dump dir.
-type Dumper interface {
+// DBDumper is any type that dumps something to a dump dir.
+type DBDumper interface {
 	// Dump something to dumpDir.
 	Dump(dumpDir string) error
 }
@@ -43,14 +98,14 @@ var getMongodumpPath = func() (string, error) {
 }
 
 type mongoDumper struct {
-	Info
+	DBInfo
 	// binPath is the path to the dump executable.
 	binPath string
 }
 
-// NewDumper returns a new value with a Dump method for dumping the
+// NewDBDumper returns a new value with a Dump method for dumping the
 // juju state database.
-func NewDumper(info Info) (Dumper, error) {
+func NewDBDumper(info DBInfo) (DBDumper, error) {
 	err := info.Validate()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -62,7 +117,7 @@ func NewDumper(info Info) (Dumper, error) {
 	}
 
 	dumper := mongoDumper{
-		Info:    info,
+		DBInfo:  info,
 		binPath: mongodumpPath,
 	}
 	return &dumper, nil

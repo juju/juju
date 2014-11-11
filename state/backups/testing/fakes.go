@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
-	"github.com/juju/juju/state/backups/db"
 )
 
 // FakeBackups is an implementation of Backups to use for testing.
@@ -33,7 +32,7 @@ type FakeBackups struct {
 	// PathsArg holds the Paths that was passed in.
 	PathsArg *backups.Paths
 	// DBInfoArg holds the ConnInfo that was passed in.
-	DBInfoArg *db.Info
+	DBInfoArg *backups.DBInfo
 	// OriginArg holds the Origin that was passed in.
 	OriginArg *backups.Origin
 	// NotesArg holds the notes string that was passed in.
@@ -44,7 +43,7 @@ var _ backups.Backups = (*FakeBackups)(nil)
 
 // Create creates and stores a new juju backup archive and returns
 // its associated metadata.
-func (b *FakeBackups) Create(paths backups.Paths, dbInfo db.Info, origin backups.Origin, notes string) (*backups.Metadata, error) {
+func (b *FakeBackups) Create(paths backups.Paths, dbInfo backups.DBInfo, origin backups.Origin, notes string) (*backups.Metadata, error) {
 	b.Calls = append(b.Calls, "Create")
 
 	b.PathsArg = &paths

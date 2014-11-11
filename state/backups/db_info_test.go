@@ -1,12 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package db_test
+package backups_test
 
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups/db"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
 
@@ -17,28 +17,28 @@ type connInfoSuite struct {
 }
 
 func (s *connInfoSuite) TestDBConnInfoValidateOkay(c *gc.C) {
-	connInfo := &db.ConnInfo{"a", "b", "c"}
+	connInfo := &backups.DBConnInfo{"a", "b", "c"}
 	err := connInfo.Validate()
 
 	c.Check(err, gc.IsNil)
 }
 
 func (s *connInfoSuite) TestDBConnInfoCheckMissingAddress(c *gc.C) {
-	connInfo := &db.ConnInfo{"", "b", "c"}
+	connInfo := &backups.DBConnInfo{"", "b", "c"}
 	err := connInfo.Validate()
 
 	c.Check(err, gc.ErrorMatches, "missing address")
 }
 
 func (s *connInfoSuite) TestDBConnInfoCheckMissingUsername(c *gc.C) {
-	connInfo := &db.ConnInfo{"a", "", "c"}
+	connInfo := &backups.DBConnInfo{"a", "", "c"}
 	err := connInfo.Validate()
 
 	c.Check(err, gc.ErrorMatches, "missing username")
 }
 
 func (s *connInfoSuite) TestDBConnInfoCheckMissingPassword(c *gc.C) {
-	connInfo := &db.ConnInfo{"a", "b", ""}
+	connInfo := &backups.DBConnInfo{"a", "b", ""}
 	err := connInfo.Validate()
 
 	c.Check(err, gc.ErrorMatches, "missing password")

@@ -21,7 +21,6 @@ import (
 
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/backups"
-	backupsdb "github.com/juju/juju/state/backups/db"
 	"github.com/juju/juju/version"
 )
 
@@ -579,22 +578,22 @@ var ignoredDatabases = set.NewStrings(
 
 // NewDBBackupInfo returns the information needed by backups to dump
 // the database.
-func NewDBBackupInfo(st *State) (*backupsdb.Info, error) {
+func NewDBBackupInfo(st *State) (*backups.DBInfo, error) {
 	connInfo := newMongoConnInfo(st.MongoConnectionInfo())
 	targets, err := getBackupTargetDatabases(st)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	info := backupsdb.Info{
-		ConnInfo: *connInfo,
-		Targets:  targets,
+	info := backups.DBInfo{
+		DBConnInfo: *connInfo,
+		Targets:    targets,
 	}
 	return &info, nil
 }
 
-func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
-	info := backupsdb.ConnInfo{
+func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backups.DBConnInfo {
+	info := backups.DBConnInfo{
 		Address:  mgoInfo.Addrs[0],
 		Password: mgoInfo.Password,
 	}
