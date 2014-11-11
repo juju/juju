@@ -181,11 +181,11 @@ func (b *builder) closeBundleFile() error {
 
 func (b *builder) removeRootDir() error {
 	// Currently this method isn't thread-safe (doesn't need to be).
-	if b.archive == nil || b.archive.UnpackedRootDir == "" {
+	if b.archive == nil || b.archive.RootDir == "" {
 		return nil
 	}
 
-	if err := os.RemoveAll(b.archive.UnpackedRootDir); err != nil {
+	if err := os.RemoveAll(b.archive.RootDir); err != nil {
 		return errors.Annotate(err, "while removing backups temp dir")
 	}
 
@@ -284,7 +284,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 	// We add a trailing slash (or whatever) to root so that everything
 	// in the path up to and including that slash is stripped off when
 	// each file is added to the tar file.
-	stripPrefix := b.archive.UnpackedRootDir + string(os.PathSeparator)
+	stripPrefix := b.archive.RootDir + string(os.PathSeparator)
 	filenames := []string{b.archive.ContentDir()}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		return errors.Annotate(err, "while bundling final archive")

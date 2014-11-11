@@ -19,11 +19,11 @@ const (
 // directory on the filesystem, or both.  Regardless, the contents
 // remain the same.
 type Archive struct {
-	// The path to the directory into which the archive has been (or may
-	// be) unpacked.  This path is prepended to all paths returned by
-	// getter methods of an Archive.  It may be left blank (e.g. when
-	// dealing with the paths within a tar file).
-	UnpackedRootDir string
+	// RootDir is the path relative to which the various paths to
+	// archive content are resolve.  For a tar file it will be empty.
+	// For the unpacked content, it is the directory into which the
+	// backup arechive was unpacked.
+	RootDir string
 }
 
 // ContentDir is the path to the directory within the archive containing
@@ -31,7 +31,7 @@ type Archive struct {
 // of the archive and everything else in the archive is contained in the
 // content directory.
 func (ar Archive) ContentDir() string {
-	return filepath.Join(ar.UnpackedRootDir, contentDir)
+	return filepath.Join(ar.RootDir, contentDir)
 }
 
 // FilesBundle is the path to the tar file inside the archive containing
