@@ -74,10 +74,8 @@ func unpack(targetDir string, tarFile io.Reader) error {
 	if err != nil {
 		return errors.Annotate(err, "while uncompressing archive file")
 	}
-	if err := tar.UntarFiles(tarFile, targetDir); err != nil {
-		return errors.Annotate(err, "while extracting files from archive")
-	}
-	return nil
+	err = tar.UntarFiles(tarFile, targetDir)
+	return errors.Trace(err)
 }
 
 // Close cleans up the workspace dir.
@@ -94,10 +92,8 @@ func (ws *Workspace) UnpackFiles(targetRoot string) error {
 	}
 	defer tarFile.Close()
 
-	if err := tar.UntarFiles(tarFile, targetRoot); err != nil {
-		return errors.Annotate(err, "while unpacking system files")
-	}
-	return nil
+	err = tar.UntarFiles(tarFile, targetRoot)
+	return errors.Trace(err)
 }
 
 // OpenFile returns an open ReadCloser for the corresponding file in
