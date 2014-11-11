@@ -14,6 +14,7 @@ from jujupy import (
     Environment,
 )
 from substrate import (
+    LIBVIRT_DOMAIN_RUNNING,
     start_libvirt_domain,
     stop_libvirt_domain,
     verify_libvirt_domain,
@@ -34,7 +35,7 @@ def deploy_stack(environment, debug, machines):
             name, URI = machine.split('@')
             # Record already running domains, so they can be left running,
             # if already running; otherwise start them.
-            if verify_libvirt_domain(URI, name, 'running'):
+            if verify_libvirt_domain(URI, name, LIBVIRT_DOMAIN_RUNNING):
                 running_domains = {machine: True}
             else:
                 running_domains = {machine: False}

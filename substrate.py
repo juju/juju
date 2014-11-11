@@ -12,6 +12,10 @@ from utility import (
 )
 
 
+LIBVIRT_DOMAIN_RUNNING = 'running'
+LIBVIRT_DOMAIN_SHUT_OFF = 'shut off'
+
+
 def terminate_instances(env, instance_ids):
     provider_type = env.config.get('type')
     environ = dict(os.environ)
@@ -47,8 +51,9 @@ def start_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
     for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, 'running'):
+        if verify_libvirt_domain(URI, domain, LIBVIRT_DOMAIN_RUNNING):
             return "%s is now running" % domain
+        sleep(2)
     raise Exception('libvirt domain %s did not start.' % domain)
 
 
@@ -68,12 +73,13 @@ def stop_libvirt_domain(URI, domain):
         raise Exception('%s failed:\n %s' % (command, e.output))
     sleep(30)
     for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, 'shut off'):
+        if verify_libvirt_domain(URI, domain, LIBVIRT_DOMAIN_SHUT_OFF):
             return "%s is now shut off" % domain
+        sleep(2)
     raise Exception('libvirt domain %s is not shut off.' % domain)
 
 
-def verify_libvirt_domain(URI, domain, state='running'):
+def verify_libvirt_domain(URI, domain, state=LIBVIRT_DOMAIN_RUNNING):
     """Returns a bool based on if the domain is in the given state.
 
     @Parms URI: The address of the libvirt service.
@@ -82,7 +88,7 @@ def verify_libvirt_domain(URI, domain, state='running'):
     """
 
     dom_status = get_libvirt_domstate(URI, domain)
-    return True if state in dom_status else False
+    return state in dom_status
 
 
 def get_libvirt_domstate(URI, domain):
