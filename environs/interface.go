@@ -130,8 +130,7 @@ type Environ interface {
 	// ListNetworks returns basic information about all networks known
 	// by the provider for the environment, for a specific instance. A
 	// provider may return all networks instead of just those for the
-	// instance (provider specific). The networks may be unknown to juju
-	// yet (i.e. when called initially or when a new network was created).
+	// instance (provider specific).
 	ListNetworks(inst instance.Id) ([]network.BasicInfo, error)
 
 	// ConfigGetter allows the retrieval of the configuration data.
