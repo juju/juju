@@ -331,7 +331,14 @@ type entityEntry struct {
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
 	// identify the entity within its kind
-	EntityId() params.EntityId
+	EntityId() interface{}
+}
+
+// EntityId is an indentifier that uniquely identifies the
+// entity within its kind.
+type EntityId interface {
+	Kind() string
+	Id() interface{}
 }
 
 // Store holds a list of all entities known
@@ -404,7 +411,7 @@ func (a *Store) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id params.EntityId) {
+func (a *Store) delete(id EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -416,7 +423,7 @@ func (a *Store) delete(id params.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) Remove(id params.EntityId) {
+func (a *Store) Remove(id EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -457,7 +464,7 @@ func (a *Store) Update(info EntityInfo) {
 // Get returns the stored entity with the given
 // id, or nil if none was found. The contents of the returned entity
 // should not be changed.
-func (a *Store) Get(id params.EntityId) EntityInfo {
+func (a *Store) Get(id EntityId) EntityInfo {
 	if e := a.entities[id]; e != nil {
 		return e.Value.(*entityEntry).info
 	}
@@ -494,7 +501,7 @@ func (a *Store) ChangesSince(revno int64) []params.Delta {
 		}
 		changes = append(changes, params.Delta{
 			Removed: entry.removed,
-			Entity:  entry.info,
+			Entity:  entry.info.(params.EntityInfo),
 		})
 	}
 	return changes

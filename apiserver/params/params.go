@@ -426,7 +426,7 @@ func (d *Delta) MarshalJSON() ([]byte, error) {
 	if d.Removed {
 		c = "remove"
 	}
-	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().Kind, c)
+	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().(EntityId).Kind(), c)
 	buf.Write(b)
 	buf.WriteByte(']')
 	return buf.Bytes(), nil
@@ -479,7 +479,7 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
 	// identify the entity within its kind
-	EntityId() EntityId
+	EntityId() interface{}
 }
 
 // IMPORTANT NOTE: the types below are direct subsets of the entity docs
@@ -505,9 +505,30 @@ var (
 	_ EntityInfo = (*AnnotationInfo)(nil)
 )
 
-type EntityId struct {
-	Kind string
-	Id   interface{}
+// EntityId is an indentifier that uniquely identifies the
+// entity within its kind.
+type EntityId interface {
+	Kind() string
+	Id() interface{}
+}
+
+type entityId struct {
+	kind string
+	id   interface{}
+}
+
+func (e entityId) Kind() string    { return e.kind }
+func (e entityId) Id() interface{} { return e.id }
+
+// NewEntityId returns an EntityId implementation with the requested
+// kind and its id.
+// Note: EntityId implementations _must_ be values, not pointer values as they are
+// often used as map keys.
+func NewEntityId(kind string, id interface{}) EntityId {
+	return entityId{
+		kind: kind,
+		id:   id,
+	}
 }
 
 // StateServingInfo holds information needed by a state
@@ -547,11 +568,8 @@ type MachineInfo struct {
 	Addresses                []network.Address
 }
 
-func (i *MachineInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "machine",
-		Id:   i.Id,
-	}
+func (i *MachineInfo) EntityId() interface{} {
+	return NewEntityId("machine", i.Id)
 }
 
 // ServiceTags encapsulates a slice of names.ServiceTag.
@@ -571,11 +589,8 @@ type ServiceInfo struct {
 	Subordinate bool
 }
 
-func (i *ServiceInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "service",
-		Id:   i.Name,
-	}
+func (i *ServiceInfo) EntityId() interface{} {
+	return NewEntityId("service", i.Name)
 }
 
 type UnitInfo struct {
@@ -593,11 +608,8 @@ type UnitInfo struct {
 	Subordinate    bool
 }
 
-func (i *UnitInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "unit",
-		Id:   i.Name,
-	}
+func (i *UnitInfo) EntityId() interface{} {
+	return NewEntityId("unit", i.Name)
 }
 
 type Endpoint struct {
@@ -611,11 +623,8 @@ type RelationInfo struct {
 	Endpoints []Endpoint
 }
 
-func (i *RelationInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "relation",
-		Id:   i.Key,
-	}
+func (i *RelationInfo) EntityId() interface{} {
+	return NewEntityId("relation", i.Key)
 }
 
 type AnnotationInfo struct {
@@ -623,11 +632,8 @@ type AnnotationInfo struct {
 	Annotations map[string]string
 }
 
-func (i *AnnotationInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "annotation",
-		Id:   i.Tag,
-	}
+func (i *AnnotationInfo) EntityId() interface{} {
+	return NewEntityId("annotation", i.Tag)
 }
 
 // ContainerManagerConfigParams contains the parameters for the

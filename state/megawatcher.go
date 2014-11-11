@@ -37,7 +37,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		SupportedContainersKnown: m.SupportedContainersKnown,
 	}
 
-	oldInfo := store.Get(info.EntityId())
+	oldInfo := store.Get(info.EntityId().(multiwatcher.EntityId))
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated machine status.
@@ -76,10 +76,7 @@ func (m *backingMachine) removed(st *State, store *multiwatcher.Store, id interf
 	// environment UUID prefixed ids but we can't fix it properly
 	// until davecheney smashes the allwatcher to apiserver/params
 	// dependency.
-	store.Remove(params.EntityId{
-		Kind: "machine",
-		Id:   st.localID(id.(string)),
-	})
+	store.Remove(params.NewEntityId("machine", st.localID(id.(string))))
 }
 
 func (m *backingMachine) mongoId() interface{} {
@@ -100,7 +97,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
 	}
-	oldInfo := store.Get(info.EntityId())
+	oldInfo := store.Get(info.EntityId().(multiwatcher.EntityId))
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status.
@@ -141,10 +138,7 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 
 func (u *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(params.EntityId{
-		Kind: "unit",
-		Id:   st.localID(id.(string)),
-	})
+	store.Remove(params.NewEntityId("unit", id))
 }
 
 func (u *backingUnit) mongoId() interface{} {
@@ -170,7 +164,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		MinUnits:    svc.MinUnits,
 		Subordinate: svc.Subordinate,
 	}
-	oldInfo := store.Get(info.EntityId())
+	oldInfo := store.Get(info.EntityId().(multiwatcher.EntityId))
 	needConfig := false
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
@@ -208,10 +202,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 
 func (svc *backingService) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(params.EntityId{
-		Kind: "service",
-		Id:   st.localID(id.(string)),
-	})
+	store.Remove(params.NewEntityId("service", st.localID(id.(string))))
 }
 
 // SCHEMACHANGE
@@ -248,10 +239,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 
 func (r *backingRelation) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(params.EntityId{
-		Kind: "relation",
-		Id:   st.localID(id.(string)),
-	})
+	store.Remove(params.NewEntityId("relation", st.localID(id.(string))))
 }
 
 func (r *backingRelation) mongoId() interface{} {
@@ -274,10 +262,7 @@ func (a *backingAnnotation) removed(st *State, store *multiwatcher.Store, id int
 	if !ok {
 		panic(fmt.Errorf("unknown global key %q in state", id))
 	}
-	store.Remove(params.EntityId{
-		Kind: "annotation",
-		Id:   tag,
-	})
+	store.Remove(params.NewEntityId("annotation", tag))
 }
 
 func (a *backingAnnotation) mongoId() interface{} {
@@ -406,9 +391,9 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 	key = key[2:]
 	i := strings.Index(key, "#")
 	if i == -1 {
-		return params.EntityId{}, "", false
+		return nil, "", false
 	}
-	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId()
+	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId().(params.EntityId)
 	extra = key[i+1:]
 	ok = true
 	return
@@ -418,18 +403,19 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 // It returns false if the key is not recognized.
 func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
-		return params.EntityId{}, false
+		return nil, false
 	}
 	id := key[2:]
 	switch key[0] {
 	case 'm':
-		return (&params.MachineInfo{Id: id}).EntityId(), true
+		return (&params.MachineInfo{Id: id}).EntityId().(params.EntityId), true
 	case 'u':
-		return (&params.UnitInfo{Name: id}).EntityId(), true
+		return (&params.UnitInfo{Name: id}).EntityId().(params.EntityId), true
 	case 's':
-		return (&params.ServiceInfo{Name: id}).EntityId(), true
+		return (&params.ServiceInfo{Name: id}).EntityId().(params.EntityId), true
+	default:
+		return nil, false
 	}
-	return params.EntityId{}, false
 }
 
 // backingEntityDoc is implemented by the documents in
