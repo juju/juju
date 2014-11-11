@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package juju
 
 import (
@@ -139,21 +142,6 @@ type EntityInfo interface {
 	// identify the entity within its kind
 	EntityId() EntityId
 }
-
-// IMPORTANT NOTE: the types below are direct subsets of the entity docs
-// held in mongo, as defined in the state package (serviceDoc,
-// machineDoc etc).
-// In particular, the document marshalled into mongo
-// must unmarshal correctly into these documents.
-// If the format of a field in a document is changed in mongo, or
-// a field is removed and it coincides with one of the
-// fields below, a similar change must be made here.
-//
-// MachineInfo corresponds with state.machineDoc.
-// ServiceInfo corresponds with state.serviceDoc.
-// UnitInfo corresponds with state.unitDoc.
-// RelationInfo corresponds with state.relationDoc.
-// AnnotationInfo corresponds with state.annotatorDoc.
 
 type EntityId struct {
 	Kind string
