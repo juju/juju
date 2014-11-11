@@ -17,11 +17,11 @@ import (
 var (
 	Create = create
 
-	GetFilesToBackUp = &getFilesToBackUp
-	GetDBDumper      = &getDBDumper
-	RunCreate        = &runCreate
-	FinishMeta       = &finishMeta
-	StoreArchiveRef  = &storeArchive
+	TestGetFilesToBackUp = &getFilesToBackUp
+	GetDBDumper          = &getDBDumper
+	RunCreate            = &runCreate
+	FinishMeta           = &finishMeta
+	StoreArchiveRef      = &storeArchive
 )
 
 func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {

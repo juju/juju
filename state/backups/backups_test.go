@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/state/backups/db"
-	"github.com/juju/juju/state/backups/files"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
 
@@ -52,7 +51,7 @@ func (s *backupsSuite) checkFailure(c *gc.C, expected string) {
 		return &fakeDumper{}, nil
 	})
 
-	paths := files.Paths{DataDir: "/var/lib/juju"}
+	paths := backups.Paths{DataDir: "/var/lib/juju"}
 	connInfo := db.ConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := db.Info{connInfo, targets}
@@ -77,7 +76,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	s.PatchValue(backups.RunCreate, testCreate)
 
 	rootDir := "<was never set>"
-	s.PatchValue(backups.GetFilesToBackUp, func(root string, paths files.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
 		rootDir = root
 		return []string{"<some file>"}, nil
 	})
@@ -91,7 +90,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 	stored := s.setStored("spam")
 
 	// Run the backup.
-	paths := files.Paths{DataDir: "/var/lib/juju"}
+	paths := backups.Paths{DataDir: "/var/lib/juju"}
 	connInfo := db.ConnInfo{"a", "b", "c"}
 	targets := set.NewStrings("juju", "admin")
 	dbInfo := db.Info{connInfo, targets}
@@ -135,7 +134,7 @@ func (s *backupsSuite) TestCreateOkay(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
-	s.PatchValue(backups.GetFilesToBackUp, func(root string, paths files.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
 		return nil, errors.New("failed!")
 	})
 
@@ -143,7 +142,7 @@ func (s *backupsSuite) TestCreateFailToListFiles(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
-	s.PatchValue(backups.GetFilesToBackUp, func(root string, paths files.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	s.PatchValue(backups.RunCreate, backups.NewTestCreateFailure("failed!"))
@@ -152,7 +151,7 @@ func (s *backupsSuite) TestCreateFailToCreate(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
-	s.PatchValue(backups.GetFilesToBackUp, func(root string, paths files.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
@@ -163,7 +162,7 @@ func (s *backupsSuite) TestCreateFailToFinishMeta(c *gc.C) {
 }
 
 func (s *backupsSuite) TestCreateFailToStoreArchive(c *gc.C) {
-	s.PatchValue(backups.GetFilesToBackUp, func(root string, paths files.Paths) ([]string, error) {
+	s.PatchValue(backups.TestGetFilesToBackUp, func(root string, paths backups.Paths) ([]string, error) {
 		return []string{}, nil
 	})
 	_, testCreate := backups.NewTestCreate(nil)
