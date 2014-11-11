@@ -61,6 +61,23 @@ func (s *ServiceSuite) TestSetCharm(c *gc.C) {
 	c.Assert(url, gc.DeepEquals, sch.URL())
 	c.Assert(force, gc.Equals, true)
 
+	// Force the initial transaction to fail and count both attempts.
+	txnAttempts := 0
+	state.SetBeforeHooks(c, s.State, func() {
+		err = state.SetServiceCharmURL(s.State, "mysql", "http://www.zombo.com")
+		c.Assert(err, gc.IsNil)
+		txnAttempts++
+	}, func() {
+		txnAttempts++
+	})
+
+	err = s.mysql.SetCharm(sch, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(txnAttempts, gc.Equals, 2)
+	ch, _, err = s.mysql.Charm()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ch.URL(), gc.DeepEquals, sch.URL())
+
 	// SetCharm fails when the service is Dying.
 	_, err = s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
