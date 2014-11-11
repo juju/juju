@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# TODO(ericsnow) Remove this plugin once 1.20 is no longer supported.
+# TODO(ericsnow) Remove this plugin once 1.21 is no longer supported.
 >&2 echo 'DEPRECATED: Use "juju backups create" instead of "juju backup".'
 
 # Grab the first version out of juju status (should be machine 0).
 VERSION=$(juju status | grep 'agent-version:' | awk '{print $2}')
 
-# Use the new backups CLI if newer than 1.20.  Earlier versions did not
+# Use the new backups CLI if newer than 1.21.  Earlier versions did not
 # have this plugin so we don't worry about them.
-if [[ ! $VERSION =~ 1.20 ]]; then
+if [[ ! $VERSION =~ 1.20 && ! $VERSION =~ 1.21 ]]; then
     juju backups create --download
     exit $?
 fi
