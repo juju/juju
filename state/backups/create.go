@@ -17,7 +17,6 @@ import (
 	"github.com/juju/utils/hash"
 	"github.com/juju/utils/tar"
 
-	"github.com/juju/juju/state/backups/archive"
 	"github.com/juju/juju/state/backups/db"
 )
 
@@ -90,7 +89,7 @@ func create(args *createArgs) (_ *createResult, err error) {
 // builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
 	// archive is the backups archive summary.
-	archive *archive.Archive
+	archive *Archive
 	// checksum is the checksum of the archive file.
 	checksum string
 	// filesToBackUp is the paths to every file to include in the archive.
@@ -127,7 +126,7 @@ func newBuilder(filesToBackUp []string, db db.Dumper) (_ *builder, err error) {
 		return nil, errors.Annotate(err, "while making backups workspace")
 	}
 	filename := filepath.Join(rootDir, tempFilename)
-	b.archive = &archive.Archive{filename, rootDir}
+	b.archive = &Archive{filename, rootDir}
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
