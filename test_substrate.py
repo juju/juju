@@ -2,6 +2,7 @@ import os
 from unittest import TestCase
 
 from mock import (
+    ANY,
     call,
     patch,
     )
@@ -11,7 +12,13 @@ from jujuconfig import (
     translate_to_env,
     )
 from jujupy import SimpleEnvironment
-from substrate import terminate_instances
+from substrate import (
+    get_libvirt_domstate,
+    start_libvirt_domain,
+    stop_libvirt_domain,
+    terminate_instances,
+    verify_libvirt_domain,
+)
 
 
 def get_aws_env():
@@ -93,3 +100,62 @@ class TestTerminateInstances(TestCase):
                     terminate_instances(env, [])
         self.assertEqual(cc_mock.call_count, 0)
         self.assertEqual(out_mock.write.call_count, 0)
+
+
+class TestLibvirt(TestCase):
+
+    def test_start_libvirt_domain(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('subprocess.check_output',
+                   return_value='running') as mock_sp:
+            with patch('substrate.sleep'):
+                start_libvirt_domain(URI, dom_name)
+        mock_sp.assert_any_call(['virsh', '-c', URI, 'start', dom_name],
+                                stderr=ANY)
+
+    def test_stop_libvirt_domain(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('subprocess.check_output',
+                   return_value='shut off') as mock_sp:
+            with patch('substrate.sleep'):
+                stop_libvirt_domain(URI, dom_name)
+        mock_sp.assert_any_call(['virsh', '-c', URI, 'shutdown', dom_name],
+                                stderr=ANY)
+
+    def test_get_libvirt_domstate(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        expected_cmd = ['virsh', '-c', URI, 'domstate', dom_name]
+        with patch('subprocess.check_output') as m_sub:
+            get_libvirt_domstate(URI, dom_name)
+        m_sub.assert_called_with(expected_cmd)
+
+    def test_verify_libvirt_domain_shut_off_true(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('substrate.get_libvirt_domstate', return_value='shut off'):
+            rval = verify_libvirt_domain(URI, dom_name, 'shut off')
+        self.assertTrue(rval)
+
+    def test_verify_libvirt_domain_shut_off_false(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('substrate.get_libvirt_domstate', return_value='running'):
+            rval = verify_libvirt_domain(URI, dom_name, 'shut off')
+        self.assertFalse(rval)
+
+    def test_verify_libvirt_domain_running_true(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('substrate.get_libvirt_domstate', return_value='running'):
+            rval = verify_libvirt_domain(URI, dom_name, 'running')
+        self.assertTrue(rval)
+
+    def test_verify_libvirt_domain_running_false(self):
+        URI = 'qemu+ssh://someHost/system'
+        dom_name = 'fido'
+        with patch('substrate.get_libvirt_domstate', return_value='shut off'):
+            rval = verify_libvirt_domain(URI, dom_name, 'running')
+        self.assertFalse(rval)

@@ -12,7 +12,6 @@ import re
 import subprocess
 import sys
 import tempfile
-from time import sleep
 
 import yaml
 
@@ -588,72 +587,3 @@ def format_listing(listing, expected):
             continue
         value_listing.append('%s: %s' % (value, ', '.join(entries)))
     return ' | '.join(value_listing)
-
-
-def start_libvirt_domain(URI, domain):
-    """Call virsh to start the domain.
-
-    @Parms URI: The address of the libvirt service.
-    @Parm domain: The name of the domain.
-    """
-
-    command = ['virsh', '-c', URI, 'start', domain]
-    try:
-        subprocess.check_output(command, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        if 'already active' in e.output:
-            return '%s is already running; nothing to do.' % domain
-        raise Exception('%s failed:\n %s' % (command, e.output))
-    sleep(30)
-    for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, 'running'):
-            return "%s is now running" % domain
-    raise Exception('libvirt domain %s did not start.' % domain)
-
-
-def stop_libvirt_domain(URI, domain):
-    """Call virsh to shutdown the domain.
-
-    @Parms URI: The address of the libvirt service.
-    @Parm domain: The name of the domain.
-    """
-
-    command = ['virsh', '-c', URI, 'shutdown', domain]
-    try:
-        subprocess.check_output(command, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        if 'domain is not running' in e.output:
-            return ('%s is not running; nothing to do.' % domain)
-        raise Exception('%s failed:\n %s' % (command, e.output))
-    sleep(30)
-    for ignored in until_timeout(120):
-        if verify_libvirt_domain(URI, domain, 'shut off'):
-            return "%s is now shut off" % domain
-    raise Exception('libvirt domain %s is not shut off.' % domain)
-
-
-def verify_libvirt_domain(URI, domain, state="running"):
-    """Returns a bool based on if the domain is in the given state.
-
-    @Parms URI: The address of the libvirt service.
-    @Parm domain: The name of the domain.
-    @Parm state: The state to verify (e.g. "running or "shut off").
-    """
-
-    dom_status = get_libvirt_domstate(URI, domain)
-    return True if state in dom_status else False
-
-
-def get_libvirt_domstate(URI, domain):
-    """Call virsh to get the state of the given domain.
-
-    @Parms URI: The address of the libvirt service.
-    @Parm domain: The name of the domain.
-    """
-
-    command = ['virsh', '-c', URI, 'domstate', domain]
-    try:
-        sub_output = subprocess.check_output(command)
-    except subprocess.CalledProcessError:
-        raise Exception('%s failed' % command)
-    return sub_output

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
-from jujupy import start_libvirt_domain
+from substrate import start_libvirt_domain
 
 
 def main():
