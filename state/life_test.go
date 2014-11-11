@@ -7,7 +7,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/state"
 )
 
@@ -165,11 +165,11 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 func (s *LifeSuite) TestLifeString(c *gc.C) {
 	var tests = []struct {
 		life state.Life
-		want params.Life
+		want juju.Life
 	}{
-		{state.Alive, params.Alive},
-		{state.Dying, params.Dying},
-		{state.Dead, params.Dead},
+		{state.Alive, juju.Alive},
+		{state.Dying, juju.Dying},
+		{state.Dead, juju.Dead},
 		{42, "unknown"},
 	}
 	for _, test := range tests {

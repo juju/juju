@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 )
 
 // This module implements a subset of the interface provided by
@@ -20,7 +20,7 @@ type Relation struct {
 	st   *State
 	tag  names.RelationTag
 	id   int
-	life params.Life
+	life juju.Life
 }
 
 // Tag returns the relation tag.
@@ -42,7 +42,7 @@ func (r *Relation) Id() int {
 }
 
 // Life returns the relation's current life state.
-func (r *Relation) Life() params.Life {
+func (r *Relation) Life() juju.Life {
 	return r.life
 }
 

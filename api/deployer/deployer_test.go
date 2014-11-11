@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/deployer"
 	apitesting "github.com/juju/juju/api/testing"
@@ -162,7 +163,7 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
 	unit, err := s.st.Unit(s.subordinate.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(unit.Life(), gc.Equals, params.Alive)
+	c.Assert(unit.Life(), gc.Equals, juju.Alive)
 
 	// Now make it dead and check again, then refresh and check.
 	err = s.subordinate.EnsureDead()
@@ -170,10 +171,10 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
 	err = s.subordinate.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.subordinate.Life(), gc.Equals, state.Dead)
-	c.Assert(unit.Life(), gc.Equals, params.Alive)
+	c.Assert(unit.Life(), gc.Equals, juju.Alive)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(unit.Life(), gc.Equals, params.Dead)
+	c.Assert(unit.Life(), gc.Equals, juju.Dead)
 }
 
 func (s *deployerSuite) TestUnitRemove(c *gc.C) {

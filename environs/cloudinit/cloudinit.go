@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/proxy"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -85,7 +86,7 @@ type MachineConfig struct {
 	LogDir string
 
 	// Jobs holds what machine jobs to run.
-	Jobs []params.MachineJob
+	Jobs []juju.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.

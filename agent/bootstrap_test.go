@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
@@ -75,7 +76,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	mcfg := agent.BootstrapMachineConfig{
 		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobManageEnviron},
+		Jobs:            []juju.MachineJob{juju.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
@@ -212,7 +213,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobManageEnviron},
+		Jobs:            []juju.MachineJob{juju.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -237,20 +238,20 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name params.MachineJob
+		name juju.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: params.JobHostUnits,
+		name: juju.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: params.JobManageEnviron,
+		name: juju.JobManageEnviron,
 		want: state.JobManageEnviron,
 	}, {
-		name: params.JobManageNetworking,
+		name: juju.JobManageNetworking,
 		want: state.JobManageNetworking,
 	}, {
-		name: params.JobManageStateDeprecated,
+		name: juju.JobManageStateDeprecated,
 		want: state.JobManageStateDeprecated,
 	}, {
 		name: "invalid",

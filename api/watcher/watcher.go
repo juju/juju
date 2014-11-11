@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 )
@@ -242,14 +243,14 @@ type relationUnitsWatcher struct {
 	commonWatcher
 	caller                 base.APICaller
 	relationUnitsWatcherId string
-	out                    chan params.RelationUnitsChange
+	out                    chan juju.RelationUnitsChange
 }
 
 func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		caller:                 caller,
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
-		out: make(chan params.RelationUnitsChange),
+		out: make(chan juju.RelationUnitsChange),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -259,7 +260,7 @@ func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsW
 	return w
 }
 
-func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) error {
+func (w *relationUnitsWatcher) loop(initialChanges juju.RelationUnitsChange) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
@@ -287,6 +288,6 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 // Changes returns a channel that will receive the changes to
 // counterpart units in a relation. The first event on the channel
 // holds the initial state of the relation in its Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() <-chan juju.RelationUnitsChange {
 	return w.out
 }

@@ -18,7 +18,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -50,13 +50,13 @@ const (
 	JobManageStateDeprecated
 )
 
-var jobNames = map[MachineJob]params.MachineJob{
-	JobHostUnits:        params.JobHostUnits,
-	JobManageEnviron:    params.JobManageEnviron,
-	JobManageNetworking: params.JobManageNetworking,
+var jobNames = map[MachineJob]juju.MachineJob{
+	JobHostUnits:        juju.JobHostUnits,
+	JobManageEnviron:    juju.JobManageEnviron,
+	JobManageNetworking: juju.JobManageNetworking,
 
 	// Deprecated in 1.18.
-	JobManageStateDeprecated: params.JobManageStateDeprecated,
+	JobManageStateDeprecated: juju.JobManageStateDeprecated,
 }
 
 // AllJobs returns all supported machine jobs.
@@ -68,21 +68,21 @@ func AllJobs() []MachineJob {
 	}
 }
 
-// ToParams returns the job as params.MachineJob.
-func (job MachineJob) ToParams() params.MachineJob {
-	if paramsJob, ok := jobNames[job]; ok {
-		return paramsJob
+// ToParams returns the job as juju.MachineJob.
+func (job MachineJob) ToParams() juju.MachineJob {
+	if jujuJob, ok := jobNames[job]; ok {
+		return jujuJob
 	}
-	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+	return juju.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
-// paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
-	paramsJobs := make([]params.MachineJob, len(jobs))
+// params.JobsFromJobs converts state jobs to juju jobs.
+func paramsJobsFromJobs(jobs []MachineJob) []juju.MachineJob {
+	jujuJobs := make([]juju.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
-		paramsJobs[i] = machineJob.ToParams()
+		jujuJobs[i] = machineJob.ToParams()
 	}
-	return paramsJobs
+	return jujuJobs
 }
 
 func (job MachineJob) String() string {
@@ -94,7 +94,7 @@ func (job MachineJob) String() string {
 const manualMachinePrefix = "manual:"
 
 // machineDoc represents the internal state of a machine in MongoDB.
-// Note the correspondence with MachineInfo in apiserver/params.
+// Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
 	DocID         string `bson:"_id"`
 	Id            string `bson:"machineid"`

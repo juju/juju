@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -14,7 +15,7 @@ import (
 type Unit struct {
 	st   *State
 	tag  names.UnitTag
-	life params.Life
+	life juju.Life
 }
 
 // Name returns the name of the unit.
@@ -28,7 +29,7 @@ func (u *Unit) Tag() names.UnitTag {
 }
 
 // Life returns the unit's life cycle value.
-func (u *Unit) Life() params.Life {
+func (u *Unit) Life() juju.Life {
 	return u.life
 }
 

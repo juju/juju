@@ -10,6 +10,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/client"
 	"github.com/juju/juju/apiserver/params"
 	envtools "github.com/juju/juju/environs/tools"
@@ -29,7 +30,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
+		Jobs:       []juju.MachineJob{juju.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: hc,
@@ -56,7 +57,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 
 func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:       []params.MachineJob{params.JobHostUnits},
+		Jobs:       []juju.MachineJob{juju.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 	}
@@ -73,7 +74,7 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Series:     "quantal",
-		Jobs:       []params.MachineJob{params.JobHostUnits},
+		Jobs:       []juju.MachineJob{juju.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 		HardwareCharacteristics: hc,
