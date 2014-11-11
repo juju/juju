@@ -49,7 +49,7 @@ type NetworksSpecification struct {
 
 // AgentStatus holds status info about a machine or unit agent.
 type AgentStatus struct {
-	Status  params.Status
+	Status  juju.Status
 	Info    string
 	Data    map[string]interface{}
 	Version string
@@ -65,7 +65,7 @@ type MachineStatus struct {
 	// in 1.19.x). The old fields below are being kept for
 	// compatibility with old clients. They can be removed once API
 	// versioning lands or for 1.21, whichever comes first.
-	AgentState     params.Status
+	AgentState     juju.Status
 	AgentStateInfo string
 	AgentVersion   string
 	Life           string
@@ -101,7 +101,7 @@ type UnitStatus struct {
 	Agent AgentStatus
 
 	// See the comment in MachineStatus regarding these fields.
-	AgentState     params.Status
+	AgentState     juju.Status
 	AgentStateInfo string
 	AgentVersion   string
 	Life           string

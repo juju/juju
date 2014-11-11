@@ -11,6 +11,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
@@ -75,7 +76,7 @@ func (st *State) BestAPIVersion() int {
 }
 
 // life requests the lifecycle of the given entity from the server.
-func (st *State) life(tag names.Tag) (params.Life, error) {
+func (st *State) life(tag names.Tag) (juju.Life, error) {
 	return common.Life(st.facade, tag)
 }
 

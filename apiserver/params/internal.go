@@ -257,10 +257,10 @@ type RelationUnitsSettings struct {
 // or an error.
 type RelationResult struct {
 	Error    *Error
-	Life     Life
+	Life     juju.Life
 	Id       int
 	Key      string
-	Endpoint Endpoint
+	Endpoint juju.Endpoint
 }
 
 // RelationResults holds the result of an API call that returns
@@ -317,7 +317,7 @@ type BytesResult struct {
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {
-	Life  Life
+	Life  juju.Life
 	Error *Error
 }
 
@@ -429,7 +429,7 @@ type MachineNetworkInfoResults struct {
 // EntityStatus holds an entity tag, status and extra info.
 type EntityStatus struct {
 	Tag    string
-	Status Status
+	Status juju.Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -444,8 +444,8 @@ type SetStatus struct {
 type StatusResult struct {
 	Error  *Error
 	Id     string
-	Life   Life
-	Status Status
+	Life   juju.Life
+	Status juju.Status
 	Info   string
 	Data   map[string]interface{}
 }
@@ -486,7 +486,7 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          Life
+	Life          juju.Life
 	Jobs          []juju.MachineJob
 	ContainerType instance.ContainerType
 	Error         *Error

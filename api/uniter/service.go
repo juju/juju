@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -21,7 +22,7 @@ import (
 type Service struct {
 	st   *State
 	tag  names.ServiceTag
-	life params.Life
+	life juju.Life
 }
 
 // Tag returns the service's tag.
@@ -67,7 +68,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 }
 
 // Life returns the service's current life state.
-func (s *Service) Life() params.Life {
+func (s *Service) Life() juju.Life {
 	return s.life
 }
 

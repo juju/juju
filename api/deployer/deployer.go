@@ -6,6 +6,7 @@ package deployer
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
@@ -31,7 +32,7 @@ func NewState(caller base.APICaller) *State {
 }
 
 // unitLife returns the lifecycle state of the given unit.
-func (st *State) unitLife(tag names.UnitTag) (params.Life, error) {
+func (st *State) unitLife(tag names.UnitTag) (juju.Life, error) {
 	return common.Life(st.facade, tag)
 }
 
