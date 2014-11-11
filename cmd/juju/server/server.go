@@ -42,15 +42,15 @@ func NewSuperCommand() cmd.Command {
 	return serverCmd
 }
 
-// ServerCommandBase defines some common functionality for all server commands.
-type ServerCommandBase struct {
+// CommandBase defines some common functionality for all server commands.
+type CommandBase struct {
 	envcmd.EnvCommandBase
-	api ServerAdminAPI
+	api AdminAPI
 }
 
-// NewServerAdminClient returns a serveradmin client for the root api endpoint
+// NewAdminClient returns a serveradmin client for the root api endpoint
 // that the environment command returns.
-func (c *ServerCommandBase) NewServerAdminClient() (*serveradmin.Client, error) {
+func (c *CommandBase) NewAdminClient() (*serveradmin.Client, error) {
 	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -58,8 +58,8 @@ func (c *ServerCommandBase) NewServerAdminClient() (*serveradmin.Client, error) 
 	return serveradmin.NewClient(root), nil
 }
 
-// ServerAdminAPI defines the serveradmin API methods used by the server commands.
-type ServerAdminAPI interface {
+// AdminAPI defines the serveradmin API methods used by the server commands.
+type AdminAPI interface {
 
 	// IdentityProvider returns the identity provider trusted by the Juju state
 	// server, if any.

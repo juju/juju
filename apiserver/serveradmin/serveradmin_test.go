@@ -13,12 +13,12 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
-var _ serveradmin.ServerAdmin = (*serveradmin.ServerAdminAPI)(nil)
+var _ serveradmin.ServerAdmin = (*serveradmin.API)(nil)
 
 type serveradminSuite struct {
 	jujutesting.JujuConnSuite
 
-	serveradmin *serveradmin.ServerAdminAPI
+	serveradmin *serveradmin.API
 	authorizer  apiservertesting.FakeAuthorizer
 }
 
@@ -30,7 +30,7 @@ func (s *serveradminSuite) SetUpTest(c *gc.C) {
 		Tag:            names.NewUserTag("athena"),
 		EnvironManager: true,
 	}
-	serveradmin, err := serveradmin.NewServerAdminAPI(s.State, nil, s.authorizer)
+	serveradmin, err := serveradmin.NewAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.serveradmin = serveradmin
 }

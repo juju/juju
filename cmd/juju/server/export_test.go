@@ -4,9 +4,9 @@
 package server
 
 // NewTrustCommand returns a TrustCommand with the api provided as specified.
-func NewTrustCommand(api ServerAdminAPI) *TrustCommand {
+func NewTrustCommand(api AdminAPI) *TrustCommand {
 	return &TrustCommand{
-		ServerCommandBase: ServerCommandBase{
+		CommandBase: CommandBase{
 			api: api,
 		},
 	}

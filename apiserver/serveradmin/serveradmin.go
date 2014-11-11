@@ -19,7 +19,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.serveradmin")
 
 func init() {
-	common.RegisterStandardFacade("ServerAdmin", 0, NewServerAdminAPI)
+	common.RegisterStandardFacade("ServerAdmin", 0, NewAPI)
 }
 
 // ServerAdmin defines the methods on the serveradmin API end point.
@@ -34,20 +34,20 @@ type ServerAdmin interface {
 	SetIdentityProvider(args params.SetIdentityProvider) error
 }
 
-// ServerAdminAPI implements the Juju server admin interface and is the
+// API implements the Juju server admin interface and is the
 // concrete implementation of the api end point.
-type ServerAdminAPI struct {
+type API struct {
 	state      *state.State
 	authorizer common.Authorizer
 }
 
-// NewServerAdminAPI returns a new ServerAdminAPI instance.
-func NewServerAdminAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ServerAdminAPI, error) {
+// NewAPI returns a new API instance.
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*API, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 
-	return &ServerAdminAPI{
+	return &API{
 		state:      st,
 		authorizer: authorizer,
 	}, nil
@@ -81,7 +81,7 @@ func newIdentityProviderState(info *params.IdentityProviderInfo) (*state.Identit
 	return result, nil
 }
 
-func (api *ServerAdminAPI) IdentityProvider() (params.IdentityProviderResult, error) {
+func (api *API) IdentityProvider() (params.IdentityProviderResult, error) {
 	info, err := api.state.StateServingInfo()
 	if err != nil {
 		return params.IdentityProviderResult{}, errors.Trace(err)
@@ -94,7 +94,7 @@ func (api *ServerAdminAPI) IdentityProvider() (params.IdentityProviderResult, er
 	}, nil
 }
 
-func (api *ServerAdminAPI) SetIdentityProvider(args params.SetIdentityProvider) error {
+func (api *API) SetIdentityProvider(args params.SetIdentityProvider) error {
 	info, err := api.state.StateServingInfo()
 	if err != nil {
 		return errors.Trace(err)

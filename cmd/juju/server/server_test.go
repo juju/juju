@@ -15,18 +15,18 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type ServerCommandSuite struct {
+type CommandSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&ServerCommandSuite{})
+var _ = gc.Suite(&CommandSuite{})
 
-var expectedServerCommmandNames = []string{
+var expectedSubcommandNames = []string{
 	"help",
 	"trust",
 }
 
-func (s *ServerCommandSuite) TestHelp(c *gc.C) {
+func (s *CommandSuite) TestHelp(c *gc.C) {
 	// Check the help output
 	ctx, err := testing.RunCommand(c, server.NewSuperCommand(), "--help")
 	c.Assert(err, gc.IsNil)
@@ -39,7 +39,7 @@ func (s *ServerCommandSuite) TestHelp(c *gc.C) {
 	for _, line := range strings.Split(commandHelp, "\n") {
 		namesFound = append(namesFound, strings.TrimSpace(strings.Split(line, " - ")[0]))
 	}
-	c.Assert(namesFound, gc.DeepEquals, expectedServerCommmandNames)
+	c.Assert(namesFound, gc.DeepEquals, expectedSubcommandNames)
 }
 
 type BaseSuite struct {

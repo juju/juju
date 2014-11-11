@@ -13,7 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-const serverTrustCommandDoc = `
+const trustCommandDoc = `
 Trust a remote identity provider.
 
 The Juju server will trust incoming API connections from a remote identity
@@ -33,7 +33,7 @@ Examples:
 
 // TrustCommand sets the the identity provider for a Juju server.
 type TrustCommand struct {
-	ServerCommandBase
+	CommandBase
 	PublicKey string
 	Location  string
 
@@ -46,7 +46,7 @@ func (c *TrustCommand) Info() *cmd.Info {
 		Name:    "trust",
 		Args:    "<public key> <location>",
 		Purpose: "trust a remote identity provider",
-		Doc:     serverTrustCommandDoc,
+		Doc:     trustCommandDoc,
 	}
 }
 
@@ -74,20 +74,20 @@ func (c *TrustCommand) Init(args []string) error {
 	return errors.Trace(err)
 }
 
-func (c *TrustCommand) getServerAdminAPI() (ServerAdminAPI, error) {
+func (c *TrustCommand) getAdminAPI() (AdminAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
-	return c.NewServerAdminClient()
+	return c.NewAdminClient()
 }
 
 var (
-	getServerTrustAPI = (*TrustCommand).getServerAdminAPI
+	getTrustAPI = (*TrustCommand).getAdminAPI
 )
 
 // Run implements Command.Run.
 func (c *TrustCommand) Run(ctx *cmd.Context) error {
-	client, err := getServerTrustAPI(c)
+	client, err := getTrustAPI(c)
 	if err != nil {
 		return errors.Trace(err)
 	}
