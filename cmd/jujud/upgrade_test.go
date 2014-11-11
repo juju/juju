@@ -107,7 +107,7 @@ func (s *UpgradeSuite) captureLogs(c *gc.C) {
 
 func (s *UpgradeSuite) countUpgradeAttempts(upgradeErr error) *int {
 	count := 0
-	s.PatchValue(&upgradesPerformUpgrade, func(version.Number, upgrades.Target, upgrades.Context) error {
+	s.PatchValue(&upgradesPerformUpgrade, func(version.Number, []upgrades.Target, upgrades.Context) error {
 		count++
 		return upgradeErr
 	})
@@ -214,7 +214,7 @@ func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
 	// the same as a successful upgrade which worked first go.
 	attempts := 0
 	fail := true
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
+	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		attempts++
 		if fail {
 			fail = false
@@ -241,7 +241,7 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 	// steps themselves fails, ensuring the something is logged and
 	// the agent status is updated.
 
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
+	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		// Delete UpgradeInfo for the upgrade so that finaliseUpgrade() will fail
 		s.State.ClearUpgradeInfo()
 		return nil
@@ -330,7 +330,7 @@ func (s *UpgradeSuite) TestWorkerAbortsIfAgentDies(c *gc.C) {
 	config := s.makeFakeConfig()
 	agent := NewFakeUpgradingMachineAgent(config)
 	close(agent.DyingCh)
-	workerErr, context := s.runUpgradeWorkerUsingAgent(c, params.JobManageEnviron, agent)
+	workerErr, context := s.runUpgradeWorkerUsingAgent(c, agent, params.JobManageEnviron)
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(*attemptsP, gc.Equals, 0)
@@ -394,6 +394,21 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 	return info
 }
 
+func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
+	check := func(jobs []params.MachineJob, isMaster bool, expectedTargets ...upgrades.Target) {
+		c.Assert(jobsToTargets(jobs, isMaster), jc.SameContents, expectedTargets)
+	}
+
+	check([]params.MachineJob{params.JobHostUnits}, false, upgrades.HostMachine)
+	check([]params.MachineJob{params.JobManageEnviron}, false, upgrades.StateServer)
+	check([]params.MachineJob{params.JobManageEnviron}, true,
+		upgrades.StateServer, upgrades.DatabaseMaster)
+	check([]params.MachineJob{params.JobManageEnviron, params.JobHostUnits}, false,
+		upgrades.StateServer, upgrades.HostMachine)
+	check([]params.MachineJob{params.JobManageEnviron, params.JobHostUnits}, true,
+		upgrades.StateServer, upgrades.DatabaseMaster, upgrades.HostMachine)
+}
+
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	// Upload tools to provider storage, so they can be migrated to environment storage.
 	stor, err := environs.LegacyStorage(s.State)
@@ -428,7 +443,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// ensure that the various components involved with machine agent
 	// upgrades hang together.
 	upgradeCh := make(chan bool)
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
+	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		upgradeCh <- true // signal that upgrade has started
 		<-upgradeCh       // wait for signal that upgrades should finish
 		return nil
@@ -474,7 +489,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	attempts := 0
 	upgradeCh := make(chan bool)
-	fakePerformUpgrade := func(version.Number, upgrades.Target, upgrades.Context) error {
+	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		// Note: this shouldn't run.
 		attempts++
 		// If execution ends up here, wait so it can be detected (by
@@ -563,12 +578,12 @@ func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgra
 
 // Run just the upgrade-steps worker with a fake machine agent and
 // fake agent config.
-func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, job params.MachineJob) (
+func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, jobs ...params.MachineJob) (
 	error, *fakeConfigSetter, *fakeUpgradingMachineAgent, *upgradeWorkerContext,
 ) {
 	config := s.makeFakeConfig()
 	agent := NewFakeUpgradingMachineAgent(config)
-	err, context := s.runUpgradeWorkerUsingAgent(c, job, agent)
+	err, context := s.runUpgradeWorkerUsingAgent(c, agent, jobs...)
 	return err, config, agent, context
 }
 
@@ -576,11 +591,11 @@ func (s *UpgradeSuite) runUpgradeWorker(c *gc.C, job params.MachineJob) (
 // provided.
 func (s *UpgradeSuite) runUpgradeWorkerUsingAgent(
 	c *gc.C,
-	job params.MachineJob,
 	agent *fakeUpgradingMachineAgent,
+	jobs ...params.MachineJob,
 ) (error, *upgradeWorkerContext) {
 	context := NewUpgradeWorkerContext()
-	worker := context.Worker(agent, nil, []params.MachineJob{job})
+	worker := context.Worker(agent, nil, jobs)
 	s.setInstantRetryStrategy(c)
 	return worker.Wait(), context
 }
@@ -691,8 +706,8 @@ func (s *UpgradeSuite) makeExpectedUpgradeLogs(
 
 	outLogs = append(outLogs, jc.SimpleMessage{
 		loggo.INFO, fmt.Sprintf(
-			`starting upgrade from %s to %s for %s "machine-0"`,
-			s.oldVersion.Number, version.Current.Number, target),
+			`starting upgrade from %s to %s for "machine-0"`,
+			s.oldVersion.Number, version.Current.Number),
 	})
 
 	failMessage := fmt.Sprintf(
