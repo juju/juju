@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -64,6 +65,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 func (s *ActionSuite) TestAddAction(c *gc.C) {
 	name := "fakeaction"
 	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
+	before := time.Now()
 
 	// verify can add an Action
 	a, err := s.unit.AddAction(name, params)
@@ -78,6 +80,12 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	// verify we get out what we put in
 	c.Assert(action.Name(), gc.Equals, name)
 	c.Assert(action.Parameters(), jc.DeepEquals, params)
+
+	// Enqueued time should be within five seconds after the beginning
+	// of the test
+	diff := action.Enqueued().Sub(before).Seconds()
+	c.Assert(diff >= 0, jc.IsTrue)
+	c.Assert(diff < 5, jc.IsTrue)
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -185,6 +193,13 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 
 	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+
+	// Verify the ActionResult Completed time was within five seconds of
+	// the Enqueued time.
+	diff := results[0].Completed().Sub(action.Enqueued()).Seconds()
+	c.Assert(diff >= 0, jc.IsTrue)
+	c.Assert(diff < 5, jc.IsTrue)
+
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, reason)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
