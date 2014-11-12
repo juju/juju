@@ -7,6 +7,6 @@ package diskmanager
 
 import "github.com/juju/juju/storage"
 
-func blockDeviceInUse(storage.BlockDevice) (bool, error) {
+var blockDeviceInUse = func(storage.BlockDevice) (bool, error) {
 	panic("not supported")
 }

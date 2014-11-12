@@ -69,13 +69,12 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 	logger.Debugf("executing lsblk")
 	output, err := exec.Command(
 		"lsblk",
-		"-n", // no headings
 		"-b", // output size in bytes
 		"-P", // output fields as key=value pairs
 		"-o", strings.Join(columns, ","),
 	).Output()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot list block devices")
+		return nil, errors.Annotate(err, "cannot list block devices: lsblk failed")
 	}
 
 	blockDeviceMap := make(map[string]storage.BlockDevice)
