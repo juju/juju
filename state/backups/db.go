@@ -189,7 +189,7 @@ func stripIgnored(ignored set.Strings, dumpDir string) error {
 func listDatabases(dumpDir string) (set.Strings, error) {
 	list, err := ioutil.ReadDir(dumpDir)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return set.Strings{}, errors.Trace(err)
 	}
 
 	databases := make(set.Strings)
