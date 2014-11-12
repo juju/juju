@@ -5,12 +5,6 @@ package juju
 
 // temporary types to break the state <> apiserver dependency loop
 
-// UnitSettings holds information about a service unit's settings
-// within a relation.
-type UnitSettings struct {
-	Version int64
-}
-
 // MachineJob values define responsibilities that machines may be
 // expected to fulfil.
 type MachineJob string
