@@ -52,9 +52,10 @@ def deploy_stack(environment, debug, machines):
                 print("Status got Unable to connect to env.  Retrying...")
                 env.get_status()
             env.wait_for_started()
-            deploy_dummy_stack(
-                env, 'local:{}/'.format(env.config.get(
-                    'default-series', 'trusty')))
+            # XXX Disabled due to many errors on HP, canonistack, azure.
+            #deploy_dummy_stack(
+            #    env, 'local:{}/'.format(env.config.get(
+            #        'default-series', 'trusty')))
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
                 sys.stderr.write(e.stderr)
