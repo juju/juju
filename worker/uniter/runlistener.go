@@ -70,11 +70,11 @@ func (r *JujuRunServer) RunCommands(args RunCommandsArgs, result *exec.ExecRespo
 func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, error) {
 	server := rpc.NewServer()
 	if err := server.Register(&JujuRunServer{runner}); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	listener, err := sockets.Listen(socketPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	runListener := &RunListener{
 		listener: listener,

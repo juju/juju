@@ -120,7 +120,7 @@ func (f *factory) NewRunContext(relationId int, remoteUnitName string) (*HookCon
 		ctx.remoteUnitName = remoteUnitName
 		_, found := ctx.relations[relationId]
 		if !found {
-			return nil, fmt.Errorf("unknown relation id: %v", ctx.relationId)
+			return nil, errors.Errorf("unknown relation id: %v", ctx.relationId)
 		}
 	}
 
@@ -145,7 +145,7 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 		ctx.remoteUnitName = hookInfo.RemoteUnit
 		relation, found := ctx.relations[hookInfo.RelationId]
 		if !found {
-			return nil, fmt.Errorf("unknown relation id: %v", hookInfo.RelationId)
+			return nil, errors.Errorf("unknown relation id: %v", hookInfo.RelationId)
 		}
 		if hookInfo.Kind == hooks.RelationDeparted {
 			relation.cache.RemoveMember(hookInfo.RemoteUnit)

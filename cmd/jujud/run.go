@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"launchpad.net/gnuflag"
@@ -85,7 +86,7 @@ func (c *RunCommand) Init(args []string) error {
 			var err error
 			c.unit, err = names.ParseUnitTag(unitName)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 		}
 	}
@@ -109,7 +110,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 		result, err = c.executeInUnitContext()
 	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	ctx.Stdout.Write(result.Stdout)
@@ -128,19 +129,19 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	// make sure the unit exists
 	_, err := os.Stat(unitDir)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("unit %q not found on this machine", c.unit.Id())
+		return nil, errors.Errorf("unit %q not found on this machine", c.unit.Id())
 	} else if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	relationId, err := checkRelationId(c.relationId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	client, err := sockets.Dial(c.socketPath())
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -152,7 +153,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		SkipRemoteUnit: c.skipRemoteUnit,
 	}
 	err = client.Call(uniter.JujuRunEndpoint, args, &result)
-	return &result, err
+	return &result, errors.Trace(err)
 }
 
 // appendProxyToCommands activates proxy settings on platforms
@@ -175,11 +176,11 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// stomp on each other.
 	lock, err := hookExecutionLock(DataDir)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	err = lock.Lock("juju-run")
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	defer lock.Unlock()
 
@@ -207,7 +208,7 @@ func checkRelationId(value string) (int, error) {
 	}
 	id, err := strconv.Atoi(trim)
 	if err != nil {
-		return -1, fmt.Errorf("invalid relation id")
+		return -1, errors.Errorf("invalid relation id")
 	}
 	return id, nil
 }
