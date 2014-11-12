@@ -66,7 +66,6 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	name := "fakeaction"
 	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
 	before := state.NowToTheSecond()
-	later := before.Add(testing.LongWait)
 
 	// verify can add an Action
 	a, err := s.unit.AddAction(name, params)
@@ -84,9 +83,8 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 	// Enqueued time should be within a reasonable time of the beginning
 	// of the test
-	now := state.NowToTheSecond()
-	c.Check(action.Enqueued(), jc.TimeBetween(before, now))
-	c.Check(action.Enqueued(), jc.TimeBetween(before, later))
+	c.Assert(action.Enqueued().Sub(before) >= 0, jc.IsTrue)
+	c.Assert(action.Enqueued().Sub(before) < testing.LongWait, jc.IsTrue)
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
