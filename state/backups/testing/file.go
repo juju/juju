@@ -27,7 +27,7 @@ type File struct {
 	IsDir bool
 }
 
-// Add the file to the tar archive.
+// AddToArchive adds the file to the tar archive.
 func (f *File) AddToArchive(archive *tar.Writer) error {
 	hdr := &tar.Header{
 		Name: f.Name,
