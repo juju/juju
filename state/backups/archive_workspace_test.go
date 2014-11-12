@@ -93,13 +93,13 @@ func (s *workspaceSuite) TestClose(c *gc.C) {
 	c.Check(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
+func (s *workspaceSuite) TestUnpackFilesBundle(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
 	targetDir := c.MkDir()
-	err = ws.UnpackFiles(targetDir)
+	err = ws.UnpackFilesBundle(targetDir)
 	c.Assert(err, gc.IsNil)
 
 	_, err = os.Stat(targetDir + "/var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud")
@@ -108,12 +108,12 @@ func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *workspaceSuite) TestOpenFile(c *gc.C) {
+func (s *workspaceSuite) TestOpenBundledFile(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
-	file, err := ws.OpenFile("var/lib/juju/system-identity")
+	file, err := ws.OpenBundledFile("var/lib/juju/system-identity")
 	c.Assert(err, gc.IsNil)
 
 	data, err := ioutil.ReadAll(file)

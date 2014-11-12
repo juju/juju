@@ -116,8 +116,8 @@ func (ws *ArchiveWorkspace) Close() error {
 	return errors.Trace(err)
 }
 
-// UnpackFiles unpacks the archived files bundle into the targeted dir.
-func (ws *ArchiveWorkspace) UnpackFiles(targetRoot string) error {
+// UnpackFilesBundle unpacks the archived files bundle into the targeted dir.
+func (ws *ArchiveWorkspace) UnpackFilesBundle(targetRoot string) error {
 	tarFile, err := os.Open(ws.FilesBundle)
 	if err != nil {
 		return errors.Trace(err)
@@ -128,9 +128,9 @@ func (ws *ArchiveWorkspace) UnpackFiles(targetRoot string) error {
 	return errors.Trace(err)
 }
 
-// OpenFile returns an open ReadCloser for the corresponding file in
+// OpenBundledFile returns an open ReadCloser for the corresponding file in
 // the archived files bundle.
-func (ws *ArchiveWorkspace) OpenFile(filename string) (io.Reader, error) {
+func (ws *ArchiveWorkspace) OpenBundledFile(filename string) (io.Reader, error) {
 	if filepath.IsAbs(filename) {
 		return nil, errors.Errorf("filename must be relative, got %q", filename)
 	}
