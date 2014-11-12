@@ -20,7 +20,7 @@ var (
 	getDBDumper      = NewDBDumper
 	runCreate        = create
 	finishMeta       = func(meta *Metadata, result *createResult) error {
-		return meta.Finish(result.size, result.checksum)
+		return meta.MarkComplete(result.size, result.checksum)
 	}
 	storeArchive = StoreArchive
 )

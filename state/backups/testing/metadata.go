@@ -41,7 +41,7 @@ func NewMetadataStarted(id, notes string) *backups.Metadata {
 func FinishMetadata(meta *backups.Metadata) {
 	var size int64 = 10
 	checksum := "787b8915389d921fa23fb40e16ae81ea979758bf"
-	meta.Finish(size, checksum)
+	meta.MarkComplete(size, checksum)
 	finished := meta.Started.Add(time.Minute)
 	meta.Finished = &finished
 }

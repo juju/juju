@@ -77,9 +77,8 @@ func NewMetadata(origin Origin, notes string, started *time.Time) *Metadata {
 	return &meta
 }
 
-// Finish populates the remaining metadata values.  If format is empty,
-// it is set to the default checksum format.
-func (m *Metadata) Finish(size int64, checksum string) error {
+// MarkComplete populates the remaining metadata values.
+func (m *Metadata) MarkComplete(size int64, checksum string) error {
 	if size == 0 {
 		return errors.New("missing size")
 	}

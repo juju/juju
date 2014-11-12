@@ -31,7 +31,7 @@ func (s *metadataSuite) TestAsJSONBuffer(c *gc.C) {
 	meta := backups.NewMetadata(origin, "", &started)
 
 	meta.SetID("20140909-115934.asdf-zxcv-qwe")
-	err := meta.Finish(10, "123af2cef")
+	err := meta.MarkComplete(10, "123af2cef")
 	c.Assert(err, gc.IsNil)
 
 	finished := started.Add(time.Minute)
