@@ -294,7 +294,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 }
 
 func (b *builder) buildArchiveAndChecksum() error {
-	logger.Infof("building archive file (%s)", b.filename)
+	logger.Infof("building archive file %q", b.filename)
 	if b.archiveFile == nil {
 		return errors.New("missing archiveFile")
 	}
