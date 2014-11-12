@@ -30,7 +30,7 @@ const listBlockDevicesPeriod = time.Second * 30
 // BlockDeviceSetter is an interface that is supplied to
 // NewWorker for setting block devices for the local host.
 type BlockDeviceSetter interface {
-	SetBlockDevices([]storage.BlockDevice) error
+	SetMachineBlockDevices([]storage.BlockDevice) error
 }
 
 // NewWorker returns a worker that lists block devices
