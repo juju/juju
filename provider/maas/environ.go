@@ -913,6 +913,53 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 	return cloudcfg, nil
 }
 
+func (*maasEnviron) releaseNodes(ids url.Values, recurse bool) error {
+	err := ReleaseNodes(nodes, ids)
+	if err == nil {
+		return nil
+	}
+	maasErr, ok := err.(gomaasapi.ServerError)
+	if !ok {
+		return errors.Annotate(err, "cannot release nodes")
+	}
+
+	// StatusCode 409 means a node couldn't be released due to
+	// a state conflict. Likely it's already released or disk
+	// erasing. We're assuming an error of 409 *only* means it's
+	// safe to assume the instance is already released.
+	// MaaS also releases (or attempts) all nodes, and raises
+	// a single error on failure. So even with an error 409, all
+	// nodes have been released.
+	if maasErr.StatusCode == 409 {
+		return nil
+	}
+
+	// a status code of 400, 403 or 404 means one of the nodes
+	// couldn't be found and none have been released. We have
+	// to release all the ones we can individually.
+	if massErr.StatusCode != 400 && maasErr.StatusCode != 403 && maasErr.StatusCode != 404 {
+		return errors.Annotate(err, "cannot release nodes")
+	}
+	if !recurse {
+		// this node has already been released and we're golden
+		return nil
+	}
+
+	var errors []error
+	for _, id := range ids {
+		err := environ.releaseNodes(id, false)
+		if err != nil {
+			errors = append(errors, err)
+		}
+	}
+	if len(errors) == 0 {
+		return nil
+	} else if len(errors) == 1 {
+		return errors.Trace(errors[0])
+	}
+
+}
+
 // StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
@@ -920,23 +967,13 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 		return nil
 	}
 	nodes := environ.getMAASClient().GetSubObject("nodes")
-	err := ReleaseNodes(nodes, getSystemIdValues("nodes", ids))
+	err := environ.releaseNodes(getSystemIdValues("nodes", ids), true)
 	if err != nil {
-		maasErr, ok := err.(gomaasapi.ServerError)
-		// StatusCode 409 means a node couldn't be released due to
-		// a state conflict. Likely it's already released or disk
-		// erasing. We're assuming an error of 409 *only* means it's
-		// safe to assume the instance is already released.
-		// MaaS also releases (or attempts) all nodes, and raises
-		// a single error on failure. So even with an error 409, all
-		// nodes have been released.
-		// 404 means the node doesn't exist, which we also don't care
-		// about when stopping an instance.
-		if !ok || (maasErr.StatusCode != 409 && maasErr.StatusCode != 404) {
-			return errors.Annotate(err, "cannot release nodes")
-		}
+		// error will already have been wrapped
+		return err
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
+
 }
 
 // acquireInstances calls the MAAS API to list acquired nodes.
