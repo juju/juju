@@ -927,29 +927,3 @@ func (b *storeManagerTestBacking) deleteEntity(id0 interface{}) {
 		}
 	}
 }
-
-// TODO(dfc) is this type needed ?
-type machineInfo struct {
-	Id         string
-	InstanceId string
-}
-
-func (i *machineInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "machine",
-		Id:   i.Id,
-	}
-}
-
-// TODO(dfc) is this type needed ?
-type serviceInfo struct {
-	Name    string
-	Exposed bool
-}
-
-func (i *serviceInfo) EntityId() EntityId {
-	return EntityId{
-		Kind: "service",
-		Id:   i.Name,
-	}
-}
