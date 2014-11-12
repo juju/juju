@@ -85,7 +85,7 @@ func (s *UserSuite) TestString(c *gc.C) {
 }
 
 func (s *UserSuite) TestUpdateLastLogin(c *gc.C) {
-	now := time.Now().Round(time.Second).UTC()
+	now := time.Now().Truncate(time.Second).UTC()
 	user := s.factory.MakeUser(c, nil)
 	err := user.UpdateLastLogin()
 	c.Assert(err, gc.IsNil)

@@ -207,9 +207,9 @@ func (u *User) LastLogin() *time.Time {
 	return &result
 }
 
-// nowToTheSecond returns the current time in UTC to the nearest second.
+// nowToTheSecond returns the current time in UTC to the earliest second.
 func nowToTheSecond() time.Time {
-	return time.Now().Round(time.Second).UTC()
+	return time.Now().Truncate(time.Second).UTC()
 }
 
 // UpdateLastLogin sets the LastLogin time of the user to be now (to the
