@@ -87,7 +87,7 @@ func create(args *createArgs) (_ *createResult, err error) {
 // builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
 	// archivePaths is the backups archive summary.
-	archivePaths *ArchivePaths
+	archivePaths ArchivePaths
 	// filename is the path to the archive file.
 	filename string
 	// checksum is the checksum of the archive file.
@@ -126,7 +126,7 @@ func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 		return nil, errors.Annotate(err, "while making backups workspace")
 	}
 	b.filename = filepath.Join(rootDir, tempFilename)
-	b.archivePaths = &ArchivePaths{rootDir}
+	b.archivePaths = NewUnpackedArchivePaths(rootDir)
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
@@ -181,7 +181,7 @@ func (b *builder) closeBundleFile() error {
 
 func (b *builder) removeRootDir() error {
 	// Currently this method isn't thread-safe (doesn't need to be).
-	if b.archivePaths == nil || b.archivePaths.RootDir == "" {
+	if b.archivePaths.RootDir == "" {
 		return nil
 	}
 
