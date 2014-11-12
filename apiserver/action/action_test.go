@@ -494,10 +494,14 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 func (s *actionSuite) TestServicesCharmActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
 		"outfile": map[string]interface{}{
-			"outfile": map[string]interface{}{
-				"description": "The file to write out to.",
-				"type":        "string",
-				"default":     "foo.bz2",
+			"type":        "object",
+			"description": "this boilerplate is insane, we have to fix it",
+			"properties": map[string]interface{}{
+				"outfile": map[string]interface{}{
+					"description": "The file to write out to.",
+					"type":        "string",
+					"default":     "foo.bz2",
+				},
 			},
 		},
 	}

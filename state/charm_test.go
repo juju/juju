@@ -55,10 +55,14 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 		charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
-				"outfile": map[string]interface{}{
-					"description": "The file to write out to.",
-					"type":        "string",
-					"default":     "foo.bz2",
+				"type":        "object",
+				"description": "this boilerplate is insane, we have to fix it",
+				"properties": map[string]interface{}{
+					"outfile": map[string]interface{}{
+						"description": "The file to write out to.",
+						"type":        "string",
+						"default":     "foo.bz2",
+					},
 				},
 			},
 		})

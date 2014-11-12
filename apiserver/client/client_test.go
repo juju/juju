@@ -544,10 +544,14 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 					"snapshot": charm.ActionSpec{
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
-							"outfile": map[string]interface{}{
-								"default":     "foo.bz2",
-								"description": "The file to write out to.",
-								"type":        "string",
+							"type":        "object",
+							"description": "this boilerplate is insane, we have to fix it",
+							"properties": map[string]interface{}{
+								"outfile": map[string]interface{}{
+									"default":     "foo.bz2",
+									"description": "The file to write out to.",
+									"type":        "string",
+								},
 							},
 						},
 					},
