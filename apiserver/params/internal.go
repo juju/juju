@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -260,7 +261,7 @@ type RelationResult struct {
 	Life     juju.Life
 	Id       int
 	Key      string
-	Endpoint juju.Endpoint
+	Endpoint multiwatcher.Endpoint
 }
 
 // RelationResults holds the result of an API call that returns
@@ -566,7 +567,7 @@ type StringsWatchResults struct {
 // and an error (if any).
 type RelationUnitsWatchResult struct {
 	RelationUnitsWatcherId string
-	Changes                juju.RelationUnitsChange
+	Changes                multiwatcher.RelationUnitsChange
 	Error                  *Error
 }
 

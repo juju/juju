@@ -6,7 +6,7 @@ package relation_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/relation"
 )
 
@@ -17,7 +17,7 @@ var _ = gc.Suite(&LiveSourceSuite{})
 func (s *LiveSourceSuite) TestLiveHookSource(c *gc.C) {
 	for i, t := range aliveHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
-		ruw := &RUW{make(chan juju.RelationUnitsChange), false}
+		ruw := &RUW{make(chan multiwatcher.RelationUnitsChange), false}
 		q := relation.NewLiveHookSource(t.initial, ruw)
 		for i, step := range t.steps {
 			c.Logf("  step %d", i)

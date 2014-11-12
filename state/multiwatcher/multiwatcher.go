@@ -16,7 +16,11 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
+	"gopkg.in/juju/charm.v4"
 )
 
 var logger = loggo.GetLogger("juju.state.multiwatcher")
@@ -334,7 +338,12 @@ type entityEntry struct {
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
 	// identify the entity within its kind
-	EntityId() juju.EntityId
+	EntityId() EntityId
+}
+
+type EntityId struct {
+	Kind string
+	Id   interface{}
 }
 
 // Store holds a list of all entities known
@@ -407,7 +416,7 @@ func (a *Store) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id juju.EntityId) {
+func (a *Store) delete(id EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -419,7 +428,7 @@ func (a *Store) delete(id juju.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) Remove(id juju.EntityId) {
+func (a *Store) Remove(id EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -460,7 +469,7 @@ func (a *Store) Update(info EntityInfo) {
 // Get returns the stored entity with the given
 // id, or nil if none was found. The contents of the returned entity
 // should not be changed.
-func (a *Store) Get(id juju.EntityId) EntityInfo {
+func (a *Store) Get(id EntityId) EntityInfo {
 	if e := a.entities[id]; e != nil {
 		return e.Value.(*entityEntry).info
 	}
@@ -555,17 +564,128 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	}
 	switch entityKind {
 	case "machine":
-		d.Entity = new(juju.MachineInfo)
+		d.Entity = new(MachineInfo)
 	case "service":
-		d.Entity = new(juju.ServiceInfo)
+		d.Entity = new(ServiceInfo)
 	case "unit":
-		d.Entity = new(juju.UnitInfo)
+		d.Entity = new(UnitInfo)
 	case "relation":
-		d.Entity = new(juju.RelationInfo)
+		d.Entity = new(RelationInfo)
 	case "annotation":
-		d.Entity = new(juju.AnnotationInfo)
+		d.Entity = new(AnnotationInfo)
 	default:
 		return fmt.Errorf("Unexpected entity name %q", entityKind)
 	}
 	return json.Unmarshal(elements[2], &d.Entity)
+}
+
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// When remote units leave scope, their ids will be noted in the
+// Departed field, and no further events will be sent for those units.
+type RelationUnitsChange struct {
+	Changed  map[string]UnitSettings
+	Departed []string
+}
+
+// UnitSettings holds information about a service unit's settings
+// within a relation.
+type UnitSettings struct {
+	Version int64
+}
+
+// MachineInfo holds the information about a Machine
+// that is watched by StateWatcher.
+type MachineInfo struct {
+	Id                       string `bson:"_id"`
+	InstanceId               string
+	Status                   juju.Status
+	StatusInfo               string
+	StatusData               map[string]interface{}
+	Life                     juju.Life
+	Series                   string
+	SupportedContainers      []instance.ContainerType
+	SupportedContainersKnown bool
+	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
+	Jobs                     []juju.MachineJob
+	Addresses                []network.Address
+}
+
+func (i *MachineInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "machine",
+		Id:   i.Id,
+	}
+}
+
+type ServiceInfo struct {
+	Name        string `bson:"_id"`
+	Exposed     bool
+	CharmURL    string
+	OwnerTag    string
+	Life        juju.Life
+	MinUnits    int
+	Constraints constraints.Value
+	Config      map[string]interface{}
+	Subordinate bool
+}
+
+func (i *ServiceInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "service",
+		Id:   i.Name,
+	}
+}
+
+type UnitInfo struct {
+	Name           string `bson:"_id"`
+	Service        string
+	Series         string
+	CharmURL       string
+	PublicAddress  string
+	PrivateAddress string
+	MachineId      string
+	Ports          []network.Port
+	Status         juju.Status
+	StatusInfo     string
+	StatusData     map[string]interface{}
+	Subordinate    bool
+}
+
+func (i *UnitInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "unit",
+		Id:   i.Name,
+	}
+}
+
+type RelationInfo struct {
+	Key       string `bson:"_id"`
+	Id        int
+	Endpoints []Endpoint
+}
+
+func (i *RelationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "relation",
+		Id:   i.Key,
+	}
+}
+
+type AnnotationInfo struct {
+	Tag         string
+	Annotations map[string]string
+}
+
+func (i *AnnotationInfo) EntityId() EntityId {
+	return EntityId{
+		Kind: "annotation",
+		Id:   i.Tag,
+	}
+}
+
+type Endpoint struct {
+	ServiceName string
+	Relation    charm.Relation
 }
