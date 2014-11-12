@@ -24,10 +24,12 @@ var (
 	RunCommand           = &runCommand
 )
 
+// ExposeCreateResult extracts the values in a create() result.
 func ExposeCreateResult(result *createResult) (io.ReadCloser, int64, string) {
 	return result.archiveFile, result.size, result.checksum
 }
 
+// NewTestCreateArgs builds a new args value for create() calls.
 func NewTestCreateArgs(filesToBackUp []string, db DBDumper, mfile io.Reader) *createArgs {
 	args := createArgs{
 		filesToBackUp: filesToBackUp,
@@ -37,10 +39,12 @@ func NewTestCreateArgs(filesToBackUp []string, db DBDumper, mfile io.Reader) *cr
 	return &args
 }
 
+// ExposeCreateResult extracts the values in a create() args value.
 func ExposeCreateArgs(args *createArgs) ([]string, DBDumper) {
 	return args.filesToBackUp, args.db
 }
 
+// NewTestCreateResult builds a new create() result.
 func NewTestCreateResult(file io.ReadCloser, size int64, checksum string) *createResult {
 	result := createResult{
 		archiveFile: file,
@@ -50,6 +54,7 @@ func NewTestCreateResult(file io.ReadCloser, size int64, checksum string) *creat
 	return &result
 }
 
+// NewTestCreate builds a new replacement for create() with the given result.
 func NewTestCreate(result *createResult) (*createArgs, func(*createArgs) (*createResult, error)) {
 	var received createArgs
 
@@ -66,12 +71,15 @@ func NewTestCreate(result *createResult) (*createArgs, func(*createArgs) (*creat
 	return &received, testCreate
 }
 
+// NewTestCreate builds a new replacement for create() with the given failure.
 func NewTestCreateFailure(failure string) func(*createArgs) (*createResult, error) {
 	return func(*createArgs) (*createResult, error) {
 		return nil, errors.New(failure)
 	}
 }
 
+// NewTestMetaFinisher builds a new replacement for finishMetadata with
+// the given failure.
 func NewTestMetaFinisher(failure string) func(*Metadata, *createResult) error {
 	return func(*Metadata, *createResult) error {
 		if failure == "" {
@@ -81,6 +89,8 @@ func NewTestMetaFinisher(failure string) func(*Metadata, *createResult) error {
 	}
 }
 
+// NewTestArchiveStorer builds a new replacement for StoreArchive with
+// the given failure.
 func NewTestArchiveStorer(failure string) func(filestorage.FileStorage, *Metadata, io.Reader) error {
 	return func(filestorage.FileStorage, *Metadata, io.Reader) error {
 		if failure == "" {

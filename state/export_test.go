@@ -52,11 +52,13 @@ func getBackupDBWrapper(st *State) *backupDBWrapper {
 	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
 }
 
+// NewBackupID creates a new backup ID based on the metadata.
 func NewBackupID(meta *backups.Metadata) string {
 	doc := newBackupDoc(meta)
 	return newBackupID(doc)
 }
 
+// GetBackupMetadata pulls the metadata from storage.
 func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
@@ -67,6 +69,7 @@ func GetBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	return doc.asMetadata(), nil
 }
 
+// AddBackupMetadata pushes the metadata into storage.
 func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
@@ -74,6 +77,8 @@ func AddBackupMetadata(st *State, meta *backups.Metadata) (string, error) {
 	return addBackupMetadata(db, doc)
 }
 
+// AddBackupMetadata pushes the metadata into storage, using the given
+// backup ID.
 func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
@@ -81,6 +86,8 @@ func AddBackupMetadataID(st *State, meta *backups.Metadata, id string) error {
 	return addBackupMetadataID(db, doc, id)
 }
 
+// SetBackupStored stores the time of when the identified backup archive
+// file was stored.
 func SetBackupStored(st *State, id string, stored time.Time) error {
 	db := getBackupDBWrapper(st)
 	defer db.Close()
