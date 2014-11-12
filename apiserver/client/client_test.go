@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -1683,7 +1684,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, gc.IsNil)
-	if !c.Check(deltas, gc.DeepEquals, []juju.Delta{{
+	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
 		Entity: &juju.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",

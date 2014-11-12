@@ -205,11 +205,11 @@ func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 func (s *storeSuite) TestChangesSince(c *gc.C) {
 	a := NewStore()
 	// Add three entries.
-	var deltas []juju.Delta
+	var deltas []Delta
 	for i := 0; i < 3; i++ {
 		m := &MachineInfo{Id: fmt.Sprint(i)}
 		a.Update(m)
-		deltas = append(deltas, juju.Delta{Entity: m})
+		deltas = append(deltas, Delta{Entity: m})
 	}
 	// Check that the deltas from each revno are as expected.
 	for i := 0; i < 3; i++ {
@@ -228,7 +228,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 		InstanceId: "foo",
 	}
 	a.Update(m1)
-	c.Assert(a.ChangesSince(rev), gc.DeepEquals, []juju.Delta{{Entity: m1}})
+	c.Assert(a.ChangesSince(rev), gc.DeepEquals, []Delta{{Entity: m1}})
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
@@ -241,20 +241,20 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	// Check that something that never saw m0 does not get
 	// informed of its removal (even those the removed entity
 	// is still in the list.
-	c.Assert(a.ChangesSince(0), gc.DeepEquals, []juju.Delta{{
+	c.Assert(a.ChangesSince(0), gc.DeepEquals, []Delta{{
 		Entity: &MachineInfo{Id: "2"},
 	}, {
 		Entity: m1,
 	}})
 
-	c.Assert(a.ChangesSince(rev), gc.DeepEquals, []juju.Delta{{
+	c.Assert(a.ChangesSince(rev), gc.DeepEquals, []Delta{{
 		Entity: m1,
 	}, {
 		Removed: true,
 		Entity:  m0,
 	}})
 
-	c.Assert(a.ChangesSince(rev+1), gc.DeepEquals, []juju.Delta{{
+	c.Assert(a.ChangesSince(rev+1), gc.DeepEquals, []Delta{{
 		Removed: true,
 		Entity:  m0,
 	}})
@@ -547,7 +547,7 @@ func (*storeManagerSuite) TestRespondMultiple(c *gc.C) {
 	sm.handle(req0)
 	sm.respond()
 	assertReplied(c, true, req0)
-	c.Assert(req0.changes, gc.DeepEquals, []juju.Delta{{Entity: &MachineInfo{Id: "0"}}})
+	c.Assert(req0.changes, gc.DeepEquals, []Delta{{Entity: &MachineInfo{Id: "0"}}})
 	assertWaitingRequests(c, sm, nil)
 
 	// Add another request from the same watcher and respond.
@@ -583,7 +583,7 @@ func (*storeManagerSuite) TestRespondMultiple(c *gc.C) {
 	assertNotReplied(c, req0)
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
-	c.Assert(req2.changes, gc.DeepEquals, []juju.Delta{{Entity: &MachineInfo{Id: "0"}}})
+	c.Assert(req2.changes, gc.DeepEquals, []Delta{{Entity: &MachineInfo{Id: "0"}}})
 	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req1},
@@ -602,7 +602,7 @@ func (*storeManagerSuite) TestRespondMultiple(c *gc.C) {
 	assertReplied(c, true, req1)
 	assertWaitingRequests(c, sm, nil)
 
-	deltas := []juju.Delta{{Entity: &MachineInfo{Id: "1"}}}
+	deltas := []Delta{{Entity: &MachineInfo{Id: "1"}}}
 	c.Assert(req0.changes, gc.DeepEquals, deltas)
 	c.Assert(req1.changes, gc.DeepEquals, deltas)
 }
@@ -628,17 +628,17 @@ func (*storeManagerSuite) TestRun(c *gc.C) {
 		c.Check(sm.Stop(), gc.IsNil)
 	}()
 	w := &Watcher{all: sm}
-	checkNext(c, w, []juju.Delta{
+	checkNext(c, w, []Delta{
 		{Entity: &MachineInfo{Id: "0"}},
 		{Entity: &ServiceInfo{Name: "logging"}},
 		{Entity: &ServiceInfo{Name: "wordpress"}},
 	}, "")
 	b.updateEntity(&MachineInfo{Id: "0", InstanceId: "i-0"})
-	checkNext(c, w, []juju.Delta{
+	checkNext(c, w, []Delta{
 		{Entity: &MachineInfo{Id: "0", InstanceId: "i-0"}},
 	}, "")
 	b.deleteEntity(juju.EntityId{"machine", "0"})
-	checkNext(c, w, []juju.Delta{
+	checkNext(c, w, []Delta{
 		{Removed: true, Entity: &MachineInfo{Id: "0"}},
 	}, "")
 }
@@ -668,7 +668,7 @@ func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *gc.C) {
 	w := &Watcher{all: sm}
 	// Receive one delta to make sure that the storeManager
 	// has seen the initial state.
-	checkNext(c, w, []juju.Delta{{Entity: &MachineInfo{Id: "0"}}}, "")
+	checkNext(c, w, []Delta{{Entity: &MachineInfo{Id: "0"}}}, "")
 	c.Logf("setting fetch error")
 	b.setFetchError(errors.New("some error"))
 	c.Logf("updating entity")
@@ -699,8 +699,8 @@ func assertStoreContents(c *gc.C, a *Store, latestRevno int64, entries []entityE
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *gc.C, w *Watcher, timeout time.Duration) ([]juju.Delta, error) {
-	var deltas []juju.Delta
+func getNext(c *gc.C, w *Watcher, timeout time.Duration) ([]Delta, error) {
+	var deltas []Delta
 	var err error
 	ch := make(chan struct{}, 1)
 	go func() {
@@ -715,7 +715,7 @@ func getNext(c *gc.C, w *Watcher, timeout time.Duration) ([]juju.Delta, error) {
 	return nil, errTimeout
 }
 
-func checkNext(c *gc.C, w *Watcher, deltas []juju.Delta, expectErr string) {
+func checkNext(c *gc.C, w *Watcher, deltas []Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
 		c.Check(err, gc.ErrorMatches, expectErr)
@@ -726,11 +726,11 @@ func checkNext(c *gc.C, w *Watcher, deltas []juju.Delta, expectErr string) {
 
 // deltas are returns in arbitrary order, so we compare
 // them as sets.
-func checkDeltasEqual(c *gc.C, d0, d1 []juju.Delta) {
+func checkDeltasEqual(c *gc.C, d0, d1 []Delta) {
 	c.Check(deltaMap(d0), gc.DeepEquals, deltaMap(d1))
 }
 
-func deltaMap(deltas []juju.Delta) map[interface{}]EntityInfo {
+func deltaMap(deltas []Delta) map[interface{}]EntityInfo {
 	m := make(map[interface{}]EntityInfo)
 	for _, d := range deltas {
 		id := d.Entity.EntityId()
@@ -749,9 +749,9 @@ func deltaMap(deltas []juju.Delta) map[interface{}]EntityInfo {
 // watcherState represents a Watcher client's
 // current view of the state. It holds the last delta that a given
 // state watcher has seen for each entity.
-type watcherState map[interface{}]juju.Delta
+type watcherState map[interface{}]Delta
 
-func (s watcherState) update(changes []juju.Delta) {
+func (s watcherState) update(changes []Delta) {
 	for _, d := range changes {
 		id := d.Entity.EntityId()
 		if d.Removed {
@@ -772,7 +772,7 @@ func (s watcherState) check(c *gc.C, current *Store) {
 	for id, elem := range current.entities {
 		entry := elem.Value.(*entityEntry)
 		if !entry.removed {
-			currentEntities[id] = juju.Delta{Entity: entry.info}
+			currentEntities[id] = Delta{Entity: entry.info}
 		}
 	}
 	c.Assert(s, gc.DeepEquals, currentEntities)

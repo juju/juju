@@ -4,8 +4,11 @@
 package multiwatcher
 
 import (
+	"bytes"
 	"container/list"
+	"encoding/json"
 	stderrors "errors"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -50,7 +53,7 @@ var ErrWatcherStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
-func (w *Watcher) Next() ([]juju.Delta, error) {
+func (w *Watcher) Next() ([]Delta, error) {
 	req := &request{
 		w:     w,
 		reply: make(chan bool),
@@ -127,7 +130,7 @@ type request struct {
 
 	// On reply, changes will hold changes that have occurred since
 	// the last replied-to Next request.
-	changes []juju.Delta
+	changes []Delta
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
@@ -466,7 +469,7 @@ func (a *Store) Get(id juju.EntityId) EntityInfo {
 
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *Store) ChangesSince(revno int64) []juju.Delta {
+func (a *Store) ChangesSince(revno int64) []Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -484,7 +487,7 @@ func (a *Store) ChangesSince(revno int64) []juju.Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]juju.Delta, 0, n)
+	changes := make([]Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
 		if entry.removed && entry.creationRevno > revno {
@@ -492,10 +495,77 @@ func (a *Store) ChangesSince(revno int64) []juju.Delta {
 			// and removed since the revno.
 			continue
 		}
-		changes = append(changes, juju.Delta{
+		changes = append(changes, Delta{
 			Removed: entry.removed,
 			Entity:  entry.info,
 		})
 	}
 	return changes
+}
+
+// Delta holds details of a change to the environment.
+type Delta struct {
+	// If Removed is true, the entity has been removed;
+	// otherwise it has been created or changed.
+	Removed bool
+	// Entity holds data about the entity that has changed.
+	Entity EntityInfo
+}
+
+// MarshalJSON implements json.Marshaler.
+func (d *Delta) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(d.Entity)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	buf.WriteByte('[')
+	c := "change"
+	if d.Removed {
+		c = "remove"
+	}
+	fmt.Fprintf(&buf, "%q,%q,", d.Entity.EntityId().Kind, c)
+	buf.Write(b)
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (d *Delta) UnmarshalJSON(data []byte) error {
+	var elements []json.RawMessage
+	if err := json.Unmarshal(data, &elements); err != nil {
+		return err
+	}
+	if len(elements) != 3 {
+		return fmt.Errorf(
+			"Expected 3 elements in top-level of JSON but got %d",
+			len(elements))
+	}
+	var entityKind, operation string
+	if err := json.Unmarshal(elements[0], &entityKind); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(elements[1], &operation); err != nil {
+		return err
+	}
+	if operation == "remove" {
+		d.Removed = true
+	} else if operation != "change" {
+		return fmt.Errorf("Unexpected operation %q", operation)
+	}
+	switch entityKind {
+	case "machine":
+		d.Entity = new(juju.MachineInfo)
+	case "service":
+		d.Entity = new(juju.ServiceInfo)
+	case "unit":
+		d.Entity = new(juju.UnitInfo)
+	case "relation":
+		d.Entity = new(juju.RelationInfo)
+	case "annotation":
+		d.Entity = new(juju.AnnotationInfo)
+	default:
+		return fmt.Errorf("Unexpected entity name %q", entityKind)
+	}
+	return json.Unmarshal(elements[2], &d.Entity)
 }

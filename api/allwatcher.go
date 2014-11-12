@@ -4,9 +4,9 @@
 package api
 
 import (
-	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // AllWatcher holds information allowing us to get Deltas describing changes
@@ -20,7 +20,7 @@ func newAllWatcher(caller base.APICaller, id *string) *AllWatcher {
 	return &AllWatcher{caller, id}
 }
 
-func (watcher *AllWatcher) Next() ([]juju.Delta, error) {
+func (watcher *AllWatcher) Next() ([]multiwatcher.Delta, error) {
 	var info params.AllWatcherNextResults
 	err := watcher.caller.APICall(
 		"AllWatcher", watcher.caller.BestFacadeVersion("AllWatcher"),
