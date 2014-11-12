@@ -30,13 +30,9 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	env, err := srv.state.Environment()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if info.TargetKeyPair != nil && info.IdentityProvider != nil {
 		bakeryService, err = bakery.NewService(bakery.NewServiceParams{
-			Location: env.Tag().String(),
+			Location: srv.environUUID,
 			Key:      info.TargetKeyPair,
 			Locator:  info.NewTargetLocator(),
 		})

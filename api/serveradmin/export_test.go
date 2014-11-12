@@ -12,10 +12,9 @@ func ExposeFacade(c *Client) base.FacadeCaller {
 	return c.facade
 }
 
-// PatchClientFacadeCall changes the internal FacadeCaller to one that lets
-// the user mock out the FacadeCall method. The function returned by
-// PatchClientFacadeCall is a cleanup function that returns the client to its
-// original state.
+// PatchClientFacadeCall changes the internal FacadeCaller's FacadeCall method
+// to a mock implementation. The function returned by PatchClientFacadeCall is
+// a cleanup function that returns the client to its original state.
 func PatchClientFacadeCall(c *Client, mockCall func(request string, params interface{}, response interface{}) error) func() {
 	orig := c.facade
 	c.facade = &resultCaller{mockCall}

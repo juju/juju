@@ -54,16 +54,21 @@ func (c *loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]b
 	if len(fields) < 1 {
 		return nil, errors.Errorf("empty caveat")
 	}
-	if fields[0] == "is-authorized-user?" {
+	question := fields[0]
+
+	switch question {
+	case "is-authorized-user?":
 		if len(fields) < 2 {
 			return nil, errors.Errorf("%s: missing user tag", fields[0])
 		}
-		tag, err := names.ParseTag(fields[1])
+		userName := fields[1]
+
+		tag, err := names.ParseTag(userName)
 		if err != nil {
-			return nil, errors.Errorf("%s: invalid user tag %q: %v", fields[0], fields[1], err)
+			return nil, errors.Errorf("%s: invalid user tag %q: %v", question, userName, err)
 		}
 		if userTag, ok := tag.(names.UserTag); !ok {
-			return nil, errors.Errorf("%s: %q is not a user tag", fields[0], fields[1])
+			return nil, errors.Errorf("%s: %q is not a user tag", question, userName)
 		} else if c.isValidUser(userTag.Name()) {
 			return nil, nil
 		}
@@ -148,7 +153,7 @@ func (s *remoteLoginSuite) TestRemoteLoginReauth(c *gc.C) {
 	remoteCreds.Discharges, err = bakery.DischargeAll(remoteCreds.Primary,
 		func(loc string, cav macaroon.Caveat) (*macaroon.Macaroon, error) {
 			// The first-party location is the target Juju environment's tag.
-			c.Assert(loc, gc.Equals, env.EnvironTag().String())
+			c.Assert(loc, gc.Equals, env.EnvironTag().Id())
 			return s.remoteIdService.Discharge(newLoggedInChecker("bob"), cav.Id)
 		},
 	)

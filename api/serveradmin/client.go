@@ -47,9 +47,5 @@ func (c *Client) SetIdentityProvider(publicKey, location string) error {
 			Location:  location,
 		},
 	}
-	err := c.facade.FacadeCall("SetIdentityProvider", args, nil)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(c.facade.FacadeCall("SetIdentityProvider", args, nil))
 }

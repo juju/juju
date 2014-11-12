@@ -140,8 +140,8 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 		defer a.srv.limiter.Release()
 	}
 
-	// Issue a macaroon for the client to discharge and come back with,
-	// for an empty (initial) remote login request.
+	// Issue a challenge response for the client to reauthenticate with, for an
+	// empty (initial) remote login request.
 	if req.Credentials == "" {
 		if remoteChecker, ok := checker.(*RemoteCredentialChecker); ok {
 			return remoteChecker.ReauthRequest(req)
@@ -149,7 +149,6 @@ func (a *admin) doLogin(req params.LoginRequest, checker CredentialChecker) (par
 	}
 
 	entity, err := checker.Check(req)
-	// TODO (cmars): fix this -- can a remote login succeed w/maintenance in progress?
 	if err != nil {
 		if a.maintenanceInProgress() {
 			// An upgrade, restore or similar operation is in
@@ -270,8 +269,7 @@ func (c *LocalCredentialChecker) Check(req params.LoginRequest) (state.Entity, e
 	}
 
 	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
-		logger.Debugf("bad credentials")
-		return nil, errors.Trace(err)
+		return nil, err
 	}
 
 	// For user logins, ensure the user is allowed to access the environment.
@@ -306,13 +304,10 @@ func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, 
 	}
 
 	authenticator := authentication.NewRemoteAuthenticator(c.srv)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	if err = authenticator.Authenticate(entity, req.Credentials, req.Nonce); err != nil {
-		logger.Debugf("bad credentials")
-		return nil, errors.Trace(err)
+	err = authenticator.Authenticate(entity, req.Credentials, req.Nonce)
+	if err != nil {
+		return nil, err
 	}
 
 	return entity, nil
@@ -336,7 +331,7 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 		return fail, errors.Trace(err)
 	}
 	if authKind != names.UserTagKind {
-		logger.Debugf("remote login must be a user, got: %q", req.AuthTag)
+		logger.Debugf("remote login only supported for users, got: %q", req.AuthTag)
 		return fail, common.ErrBadCreds
 	}
 
@@ -348,13 +343,14 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 		return fail, common.ErrBadCreds
 	}
 
+	isBeforeTime := time.Now().UTC().Add(MaxMacaroonTtl)
 	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
 		{
 			Location:  info.IdentityProvider.Location,
 			Condition: fmt.Sprintf("is-authorized-user? %s", req.AuthTag),
 		},
 		{
-			Condition: fmt.Sprintf("is-before-time? %s", time.Now().UTC().Add(MaxMacaroonTtl).Format(time.RFC3339)),
+			Condition: fmt.Sprintf("is-before-time? %s", isBeforeTime.Format(time.RFC3339)),
 		},
 	})
 	if err != nil {

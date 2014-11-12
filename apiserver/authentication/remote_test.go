@@ -60,7 +60,6 @@ func (*RemoteAuthSuite) TestIsBeforeTime(c *gc.C) {
 	var ra *authentication.RemoteAuthenticator
 	now := time.Now().UTC()
 	testCases := []struct {
-		predicate  string
 		expiration time.Time
 		override   string
 		pattern    string

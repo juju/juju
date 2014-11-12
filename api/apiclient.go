@@ -310,7 +310,8 @@ func (s *State) heartbeatMonitor() {
 	}
 }
 
-// Ping checks if the client connection to the state server is still established.
+// Ping informs the API server that the client is still alive and it should
+// keep the connection open.
 func (s *State) Ping() error {
 	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }

@@ -84,7 +84,7 @@ func (rc *RemoteCredentials) MarshalText() ([]byte, error) {
 	return []byte(base64.URLEncoding.EncodeToString(out)), nil
 }
 
-var malformedRemoteCredentialsErr = errors.Errorf("malformed remote credentials")
+var malformedRemoteCredentialsErr = errors.New("malformed remote credentials")
 
 // IsMalformedRemoteCredentialsErr returns whether the error indicates a
 // credentials string was not a well-formed remote credential string.
@@ -132,19 +132,23 @@ func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
 func (*RemoteAuthenticator) CheckFirstPartyCaveat(caveat string) error {
 	fields := strings.Split(caveat, " ")
 	if len(fields) < 1 {
-		return errors.Errorf("empty caveat")
+		return errors.New("empty caveat")
 	}
-	switch fields[0] {
+	question := fields[0]
+
+	switch question {
 	case "is-before-time?":
 		if len(fields) < 2 {
 			return errors.Errorf("%s: missing expiration", fields[0])
 		}
-		expiresAt, err := time.Parse(time.RFC3339, fields[1])
+		expiresAtStr := fields[1]
+
+		expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
 		if err != nil {
-			return errors.Errorf("%s: invalid expiration %s", fields[0], fields[1])
+			return errors.Errorf("%s: invalid expiration %s", question, expiresAtStr)
 		}
 		if time.Now().UTC().After(expiresAt) {
-			return errors.Errorf("%s: authorization expired at %s", fields[0], fields[1])
+			return errors.Errorf("%s: authorization expired at %s", question, expiresAtStr)
 		}
 	}
 	return nil
