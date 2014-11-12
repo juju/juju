@@ -107,8 +107,8 @@ type builder struct {
 // directories which backup uses as its staging area while building the
 // archive.  It also creates the archive
 // (temp root, tarball root, DB dumpdir), along with any error.
-func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
-	b := builder{
+func newBuilder(filesToBackUp []string, db DBDumper) (b *builder, err error) {
+	b = &builder{
 		filesToBackUp: filesToBackUp,
 		db:            db,
 	}
@@ -148,7 +148,7 @@ func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 		return nil, errors.Annotate(err, `while creating bundle file`)
 	}
 
-	return &b, nil
+	return b, nil
 }
 
 func (b *builder) closeArchiveFile() error {
