@@ -8,7 +8,7 @@ type BlockDevice struct {
 	// DeviceName is the block device's OS-specific name (e.g. "sdb").
 	DeviceName string `yaml:"devicename,omitempty"`
 
-	// Label is the filesystem label.
+	// Label is the label for the filesystem on the block device.
 	//
 	// This will be empty if the block device does not have a filesystem,
 	// or if the filesystem is not yet known to Juju.
