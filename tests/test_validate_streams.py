@@ -195,6 +195,14 @@ class ValidateStreams(TestCase):
             ["These unknown agents were found: ['1.20.9-trusty-amd64']"],
             errors)
 
+    def test_check_expected_unchanged_calls_reconcile_aliases(self):
+        old_agents = make_agents_data('trusty', 'amd64', ['1.20.7'])
+        new_agents = make_agents_data('trusty', 'amd64', ['1.18.1', '1.20.7'])
+        with patch('validate_streams.reconcile_aliases') as mock:
+            check_expected_unchanged(old_agents, new_agents)
+        args, kwargs = mock.call_args
+        self.assertEqual((set(['1.18.1-trusty-amd64']), new_agents), args)
+
     def test_reconcile_aliases_without_found_errors(self):
         new_agents = make_agents_data('trusty', 'ppc64el', ['1.20.7'])
         found_errors = set()

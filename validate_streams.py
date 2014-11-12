@@ -100,7 +100,7 @@ def reconcile_aliases(found_errors, new_agents):
     for found_name in list(found_errors):
         if found_name.endswith('ppc64'):
             # ppc64 can be an alias of a ppc64el agent.
-            real_name = '%sel' % found_name
+            real_name = '{}el'.format(found_name)
             if real_name in new_agents:
                 real_agent = new_agents[real_name]
                 found_agent = new_agents[found_name]
@@ -130,6 +130,7 @@ def check_expected_unchanged(old_agents, new_agents, added=None, removed=None):
         missing_errors = list(missing_errors)
         errors.append('These agents are missing: {}'.format(missing_errors))
     found_errors = new_versions - old_versions
+    reconcile_aliases(found_errors, new_agents)
     if found_errors:
         found_errors = list(found_errors)
         errors.append('These unknown agents were found: {}'.format(
