@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -17,7 +16,7 @@ import (
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the environment.
 func (c *Client) DestroyEnvironment() error {
-	if checkErr := c.checkEnvironmentLocked(); checkErr != nil {
+	if checkErr := c.checkDestroyEnvironmentBlocked(); checkErr != nil {
 		return checkErr
 	}
 	// TODO(axw) 2013-08-30 bug 1218688
@@ -78,24 +77,20 @@ func (c *Client) DestroyEnvironment() error {
 	return nil
 }
 
-// checkEnvironmentLocked determines whether the destroy environment
-// operation should proceed. It examines whether environment has been
-// "locked" - prevent-destroy-environment set to true.
-// If the environment is locked, an error with user friendly
+// checkDestroyEnvironmentBlocked determines whether the destroy environment
+// operation should proceed.
+// It examines whether prevent-destroy-environment set to true.
+// If the command must be blocked, an error with user friendly
 // message is thrown up, effectively blocking destroy operation.
-func (c *Client) checkEnvironmentLocked() error {
-	envcfg, env_err := c.api.state.EnvironConfig()
-	if env_err != nil {
-		return env_err
+func (c *Client) checkDestroyEnvironmentBlocked() error {
+	cfg, err := c.api.state.EnvironConfig()
+	if err != nil {
+		return err
 	}
-	// This prevents accidental environment destruction on firmly controlled
-	// deployed Juju.
-	if envcfg.PreventDestroyEnvironment() {
+	if cfg.PreventDestroyEnvironment() {
 		return &params.Error{
-			Code: params.CodeOperationLocked,
-			Message: `The %q environment has been locked to prevent deletion. ` +
-				fmt.Sprintf(`You may remove the lock by running "juju set-env %s=false"`,
-					config.PreventDestroyEnvironmentKey),
+			Code:    params.CodeOperationBlocked,
+			Message: `destroy-environment operation has been blocked for environment %q.`,
 		}
 	}
 	return nil

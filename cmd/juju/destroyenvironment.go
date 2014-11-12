@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 )
@@ -126,27 +127,32 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 // processDestroyError determines how to format error message based on its code.
 // Note that CodeNotImplemented errors have not be propogated in previous implementation.
 // This behaviour was preserved.
-func processDestroyError(myErr error) error {
-	if params.IsCodeOperationLocked(myErr) {
-		return myErr
+func processDestroyError(err error) error {
+	if params.IsCodeOperationBlocked(err) {
+		// TODO(anastasiamac): Rather unfortunately, can't use jujuerrors.Annotatef.
+		// This will change the type of error and loose error code.
+		berr, _ := err.(*params.Error)
+		berr.Message += fmt.Sprintf(` To remove the block run "juju set-env %s=false"`,
+			config.PreventDestroyEnvironmentKey)
+		return berr
 	}
-	if !params.IsCodeNotImplemented(myErr) {
-		return jujuerrors.Annotate(myErr, "destroying environment")
+	if !params.IsCodeNotImplemented(err) {
+		return jujuerrors.Annotate(err, "destroying environment")
 	}
 	return nil
 }
 
 // logDestroyError logs error messages. At this stage,
-// only operation locked is singled out to be treated differently
+// only operation blocked is singled out to be treated differently
 // than other errors.
-func (c *DestroyEnvironmentCommand) logDestroyError(myErr error) error {
-	if params.IsCodeOperationLocked(myErr) {
-		logger.Errorf(myErr.Error(), c.envName)
+func (c *DestroyEnvironmentCommand) logDestroyError(err error) error {
+	if params.IsCodeOperationBlocked(err) {
+		logger.Errorf(err.Error(), c.envName)
 		// This is done to avoid displaying the message twice
 		return cmd.ErrSilent
 	}
 	logger.Errorf(stdFailureMsg, c.envName)
-	return myErr
+	return err
 }
 
 var destroyEnvMsg = `
@@ -163,6 +169,7 @@ If the environment is unusable, then you may run
 
 to forcefully destroy the environment. Upon doing so, review
 your environment provider console for any resources that need
-to be cleaned up.
+to be cleaned up. Using force will also by-pass destroy-envrionment
+ block configured by setting prevent-destroy-environment to true.
 
 `

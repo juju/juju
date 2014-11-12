@@ -49,7 +49,7 @@ const (
 	CodeNotImplemented      = rpc.CodeNotImplemented
 	CodeAlreadyExists       = "already exists"
 	CodeUpgradeInProgress   = "upgrade in progress"
-	CodeOperationLocked     = "code operation is locked"
+	CodeOperationBlocked    = "operation is blocked"
 )
 
 // ErrCode returns the error code associated with
@@ -152,6 +152,6 @@ func IsCodeUpgradeInProgress(err error) bool {
 	return ErrCode(err) == CodeUpgradeInProgress
 }
 
-func IsCodeOperationLocked(err error) bool {
-	return ErrCode(err) == CodeOperationLocked
+func IsCodeOperationBlocked(err error) bool {
+	return ErrCode(err) == CodeOperationBlocked
 }

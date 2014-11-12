@@ -60,8 +60,6 @@ func (s *destroyEnvSuite) updateConfigParameter(c *gc.C, key string, value inter
 
 type destroyLockTest struct {
 	about         string
-	envName       string
-	envKey        string
 	envValue      interface{}
 	cmdArgs       string
 	expectFailure bool
@@ -70,40 +68,35 @@ type destroyLockTest struct {
 var destroyLockTests = []destroyLockTest{
 	{
 		about:         "Scenario 1: env locked and destroy does not happened",
-		envName:       "dummyenv",
-		envKey:        "prevent-destroy-environment",
 		envValue:      true,
-		cmdArgs:       "--yes",
 		expectFailure: true,
 	},
 	{
 		about:         "Scenario 2: env unlocked and destroy takes place",
-		envName:       "dummyenv",
-		envKey:        "prevent-destroy-environment",
 		envValue:      false,
-		cmdArgs:       "--yes",
 		expectFailure: false,
 	},
 }
 
 func (s *destroyEnvSuite) TestDestroyLockEnvironmentFlag(c *gc.C) {
+	envName := "dummyenv"
 	for i, test := range destroyLockTests {
 		c.Logf("\ntest %d. %s\n", i, test.about)
 		// Start environment to destroy
-		s.startEnvironment(c, test.envName)
+		s.startEnvironment(c, envName)
 		// Override prevent-destroy-environment to lock environment destruction
-		s.updateConfigParameter(c, test.envKey, test.envValue)
+		s.updateConfigParameter(c, "prevent-destroy-environment", test.envValue)
 		if test.expectFailure {
 			// Check environment is locked and cannot be destroyed
-			_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), test.envName, test.cmdArgs)
+			_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
 			c.Check(<-errc, gc.Equals, cmd.ErrSilent)
 		} else {
 			// normal destroy
-			opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), test.envName, test.cmdArgs)
+			opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
 			c.Check(<-errc2, gc.IsNil)
-			c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, test.envName)
+			c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
 			// Verify that the environment information has been removed.
-			_, err := s.ConfigStore.ReadInfo(test.envName)
+			_, err := s.ConfigStore.ReadInfo(envName)
 			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 		}
 	}

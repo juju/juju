@@ -158,7 +158,7 @@ func (s *destroyEnvironmentSuite) TestDestroyLockedEnvironment(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": true}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(params.IsCodeOperationLocked(err), gc.Equals, true)
+	c.Assert(params.IsCodeOperationBlocked(err), gc.Equals, true)
 
 	//unlock environment: can destroy unlocked environment
 	err = s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": false}, nil, nil)
