@@ -103,7 +103,6 @@ func (s *backupSuite) TestAddBackupMetadataGeneratedID(c *gc.C) {
 
 func (s *backupSuite) TestAddBackupMetadataEmpty(c *gc.C) {
 	original := &backups.Metadata{}
-	c.Assert(original.Started, gc.NotNil)
 	_, err := state.AddBackupMetadata(s.State, original)
 
 	c.Check(err, gc.NotNil)
