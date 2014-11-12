@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// ChecksumFormat identifies how to interpret the checksum for a backup
+// checksumFormat identifies how to interpret the checksum for a backup
 // generated with this version of juju.
-const ChecksumFormat = "SHA-1, base64 encoded"
+const checksumFormat = "SHA-1, base64 encoded"
 
 // Origin identifies where a backup archive came from.  While it is
 // more about where and Metadata about what and when, that distinction
@@ -87,7 +87,7 @@ func (m *Metadata) Finish(size int64, checksum string) error {
 	if checksum == "" {
 		return errors.New("missing checksum")
 	}
-	format := ChecksumFormat
+	format := checksumFormat
 	finished := time.Now().UTC()
 
 	if err := m.SetFileInfo(size, checksum, format); err != nil {
