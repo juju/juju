@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package archive_test
+package backups_test
 
 import (
 	"bytes"
@@ -12,15 +12,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/state/backups/archive"
-	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/state/backups"
 	bt "github.com/juju/juju/state/backups/testing"
 )
 
 type workspaceSuite struct {
 	testing.IsolationSuite
 	archiveFile *bytes.Buffer
-	meta        *metadata.Metadata
+	meta        *backups.Metadata
 }
 
 var _ = gc.Suite(&workspaceSuite{})
@@ -28,7 +27,7 @@ var _ = gc.Suite(&workspaceSuite{})
 func (s *workspaceSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	meta, err := metadata.NewMetadataJSONReader(bytes.NewBufferString(`{` +
+	meta, err := backups.NewMetadataJSONReader(bytes.NewBufferString(`{` +
 		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
 		`"Checksum":"123af2cef",` +
 		`"ChecksumFormat":"SHA-1, base64 encoded",` +
@@ -75,28 +74,27 @@ func (s *workspaceSuite) SetUpTest(c *gc.C) {
 	s.meta = meta
 }
 
-func (s *workspaceSuite) TestNewWorkspaceReader(c *gc.C) {
-	ws, err := archive.NewWorkspaceReader(s.archiveFile)
+func (s *workspaceSuite) TestNewArchiveWorkspaceReader(c *gc.C) {
+	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
-	c.Check(ws.Filename, gc.Equals, "")
-	c.Check(ws.UnpackedRootDir, gc.Not(gc.Equals), "")
+	c.Check(ws.RootDir, gc.Not(gc.Equals), "")
 }
 
 func (s *workspaceSuite) TestClose(c *gc.C) {
-	ws, err := archive.NewWorkspaceReader(s.archiveFile)
+	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 
 	err = ws.Close()
 	c.Assert(err, gc.IsNil)
 
-	_, err = os.Stat(ws.UnpackedRootDir)
+	_, err = os.Stat(ws.RootDir)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
-	ws, err := archive.NewWorkspaceReader(s.archiveFile)
+	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
@@ -111,7 +109,7 @@ func (s *workspaceSuite) TestUnpackFiles(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestOpenFile(c *gc.C) {
-	ws, err := archive.NewWorkspaceReader(s.archiveFile)
+	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
@@ -124,7 +122,7 @@ func (s *workspaceSuite) TestOpenFile(c *gc.C) {
 }
 
 func (s *workspaceSuite) TestMetadata(c *gc.C) {
-	ws, err := archive.NewWorkspaceReader(s.archiveFile)
+	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 	defer ws.Close()
 
