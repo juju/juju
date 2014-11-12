@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/juju/errors"
@@ -55,16 +55,15 @@ func (f *File) AddToArchive(archive *tar.Writer) error {
 
 // NewArchive returns a new archive file containing the files.
 func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, error) {
-	const pathsep = string(filepath.Separator)
 	dirs := set.NewStrings()
 	var sysFiles []File
 	for _, file := range files {
 		var parent string
-		for _, p := range strings.Split(filepath.Dir(file.Name), pathsep) {
+		for _, p := range strings.Split(path.Dir(file.Name), "/") {
 			if parent == "" {
 				parent = p
 			} else {
-				parent = filepath.Join(parent, p)
+				parent = path.Join(parent, p)
 			}
 			if !dirs.Contains(parent) {
 				sysFiles = append(sysFiles, File{
