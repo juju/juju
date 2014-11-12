@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -66,7 +65,7 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 func (s *ActionSuite) TestAddAction(c *gc.C) {
 	name := "fakeaction"
 	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
-	before := time.Now()
+	before := state.NowToTheSecond()
 	later := before.Add(testing.LongWait)
 
 	// verify can add an Action
@@ -85,7 +84,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 	// Enqueued time should be within a reasonable time of the beginning
 	// of the test
-	now := time.Now()
+	now := state.NowToTheSecond()
 	c.Check(action.Enqueued(), jc.TimeBetween(before, now))
 	c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 }

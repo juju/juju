@@ -37,7 +37,9 @@ func (c *kvmContainer) Start(params StartParams) error {
 		if params.Network.NetworkType == container.BridgeNetwork {
 			bridge = params.Network.Device
 		} else {
-			return errors.LoggedErrorf(logger, "Non-bridge network devices not yet supported")
+			err := errors.New("Non-bridge network devices not yet supported")
+			logger.Infof(err.Error())
+			return err
 		}
 	}
 	logger.Debugf("Create the machine %s", c.name)

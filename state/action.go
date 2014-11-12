@@ -193,7 +193,7 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 		Sequence:   sequence,
 		Name:       actionName,
 		Parameters: parameters,
-		Enqueued:   time.Now(),
+		Enqueued:   nowToTheSecond(),
 	}, nil
 }
 

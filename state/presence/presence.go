@@ -122,7 +122,7 @@ func NewWatcher(base *mgo.Collection) *Watcher {
 		// exact values, so we need to log and unwrap
 		// the error first.
 		if err != nil && cause != tomb.ErrDying {
-			errors.LoggedErrorf(logger, "watcher loop failed: %v", err)
+			logger.Infof("watcher loop failed: %v", err)
 		}
 		w.tomb.Kill(cause)
 		w.tomb.Done()
@@ -507,7 +507,7 @@ func (p *Pinger) Start() error {
 		// exact values, so we need to log and unwrap
 		// the error first.
 		if err != nil && cause != tomb.ErrDying {
-			errors.LoggedErrorf(logger, "pinger loop failed: %v", err)
+			logger.Infof("pinger loop failed: %v", err)
 		}
 		p.tomb.Kill(cause)
 		p.tomb.Done()
