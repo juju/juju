@@ -95,8 +95,6 @@ def reconcile_aliases(found_errors, new_agents):
     * All amd64, 386, and armhf agents work for all Ubuntu series. Only
       one is actually needed.
     """
-    if not found_errors:
-        return
     for found_name in list(found_errors):
         if found_name.endswith('ppc64'):
             # ppc64 can be an alias of a ppc64el agent.
