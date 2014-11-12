@@ -131,7 +131,7 @@ func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
 	// practice it shouldn't matter much.
-	err = os.MkdirAll(b.archivePaths.DBDumpDir(), 0700)
+	err = os.MkdirAll(b.archivePaths.DBDumpDir, 0700)
 	if err != nil {
 		return nil, errors.Annotate(err, "while creating temp directories")
 	}
@@ -143,7 +143,7 @@ func newBuilder(filesToBackUp []string, db DBDumper) (_ *builder, err error) {
 		return nil, errors.Annotate(err, "while creating archive file")
 	}
 
-	b.bundleFile, err = os.Create(b.archivePaths.FilesBundle())
+	b.bundleFile, err = os.Create(b.archivePaths.FilesBundle)
 	if err != nil {
 		return nil, errors.Annotate(err, `while creating bundle file`)
 	}
@@ -231,7 +231,7 @@ func (b *builder) cleanUp() *cleanupErrors {
 }
 
 func (b *builder) injectMetadataFile(file io.Reader) error {
-	metadataFile, err := os.Create(b.archivePaths.MetadataFile())
+	metadataFile, err := os.Create(b.archivePaths.MetadataFile)
 	if err != nil {
 		return errors.Annotate(err, "while creating metadata file")
 	}
@@ -269,7 +269,7 @@ func (b *builder) buildDBDump() error {
 		return nil
 	}
 
-	dumpDir := b.archivePaths.DBDumpDir()
+	dumpDir := b.archivePaths.DBDumpDir
 	if err := b.db.Dump(dumpDir); err != nil {
 		return errors.Annotate(err, "while dumping juju state database")
 	}
@@ -285,7 +285,7 @@ func (b *builder) buildArchive(outFile io.Writer) error {
 	// in the path up to and including that slash is stripped off when
 	// each file is added to the tar file.
 	stripPrefix := b.archivePaths.RootDir + string(os.PathSeparator)
-	filenames := []string{b.archivePaths.ContentDir()}
+	filenames := []string{b.archivePaths.ContentDir}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		return errors.Annotate(err, "while bundling final archive")
 	}
