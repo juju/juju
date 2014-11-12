@@ -609,7 +609,7 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backups.DBConnInfo {
 func getBackupTargetDatabases(st *State) (set.Strings, error) {
 	dbNames, err := st.MongoSession().DatabaseNames()
 	if err != nil {
-		return nil, errors.Annotate(err, "unable to get DB names")
+		return set.Strings{}, errors.Annotate(err, "unable to get DB names")
 	}
 
 	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
