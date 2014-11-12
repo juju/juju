@@ -930,7 +930,9 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 		// MaaS also releases (or attempts) all nodes, and raises
 		// a single error on failure. So even with an error 409, all
 		// nodes have been released.
-		if !ok || maasErr.StatusCode != 409 {
+		// 404 means the node doesn't exist, which we also don't care
+		// about when stopping an instance.
+		if !ok || (maasErr.StatusCode != 409 && maasErr.StatusCode != 404) {
 			return errors.Annotate(err, "cannot release nodes")
 		}
 	}
