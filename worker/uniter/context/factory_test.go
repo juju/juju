@@ -29,6 +29,7 @@ var _ = gc.Suite(&FactorySuite{})
 
 func (s *FactorySuite) SetUpTest(c *gc.C) {
 	s.HookContextSuite.SetUpTest(c)
+	s.charm = nil
 	s.membership = map[int][]string{}
 	factory, err := context.NewFactory(
 		s.uniter,
@@ -47,7 +48,7 @@ func (s *FactorySuite) SetUpTest(c *gc.C) {
 			if s.charm != nil {
 				return s.charm, nil
 			} else {
-				return nil, fmt.Errorf("metrics charm not specified")
+				return nil, fmt.Errorf("charm not specified")
 			}
 		},
 	)
@@ -303,20 +304,6 @@ func (s *FactorySuite) TestNewHookContextWithBadRelation(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown relation id: 12345`)
 }
 
-func (s *FactorySuite) TestNewActionContext(c *gc.C) {
-	tag := names.NewActionTag("blah_a_1")
-	params := map[string]interface{}{"foo": "bar"}
-	ctx, err := s.factory.NewActionContext(tag, "blah", params)
-	c.Assert(err, gc.IsNil)
-	s.AssertCoreContext(c, ctx)
-	s.AssertNotRelationContext(c, ctx)
-	actionData, err := ctx.ActionData()
-	c.Assert(err, gc.IsNil)
-	c.Assert(actionData, jc.DeepEquals, context.NewActionData(
-		&tag, params,
-	))
-}
-
 func (s *FactorySuite) TestNewHookContextMetricsDisabledHook(c *gc.C) {
 	s.charm = s.AddTestingCharm(c, "metered")
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.Install})
@@ -336,7 +323,7 @@ func (s *FactorySuite) TestNewHookContextMetricsDisabledUndeclared(c *gc.C) {
 func (s *FactorySuite) TestNewHookContextMetricsDeclarationError(c *gc.C) {
 	s.charm = nil
 	ctx, err := s.factory.NewHookContext(hook.Info{Kind: hooks.CollectMetrics})
-	c.Assert(err, gc.ErrorMatches, "metrics charm not specified")
+	c.Assert(err, gc.ErrorMatches, "charm not specified")
 	c.Assert(ctx, gc.IsNil)
 }
 
@@ -347,4 +334,77 @@ func (s *FactorySuite) TestNewHookContextMetricsEnabled(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ctx.AddMetric("pings", "0.5", time.Now())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *FactorySuite) TestNewActionContextBadCharm(c *gc.C) {
+	ctx, err := s.factory.NewActionContext("irrelevant")
+	c.Assert(ctx, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "charm not specified")
+	c.Assert(err, gc.Not(jc.Satisfies), context.IsBadActionError)
+}
+
+func (s *FactorySuite) TestNewActionContext(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
+		"outfile": "/some/file.bz2",
+	})
+	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Assert(err, gc.IsNil)
+	data, err := ctx.ActionData()
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, jc.DeepEquals, &context.ActionData{
+		ActionName: "snapshot",
+		ActionTag:  action.ActionTag(),
+		ActionParams: map[string]interface{}{
+			"outfile": "/some/file.bz2",
+		},
+		ResultsMap: map[string]interface{}{},
+	})
+}
+
+func (s *FactorySuite) TestNewActionContextBadName(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("no-such-action", nil)
+	c.Assert(err, gc.IsNil) // this will fail when state is done right
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
+	c.Check(err, jc.Satisfies, context.IsBadActionError)
+}
+
+func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("snapshot", map[string]interface{}{
+		"outfile": 123,
+	})
+	c.Assert(err, gc.IsNil) // this will fail when state is done right
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
+	c.Check(err, jc.Satisfies, context.IsBadActionError)
+}
+
+func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = s.unit.CancelAction(action)
+	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "action no longer available")
+	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) TestNewActionContextUnauthAction(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	otherUnit, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	action, err := otherUnit.AddAction("snapshot", nil)
+	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "action no longer available")
+	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
 }
