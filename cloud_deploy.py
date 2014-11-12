@@ -9,6 +9,7 @@ import subprocess
 import sys
 from time import sleep
 
+from deploy_stack import deploy_dummy_stack
 from jujupy import (
     CannotConnectEnv,
     Environment,
@@ -51,6 +52,9 @@ def deploy_stack(environment, debug, machines):
                 print("Status got Unable to connect to env.  Retrying...")
                 env.get_status()
             env.wait_for_started()
+            deploy_dummy_stack(
+                env, 'local:{}/'.format(env.config.get(
+                    'default-series', 'trusty')))
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
                 sys.stderr.write(e.stderr)
