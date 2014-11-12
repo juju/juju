@@ -154,7 +154,12 @@ def main():
         const='ha-backup', help="Test backup/restore of HA.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
+    parser.add_argument('logs', nargs='?', help='Directory to store logs in.',
+                        default=None)
     args = parser.parse_args()
+    log_dir = args.logs
+    if log_dir is None:
+        log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     try:
         setup_juju_path(args.juju_path)
         env = SimpleEnvironment.from_config(args.env_name)
@@ -183,8 +188,7 @@ def main():
         except Exception as e:
             if bootstrap_host is None:
                 bootstrap_host = parse_new_state_server_from_error(e)
-            dump_env_logs(client, bootstrap_host,
-                          os.path.join(os.environ['WORKSPACE'], 'artifacts'))
+            dump_env_logs(client, bootstrap_host, log_dir)
             raise
         finally:
             client.destroy_environment()
