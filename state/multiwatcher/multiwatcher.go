@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -50,7 +50,7 @@ var ErrWatcherStopped = stderrors.New("watcher was stopped")
 
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
-func (w *Watcher) Next() ([]params.Delta, error) {
+func (w *Watcher) Next() ([]juju.Delta, error) {
 	req := &request{
 		w:     w,
 		reply: make(chan bool),
@@ -127,7 +127,7 @@ type request struct {
 
 	// On reply, changes will hold changes that have occurred since
 	// the last replied-to Next request.
-	changes []params.Delta
+	changes []juju.Delta
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
@@ -331,7 +331,7 @@ type entityEntry struct {
 type EntityInfo interface {
 	// EntityId returns an identifier that will uniquely
 	// identify the entity within its kind
-	EntityId() params.EntityId
+	EntityId() juju.EntityId
 }
 
 // Store holds a list of all entities known
@@ -404,7 +404,7 @@ func (a *Store) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *Store) delete(id params.EntityId) {
+func (a *Store) delete(id juju.EntityId) {
 	elem := a.entities[id]
 	if elem == nil {
 		return
@@ -416,7 +416,7 @@ func (a *Store) delete(id params.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *Store) Remove(id params.EntityId) {
+func (a *Store) Remove(id juju.EntityId) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -457,7 +457,7 @@ func (a *Store) Update(info EntityInfo) {
 // Get returns the stored entity with the given
 // id, or nil if none was found. The contents of the returned entity
 // should not be changed.
-func (a *Store) Get(id params.EntityId) EntityInfo {
+func (a *Store) Get(id juju.EntityId) EntityInfo {
 	if e := a.entities[id]; e != nil {
 		return e.Value.(*entityEntry).info
 	}
@@ -466,7 +466,7 @@ func (a *Store) Get(id params.EntityId) EntityInfo {
 
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *Store) ChangesSince(revno int64) []params.Delta {
+func (a *Store) ChangesSince(revno int64) []juju.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -484,7 +484,7 @@ func (a *Store) ChangesSince(revno int64) []params.Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]params.Delta, 0, n)
+	changes := make([]juju.Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
 		if entry.removed && entry.creationRevno > revno {
@@ -492,7 +492,7 @@ func (a *Store) ChangesSince(revno int64) []params.Delta {
 			// and removed since the revno.
 			continue
 		}
-		changes = append(changes, params.Delta{
+		changes = append(changes, juju.Delta{
 			Removed: entry.removed,
 			Entity:  entry.info,
 		})

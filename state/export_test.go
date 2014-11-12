@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -330,4 +331,13 @@ func StrictLocalID(st *State, id string) (string, error) {
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
+}
+
+func SetServiceCharmURL(st *State, serviceName string, URL string) error {
+	ops := []txn.Op{{
+		C:      servicesC,
+		Id:     st.docID(serviceName),
+		Update: bson.D{{"$set", bson.D{{"charmurl", URL}}}},
+	}}
+	return errors.Trace(st.runTransaction(ops))
 }

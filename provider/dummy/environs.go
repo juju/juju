@@ -38,10 +38,10 @@ import (
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
@@ -176,7 +176,7 @@ type OpStartInstance struct {
 	Networks      []string
 	NetworkInfo   []network.Info
 	Info          *mongo.MongoInfo
-	Jobs          []params.MachineJob
+	Jobs          []juju.MachineJob
 	APIInfo       *api.Info
 	Secret        string
 }
@@ -1019,7 +1019,7 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id, addr n
 }
 
 // ListNetworks implements environs.Environ.ListNetworks.
-func (env *environ) ListNetworks() ([]network.BasicInfo, error) {
+func (env *environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	if err := env.checkBroken("ListNetworks"); err != nil {
 		return nil, err
 	}

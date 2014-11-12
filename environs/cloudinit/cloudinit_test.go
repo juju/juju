@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -41,13 +42,13 @@ var _ = gc.Suite(&cloudinitSuite{})
 
 var envConstraints = constraints.MustParse("mem=2G")
 
-var allMachineJobs = []params.MachineJob{
-	params.JobManageEnviron,
-	params.JobHostUnits,
-	params.JobManageNetworking,
+var allMachineJobs = []juju.MachineJob{
+	juju.JobManageEnviron,
+	juju.JobHostUnits,
+	juju.JobManageNetworking,
 }
-var normalMachineJobs = []params.MachineJob{
-	params.JobHostUnits,
+var normalMachineJobs = []juju.MachineJob{
+	juju.JobHostUnits,
 }
 
 type cloudinitTest struct {

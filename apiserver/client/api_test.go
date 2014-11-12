@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -160,7 +160,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []params.MachineJob{params.JobManageEnviron},
+			Jobs:           []juju.MachineJob{juju.JobManageEnviron},
 			HasVote:        false,
 			WantsVote:      true,
 		},
@@ -175,7 +175,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []params.MachineJob{params.JobHostUnits},
+			Jobs:           []juju.MachineJob{juju.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},
@@ -190,7 +190,7 @@ var scenarioStatus = &api.Status{
 			AgentStateInfo: "(started)",
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
-			Jobs:           []params.MachineJob{params.JobHostUnits},
+			Jobs:           []juju.MachineJob{juju.JobHostUnits},
 			HasVote:        false,
 			WantsVote:      false,
 		},

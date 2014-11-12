@@ -23,8 +23,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -50,6 +50,13 @@ const (
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
+}
+
+var ReleaseNodes = releaseNodes
+
+func releaseNodes(nodes gomaasapi.MAASObject, ids url.Values) error {
+	_, err := nodes.CallPost("release", ids)
+	return err
 }
 
 type maasEnviron struct {
@@ -849,7 +856,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("started instance %q", inst.Id())
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(environ.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -912,15 +919,20 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	// TODO(axw) 2014-05-13 #1319016
-	// Nodes that have been removed out of band will cause
-	// the release call to fail. We should parse the error
-	// returned from MAAS and retry, or otherwise request
-	// an enhancement to MAAS to ignore unknown node IDs.
 	nodes := environ.getMAASClient().GetSubObject("nodes")
-	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
+	err := ReleaseNodes(nodes, getSystemIdValues("nodes", ids))
 	if err != nil {
-		return errors.Annotate(err, "cannot not release nodes")
+		maasErr, ok := err.(gomaasapi.ServerError)
+		// StatusCode 409 means a node couldn't be released due to
+		// a state conflict. Likely it's already released or disk
+		// erasing. We're assuming an error of 409 *only* means it's
+		// safe to assume the instance is already released.
+		// MaaS also releases (or attempts) all nodes, and raises
+		// a single error on failure. So even with an error 409, all
+		// nodes have been released.
+		if !ok || maasErr.StatusCode != 409 {
+			return errors.Annotate(err, "cannot release nodes")
+		}
 	}
 	return common.RemoveStateInstances(environ.Storage(), ids...)
 }
@@ -1010,7 +1022,7 @@ func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addre
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the MAAS provider yet.
-func (*maasEnviron) ListNetworks() ([]network.BasicInfo, error) {
+func (*maasEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 

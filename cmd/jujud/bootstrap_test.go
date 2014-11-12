@@ -23,6 +23,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/apiserver/params"
@@ -167,13 +168,13 @@ func testPasswordHash() string {
 	return utils.UserPasswordHash(testPassword, utils.CompatSalt)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []juju.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
 		// Add default jobs.
-		jobs = []params.MachineJob{
-			params.JobManageEnviron,
-			params.JobHostUnits,
-			params.JobManageNetworking,
+		jobs = []juju.MachineJob{
+			juju.JobManageEnviron,
+			juju.JobHostUnits,
+			juju.JobManageNetworking,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -348,7 +349,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []params.MachineJob{params.JobManageEnviron}
+	jobs := []juju.MachineJob{juju.JobManageEnviron}
 	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)

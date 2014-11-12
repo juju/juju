@@ -17,7 +17,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -61,7 +61,7 @@ type StringsWatcher interface {
 // units known to have entered.
 type RelationUnitsWatcher interface {
 	Watcher
-	Changes() <-chan params.RelationUnitsChange
+	Changes() <-chan juju.RelationUnitsChange
 }
 
 // commonWatcher is part of all client watchers.
@@ -691,7 +691,7 @@ type relationUnitsWatcher struct {
 	sw       *RelationScopeWatcher
 	watching set.Strings
 	updates  chan watcher.Change
-	out      chan params.RelationUnitsChange
+	out      chan juju.RelationUnitsChange
 }
 
 var _ Watcher = (*relationUnitsWatcher)(nil)
@@ -707,7 +707,7 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
 		updates:       make(chan watcher.Change),
-		out:           make(chan params.RelationUnitsChange),
+		out:           make(chan juju.RelationUnitsChange),
 	}
 	go func() {
 		defer w.finish()
@@ -720,19 +720,19 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 // counterpart units in a relation. The first event on the
 // channel holds the initial state of the relation in its
 // Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() <-chan juju.RelationUnitsChange {
 	return w.out
 }
 
-func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
+func emptyRelationUnitsChanges(changes *juju.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
-func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key string, revno int64) {
+func setRelationUnitChangeVersion(changes *juju.RelationUnitsChange, key string, revno int64) {
 	name := unitNameFromScopeKey(key)
-	settings := params.UnitSettings{Version: revno}
+	settings := juju.UnitSettings{Version: revno}
 	if changes.Changed == nil {
-		changes.Changed = map[string]params.UnitSettings{}
+		changes.Changed = map[string]juju.UnitSettings{}
 	}
 	changes.Changed[name] = settings
 }
@@ -740,7 +740,7 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 // mergeSettings reads the relation settings node for the unit with the
 // supplied id, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) (int64, error) {
+func (w *relationUnitsWatcher) mergeSettings(changes *juju.RelationUnitsChange, key string) (int64, error) {
 	node, err := readSettings(w.st, key)
 	if err != nil {
 		return -1, err
@@ -752,7 +752,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 // mergeScope starts and stops settings watches on the units entering and
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
-func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
+func (w *relationUnitsWatcher) mergeScope(changes *juju.RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
 		docID := w.st.docID(key)
@@ -801,8 +801,8 @@ func (w *relationUnitsWatcher) finish() {
 func (w *relationUnitsWatcher) loop() (err error) {
 	var (
 		sentInitial bool
-		changes     params.RelationUnitsChange
-		out         chan<- params.RelationUnitsChange
+		changes     juju.RelationUnitsChange
+		out         chan<- juju.RelationUnitsChange
 	)
 	for {
 		select {
@@ -831,7 +831,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			out = w.out
 		case out <- changes:
 			sentInitial = true
-			changes = params.RelationUnitsChange{}
+			changes = juju.RelationUnitsChange{}
 			out = nil
 		}
 	}

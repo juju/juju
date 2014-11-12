@@ -12,6 +12,7 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
@@ -193,12 +194,12 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("machine-id cannot be specified when adding machines")
 	}
 
-	jobs := []params.MachineJob{params.JobHostUnits}
+	jobs := []juju.MachineJob{juju.JobHostUnits}
 	if config.Type() != provider.MAAS {
 		// In case of MAAS JobManageNetworking is not added to ensure
 		// the non-intrusive start of a networker like above for the
 		// manual provisioning.
-		jobs = append(jobs, params.JobManageNetworking)
+		jobs = append(jobs, juju.JobManageNetworking)
 	}
 
 	machineParams := params.AddMachineParams{

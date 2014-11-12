@@ -24,7 +24,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1094,7 +1094,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.St
 		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -1248,7 +1248,7 @@ func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) 
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the OpenStack provider yet.
-func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+func (*environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, jujuerrors.NotImplementedf("ListNetworks")
 }
 

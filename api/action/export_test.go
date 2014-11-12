@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package actions
+package action
 
 import (
 	"github.com/juju/juju/api/base"

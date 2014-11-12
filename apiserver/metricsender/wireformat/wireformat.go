@@ -16,7 +16,7 @@ import (
 type MetricBatch struct {
 	UUID     string    `json:"uuid"`
 	EnvUUID  string    `json:"env-uuid"`
-	Unit     string    `json:"unit"`
+	UnitName string    `json:"unit-name"`
 	CharmUrl string    `json:"charm-url"`
 	Created  time.Time `json:"created"`
 	Metrics  []Metric  `json:"metrics"`
@@ -45,7 +45,7 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 	return &MetricBatch{
 		UUID:     mb.UUID(),
 		EnvUUID:  mb.EnvUUID(),
-		Unit:     mb.Unit(),
+		UnitName: mb.Unit(),
 		CharmUrl: mb.CharmURL(),
 		Created:  mb.Created().UTC(),
 		Metrics:  metrics,
@@ -55,7 +55,7 @@ func ToWire(mb *state.MetricBatch) *MetricBatch {
 // Response represents the response from the metrics collector.
 type Response struct {
 	UUID         string               `json:"uuid"`
-	EnvResponses EnvironmentResponses `json:"envresponses"`
+	EnvResponses EnvironmentResponses `json:"env-responses"`
 }
 
 type EnvironmentResponses map[string]EnvResponse
@@ -63,20 +63,38 @@ type EnvironmentResponses map[string]EnvResponse
 // Ack adds the specified the batch UUID to the list of acknowledged batches
 // for the specified environment.
 func (e EnvironmentResponses) Ack(envUUID, batchUUID string) {
-	env, exists := e[envUUID]
-	if !exists {
-		e[envUUID] = EnvResponse{
-			EnvUUID:             envUUID,
-			AcknowledgedBatches: []string{batchUUID},
+	env := e[envUUID]
+
+	env.AcknowledgedBatches = append(env.AcknowledgedBatches, batchUUID)
+	e[envUUID] = env
+}
+
+func (e EnvironmentResponses) SetStatus(envUUID, unitName, status, info string) {
+	s := UnitStatus{
+		Status: status,
+		Info:   info,
+	}
+
+	env := e[envUUID]
+
+	if env.UnitStatuses == nil {
+		env.UnitStatuses = map[string]UnitStatus{
+			unitName: s,
 		}
 	} else {
-		env.AcknowledgedBatches = append(env.AcknowledgedBatches, batchUUID)
-		e[envUUID] = env
+		env.UnitStatuses[unitName] = s
 	}
+	e[envUUID] = env
+
 }
 
 // EnvResponse contains the response data relevant to a concrete environment.
 type EnvResponse struct {
-	EnvUUID             string   `json:"env-uuid"`
-	AcknowledgedBatches []string `json:"acks"`
+	AcknowledgedBatches []string              `json:"acks,omitempty"`
+	UnitStatuses        map[string]UnitStatus `json:"unit-statuses,omitempty"`
+}
+
+type UnitStatus struct {
+	Status string `json:"status"`
+	Info   string `json:"info"`
 }

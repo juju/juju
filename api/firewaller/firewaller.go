@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
@@ -42,7 +43,7 @@ func (st *State) EnvironTag() (names.EnvironTag, error) {
 }
 
 // life requests the life cycle of the given entity from the server.
-func (st *State) life(tag names.Tag) (params.Life, error) {
+func (st *State) life(tag names.Tag) (juju.Life, error) {
 	return common.Life(st.facade, tag)
 }
 

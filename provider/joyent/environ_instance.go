@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -158,7 +158,7 @@ func (env *joyentEnviron) StartInstance(args environs.StartInstanceParams) (*env
 		env:     env,
 	}
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(env.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -247,7 +247,7 @@ func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 // the provider for the environment. They may be unknown to juju yet
 // (i.e. when called initially or when a new network was created).
 // This is not implemented on the Joyent provider yet.
-func (*joyentEnviron) ListNetworks() ([]network.BasicInfo, error) {
+func (*joyentEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 
