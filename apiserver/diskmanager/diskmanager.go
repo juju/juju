@@ -20,10 +20,13 @@ var logger = loggo.GetLogger("juju.apiserver.diskmanager")
 
 // DiskManagerAPI provides access to the DiskManager API facade.
 type DiskManagerAPI struct {
-	st          *state.State
-	resources   *common.Resources
+	st          stateInterface
 	authorizer  common.Authorizer
 	getAuthFunc common.GetAuthFunc
+}
+
+var getState = func(st *state.State) stateInterface {
+	return stateShim{st}
 }
 
 // NewDiskManagerAPI creates a new client-side DiskManager API facade.
@@ -46,8 +49,7 @@ func NewDiskManagerAPI(
 	}
 
 	return &DiskManagerAPI{
-		st:          st,
-		resources:   resources,
+		st:          getState(st),
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
 	}, nil
@@ -70,11 +72,7 @@ func (d *DiskManagerAPI) SetMachineBlockDevices(args params.SetMachineBlockDevic
 		if !canAccess(tag) {
 			err = common.ErrPerm
 		} else {
-			var machine *state.Machine
-			machine, err = d.st.Machine(tag.Id())
-			if err == nil {
-				err = machine.SetMachineBlockDevices(arg.BlockDevices)
-			}
+			err = d.st.SetMachineBlockDevices(tag.Id(), arg.BlockDevices)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
