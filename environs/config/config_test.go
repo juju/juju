@@ -360,6 +360,22 @@ var configTests = []configTest{
 			"set-numa-control-policy": false,
 		},
 	}, {
+		about:       "prevent-destroy-environment on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"prevent-destroy-environment": true,
+		},
+	}, {
+		about:       "prevent-destroy-environment off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"prevent-destroy-environment": false,
+		},
+	}, {
 		about:       "Invalid prefer-ipv6 flag",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1281,6 +1297,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["lxc-clone-aufs"] = false
 	attrs["prefer-ipv6"] = false
 	attrs["set-numa-control-policy"] = false
+	attrs["prevent-destroy-environment"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)

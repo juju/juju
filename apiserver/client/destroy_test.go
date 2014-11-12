@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -147,4 +148,21 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 			break
 		}
 	}
+}
+
+func (s *destroyEnvironmentSuite) TestDestroyLockedEnvironment(c *gc.C) {
+	//Setup environment
+	s.setUpInstances(c)
+
+	// lock environment: can't destroy locked environment
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": true}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().DestroyEnvironment()
+	c.Assert(params.IsCodeOperationLocked(err), gc.Equals, true)
+
+	//unlock environment: can destroy unlocked environment
+	err = s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": false}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	err = s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, gc.IsNil)
 }

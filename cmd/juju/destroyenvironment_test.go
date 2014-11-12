@@ -46,6 +46,101 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
+// startEnvironment prepare the environment so we can destroy it.
+func (s *destroyEnvSuite) startEnvironment(c *gc.C, desiredEnvName string) {
+	_, err := environs.PrepareFromName(desiredEnvName, envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)
+	c.Assert(err, gc.IsNil)
+}
+
+//updateConfigParameter updates environment parameter
+func (s *destroyEnvSuite) updateConfigParameter(c *gc.C, key string, value interface{}) {
+	err := s.BackingState.UpdateEnvironConfig(map[string]interface{}{key: value}, nil, nil)
+	c.Assert(err, gc.IsNil)
+}
+
+type destroyLockTest struct {
+	about         string
+	envName       string
+	envKey        string
+	envValue      interface{}
+	cmdArgs       string
+	expectFailure bool
+}
+
+var destroyLockTests = []destroyLockTest{
+	{
+		about:         "Scenario 1: env locked and destroy does not happened",
+		envName:       "dummyenv",
+		envKey:        "prevent-destroy-environment",
+		envValue:      true,
+		cmdArgs:       "--yes",
+		expectFailure: true,
+	},
+	{
+		about:         "Scenario 2: env unlocked and destroy takes place",
+		envName:       "dummyenv",
+		envKey:        "prevent-destroy-environment",
+		envValue:      false,
+		cmdArgs:       "--yes",
+		expectFailure: false,
+	},
+}
+
+func (s *destroyEnvSuite) TestDestroyLockEnvironmentFlag(c *gc.C) {
+	for i, test := range destroyLockTests {
+		c.Logf("\ntest %d. %s\n", i, test.about)
+		// Start environment to destroy
+		s.startEnvironment(c, test.envName)
+		// Override prevent-destroy-environment to lock environment destruction
+		s.updateConfigParameter(c, test.envKey, test.envValue)
+		if test.expectFailure {
+			// Check environment is locked and cannot be destroyed
+			_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), test.envName, test.cmdArgs)
+			c.Check(<-errc, gc.Equals, cmd.ErrSilent)
+		} else {
+			// normal destroy
+			opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), test.envName, test.cmdArgs)
+			c.Check(<-errc2, gc.IsNil)
+			c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, test.envName)
+			// Verify that the environment information has been removed.
+			_, err := s.ConfigStore.ReadInfo(test.envName)
+			c.Assert(err, jc.Satisfies, errors.IsNotFound)
+		}
+	}
+}
+
+// Needs to be a separate test as destroyed environment cannot be re-used without TearDown/Setup to clean everything up
+func (s *destroyEnvSuite) TestForceDestroyLockedEnvironment(c *gc.C) {
+	envName := "dummyenv"
+	// Start environment to destroy
+	s.startEnvironment(c, envName)
+	// Override prevent-destroy-environment to lock environment destruction
+	s.updateConfigParameter(c, "prevent-destroy-environment", true)
+	// normal destroy
+	opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes", "--force")
+	c.Check(<-errc2, gc.IsNil)
+	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
+	// Verify that the environment information has been removed.
+	_, err := s.ConfigStore.ReadInfo(envName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
+// Needs to be a separate test as destroyed environment cannot be re-used without TearDown/Setup to clean everything up
+func (s *destroyEnvSuite) TestForceDestroyUnlockedEnvironment(c *gc.C) {
+	envName := "dummyenv"
+	// Start environment to destroy
+	s.startEnvironment(c, envName)
+	// Override prevent-destroy-environment to lock environment destruction
+	s.updateConfigParameter(c, "prevent-destroy-environment", false)
+	// normal destroy
+	opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes", "--force")
+	c.Check(<-errc2, gc.IsNil)
+	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
+	// Verify that the environment information has been removed.
+	_, err := s.ConfigStore.ReadInfo(envName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 	// Prepare the environment so we can destroy it.
 	_, err := environs.PrepareFromName("dummyenv", envcmd.BootstrapContext(cmdtesting.NullContext(c)), s.ConfigStore)

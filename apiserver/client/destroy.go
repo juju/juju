@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -15,6 +17,9 @@ import (
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the environment.
 func (c *Client) DestroyEnvironment() error {
+	if checkErr := c.checkEnvironmentLocked(); checkErr != nil {
+		return checkErr
+	}
 	// TODO(axw) 2013-08-30 bug 1218688
 	//
 	// There's a race here: a client might add a manual machine
@@ -70,6 +75,29 @@ func (c *Client) DestroyEnvironment() error {
 	// by calling the provider's Destroy method, which will
 	// destroy the state servers, any straggler instances, and
 	// other provider-specific resources.
+	return nil
+}
+
+// checkEnvironmentLocked determines whether the destroy environment
+// operation should proceed. It examines whether environment has been
+// "locked" - prevent-destroy-environment set to true.
+// If the environment is locked, an error with user friendly
+// message is thrown up, effectively blocking destroy operation.
+func (c *Client) checkEnvironmentLocked() error {
+	envcfg, env_err := c.api.state.EnvironConfig()
+	if env_err != nil {
+		return env_err
+	}
+	// This prevents accidental environment destruction on firmly controlled
+	// deployed Juju.
+	if envcfg.PreventDestroyEnvironment() {
+		return &params.Error{
+			Code: params.CodeOperationLocked,
+			Message: `The %q environment has been locked to prevent deletion. ` +
+				fmt.Sprintf(`You may remove the lock by running "juju set-env %s=false"`,
+					config.PreventDestroyEnvironmentKey),
+		}
+	}
 	return nil
 }
 

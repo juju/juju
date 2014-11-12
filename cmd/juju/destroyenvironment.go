@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	jujuerrors "github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
@@ -103,11 +104,59 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 	// API server is inaccessible or faulty.
 	if !c.force {
 		defer func() {
-			if result == nil {
-				return
+			if result != nil {
+				result = c.logDestroyError(result)
 			}
-			logger.Errorf(`failed to destroy environment %q
-        
+		}()
+		apiclient, err := juju.NewAPIClientFromName(c.envName)
+		if err != nil {
+			return jujuerrors.Annotate(err, "cannot connect to API")
+		}
+		defer apiclient.Close()
+		err = apiclient.DestroyEnvironment()
+		if err != nil {
+			if cmdErr := processDestroyError(err); cmdErr != nil {
+				return cmdErr
+			}
+		}
+	}
+	return environs.Destroy(environ, store)
+}
+
+// processDestroyError determines how to format error message based on its code.
+// Note that CodeNotImplemented errors have not be propogated in previous implementation.
+// This behaviour was preserved.
+func processDestroyError(myErr error) error {
+	if params.IsCodeOperationLocked(myErr) {
+		return myErr
+	}
+	if !params.IsCodeNotImplemented(myErr) {
+		return jujuerrors.Annotate(myErr, "destroying environment")
+	}
+	return nil
+}
+
+// logDestroyError logs error messages. At this stage,
+// only operation locked is singled out to be treated differently
+// than other errors.
+func (c *DestroyEnvironmentCommand) logDestroyError(myErr error) error {
+	if params.IsCodeOperationLocked(myErr) {
+		logger.Errorf(myErr.Error(), c.envName)
+		// This is done to avoid displaying the message twice
+		return cmd.ErrSilent
+	}
+	logger.Errorf(stdFailureMsg, c.envName)
+	return myErr
+}
+
+var destroyEnvMsg = `
+WARNING! this command will destroy the %q environment (type: %s)
+This includes all machines, services, data and other resources.
+
+Continue [y/N]? `[1:]
+
+var stdFailureMsg = `failed to destroy environment %q
+
 If the environment is unusable, then you may run
 
     juju destroy-environment --force
@@ -116,23 +165,4 @@ to forcefully destroy the environment. Upon doing so, review
 your environment provider console for any resources that need
 to be cleaned up.
 
-`, c.envName)
-		}()
-		apiclient, err := juju.NewAPIClientFromName(c.envName)
-		if err != nil {
-			return fmt.Errorf("cannot connect to API: %v", err)
-		}
-		defer apiclient.Close()
-		err = apiclient.DestroyEnvironment()
-		if err != nil && !params.IsCodeNotImplemented(err) {
-			return fmt.Errorf("destroying environment: %v", err)
-		}
-	}
-	return environs.Destroy(environ, store)
-}
-
-var destroyEnvMsg = `
-WARNING! this command will destroy the %q environment (type: %s)
-This includes all machines, services, data and other resources.
-
-Continue [y/N]? `[1:]
+`
