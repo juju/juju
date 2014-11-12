@@ -51,7 +51,7 @@ func NewWorker(b BlockDeviceSetter) (worker.Worker, error) {
 			if err != nil {
 				return err
 			}
-			return b.SetBlockDevices(blockDevices)
+			return b.SetMachineBlockDevices(blockDevices)
 		}, listBlockDevicesPeriod), nil
 	}
 }

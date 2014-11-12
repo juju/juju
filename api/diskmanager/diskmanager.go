@@ -27,8 +27,9 @@ func NewState(caller base.APICaller, authTag names.MachineTag) *State {
 	}
 }
 
-// SetBlockDevices returns the block devices attached to the specified machine.
-func (st *State) SetBlockDevices(devices []storage.BlockDevice) error {
+// SetMachineBlockDevices sets the block devices attached to the machine
+// identified by the authenticated machine tag.
+func (st *State) SetMachineBlockDevices(devices []storage.BlockDevice) error {
 	args := params.SetMachineBlockDevices{
 		MachineBlockDevices: []params.MachineBlockDevices{{
 			Machine:      st.tag.String(),
