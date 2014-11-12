@@ -55,11 +55,12 @@ func (f *File) AddToArchive(archive *tar.Writer) error {
 
 // NewArchive returns a new archive file containing the files.
 func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, error) {
+	const pathsep = string(filepath.Separator)
 	dirs := set.NewStrings()
 	var sysFiles []File
 	for _, file := range files {
 		var parent string
-		for _, p := range strings.Split(filepath.Dir(file.Name), string(filepath.Separator)) {
+		for _, p := range strings.Split(filepath.Dir(file.Name), pathsep) {
 			if parent == "" {
 				parent = p
 			} else {
