@@ -78,6 +78,37 @@ def check_expected_changes(new_agents, added=None, removed=None):
     return errors
 
 
+def reconcile_aliases(found_errors, new_agents):
+    """Remove aliases from the found_errors.
+
+    Juju agents can be reused for equivalent archs and series. Juju will
+    add aliases for a series-arch combination when it finds a compatible
+    agent already registered. An alias's path and sha256sum will match
+    the compatible agent.
+
+    The ppc64 arch is a synonym for ppc64el. Juju will register a ppc64el
+    agent when it doesn't find a specific ppc64 agent.
+
+    Juju may add other alias conditions in the future:
+    * There is really one win agent that is copied to each win series,
+      the copy isn't needed if the single agent is aliased.
+    * All amd64, 386, and armhf agents work for all Ubuntu series. Only
+      one is actually needed.
+    """
+    if not found_errors:
+        return
+    for found_name in list(found_errors):
+        if found_name.endswith('ppc64'):
+            # ppc64 can be an alias of a ppc64el agent.
+            real_name = '%sel' % found_name
+            if real_name in new_agents:
+                real_agent = new_agents[real_name]
+                found_agent = new_agents[found_name]
+                if (found_agent['path'] == real_agent['path']
+                        and found_agent['sha256'] == real_agent['sha256']):
+                    found_errors.remove(found_name)
+
+
 def check_expected_unchanged(old_agents, new_agents, added=None, removed=None):
     """Return a list of errors if the expected unchanged versions do not match.
 

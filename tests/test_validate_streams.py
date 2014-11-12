@@ -2,7 +2,10 @@ from mock import patch
 import json
 from unittest import TestCase
 
-from utils import temp_dir
+from utils import (
+    get_random_hex_string,
+    temp_dir,
+)
 from validate_streams import (
     check_devel_not_stable,
     check_expected_changes,
@@ -11,25 +14,32 @@ from validate_streams import (
     compare_agents,
     find_agents,
     parse_args,
+    reconcile_aliases,
 )
 
 
-def make_tool_data(version='1.20.7', release='trusty', arch='amd64'):
+def make_agent_data(version='1.20.7', release='trusty',
+                    arch='amd64', sha256=None, path=None):
     name = '{}-{}-{}'.format(version, release, arch)
+    if not path:
+        path = "releases/juju-{}.tgz".format(name)
+    if not sha256:
+        sha256 = get_random_hex_string()
     tool = {
         "release": "{}".format(release),
         "version": "{}".format(version),
         "arch": "{}".format(arch),
         "size": 8234578,
-        "path": "releases/juju-{}.tgz".format(name),
+        "path": path,
         "ftype": "tar.gz",
-        "sha256": "valid_sum"
+        "sha256": sha256
     }
     return name, tool
 
 
-def make_agents_data(release='trusty', arch='amd64', versions=['1.20.7']):
-    return dict(make_tool_data(v, release, arch) for v in versions)
+def make_agents_data(release='trusty', arch='amd64',
+                     versions=['1.20.7'], sha256='valid_sum'):
+    return dict(make_agent_data(v, release, arch, sha256) for v in versions)
 
 
 def make_product_data(release='trusty', arch='amd64', versions=['1.20.7']):
@@ -184,6 +194,35 @@ class ValidateStreams(TestCase):
         self.assertEqual(
             ["These unknown agents were found: ['1.20.9-trusty-amd64']"],
             errors)
+
+    def test_reconcile_aliases_without_found_errors(self):
+        new_agents = make_agents_data('trusty', 'ppc64el', ['1.20.7'])
+        found_errors = set()
+        reconcile_aliases(found_errors, new_agents)
+        self.assertEqual(set(), found_errors)
+
+    def test_reconcile_aliases_with_unaliased_found_errors_remain(self):
+        # Unaliased found_errors are left in the set.
+        new_agents = make_agents_data('trusty', 'ppc64el', ['1.20.7'])
+        extra_agent_name, extra_agent = make_agent_data(
+            '1.18.1', 'trusty', 'ppc64', sha256=None)
+        new_agents[extra_agent_name] = extra_agent
+        found_errors = set([extra_agent_name])
+        reconcile_aliases(found_errors, new_agents)
+        self.assertEqual(set(['1.18.1-trusty-ppc64']), found_errors)
+
+    def test_reconcile_aliases_with_ppc64_aliases_are_removed(self):
+        # Aliases in found_errors are are removed from set.
+        new_agents = make_agents_data(
+            'trusty', 'ppc64el', ['1.18.1', '1.20.7'], sha256=None)
+        ppc64el_agent = new_agents['1.18.1-trusty-ppc64el']
+        ppc64_agent_name, ppc64_agent = make_agent_data(
+            '1.18.1', 'trusty', 'ppc64',
+            ppc64el_agent['sha256'], ppc64el_agent['path'])
+        new_agents[ppc64_agent_name] = ppc64_agent
+        found_errors = set(['1.18.1-trusty-ppc64'])
+        reconcile_aliases(found_errors, new_agents)
+        self.assertEqual(set(), found_errors)
 
     def test_compare_agents_changed_tool(self):
         old_agents = make_agents_data('trusty', 'amd64', ['1.20.7', '1.20.8'])
