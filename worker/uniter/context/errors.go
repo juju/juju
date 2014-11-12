@@ -26,6 +26,8 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
+var ErrActionNotAvailable = errors.New("action no longer available")
+
 type badActionError struct {
 	actionName string
 	problem    string

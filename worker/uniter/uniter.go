@@ -439,13 +439,15 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *context.HookContext) {
 // runAction executes the supplied hook.Info as an Action.
 func (u *Uniter) runAction(hi hook.Info) (err error) {
 	hctx, err := u.contextFactory.NewActionContext(hi.ActionId)
-	if context.IsBadActionError(err) {
+	if cause := errors.Cause(err); context.IsBadActionError(cause) {
 		return u.st.ActionFinish(
 			names.NewActionTag(hi.ActionId),
 			params.ActionFailed,
 			nil,
 			err.Error(),
 		)
+	} else if cause == context.ErrActionNotAvailable {
+		return nil
 	} else if err != nil {
 		return errors.Annotatef(err, "cannot create context for action %q", hi.ActionId)
 	}

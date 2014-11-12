@@ -166,8 +166,9 @@ func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
 
 	tag := names.NewActionTag(actionId)
 	action, err := f.state.Action(tag)
-	if err != nil {
-		// TODO(fwereade) handle unauth/notfound
+	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
+		return nil, ErrActionNotAvailable
+	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 	name := action.Name()

@@ -384,3 +384,27 @@ func (s *FactorySuite) TestNewActionContextBadParams(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, context.IsBadActionError)
 }
+
+func (s *FactorySuite) TestNewActionContextMissingAction(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	action, err := s.unit.AddAction("snapshot", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = s.unit.CancelAction(action)
+	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "action no longer available")
+	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) TestNewActionContextUnauthAction(c *gc.C) {
+	s.charm = s.AddTestingCharm(c, "dummy")
+	otherUnit, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	action, err := otherUnit.AddAction("snapshot", nil)
+	c.Assert(err, gc.IsNil)
+	ctx, err := s.factory.NewActionContext(action.Id())
+	c.Check(ctx, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "action no longer available")
+	c.Check(err, gc.Equals, context.ErrActionNotAvailable)
+}
