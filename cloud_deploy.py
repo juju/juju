@@ -54,7 +54,7 @@ def deploy_stack(environment, debug, machines):
             env.wait_for_started()
             deploy_dummy_stack(
                 env, 'local:{}/'.format(env.config.get(
-                    'default-series', 'precise')))
+                    'default-series', 'trusty')))
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
                 sys.stderr.write(e.stderr)
