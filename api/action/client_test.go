@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package actions_test
+package action_test
 
 import (
 	"errors"
@@ -11,23 +11,23 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
-	"github.com/juju/juju/api/actions"
+	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 )
 
-type actionsSuite struct {
+type actionSuite struct {
 	baseSuite
 }
 
-var _ = gc.Suite(&actionsSuite{})
+var _ = gc.Suite(&actionSuite{})
 
-func (s *actionsSuite) TestClient(c *gc.C) {
-	facade := actions.ExposeFacade(s.client)
+func (s *actionSuite) TestClient(c *gc.C) {
+	facade := action.ExposeFacade(s.client)
 
-	c.Check(facade.Name(), gc.Equals, "Actions")
+	c.Check(facade.Name(), gc.Equals, "Action")
 }
 
-func (s *actionsSuite) TestServiceCharmActions(c *gc.C) {
+func (s *actionSuite) TestServiceCharmActions(c *gc.C) {
 	tests := []struct {
 		description    string
 		patchResults   []params.ServiceCharmActionsResult
@@ -116,8 +116,8 @@ func (s *actionsSuite) TestServiceCharmActions(c *gc.C) {
 
 // replace "ServicesCharmActions" facade call with required results and error
 // if desired
-func patchServiceCharmActions(c *gc.C, apiCli *actions.Client, patchResults []params.ServiceCharmActionsResult, err string) func() {
-	return actions.PatchClientFacadeCall(apiCli,
+func patchServiceCharmActions(c *gc.C, apiCli *action.Client, patchResults []params.ServiceCharmActionsResult, err string) func() {
+	return action.PatchClientFacadeCall(apiCli,
 		func(req string, paramsIn interface{}, resp interface{}) error {
 			c.Assert(req, gc.Equals, "ServicesCharmActions")
 			c.Assert(paramsIn, gc.FitsTypeOf, params.ServiceTags{})

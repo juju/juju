@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -114,9 +115,9 @@ func (s *uniterBaseSuite) testSetStatus(
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: params.StatusStopped, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "unit-mysql-0", Status: juju.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: juju.StatusStopped, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: juju.StatusStarted, Info: "blah"},
 		}}
 	result, err := facade.SetStatus(args)
 	c.Assert(err, gc.IsNil)
@@ -1338,8 +1339,8 @@ func (s *uniterBaseSuite) testRelation(
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: params.Life(rel.Life().String()),
-				Endpoint: params.Endpoint{
+				Life: juju.Life(rel.Life().String()),
+				Endpoint: juju.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1380,8 +1381,8 @@ func (s *uniterBaseSuite) testRelationById(
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: params.Life(rel.Life().String()),
-				Endpoint: params.Endpoint{
+				Life: juju.Life(rel.Life().String()),
+				Endpoint: juju.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1852,8 +1853,8 @@ func (s *uniterBaseSuite) testWatchRelationUnits(
 	c.Assert(mysqlChanges, gc.NotNil)
 	changed, ok := mysqlChanges.Changed["mysql/0"]
 	c.Assert(ok, jc.IsTrue)
-	expectChanges := params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{"mysql/0": changed},
+	expectChanges := juju.RelationUnitsChange{
+		Changed: map[string]juju.UnitSettings{"mysql/0": changed},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{

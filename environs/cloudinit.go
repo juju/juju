@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -62,7 +63,7 @@ func NewMachineConfig(
 		// Fixed entries.
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
-		Jobs:                    []params.MachineJob{params.JobHostUnits},
+		Jobs:                    []juju.MachineJob{juju.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -89,9 +90,9 @@ func NewBootstrapMachineConfig(cons constraints.Value, series string) (*cloudini
 		return nil, err
 	}
 	mcfg.Bootstrap = true
-	mcfg.Jobs = []params.MachineJob{
-		params.JobManageEnviron,
-		params.JobHostUnits,
+	mcfg.Jobs = []juju.MachineJob{
+		juju.JobManageEnviron,
+		juju.JobHostUnits,
 	}
 	mcfg.Constraints = cons
 	return mcfg, nil
@@ -212,7 +213,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err
 // If JobManageEnviron is present, this is a state server.
 func isStateMachineConfig(mcfg *cloudinit.MachineConfig) bool {
 	for _, aJob := range mcfg.Jobs {
-		if aJob == params.JobManageEnviron {
+		if aJob == juju.JobManageEnviron {
 			return true
 		}
 	}

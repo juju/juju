@@ -7,6 +7,7 @@ import (
 
 	"github.com/juju/names"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/instance"
@@ -17,7 +18,7 @@ import (
 type Machine struct {
 	st   *State
 	tag  names.MachineTag
-	life params.Life
+	life juju.Life
 }
 
 // Tag returns the machine tag.
@@ -69,7 +70,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 }
 
 // Life returns the machine's life cycle value.
-func (m *Machine) Life() params.Life {
+func (m *Machine) Life() juju.Life {
 	return m.life
 }
 

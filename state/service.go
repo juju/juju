@@ -470,7 +470,6 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	services, closer := s.st.getCollection(servicesC)
 	defer closer()
-	settings := services.Database.C(settingsC)
 
 	if ch.Meta().Subordinate != s.doc.Subordinate {
 		return fmt.Errorf("cannot change a service's subordinacy")
@@ -480,15 +479,9 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
-
-			// TODO(waigani) Below is a bug. s.doc.Name should be
-			// s.settingsKey(). A unit test needs to be added which engineers
-			// the first transaction attempt to fail, such that this code gets
-			// tested.
-
 			// If the service is not alive, fail out immediately; otherwise,
 			// data changed underneath us, so retry.
-			if alive, err := isAliveWithSession(settings, s.st.docID(s.doc.Name)); err != nil {
+			if alive, err := isAliveWithSession(services, s.st.docID(s.doc.Name)); err != nil {
 				return nil, err
 			} else if !alive {
 				return nil, fmt.Errorf("service %q is not alive", s.doc.Name)

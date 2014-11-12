@@ -3,9 +3,7 @@
 
 package watcher
 
-import (
-	"github.com/juju/juju/apiserver/params"
-)
+import "github.com/juju/juju"
 
 // NotifyWatcher will send events when something changes.
 // It does not send content for those changes.
@@ -26,7 +24,7 @@ type StringsWatcher interface {
 // RelationUnitsWatcher will send events when something changes.
 // The content for the changes is a params.RelationUnitsChange struct.
 type RelationUnitsWatcher interface {
-	Changes() <-chan params.RelationUnitsChange
+	Changes() <-chan juju.RelationUnitsChange
 	Stop() error
 	Err() error
 }

@@ -14,7 +14,7 @@ import (
 	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/state"
 )
 
@@ -39,7 +39,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: params.StatusStarted,
+			status: juju.StatusStarted,
 			charm:  1,
 		},
 		verifyGitCharm{revision: 1},
@@ -55,7 +55,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusStarted,
+			status: juju.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
@@ -71,7 +71,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: params.StatusError,
+			status: juju.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
@@ -81,7 +81,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
-			status: params.StatusStarted,
+			status: juju.StatusStarted,
 			charm:  1,
 		},
 		verifyGitCharm{revision: 1},
@@ -99,7 +99,7 @@ var upgradeGitConflictsTests = []uniterTest{
 		serveCharm{},
 		upgradeCharm{revision: 2, forced: true},
 		waitUnit{
-			status: params.StatusStarted,
+			status: juju.StatusStarted,
 			charm:  2,
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -198,7 +198,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		createUniter{},
 		waitUnit{
-			status: params.StatusStarted,
+			status: juju.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
 		verifyGitCharm{dirty: true},
@@ -213,7 +213,7 @@ func (s startGitUpgradeError) step(c *gc.C, ctx *context) {
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
-			status: params.StatusError,
+			status: juju.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},

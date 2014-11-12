@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -235,9 +236,9 @@ func (*suite) TestMigrate(c *gc.C) {
 		Nonce:             "nonce",
 		Password:          "secret",
 		UpgradedToVersion: version.MustParse("1.16.5"),
-		Jobs: []params.MachineJob{
-			params.JobManageEnviron,
-			params.JobHostUnits,
+		Jobs: []juju.MachineJob{
+			juju.JobManageEnviron,
+			juju.JobHostUnits,
 		},
 		CACert:         "ca cert",
 		StateAddresses: []string{"localhost:1234"},
@@ -273,7 +274,7 @@ func (*suite) TestMigrate(c *gc.C) {
 	}, {
 		fields: []string{"Jobs"},
 		newParams: agent.MigrateParams{
-			Jobs: []params.MachineJob{params.JobHostUnits},
+			Jobs: []juju.MachineJob{juju.JobHostUnits},
 		},
 	}, {
 		comment:   "invalid/immutable field specified",

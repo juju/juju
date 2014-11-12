@@ -10,6 +10,7 @@ import (
 	"github.com/juju/names"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -19,7 +20,7 @@ import (
 type Unit struct {
 	st   *State
 	tag  names.UnitTag
-	life params.Life
+	life juju.Life
 }
 
 // Tag returns the unit's tag.
@@ -38,7 +39,7 @@ func (u *Unit) String() string {
 }
 
 // Life returns the unit's lifecycle value.
-func (u *Unit) Life() params.Life {
+func (u *Unit) Life() juju.Life {
 	return u.life
 }
 
@@ -53,7 +54,7 @@ func (u *Unit) Refresh() error {
 }
 
 // SetStatus sets the status of the unit.
-func (u *Unit) SetStatus(status params.Status, info string, data map[string]interface{}) error {
+func (u *Unit) SetStatus(status juju.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{

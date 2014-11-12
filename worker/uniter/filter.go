@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/charm.v4/hooks"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/uniter"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -85,7 +86,7 @@ type filter struct {
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
 	unit             *uniter.Unit
-	life             params.Life
+	life             juju.Life
 	resolved         params.ResolvedMode
 	service          *uniter.Service
 	upgradeFrom      serviceCharm
@@ -543,11 +544,11 @@ func (f *filter) unitChanged() error {
 	}
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
-		case params.Dying:
+		case juju.Dying:
 			filterLogger.Infof("unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
-		case params.Dead:
+		case juju.Dead:
 			filterLogger.Infof("unit is dead")
 			return worker.ErrTerminateAgent
 		}
@@ -576,11 +577,11 @@ func (f *filter) serviceChanged() error {
 	}
 	f.upgradeAvailable = serviceCharm{url, force}
 	switch f.service.Life() {
-	case params.Dying:
+	case juju.Dying:
 		if err := f.unit.Destroy(); err != nil {
 			return err
 		}
-	case params.Dead:
+	case juju.Dead:
 		filterLogger.Infof("service is dead")
 		return worker.ErrTerminateAgent
 	}
@@ -591,7 +592,7 @@ func (f *filter) serviceChanged() error {
 // upgrade requests that defines which charm changes should be
 // delivered as upgrades.
 func (f *filter) upgradeChanged() (err error) {
-	if f.life != params.Alive {
+	if f.life != juju.Alive {
 		filterLogger.Debugf("charm check skipped, unit is dying")
 		f.outUpgrade = nil
 		return nil

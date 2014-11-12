@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -58,11 +58,11 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		mcfg, err = environs.NewBootstrapMachineConfig(constraints.Value{}, vers.Series)
 		c.Assert(err, gc.IsNil)
 		mcfg.InstanceId = "instance-id"
-		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
+		mcfg.Jobs = []juju.MachineJob{juju.JobManageEnviron, juju.JobHostUnits}
 	} else {
 		mcfg, err = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, vers.Series, nil, nil, nil)
 		c.Assert(err, gc.IsNil)
-		mcfg.Jobs = []params.MachineJob{params.JobHostUnits}
+		mcfg.Jobs = []juju.MachineJob{juju.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
 		Version: vers,
