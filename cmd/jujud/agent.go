@@ -326,7 +326,9 @@ func agentDone(err error) error {
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
-			return errors.LoggedErrorf(logger, "cannot change agent tools: %v", err)
+			err = errors.Annotate(err, "cannot change agent tools")
+			logger.Infof(err.Error())
+			return err
 		}
 	}
 	return err

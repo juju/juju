@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -917,7 +918,7 @@ func IsNotProvisionedError(err error) bool {
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
 	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	var providerValues set.Strings
+	providerValues := make(set.Strings)
 	for _, address := range providerAddresses {
 		// Older versions of Juju may have stored an empty address so ignore it here.
 		if address.Value == "" {
@@ -1035,7 +1036,8 @@ func (m *Machine) Networks() ([]*Network, error) {
 	networksCollection, closer := m.st.getCollection(networksC)
 	defer closer()
 
-	sel := bson.D{{"_id", bson.D{{"$in", requestedNetworks}}}}
+	// TODO(waigani) - ENVUUID - query needs to filter by env: {"env-uuid", m.st.EnvironUUID()}
+	sel := bson.D{{"name", bson.D{{"$in", requestedNetworks}}}}
 	err = networksCollection.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
@@ -1083,12 +1085,10 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	doc := newNetworkInterfaceDoc(args)
-	doc.MachineId = m.doc.Id
-	doc.Id = bson.NewObjectId()
+	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
 	ops := []txn.Op{{
 		C:      networksC,
-		Id:     args.NetworkName,
+		Id:     m.st.docID(args.NetworkName),
 		Assert: txn.DocExists,
 	}, {
 		C:      machinesC,
@@ -1348,4 +1348,9 @@ func (m *Machine) markInvalidContainers() error {
 		}
 	}
 	return nil
+}
+
+func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+	// TODO(axw) implement me
+	return errors.New("SetMachineBlockDevices is not implemented")
 }

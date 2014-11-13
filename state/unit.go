@@ -828,12 +828,7 @@ func (u *Unit) CharmURL() (*charm.URL, bool) {
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
 // An error will be returned if the unit is dead, or the charm URL not known.
-func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
-	defer func() {
-		if err == nil {
-			u.doc.CharmURL = curl
-		}
-	}()
+func (u *Unit) SetCharmURL(curl *charm.URL) error {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
@@ -844,28 +839,35 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	charms := db.C(charmsC)
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
-			return nil, err
-		} else if !notDead {
-			return nil, fmt.Errorf("unit %q is dead", u)
+		if attempt > 0 {
+			// NOTE: We're explicitly allowing SetCharmURL to succeed
+			// when the unit is Dying, because service/charm upgrades
+			// should still be allowed to apply to dying units, so
+			// that bugs in departed/broken hooks can be addressed at
+			// runtime.
+			if notDead, err := isNotDeadWithSession(units, u.doc.DocID); err != nil {
+				return nil, errors.Trace(err)
+			} else if !notDead {
+				return nil, ErrDead
+			}
 		}
 		sel := bson.D{{"_id", u.doc.DocID}, {"charmurl", curl}}
 		if count, err := units.Find(sel).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count == 1 {
 			// Already set
 			return nil, jujutxn.ErrNoOperations
 		}
 		if count, err := charms.FindId(u.st.docID(curl.String())).Count(); err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		} else if count < 1 {
-			return nil, fmt.Errorf("unknown charm url %q", curl)
+			return nil, errors.Errorf("unknown charm url %q", curl)
 		}
 
 		// Add a reference to the service settings for the new charm.
 		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 
 		// Set the new charm URL.
@@ -882,13 +884,17 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			// Drop the reference to the old charm.
 			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 			ops = append(ops, decOps...)
 		}
 		return ops, nil
 	}
-	return u.st.run(buildTxn)
+	err := u.st.run(buildTxn)
+	if err == nil {
+		u.doc.CharmURL = curl
+	}
+	return err
 }
 
 // AgentPresence returns whether the respective remote agent is alive.
@@ -1557,7 +1563,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		if notDead, err := isNotDead(u.st.db, unitsC, u.doc.DocID); err != nil {
 			return nil, err
 		} else if !notDead {
-			return nil, fmt.Errorf("unit %q is dead", u)
+			return nil, ErrDead
 		}
 		return ops, nil
 	}

@@ -227,6 +227,14 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+// ActionName returns the name of the action.
+func (ctx *HookContext) ActionName() (string, error) {
+	if ctx.actionData == nil {
+		return "", errors.New("not running an action")
+	}
+	return ctx.actionData.ActionName, nil
+}
+
 // ActionParams simply returns the arguments to the Action.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {

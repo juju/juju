@@ -129,8 +129,8 @@ func (s *networkerSuite) TestNormalNetworkerCanWriteConfigAndLoadsVLANModule(c *
 func (s *networkerSuite) TestPrimaryOrLoopbackInterfacesAreSkipped(c *gc.C) {
 	// Reset what's considered up, so we can test eth0 and lo are not
 	// touched.
-	s.upInterfaces = set.NewStrings()
-	s.interfacesWithAddress = set.NewStrings()
+	s.upInterfaces = make(set.Strings)
+	s.interfacesWithAddress = make(set.Strings)
 
 	nw, _ := s.newCustomNetworker(c, s.apiFacade, s.stateMachine.Id(), true, false)
 	defer worker.Stop(nw)

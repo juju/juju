@@ -154,8 +154,8 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	c.Assert(err, gc.IsNil)
 
 	toolsMetadataMap := make(map[string]*tools.ToolsMetadata)
-	var expectedProductIds set.Strings
-	var toolsVersions set.Strings
+	expectedProductIds := make(set.Strings)
+	toolsVersions := make(set.Strings)
 	for _, mc := range cloudMetadata.Products {
 		for _, items := range mc.Items {
 			for key, item := range items.Items {

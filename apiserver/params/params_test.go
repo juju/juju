@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -30,13 +31,13 @@ var _ = gc.Suite(&MarshalSuite{})
 var marshalTestCases = []struct {
 	about string
 	// Value holds a real Go struct.
-	value juju.Delta
+	value multiwatcher.Delta
 	// JSON document.
 	json string
 }{{
 	about: "MachineInfo Delta",
-	value: juju.Delta{
-		Entity: &juju.MachineInfo{
+	value: multiwatcher.Delta{
+		Entity: &multiwatcher.MachineInfo{
 			Id:                      "Benji",
 			InstanceId:              "Shazam",
 			Status:                  "error",
@@ -52,8 +53,8 @@ var marshalTestCases = []struct {
 	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo","StatusData":null,"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"SupportedContainersKnown":false,"Jobs":["JobManageEnviron"],"Addresses":[],"HardwareCharacteristics":{}}]`,
 }, {
 	about: "ServiceInfo Delta",
-	value: juju.Delta{
-		Entity: &juju.ServiceInfo{
+	value: multiwatcher.Delta{
+		Entity: &multiwatcher.ServiceInfo{
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:quantal/name",
@@ -70,8 +71,8 @@ var marshalTestCases = []struct {
 	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"Subordinate":false}]`,
 }, {
 	about: "UnitInfo Delta",
-	value: juju.Delta{
-		Entity: &juju.UnitInfo{
+	value: multiwatcher.Delta{
+		Entity: &multiwatcher.UnitInfo{
 			Name:     "Benji",
 			Service:  "Shazam",
 			Series:   "precise",
@@ -91,11 +92,11 @@ var marshalTestCases = []struct {
 	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo", "StatusData": null, "Subordinate": false}]`,
 }, {
 	about: "RelationInfo Delta",
-	value: juju.Delta{
-		Entity: &juju.RelationInfo{
+	value: multiwatcher.Delta{
+		Entity: &multiwatcher.RelationInfo{
 			Key: "Benji",
 			Id:  4711,
-			Endpoints: []juju.Endpoint{
+			Endpoints: []multiwatcher.Endpoint{
 				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
@@ -103,8 +104,8 @@ var marshalTestCases = []struct {
 	json: `["relation","change",{"Key":"Benji", "Id": 4711, "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
 }, {
 	about: "AnnotationInfo Delta",
-	value: juju.Delta{
-		Entity: &juju.AnnotationInfo{
+	value: multiwatcher.Delta{
+		Entity: &multiwatcher.AnnotationInfo{
 			Tag: "machine-0",
 			Annotations: map[string]string{
 				"foo":   "bar",
@@ -115,9 +116,9 @@ var marshalTestCases = []struct {
 	json: `["annotation","change",{"Tag":"machine-0","Annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
-	value: juju.Delta{
+	value: multiwatcher.Delta{
 		Removed: true,
-		Entity: &juju.RelationInfo{
+		Entity: &multiwatcher.RelationInfo{
 			Key: "Benji",
 		},
 	},
@@ -145,7 +146,7 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 	for i, t := range marshalTestCases {
 		c.Logf("test %d. %s", i, t.about)
-		var unmarshalled juju.Delta
+		var unmarshalled multiwatcher.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, gc.IsNil)
 		c.Check(unmarshalled, gc.DeepEquals, t.value)
@@ -153,17 +154,17 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *gc.C) {
-	err := json.Unmarshal([]byte(`[1,2]`), new(juju.Delta))
+	err := json.Unmarshal([]byte(`[1,2]`), new(multiwatcher.Delta))
 	c.Check(err, gc.ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *gc.C) {
-	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(juju.Delta))
+	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(multiwatcher.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected operation "masticate"`)
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
-	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(juju.Delta))
+	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(multiwatcher.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
 }
 

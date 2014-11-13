@@ -87,6 +87,11 @@ func (s *openstackstorage) ShouldRetry(err error) bool {
 }
 
 func (s *openstackstorage) Remove(file string) error {
+	// Prevent a blank containerName combo being used, which
+	// can result in erroneously deleting the Swift account itself.
+	if s.containerName == "" {
+		return jujuerrors.Errorf("cannot remove %q: swift container name is empty", file)
+	}
 	err := s.swift.DeleteObject(s.containerName, file)
 	// If we can't delete the object because the bucket doesn't
 	// exist, then we don't care.

@@ -581,6 +581,45 @@ func AddEnvUUIDToMachines(st *State) error {
 	return addEnvUUIDToEntityCollection(st, machinesC, "machineid")
 }
 
+// AddEnvUUIDToNetworks prepends the environment UUID to the ID of
+// all network docs and adds new "env-uuid" field.
+func AddEnvUUIDToNetworks(st *State) error {
+	return addEnvUUIDToEntityCollection(st, networksC, "name")
+}
+
+// AddEnvUUIDToRequestedNetworks prepends the environment UUID to the ID of
+// all requestedNetworks docs and adds new "env-uuid" field.
+func AddEnvUUIDToRequestedNetworks(st *State) error {
+	return addEnvUUIDToEntityCollection(st, requestedNetworksC, "requestednetworkid")
+}
+
+// AddEnvUUIDToNetworkInterfaces prepends adds a new "env-uuid" field to all
+// networkInterfaces docs.
+func AddEnvUUIDToNetworkInterfaces(st *State) error {
+	coll, closer := st.getCollection(networkInterfacesC)
+	defer closer()
+
+	upgradesLogger.Debugf("adding the env uuid %q to the %s collection", st.EnvironUUID(), networkInterfacesC)
+	iter := coll.Find(bson.D{{"env-uuid", bson.D{{"$exists", false}}}}).Iter()
+
+	var doc bson.M
+	ops := []txn.Op{}
+	for iter.Next(&doc) {
+		ops = append(ops,
+			txn.Op{
+				C:      networkInterfacesC,
+				Id:     doc["_id"],
+				Assert: txn.DocExists,
+				Update: bson.D{{"$set", bson.D{{"env-uuid", st.EnvironUUID()}}}},
+			})
+		doc = nil // Force creation of new map for the next iteration
+	}
+	if err := iter.Err(); err != nil {
+		return errors.Trace(err)
+	}
+	return st.runTransaction(ops)
+}
+
 // AddEnvUUIDToCharms prepends the environment UUID to the ID of
 // all charm docs and adds new "env-uuid" field.
 func AddEnvUUIDToCharms(st *State) error {

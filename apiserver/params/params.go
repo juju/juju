@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -389,7 +390,7 @@ type AllWatcherId struct {
 
 // AllWatcherNextResults holds deltas returned from calling AllWatcher.Next().
 type AllWatcherNextResults struct {
-	Deltas []juju.Delta
+	Deltas []multiwatcher.Delta
 }
 
 // ListSSHKeys stores parameters used for a KeyManager.ListKeys call.

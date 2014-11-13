@@ -21,7 +21,7 @@ func (*macOSXVersionSuite) TestGetSysctlVersionPlatform(c *gc.C) {
 }
 
 func (s *macOSXVersionSuite) TestOSVersion(c *gc.C) {
-	knownSeries := set.Strings{}
+	knownSeries := make(set.Strings)
 	for _, series := range macOSXSeries {
 		knownSeries.Add(series)
 	}

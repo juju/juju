@@ -5,6 +5,7 @@ package context_test
 
 import (
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/juju/names"
@@ -59,9 +60,9 @@ func (s *EnvSuite) assertVars(c *gc.C, actual []string, expect ...[]string) {
 func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 	// note: path-munging is os-dependent, not included in expectVars
 	return MockEnvPaths{}, []string{
-		"CHARM_DIR=/path/to/charm",
-		"JUJU_CHARM_DIR=/path/to/charm",
-		"JUJU_AGENT_SOCKET=/path/to/jujuc.socket",
+		"CHARM_DIR=path-to-charm",
+		"JUJU_CHARM_DIR=path-to-charm",
+		"JUJU_AGENT_SOCKET=path-to-jujuc.socket",
 	}
 }
 
@@ -117,8 +118,8 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 	os.Setenv("Path", "foo;bar")
 	os.Setenv("PSModulePath", "ping;pong")
 	windowsVars := []string{
-		"Path=/path/to/tools;foo;bar",
-		"PSModulePath=ping;pong;/path/to/charm/Modules;/path/to/charm/hooks/Modules",
+		"Path=path-to-tools;foo;bar",
+		"PSModulePath=ping;pong;" + filepath.FromSlash("path-to-charm/lib/Modules"),
 	}
 
 	ctx, contextVars := s.getContext()
@@ -135,7 +136,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&version.Current.OS, version.Ubuntu)
 	os.Setenv("PATH", "foo:bar")
 	ubuntuVars := []string{
-		"PATH=/path/to/tools:foo:bar",
+		"PATH=path-to-tools:foo:bar",
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
 	}

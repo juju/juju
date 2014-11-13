@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
@@ -544,10 +545,14 @@ func (s *clientSuite) TestClientCharmInfo(c *gc.C) {
 					"snapshot": charm.ActionSpec{
 						Description: "Take a snapshot of the database.",
 						Params: map[string]interface{}{
-							"outfile": map[string]interface{}{
-								"default":     "foo.bz2",
-								"description": "The file to write out to.",
-								"type":        "string",
+							"type":        "object",
+							"description": "this boilerplate is insane, we have to fix it",
+							"properties": map[string]interface{}{
+								"outfile": map[string]interface{}{
+									"default":     "foo.bz2",
+									"description": "The file to write out to.",
+									"type":        "string",
+								},
 							},
 						},
 					},
@@ -1679,8 +1684,8 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, gc.IsNil)
-	if !c.Check(deltas, gc.DeepEquals, []juju.Delta{{
-		Entity: &juju.MachineInfo{
+	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
+		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  juju.StatusPending,

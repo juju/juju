@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
@@ -24,7 +23,12 @@ import (
 	"github.com/juju/juju/state/backups/metadata"
 )
 
-const BackupsMetaC = backupsMetaC
+const (
+	UnitsC       = unitsC
+	ServicesC    = servicesC
+	SettingsC    = settingsC
+	BackupsMetaC = backupsMetaC
+)
 
 var (
 	NewMongoConnInfo = newMongoConnInfo
@@ -256,6 +260,10 @@ func ParseTag(st *State, tag names.Tag) (string, interface{}, error) {
 	return st.parseTag(tag)
 }
 
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
+}
+
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
@@ -331,13 +339,4 @@ func StrictLocalID(st *State, id string) (string, error) {
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
-}
-
-func SetServiceCharmURL(st *State, serviceName string, URL string) error {
-	ops := []txn.Op{{
-		C:      servicesC,
-		Id:     st.docID(serviceName),
-		Update: bson.D{{"$set", bson.D{{"charmurl", URL}}}},
-	}}
-	return errors.Trace(st.runTransaction(ops))
 }

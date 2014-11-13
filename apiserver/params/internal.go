@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -260,7 +262,7 @@ type RelationResult struct {
 	Life     juju.Life
 	Id       int
 	Key      string
-	Endpoint juju.Endpoint
+	Endpoint multiwatcher.Endpoint
 }
 
 // RelationResults holds the result of an API call that returns
@@ -566,7 +568,7 @@ type StringsWatchResults struct {
 // and an error (if any).
 type RelationUnitsWatchResult struct {
 	RelationUnitsWatcherId string
-	Changes                juju.RelationUnitsChange
+	Changes                multiwatcher.RelationUnitsChange
 	Error                  *Error
 }
 
@@ -663,4 +665,17 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
+}
+
+// MachineBlockDevices holds a machine tag and the block devices present
+// on that machine.
+type MachineBlockDevices struct {
+	Machine      string
+	BlockDevices []storage.BlockDevice
+}
+
+// SetMachineBlockDevices holds the arguments for recording the block
+// devices present on a set of machines.
+type SetMachineBlockDevices struct {
+	MachineBlockDevices []MachineBlockDevices
 }
