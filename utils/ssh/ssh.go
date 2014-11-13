@@ -104,6 +104,10 @@ type Cmd struct {
 	impl   command
 }
 
+func newCmd(impl command) *Cmd {
+	return &Cmd{impl: impl}
+}
+
 // CombinedOutput runs the command, and returns the
 // combined stdout/stderr output and result of
 // executing the command.
@@ -254,7 +258,12 @@ func Copy(args []string, options *Options) error {
 
 // CopyReader sends the reader's data to a file on the remote host over SSH.
 func CopyReader(host, filename string, r io.Reader, options *Options) error {
-	cmd := Command(host, []string{"cat - > " + filename}, options)
+	logger.Debugf("using %s ssh client", chosenClient)
+	return copyReader(DefaultClient, host, filename, r, options)
+}
+
+func copyReader(client Client, host, filename string, r io.Reader, options *Options) error {
+	cmd := client.Command(host, []string{"cat - > " + filename}, options)
 
 	send := func() error {
 		cmdStdin, err := cmd.StdinPipe()

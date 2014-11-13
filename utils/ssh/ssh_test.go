@@ -4,6 +4,7 @@
 package ssh_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -217,4 +218,16 @@ func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
 		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -i x -i y -i %s localhost %s 123",
 			s.fakessh, def2, echoCommand),
 	)
+}
+
+func (s *SSHCommandSuite) TestCopyReader(c *gc.C) {
+	client := &fakeClient{}
+	r := bytes.NewBufferString("<data>")
+
+	err := ssh.TestCopyReader(client, "foo@bar.com:baz", "/tmp/blah", r, nil)
+	c.Assert(err, gc.IsNil)
+
+	client.checkCalls(c, "foo@bar.com:baz", []string{"cat - > /tmp/blah"}, nil, nil, "Command")
+	client.impl.checkCalls(c, nil, nil, nil, "StdinPipe", "SetStdio", "Start", "Wait")
+	client.impl.checkStdin(c, "<data>")
 }
