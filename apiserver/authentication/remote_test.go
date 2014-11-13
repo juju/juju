@@ -5,8 +5,6 @@ package authentication_test
 
 import (
 	"encoding/base64"
-	"fmt"
-	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -54,43 +52,4 @@ func (*RemoteAuthSuite) TestMalformedRemoteCredentials(c *gc.C) {
 	err = remoteCreds.UnmarshalText([]byte(
 		base64.URLEncoding.EncodeToString([]byte("{}"))))
 	c.Assert(err, gc.ErrorMatches, "missing primary credential")
-}
-
-func (*RemoteAuthSuite) TestIsBeforeTime(c *gc.C) {
-	var ra *authentication.RemoteAuthenticator
-	now := time.Now().UTC()
-	testCases := []struct {
-		expiration time.Time
-		override   string
-		pattern    string
-	}{
-		{
-			expiration: now.Add(time.Hour),
-			pattern:    "",
-		},
-		{
-			override: "3am eternal",
-			pattern:  ".* invalid expiration .*",
-		},
-		{
-			expiration: now.Add(0 - time.Hour),
-			pattern:    ".* authorization expired at .*",
-		},
-	}
-	for _, testCase := range testCases {
-		var caveat string
-		if !testCase.expiration.IsZero() {
-			caveat = fmt.Sprintf("is-before-time? %s", testCase.expiration.Format(time.RFC3339))
-		} else if testCase.override != "" {
-			caveat = fmt.Sprintf("is-before-time? %s", testCase.override)
-		} else {
-			c.Fail()
-		}
-		err := ra.CheckFirstPartyCaveat(caveat)
-		if testCase.pattern == "" {
-			c.Assert(err, gc.IsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, testCase.pattern)
-		}
-	}
 }
