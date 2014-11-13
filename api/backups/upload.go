@@ -20,13 +20,7 @@ var sshCopyReader = func(host, filename string, archive io.Reader) error {
 // The ID by which the stored archive can be found is returned.
 func (c *Client) Upload(archive io.Reader) (string, error) {
 	filename := time.Now().UTC().Format("/tmp/juju-backup-20060102-150405.tgz")
-
-	addr, err := c.publicAddress()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	host := "ubuntu@" + addr
-
-	err = sshCopyReader(host, filename, archive)
+	host := "ubuntu@" + c.publicAddress
+	err := sshCopyReader(host, filename, archive)
 	return "file://" + filename, errors.Trace(err)
 }
