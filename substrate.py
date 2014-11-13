@@ -3,6 +3,9 @@ import os
 import subprocess
 from time import sleep
 
+from boto import ec2
+from boto.exception import EC2ResponseError
+
 from jujuconfig import (
     get_euca_env,
     translate_to_env,
@@ -42,10 +45,11 @@ class AWSAccount:
     @classmethod
     def from_config(cls, config):
         """Create an AWSAccount from a juju environment dict."""
-        return cls(get_euca_env(config))
+        return cls(get_euca_env(config), config['region'])
 
-    def __init__(self, euca_environ):
+    def __init__(self, euca_environ, region):
         self.euca_environ = euca_environ
+        self.region = region
 
     def get_environ(self):
         """Return the environ to run euca in."""
@@ -89,12 +93,12 @@ class AWSAccount:
 
     def list_instance_security_groups(self):
         """List the security groups used by instances in this account."""
-        lines = self.get_euca_output(
-            'describe-instances', [])
-        for field in self.iter_field_lists(lines):
-            if field[:1] != ['GROUP']:
-                continue
-            yield field[1], field[2]
+        connection = self.get_ec2_connection()
+        reservations = connection.get_all_instances()
+        for reservation in reservations:
+            for instance in reservation.instances:
+                for group in instance.groups:
+                    yield group.id, group.name
 
     def destroy_security_groups(self, groups):
         """Destroy the specified security groups.
@@ -108,6 +112,37 @@ class AWSAccount:
             except subprocess.CalledProcessError:
                 failures.append(group)
         return failures
+
+    def get_ec2_connection(self):
+        return ec2.connect_to_region(
+            self.region, aws_access_key_id=self.euca_environ['EC2_ACCESS_KEY'],
+            aws_secret_access_key=self.euca_environ['EC2_SECRET_KEY'],
+        )
+
+    def delete_detached_interfaces(self, security_groups):
+        """Delete detached network interfaces for supplied groups.
+        
+        :param security_groups: A collection of security_group ids.
+        :return: A collection of security groups which still have interfaces in
+            them.
+        """
+        connection = self.get_ec2_connection()
+        interfaces = connection.get_all_network_interfaces(
+            filters={'status': 'available'})
+        unclean = set()
+        for interface in interfaces:
+            for group in interface.groups:
+                if group.id in security_groups:
+                    try:
+                        interface.delete()
+                    except EC2ResponseError as e:
+                        if e.error_code not in (
+                                'InvalidNetworkInterface.InUse',
+                                'InvalidNetworkInterfaceID.NotFound'):
+                            raise
+                        unclean.update(g.id for g in interface.groups)
+                    break
+        return unclean
 
 
 def start_libvirt_domain(URI, domain):
