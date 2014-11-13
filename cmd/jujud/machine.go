@@ -737,10 +737,7 @@ func (a *MachineAgent) limitLogins(req params.LoginRequest) error {
 	if err := a.limitLoginsDuringRestore(req); err != nil {
 		return err
 	}
-	if err := a.limitLoginsDuringUpgrade(req); err != nil {
-		return err
-	}
-	return nil
+	return a.limitLoginsDuringUpgrade(req)
 }
 
 // limitLoginsDuringRestore will only allow logins for restore related purposes

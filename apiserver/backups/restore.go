@@ -17,10 +17,6 @@ import (
 
 const restoreUserHome = "/home/ubuntu/"
 
-func backupFile(backupPath string) (io.ReadCloser, error) {
-	return os.Open(backupPath)
-}
-
 func (a *API) backupFileAndMeta(backupId, fileName string) (io.ReadCloser, *metadata.Metadata, error) {
 	var (
 		fileHandler io.ReadCloser
@@ -30,12 +26,12 @@ func (a *API) backupFileAndMeta(backupId, fileName string) (io.ReadCloser, *meta
 	switch {
 	case backupId != "":
 		if meta, fileHandler, err = a.backups.Get(backupId); err != nil {
-			return nil, nil, errors.Annotatef(err, "there was an error obtaining backup %q", backupId)
+			return nil, nil, errors.Annotatef(err, "could not fetch backup %q", backupId)
 		}
 	case fileName != "":
 		fileName := restoreUserHome + fileName
-		if fileHandler, err = backupFile(fileName); err != nil {
-			return nil, nil, errors.Annotatef(err, "there was an error opening %q", fileName)
+		if fileHandler, err = os.Open(fileName); err != nil {
+			return nil, nil, errors.Annotatef(err, "error opening %q", fileName)
 		}
 	default:
 		return nil, nil, errors.Errorf("no backup file or id given")
@@ -82,7 +78,7 @@ func (a *API) Restore(p params.RestoreArgs) error {
 	}
 
 	// After restoring, the api server needs a forced restart, tomb will not work
-	os.Exit(1)
+	os.Exit(0)
 	return nil
 }
 
@@ -92,8 +88,7 @@ func (a *API) PrepareRestore() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = rInfo.SetStatus(state.RestorePending)
-	return errors.Annotatef(err, "cannot set restore status to %s", state.RestorePending)
+	return rInfo.SetStatus(state.RestorePending)
 }
 
 // FinishRestore implements the server side of Backups.FinishRestore.
@@ -106,6 +101,5 @@ func (a *API) FinishRestore() error {
 	if currentStatus != state.RestoreFinished {
 		return errors.Errorf("Restore did not finish succesfuly")
 	}
-	err = rInfo.SetStatus(state.RestoreChecked)
-	return errors.Annotate(err, "could not mark restore as completed")
+	return rInfo.SetStatus(state.RestoreChecked)
 }

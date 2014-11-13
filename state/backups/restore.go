@@ -237,13 +237,9 @@ func updateAllMachines(privateAddress string, agentConf agentConfig, st *state.S
 	return err
 }
 
-func mustParseTemplate(templ string) *template.Template {
-	return template.Must(template.New("").Parse(templ))
-}
-
 // agentAddressTemplate is the template used to replace the api server data
 // in the agents for the new ones if the machine has been rebootstraped.
-var agentAddressTemplate = mustParseTemplate(`
+var agentAddressTemplate = template.Must(template.New("").Parse(`
 set -exu
 cd /var/lib/juju/agents
 for agent in *
@@ -265,7 +261,7 @@ do
 	fi
 	initctl start jujud-$agent
 done
-`)
+`))
 
 func execTemplate(tmpl *template.Template, data interface{}) string {
 	var buf bytes.Buffer
@@ -300,9 +296,7 @@ func runViaSSH(addr string, script string) error {
 	sshOptions.SetIdentities("/var/lib/juju/system-identity")
 	userCmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, &sshOptions)
 	var stderrBuf bytes.Buffer
-	var stdoutBuf bytes.Buffer
 	userCmd.Stderr = &stderrBuf
-	userCmd.Stdout = &stdoutBuf
 	err := userCmd.Run()
 	if err != nil {
 		return errors.Annotatef(err, "ssh command failed: %q", stderrBuf.String())

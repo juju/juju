@@ -18,7 +18,8 @@ func (c *Client) Restore(backupFileName, backupId string, apiRoot func() (*api.S
 	params := params.RestoreArgs{
 		FileName: backupFileName,
 		BackupId: backupId,
-		Machine:  "0"}
+		Machine:  "0",
+	}
 	err := c.facade.FacadeCall("Restore", params, nil)
 	// This signals that Restore almost certainly finished and
 	// triggered Exit

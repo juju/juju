@@ -4,7 +4,6 @@
 package peergrouper
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/errors"
@@ -75,14 +74,14 @@ func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 			logger.Debugf("replica set initiation failed, will retry: %v", err)
 		}
 	}
-	return fmt.Errorf("cannot initiate replica set: %v", err)
+	return errors.Annotatef(err, "cannot initiate replica set")
 }
 
 // attemptInitiateMongoServer attempts to initiate the replica set.
 func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
-		return errors.Errorf("can't dial mongo to initiate replicaset: %v", err)
+		return errors.Annotatef(err, "cannot dial mongo to initiate replicaset")
 	}
 	defer session.Close()
 	session.SetSocketTimeout(mongo.SocketTimeout)

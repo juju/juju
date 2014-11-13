@@ -82,10 +82,8 @@ func PlaceNewMongo(newMongoDumpPath string, version int) error {
 	if err != nil {
 		return errors.Errorf("cannot restore this backup version")
 	}
-	if err = runExternalCommand(
-		"initctl",
-		"stop",
-		"juju-db"); err != nil {
+	err = runExternalCommand("initctl", "stop", "juju-db")
+	if err != nil {
 		return errors.Annotate(err, "failed to stop mongo")
 	}
 
@@ -95,10 +93,8 @@ func PlaceNewMongo(newMongoDumpPath string, version int) error {
 		return errors.Annotate(err, "failed to restore database dump")
 	}
 
-	if err = runExternalCommand(
-		"initctl",
-		"start",
-		"juju-db"); err != nil {
+	err = runExternalCommand("initctl", "start", "juju-db")
+	if err != nil {
 		return errors.Annotate(err, "failed to start mongo")
 	}
 

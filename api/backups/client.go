@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/juju/juju/api/base"
-	//"github.com/juju/juju/apiserver/params"
 )
 
 type httpClient interface {
