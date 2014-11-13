@@ -228,6 +228,5 @@ func (s *SSHCommandSuite) TestCopyReader(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	client.checkCalls(c, "foo@bar.com:baz", []string{"cat - > /tmp/blah"}, nil, nil, "Command")
-	client.impl.checkCalls(c, nil, nil, nil, "StdinPipe", "SetStdio", "Start", "Wait")
-	client.impl.checkStdin(c, "<data>")
+	client.impl.checkCalls(c, r, nil, nil, "SetStdio", "Start", "Wait")
 }

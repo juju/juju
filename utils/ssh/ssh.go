@@ -264,28 +264,6 @@ func CopyReader(host, filename string, r io.Reader, options *Options) error {
 
 func copyReader(client Client, host, filename string, r io.Reader, options *Options) error {
 	cmd := client.Command(host, []string{"cat - > " + filename}, options)
-
-	send := func() error {
-		cmdStdin, err := cmd.StdinPipe()
-		if err != nil {
-			return je.Trace(err)
-		}
-		defer cmdStdin.Close()
-
-		if err := cmd.Start(); err != nil {
-			return je.Trace(err)
-		}
-
-		if _, err := io.Copy(cmdStdin, r); err != nil {
-			return je.Trace(err)
-		}
-
-		return nil
-	}
-	if err := send(); err != nil {
-		return err
-	}
-
-	err := cmd.Wait()
-	return je.Trace(err)
+	cmd.Stdin = r
+	return je.Trace(cmd.Run())
 }
