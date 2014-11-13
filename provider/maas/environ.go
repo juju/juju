@@ -174,7 +174,6 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		for _, image := range bootImages {
 			architectures.Add(image.architecture)
 		}
-		// TODO(dfc) why is this sorted ?
 		env.supportedArchitectures = architectures.SortedValues()
 	}
 	return env.supportedArchitectures, nil

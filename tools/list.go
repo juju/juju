@@ -58,7 +58,6 @@ func (src List) collect(f func(*Tools) string) []string {
 	for _, tools := range src {
 		seen.Add(f(tools))
 	}
-	// TODO(dfc) why does this sort ? the method does not specify the returned other, and it's a set, so there is no order
 	return seen.SortedValues()
 }
 
