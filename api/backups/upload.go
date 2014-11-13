@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
+const sshUser = "ubuntu"
+
 var sshCopyReader = func(host, filename string, archive io.Reader) error {
 	return ssh.CopyReader(host, filename, archive, nil)
 }
@@ -24,8 +26,10 @@ func (c *Client) Upload(archive io.Reader) (string, error) {
 	// initiated from the CLI).  However, this SSH-based implementation
 	// is a temporary solution that will be replaced by an HTTP-based
 	// one (which won't have any problem with keys).
-	filename := time.Now().UTC().Format("/tmp/juju-backup-20060102-150405.tgz")
-	host := "ubuntu@" + c.publicAddress
+
+	// We upload the file to the user's home directory.
+	filename := time.Now().UTC().Format("juju-backup-20060102-150405.tgz")
+	host := sshUser + "@" + c.publicAddress
 	err := sshCopyReader(host, filename, archive)
 	return "file://" + filename, errors.Trace(err)
 }
