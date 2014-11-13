@@ -60,6 +60,10 @@ func (dummyHookContext) OwnerTag() string {
 	return ""
 }
 
+func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
+	return nil
+}
+
 type HelpToolCommand struct {
 	cmd.CommandBase
 	tool string

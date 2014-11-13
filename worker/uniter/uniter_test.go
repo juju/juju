@@ -195,14 +195,18 @@ juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
+func (ctx *context) writeExplicitHook(c *gc.C, path string, contents string) {
+	err := ioutil.WriteFile(path, []byte(contents), 0755)
+	c.Assert(err, gc.IsNil)
+}
+
 func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	hook := badHook
 	if good {
 		hook = goodHook
 	}
 	content := fmt.Sprintf(hook, filepath.Base(path))
-	err := ioutil.WriteFile(path, []byte(content), 0755)
-	c.Assert(err, gc.IsNil)
+	ctx.writeExplicitHook(c, path, content)
 }
 
 func (ctx *context) writeActions(c *gc.C, path string, names []string) {
@@ -215,7 +219,7 @@ func (ctx *context) writeAction(c *gc.C, path, name string) {
 	var actions = map[string]string{
 		"action-log": `
 #!/bin/bash --norc
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+juju-log $JUJU_ENV_UUID action-log
 `[1:],
 		"snapshot": `
 #!/bin/bash --norc
@@ -223,27 +227,28 @@ action-set outfile.name="snapshot-01.tar" outfile.size="10.3GB"
 action-set outfile.size.magnitude="10.3" outfile.size.units="GB"
 action-set completion.status="yes" completion.time="5m"
 action-set completion="yes"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail": `
 #!/bin/bash --norc
 action-fail "I'm afraid I can't let you do that, Dave."
 action-set foo="still works"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
 		"action-log-fail-error": `
 #!/bin/bash --norc
 action-fail too many arguments
 action-set foo="still works"
 action-fail "A real message"
-juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
+		"action-reboot": `
+#!/bin/bash --norc
+juju-reboot || action-set reboot-delayed="good"
+juju-reboot --now || action-set reboot-now="good"
+ `[1:],
 	}
 
 	actionPath := filepath.Join(path, "actions", name)
 	action := actions[name]
-	content := fmt.Sprintf(action, filepath.Base(actionPath))
-	err := ioutil.WriteFile(actionPath, []byte(content), 0755)
+	err := ioutil.WriteFile(actionPath, []byte(action), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -274,6 +279,10 @@ actions:
 `[1:],
 		"action-log-fail-error": `
    action-log-fail-error:
+      params:
+`[1:],
+		"action-reboot": `
+   action-reboot:
       params:
 `[1:],
 	}
@@ -1617,7 +1626,7 @@ var subordinatesTests = []uniterTest{
 		unitDying,
 		waitSubordinateDying{},
 		waitHooks{"stop"},
-		verifyRunning{true},
+		verifyWaiting{},
 		removeSubordinate{},
 		waitUniterDead{},
 	), ut(
@@ -1731,6 +1740,162 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		}},
 		waitUniterDead{},
 	})
+}
+
+var rebootHook = `
+#!/bin/bash --norc
+juju-reboot
+`[1:]
+
+var badRebootHook = `
+#!/bin/bash --norc
+juju-reboot
+exit 1
+`[1:]
+
+var rebootNowHook = `
+#!/bin/bash --norc
+
+if [ -f "i_have_risen" ]
+then
+	exit 0
+fi
+touch i_have_risen
+juju-reboot --now
+`[1:]
+
+var rebootTests = []uniterTest{
+	ut(
+		"test that juju-reboot disabled in actions",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-reboot")
+				ctx.writeActionsYaml(c, path, "action-reboot")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+		addAction{"action-reboot", nil},
+		waitHooks{"action-reboot"},
+		verifyActionResults{[]actionResult{{
+			name: "action-reboot",
+			results: map[string]interface{}{
+				"reboot-delayed": "good",
+				"reboot-now":     "good",
+			},
+			status: params.ActionCompleted,
+		}}},
+	),
+	ut(
+		"test that juju-reboot finishes hook, and reboots",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, rebootHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUniterDead{"machine needs to reboot"},
+		waitHooks{"install"},
+		startUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"config-changed", "start"},
+	),
+	ut(
+		"test that juju-reboot --now kills hook and exits",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, rebootNowHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUniterDead{"machine needs to reboot"},
+		waitHooks{},
+		startUniter{},
+		waitUnit{
+			status: params.StatusStarted,
+		},
+		waitHooks{"install", "config-changed", "start"},
+	),
+	ut(
+		"test juju-reboot will not happen if hook errors out",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "hooks", "install")
+				ctx.writeExplicitHook(c, hpath, badRebootHook)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{
+			status: params.StatusError,
+			info:   fmt.Sprintf(`hook failed: "install"`),
+		},
+	),
+}
+
+func (s *UniterSuite) TestReboot(c *gc.C) {
+	s.runUniterTests(c, rebootTests)
+}
+
+var jujuRunRebootTests = []uniterTest{
+	ut(
+		"test juju-reboot",
+		quickStart{},
+		runCommands{"juju-reboot"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"test juju-reboot with bad hook",
+		startupError{"install"},
+		runCommands{"juju-reboot"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{},
+	),
+	ut(
+		"test juju-reboot --now",
+		quickStart{},
+		runCommands{"juju-reboot --now"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{"config-changed"},
+	),
+	ut(
+		"test juju-reboot --now with bad hook",
+		startupError{"install"},
+		runCommands{"juju-reboot --now"},
+		waitUniterDead{"machine needs to reboot"},
+		startUniter{},
+		waitHooks{},
+	),
+}
+
+func (s *UniterSuite) TestRebootFromJujuRun(c *gc.C) {
+	s.runUniterTests(c, jujuRunRebootTests)
 }
 
 func step(c *gc.C, ctx *context, s stepper) {
@@ -1978,17 +2143,12 @@ func (s verifyWaiting) step(c *gc.C, ctx *context) {
 }
 
 type verifyRunning struct {
-	noHooks bool
 }
 
 func (s verifyRunning) step(c *gc.C, ctx *context) {
 	step(c, ctx, stopUniter{})
 	step(c, ctx, startUniter{})
-	if s.noHooks {
-		step(c, ctx, waitHooks{})
-	} else {
-		step(c, ctx, waitHooks{"config-changed"})
-	}
+	step(c, ctx, waitHooks{"config-changed"})
 }
 
 type startupErrorWithCustomCharm struct {

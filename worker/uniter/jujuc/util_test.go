@@ -78,12 +78,14 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	ports         []network.PortRange
-	relid         int
-	remote        string
-	rels          map[int]*ContextRelation
-	metrics       []jujuc.Metric
-	canAddMetrics bool
+	ports          []network.PortRange
+	relid          int
+	remote         string
+	rels           map[int]*ContextRelation
+	metrics        []jujuc.Metric
+	canAddMetrics  bool
+	rebootPriority jujuc.RebootPriority
+	shouldError    bool
 }
 
 func (c *Context) AddMetrics(key, value string, created time.Time) error {
@@ -185,6 +187,15 @@ func (c *Context) RelationIds() []int {
 
 func (c *Context) OwnerTag() string {
 	return "test-owner"
+}
+
+func (c *Context) RequestReboot(priority jujuc.RebootPriority) error {
+	c.rebootPriority = priority
+	if c.shouldError {
+		return fmt.Errorf("RequestReboot error!")
+	} else {
+		return nil
+	}
 }
 
 type ContextRelation struct {

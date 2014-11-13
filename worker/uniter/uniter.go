@@ -393,6 +393,14 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
+	switch err {
+	case context.ErrRequeueAndReboot:
+		logger.Warningf("not requeueing anything. Command run via juju-run.")
+		fallthrough
+	case context.ErrReboot:
+		u.tomb.Kill(worker.ErrRebootMachine)
+		err = nil
+	}
 	return result, err
 }
 
@@ -543,13 +551,29 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 
 	ranHook := true
 	err = context.NewRunner(hctx, u.paths).RunHook(hookName)
-	if context.IsMissingHookError(err) {
+
+	switch {
+	case context.IsMissingHookError(err):
 		ranHook = false
-	} else if err != nil {
-		logger.Errorf("hook %q failed: %s", hookName, err)
+	case err == context.ErrRequeueAndReboot:
+		if stErr := u.writeOperationState(operation.RunHook, operation.Queued, &hi, nil); stErr != nil {
+			logger.Errorf("failed to requeue hook: %v", stErr)
+		}
+		return worker.ErrRebootMachine
+	case err == context.ErrReboot:
+		// Reboot after hook. We want to commit the running hook
+		defer func() {
+			if err != nil {
+				logger.Errorf("error while preparing for reboot: %v", err)
+			}
+			err = worker.ErrRebootMachine
+		}()
+	case err != nil:
+		logger.Errorf("hook %q failed: %v", hookName, err)
 		u.notifyHookFailed(hookName, hctx)
 		return errHookFailed
 	}
+
 	if err := u.writeOperationState(operation.RunHook, operation.Done, &hi, nil); err != nil {
 		return err
 	}

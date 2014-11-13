@@ -41,6 +41,7 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"unit-get" + cmdSuffix:      NewUnitGetCommand,
 	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
 	"add-metric" + cmdSuffix:    NewAddMetricCommand,
+	"juju-reboot" + cmdSuffix:   NewJujuRebootCommand,
 }
 
 // CommandNames returns the names of all jujuc commands.
