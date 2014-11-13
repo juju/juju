@@ -1265,8 +1265,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 func (s *localServerSuite) TestRemoveBlankContainer(c *gc.C) {
 	storage := openstack.BlankContainerStorage()
 	err := storage.Remove("some-file")
-	errString := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(errString, gc.Equals, `cannot remove "some-file": swift container name is empty`)
+	c.Assert(err, gc.ErrorMatches, `cannot remove "some-file": swift container name is empty`)
 }
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
