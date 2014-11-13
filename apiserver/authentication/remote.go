@@ -6,12 +6,11 @@ package authentication
 import (
 	"encoding/base64"
 	"encoding/json"
-	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/macaroon"
 	"github.com/juju/macaroon/bakery"
+	"github.com/juju/macaroon/bakery/checkers"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/common"
@@ -128,32 +127,6 @@ func NewRemoteAuthenticator(service *bakery.Service) *RemoteAuthenticator {
 	return &RemoteAuthenticator{Service: service}
 }
 
-// CheckFirstPartyCaveat implements the bakery.FirstPartyChecker interface.
-func (*RemoteAuthenticator) CheckFirstPartyCaveat(caveat string) error {
-	fields := strings.Split(caveat, " ")
-	if len(fields) < 1 {
-		return errors.New("empty caveat")
-	}
-	question := fields[0]
-
-	switch question {
-	case "is-before-time?":
-		if len(fields) < 2 {
-			return errors.Errorf("%s: missing expiration", fields[0])
-		}
-		expiresAtStr := fields[1]
-
-		expiresAt, err := time.Parse(time.RFC3339, expiresAtStr)
-		if err != nil {
-			return errors.Errorf("%s: invalid expiration %s", question, expiresAtStr)
-		}
-		if time.Now().UTC().After(expiresAt) {
-			return errors.Errorf("%s: authorization expired at %s", question, expiresAtStr)
-		}
-	}
-	return nil
-}
-
 // Authenticate implements the EntityAuthenticator interface.
 func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonce string) error {
 	remoteUser, ok := entity.(*RemoteUser)
@@ -177,7 +150,7 @@ func (a *RemoteAuthenticator) Authenticate(entity state.Entity, credential, nonc
 		return common.ErrBadCreds
 	}
 
-	r := a.NewRequest(a)
+	r := a.NewRequest(checkers.Std)
 	AddCredsToRequest(&remoteCreds, r)
 	return r.Check()
 }

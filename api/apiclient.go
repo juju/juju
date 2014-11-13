@@ -102,6 +102,9 @@ type Info struct {
 // ReauthHandler obtains follow-up credentials for responding to a
 // ReauthRequest challenge response.
 type ReauthHandler interface {
+
+	// HandleReauth returns the credential and nonce to use for
+	// reauthenticating with a subsequent Login request.
 	HandleReauth(*params.ReauthRequest) (string, string, error)
 }
 

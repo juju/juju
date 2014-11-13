@@ -4,12 +4,12 @@
 package apiserver_test
 
 import (
-	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/macaroon"
 	"github.com/juju/macaroon/bakery"
+	"github.com/juju/macaroon/bakery/checkers"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -30,51 +30,41 @@ type remoteLoginSuite struct {
 }
 
 type loggedInChecker struct {
-	validUsers map[string]struct{}
+	validUsers map[string]bool
 }
 
 func newLoggedInChecker(validUsers ...string) *loggedInChecker {
 	c := &loggedInChecker{
-		validUsers: make(map[string]struct{}),
+		validUsers: make(map[string]bool),
 	}
 	for _, user := range validUsers {
-		c.validUsers[user] = struct{}{}
+		c.validUsers[user] = true
 	}
 	return c
 }
 
 func (c *loggedInChecker) isValidUser(user string) bool {
-	_, ok := c.validUsers[user]
-	return ok
+	return c.validUsers[user]
 }
 
 // CheckThirdPartyCaveat implements the macaroon.ThirdPartyChecker interface.
 func (c *loggedInChecker) CheckThirdPartyCaveat(caveatId, condition string) ([]bakery.Caveat, error) {
-	fields := strings.Split(condition, " ")
-	if len(fields) < 1 {
-		return nil, errors.Errorf("empty caveat")
+	question, arg, err := checkers.ParseCaveat(condition)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	question := fields[0]
 
 	switch question {
-	case "is-authorized-user?":
-		if len(fields) < 2 {
-			return nil, errors.Errorf("%s: missing user tag", fields[0])
+	case "can-speak-for":
+		if arg == "" {
+			return nil, errors.Errorf("%s: missing user", condition)
 		}
-		userName := fields[1]
-
-		tag, err := names.ParseTag(userName)
-		if err != nil {
-			return nil, errors.Errorf("%s: invalid user tag %q: %v", question, userName, err)
-		}
-		if userTag, ok := tag.(names.UserTag); !ok {
-			return nil, errors.Errorf("%s: %q is not a user tag", question, userName)
-		} else if c.isValidUser(userTag.Name()) {
+		if c.isValidUser(arg) {
 			return nil, nil
 		}
-		return nil, errors.Errorf("invalid user")
+		return nil, errors.New("invalid user")
 	}
-	return nil, errors.Errorf("unrecognized condition")
+	return nil, errors.New("unrecognized condition")
 }
 
 var reauthDialOpts = api.DialOpts{}
@@ -182,7 +172,6 @@ func (h emptyCredReauthHandler) HandleReauth(reauth *params.ReauthRequest) (stri
 
 type testReauthHandler struct {
 	*remoteLoginSuite
-	*gc.C
 	skipBind          bool
 	thirdPartyChecker bakery.ThirdPartyChecker
 }
@@ -191,9 +180,9 @@ func failReauth(err error) (string, string, error) {
 	return "", "", errors.Trace(err)
 }
 
-// HandleReauth implements a fully-functional reauthentication handler capable
-// of discharging the third-party caveat challenge issued by Juju. It also
-// contains logic to force failure modes for testing.
+// HandleReauth implements a reauthentication handler capable of discharging
+// the third-party caveat challenge issued by Juju. It also contains logic to
+// force failure modes for testing.
 func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, string, error) {
 	var remoteCreds authentication.RemoteCredentials
 	err := remoteCreds.UnmarshalText([]byte(reauth.Prompt))
@@ -225,7 +214,6 @@ func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
 	st, err := api.Open(info, api.DialOpts{
 		ReauthHandler: testReauthHandler{
 			remoteLoginSuite:  s,
-			C:                 c,
 			thirdPartyChecker: newLoggedInChecker("bob"),
 		},
 	})
@@ -248,52 +236,42 @@ func (s *remoteLoginSuite) TestBadReauthHandlers(c *gc.C) {
 		setup   func() func()
 		handler api.ReauthHandler
 		pattern string
-	}{
-		{
-			handler: testReauthHandler{
-				remoteLoginSuite:  s,
-				C:                 c,
-				skipBind:          true,
-				thirdPartyChecker: newLoggedInChecker("bob"),
-			},
-			pattern: "verification failed: signature mismatch after caveat verification",
+	}{{
+		handler: testReauthHandler{
+			remoteLoginSuite:  s,
+			skipBind:          true,
+			thirdPartyChecker: newLoggedInChecker("bob"),
 		},
-		{
-			setup: func() func() {
-				originalTtl := apiserver.MaxMacaroonTtl
-				apiserver.MaxMacaroonTtl = -24 * time.Hour
-				return func() {
-					apiserver.MaxMacaroonTtl = originalTtl
-				}
-			},
-			handler: testReauthHandler{
-				remoteLoginSuite:  s,
-				C:                 c,
-				thirdPartyChecker: newLoggedInChecker("bob"),
-			},
-			pattern: `verification failed: is-before-time\?: authorization expired at .*`,
+		pattern: "verification failed: signature mismatch after caveat verification",
+	}, {
+		setup: func() func() {
+			originalTTL := apiserver.MaxMacaroonTTL
+			apiserver.MaxMacaroonTTL = -24 * time.Hour
+			return func() {
+				apiserver.MaxMacaroonTTL = originalTTL
+			}
 		},
-		{
-			handler: testReauthHandler{
-				remoteLoginSuite:  s,
-				C:                 c,
-				thirdPartyChecker: newLoggedInChecker(),
-			},
-			pattern: "cannot get discharge from \"remote-service-location\": invalid user",
+		handler: testReauthHandler{
+			remoteLoginSuite:  s,
+			thirdPartyChecker: newLoggedInChecker("bob"),
 		},
-		{
-			handler: testReauthHandler{
-				remoteLoginSuite:  s,
-				C:                 c,
-				thirdPartyChecker: &failConditionChecker{},
-			},
-			pattern: "cannot get discharge from \"remote-service-location\": unrecognized condition",
+		pattern: `verification failed: after expiry time`,
+	}, {
+		handler: testReauthHandler{
+			remoteLoginSuite:  s,
+			thirdPartyChecker: newLoggedInChecker(),
 		},
-		{
-			handler: emptyCredReauthHandler{},
-			pattern: "reauthentication failed",
+		pattern: "cannot get discharge from \"remote-service-location\": invalid user",
+	}, {
+		handler: testReauthHandler{
+			remoteLoginSuite:  s,
+			thirdPartyChecker: &failConditionChecker{},
 		},
-	}
+		pattern: "cannot get discharge from \"remote-service-location\": unrecognized condition",
+	}, {
+		handler: emptyCredReauthHandler{},
+		pattern: "reauthentication failed",
+	}}
 	for i, testCase := range testCases {
 		func() {
 			c.Log("test#", i)

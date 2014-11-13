@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/macaroon/bakery"
+	"github.com/juju/macaroon/bakery/checkers"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -313,13 +314,13 @@ func (c *RemoteCredentialChecker) Check(req params.LoginRequest) (state.Entity, 
 	return entity, nil
 }
 
-// MaxMacaroonTtl limits the lifetime of a macaroon issued by Juju for remote
+// MaxMacaroonTTL limits the lifetime of a macaroon issued by Juju for remote
 // authentication.
 //
 // This policy can be further restricted by adding more
 // caveats, and is primarily set as a baseline maximum to prevent indefinite
 // non-expiring authorization tokens from being issued to clients.
-var MaxMacaroonTtl = 2 * 7 * 24 * time.Hour
+var MaxMacaroonTTL = 2 * 7 * 24 * time.Hour
 
 // ReauthRequest creates a challenge response consisting of a macaroon with a third-party caveat on
 // an identity providing service with the condition that the remote user is logged in.
@@ -329,10 +330,14 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 	authKind, err := names.TagKind(req.AuthTag)
 	if err != nil {
 		return fail, errors.Trace(err)
-	}
-	if authKind != names.UserTagKind {
+	} else if authKind != names.UserTagKind {
 		logger.Debugf("remote login only supported for users, got: %q", req.AuthTag)
 		return fail, common.ErrBadCreds
+	}
+
+	userTag, err := names.ParseUserTag(req.AuthTag)
+	if err != nil {
+		return fail, errors.Trace(err)
 	}
 
 	info, err := c.st.StateServingInfo()
@@ -343,15 +348,13 @@ func (c *RemoteCredentialChecker) ReauthRequest(req params.LoginRequest) (params
 		return fail, common.ErrBadCreds
 	}
 
-	isBeforeTime := time.Now().UTC().Add(MaxMacaroonTtl)
+	timeBefore := time.Now().UTC().Add(MaxMacaroonTTL)
 	m, err := c.srv.NewMacaroon("", nil, []bakery.Caveat{
 		{
 			Location:  info.IdentityProvider.Location,
-			Condition: fmt.Sprintf("is-authorized-user? %s", req.AuthTag),
+			Condition: fmt.Sprintf("can-speak-for %s", userTag.Id()),
 		},
-		{
-			Condition: fmt.Sprintf("is-before-time? %s", isBeforeTime.Format(time.RFC3339)),
-		},
+		checkers.TimeBefore(timeBefore),
 	})
 	if err != nil {
 		return fail, errors.Trace(err)

@@ -34,6 +34,10 @@ import (
 // Subsequent requests on the state will act as that entity. This
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
+//
+// If a params.ReauthRequest value is returned, this indicates that Login
+// has not succeeded; the server has issued a challenge for the client to
+// obtain and Login again with follow-up credentials.
 func (st *State) Login(tag, password, nonce string) (*params.ReauthRequest, error) {
 	reauth, err := st.loginV1(tag, password, nonce)
 	if params.IsCodeNotImplemented(err) {

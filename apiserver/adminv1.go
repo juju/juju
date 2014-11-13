@@ -37,7 +37,7 @@ func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) 
 			Locator:  info.NewTargetLocator(),
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 	}
 	return &adminApiV1{
