@@ -149,9 +149,8 @@ func (api *KeyManagerAPI) writeSSHKeys(sshKeys []string) error {
 }
 
 // currentKeyDataForAdd gathers data used when adding ssh keys.
-func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints *set.Strings, err error) {
-	fp := set.NewStrings()
-	fingerprints = &fp
+func (api *KeyManagerAPI) currentKeyDataForAdd() (keys []string, fingerprints set.Strings, err error) {
+	fingerprints = make(set.Strings)
 	cfg, err := api.state.EnvironConfig()
 	if err != nil {
 		return nil, nil, fmt.Errorf("reading current key data: %v", err)

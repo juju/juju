@@ -170,7 +170,7 @@ func (env *maasEnviron) SupportedArchitectures() ([]string, error) {
 		}
 		env.supportedArchitectures = supportedArchitectures
 	} else {
-		var architectures set.Strings
+		architectures := make(set.Strings)
 		for _, image := range bootImages {
 			architectures.Add(image.architecture)
 		}
@@ -196,7 +196,7 @@ func (env *maasEnviron) allBootImages() ([]bootImage, error) {
 		return nil, err
 	}
 	var allBootImages []bootImage
-	var seen set.Strings
+	seen := make(set.Strings)
 	for _, nodegroup := range nodegroups {
 		bootImages, err := env.nodegroupBootImages(nodegroup)
 		if err != nil {
@@ -296,7 +296,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var architectures set.Strings
+	architectures := make(set.Strings)
 	for _, inst := range allInstances {
 		inst := inst.(*maasInstance)
 		arch, _, err := inst.architecture()
@@ -305,6 +305,7 @@ func (env *maasEnviron) nodeArchitectures() ([]string, error) {
 		}
 		architectures.Add(arch)
 	}
+	// TODO(dfc) why is this sorted
 	return architectures.SortedValues(), nil
 }
 
@@ -428,9 +429,10 @@ const (
 
 // getCapabilities asks the MAAS server for its capabilities, if
 // supported by the server.
-func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
+func (env *maasEnviron) getCapabilities() (set.Strings, error) {
+	caps := make(set.Strings)
 	var result gomaasapi.JSONObject
-	caps = set.NewStrings()
+	var err error
 
 	for a := shortAttempt.Start(); a.Next(); {
 		client := env.getMAASClient().GetSubObject("version/")

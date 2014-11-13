@@ -52,7 +52,7 @@ func (s *dumpSuite) prep(c *gc.C, targetDBs ...string) db.Dumper {
 	// set up the dumper.
 	connInfo := db.ConnInfo{"a", "b", "c"} // dummy values to satisfy Dump
 	targets := set.NewStrings(targetDBs...)
-	dbInfo := db.Info{connInfo, &targets}
+	dbInfo := db.Info{connInfo, targets}
 	dumper, err := db.NewDumper(dbInfo)
 	c.Assert(err, gc.IsNil)
 

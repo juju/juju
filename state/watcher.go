@@ -271,7 +271,7 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	coll, closer := w.coll()
 	defer closer()
 
-	var ids set.Strings
+	ids := make(set.Strings)
 	var doc lifeDoc
 	iter := coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
@@ -379,7 +379,7 @@ func (w *lifecycleWatcher) loop() error {
 				out = w.out
 			}
 		case out <- ids.Values():
-			ids = set.NewStrings()
+			ids = make(set.Strings)
 			out = nil
 		}
 	}
@@ -418,7 +418,7 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (set.Strings, error) {
-	var serviceNames set.Strings
+	serviceNames := make(set.Strings)
 	var doc minUnitsDoc
 	newMinUnits, closer := w.st.getCollection(minUnitsC)
 	defer closer()
@@ -694,6 +694,7 @@ type relationUnitsWatcher struct {
 	out      chan juju.RelationUnitsChange
 }
 
+// TODO(dfc) this belongs in a test
 var _ Watcher = (*relationUnitsWatcher)(nil)
 
 // Watch returns a watcher that notifies of changes to conterpart units in
@@ -706,6 +707,7 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		commonWatcher: commonWatcher{st: ru.st},
 		sw:            ru.WatchScope(),
+		watching:      make(set.Strings),
 		updates:       make(chan watcher.Change),
 		out:           make(chan juju.RelationUnitsChange),
 	}
@@ -1628,6 +1630,7 @@ type idPrefixWatcher struct {
 }
 
 // ensure idPrefixWatcher is a StringsWatcher
+// TODO(dfc) this needs to move to a test
 var _ StringsWatcher = (*idPrefixWatcher)(nil)
 
 // newIdPrefixWatcher starts and returns a new StringsWatcher configured
