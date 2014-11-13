@@ -1060,9 +1060,7 @@ func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Addre
 }
 
 // ListNetworks returns basic information about all networks known
-// by the provider for the environment, for a specific instance. A
-// provider may return all networks instead of just those for the
-// instance (provider specific).
+// by the provider for the environment, for a specific instance.
 func (environ *maasEnviron) ListNetworks(instId instance.Id) ([]network.BasicInfo, error) {
 	instances, err := environ.acquiredInstances([]instance.Id{instId})
 	if err != nil {
@@ -1092,13 +1090,13 @@ func (environ *maasEnviron) ListNetworks(instId instance.Id) ([]network.BasicInf
 		// Verify we filled-in everything for all networks
 		// and drop incomplete records.
 		if netInfo.ProviderId == "" || netInfo.CIDR == "" {
-			logger.Warningf("ignoring network interface %q: missing network information", netw)
+			logger.Warningf("ignoring network  %q: missing information (%#v)", netw.Name, netInfo)
 			continue
 		}
 
 		networkInfo = append(networkInfo, netInfo)
 	}
-	logger.Debugf("node %q network information: %#v", inst.Id(), networkInfo)
+	logger.Debugf("available networks for instance %v: %#v", inst.Id(), networkInfo)
 	return networkInfo, nil
 }
 
