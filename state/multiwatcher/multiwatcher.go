@@ -14,13 +14,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/watcher"
-	"gopkg.in/juju/charm.v4"
 )
 
 var logger = loggo.GetLogger("juju.state.multiwatcher")
@@ -578,9 +578,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	}
 	return json.Unmarshal(elements[2], &d.Entity)
 }
-
-// Copyright 2014 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
 
 // When remote units leave scope, their ids will be noted in the
 // Departed field, and no further events will be sent for those units.
