@@ -251,6 +251,45 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
+func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
+	// LP-1391914 :: idPrefixWatcher fails watcher contract to send
+	// initial Change event
+	//
+	// state/idPrefixWatcher does not send an initial event in response
+	// to the first time Changes() is called if all of the pending
+	// events are removed before the first consumption of Changes().
+	// The watcher contract specifies that the first call to Changes()
+	// should always return at a minimum an empty change set to notify
+	// clients of it's initial state
+
+	// preamble
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit1)
+
+	// queue up actions
+	a1, err := unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	a2, err := unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	// start watcher but don't consume Changes() yet
+	w := unit1.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	// remove actions
+	reason := "removed"
+	_, err = a1.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
+	c.Assert(err, gc.IsNil)
+	_, err = a2.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
+	c.Assert(err, gc.IsNil)
+
+	// per contract, there should be at minimum an initial empty Change() result
+	wc.AssertChange()
+	wc.AssertNoChange()
+}
+
 func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	// get units
 	unit1, err := s.State.Unit(s.unit.Name())
