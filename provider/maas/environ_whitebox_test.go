@@ -956,10 +956,13 @@ func (suite *environSuite) TestListNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	// resulting CIDR 192.168.2.1/24
 	suite.getNetwork("LAN", 2, 42)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	// resulting CIDR 192.168.3.1/24
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	// resulting CIDR 192.168.1.1/24
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
 	netInfo, err := suite.makeEnviron().ListNetworks(test_instance.Id())
