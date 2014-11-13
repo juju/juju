@@ -136,7 +136,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
-	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
 func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
@@ -153,7 +153,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
-	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
 func (s *ActionSuite) TestFail(c *gc.C) {
