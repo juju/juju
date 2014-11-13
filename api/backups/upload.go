@@ -4,52 +4,29 @@
 package backups
 
 import (
-	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
+	"time"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/utils/ssh"
 )
 
-func dumpFile(file io.Reader) (string, error) {
-	// Given our lack of window support for state servers, we can be
-	// explicit about the temp dir.
-	tempfile, err := ioutil.TempFile("/tmp", "juju-backup-")
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer tempfile.Close()
-
-	_, err = io.Copy(tempfile, file)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	return tempfile.Name(), nil
-}
-
-var sshCopy = func(filename, remote string) error {
-	return ssh.Copy([]string{filename, remote}, nil)
+var sshCopyReader = func(host, filename string, archive io.Reader) error {
+	return ssh.CopyReader(host, filename, archive, nil)
 }
 
 // Upload sends the backup archive to the server when it is stored.
 // The ID by which the stored archive can be found is returned.
 func (c *Client) Upload(archive io.Reader) (string, error) {
+	filename := time.Now().UTC().Format("/tmp/juju-backup-20060102-150405.tgz")
+
 	addr, err := c.publicAddress()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	host := "ubuntu@" + addr
 
-	filename, err := dumpFile(archive)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	defer os.Remove(filename)
-
-	remote := fmt.Sprintf("ubuntu@%s:%s", addr, filename)
-	err = sshCopy(filename, remote)
+	err = sshCopyReader(host, filename, archive)
 	return "file://" + filename, errors.Trace(err)
 }

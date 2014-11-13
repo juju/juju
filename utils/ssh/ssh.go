@@ -15,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/juju/cmd"
+	je "github.com/juju/errors"
 )
 
 // Options is a client-implementation independent SSH options set.
@@ -249,4 +250,33 @@ func Command(host string, command []string, options *Options) *Cmd {
 func Copy(args []string, options *Options) error {
 	logger.Debugf("using %s ssh client", chosenClient)
 	return DefaultClient.Copy(args, options)
+}
+
+// CopyReader sends the reader's data to a file on the remote host over SSH.
+func CopyReader(host, filename string, r io.Reader, options *Options) error {
+	cmd := Command(host, []string{"cat - > " + filename}, options)
+
+	send := func() error {
+		cmdStdin, err := cmd.StdinPipe()
+		if err != nil {
+			return je.Trace(err)
+		}
+		defer cmdStdin.Close()
+
+		if err := cmd.Start(); err != nil {
+			return je.Trace(err)
+		}
+
+		if _, err := io.Copy(cmdStdin, r); err != nil {
+			return je.Trace(err)
+		}
+
+		return nil
+	}
+	if err := send(); err != nil {
+		return err
+	}
+
+	err := cmd.Wait()
+	return je.Trace(err)
 }
