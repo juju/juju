@@ -19,8 +19,11 @@ type uploadSuite struct {
 var _ = gc.Suite(&uploadSuite{})
 
 func (s *uploadSuite) TestUploadFake(c *gc.C) {
-	s.PatchValue(backups.TestSSHUpload, func(addr string, archive io.Reader) (string, error) {
-		return "file://juju-backup-20141111-010203.tgz", nil
+	var sshHost, sshFilename string
+	s.PatchValue(backups.TestSSHUpload, func(host, filename string, archive io.Reader) error {
+		sshHost = host
+		sshFilename = filename
+		return nil
 	})
 
 	original := []byte("<compressed>")
@@ -28,5 +31,7 @@ func (s *uploadSuite) TestUploadFake(c *gc.C) {
 	id, err := s.client.Upload(archive)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(id, gc.Equals, "file://juju-backup-20141111-010203.tgz")
+	c.Check(sshHost, gc.Equals, "ubuntu@127.0.0.1")
+	c.Check(sshFilename, gc.Matches, `juju-backup-.*\.tgz$`)
+	c.Check(id, gc.Matches, `file://juju-backup-.*\.tgz$`)
 }

@@ -22,17 +22,17 @@ var _ = gc.Suite(&uploadSuite{})
 func (s *uploadSuite) TestSSHUpload(c *gc.C) {
 	var sshFilename, sshHost string
 	var sshArchive io.Reader
-	s.PatchValue(backups.TestSSHCopyReader, func(host, filename string, archive io.Reader) error {
-		sshFilename = filename
+	fakeUpload := func(host, filename string, archive io.Reader) error {
 		sshHost = host
+		sshFilename = filename
 		sshArchive = archive
 		return nil
-	})
+	}
 
 	original := []byte("<compressed>")
 	archive := bytes.NewBuffer(original)
 
-	id, err := backups.SSHUpload("127.0.0.1", archive)
+	id, err := backups.SimpleUpload("127.0.0.1", archive, fakeUpload)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(sshFilename, gc.Matches, "juju-backup-.*.tgz$")
