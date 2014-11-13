@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
@@ -19,6 +18,15 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/testcharms"
+)
+
+const (
+	UnitsC       = unitsC
+	ServicesC    = servicesC
+	SettingsC    = settingsC
+	BackupsMetaC = backupsMetaC
 )
 
 var (
@@ -56,6 +64,10 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
 	st.transactionRunner = runner
 	return txntesting.SetRetryHooks(c, runner, block, check)
+}
+
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
 }
 
 // SetPolicy updates the State's policy field to the

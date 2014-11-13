@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
@@ -287,7 +287,7 @@ type destroyMachineTestCase struct {
 	target    *state.Unit
 	host      *state.Machine
 	desc      string
-	flipHook  []txn.TestHook
+	flipHook  []jujutxn.TestHook
 	destroyed bool
 }
 
@@ -399,12 +399,12 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
-	flip := txn.TestHook{
+	flip := jujutxn.TestHook{
 		Before: func() {
 			s.setMachineVote(c, host.Id(), true)
 		},
 	}
-	flop := txn.TestHook{
+	flop := jujutxn.TestHook{
 		Before: func() {
 			s.setMachineVote(c, host.Id(), false)
 		},
@@ -453,7 +453,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
-	defer state.SetTestHooks(c, s.State, txn.TestHook{
+	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
 		Before: func() {
 			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
@@ -488,7 +488,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 
 	c.Assert(host.SetHasVote(true), gc.IsNil)
 
-	defer state.SetTestHooks(c, s.State, txn.TestHook{
+	defer state.SetTestHooks(c, s.State, jujutxn.TestHook{
 		Before: func() {
 			hostHandle, err := s.State.Machine(host.Id())
 			c.Assert(err, gc.IsNil)
@@ -668,7 +668,21 @@ func (s *UnitSuite) TestGetSetStatusDataChange(c *gc.C) {
 	c.Assert(data, gc.HasLen, 0)
 }
 
-func (s *UnitSuite) TestUnitCharm(c *gc.C) {
+func (s *UnitSuite) TestSetCharmURLSuccess(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, gc.Equals, false)
+	c.Assert(curl, gc.IsNil)
+
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
+
+	curl, ok = s.unit.CharmURL()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(curl, gc.DeepEquals, s.charm.URL())
+}
+
+func (s *UnitSuite) TestSetCharmURLFailures(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	curl, ok := s.unit.CharmURL()
 	c.Assert(ok, gc.Equals, false)
@@ -680,24 +694,86 @@ func (s *UnitSuite) TestUnitCharm(c *gc.C) {
 	err = s.unit.SetCharmURL(charm.MustParseURL("cs:missing/one-1"))
 	c.Assert(err, gc.ErrorMatches, `unknown charm url "cs:missing/one-1"`)
 
-	err = s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, gc.IsNil)
-	curl, ok = s.unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(curl, gc.DeepEquals, s.charm.URL())
-
-	err = s.unit.Destroy()
-	c.Assert(err, gc.IsNil)
-	err = s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, gc.IsNil)
-	curl, ok = s.unit.CharmURL()
-	c.Assert(ok, gc.Equals, true)
-	c.Assert(curl, gc.DeepEquals, s.charm.URL())
-
 	err = s.unit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, gc.ErrorMatches, `unit "wordpress/0" is dead`)
+	c.Assert(err, gc.Equals, state.ErrDead)
+}
+
+func (s *UnitSuite) TestSetCharmURLWithRemovedUnit(c *gc.C) {
+	err := s.unit.Destroy()
+	c.Assert(err, gc.IsNil)
+	assertRemoved(c, s.unit)
+
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.Equals, state.ErrDead)
+}
+
+func (s *UnitSuite) TestSetCharmURLWithDyingUnit(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+	err := s.unit.Destroy()
+	c.Assert(err, gc.IsNil)
+	assertLife(c, s.unit, state.Dying)
+
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
+
+	curl, ok := s.unit.CharmURL()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(curl, gc.DeepEquals, s.charm.URL())
+}
+
+func (s *UnitSuite) TestSetCharmURLRetriesWithDeadUnit(c *gc.C) {
+	preventUnitDestroyRemove(c, s.unit)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.unit.Destroy()
+		c.Assert(err, gc.IsNil)
+		err = s.unit.EnsureDead()
+		c.Assert(err, gc.IsNil)
+		assertLife(c, s.unit, state.Dead)
+	}).Check()
+
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.Equals, state.ErrDead)
+}
+
+func (s *UnitSuite) TestSetCharmURLRetriesWithDifferentURL(c *gc.C) {
+	sch := s.AddConfigCharm(c, "wordpress", emptyConfig, 2)
+
+	defer state.SetTestHooks(c, s.State,
+		jujutxn.TestHook{
+			Before: func() {
+				// Set a different charm to force a retry: first on
+				// the service, so the settings are created, then on
+				// the unit.
+				err := s.service.SetCharm(sch, false)
+				c.Assert(err, gc.IsNil)
+				err = s.unit.SetCharmURL(sch.URL())
+				c.Assert(err, gc.IsNil)
+			},
+			After: func() {
+				// Set back the same charm on the service, so the
+				// settings refcount is correct..
+				err := s.service.SetCharm(s.charm, false)
+				c.Assert(err, gc.IsNil)
+			},
+		},
+		jujutxn.TestHook{
+			Before: nil, // Ensure there will be a retry.
+			After: func() {
+				// Verify it worked after the second attempt.
+				err := s.unit.Refresh()
+				c.Assert(err, gc.IsNil)
+				currentURL, hasURL := s.unit.CharmURL()
+				c.Assert(currentURL, jc.DeepEquals, s.charm.URL())
+				c.Assert(hasURL, jc.IsTrue)
+			},
+		},
+	).Check()
+
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
@@ -707,6 +783,7 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 	}, func() {
 		assertLife(c, s.unit, state.Dying)
 	}).Check()
+
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 }
@@ -718,6 +795,7 @@ func (s *UnitSuite) TestDestroySetCharmRetry(c *gc.C) {
 	}, func() {
 		assertRemoved(c, s.unit)
 	}).Check()
+
 	err := s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 }
@@ -735,6 +813,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	}, func() {
 		assertRemoved(c, s.unit)
 	}).Check()
+
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 }
@@ -753,6 +832,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 		err := machine.EnsureDead()
 		c.Assert(err, gc.IsNil)
 	}).Check()
+
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 }
@@ -769,6 +849,7 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
 	}, func() {
 		assertRemoved(c, s.unit)
 	}).Check()
+
 	err = s.unit.Destroy()
 	c.Assert(err, gc.IsNil)
 }
