@@ -34,6 +34,17 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ToolsSuite) TestEnsureSymlinks(c *gc.C) {
+	s.testEnsureSymlinks(c, s.toolsDir)
+}
+
+func (s *ToolsSuite) TestEnsureSymlinksSymlinkedDir(c *gc.C) {
+	toolsDirSymlink := filepath.Join(c.MkDir(), "unit-ubuntu-0")
+	err := symlink.New(s.toolsDir, toolsDirSymlink)
+	c.Assert(err, gc.IsNil)
+	s.testEnsureSymlinks(c, toolsDirSymlink)
+}
+
+func (s *ToolsSuite) testEnsureSymlinks(c *gc.C, dir string) {
 	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
 	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, gc.IsNil)
@@ -48,7 +59,7 @@ func (s *ToolsSuite) TestEnsureSymlinks(c *gc.C) {
 	}
 
 	// Check that EnsureSymlinks writes appropriate symlinks.
-	err = jujuc.EnsureSymlinks(s.toolsDir)
+	err = jujuc.EnsureSymlinks(dir)
 	c.Assert(err, gc.IsNil)
 	mtimes := map[string]time.Time{}
 	for _, name := range jujuc.CommandNames() {
