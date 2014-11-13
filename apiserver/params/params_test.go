@@ -37,7 +37,7 @@ var marshalTestCases = []struct {
 }{{
 	about: "MachineInfo Delta",
 	value: multiwatcher.Delta{
-		Entity: &juju.MachineInfo{
+		Entity: &multiwatcher.MachineInfo{
 			Id:                      "Benji",
 			InstanceId:              "Shazam",
 			Status:                  "error",
@@ -54,7 +54,7 @@ var marshalTestCases = []struct {
 }, {
 	about: "ServiceInfo Delta",
 	value: multiwatcher.Delta{
-		Entity: &juju.ServiceInfo{
+		Entity: &multiwatcher.ServiceInfo{
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:quantal/name",
@@ -72,7 +72,7 @@ var marshalTestCases = []struct {
 }, {
 	about: "UnitInfo Delta",
 	value: multiwatcher.Delta{
-		Entity: &juju.UnitInfo{
+		Entity: &multiwatcher.UnitInfo{
 			Name:     "Benji",
 			Service:  "Shazam",
 			Series:   "precise",
@@ -93,10 +93,10 @@ var marshalTestCases = []struct {
 }, {
 	about: "RelationInfo Delta",
 	value: multiwatcher.Delta{
-		Entity: &juju.RelationInfo{
+		Entity: &multiwatcher.RelationInfo{
 			Key: "Benji",
 			Id:  4711,
-			Endpoints: []juju.Endpoint{
+			Endpoints: []multiwatcher.Endpoint{
 				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
@@ -105,7 +105,7 @@ var marshalTestCases = []struct {
 }, {
 	about: "AnnotationInfo Delta",
 	value: multiwatcher.Delta{
-		Entity: &juju.AnnotationInfo{
+		Entity: &multiwatcher.AnnotationInfo{
 			Tag: "machine-0",
 			Annotations: map[string]string{
 				"foo":   "bar",
@@ -118,7 +118,7 @@ var marshalTestCases = []struct {
 	about: "Delta Removed True",
 	value: multiwatcher.Delta{
 		Removed: true,
-		Entity: &juju.RelationInfo{
+		Entity: &multiwatcher.RelationInfo{
 			Key: "Benji",
 		},
 	},
