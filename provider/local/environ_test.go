@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
@@ -218,6 +219,7 @@ func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
 			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		}
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
+		c.Assert(mcfg.AgentEnvironment[agent.LxcBridge], gc.Not(gc.Equals), "")
 		// local does not allow machine-0 to host units
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
