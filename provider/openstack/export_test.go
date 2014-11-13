@@ -336,6 +336,11 @@ func CreateCustomStorage(e environs.Environ, containerName string) storage.Stora
 	}
 }
 
+// BlankContainerStorage creates a Storage object with blank container name.
+func BlankContainerStorage() storage.Storage {
+	return &openstackstorage{}
+}
+
 func GetNovaClient(e environs.Environ) *nova.Client {
 	return e.(*environ).nova()
 }
