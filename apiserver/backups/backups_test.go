@@ -77,7 +77,7 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 func (s *backupsSuite) newMeta(notes string) *backups.Metadata {
 	origin := backups.NewOrigin("<env ID>", "<machine ID>", "<hostname>")
-	return backups.NewMetadata(*origin, notes, nil)
+	return backups.NewMetadata(origin, notes, nil)
 }
 
 func (s *backupsSuite) setBackups(c *gc.C, meta *backups.Metadata, err string) *fakeBackups {
