@@ -36,6 +36,7 @@ def deploy_stack(environment, debug, machines, deploy_charm):
             # Record already running domains, so they can be left running,
             # if already running; otherwise start them.
             if verify_libvirt_domain(URI, name, LIBVIRT_DOMAIN_RUNNING):
+                print("%s is already running" % name)
                 running_domains = {machine: True}
             else:
                 running_domains = {machine: False}
@@ -67,10 +68,13 @@ def deploy_stack(environment, debug, machines, deploy_charm):
     if env.config['type'] == 'maas':
         sleep(90)
         for machine, running in running_domains.items():
-            if not running:
-                name, URI = machine.split('@')
-                status_msg = stop_libvirt_domain(URI, name)
-                print("%s" % status_msg)
+            if running:
+                print("WARNING: %s at %s was running when deploy_job started. "
+                      "Shutting it down to ensure a clean environment."
+                      % (name, URI))
+            name, URI = machine.split('@')
+            status_msg = stop_libvirt_domain(URI, name)
+            print("%s" % status_msg)
 
 
 def main():
