@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package uniter
+package filter_test
 
 import (
 	"fmt"
@@ -23,6 +23,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/uniter/filter"
 )
 
 type FilterSuite struct {
@@ -66,6 +67,10 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	s.uniter, err = s.st.Uniter()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.uniter, gc.NotNil)
+}
+
+func newFilter(st *apiuniter.State, tag names.UnitTag) (filter.Filter, error) {
+	return filter.NewFilter(st, tag)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
@@ -114,7 +119,7 @@ func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
 }
 
 // Ensure we get a signal on f.Dead()
-func (s *FilterSuite) assertFilterDies(c *gc.C, f *filter) {
+func (s *FilterSuite) assertFilterDies(c *gc.C, f filter.Filter) {
 	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.BackingState.StartSync() },
 		C:       c,
@@ -123,7 +128,7 @@ func (s *FilterSuite) assertFilterDies(c *gc.C, f *filter) {
 	asserter.AssertClosed()
 }
 
-func (s *FilterSuite) assertAgentTerminates(c *gc.C, f *filter) {
+func (s *FilterSuite) assertAgentTerminates(c *gc.C, f filter.Filter) {
 	s.assertFilterDies(c, f)
 	c.Assert(f.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
@@ -472,7 +477,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 }
 
 // TestActionEvent helper functions
-func getAssertNoActionChange(s *FilterSuite, f *filter, c *gc.C) func() {
+func getAssertNoActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func() {
 	return func() {
 		s.BackingState.StartSync()
 		select {
@@ -483,7 +488,7 @@ func getAssertNoActionChange(s *FilterSuite, f *filter, c *gc.C) func() {
 	}
 }
 
-func getAssertActionChange(s *FilterSuite, f *filter, c *gc.C) func(ids []string) {
+func getAssertActionChange(s *FilterSuite, f filter.Filter, c *gc.C) func(ids []string) {
 	return func(ids []string) {
 		s.BackingState.StartSync()
 		expected := make(map[string]int)
