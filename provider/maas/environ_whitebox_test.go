@@ -522,6 +522,45 @@ func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
+	attemptedNodes := [][]string{}
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		attemptedNodes = append(attemptedNodes, ids["nodes"])
+		return gomaasapi.ServerError{StatusCode: 404}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1", "test2")
+	c.Assert(err, gc.IsNil)
+
+	expectedNodes := [][]string{[]string{"test1", "test2"}, []string{"test1"}, []string{"test2"}}
+	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return gomaasapi.ServerError{StatusCode: 405}
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	maasErr, ok := errors.Cause(err).(gomaasapi.ServerError)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(maasErr.StatusCode, gc.Equals, 405)
+}
+
+func (suite *environSuite) TestStopInstancesReturnsUnexpectedError(c *gc.C) {
+	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		return environs.ErrNoInstances
+	}
+	suite.PatchValue(&ReleaseNodes, releaseNodes)
+	env := suite.makeEnviron()
+	err := env.StopInstances("test1")
+	c.Assert(err, gc.NotNil)
+	c.Assert(errors.Cause(err), gc.Equals, environs.ErrNoInstances)
+}
+
 func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 	env := suite.makeEnviron()
 	_, err := env.StateServerInstances()
