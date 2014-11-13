@@ -68,7 +68,7 @@ func (m *Metadata) Finish(size int64, checksum string) error {
 	format := ChecksumFormat
 	finished := time.Now().UTC()
 
-	if err := m.SetFile(size, checksum, format); err != nil {
+	if err := m.SetFileInfo(size, checksum, format); err != nil {
 		return errors.Annotate(err, "unexpected failure")
 	}
 	m.Finished = &finished
