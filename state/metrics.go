@@ -56,11 +56,11 @@ type Metric struct {
 func (m *MetricBatch) validate() error {
 	charmUrl, err := charm.ParseURL(m.doc.CharmUrl)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	chrm, err := m.st.Charm(charmUrl)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	chrmMetrics := chrm.Metrics()
 	if chrmMetrics == nil {
@@ -68,7 +68,7 @@ func (m *MetricBatch) validate() error {
 	}
 	for _, m := range m.doc.Metrics {
 		if err := chrmMetrics.ValidateMetric(m.Key, m.Value); err != nil {
-			return err
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -177,7 +177,7 @@ func (st *State) CleanupOldMetrics() error {
 		metricsLogger.Infof("no metrics found to cleanup")
 		return nil
 	}
-	return err
+	return errors.Trace(err)
 }
 
 // MetricsToSend returns batchSize metrics that need to be sent
