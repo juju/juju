@@ -15,7 +15,9 @@ import (
 )
 
 func dumpFile(file io.Reader) (string, error) {
-	tempfile, err := ioutil.TempFile(os.TempDir(), "juju-backup-")
+	// Given our lack of window support for state servers, we can be
+	// explicit about the temp dir.
+	tempfile, err := ioutil.TempFile("/tmp", "juju-backup-")
 	if err != nil {
 		return "", errors.Trace(err)
 	}

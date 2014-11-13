@@ -6,7 +6,6 @@ package backups_test
 import (
 	"bytes"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -41,7 +40,7 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	var sshFilename string
 	s.PatchValue(backups.TestSSHCopy, func(filename, remote string) error {
 		sshFilename = filename
-		c.Check(filename, jc.HasPrefix, filepath.Join(os.TempDir(), "juju-backup-"))
+		c.Check(filename, jc.HasPrefix, "/tmp/juju-backup-")
 		c.Check(remote, gc.Equals, "ubuntu@127.0.0.1:"+filename)
 		return nil
 	})
