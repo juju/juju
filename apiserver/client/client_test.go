@@ -1685,7 +1685,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	deltas, err := watcher.Next()
 	c.Assert(err, gc.IsNil)
 	if !c.Check(deltas, gc.DeepEquals, []multiwatcher.Delta{{
-		Entity: &juju.MachineInfo{
+		Entity: &multiwatcher.MachineInfo{
 			Id:                      m.Id(),
 			InstanceId:              "i-0",
 			Status:                  juju.StatusPending,

@@ -20,11 +20,3 @@ func (s *ConstantsSuite) TestAnyJobNeedsState(c *gc.C) {
 	c.Assert(AnyJobNeedsState(JobManageEnviron), jc.IsTrue)
 	c.Assert(AnyJobNeedsState(JobHostUnits, JobManageEnviron), jc.IsTrue)
 }
-
-var (
-	_ EntityInfo = (*MachineInfo)(nil)
-	_ EntityInfo = (*ServiceInfo)(nil)
-	_ EntityInfo = (*UnitInfo)(nil)
-	_ EntityInfo = (*RelationInfo)(nil)
-	_ EntityInfo = (*AnnotationInfo)(nil)
-)

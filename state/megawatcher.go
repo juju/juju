@@ -27,7 +27,7 @@ type allWatcherStateBacking struct {
 type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	info := &juju.MachineInfo{
+	info := &multiwatcher.MachineInfo{
 		Id:                       m.Id,
 		Life:                     juju.Life(m.Life.String()),
 		Series:                   m.Series,
@@ -50,7 +50,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
-		oldInfo := oldInfo.(*juju.MachineInfo)
+		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 		info.InstanceId = oldInfo.InstanceId
@@ -76,7 +76,7 @@ func (m *backingMachine) removed(st *State, store *multiwatcher.Store, id interf
 	// environment UUID prefixed ids but we can't fix it properly
 	// until davecheney smashes the allwatcher to apiserver/params
 	// dependency.
-	store.Remove(juju.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "machine",
 		Id:   st.localID(id.(string)),
 	})
@@ -89,7 +89,7 @@ func (m *backingMachine) mongoId() interface{} {
 type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	info := &juju.UnitInfo{
+	info := &multiwatcher.UnitInfo{
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
@@ -112,7 +112,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*juju.UnitInfo)
+		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 	}
@@ -141,7 +141,7 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 
 func (u *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(juju.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "unit",
 		Id:   st.localID(id.(string)),
 	})
@@ -161,7 +161,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info := &juju.ServiceInfo{
+	info := &multiwatcher.ServiceInfo{
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
@@ -183,7 +183,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		needConfig = true
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*juju.ServiceInfo)
+		oldInfo := oldInfo.(*multiwatcher.ServiceInfo)
 		info.Constraints = oldInfo.Constraints
 		if info.CharmURL == oldInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
@@ -208,7 +208,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 
 func (svc *backingService) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(juju.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "service",
 		Id:   st.localID(id.(string)),
 	})
@@ -230,14 +230,14 @@ func (svc *backingService) mongoId() interface{} {
 type backingRelation relationDoc
 
 func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	eps := make([]juju.Endpoint, len(r.Endpoints))
+	eps := make([]multiwatcher.Endpoint, len(r.Endpoints))
 	for i, ep := range r.Endpoints {
-		eps[i] = juju.Endpoint{
+		eps[i] = multiwatcher.Endpoint{
 			ServiceName: ep.ServiceName,
 			Relation:    ep.Relation,
 		}
 	}
-	info := &juju.RelationInfo{
+	info := &multiwatcher.RelationInfo{
 		Key:       r.Key,
 		Id:        r.Id,
 		Endpoints: eps,
@@ -248,7 +248,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 
 func (r *backingRelation) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(juju.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "relation",
 		Id:   st.localID(id.(string)),
 	})
@@ -261,7 +261,7 @@ func (r *backingRelation) mongoId() interface{} {
 type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	info := &juju.AnnotationInfo{
+	info := &multiwatcher.AnnotationInfo{
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
 	}
@@ -274,7 +274,7 @@ func (a *backingAnnotation) removed(st *State, store *multiwatcher.Store, id int
 	if !ok {
 		panic(fmt.Errorf("unknown global key %q in state", id))
 	}
-	store.Remove(juju.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "annotation",
 		Id:   tag,
 	})
@@ -296,13 +296,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *juju.UnitInfo:
+	case *multiwatcher.UnitInfo:
 		newInfo := *info
 		newInfo.Status = juju.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
-	case *juju.MachineInfo:
+	case *multiwatcher.MachineInfo:
 		newInfo := *info
 		newInfo.Status = juju.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
@@ -336,10 +336,10 @@ func (c *backingConstraints) updated(st *State, store *multiwatcher.Store, id in
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *juju.UnitInfo, *juju.MachineInfo:
+	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
 		return nil
-	case *juju.ServiceInfo:
+	case *multiwatcher.ServiceInfo:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
@@ -369,7 +369,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id inter
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *juju.ServiceInfo:
+	case *multiwatcher.ServiceInfo:
 		// If we're seeing settings for the service with a different
 		// charm URL, we ignore them - we will fetch
 		// them again when the service charm changes.
@@ -398,7 +398,7 @@ func (s *backingSettings) mongoId() interface{} {
 // backingEntityIdForSettingsKey returns the entity id for the given
 // settings key. Any extra information in the key is returned in
 // extra.
-func backingEntityIdForSettingsKey(key string) (eid juju.EntityId, extra string, ok bool) {
+func backingEntityIdForSettingsKey(key string) (eid multiwatcher.EntityId, extra string, ok bool) {
 	if !strings.HasPrefix(key, "s#") {
 		eid, ok = backingEntityIdForGlobalKey(key)
 		return
@@ -406,9 +406,9 @@ func backingEntityIdForSettingsKey(key string) (eid juju.EntityId, extra string,
 	key = key[2:]
 	i := strings.Index(key, "#")
 	if i == -1 {
-		return juju.EntityId{}, "", false
+		return multiwatcher.EntityId{}, "", false
 	}
-	eid = (&juju.ServiceInfo{Name: key[0:i]}).EntityId()
+	eid = (&multiwatcher.ServiceInfo{Name: key[0:i]}).EntityId()
 	extra = key[i+1:]
 	ok = true
 	return
@@ -416,20 +416,21 @@ func backingEntityIdForSettingsKey(key string) (eid juju.EntityId, extra string,
 
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
-func backingEntityIdForGlobalKey(key string) (juju.EntityId, bool) {
+func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
-		return juju.EntityId{}, false
+		return multiwatcher.EntityId{}, false
 	}
 	id := key[2:]
 	switch key[0] {
 	case 'm':
-		return (&juju.MachineInfo{Id: id}).EntityId(), true
+		return (&multiwatcher.MachineInfo{Id: id}).EntityId(), true
 	case 'u':
-		return (&juju.UnitInfo{Name: id}).EntityId(), true
+		return (&multiwatcher.UnitInfo{Name: id}).EntityId(), true
 	case 's':
-		return (&juju.ServiceInfo{Name: id}).EntityId(), true
+		return (&multiwatcher.ServiceInfo{Name: id}).EntityId(), true
+	default:
+		return multiwatcher.EntityId{}, false
 	}
-	return juju.EntityId{}, false
 }
 
 // backingEntityDoc is implemented by the documents in

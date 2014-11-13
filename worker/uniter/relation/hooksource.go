@@ -6,7 +6,7 @@ package relation
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
@@ -22,7 +22,7 @@ type HookSource interface {
 
 	// Changes returns a channel sending events which must be delivered --
 	// synchronously, and in order -- to the HookSource's Update method .
-	Changes() <-chan juju.RelationUnitsChange
+	Changes() <-chan multiwatcher.RelationUnitsChange
 
 	// Stop causes the HookSource to clean up its resources and stop sending
 	// changes.
@@ -32,7 +32,7 @@ type HookSource interface {
 	// invalidates the results of previous calls to Next() and Empty(). It
 	// should only be called with change events received from the Changes()
 	// channel.
-	Update(change juju.RelationUnitsChange) error
+	Update(change multiwatcher.RelationUnitsChange) error
 
 	// Empty returns false if any hooks are scheduled.
 	Empty() bool
@@ -52,9 +52,9 @@ type HookSource interface {
 // first place). It's useful for implementing static HookSources.
 type NoUpdates struct{}
 
-func (_ *NoUpdates) Stop() error                              { return nil }
-func (_ *NoUpdates) Changes() <-chan juju.RelationUnitsChange { return nil }
-func (_ *NoUpdates) Update(_ juju.RelationUnitsChange) error {
+func (_ *NoUpdates) Stop() error                                      { return nil }
+func (_ *NoUpdates) Changes() <-chan multiwatcher.RelationUnitsChange { return nil }
+func (_ *NoUpdates) Update(_ multiwatcher.RelationUnitsChange) error {
 	return errors.Errorf("HookSource does not accept updates")
 }
 
@@ -64,5 +64,5 @@ func (_ *NoUpdates) Update(_ juju.RelationUnitsChange) error {
 type RelationUnitsWatcher interface {
 	Err() error
 	Stop() error
-	Changes() <-chan juju.RelationUnitsChange
+	Changes() <-chan multiwatcher.RelationUnitsChange
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
@@ -1340,7 +1341,7 @@ func (s *uniterBaseSuite) testRelation(
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: juju.Life(rel.Life().String()),
-				Endpoint: juju.Endpoint{
+				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1382,7 +1383,7 @@ func (s *uniterBaseSuite) testRelationById(
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: juju.Life(rel.Life().String()),
-				Endpoint: juju.Endpoint{
+				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1853,8 +1854,8 @@ func (s *uniterBaseSuite) testWatchRelationUnits(
 	c.Assert(mysqlChanges, gc.NotNil)
 	changed, ok := mysqlChanges.Changed["mysql/0"]
 	c.Assert(ok, jc.IsTrue)
-	expectChanges := juju.RelationUnitsChange{
-		Changed: map[string]juju.UnitSettings{"mysql/0": changed},
+	expectChanges := multiwatcher.RelationUnitsChange{
+		Changed: map[string]multiwatcher.UnitSettings{"mysql/0": changed},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{

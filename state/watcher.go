@@ -17,10 +17,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -61,7 +61,7 @@ type StringsWatcher interface {
 // units known to have entered.
 type RelationUnitsWatcher interface {
 	Watcher
-	Changes() <-chan juju.RelationUnitsChange
+	Changes() <-chan multiwatcher.RelationUnitsChange
 }
 
 // commonWatcher is part of all client watchers.
@@ -691,7 +691,7 @@ type relationUnitsWatcher struct {
 	sw       *RelationScopeWatcher
 	watching set.Strings
 	updates  chan watcher.Change
-	out      chan juju.RelationUnitsChange
+	out      chan multiwatcher.RelationUnitsChange
 }
 
 // TODO(dfc) this belongs in a test
@@ -709,7 +709,7 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 		sw:            ru.WatchScope(),
 		watching:      make(set.Strings),
 		updates:       make(chan watcher.Change),
-		out:           make(chan juju.RelationUnitsChange),
+		out:           make(chan multiwatcher.RelationUnitsChange),
 	}
 	go func() {
 		defer w.finish()
@@ -722,19 +722,19 @@ func newRelationUnitsWatcher(ru *RelationUnit) RelationUnitsWatcher {
 // counterpart units in a relation. The first event on the
 // channel holds the initial state of the relation in its
 // Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan juju.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() <-chan multiwatcher.RelationUnitsChange {
 	return w.out
 }
 
-func emptyRelationUnitsChanges(changes *juju.RelationUnitsChange) bool {
+func emptyRelationUnitsChanges(changes *multiwatcher.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
-func setRelationUnitChangeVersion(changes *juju.RelationUnitsChange, key string, revno int64) {
+func setRelationUnitChangeVersion(changes *multiwatcher.RelationUnitsChange, key string, revno int64) {
 	name := unitNameFromScopeKey(key)
-	settings := juju.UnitSettings{Version: revno}
+	settings := multiwatcher.UnitSettings{Version: revno}
 	if changes.Changed == nil {
-		changes.Changed = map[string]juju.UnitSettings{}
+		changes.Changed = map[string]multiwatcher.UnitSettings{}
 	}
 	changes.Changed[name] = settings
 }
@@ -742,7 +742,7 @@ func setRelationUnitChangeVersion(changes *juju.RelationUnitsChange, key string,
 // mergeSettings reads the relation settings node for the unit with the
 // supplied id, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *relationUnitsWatcher) mergeSettings(changes *juju.RelationUnitsChange, key string) (int64, error) {
+func (w *relationUnitsWatcher) mergeSettings(changes *multiwatcher.RelationUnitsChange, key string) (int64, error) {
 	node, err := readSettings(w.st, key)
 	if err != nil {
 		return -1, err
@@ -754,7 +754,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *juju.RelationUnitsChange, 
 // mergeScope starts and stops settings watches on the units entering and
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
-func (w *relationUnitsWatcher) mergeScope(changes *juju.RelationUnitsChange, c *RelationScopeChange) error {
+func (w *relationUnitsWatcher) mergeScope(changes *multiwatcher.RelationUnitsChange, c *RelationScopeChange) error {
 	for _, name := range c.Entered {
 		key := w.sw.prefix + name
 		docID := w.st.docID(key)
@@ -803,8 +803,8 @@ func (w *relationUnitsWatcher) finish() {
 func (w *relationUnitsWatcher) loop() (err error) {
 	var (
 		sentInitial bool
-		changes     juju.RelationUnitsChange
-		out         chan<- juju.RelationUnitsChange
+		changes     multiwatcher.RelationUnitsChange
+		out         chan<- multiwatcher.RelationUnitsChange
 	)
 	for {
 		select {
@@ -833,7 +833,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			out = w.out
 		case out <- changes:
 			sentInitial = true
-			changes = juju.RelationUnitsChange{}
+			changes = multiwatcher.RelationUnitsChange{}
 			out = nil
 		}
 	}

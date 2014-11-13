@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -1235,7 +1236,7 @@ func (u *uniterBaseAPI) prepareRelationResult(rel *state.Relation, unit *state.U
 		Id:   rel.Id(),
 		Key:  rel.String(),
 		Life: juju.Life(rel.Life().String()),
-		Endpoint: juju.Endpoint{
+		Endpoint: multiwatcher.Endpoint{
 			ServiceName: ep.ServiceName,
 			Relation:    ep.Relation,
 		},
