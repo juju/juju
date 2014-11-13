@@ -77,7 +77,7 @@ class AWSAccount:
         for field in self.iter_field_lists(lines):
             if field[:1] != ['GROUP']:
                 continue
-            yield field[3]
+            yield field[1], field[3]
 
     def list_instance_security_groups(self):
         """List the security groups used by instances in this account."""

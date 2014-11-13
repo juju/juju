@@ -145,7 +145,7 @@ class TestAWSAccount(TestCase):
 
         def make_group(name):
             return '\t'.join([
-                'GROUP', 'sg-219d8144', '689913858002',
+                'GROUP', name + '-id', '689913858002',
                 name, 'juju group', 'vpc-1f40b47a'])
 
         return_value = ''.join(
@@ -158,7 +158,8 @@ class TestAWSAccount(TestCase):
         co_mock.assert_called_once_with(
             ['euca-describe-groups', '--filter', 'description=juju group'],
             env=aws.get_environ())
-        self.assertEqual(groups, ['foo', 'foobar', 'baz'])
+        self.assertEqual(groups, [
+            ('foo-id', 'foo'), ('foobar-id', 'foobar'), ('baz-id', 'baz')])
 
     def test_list_instance_security_groups(self):
         aws = AWSAccount.from_config(get_aws_env().config)

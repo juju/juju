@@ -18,9 +18,10 @@ def main():
     logging.basicConfig(level=logging.INFO)
     env = SimpleEnvironment.from_config(args.env)
     substrate = AWSAccount.from_config(env.config)
-    all_groups = set(substrate.list_security_groups())
+    all_groups = dict(substrate.list_security_groups())
     instance_groups = dict(substrate.list_instance_security_groups())
-    non_instance_groups = all_groups.difference(instance_groups.values())
+    non_instance_groups = [v for k, v in all_groups.items()
+                           if k not in instance_groups]
     substrate.destroy_security_groups(non_instance_groups)
 
 
