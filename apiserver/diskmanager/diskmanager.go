@@ -13,7 +13,7 @@ import (
 )
 
 func init() {
-	common.RegisterStandardFacade("DiskManager", 0, NewDiskManagerAPI)
+	common.RegisterStandardFacade("DiskManager", 1, NewDiskManagerAPI)
 }
 
 var logger = loggo.GetLogger("juju.apiserver.diskmanager")
