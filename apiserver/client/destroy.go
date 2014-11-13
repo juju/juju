@@ -16,8 +16,12 @@ import (
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the environment.
 func (c *Client) DestroyEnvironment() error {
-	if blocked, err := c.isDestroyEnvironmentBlocked(); blocked {
-		return err
+	blocked, err := c.isDestroyEnvironmentBlocked()
+	if err != nil {
+		return common.ServerError(err)
+	}
+	if blocked {
+		return common.ErrOperationBlocked
 	}
 	// TODO(axw) 2013-08-30 bug 1218688
 	//
@@ -85,12 +89,9 @@ func (c *Client) DestroyEnvironment() error {
 func (c *Client) isDestroyEnvironmentBlocked() (bool, error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return true, common.ServerError(err)
+		return true, err
 	}
-	if cfg.PreventDestroyEnvironment() {
-		return true, common.ErrOperationBlocked
-	}
-	return false, nil
+	return cfg.PreventDestroyEnvironment(), nil
 }
 
 // destroyInstances directly destroys all non-manager,
