@@ -184,7 +184,9 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		if out == noAgentDir {
 			return environs.ErrNotBootstrapped
 		}
-		return errors.LoggedErrorf(logger, "unexpected output: %q", out)
+		err := errors.Errorf("unexpected output: %q", out)
+		logger.Infof(err.Error())
+		return err
 	}
 	return nil
 }

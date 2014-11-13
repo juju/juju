@@ -171,7 +171,7 @@ func NewStoreManager(backing Backing) *StoreManager {
 		// exact values, so we need to log and unwrap
 		// the error first.
 		if err != nil && cause != tomb.ErrDying {
-			errors.LoggedErrorf(logger, "store manager loop failed: %v", err)
+			logger.Infof("store manager loop failed: %v", err)
 		}
 		sm.tomb.Kill(cause)
 	}()

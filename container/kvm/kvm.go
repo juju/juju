@@ -123,7 +123,9 @@ func (manager *containerManager) CreateContainer(
 	logger.Tracef("write cloud-init")
 	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
-		return nil, nil, errors.LoggedErrorf(logger, "failed to write user data: %v", err)
+		err = errors.Annotate(err, "failed to write user data")
+		logger.Infof(err.Error())
+		return nil, nil, err
 	}
 	// Create the container.
 	startParams = ParseConstraintsToStartParams(machineConfig.Constraints)
@@ -148,7 +150,9 @@ func (manager *containerManager) CreateContainer(
 
 	logger.Tracef("create the container, constraints: %v", machineConfig.Constraints)
 	if err := kvmContainer.Start(startParams); err != nil {
-		return nil, nil, errors.LoggedErrorf(logger, "kvm container creation failed: %v", err)
+		err = errors.Annotate(err, "kvm container creation failed")
+		logger.Infof(err.Error())
+		return nil, nil, err
 	}
 	logger.Tracef("kvm container created")
 	return &kvmInstance{kvmContainer, name}, &hardware, nil

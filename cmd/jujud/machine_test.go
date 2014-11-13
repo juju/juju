@@ -97,7 +97,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.agentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
-	s.singularRecord = &singularRunnerRecord{}
+	s.singularRecord = &singularRunnerRecord{startedWorkers: make(set.Strings)}
 	s.agentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
@@ -364,7 +364,8 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		inited: make(chan struct{}),
+		inited:   make(chan struct{}),
+		deployed: make(set.Strings),
 	}
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {

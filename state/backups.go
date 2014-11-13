@@ -608,14 +608,14 @@ func newMongoConnInfo(mgoInfo *mongo.MongoInfo) *backupsdb.ConnInfo {
 	return &info
 }
 
-func getBackupTargetDatabases(st *State) (*set.Strings, error) {
+func getBackupTargetDatabases(st *State) (set.Strings, error) {
 	dbNames, err := st.MongoSession().DatabaseNames()
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get DB names")
 	}
 
 	targets := set.NewStrings(dbNames...).Difference(ignoredDatabases)
-	return &targets, nil
+	return targets, nil
 }
 
 // NewBackupOrigin returns a snapshot of where backup was run.  That

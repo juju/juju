@@ -49,5 +49,5 @@ func (ci *ConnInfo) Validate() error {
 type Info struct {
 	ConnInfo
 	// Targets is a list of databases to dump.
-	Targets *set.Strings
+	Targets set.Strings
 }
