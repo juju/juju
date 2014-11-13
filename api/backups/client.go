@@ -5,6 +5,7 @@ package backups
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/juju/juju/api/base"
 )
@@ -32,11 +33,12 @@ type Client struct {
 
 // NewClient returns a new backups API client.
 func NewClient(st apiState) *Client {
+	publicAddress := strings.SplitN(st.Addr(), ":", 2)[0]
 	frontend, backend := base.NewClientFacade(st, "Backups")
 	return &Client{
 		ClientFacade:  frontend,
 		facade:        backend,
 		http:          st,
-		publicAddress: st.Addr(),
+		publicAddress: publicAddress,
 	}
 }

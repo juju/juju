@@ -31,7 +31,7 @@ func (s *uploadSuite) TestUploadFake(c *gc.C) {
 	id, err := s.client.Upload(archive)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(sshHost, gc.Equals, "ubuntu@127.0.0.1")
-	c.Check(sshFilename, gc.Matches, `juju-backup-.*\.tgz$`)
-	c.Check(id, gc.Matches, `file://juju-backup-.*\.tgz$`)
+	c.Check(sshHost, gc.Equals, "ubuntu@localhost")
+	c.Check(sshFilename, gc.Matches, `juju-backup-.*\.tar.gz$`)
+	c.Check(id, gc.Matches, `file://juju-backup-.*\.tar.gz$`)
 }
