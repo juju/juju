@@ -22,10 +22,15 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.diskmanager")
 
-// listBlockDevicesPeriod is the time period between block device listings.
-// Unfortunately Linux's inotify does not work with virtual filesystems, so
-// polling it is.
-const listBlockDevicesPeriod = time.Second * 30
+const (
+	// listBlockDevicesPeriod is the time period between block device listings.
+	// Unfortunately Linux's inotify does not work with virtual filesystems, so
+	// polling it is.
+	listBlockDevicesPeriod = time.Second * 30
+
+	// bytesInMiB is the number of bytes in a MiB.
+	bytesInMiB = 1024 * 1024
+)
 
 // BlockDeviceSetter is an interface that is supplied to
 // NewWorker for setting block devices for the local host.
@@ -91,8 +96,7 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 				if err != nil {
 					logger.Errorf("invalid size %q from lsblk: %v", pair[2], err)
 				} else {
-					// Size is output in bytes; we store in MiB.
-					dev.Size = size / (1024 * 1024)
+					dev.Size = size / bytesInMiB
 				}
 			case "LABEL":
 				dev.Label = pair[2]
