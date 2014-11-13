@@ -522,14 +522,19 @@ func (suite *environSuite) TestStopInstancesIgnoresConflict(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (suite *environSuite) TestStopInstancesIgnoresMissingNode(c *gc.C) {
+func (suite *environSuite) TestStopInstancesIgnoresMissingNodeAndRecurses(c *gc.C) {
+	attemptedNodes := [][]string{}
 	releaseNodes := func(nodes gomaasapi.MAASObject, ids url.Values) error {
+		attemptedNodes = append(attemptedNodes, ids["nodes"])
 		return gomaasapi.ServerError{StatusCode: 404}
 	}
 	suite.PatchValue(&ReleaseNodes, releaseNodes)
 	env := suite.makeEnviron()
-	err := env.StopInstances("test1")
+	err := env.StopInstances("test1", "test2")
 	c.Assert(err, gc.IsNil)
+
+	expectedNodes := [][]string{[]string{"test1", "test2"}, []string{"test1"}, []string{"test2"}}
+	c.Assert(attemptedNodes, gc.DeepEquals, expectedNodes)
 }
 
 func (suite *environSuite) TestStopInstancesReturnsUnexpectedMAASError(c *gc.C) {
