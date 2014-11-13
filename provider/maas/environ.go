@@ -913,7 +913,7 @@ func (environ *maasEnviron) newCloudinitConfig(hostname, primaryIface, series st
 	return cloudcfg, nil
 }
 
-func (*maasEnviron) releaseNodes(ids url.Values, recurse bool) error {
+func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Values, recurse bool) error {
 	err := ReleaseNodes(nodes, ids)
 	if err == nil {
 		return nil
@@ -937,7 +937,7 @@ func (*maasEnviron) releaseNodes(ids url.Values, recurse bool) error {
 	// a status code of 400, 403 or 404 means one of the nodes
 	// couldn't be found and none have been released. We have
 	// to release all the ones we can individually.
-	if massErr.StatusCode != 400 && maasErr.StatusCode != 403 && maasErr.StatusCode != 404 {
+	if maasErr.StatusCode != 400 && maasErr.StatusCode != 403 && maasErr.StatusCode != 404 {
 		return errors.Annotate(err, "cannot release nodes")
 	}
 	if !recurse {
@@ -945,18 +945,16 @@ func (*maasEnviron) releaseNodes(ids url.Values, recurse bool) error {
 		return nil
 	}
 
-	var errors []error
-	for _, id := range ids {
-		err := environ.releaseNodes(id, false)
+	var lastErr error
+	for _, id := range ids["nodes"] {
+		idFilter := url.Values{}
+		idFilter.Add("nodes", id)
+		err := environ.releaseNodes(nodes, idFilter, false)
 		if err != nil {
-			errors = append(errors, err)
+			lastErr = err
 		}
 	}
-	if len(errors) == 0 {
-		return nil
-	} else if len(errors) == 1 {
-		return errors.Trace(errors[0])
-	}
+	return errors.Trace(lastErr)
 
 }
 
@@ -967,7 +965,7 @@ func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 		return nil
 	}
 	nodes := environ.getMAASClient().GetSubObject("nodes")
-	err := environ.releaseNodes(getSystemIdValues("nodes", ids), true)
+	err := environ.releaseNodes(nodes, getSystemIdValues("nodes", ids), true)
 	if err != nil {
 		// error will already have been wrapped
 		return err
