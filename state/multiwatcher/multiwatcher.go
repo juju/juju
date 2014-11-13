@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"launchpad.net/tomb"
 	"gopkg.in/juju/charm.v4"
+	"launchpad.net/tomb"
 
 	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
