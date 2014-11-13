@@ -1573,3 +1573,12 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
 }
+
+func (s *localHTTPSServerSuite) TestRemoveBlankContainer(c *gc.C) {
+	storage := openstack.CreateCustomStorage(s.env, "")
+	err := storage.Remove("test-container")
+
+	errString := strings.Replace(err.Error(), "\n", "", -1)
+
+	c.Assert(errString, gc.Equals, "containerName cannot be empty")
+}
