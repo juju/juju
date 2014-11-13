@@ -7,12 +7,16 @@ package backups
 
 import (
 	"io"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/filestorage"
 )
+
+// FilenamePrefix is the prefix used for backup archive files.
+const FilenamePrefix = "juju-backup-"
 
 var logger = loggo.GetLogger("juju.state.backups")
 
@@ -119,6 +123,15 @@ func (b *backups) Create(meta *Metadata, paths Paths, dbInfo DBInfo) error {
 
 // Get pulls the associated metadata and archive file from environment storage.
 func (b *backups) Get(id string) (*Metadata, io.ReadCloser, error) {
+	if strings.HasPrefix(id, uploadedPrefix) {
+		archiveFile, err := openUploaded(id)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+		// TODO(ericsnow) Extract the metadata from the file.
+		return nil, archiveFile, nil
+	}
+
 	rawmeta, archiveFile, err := b.storage.Get(id)
 	if err != nil {
 		return nil, nil, errors.Trace(err)

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-var TestSSHCopyReader = &sshCopyReader
+var TestSSHUpload = &sshUpload
 
 // ExposeFacade returns the client's underlying FacadeCaller.
 func ExposeFacade(c *Client) base.FacadeCaller {

@@ -22,6 +22,8 @@ var (
 	StoreArchiveRef      = &storeArchive
 	GetMongodumpPath     = &getMongodumpPath
 	RunCommand           = &runCommand
+
+	TestSSHCopyReader = &sshCopyReader
 )
 
 // ExposeCreateResult extracts the values in a create() result.

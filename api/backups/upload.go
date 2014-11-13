@@ -5,31 +5,22 @@ package backups
 
 import (
 	"io"
-	"time"
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/state/backups"
 )
 
-const sshUser = "ubuntu"
-
-var sshCopyReader = func(host, filename string, archive io.Reader) error {
-	return ssh.CopyReader(host, filename, archive, nil)
+var sshUpload = func(addr string, archive io.Reader) (string, error) {
+	return backups.SSHUpload(addr, archive)
 }
 
 // Upload sends the backup archive to the server when it is stored.
 // The ID by which the stored archive can be found is returned.
 func (c *Client) Upload(archive io.Reader) (string, error) {
-	// TODO(ericsnow) sshCopyReader assumes the proper SSH keys are
-	// already in place (which they will be when the client is
-	// initiated from the CLI).  However, this SSH-based implementation
-	// is a temporary solution that will be replaced by an HTTP-based
-	// one (which won't have any problem with keys).
-
-	// We upload the file to the user's home directory.
-	filename := time.Now().UTC().Format("juju-backup-20060102-150405.tgz")
-	host := sshUser + "@" + c.publicAddress
-	err := sshCopyReader(host, filename, archive)
-	return "file://" + filename, errors.Trace(err)
+	// TODO(ericsnow) As a temporary solution for restore we are using
+	// an SSH-based upload implementation.  This will be replaced by
+	// an HTTP-based solution.
+	id, err := sshUpload(c.publicAddress, archive)
+	return id, errors.Trace(err)
 }
