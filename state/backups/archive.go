@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"bytes"
 	"compress/gzip"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
+
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -21,6 +24,8 @@ const (
 	dbDumpDir    = "dump"
 	metadataFile = "metadata.json"
 )
+
+var legacyVersion = version.Number{Major: 1, Minor: 20}
 
 // ArchivePaths holds the paths to the files and directories in a
 // backup archive.
@@ -160,4 +165,71 @@ func (ws *ArchiveWorkspace) Metadata() (*Metadata, error) {
 
 	meta, err := NewMetadataJSONReader(metaFile)
 	return meta, errors.Trace(err)
+}
+
+// ArchiveData is a wrapper around a the uncompressed data in a backup
+// archive file. It provides access to the content of the archive.
+type ArchiveData struct {
+	ArchivePaths
+	data []byte
+}
+
+// NewArchiveData builds a new archive data wrapper for the given
+// uncompressed data.
+func NewArchiveData(data []byte) *ArchiveData {
+	return &ArchiveData{
+		ArchivePaths: NewPackedArchivePaths(),
+		data:         data,
+	}
+}
+
+// NewArchiveReader returns a new archive data wrapper for the data in the
+// provided reader.
+func NewArchiveDataReader(r io.Reader) (*ArchiveData, error) {
+	gzr, err := gzip.NewReader(r)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	defer gzr.Close()
+
+	data, err := ioutil.ReadAll(gzr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return NewArchiveData(data), nil
+}
+
+// NewBuffer wraps the archive data in a Buffer.
+func (ad *ArchiveData) NewBuffer() *bytes.Buffer {
+	return bytes.NewBuffer(ad.data)
+}
+
+// Metadata returns the metadata stored in the backup archive.  If no
+// metadata is there, errors.NotFound is returned.
+func (ad *ArchiveData) Metadata() (*Metadata, error) {
+	buf := ad.NewBuffer()
+	_, metaFile, err := tar.FindFile(buf, ad.MetadataFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	meta, err := NewMetadataJSONReader(metaFile)
+	return meta, errors.Trace(err)
+}
+
+// Version returns the juju version under which the backup archive
+// was created.  If no version is found in the archive, it must come
+// from before backup archives included the version.  In that case we
+// return version 1.20.
+func (ad *ArchiveData) Version() (*version.Number, error) {
+	meta, err := ad.Metadata()
+	if errors.IsNotFound(err) {
+		return &legacyVersion, nil
+	}
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &meta.Origin.Version, nil
 }
