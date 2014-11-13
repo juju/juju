@@ -251,7 +251,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
-func (s *ActionSuite) TestLP1391914(c *gc.C) {
+func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	// LP-1391914 :: idPrefixWatcher fails watcher contract to send
 	// initial Change event
 	//
