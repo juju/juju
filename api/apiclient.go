@@ -215,6 +215,9 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 			return nil, errors.Trace(err)
 		}
 		if reauth != nil {
+			if opts.ReauthHandler == nil {
+				return nil, errors.New("client not configured for reauthentication")
+			}
 			creds, nonce, err := opts.ReauthHandler.HandleReauth(reauth)
 			if err != nil {
 				return nil, errors.Trace(err)

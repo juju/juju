@@ -207,6 +207,14 @@ func (h testReauthHandler) HandleReauth(reauth *params.ReauthRequest) (string, s
 	return string(credBytes), reauth.Nonce, nil
 }
 
+func (s *remoteLoginSuite) TestNoReauthHandler(c *gc.C) {
+	info, cleanup := s.setupServerWithValidator(c, nil)
+	defer cleanup()
+	info.Tag = names.NewUserTag("bob")
+	_, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.ErrorMatches, "client not configured for reauthentication")
+}
+
 func (s *remoteLoginSuite) TestReauthHandler(c *gc.C) {
 	info, cleanup := s.setupServerWithValidator(c, nil)
 	defer cleanup()
