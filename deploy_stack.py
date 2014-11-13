@@ -465,11 +465,11 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             logging.info("Waiting for destroy-environment to complete")
             sleep(90)
             for machine, running in running_domains.items():
+                name, URI = machine.split('@')
                 if running:
                     logging.warning("%s at %s was running when deploy_job "
                                     "started. Shutting it down to ensure a "
                                     "clean environment." % (name, URI))
-                name, URI = machine.split('@')
                 logging.info("Attempting to stop %s at %s" % (name, URI))
                 status_msg = stop_libvirt_domain(URI, name)
                 logging.info("%s" % status_msg)
