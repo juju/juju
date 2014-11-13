@@ -1262,6 +1262,12 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 	// streams.canonical.com
 }
 
+func (s *localServerSuite) TestRemoveBlankContainer(c *gc.C) {
+	storage := openstack.BlankContainerStorage()
+	err := storage.Remove("some-file")
+	c.Assert(err, gc.ErrorMatches, `cannot remove "some-file": swift container name is empty`)
+}
+
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
