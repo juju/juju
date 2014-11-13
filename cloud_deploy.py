@@ -9,7 +9,6 @@ import subprocess
 import sys
 from time import sleep
 
-from deploy_stack import deploy_dummy_stack
 from jujupy import (
     CannotConnectEnv,
     Environment,
@@ -19,7 +18,7 @@ from jujupy import (
 )
 
 
-def deploy_stack(environment, debug, machines):
+def deploy_stack(environment, debug, machines, deploy_charm):
     """"Deploy a test stack in the specified environment.
 
     :param environment: The name of the desired environment.
@@ -52,10 +51,10 @@ def deploy_stack(environment, debug, machines):
                 print("Status got Unable to connect to env.  Retrying...")
                 env.get_status()
             env.wait_for_started()
-            # XXX Disabled due to many errors on HP, canonistack, azure.
-            #deploy_dummy_stack(
-            #    env, 'local:{}/'.format(env.config.get(
-            #        'default-series', 'trusty')))
+            if deploy_charm:
+                env.deploy('local:{}/dummy-source'.format(env.config.get(
+                    'default-series', 'trusty')))
+                env.wait_for_started()
         except subprocess.CalledProcessError as e:
             if getattr(e, 'stderr', None) is not None:
                 sys.stderr.write(e.stderr)
@@ -76,10 +75,11 @@ def main():
     parser.add_argument('env', help='The juju environment to test')
     parser.add_argument('--machine', help='KVM machine to start.',
                         action='append', default=[])
+    parser.add_argument('--deploy-charm', action='store_true')
     args = parser.parse_args()
     debug = bool(os.environ.get('DEBUG') == 'true')
     try:
-        deploy_stack(args.env, debug, args.machine)
+        deploy_stack(args.env, debug, args.machine, args.deploy_charm)
     except Exception as e:
         print('%s: %s' % (type(e), e))
         sys.exit(1)
