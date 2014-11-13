@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 
+	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
@@ -93,6 +94,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 				Ftp:     "some-ftp-proxy",
 				NoProxy: "some-no-proxy",
 			},
+			names.NewMachineTag("42"),
 		), []string{
 			"JUJU_CONTEXT_ID=some-context-id",
 			"JUJU_ENV_UUID=env-uuid-deadbeef",
@@ -101,6 +103,7 @@ func (s *EnvSuite) getContext() (ctx *context.HookContext, expectVars []string) 
 			"JUJU_METER_STATUS=PURPLE",
 			"JUJU_METER_INFO=proceed with care",
 			"JUJU_API_ADDRESSES=he.re:12345 the.re:23456",
+			"JUJU_MACHINE_ID=42",
 			"http_proxy=some-http-proxy",
 			"HTTP_PROXY=some-http-proxy",
 			"https_proxy=some-https-proxy",
