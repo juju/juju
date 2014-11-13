@@ -457,7 +457,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 	if err != nil {
 		return nil, err
 	}
-	var instanceIdSet set.Strings
+	instanceIdSet := make(set.Strings)
 	for _, unit := range units {
 		if !unit.IsPrincipal() {
 			continue

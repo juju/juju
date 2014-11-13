@@ -54,10 +54,11 @@ func (src List) Arches() []string {
 // collect calls f on all values in src and returns an alphabetically
 // ordered list of the returned results without duplicates.
 func (src List) collect(f func(*Tools) string) []string {
-	var seen set.Strings
+	seen := make(set.Strings)
 	for _, tools := range src {
 		seen.Add(f(tools))
 	}
+	// TODO(dfc) why does this sort ? the method does not specify the returned other, and it's a set, so there is no order
 	return seen.SortedValues()
 }
 
