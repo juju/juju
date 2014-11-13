@@ -24,9 +24,12 @@ from jujupy import (
     bootstrap_from_env,
     Environment,
     get_local_root,
+)
+from substrate import (
+    LIBVIRT_DOMAIN_RUNNING,
     start_libvirt_domain,
     stop_libvirt_domain,
-    verify_libvirt_domain_running,
+    verify_libvirt_domain,
 )
 from utility import (
     PortTimeoutError,
@@ -395,7 +398,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                 name, URI = machine.split('@')
                 # Record already running domains, so they can be left running,
                 # when finished with the test.
-                if verify_libvirt_domain_running(URI, name):
+                if verify_libvirt_domain(URI, name, LIBVIRT_DOMAIN_RUNNING):
                     running_domains = {machine: True}
                     logging.info("%s is already running" % name)
                 else:
