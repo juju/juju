@@ -688,10 +688,10 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 			DocID:        st.docID(curl.String()),
 			URL:          curl,
 			EnvUUID:      st.EnvironTag().Id(),
-			Meta:         ch.Meta(),
-			Config:       ch.Config(),
-			Metrics:      ch.Metrics(),
-			Actions:      ch.Actions(),
+			Meta:         storeCharmMeta(ch.Meta()),
+			Config:       storeCharmConfig(ch.Config()),
+			Metrics:      storeCharmMetrics(ch.Metrics()),
+			Actions:      storeCharmActions(ch.Actions()),
 			BundleSha256: bundleSha256,
 			StoragePath:  storagePath,
 		}
@@ -738,7 +738,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get charm %q", curl)
 	}
-	if err := cdoc.Meta.Check(); err != nil {
+	if err := cdoc.Meta.convert().Check(); err != nil {
 		return nil, errors.Annotatef(err, "malformed charm metadata found in state")
 	}
 	return newCharm(st, cdoc), nil

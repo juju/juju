@@ -14,10 +14,10 @@ type charmDoc struct {
 	DocID   string     `bson:"_id"`
 	URL     *charm.URL `bson:"url"`
 	EnvUUID string     `bson:"env-uuid"`
-	Meta    *charm.Meta
-	Config  *charm.Config
-	Actions *charm.Actions
-	Metrics *charm.Metrics
+	Meta    *charmMeta
+	Config  *charmConfig
+	Actions *charmActions
+	Metrics *charmMetrics
 
 	// DEPRECATED: BundleURL is deprecated, and exists here
 	// only for migration purposes. We should remove this
@@ -44,9 +44,9 @@ func newCharm(st *State, cdoc *charmDoc) *Charm {
 		unescapedConfig := charm.NewConfig()
 		for optionName, option := range cdoc.Config.Options {
 			unescapedName := unescapeReplacer.Replace(optionName)
-			unescapedConfig.Options[unescapedName] = option
+			unescapedConfig.Options[unescapedName] = option.convert()
 		}
-		cdoc.Config = unescapedConfig
+		cdoc.Config = storeCharmConfig(unescapedConfig)
 	}
 	return &Charm{st: st, doc: *cdoc}
 }
@@ -69,22 +69,34 @@ func (c *Charm) Revision() int {
 
 // Meta returns the metadata of the charm.
 func (c *Charm) Meta() *charm.Meta {
-	return c.doc.Meta
+	if c.doc.Meta == nil {
+		return nil
+	}
+	return c.doc.Meta.convert()
 }
 
 // Config returns the configuration of the charm.
 func (c *Charm) Config() *charm.Config {
-	return c.doc.Config
+	if c.doc.Config == nil {
+		return nil
+	}
+	return c.doc.Config.convert()
 }
 
 // Metrics returns the metrics declared for the charm.
 func (c *Charm) Metrics() *charm.Metrics {
-	return c.doc.Metrics
+	if c.doc.Metrics == nil {
+		return nil
+	}
+	return c.doc.Metrics.convert()
 }
 
 // Actions returns the actions definition of the charm.
 func (c *Charm) Actions() *charm.Actions {
-	return c.doc.Actions
+	if c.doc.Actions == nil {
+		return nil
+	}
+	return c.doc.Actions.convert()
 }
 
 // StoragePath returns the storage path of the charm bundle.

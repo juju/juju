@@ -341,3 +341,71 @@ func SetServiceCharmURL(st *State, serviceName string, URL string) error {
 	}}
 	return errors.Trace(st.runTransaction(ops))
 }
+
+// CharmMeta wraps the private charmMeta type and exports its convert function.
+type CharmMeta struct {
+	charmMeta
+}
+
+func (m CharmMeta) Convert() *charm.Meta {
+	return m.charmMeta.convert()
+}
+
+func StoreCharmMeta(m *charm.Meta) *CharmMeta {
+	result := storeCharmMeta(m)
+	if result == nil {
+		return nil
+	}
+	return &CharmMeta{*result}
+}
+
+// CharmConfig wraps the private charmConfig type and exports its convert function.
+type CharmConfig struct {
+	charmConfig
+}
+
+func (m CharmConfig) Convert() *charm.Config {
+	return m.charmConfig.convert()
+}
+
+func StoreCharmConfig(m *charm.Config) *CharmConfig {
+	result := storeCharmConfig(m)
+	if result == nil {
+		return nil
+	}
+	return &CharmConfig{*result}
+}
+
+// CharmActions wraps the private charmActions type and exports its convert function.
+type CharmActions struct {
+	charmActions
+}
+
+func (m CharmActions) Convert() *charm.Actions {
+	return m.charmActions.convert()
+}
+
+func StoreCharmActions(m *charm.Actions) *CharmActions {
+	result := storeCharmActions(m)
+	if result == nil {
+		return nil
+	}
+	return &CharmActions{*result}
+}
+
+// CharmMetrics wraps the private charmMetrics type and exports its convert function.
+type CharmMetrics struct {
+	charmMetrics
+}
+
+func (m CharmMetrics) Convert() *charm.Metrics {
+	return m.charmMetrics.convert()
+}
+
+func StoreCharmMetrics(m *charm.Metrics) *CharmMetrics {
+	result := storeCharmMetrics(m)
+	if result == nil {
+		return nil
+	}
+	return &CharmMetrics{*result}
+}
