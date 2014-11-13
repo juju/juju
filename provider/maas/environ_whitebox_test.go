@@ -945,6 +945,34 @@ func (suite *environSuite) TestSupportAddressAllocation(c *gc.C) {
 	c.Assert(supported, jc.IsTrue)
 }
 
+func (suite *environSuite) TestListNetworks(c *gc.C) {
+	test_instance := suite.getInstance("node1")
+	templateInterfaces := map[string]ifaceInfo{
+		"aa:bb:cc:dd:ee:ff": {0, "wlan0"},
+		"aa:bb:cc:dd:ee:f1": {1, "eth0"},
+		"aa:bb:cc:dd:ee:f2": {2, "vnet1"},
+	}
+	lshwXML, err := suite.generateHWTemplate(templateInterfaces)
+	c.Assert(err, gc.IsNil)
+
+	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
+	suite.getNetwork("LAN", 2, 42)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
+	suite.getNetwork("Virt", 3, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
+	suite.getNetwork("WLAN", 1, 0)
+	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
+	netInfo, err := suite.makeEnviron().ListNetworks(test_instance.Id())
+	c.Assert(err, gc.IsNil)
+
+	expectedInfo := []network.BasicInfo{
+		network.BasicInfo{CIDR: "192.168.2.1/24", ProviderId: "LAN", VLANTag: 42},
+		network.BasicInfo{CIDR: "192.168.3.1/24", ProviderId: "Virt", VLANTag: 0},
+		network.BasicInfo{CIDR: "192.168.1.1/24", ProviderId: "WLAN", VLANTag: 0},
+	}
+	c.Assert(netInfo, jc.SameContents, expectedInfo)
+}
+
 func (s *environSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
 	s.testMAASObject.TestServer.AddZone("zone1", "the grass is greener in zone1")
 	env := s.makeEnviron()
