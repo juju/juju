@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -1347,4 +1348,9 @@ func (m *Machine) markInvalidContainers() error {
 		}
 	}
 	return nil
+}
+
+func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+	// TODO(axw) implement me
+	return errors.New("SetMachineBlockDevices is not implemented")
 }
