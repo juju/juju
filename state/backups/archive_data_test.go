@@ -6,6 +6,7 @@ package backups_test
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
 	"io/ioutil"
 
 	"github.com/juju/testing"
@@ -44,6 +45,20 @@ func (s *archiveDataSuite) SetUpTest(c *gc.C) {
 		`}` + "\n"))
 	c.Assert(err, gc.IsNil)
 
+	archiveFile := s.newArchiveFile(c, meta)
+	compressed, err := ioutil.ReadAll(archiveFile)
+	c.Assert(err, gc.IsNil)
+	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
+	c.Assert(err, gc.IsNil)
+	data, err := ioutil.ReadAll(gzr)
+	c.Assert(err, gc.IsNil)
+
+	s.archiveFile = bytes.NewBuffer(compressed)
+	s.data = data
+	s.meta = meta
+}
+
+func (s *archiveDataSuite) newArchiveFile(c *gc.C, meta *backups.Metadata) io.Reader {
 	files := []bt.File{
 		{
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
@@ -70,16 +85,7 @@ func (s *archiveDataSuite) SetUpTest(c *gc.C) {
 	}
 	archiveFile, err := bt.NewArchive(meta, files, dump)
 	c.Assert(err, gc.IsNil)
-	compressed, err := ioutil.ReadAll(archiveFile)
-	c.Assert(err, gc.IsNil)
-	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
-	c.Assert(err, gc.IsNil)
-	data, err := ioutil.ReadAll(gzr)
-	c.Assert(err, gc.IsNil)
-
-	s.archiveFile = bytes.NewBuffer(compressed)
-	s.data = data
-	s.meta = meta
+	return archiveFile
 }
 
 func (s *archiveDataSuite) TestNewArchiveData(c *gc.C) {
@@ -128,7 +134,7 @@ func (s *archiveDataSuite) TestMetadata(c *gc.C) {
 	c.Check(meta, jc.DeepEquals, s.meta)
 }
 
-func (s *archiveDataSuite) TestVersion(c *gc.C) {
+func (s *archiveDataSuite) TestVersionFound(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, gc.IsNil)
 
@@ -136,4 +142,15 @@ func (s *archiveDataSuite) TestVersion(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Check(version, jc.DeepEquals, &s.meta.Origin.Version)
+}
+
+func (s *archiveDataSuite) TestVersionNotFound(c *gc.C) {
+	archiveFile := s.newArchiveFile(c, nil)
+	ad, err := backups.NewArchiveDataReader(archiveFile)
+	c.Assert(err, gc.IsNil)
+
+	version, err := ad.Version()
+	c.Assert(err, gc.IsNil)
+
+	c.Check(version.String(), jc.DeepEquals, "1.20.0")
 }
