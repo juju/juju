@@ -79,7 +79,9 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		"-o", strings.Join(columns, ","),
 	).Output()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot list block devices: lsblk failed")
+		return nil, errors.Annotate(
+			err, "cannot list block devices: lsblk failed",
+		)
 	}
 
 	blockDeviceMap := make(map[string]storage.BlockDevice)
@@ -94,7 +96,9 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 			case "SIZE":
 				size, err := strconv.ParseUint(pair[2], 10, 64)
 				if err != nil {
-					logger.Errorf("invalid size %q from lsblk: %v", pair[2], err)
+					logger.Errorf(
+						"invalid size %q from lsblk: %v", pair[2], err,
+					)
 				} else {
 					dev.Size = size / bytesInMiB
 				}
@@ -108,11 +112,16 @@ func listBlockDevices() ([]storage.BlockDevice, error) {
 		}
 
 		// Check if the block device is in use. We need to know this so we can
-		// issue an error of the user attempts to allocate an in-use disk to a
+		// issue an error if the user attempts to allocate an in-use disk to a
 		// unit.
 		dev.InUse, err = blockDeviceInUse(dev)
 		if err != nil {
-			return nil, errors.Annotatef(err, "error checking if %q is in use", dev.DeviceName)
+			logger.Errorf(
+				"error checking if %q is in use: %v", dev.DeviceName, err,
+			)
+			// We cannot detect, so err on the side of caution and default to
+			// "in use" so the device cannot be used.
+			dev.InUse = true
 		}
 		blockDeviceMap[dev.DeviceName] = dev
 	}

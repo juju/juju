@@ -82,9 +82,15 @@ cat <<EOF
 KNAME="sda" SIZE="240057409536" LABEL="" UUID=""
 EOF`)
 
+	// If the in-use check errors, the block device will be marked "in use"
+	// to prevent it from being used, but no error will be returned.
 	devices, err := diskmanager.ListBlockDevices()
-	c.Assert(err, gc.ErrorMatches, `error checking if "sda" is in use: badness`)
-	c.Assert(devices, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(devices, jc.SameContents, []storage.BlockDevice{{
+		DeviceName: "sda",
+		Size:       228936,
+		InUse:      true,
+	}})
 }
 
 func (s *ListBlockDevicesSuite) TestListBlockDevicesLsblkBadOutput(c *gc.C) {
