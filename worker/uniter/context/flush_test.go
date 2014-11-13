@@ -90,10 +90,11 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 func (s *FlushContextSuite) TestRunHookMetricSending(c *gc.C) {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("key"))
+	ctx := s.getMeteredHookContext(c, uuid.String(), -1, "", noProxies, true, s.metricsDefinition("pings"))
 
 	now := time.Now()
-	ctx.AddMetric("key", "50", now)
+	err = ctx.AddMetric("pings", "50", now)
+	c.Assert(err, gc.IsNil)
 
 	// Flush the context with a success.
 	err = ctx.FlushContext("some badge", nil)
@@ -104,7 +105,7 @@ func (s *FlushContextSuite) TestRunHookMetricSending(c *gc.C) {
 	c.Assert(metricBatches, gc.HasLen, 1)
 	metrics := metricBatches[0].Metrics()
 	c.Assert(metrics, gc.HasLen, 1)
-	c.Assert(metrics[0].Key, gc.Equals, "key")
+	c.Assert(metrics[0].Key, gc.Equals, "pings")
 	c.Assert(metrics[0].Value, gc.Equals, "50")
 }
 

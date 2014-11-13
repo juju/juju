@@ -52,6 +52,28 @@ type Metric struct {
 	Credentials []byte    `bson:"credentials"`
 }
 
+// validate checks that the MetricBatch contains valid metrics.
+func (m *MetricBatch) validate() error {
+	charmUrl, err := charm.ParseURL(m.doc.CharmUrl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	chrm, err := m.st.Charm(charmUrl)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	chrmMetrics := chrm.Metrics()
+	if chrmMetrics == nil {
+		return errors.Errorf("charm doesn't implement metrics")
+	}
+	for _, m := range m.doc.Metrics {
+		if err := chrmMetrics.ValidateMetric(m.Key, m.Value); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
 func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []Metric) (*MetricBatch, error) {
@@ -74,6 +96,9 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created 
 			Created:  created,
 			Metrics:  metrics,
 		}}
+	if err := metric.validate(); err != nil {
+		return nil, err
+	}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			notDead, err := isNotDead(st.db, unitsC, st.docID(unitTag.Id()))
@@ -152,7 +177,7 @@ func (st *State) CleanupOldMetrics() error {
 		metricsLogger.Infof("no metrics found to cleanup")
 		return nil
 	}
-	return err
+	return errors.Trace(err)
 }
 
 // MetricsToSend returns batchSize metrics that need to be sent
