@@ -931,7 +931,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 	// a single error on failure. So even with an error 409, all
 	// nodes have been released.
 	if maasErr.StatusCode == 409 {
-		logger.Infof("Releasing nodes reported a state conflict: %v", err)
+		logger.Infof("ignoring error while releasing nodes (%v); all nodes released OK", err)
 		return nil
 	}
 
@@ -953,7 +953,7 @@ func (environ *maasEnviron) releaseNodes(nodes gomaasapi.MAASObject, ids url.Val
 		err := environ.releaseNodes(nodes, idFilter, false)
 		if err != nil {
 			lastErr = err
-			logger.Warningf("Releasing node %v reported an error: %v", id, err)
+			logger.Errorf("error while releasing node %v (%v)", id, err)
 		}
 	}
 	return errors.Trace(lastErr)
