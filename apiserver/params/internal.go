@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -664,4 +665,17 @@ type MeterStatusResult struct {
 // MeterStatusResults holds meter status results for multiple units.
 type MeterStatusResults struct {
 	Results []MeterStatusResult
+}
+
+// MachineBlockDevices holds a machine tag and the block devices present
+// on that machine.
+type MachineBlockDevices struct {
+	Machine      string
+	BlockDevices []storage.BlockDevice
+}
+
+// SetMachineBlockDevices holds the arguments for recording the block
+// devices present on a set of machines.
+type SetMachineBlockDevices struct {
+	MachineBlockDevices []MachineBlockDevices
 }
