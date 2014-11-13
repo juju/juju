@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -16,8 +16,8 @@ import (
 // DestroyEnvironment destroys all services and non-manager machine
 // instances in the environment.
 func (c *Client) DestroyEnvironment() error {
-	if checkErr := c.checkDestroyEnvironmentBlocked(); checkErr != nil {
-		return checkErr
+	if blocked, err := c.isDestroyEnvironmentBlocked(); blocked {
+		return err
 	}
 	// TODO(axw) 2013-08-30 bug 1218688
 	//
@@ -82,18 +82,15 @@ func (c *Client) DestroyEnvironment() error {
 // It examines whether prevent-destroy-environment set to true.
 // If the command must be blocked, an error with user friendly
 // message is thrown up, effectively blocking destroy operation.
-func (c *Client) checkDestroyEnvironmentBlocked() error {
+func (c *Client) isDestroyEnvironmentBlocked() (bool, error) {
 	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
-		return err
+		return true, common.ServerError(err)
 	}
 	if cfg.PreventDestroyEnvironment() {
-		return &params.Error{
-			Code:    params.CodeOperationBlocked,
-			Message: `destroy-environment operation has been blocked for environment %q.`,
-		}
+		return true, common.ErrOperationBlocked
 	}
-	return nil
+	return false, nil
 }
 
 // destroyInstances directly destroys all non-manager,

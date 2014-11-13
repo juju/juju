@@ -150,19 +150,24 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) 
 	}
 }
 
-func (s *destroyEnvironmentSuite) TestDestroyLockedEnvironment(c *gc.C) {
+func (s *destroyEnvironmentSuite) checkDestroyEnvironment(c *gc.C, blocked bool) {
 	//Setup environment
 	s.setUpInstances(c)
-
 	// lock environment: can't destroy locked environment
-	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": true}, nil, nil)
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": blocked}, nil, nil)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(params.IsCodeOperationBlocked(err), gc.Equals, true)
+	if blocked {
+		c.Assert(params.IsCodeOperationBlocked(err), jc.IsTrue)
+	} else {
+		c.Assert(err, gc.IsNil)
+	}
+}
 
-	//unlock environment: can destroy unlocked environment
-	err = s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": false}, nil, nil)
-	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().DestroyEnvironment()
-	c.Assert(err, gc.IsNil)
+func (s *destroyEnvironmentSuite) TestDestroyLockedEnvironment(c *gc.C) {
+	s.checkDestroyEnvironment(c, true)
+}
+
+func (s *destroyEnvironmentSuite) TestDestroyUnlockedEnvironment(c *gc.C) {
+	s.checkDestroyEnvironment(c, false)
 }

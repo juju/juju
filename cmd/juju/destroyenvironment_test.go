@@ -58,48 +58,35 @@ func (s *destroyEnvSuite) updateConfigParameter(c *gc.C, key string, value inter
 	c.Assert(err, gc.IsNil)
 }
 
-type destroyLockTest struct {
-	about         string
-	envValue      interface{}
-	cmdArgs       string
-	expectFailure bool
-}
-
-var destroyLockTests = []destroyLockTest{
-	{
-		about:         "Scenario 1: env locked and destroy does not happened",
-		envValue:      true,
-		expectFailure: true,
-	},
-	{
-		about:         "Scenario 2: env unlocked and destroy takes place",
-		envValue:      false,
-		expectFailure: false,
-	},
-}
-
-func (s *destroyEnvSuite) TestDestroyLockEnvironmentFlag(c *gc.C) {
+func (s *destroyEnvSuite) checkDestroyEnvironment(c *gc.C, blocked bool) {
+	//Setup environment
 	envName := "dummyenv"
-	for i, test := range destroyLockTests {
-		c.Logf("\ntest %d. %s\n", i, test.about)
-		// Start environment to destroy
-		s.startEnvironment(c, envName)
-		// Override prevent-destroy-environment to lock environment destruction
-		s.updateConfigParameter(c, "prevent-destroy-environment", test.envValue)
-		if test.expectFailure {
-			// Check environment is locked and cannot be destroyed
-			_, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
-			c.Check(<-errc, gc.Equals, cmd.ErrSilent)
-		} else {
-			// normal destroy
-			opc, errc2 := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
-			c.Check(<-errc2, gc.IsNil)
-			c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
-			// Verify that the environment information has been removed.
-			_, err := s.ConfigStore.ReadInfo(envName)
-			c.Assert(err, jc.Satisfies, errors.IsNotFound)
-		}
+	s.startEnvironment(c, envName)
+	// lock environment: can't destroy locked environment
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{"prevent-destroy-environment": blocked}, nil, nil)
+	c.Assert(err, gc.IsNil)
+	opc, errc := cmdtesting.RunCommand(cmdtesting.NullContext(c), new(DestroyEnvironmentCommand), envName, "--yes")
+	if blocked {
+		c.Check(<-errc, gc.Not(gc.IsNil))
+		c.Check((<-opc), gc.IsNil)
+		// Verify that the environment information has not been removed.
+		_, err := s.ConfigStore.ReadInfo(envName)
+		c.Assert(err, gc.IsNil)
+	} else {
+		c.Check(<-errc, gc.IsNil)
+		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, envName)
+		// Verify that the environment information has been removed.
+		_, err := s.ConfigStore.ReadInfo(envName)
+		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
+}
+
+func (s *destroyEnvSuite) TestDestroyLockedEnvironment(c *gc.C) {
+	s.checkDestroyEnvironment(c, true)
+}
+
+func (s *destroyEnvSuite) TestDestroyUnlockedEnvironment(c *gc.C) {
+	s.checkDestroyEnvironment(c, false)
 }
 
 // Needs to be a separate test as destroyed environment cannot be re-used without TearDown/Setup to clean everything up

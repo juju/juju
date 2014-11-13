@@ -5,24 +5,23 @@ package main
 
 import (
 	"bufio"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/juju/cmd"
-	jujuerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
 )
 
-var NoEnvironmentError = errors.New("no environment specified")
-var DoubleEnvironmentError = errors.New("you cannot supply both -e and the envname as a positional argument")
+var NoEnvironmentError = stderrors.New("no environment specified")
+var DoubleEnvironmentError = stderrors.New("you cannot supply both -e and the envname as a positional argument")
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
@@ -97,7 +96,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}
 		answer := strings.ToLower(scanner.Text())
 		if answer != "y" && answer != "yes" {
-			return errors.New("environment destruction aborted")
+			return stderrors.New("environment destruction aborted")
 		}
 	}
 	// If --force is supplied, then don't attempt to use the API.
@@ -111,14 +110,12 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		}()
 		apiclient, err := juju.NewAPIClientFromName(c.envName)
 		if err != nil {
-			return jujuerrors.Annotate(err, "cannot connect to API")
+			return errors.Annotate(err, "cannot connect to API")
 		}
 		defer apiclient.Close()
 		err = apiclient.DestroyEnvironment()
-		if err != nil {
-			if cmdErr := processDestroyError(err); cmdErr != nil {
-				return cmdErr
-			}
+		if cmdErr := processDestroyError(err); cmdErr != nil {
+			return cmdErr
 		}
 	}
 	return environs.Destroy(environ, store)
@@ -128,16 +125,14 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 // Note that CodeNotImplemented errors have not be propogated in previous implementation.
 // This behaviour was preserved.
 func processDestroyError(err error) error {
+	if err == nil {
+		return nil
+	}
 	if params.IsCodeOperationBlocked(err) {
-		// TODO(anastasiamac): Rather unfortunately, can't use jujuerrors.Annotatef.
-		// This will change the type of error and loose error code.
-		berr, _ := err.(*params.Error)
-		berr.Message += fmt.Sprintf(` To remove the block run "juju set-env %s=false"`,
-			config.PreventDestroyEnvironmentKey)
-		return berr
+		return err
 	}
 	if !params.IsCodeNotImplemented(err) {
-		return jujuerrors.Annotate(err, "destroying environment")
+		return errors.Annotate(err, "destroying environment")
 	}
 	return nil
 }
@@ -146,12 +141,11 @@ func processDestroyError(err error) error {
 // only operation blocked is singled out to be treated differently
 // than other errors.
 func (c *DestroyEnvironmentCommand) logDestroyError(err error) error {
+	errMsg := stdFailureMsg
 	if params.IsCodeOperationBlocked(err) {
-		logger.Errorf(err.Error(), c.envName)
-		// This is done to avoid displaying the message twice
-		return cmd.ErrSilent
+		errMsg = blockedOperationMsg
 	}
-	logger.Errorf(stdFailureMsg, c.envName)
+	logger.Errorf(errMsg, c.envName)
 	return err
 }
 
@@ -172,4 +166,8 @@ your environment provider console for any resources that need
 to be cleaned up. Using force will also by-pass destroy-envrionment
  block configured by setting prevent-destroy-environment to true.
 
+`
+var blockedOperationMsg = `
+destroy-environment operation has been blocked for environment %q.
+To remove the block run "juju set-env prevent-destroy-environment=false"
 `
