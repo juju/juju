@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	goyaml "gopkg.in/yaml.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -185,16 +186,16 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	testJujuHome := c.MkDir()
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/releases/juju1.2.3-quantal-amd64.tgz",
+		URL:     "http://foo.com/tools/released/juju1.2.3-quantal-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)
 
-	allJobs := []params.MachineJob{
-		params.JobManageEnviron,
-		params.JobHostUnits,
-		params.JobManageNetworking,
+	allJobs := []juju.MachineJob{
+		juju.JobManageEnviron,
+		juju.JobHostUnits,
+		juju.JobManageNetworking,
 	}
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",

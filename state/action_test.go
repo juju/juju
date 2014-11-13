@@ -10,11 +10,11 @@ import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 )
 
 type ActionSuite struct {
@@ -65,6 +65,8 @@ func (s *ActionSuite) TestActionTag(c *gc.C) {
 func (s *ActionSuite) TestAddAction(c *gc.C) {
 	name := "fakeaction"
 	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
+	before := state.NowToTheSecond()
+	later := before.Add(testing.LongWait)
 
 	// verify can add an Action
 	a, err := s.unit.AddAction(name, params)
@@ -79,6 +81,12 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	// verify we get out what we put in
 	c.Assert(action.Name(), gc.Equals, name)
 	c.Assert(action.Parameters(), jc.DeepEquals, params)
+
+	// Enqueued time should be within a reasonable time of the beginning
+	// of the test
+	now := state.NowToTheSecond()
+	c.Check(action.Enqueued(), jc.TimeBetween(before, now))
+	c.Check(action.Enqueued(), jc.TimeBetween(before, later))
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -186,6 +194,13 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 
 	c.Assert(results[0].Name(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+
+	// Verify the ActionResult Completed time was within a reasonable
+	// time of the Enqueued time.
+	diff := results[0].Completed().Sub(action.Enqueued())
+	c.Assert(diff >= 0, jc.IsTrue)
+	c.Assert(diff < testing.LongWait, jc.IsTrue)
+
 	res, errstr := results[0].Results()
 	c.Assert(errstr, gc.Equals, reason)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
@@ -234,6 +249,45 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	actions, err := unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
+}
+
+func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
+	// LP-1391914 :: idPrefixWatcher fails watcher contract to send
+	// initial Change event
+	//
+	// state/idPrefixWatcher does not send an initial event in response
+	// to the first time Changes() is called if all of the pending
+	// events are removed before the first consumption of Changes().
+	// The watcher contract specifies that the first call to Changes()
+	// should always return at a minimum an empty change set to notify
+	// clients of it's initial state
+
+	// preamble
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit1)
+
+	// queue up actions
+	a1, err := unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	a2, err := unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	// start watcher but don't consume Changes() yet
+	w := unit1.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	// remove actions
+	reason := "removed"
+	_, err = a1.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
+	c.Assert(err, gc.IsNil)
+	_, err = a2.Finish(state.ActionResults{Status: state.ActionFailed, Message: reason})
+	c.Assert(err, gc.IsNil)
+
+	// per contract, there should be at minimum an initial empty Change() result
+	wc.AssertChange()
+	wc.AssertNoChange()
 }
 
 func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
@@ -333,37 +387,35 @@ func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
 
 func (s *ActionSuite) TestMergeIds(c *gc.C) {
 	var tests = []struct {
-		initial  string
 		changes  string
 		adds     string
 		removes  string
 		expected string
 	}{
-		{initial: "", changes: "", adds: "a0,a1", removes: "", expected: "a0,a1"},
-		{initial: "", changes: "a0,a1", adds: "", removes: "a0", expected: "a1"},
-		{initial: "", changes: "a0,a1", adds: "a2", removes: "a0", expected: "a1,a2"},
+		{changes: "", adds: "a0,a1", removes: "", expected: "a0,a1"},
+		{changes: "a0,a1", adds: "", removes: "a0", expected: "a1"},
+		{changes: "a0,a1", adds: "a2", removes: "a0", expected: "a1,a2"},
 
-		{initial: "a0", changes: "", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
-		{initial: "a0", changes: "", adds: "a0,a1,a2", removes: "a0,a1,a2", expected: ""},
+		{changes: "", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "", adds: "a0,a1,a2", removes: "a0,a1,a2", expected: ""},
 
-		{initial: "a0", changes: "a0", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
-		{initial: "a0", changes: "a1", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
-		{initial: "a0", changes: "a2", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "a0", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "a1", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{changes: "a2", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
 
-		{initial: "a0,a1,a2", changes: "a3,a4", adds: "a1,a4,a5", removes: "a1,a3", expected: "a4,a5"},
-		{initial: "a0,a1,a2", changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
+		{changes: "a3,a4", adds: "a1,a4,a5", removes: "a1,a3", expected: "a4,a5"},
+		{changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
 	}
 
 	for ix, test := range tests {
 		updates := mapify(test.adds, test.removes)
-		changes := newSet(test.changes)
-		initial := newSet(test.initial)
-		expected := newSet(test.expected)
+		changes := sliceify(test.changes)
+		expected := sliceify(test.expected)
 
-		c.Log(fmt.Sprintf("test number %d %+v", ix, test))
-		err := state.WatcherMergeIds(s.State, changes, initial, updates)
+		c.Log(fmt.Sprintf("test number %d %#v", ix, test))
+		err := state.WatcherMergeIds(s.State, &changes, updates)
 		c.Assert(err, gc.IsNil)
-		c.Assert(changes.SortedValues(), jc.DeepEquals, expected.SortedValues())
+		c.Assert(changes, jc.SameContents, expected)
 	}
 }
 
@@ -382,10 +434,10 @@ func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		changes, initial, updates := newSet(""), newSet(""), map[interface{}]bool{}
+		changes, updates := []string{}, map[interface{}]bool{}
 
 		updates[test.key] = true
-		err := state.WatcherMergeIds(s.State, changes, initial, updates)
+		err := state.WatcherMergeIds(s.State, &changes, updates)
 
 		if test.ok {
 			c.Assert(err, gc.IsNil)
@@ -506,31 +558,35 @@ func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
 	return ids
 }
 
-// newSet is a convenience method to make reading the tests easier. It
-// turns a comma delimited string into a set.Strings
-func newSet(vals string) set.Strings {
-	ret := set.NewStrings(strings.Split(vals, ",")...)
-	ret.Remove("")
-	return ret
-}
-
 // mapify is a convenience method, also to make reading the tests
 // easier. It combines two comma delimited strings representing
 // additions and removals and turns it into the map[interface{}]bool
 // format needed
 func mapify(adds, removes string) map[interface{}]bool {
 	m := map[interface{}]bool{}
-	for _, v := range strings.Split(adds, ",") {
-		if v != "" {
-			m[v] = true
-		}
+	for _, v := range sliceify(adds) {
+		m[v] = true
 	}
-	for _, v := range strings.Split(removes, ",") {
-		if v != "" {
-			m[v] = false
-		}
+	for _, v := range sliceify(removes) {
+		m[v] = false
 	}
 	return m
+}
+
+// sliceify turns a comma separated list of strings into a slice
+// trimming white space and excluding empty strings.
+func sliceify(csvlist string) []string {
+	slice := []string{}
+	if csvlist == "" {
+		return slice
+	}
+	for _, entry := range strings.Split(csvlist, ",") {
+		clean := strings.TrimSpace(entry)
+		if clean != "" {
+			slice = append(slice, clean)
+		}
+	}
+	return slice
 }
 
 // mockAR is an implementation of ActionReceiver that can be used for

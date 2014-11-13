@@ -7,10 +7,10 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	gc "gopkg.in/check.v1"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 )
 
@@ -76,7 +76,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
+	charm := addCharm(c, s.state, "quantal", testcharms.Repo.CharmDir("mysql"))
 	owner := s.env.Owner()
 	service, err := s.state.AddService("mysql", owner.String(), charm, nil)
 	c.Assert(err, gc.IsNil)

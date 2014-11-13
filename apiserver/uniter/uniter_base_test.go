@@ -12,12 +12,14 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	jujuFactory "github.com/juju/juju/testing/factory"
 )
@@ -114,9 +116,9 @@ func (s *uniterBaseSuite) testSetStatus(
 
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: "unit-mysql-0", Status: params.StatusError, Info: "not really"},
-			{Tag: "unit-wordpress-0", Status: params.StatusStopped, Info: "foobar"},
-			{Tag: "unit-foo-42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "unit-mysql-0", Status: juju.StatusError, Info: "not really"},
+			{Tag: "unit-wordpress-0", Status: juju.StatusStopped, Info: "foobar"},
+			{Tag: "unit-foo-42", Status: juju.StatusStarted, Info: "blah"},
 		}}
 	result, err := facade.SetStatus(args)
 	c.Assert(err, gc.IsNil)
@@ -893,7 +895,7 @@ func (s *uniterBaseSuite) testWatchActions(c *gc.C, facade watchActions) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -929,6 +931,7 @@ func (s *uniterBaseSuite) testWatchPreexistingActions(c *gc.C, facade watchActio
 		{Tag: "unit-wordpress-0"},
 	}}
 
+	s.State.StartSync()
 	results, err := facade.WatchActions(args)
 	c.Assert(err, gc.IsNil)
 
@@ -1337,8 +1340,8 @@ func (s *uniterBaseSuite) testRelation(
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: params.Life(rel.Life().String()),
-				Endpoint: params.Endpoint{
+				Life: juju.Life(rel.Life().String()),
+				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1379,8 +1382,8 @@ func (s *uniterBaseSuite) testRelationById(
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: params.Life(rel.Life().String()),
-				Endpoint: params.Endpoint{
+				Life: juju.Life(rel.Life().String()),
+				Endpoint: multiwatcher.Endpoint{
 					ServiceName: wpEp.ServiceName,
 					Relation:    wpEp.Relation,
 				},
@@ -1851,8 +1854,8 @@ func (s *uniterBaseSuite) testWatchRelationUnits(
 	c.Assert(mysqlChanges, gc.NotNil)
 	changed, ok := mysqlChanges.Changed["mysql/0"]
 	c.Assert(ok, jc.IsTrue)
-	expectChanges := params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{"mysql/0": changed},
+	expectChanges := multiwatcher.RelationUnitsChange{
+		Changed: map[string]multiwatcher.UnitSettings{"mysql/0": changed},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{

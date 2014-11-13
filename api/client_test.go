@@ -22,12 +22,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
@@ -50,7 +50,7 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 }
 
 func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
-	charmArchive := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
@@ -66,7 +66,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
-	charmDir := charmtesting.Charms.ClonedDir(c.MkDir(), "dummy")
+	charmDir := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
 	charmDir.SetDiskRevision(42)
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, gc.IsNil)
@@ -95,7 +95,7 @@ func (s *clientSuite) TestAddLocalCharmError(c *gc.C) {
 	client := s.APIState.Client()
 	api.SetServerRoot(client, url)
 
-	charmArchive := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)

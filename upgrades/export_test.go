@@ -5,6 +5,7 @@ package upgrades
 
 var (
 	UpgradeOperations         = &upgradeOperations
+	StateUpgradeOperations    = &stateUpgradeOperations
 	UbuntuHome                = &ubuntuHome
 	RootLogDir                = &rootLogDir
 	RootSpoolDir              = &rootSpoolDir

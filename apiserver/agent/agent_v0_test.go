@@ -4,6 +4,7 @@ import (
 	"github.com/juju/names"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/apiserver/agent"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -52,7 +53,7 @@ func (s *baseSuite) testGetEntitiesV0(c *gc.C, api getEntitiesV0) {
 		Entities: []params.AgentGetEntitiesResult{
 			{
 				Life: "alive",
-				Jobs: []params.MachineJob{params.JobHostUnits},
+				Jobs: []juju.MachineJob{juju.JobHostUnits},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -79,7 +80,7 @@ func (s *baseSuite) testGetEntitiesContainerV0(c *gc.C, api getEntitiesV0) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Life:          "dying",
-				Jobs:          []params.MachineJob{params.JobHostUnits},
+				Jobs:          []juju.MachineJob{juju.JobHostUnits},
 				ContainerType: instance.LXC,
 			},
 			{Error: apiservertesting.ErrUnauthorized},

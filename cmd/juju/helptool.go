@@ -12,7 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/context/jujuc"
 )
 
 // dummyHookContext implements jujuc.Context,
@@ -54,6 +54,10 @@ func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, bool) {
 }
 func (dummyHookContext) RelationIds() []int {
 	return []int{}
+}
+
+func (dummyHookContext) RequestReboot(prio jujuc.RebootPriority) error {
+	return nil
 }
 
 func (dummyHookContext) OwnerTag() string {

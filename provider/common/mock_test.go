@@ -47,13 +47,22 @@ func (env *mockEnviron) Storage() storage.Storage {
 func (env *mockEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.allInstances()
 }
-func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	return env.startInstance(
+func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	inst, hw, networkInfo, err := env.startInstance(
 		args.Placement,
 		args.Constraints,
 		args.MachineConfig.Networks,
 		args.Tools,
-		args.MachineConfig)
+		args.MachineConfig,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &environs.StartInstanceResult{
+		Instance:    inst,
+		Hardware:    hw,
+		NetworkInfo: networkInfo,
+	}, nil
 }
 
 func (env *mockEnviron) StopInstances(ids ...instance.Id) error {

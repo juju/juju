@@ -48,6 +48,7 @@ type NetworkInterfaceInfo struct {
 // a given network.
 type networkInterfaceDoc struct {
 	Id            bson.ObjectId `bson:"_id"`
+	EnvUUID       string        `bson:"env-uuid"`
 	MACAddress    string
 	InterfaceName string
 	NetworkName   string
@@ -181,9 +182,11 @@ func newNetworkInterface(st *State, doc *networkInterfaceDoc) *NetworkInterface 
 	return &NetworkInterface{st, *doc}
 }
 
-func newNetworkInterfaceDoc(args NetworkInterfaceInfo) *networkInterfaceDoc {
-	// This does not set the machine id.
+func newNetworkInterfaceDoc(machineID, envUUID string, args NetworkInterfaceInfo) *networkInterfaceDoc {
 	return &networkInterfaceDoc{
+		Id:            bson.NewObjectId(),
+		EnvUUID:       envUUID,
+		MachineId:     machineID,
 		MACAddress:    args.MACAddress,
 		InterfaceName: args.InterfaceName,
 		NetworkName:   args.NetworkName,

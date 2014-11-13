@@ -68,8 +68,8 @@ type manualEnviron struct {
 var errNoStartInstance = errors.New("manual provider cannot start instances")
 var errNoStopInstance = errors.New("manual provider cannot stop instances")
 
-func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	return nil, nil, nil, errNoStartInstance
+func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
+	return nil, errNoStartInstance
 }
 
 func (*manualEnviron) StopInstances(...instance.Id) error {
@@ -184,7 +184,9 @@ func (e *manualEnviron) verifyBootstrapHost() error {
 		if out == noAgentDir {
 			return environs.ErrNotBootstrapped
 		}
-		return errors.LoggedErrorf(logger, "unexpected output: %q", out)
+		err := errors.Errorf("unexpected output: %q", out)
+		logger.Infof(err.Error())
+		return err
 	}
 	return nil
 }
@@ -263,7 +265,7 @@ func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id, _ network.Add
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the manual provider yet.
-func (*manualEnviron) ListNetworks() ([]network.BasicInfo, error) {
+func (*manualEnviron) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 

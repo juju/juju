@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
@@ -74,7 +75,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	c.Assert(info, gc.Equals, "")
 	c.Assert(data, gc.HasLen, 0)
 
-	err = machine.SetStatus(params.StatusStarted, "blah", nil)
+	err = machine.SetStatus(juju.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err = s.machine.Status()
@@ -116,15 +117,15 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 func (s *machinerSuite) TestRefresh(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Alive)
+	c.Assert(machine.Life(), gc.Equals, juju.Alive)
 
 	err = machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Alive)
+	c.Assert(machine.Life(), gc.Equals, juju.Alive)
 
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Dead)
+	c.Assert(machine.Life(), gc.Equals, juju.Dead)
 }
 
 func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
@@ -150,7 +151,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 func (s *machinerSuite) TestWatch(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Alive)
+	c.Assert(machine.Life(), gc.Equals, juju.Alive)
 
 	w, err := machine.Watch()
 	c.Assert(err, gc.IsNil)
@@ -162,7 +163,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
-	err = machine.SetStatus(params.StatusStarted, "not really", nil)
+	err = machine.SetStatus(juju.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

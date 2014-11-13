@@ -7,34 +7,81 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/juju/testcharms"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/utils/filestorage"
-	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
-	charmtesting "gopkg.in/juju/charm.v4/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/backups/metadata"
 )
 
+const BackupsMetaC = backupsMetaC
+
 var (
-	NewBackupID           = newBackupID
-	GetBackupMetadata     = getBackupMetadata
-	AddBackupMetadata     = addBackupMetadata
-	AddBackupMetadataID   = addBackupMetadataID
-	SetBackupStored       = setBackupStored
+	NewMongoConnInfo = newMongoConnInfo
+
 	GetManagedStorage     = (*State).getManagedStorage
 	ToolstorageNewStorage = &toolstorageNewStorage
 )
 
 var _ filestorage.DocStorage = (*backupsDocStorage)(nil)
-var _ filestorage.RawFileStorage = (*envFileStorage)(nil)
+var _ filestorage.RawFileStorage = (*backupBlobStorage)(nil)
+
+func newBackupDoc(meta *metadata.Metadata) *backupMetaDoc {
+	var doc backupMetaDoc
+	doc.UpdateFromMetadata(meta)
+	return &doc
+}
+
+func getBackupDBWrapper(st *State) *backupDBWrapper {
+	envUUID := st.EnvironTag().Id()
+	db := st.db.Session.DB(backupDB)
+	return newBackupDBWrapper(db, BackupsMetaC, envUUID)
+}
+
+func NewBackupID(meta *metadata.Metadata) string {
+	doc := newBackupDoc(meta)
+	return newBackupID(doc)
+}
+
+func GetBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
+	db := getBackupDBWrapper(st)
+	defer db.Close()
+	doc, err := getBackupMetadata(db, id)
+	if err != nil {
+		return nil, err
+	}
+	return doc.asMetadata(), nil
+}
+
+func AddBackupMetadata(st *State, meta *metadata.Metadata) (string, error) {
+	db := getBackupDBWrapper(st)
+	defer db.Close()
+	doc := newBackupDoc(meta)
+	return addBackupMetadata(db, doc)
+}
+
+func AddBackupMetadataID(st *State, meta *metadata.Metadata, id string) error {
+	db := getBackupDBWrapper(st)
+	defer db.Close()
+	doc := newBackupDoc(meta)
+	return addBackupMetadataID(db, doc, id)
+}
+
+func SetBackupStored(st *State, id string, stored time.Time) error {
+	db := getBackupDBWrapper(st)
+	defer db.Close()
+	return setBackupStored(db, id, stored)
+}
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
@@ -87,14 +134,14 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(st.docID(key)).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
+	return addCharm(c, st, "quantal", testcharms.Repo.CharmDir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm, owner names.UserTag) *Service {
@@ -110,7 +157,7 @@ func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, o
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := charmtesting.Charms.ClonedDirPath(c.MkDir(), name)
+	path := testcharms.Repo.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
@@ -137,7 +184,7 @@ func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 	ops := []txn.Op{{
 		C:      charmsC,
-		Id:     curl.String(),
+		Id:     st.docID(curl.String()),
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"bundleurl", bundleURL}}}},
 	}}
@@ -146,28 +193,6 @@ func SetCharmBundleURL(c *gc.C, st *State, curl *charm.URL, bundleURL string) {
 }
 
 var MachineIdLessThan = machineIdLessThan
-
-// SCHEMACHANGE
-// This method is used to reset a deprecated machine attribute.
-func SetMachineInstanceId(m *Machine, instanceId string) {
-	m.doc.InstanceId = instance.Id(instanceId)
-}
-
-// SCHEMACHANGE
-// ClearInstanceDocId sets instanceid on instanceData for machine to "".
-func ClearInstanceDocId(c *gc.C, m *Machine) {
-	ops := []txn.Op{
-		{
-			C:      instanceDataC,
-			Id:     m.doc.DocID,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
-		},
-	}
-
-	err := m.st.runTransaction(ops)
-	c.Assert(err, gc.IsNil)
-}
 
 // SCHEMACHANGE
 // This method is used to reset the ownertag attribute
@@ -221,7 +246,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	minUnitsCollection, closer := st.getCollection(minUnitsC)
 	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(st.docID(serviceName)).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
@@ -254,8 +279,8 @@ func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
 
-func WatcherMergeIds(st *State, changes, initial set.Strings, updates map[interface{}]bool) error {
-	return mergeIds(st, changes, initial, updates)
+func WatcherMergeIds(st *State, changeset *[]string, updates map[interface{}]bool) error {
+	return mergeIds(st, changeset, updates)
 }
 
 func WatcherEnsureSuffixFn(marker string) func(string) string {
@@ -300,10 +325,19 @@ func LocalID(st *State, id string) string {
 	return st.localID(id)
 }
 
-func StrictLocalID(st *State, id string) (string, bool) {
+func StrictLocalID(st *State, id string) (string, error) {
 	return st.strictLocalID(id)
 }
 
 func GetUnitEnvUUID(unit *Unit) string {
 	return unit.doc.EnvUUID
+}
+
+func SetServiceCharmURL(st *State, serviceName string, URL string) error {
+	ops := []txn.Op{{
+		C:      servicesC,
+		Id:     st.docID(serviceName),
+		Update: bson.D{{"$set", bson.D{{"charmurl", URL}}}},
+	}}
+	return errors.Trace(st.runTransaction(ops))
 }

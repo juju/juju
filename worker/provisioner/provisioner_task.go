@@ -13,6 +13,7 @@ import (
 	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -207,7 +208,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			continue
 		}
 		machine := machines[i]
-		if err := machine.SetStatus(params.StatusPending, "", nil); err != nil {
+		if err := machine.SetStatus(juju.StatusPending, "", nil); err != nil {
 			logger.Errorf("cannot reset status of machine %q: %v", status.Id, err)
 			continue
 		}
@@ -335,7 +336,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			continue
 		}
 		switch machine.Life() {
-		case params.Dying:
+		case juju.Dying:
 			if _, err := machine.InstanceId(); err == nil {
 				continue
 			} else if !params.IsCodeNotProvisioned(err) {
@@ -346,7 +347,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 				return nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
 			}
 			fallthrough
-		case params.Dead:
+		case juju.Dead:
 			dead = append(dead, machine)
 			continue
 		}
@@ -360,7 +361,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 				logger.Infof("cannot get machine %q status: %v", machine, err)
 				continue
 			}
-			if status == params.StatusPending {
+			if status == juju.StatusPending {
 				pending = append(pending, machine)
 				logger.Infof("found machine %q pending provisioning", machine)
 				continue
@@ -525,7 +526,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 
 func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisioner.Machine, err error) error {
 	logger.Errorf(message, machine, err)
-	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
+	if err1 := machine.SetStatus(juju.StatusError, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}
@@ -566,22 +567,33 @@ func (task *provisionerTask) startMachine(
 	startInstanceParams environs.StartInstanceParams,
 ) error {
 
-	inst, metadata, networkInfo, err := task.broker.StartInstance(startInstanceParams)
+	result, err := task.broker.StartInstance(startInstanceParams)
 	if err != nil {
-		// Set the state to error, so the machine will be skipped next
-		// time until the error is resolved, but don't return an
-		// error; just keep going with the other machines.
-		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		// If this is a retryable error, we retry once
+		if instance.IsRetryableCreationError(errors.Cause(err)) {
+			logger.Infof("retryable error received on start instance - retrying instance creation")
+			result, err = task.broker.StartInstance(startInstanceParams)
+			if err != nil {
+				return task.setErrorStatus("cannot start instance for machine after a retry %q: %v", machine, err)
+			}
+		} else {
+			// Set the state to error, so the machine will be skipped next
+			// time until the error is resolved, but don't return an
+			// error; just keep going with the other machines.
+			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		}
 	}
 
+	inst := result.Instance
+	hardware := result.Hardware
 	nonce := startInstanceParams.MachineConfig.MachineNonce
-	networks, ifaces := task.prepareNetworkAndInterfaces(networkInfo)
+	networks, ifaces := task.prepareNetworkAndInterfaces(result.NetworkInfo)
 
-	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
+	err = machine.SetInstanceInfo(inst.Id(), nonce, hardware, networks, ifaces)
 	if err != nil && params.IsCodeNotImplemented(err) {
 		return fmt.Errorf("cannot provision instance %v for machine %q with networks: not implemented", inst.Id(), machine)
 	} else if err == nil {
-		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), metadata, networks, ifaces)
+		logger.Infof("started machine %s as instance %s with hardware %q, networks %v, interfaces %v", machine, inst.Id(), hardware, networks, ifaces)
 		return nil
 	}
 	// We need to stop the instance right away here, set error status and go on.

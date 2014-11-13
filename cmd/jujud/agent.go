@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
@@ -123,8 +124,12 @@ func importance(err error) int {
 		return 1
 	case isUpgraded(err):
 		return 2
-	case err == worker.ErrTerminateAgent:
+	case err == worker.ErrRebootMachine:
 		return 3
+	case err == worker.ErrShutdownMachine:
+		return 3
+	case err == worker.ErrTerminateAgent:
+		return 4
 	}
 }
 
@@ -164,7 +169,8 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
 		return true
 	}
 	if isUpgraded(err) {
@@ -263,7 +269,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		}
 	}()
 	entity, err := st.Agent().Entity(a.Tag())
-	if err == nil && entity.Life() == params.Dead {
+	if err == nil && entity.Life() == juju.Dead {
 		logger.Errorf("agent terminating - entity %q is dead", a.Tag())
 		return nil, nil, worker.ErrTerminateAgent
 	}
@@ -313,13 +319,16 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 // agentDone processes the error returned by
 // an exiting agent.
 func agentDone(err error) error {
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent, worker.ErrRebootMachine, worker.ErrShutdownMachine:
 		err = nil
 	}
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
-			return errors.LoggedErrorf(logger, "cannot change agent tools: %v", err)
+			err = errors.Annotate(err, "cannot change agent tools")
+			logger.Infof(err.Error())
+			return err
 		}
 	}
 	return err

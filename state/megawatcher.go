@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
@@ -27,9 +27,9 @@ type allWatcherStateBacking struct {
 type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	info := &params.MachineInfo{
+	info := &multiwatcher.MachineInfo{
 		Id:                       m.Id,
-		Life:                     params.Life(m.Life.String()),
+		Life:                     juju.Life(m.Life.String()),
 		Series:                   m.Series,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
 		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
@@ -45,12 +45,12 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		if err != nil {
 			return err
 		}
-		info.Status = params.Status(sdoc.Status)
+		info.Status = juju.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
-		oldInfo := oldInfo.(*params.MachineInfo)
+		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 		info.InstanceId = oldInfo.InstanceId
@@ -76,7 +76,7 @@ func (m *backingMachine) removed(st *State, store *multiwatcher.Store, id interf
 	// environment UUID prefixed ids but we can't fix it properly
 	// until davecheney smashes the allwatcher to apiserver/params
 	// dependency.
-	store.Remove(params.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "machine",
 		Id:   st.localID(id.(string)),
 	})
@@ -89,7 +89,7 @@ func (m *backingMachine) mongoId() interface{} {
 type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	info := &params.UnitInfo{
+	info := &multiwatcher.UnitInfo{
 		Name:        u.Name,
 		Service:     u.Service,
 		Series:      u.Series,
@@ -108,11 +108,11 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		if err != nil {
 			return err
 		}
-		info.Status = params.Status(sdoc.Status)
+		info.Status = juju.Status(sdoc.Status)
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*params.UnitInfo)
+		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 	}
@@ -141,7 +141,7 @@ func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress
 
 func (u *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(params.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "unit",
 		Id:   st.localID(id.(string)),
 	})
@@ -161,12 +161,12 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info := &params.ServiceInfo{
+	info := &multiwatcher.ServiceInfo{
 		Name:        svc.Name,
 		Exposed:     svc.Exposed,
 		CharmURL:    svc.CharmURL.String(),
 		OwnerTag:    svc.fixOwnerTag(env),
-		Life:        params.Life(svc.Life.String()),
+		Life:        juju.Life(svc.Life.String()),
 		MinUnits:    svc.MinUnits,
 		Subordinate: svc.Subordinate,
 	}
@@ -183,7 +183,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		needConfig = true
 	} else {
 		// The entry already exists, so preserve the current status.
-		oldInfo := oldInfo.(*params.ServiceInfo)
+		oldInfo := oldInfo.(*multiwatcher.ServiceInfo)
 		info.Constraints = oldInfo.Constraints
 		if info.CharmURL == oldInfo.CharmURL {
 			// The charm URL remains the same - we can continue to
@@ -208,7 +208,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 
 func (svc *backingService) removed(st *State, store *multiwatcher.Store, id interface{}) {
 	// TODO(mjs) as per backingMachine.removed()
-	store.Remove(params.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "service",
 		Id:   st.localID(id.(string)),
 	})
@@ -230,14 +230,14 @@ func (svc *backingService) mongoId() interface{} {
 type backingRelation relationDoc
 
 func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	eps := make([]params.Endpoint, len(r.Endpoints))
+	eps := make([]multiwatcher.Endpoint, len(r.Endpoints))
 	for i, ep := range r.Endpoints {
-		eps[i] = params.Endpoint{
+		eps[i] = multiwatcher.Endpoint{
 			ServiceName: ep.ServiceName,
 			Relation:    ep.Relation,
 		}
 	}
-	info := &params.RelationInfo{
+	info := &multiwatcher.RelationInfo{
 		Key:       r.Key,
 		Id:        r.Id,
 		Endpoints: eps,
@@ -247,7 +247,8 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 }
 
 func (r *backingRelation) removed(st *State, store *multiwatcher.Store, id interface{}) {
-	store.Remove(params.EntityId{
+	// TODO(mjs) as per backingMachine.removed()
+	store.Remove(multiwatcher.EntityId{
 		Kind: "relation",
 		Id:   st.localID(id.(string)),
 	})
@@ -260,7 +261,7 @@ func (r *backingRelation) mongoId() interface{} {
 type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	info := &params.AnnotationInfo{
+	info := &multiwatcher.AnnotationInfo{
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
 	}
@@ -273,7 +274,7 @@ func (a *backingAnnotation) removed(st *State, store *multiwatcher.Store, id int
 	if !ok {
 		panic(fmt.Errorf("unknown global key %q in state", id))
 	}
-	store.Remove(params.EntityId{
+	store.Remove(multiwatcher.EntityId{
 		Kind: "annotation",
 		Id:   tag,
 	})
@@ -295,15 +296,15 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *params.UnitInfo:
+	case *multiwatcher.UnitInfo:
 		newInfo := *info
-		newInfo.Status = params.Status(s.Status)
+		newInfo.Status = juju.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
-	case *params.MachineInfo:
+	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		newInfo.Status = params.Status(s.Status)
+		newInfo.Status = juju.Status(s.Status)
 		newInfo.StatusInfo = s.StatusInfo
 		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
@@ -335,10 +336,10 @@ func (c *backingConstraints) updated(st *State, store *multiwatcher.Store, id in
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *params.UnitInfo, *params.MachineInfo:
+	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
 		return nil
-	case *params.ServiceInfo:
+	case *multiwatcher.ServiceInfo:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
@@ -358,7 +359,8 @@ func (c *backingConstraints) mongoId() interface{} {
 type backingSettings map[string]interface{}
 
 func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	parentId, url, ok := backingEntityIdForSettingsKey(id.(string))
+	localID := st.localID(id.(string))
+	parentId, url, ok := backingEntityIdForSettingsKey(localID)
 	if !ok {
 		return nil
 	}
@@ -367,7 +369,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id inter
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *params.ServiceInfo:
+	case *multiwatcher.ServiceInfo:
 		// If we're seeing settings for the service with a different
 		// charm URL, we ignore them - we will fetch
 		// them again when the service charm changes.
@@ -396,7 +398,7 @@ func (s *backingSettings) mongoId() interface{} {
 // backingEntityIdForSettingsKey returns the entity id for the given
 // settings key. Any extra information in the key is returned in
 // extra.
-func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra string, ok bool) {
+func backingEntityIdForSettingsKey(key string) (eid multiwatcher.EntityId, extra string, ok bool) {
 	if !strings.HasPrefix(key, "s#") {
 		eid, ok = backingEntityIdForGlobalKey(key)
 		return
@@ -404,9 +406,9 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 	key = key[2:]
 	i := strings.Index(key, "#")
 	if i == -1 {
-		return params.EntityId{}, "", false
+		return multiwatcher.EntityId{}, "", false
 	}
-	eid = (&params.ServiceInfo{Name: key[0:i]}).EntityId()
+	eid = (&multiwatcher.ServiceInfo{Name: key[0:i]}).EntityId()
 	extra = key[i+1:]
 	ok = true
 	return
@@ -414,20 +416,21 @@ func backingEntityIdForSettingsKey(key string) (eid params.EntityId, extra strin
 
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
-func backingEntityIdForGlobalKey(key string) (params.EntityId, bool) {
+func backingEntityIdForGlobalKey(key string) (multiwatcher.EntityId, bool) {
 	if len(key) < 3 || key[1] != '#' {
-		return params.EntityId{}, false
+		return multiwatcher.EntityId{}, false
 	}
 	id := key[2:]
 	switch key[0] {
 	case 'm':
-		return (&params.MachineInfo{Id: id}).EntityId(), true
+		return (&multiwatcher.MachineInfo{Id: id}).EntityId(), true
 	case 'u':
-		return (&params.UnitInfo{Name: id}).EntityId(), true
+		return (&multiwatcher.UnitInfo{Name: id}).EntityId(), true
 	case 's':
-		return (&params.ServiceInfo{Name: id}).EntityId(), true
+		return (&multiwatcher.ServiceInfo{Name: id}).EntityId(), true
+	default:
+		return multiwatcher.EntityId{}, false
 	}
-	return params.EntityId{}, false
 }
 
 // backingEntityDoc is implemented by the documents in
@@ -446,17 +449,6 @@ type backingEntityDoc interface {
 	// It is currently never called for subsidiary documents.
 	mongoId() interface{}
 }
-
-var (
-	_ backingEntityDoc = (*backingMachine)(nil)
-	_ backingEntityDoc = (*backingUnit)(nil)
-	_ backingEntityDoc = (*backingService)(nil)
-	_ backingEntityDoc = (*backingRelation)(nil)
-	_ backingEntityDoc = (*backingAnnotation)(nil)
-	_ backingEntityDoc = (*backingStatus)(nil)
-	_ backingEntityDoc = (*backingConstraints)(nil)
-	_ backingEntityDoc = (*backingSettings)(nil)
-)
 
 // allWatcherStateCollection holds information about a
 // collection watched by an allWatcher and the

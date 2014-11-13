@@ -126,9 +126,9 @@ func ensureCurrentGitCharm(gitDeployer *gitDeployer, expectURL *charm.URL) error
 func gitManifest(linkPath string) (set.Strings, error) {
 	dirPath, err := symlink.Read(linkPath)
 	if err != nil {
-		return set.NewStrings(), err
+		return nil, err
 	}
-	manifest := set.NewStrings()
+	manifest := make(set.Strings)
 	err = filepath.Walk(dirPath, func(path string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -146,8 +146,5 @@ func gitManifest(linkPath string) (set.Strings, error) {
 		manifest.Add(filepath.ToSlash(relPath))
 		return err
 	})
-	if err != nil {
-		return set.NewStrings(), err
-	}
-	return manifest, nil
+	return manifest, err
 }

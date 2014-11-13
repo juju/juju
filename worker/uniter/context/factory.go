@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v4"
 	"gopkg.in/juju/charm.v4/hooks"
 
 	"github.com/juju/juju/api/uniter"
@@ -32,17 +33,21 @@ type Factory interface {
 	NewHookContext(hookInfo hook.Info) (*HookContext, error)
 
 	// NewActionContext returns an execution context suitable for running the
-	// supplied action (which is assumed to be already validated).
-	NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error)
+	// action identified by the supplied id.
+	NewActionContext(actionId string) (*HookContext, error)
 }
 
-// RelationsFunc is used to get snapshots of relation state at context creation time.
-type RelationsFunc func() map[int]*ContextRelation
+// CharmFunc is used to get a snapshot of the charm at context creation time.
+type CharmFunc func() (charm.Charm, error)
+
+// RelationsFunc is used to get snapshots of relation membership at context
+// creation time.
+type RelationsFunc func() map[int]*RelationInfo
 
 // NewFactory returns a Factory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
 func NewFactory(
-	state *uniter.State, unitTag names.UnitTag, getRelations RelationsFunc,
+	state *uniter.State, unitTag names.UnitTag, getRelationInfos RelationsFunc, getCharm CharmFunc,
 ) (
 	Factory, error,
 ) {
@@ -67,14 +72,16 @@ func NewFactory(
 		return nil, errors.Trace(err)
 	}
 	return &factory{
-		unit:         unit,
-		state:        state,
-		envUUID:      environment.UUID(),
-		envName:      environment.Name(),
-		machineTag:   machineTag,
-		ownerTag:     ownerTag,
-		getRelations: getRelations,
-		rand:         rand.New(rand.NewSource(time.Now().Unix())),
+		unit:             unit,
+		state:            state,
+		envUUID:          environment.UUID(),
+		envName:          environment.Name(),
+		machineTag:       machineTag,
+		ownerTag:         ownerTag,
+		getRelationInfos: getRelationInfos,
+		getCharm:         getCharm,
+		relationCaches:   map[int]*RelationCache{},
+		rand:             rand.New(rand.NewSource(time.Now().Unix())),
 	}, nil
 }
 
@@ -90,9 +97,13 @@ type factory struct {
 	ownerTag   names.UserTag
 
 	// Callback to get relation state snapshot.
-	getRelations RelationsFunc
+	getRelationInfos RelationsFunc
+	relationCaches   map[int]*RelationCache
 
-	// For generating unique context ids.
+	// Callback to get charm snapshot.
+	getCharm CharmFunc
+
+	// For generating "unique" context ids.
 	rand *rand.Rand
 }
 
@@ -126,24 +137,55 @@ func (f *factory) NewHookContext(hookInfo hook.Info) (*HookContext, error) {
 			return nil, fmt.Errorf("unknown relation id: %v", hookInfo.RelationId)
 		}
 		if hookInfo.Kind == hooks.RelationDeparted {
-			relation.DeleteMember(hookInfo.RemoteUnit)
+			relation.cache.RemoveMember(hookInfo.RemoteUnit)
 		} else if hookInfo.RemoteUnit != "" {
 			// Clear remote settings cache for changing remote unit.
-			relation.UpdateMembers(SettingsMap{hookInfo.RemoteUnit: nil})
+			relation.cache.InvalidateMember(hookInfo.RemoteUnit)
 		}
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
+	}
+	// Metrics are only sent from the collect-metrics hook.
+	if hookInfo.Kind == hooks.CollectMetrics {
+		ctx.canAddMetrics = true
+		ch, err := f.getCharm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ctx.definedMetrics = ch.Metrics()
 	}
 	ctx.id = f.newId(hookName)
 	return ctx, nil
 }
 
 // NewActionContext exists to satisfy the Factory interface.
-func (f *factory) NewActionContext(tag names.ActionTag, name string, params map[string]interface{}) (*HookContext, error) {
+func (f *factory) NewActionContext(actionId string) (*HookContext, error) {
+	ch, err := f.getCharm()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tag := names.NewActionTag(actionId)
+	action, err := f.state.Action(tag)
+	if params.IsCodeNotFoundOrCodeUnauthorized(errors.Cause(err)) {
+		return nil, ErrActionNotAvailable
+	} else if err != nil {
+		return nil, errors.Trace(err)
+	}
+	name := action.Name()
+	spec, ok := ch.Actions().ActionSpecs[name]
+	if !ok {
+		return nil, &badActionError{name, "not defined"}
+	}
+	params := action.Params()
+	if _, err := spec.ValidateParams(params); err != nil {
+		return nil, &badActionError{name, err.Error()}
+	}
+
 	ctx, err := f.coreContext()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctx.actionData = NewActionData(&tag, params)
+	ctx.actionData = newActionData(name, &tag, params)
 	ctx.id = f.newId(name)
 	return ctx, nil
 }
@@ -157,21 +199,45 @@ func (f *factory) newId(name string) string {
 // coreContext creates a new context with all unspecialised fields filled in.
 func (f *factory) coreContext() (*HookContext, error) {
 	ctx := &HookContext{
-		unit:          f.unit,
-		state:         f.state,
-		uuid:          f.envUUID,
-		envName:       f.envName,
-		unitName:      f.unit.Name(),
-		serviceOwner:  f.ownerTag,
-		relations:     f.getRelations(),
-		relationId:    -1,
-		canAddMetrics: true,
-		pendingPorts:  make(map[PortRange]PortRangeInfo),
+		unit:               f.unit,
+		state:              f.state,
+		uuid:               f.envUUID,
+		envName:            f.envName,
+		unitName:           f.unit.Name(),
+		assignedMachineTag: f.machineTag,
+		serviceOwner:       f.ownerTag,
+		relations:          f.getContextRelations(),
+		relationId:         -1,
+		canAddMetrics:      false,
+		definedMetrics:     nil,
+		pendingPorts:       make(map[PortRange]PortRangeInfo),
 	}
 	if err := f.updateContext(ctx); err != nil {
 		return nil, err
 	}
 	return ctx, nil
+}
+
+// getContextRelations updates the factory's relation caches, and uses them
+// to construct contextRelations for a fresh context.
+func (f *factory) getContextRelations() map[int]*ContextRelation {
+	contextRelations := map[int]*ContextRelation{}
+	relationInfos := f.getRelationInfos()
+	relationCaches := map[int]*RelationCache{}
+	for id, info := range relationInfos {
+		relationUnit := info.RelationUnit
+		memberNames := info.MemberNames
+		cache, found := f.relationCaches[id]
+		if found {
+			cache.Prune(memberNames)
+		} else {
+			cache = NewRelationCache(relationUnit.ReadSettings, memberNames)
+		}
+		relationCaches[id] = cache
+		contextRelations[id] = NewContextRelation(relationUnit, cache)
+	}
+	f.relationCaches = relationCaches
+	return contextRelations
 }
 
 // updateContext fills in all unspecialized fields that require an API call to

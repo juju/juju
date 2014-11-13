@@ -5,9 +5,11 @@ package tools
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -15,37 +17,42 @@ import (
 var ErrNoTools = errors.New("no tools available")
 
 const (
-	toolPrefix = "tools/releases/juju-"
+	toolPrefix = "tools/%s/juju-"
 	toolSuffix = ".tgz"
 )
 
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
-func StorageName(vers version.Binary) string {
-	return toolPrefix + vers.String() + toolSuffix
+func StorageName(vers version.Binary, stream string) string {
+	return storagePrefix(stream) + vers.String() + toolSuffix
+}
+
+func storagePrefix(stream string) string {
+	return fmt.Sprintf(toolPrefix, stream)
 }
 
 // ReadList returns a List of the tools in store with the given major.minor version.
 // If minorVersion = -1, then only majorVersion is considered.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(stor storage.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
+func ReadList(stor storage.StorageReader, toolsDir string, majorVersion, minorVersion int) (coretools.List, error) {
 	if minorVersion >= 0 {
 		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
 	} else {
 		logger.Debugf("reading v%d.* tools", majorVersion)
 	}
-	names, err := storage.List(stor, toolPrefix)
+	storagePrefix := storagePrefix(toolsDir)
+	names, err := storage.List(stor, storagePrefix)
 	if err != nil {
 		return nil, err
 	}
 	var list coretools.List
 	var foundAnyTools bool
 	for _, name := range names {
-		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, toolSuffix) {
+		if !strings.HasPrefix(name, storagePrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
 		var t coretools.Tools
-		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
+		vers := name[len(storagePrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
 			logger.Debugf("failed to parse version %q: %v", vers, err)
 			continue
@@ -64,6 +71,12 @@ func ReadList(stor storage.StorageReader, majorVersion, minorVersion int) (coret
 			return nil, err
 		}
 		list = append(list, &t)
+		// Older versions of Juju only know about ppc64, so add metadata for that arch.
+		if t.Version.Arch == arch.PPC64EL {
+			legacyPPC64Tools := t
+			legacyPPC64Tools.Version.Arch = arch.LEGACY_PPC64
+			list = append(list, &legacyPPC64Tools)
+		}
 	}
 	if len(list) == 0 {
 		if foundAnyTools {

@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v4"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/highavailability"
@@ -22,7 +23,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
+	jjj "github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
@@ -262,7 +263,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
 		_, err = c.api.state.Machine(args.ToMachineSpec)
 		if err != nil {
-			return fmt.Errorf(`cannot deploy "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+			return errors.Annotatef(err, `cannot deploy "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
 		}
 	}
 
@@ -301,8 +302,8 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 
-	_, err = juju.DeployService(c.api.state,
-		juju.DeployServiceParams{
+	_, err = jjj.DeployService(c.api.state,
+		jjj.DeployServiceParams{
 			ServiceName: args.ServiceName,
 			// TODO(dfc) ServiceOwner should be a tag
 			ServiceOwner:   c.api.auth.GetAuthTag().String(),
@@ -470,7 +471,14 @@ func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
 		return nil, fmt.Errorf("cannot use NumUnits with ToMachineSpec")
 	}
-	return juju.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
+
+	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
+		_, err = state.Machine(args.ToMachineSpec)
+		if err != nil {
+			return nil, errors.Annotatef(err, `cannot add units for service "%v" to machine %v`, args.ServiceName, args.ToMachineSpec)
+		}
+	}
+	return jjj.AddUnits(state, service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -682,7 +690,7 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
+func stateJobs(jobs []juju.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
 		newJob, err := machineJobFromParams(job)
@@ -694,18 +702,18 @@ func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {
 	return newJobs, nil
 }
 
-// machineJobFromParams returns the job corresponding to params.MachineJob.
+// machineJobFromParams returns the job corresponding to juju.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job juju.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case params.JobHostUnits:
+	case juju.JobHostUnits:
 		return state.JobHostUnits, nil
-	case params.JobManageEnviron:
+	case juju.JobManageEnviron:
 		return state.JobManageEnviron, nil
-	case params.JobManageNetworking:
+	case juju.JobManageNetworking:
 		return state.JobManageNetworking, nil
-	case params.JobManageStateDeprecated:
+	case juju.JobManageStateDeprecated:
 		// Deprecated in 1.18.
 		return state.JobManageStateDeprecated, nil
 	default:
@@ -956,10 +964,12 @@ func (c *Client) EnvironmentSet(args params.EnvironmentSet) error {
 		}
 		return nil
 	}
+	// Replace any deprecated attributes with their new values.
+	attrs := config.ProcessDeprecatedAttributes(args.Config)
 	// TODO(waigani) 2014-3-11 #1167616
 	// Add a txn retry loop to ensure that the settings on disk have not
 	// changed underneath us.
-	return c.api.state.UpdateEnvironConfig(args.Config, nil, checkAgentVersion)
+	return c.api.state.UpdateEnvironConfig(attrs, nil, checkAgentVersion)
 }
 
 // EnvironmentUnset implements the server-side part of the
@@ -1028,8 +1038,8 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	if err != nil {
 		return err
 	}
-	store := config.SpecializeCharmRepo(CharmStore, envConfig)
-	downloadedCharm, err := store.Get(charmURL)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
+	downloadedCharm, err := CharmStore.Get(charmURL)
 	if err != nil {
 		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}
@@ -1103,11 +1113,11 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	repo := config.SpecializeCharmRepo(CharmStore, envConfig)
+	config.SpecializeCharmRepo(CharmStore, envConfig)
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(&ref, repo)
+		curl, err := c.resolveCharm(&ref, CharmStore)
 		if err != nil {
 			result.Error = err.Error()
 		} else {

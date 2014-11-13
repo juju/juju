@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -78,6 +79,10 @@ Connect to the first mysql unit:
 Connect to the first mysql unit and run 'ls -la /var/log/juju':
 
     juju ssh mysql/0 ls -la /var/log/juju
+
+Connect to the first jenkins unit as the user jenkins:
+
+    juju ssh jenkins@jenkins/0
 `
 
 func (c *SSHCommand) Info() *cmd.Info {
@@ -142,11 +147,11 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	host, err := c.hostFromTarget(c.Target)
+	user, host, err := c.userHostFromTarget(c.Target)
 	if err != nil {
 		return err
 	}
-	cmd := ssh.Command("ubuntu@"+host, c.Args, options)
+	cmd := ssh.Command(user+"@"+host, c.Args, options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr
@@ -222,19 +227,26 @@ var sshHostFromTargetAttemptStrategy attemptStarter = attemptStrategy{
 	Delay: 500 * time.Millisecond,
 }
 
-func (c *SSHCommon) hostFromTarget(target string) (string, error) {
+func (c *SSHCommon) userHostFromTarget(target string) (user, host string, err error) {
+	if i := strings.IndexRune(target, '@'); i != -1 {
+		user = target[:i]
+		target = target[i+1:]
+	} else {
+		user = "ubuntu"
+	}
+
 	// If the target is neither a machine nor a unit,
 	// assume it's a hostname and try it directly.
 	if !names.IsValidMachine(target) && !names.IsValidUnit(target) {
-		return target, nil
+		return user, target, nil
 	}
+
 	// A target may not initially have an address (e.g. the
 	// address updater hasn't yet run), so we must do this in
 	// a loop.
 	if _, err := c.ensureAPIClient(); err != nil {
-		return "", err
+		return "", "", err
 	}
-	var err error
 	for a := sshHostFromTargetAttemptStrategy.Start(); a.Next(); {
 		var addr string
 		if c.proxy {
@@ -243,10 +255,10 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 			addr, err = c.apiClient.PublicAddress(target)
 		}
 		if err == nil {
-			return addr, nil
+			return user, addr, nil
 		}
 	}
-	return "", err
+	return "", "", err
 }
 
 // AllowInterspersedFlags for ssh/scp is set to false so that

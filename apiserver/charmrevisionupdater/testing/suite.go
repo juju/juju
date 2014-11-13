@@ -12,6 +12,7 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testcharms"
 )
 
 // CharmSuite provides infrastructure to set up and perform tests associated
@@ -26,7 +27,7 @@ type CharmSuite struct {
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 	s.jcSuite = jcSuite
-	s.Server = charmtesting.NewMockStore(c, map[string]int{
+	s.Server = charmtesting.NewMockStore(c, testcharms.Repo, map[string]int{
 		"cs:quantal/mysql":     23,
 		"cs:quantal/dummy":     24,
 		"cs:quantal/riak":      25,
@@ -75,7 +76,7 @@ func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob)
 
 // AddCharmWithRevision adds a charm with the specified revision to state.
 func (s *CharmSuite) AddCharmWithRevision(c *gc.C, charmName string, rev int) *state.Charm {
-	ch := charmtesting.Charms.CharmDir(charmName)
+	ch := testcharms.Repo.CharmDir(charmName)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, rev))
 	dummy, err := s.jcSuite.State.AddCharm(ch, curl, "dummy-path", fmt.Sprintf("%s-%d-sha256", name, rev))

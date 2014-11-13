@@ -1,66 +1,24 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package metricsender contains types and functions for sending
+// Package metricsender contains functions for sending
 // metrics from a state server to a remote metric collector.
 package metricsender
 
 import (
-	"time"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/apiserver/metricsender/wireformat"
 	"github.com/juju/juju/state"
 )
 
 var sendLogger = loggo.GetLogger("juju.apiserver.metricsender")
 
-// MetricBatch is a batch of metrics that will be sent to
-// the metric collector
-type MetricBatch struct {
-	UUID     string    `json:"_id"`
-	EnvUUID  string    `json:"env-uuid"`
-	Unit     string    `json:"unit"`
-	CharmUrl string    `json:"charm-url"`
-	Created  time.Time `json:"created"`
-	Metrics  []Metric  `json:"metrics"`
-}
-
-// Metric represents a single Metric.
-type Metric struct {
-	Key         string    `json:"key"`
-	Value       string    `json:"value"`
-	Time        time.Time `json:"time"`
-	Credentials []byte    `json:"credentials"`
-}
-
 // MetricSender defines the interface used to send metrics
 // to a collection service.
 type MetricSender interface {
-	Send([]*MetricBatch) error
-}
-
-// ToWire converts the state.MetricBatch into a type
-// that can be sent over the wire to the collector.
-func ToWire(mb *state.MetricBatch) *MetricBatch {
-	metrics := make([]Metric, len(mb.Metrics()))
-	for i, m := range mb.Metrics() {
-		metrics[i] = Metric{
-			Key:         m.Key,
-			Value:       m.Value,
-			Time:        m.Time.UTC(),
-			Credentials: m.Credentials,
-		}
-	}
-	return &MetricBatch{
-		UUID:     mb.UUID(),
-		EnvUUID:  mb.EnvUUID(),
-		Unit:     mb.Unit(),
-		CharmUrl: mb.CharmURL(),
-		Created:  mb.Created().UTC(),
-		Metrics:  metrics,
-	}
+	Send([]*wireformat.MetricBatch) (*wireformat.Response, error)
 }
 
 // SendMetrics will send any unsent metrics
@@ -76,17 +34,33 @@ func SendMetrics(st *state.State, sender MetricSender, batchSize int) error {
 			sendLogger.Infof("nothing to send")
 			break
 		}
-		wireData := make([]*MetricBatch, len(metrics))
+		wireData := make([]*wireformat.MetricBatch, len(metrics))
 		for i, m := range metrics {
-			wireData[i] = ToWire(m)
+			wireData[i] = wireformat.ToWire(m)
 		}
-		err = sender.Send(wireData)
+		response, err := sender.Send(wireData)
 		if err != nil {
+			sendLogger.Errorf("%+v", err)
 			return errors.Trace(err)
 		}
-		err = st.SetMetricBatchesSent(metrics)
-		if err != nil {
-			sendLogger.Warningf("failed to set sent on metrics %v", err)
+		if response != nil {
+			for _, envResp := range response.EnvResponses {
+				err = st.SetMetricBatchesSent(envResp.AcknowledgedBatches)
+				if err != nil {
+					sendLogger.Errorf("failed to set sent on metrics %v", err)
+				}
+				for unitName, status := range envResp.UnitStatuses {
+					unit, err := st.Unit(unitName)
+					if err != nil {
+						sendLogger.Errorf("failed to retrieve unit %q: %v", unitName, err)
+					} else {
+						err = unit.SetMeterStatus(status.Status, status.Info)
+						if err != nil {
+							sendLogger.Errorf("failed to set unit %q meter status to %v: %v", unitName, status, err)
+						}
+					}
+				}
+			}
 		}
 	}
 

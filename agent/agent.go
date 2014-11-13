@@ -21,6 +21,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudinit"
@@ -51,14 +52,15 @@ var DefaultDataDir = dataDir
 const SystemIdentity = "system-identity"
 
 const (
-	LxcBridge        = "LXC_BRIDGE"
-	ProviderType     = "PROVIDER_TYPE"
-	ContainerType    = "CONTAINER_TYPE"
-	Namespace        = "NAMESPACE"
-	StorageDir       = "STORAGE_DIR"
-	StorageAddr      = "STORAGE_ADDR"
-	AgentServiceName = "AGENT_SERVICE_NAME"
-	MongoOplogSize   = "MONGO_OPLOG_SIZE"
+	LxcBridge         = "LXC_BRIDGE"
+	ProviderType      = "PROVIDER_TYPE"
+	ContainerType     = "CONTAINER_TYPE"
+	Namespace         = "NAMESPACE"
+	StorageDir        = "STORAGE_DIR"
+	StorageAddr       = "STORAGE_ADDR"
+	AgentServiceName  = "AGENT_SERVICE_NAME"
+	MongoOplogSize    = "MONGO_OPLOG_SIZE"
+	NumaCtlPreference = "NUMA_CTL_PREFERENCE"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -85,7 +87,7 @@ type Config interface {
 	SystemIdentityPath() string
 
 	// Jobs returns a list of MachineJobs that need to run.
-	Jobs() []params.MachineJob
+	Jobs() []juju.MachineJob
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
@@ -207,7 +209,7 @@ type ConfigSetterWriter interface {
 type MigrateParams struct {
 	DataDir      string
 	LogDir       string
-	Jobs         []params.MachineJob
+	Jobs         []juju.MachineJob
 	DeleteValues []string
 	Values       map[string]string
 }
@@ -235,7 +237,7 @@ type configInternal struct {
 	logDir            string
 	tag               names.Tag
 	nonce             string
-	jobs              []params.MachineJob
+	jobs              []juju.MachineJob
 	upgradedToVersion version.Number
 	caCert            string
 	stateDetails      *connectionDetails
@@ -249,7 +251,7 @@ type configInternal struct {
 type AgentConfigParams struct {
 	DataDir           string
 	LogDir            string
-	Jobs              []params.MachineJob
+	Jobs              []juju.MachineJob
 	UpgradedToVersion version.Number
 	Tag               names.Tag
 	Password          string
@@ -437,7 +439,7 @@ func (c0 *configInternal) Clone() Config {
 	// by ConfigSetter methods.
 	c1.stateDetails = c0.stateDetails.clone()
 	c1.apiDetails = c0.apiDetails.clone()
-	c1.jobs = append([]params.MachineJob{}, c0.jobs...)
+	c1.jobs = append([]juju.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
 	for key, val := range c0.values {
 		c1.values[key] = val
@@ -454,7 +456,7 @@ func (config *configInternal) Migrate(newParams MigrateParams) error {
 		config.logDir = newParams.LogDir
 	}
 	if len(newParams.Jobs) > 0 {
-		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
+		config.jobs = make([]juju.MachineJob, len(newParams.Jobs))
 		copy(config.jobs, newParams.Jobs)
 	}
 	for _, key := range newParams.DeleteValues {
@@ -544,7 +546,7 @@ func (c *configInternal) SystemIdentityPath() string {
 	return filepath.Join(c.dataDir, SystemIdentity)
 }
 
-func (c *configInternal) Jobs() []params.MachineJob {
+func (c *configInternal) Jobs() []juju.MachineJob {
 	return c.jobs
 }
 

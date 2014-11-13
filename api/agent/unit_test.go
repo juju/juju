@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/juju/testing"
@@ -48,7 +49,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	m, err = s.st.Agent().Entity(s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
-	c.Assert(m.Life(), gc.Equals, params.Alive)
+	c.Assert(m.Life(), gc.Equals, juju.Alive)
 	c.Assert(m.Jobs(), gc.HasLen, 0)
 
 	err = s.unit.EnsureDead()

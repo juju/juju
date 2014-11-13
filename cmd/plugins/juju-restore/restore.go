@@ -24,8 +24,8 @@ import (
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
 
+	jj "github.com/juju/juju"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -324,7 +324,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	// it go ahead anyway without the check.
 
 	args := bootstrap.BootstrapParams{Constraints: cons}
-	if err := bootstrap.Bootstrap(ctx, env, args); err != nil {
+	if err := bootstrap.Bootstrap(envcmd.BootstrapContextNoVerify(ctx), env, args); err != nil {
 		return nil, errors.Annotate(err, "cannot bootstrap new instance")
 	}
 	return env, nil
@@ -492,7 +492,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 	for _, machineStatus := range status.Machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machineStatus.HasVote || machineStatus.WantsVote || params.Life(machineStatus.Life) == params.Dead {
+		if machineStatus.HasVote || machineStatus.WantsVote || jj.Life(machineStatus.Life) == jj.Dead {
 			continue
 		}
 		pendingMachineCount++

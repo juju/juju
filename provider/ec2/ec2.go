@@ -16,7 +16,7 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -34,9 +34,13 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.ec2")
 
-const none = "none"
+const (
+	none                        = "none"
+	invalidParameterValue       = "InvalidParameterValue"
+	privateAddressLimitExceeded = "PrivateIpAddressLimitExceeded"
+)
 
-// Use shortAttempt to poll for short-term events.
+// Use shortAttempt to poll for short-term events or for retrying API calls.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
@@ -49,6 +53,7 @@ func init() {
 type environProvider struct{}
 
 var providerInstance environProvider
+var AssignPrivateIPAddress = assignPrivateIPAddress
 
 type environ struct {
 	common.SupportsUnitPlacementPolicy
@@ -80,16 +85,21 @@ var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
 var _ state.InstanceDistributor = (*environ)(nil)
 
+type defaultVpc struct {
+	hasDefaultVpc bool
+	id            network.Id
+}
+
+func assignPrivateIPAddress(ec2Inst *ec2.EC2, netId string, addr network.Address) error {
+	_, err := ec2Inst.AssignPrivateIPAddresses(netId, []string{addr.Value}, 0, false)
+	return err
+}
+
 type ec2Instance struct {
 	e *environ
 
 	mu sync.Mutex
 	*ec2.Instance
-}
-
-type defaultVpc struct {
-	hasDefaultVpc bool
-	id            network.Id
 }
 
 func (inst *ec2Instance) String() string {
@@ -137,27 +147,8 @@ func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
 func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
 	instInstance := inst.getInstance()
-	if instInstance.DNSName == "" {
-		// Fetch the instance information again, in case
-		// the DNS information has become available.
-		var err error
-		instInstance, err = inst.refresh()
-		if err != nil {
-			return nil, err
-		}
-	}
 	var addresses []network.Address
 	possibleAddresses := []network.Address{
-		{
-			Value: instInstance.DNSName,
-			Type:  network.HostName,
-			Scope: network.ScopePublic,
-		},
-		{
-			Value: instInstance.PrivateDNSName,
-			Type:  network.HostName,
-			Scope: network.ScopeCloudLocal,
-		},
 		{
 			Value: instInstance.IPAddress,
 			Type:  network.IPv4Address,
@@ -254,8 +245,10 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 	if err != nil {
 		return nil, err
 	}
-	if err := verifyCredentials(e.(*environ)); err != nil {
-		return nil, err
+	if ctx.ShouldVerifyCredentials() {
+		if err := verifyCredentials(e.(*environ)); err != nil {
+			return nil, err
+		}
 	}
 	return e, nil
 }
@@ -642,15 +635,15 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (e *environ) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		if placement.availabilityZone.State != "available" {
-			return nil, nil, nil, fmt.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
+			return nil, errors.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
@@ -664,28 +657,28 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if args.DistributionGroup != nil {
 			group, err = args.DistributionGroup()
 			if err != nil {
-				return nil, nil, nil, err
+				return nil, err
 			}
 		}
 		zoneInstances, err := availabilityZoneAllocations(e, group)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 		for _, z := range zoneInstances {
 			availabilityZones = append(availabilityZones, z.ZoneName)
 		}
 		if len(availabilityZones) == 0 {
-			return nil, nil, nil, fmt.Errorf("failed to determine availability zones")
+			return nil, errors.New("failed to determine availability zones")
 		}
 	}
 
 	if args.MachineConfig.HasNetworks() {
-		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
+		return nil, errors.New("starting instances with networks is not supported yet")
 	}
 	arches := args.Tools.Arches()
 	sources, err := environs.ImageMetadataSources(e)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	series := args.Tools.OneSeries()
@@ -697,27 +690,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Storage:     []string{ssdStorage, ebsStorage},
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
 	args.MachineConfig.Tools = tools[0]
 	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, errors.Annotate(err, "cannot make user data")
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
 	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, errors.Annotate(err, "cannot set up groups")
 	}
 	var instResp *ec2.RunInstancesResp
 
@@ -740,10 +733,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, errors.Annotate(err, "cannot run instances")
 	}
 	if len(instResp.Instances) != 1 {
-		return nil, nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
+		return nil, errors.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 
 	inst := &ec2Instance{
@@ -752,7 +745,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
-	if params.AnyJobNeedsState(args.MachineConfig.Jobs...) {
+	if juju.AnyJobNeedsState(args.MachineConfig.Jobs...) {
 		if err := common.AddStateInstance(e.Storage(), inst.Id()); err != nil {
 			logger.Errorf("could not record instance in provider-state: %v", err)
 		}
@@ -766,7 +759,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		RootDisk: &diskSize,
 		// Tags currently not supported by EC2
 	}
-	return inst, &hc, nil, nil
+	return &environs.StartInstanceResult{
+		Instance: inst,
+		Hardware: &hc,
+	}, nil
 }
 
 var runInstances = _runInstances
@@ -947,15 +943,60 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests an address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id, _ network.Address) error {
-	return errors.NotImplementedf("AllocateAddress")
+func (e *environ) AllocateAddress(instId instance.Id, _ network.Id, addr network.Address) error {
+	ec2Inst := e.ec2()
+
+	var err error
+	var instancesResp *ec2.InstancesResp
+	for a := shortAttempt.Start(); a.Next(); {
+		instancesResp, err = ec2Inst.Instances([]string{string(instId)}, nil)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		// either the instance doesn't exist or we couldn't get through to
+		// the ec2 api
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+	}
+
+	if len(instancesResp.Reservations) == 0 {
+		return errors.New("unexpected AWS response: instance not found")
+	}
+	if len(instancesResp.Reservations[0].Instances) == 0 {
+		return errors.New("unexpected AWS response: reservation not found")
+	}
+	if len(instancesResp.Reservations[0].Instances[0].NetworkInterfaces) == 0 {
+		return errors.New("unexpected AWS response: network interface not found")
+	}
+	networkInterfaceId := instancesResp.Reservations[0].Instances[0].NetworkInterfaces[0].Id
+	for a := shortAttempt.Start(); a.Next(); {
+		err = AssignPrivateIPAddress(ec2Inst, networkInterfaceId, addr)
+		if err == nil {
+			break
+		}
+		if ec2Err, ok := err.(*ec2.Error); ok {
+			if ec2Err.Code == invalidParameterValue {
+				// Note: this Code is also used if we specify
+				// an IP address outside the subnet. Take care!
+				return environs.ErrIPAddressUnavailable
+			} else if ec2Err.Code == privateAddressLimitExceeded {
+				return environs.ErrIPAddressesExhausted
+			}
+		}
+
+	}
+	if err != nil {
+		return errors.Annotatef(err, "failed to assign IP address %q to instance %q", addr, instId)
+	}
+	return nil
 }
 
 // ListNetworks returns basic information about all networks known
 // by the provider for the environment. They may be unknown to juju
 // yet (i.e. when called initially or when a new network was created).
 // This is not implemented by the EC2 provider yet.
-func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+func (*environ) ListNetworks(_ instance.Id) ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
 
@@ -1372,15 +1413,24 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 
 // isZoneConstrainedError reports whether or not the error indicates
 // RunInstances failed due to the specified availability zone being
-// constrained for the instance type being provisioned.
+// constrained for the instance type being provisioned, or is
+// otherwise unusable for the specific request made.
 func isZoneConstrainedError(err error) bool {
-	ec2err, ok := err.(*ec2.Error)
-	if ok && ec2err.Code == "Unsupported" {
-		// A big hammer, but we've now seen two different error messages
-		// for constrained zones, and who knows how many more there might
-		// be. If the message contains "Availability Zone", it's a fair
-		// bet that it's constrained or otherwise unusable.
-		return strings.Contains(ec2err.Message, "Availability Zone")
+	switch err := err.(type) {
+	case *ec2.Error:
+		switch err.Code {
+		case "Unsupported", "InsufficientInstanceCapacity":
+			// A big hammer, but we've now seen several different error messages
+			// for constrained zones, and who knows how many more there might
+			// be. If the message contains "Availability Zone", it's a fair
+			// bet that it's constrained or otherwise unusable.
+			return strings.Contains(err.Message, "Availability Zone")
+		case "InvalidInput":
+			// If the region has a default VPC, then we will receive an error
+			// if the AZ does not have a default subnet. Until we have proper
+			// support for networks, we'll skip over these.
+			return strings.HasPrefix(err.Message, "No default subnet for availability zone")
+		}
 	}
 	return false
 }

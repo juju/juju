@@ -6,11 +6,14 @@ package testing
 import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -25,4 +28,9 @@ func DisableFinishBootstrap() func() {
 		return nil
 	}
 	return testing.PatchValue(&common.FinishBootstrap, f)
+}
+
+// BootstrapContext creates a simple bootstrap execution context.
+func BootstrapContext(c *gc.C) environs.BootstrapContext {
+	return envcmd.BootstrapContext(coretesting.Context(c))
 }

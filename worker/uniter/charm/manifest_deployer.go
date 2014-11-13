@@ -191,7 +191,7 @@ func (d *manifestDeployer) storeManifest(url *charm.URL, manifest set.Strings) e
 func (d *manifestDeployer) loadManifest(urlFilePath string) (*charm.URL, set.Strings, error) {
 	url, err := ReadCharmURL(d.CharmPath(urlFilePath))
 	if err != nil {
-		return nil, set.NewStrings(), err
+		return nil, nil, err
 	}
 	name := charm.Quote(url.String())
 	path := filepath.Join(d.DataPath(manifestsDataPath), name)

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v4"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -14,7 +15,6 @@ import (
 
 var (
 	MergeEnvironment  = mergeEnvironment
-	HookVars          = hookVars
 	SearchHook        = searchHook
 	HookCommand       = hookCommand
 	LookPath          = lookPath
@@ -22,6 +22,23 @@ var (
 	TryOpenPorts      = tryOpenPorts
 	TryClosePorts     = tryClosePorts
 )
+
+func UpdateCachedSettings(f0 Factory, relId int, unitName string, settings params.RelationSettings) {
+	f := f0.(*factory)
+	members := f.relationCaches[relId].members
+	if members[unitName] == nil {
+		members[unitName] = params.RelationSettings{}
+	}
+	for key, value := range settings {
+		members[unitName][key] = value
+	}
+}
+
+func CachedSettings(f0 Factory, relId int, unitName string) (params.RelationSettings, bool) {
+	f := f0.(*factory)
+	settings, found := f.relationCaches[relId].members[unitName]
+	return settings, found
+}
 
 // PatchMeterStatus changes the meter status of the context.
 func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
@@ -35,30 +52,12 @@ func (ctx *HookContext) PatchMeterStatus(code, info string) func() {
 	}
 }
 
-func (c *HookContext) ActionResultsMap() map[string]interface{} {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ResultsMap
-}
-
-func (c *HookContext) ActionFailed() bool {
-	if c.actionData == nil {
-		panic("context not running an action")
-	}
-	return c.actionData.ActionFailed
-}
-
 func (c *HookContext) EnvInfo() (name, uuid string) {
 	return c.envName, c.uuid
 }
 
-func (c *HookContext) ActionData() *ActionData {
-	return c.actionData
-}
-
-func (cr *ContextRelation) StoredMemberSettings(remoteUnit string) params.RelationSettings {
-	return cr.members[remoteUnit]
+func (c *HookContext) AssignedMachineTag() names.MachineTag {
+	return c.assignedMachineTag
 }
 
 func GetStubActionContext(in map[string]interface{}) *HookContext {
@@ -82,6 +81,7 @@ func NewHookContext(
 	serviceOwner names.UserTag,
 	proxySettings proxy.Settings,
 	canAddMetrics bool,
+	metrics *charm.Metrics,
 	actionData *ActionData,
 	assignedMachineTag names.MachineTag,
 ) (*HookContext, error) {
@@ -99,6 +99,7 @@ func NewHookContext(
 		serviceOwner:       serviceOwner,
 		proxySettings:      proxySettings,
 		canAddMetrics:      canAddMetrics,
+		definedMetrics:     metrics,
 		actionData:         actionData,
 		pendingPorts:       make(map[PortRange]PortRangeInfo),
 		assignedMachineTag: assignedMachineTag,
@@ -135,6 +136,7 @@ func NewHookContext(
 func NewEnvironmentHookContext(
 	id, envUUID, envName, unitName, meterCode, meterInfo string,
 	apiAddresses []string, proxySettings proxy.Settings,
+	machineTag names.MachineTag,
 ) *HookContext {
 	return &HookContext{
 		id:            id,
@@ -147,7 +149,8 @@ func NewEnvironmentHookContext(
 			code: meterCode,
 			info: meterInfo,
 		},
-		relationId: -1,
+		relationId:         -1,
+		assignedMachineTag: machineTag,
 	}
 }
 

@@ -68,6 +68,9 @@ const (
 	upgradeInfoC       = "upgradeInfo"
 	rebootC            = "reboot"
 
+	// sequenceC is used to generate unique identifiers.
+	sequenceC = "sequence"
+
 	// meterStatusC is the collection used to store meter status information.
 	meterStatusC = "meterStatus"
 
@@ -135,6 +138,12 @@ func (st *State) ForEnviron(env names.EnvironTag) (*State, error) {
 // this state instance.
 func (st *State) EnvironTag() names.EnvironTag {
 	return st.environTag
+}
+
+// EnvironUUID returns the environment UUID for the environment
+// controlled by this state instance.
+func (st *State) EnvironUUID() string {
+	return st.environTag.Id()
 }
 
 // getCollection fetches a named collection using a new session if the
@@ -296,7 +305,10 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
-			localID := st.localID(doc.DocID)
+			localID, err := st.strictLocalID(doc.DocID)
+			if err != nil {
+				return errors.Trace(err)
+			}
 			switch name {
 			case machinesC:
 				agentTags = append(agentTags, names.NewMachineTag(localID).String())
@@ -356,7 +368,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 				Assert: txn.DocMissing,
 			}, {
 				C:      settingsC,
-				Id:     environGlobalKey,
+				Id:     st.docID(environGlobalKey),
 				Assert: bson.D{{"txn-revno", settings.txnRevno}},
 				Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 			},
@@ -556,7 +568,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		// This is required to allow loading of machines before the
 		// environment UUID migration has been applied to the machines
 		// collection. Without this, a machine agent can't come up to
-		// run the database migration..
+		// run the database migration.
 		if mdoc.Id == "" {
 			mdoc.Id = mdoc.DocID
 		}
@@ -650,6 +662,7 @@ func (st *State) parseTag(tag names.Tag) (string, interface{}, error) {
 		coll = environmentsC
 	case names.NetworkTag:
 		coll = networksC
+		id = st.docID(id)
 	case names.ActionTag:
 		coll = actionsC
 		id = actionIdFromTag(tag)
@@ -669,12 +682,15 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, storagePath, bundleSh
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
-	err = charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
+	err = charms.Find(bson.D{{"_id", st.docID(curl.String())}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
 		cdoc := &charmDoc{
+			DocID:        st.docID(curl.String()),
 			URL:          curl,
+			EnvUUID:      st.EnvironTag().Id(),
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
+			Metrics:      ch.Metrics(),
 			Actions:      ch.Actions(),
 			BundleSha256: bundleSha256,
 			StoragePath:  storagePath,
@@ -711,7 +727,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 	cdoc := &charmDoc{}
 	what := bson.D{
-		{"_id", curl},
+		{"_id", st.docID(curl.String())},
 		{"placeholder", bson.D{{"$ne", true}}},
 		{"pendingupload", bson.D{{"$ne", true}}},
 	}
@@ -735,7 +751,7 @@ func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
 	defer closer()
 
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 	var docs []charmDoc
 	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
 	if err != nil {
@@ -770,7 +786,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	}
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
@@ -778,7 +794,8 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
-		err = charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
+		query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}
+		err = charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -799,12 +816,14 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 		chosenUrl = curl.WithRevision(chosenRevision)
 
 		uploadedCharm := &charmDoc{
+			DocID:         st.docID(chosenUrl.String()),
+			EnvUUID:       st.EnvironTag().Id(),
 			URL:           chosenUrl,
 			PendingUpload: true,
 		}
 		ops := []txn.Op{{
 			C:      charmsC,
-			Id:     uploadedCharm.URL,
+			Id:     uploadedCharm.DocID,
 			Assert: txn.DocMissing,
 			Insert: uploadedCharm,
 		}}
@@ -843,7 +862,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
-		err := charms.FindId(curl).One(&uploadedCharm)
+		err := charms.FindId(st.docID(curl.String())).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		} else if err == nil && !uploadedCharm.Placeholder {
@@ -854,6 +873,8 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
+				DocID:         st.docID(curl.String()),
+				EnvUUID:       st.EnvironTag().Id(),
 				URL:           curl,
 				PendingUpload: true,
 				Placeholder:   false,
@@ -867,7 +888,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// changed yet.
 			ops = []txn.Op{{
 				C:  charmsC,
-				Id: curl,
+				Id: uploadedCharm.DocID,
 				Assert: bson.D{
 					{"bundlesha256", ""},
 					{"pendingupload", false},
@@ -885,7 +906,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// No charm document with this curl yet, insert it.
 			ops = []txn.Op{{
 				C:      charmsC,
-				Id:     curl,
+				Id:     uploadedCharm.DocID,
 				Assert: txn.DocMissing,
 				Insert: uploadedCharm,
 			}}
@@ -920,7 +941,8 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		query := bson.D{{"_id", st.docID(curl.String())}}
+		err := charms.Find(query).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, errors.Trace(err)
 		}
@@ -935,12 +957,14 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		}
 		// Add the new charm doc.
 		placeholderCharm := &charmDoc{
+			DocID:       st.docID(curl.String()),
+			EnvUUID:     st.EnvironTag().Id(),
 			URL:         curl,
 			Placeholder: true,
 		}
 		ops = append(ops, txn.Op{
 			C:      charmsC,
-			Id:     placeholderCharm.URL.String(),
+			Id:     placeholderCharm.DocID,
 			Assert: txn.DocMissing,
 			Insert: placeholderCharm,
 		})
@@ -954,14 +978,13 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error) {
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
-	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
-
+	curlRegex := "^" + regexp.QuoteMeta(st.docID(noRevURL.String()))
 	charms, closer := st.getCollection(charmsC)
 	defer closer()
 
 	var docs []charmDoc
-	err := charms.Find(
-		bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}}).All(&docs)
+	query := bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}
+	err := charms.Find(query).Select(bson.D{{"_id", 1}, {"url", 1}}).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -972,7 +995,7 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 		}
 		ops = append(ops, txn.Op{
 			C:      charmsC,
-			Id:     doc.URL.String(),
+			Id:     doc.DocID,
 			Assert: stillPlaceholder,
 			Remove: true,
 		})
@@ -1019,7 +1042,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, storagePat
 	defer closer()
 
 	doc := &charmDoc{}
-	err := charms.FindId(curl).One(&doc)
+	err := charms.FindId(st.docID(curl.String())).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -1052,6 +1075,7 @@ func (st *State) updateCharmDoc(
 		{"meta", ch.Meta()},
 		{"config", escapedConfig},
 		{"actions", ch.Actions()},
+		{"metrics", ch.Metrics()},
 		{"storagepath", storagePath},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
@@ -1059,7 +1083,7 @@ func (st *State) updateCharmDoc(
 	}}}
 	ops := []txn.Op{{
 		C:      charmsC,
-		Id:     curl,
+		Id:     st.docID(curl.String()),
 		Assert: preReq,
 		Update: updateFields,
 	}}
@@ -1086,7 +1110,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 		relDoc := &relationDoc{
 			DocID:     st.docID(relKey),
 			Key:       relKey,
-			EnvUUID:   st.EnvironTag().Id(),
+			EnvUUID:   st.EnvironUUID(),
 			Id:        relId,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1157,9 +1181,11 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      settingsrefsC,
-			Id:     svc.settingsKey(),
+			Id:     st.docID(svc.settingsKey()),
 			Assert: txn.DocMissing,
-			Insert: settingsRefsDoc{1},
+			Insert: settingsRefsDoc{
+				RefCount: 1,
+				EnvUUID:  st.EnvironUUID()},
 		},
 		{
 			C:      servicesC,
@@ -1215,10 +1241,10 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.VLANTag < 0 || args.VLANTag > 4094 {
 		return nil, errors.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
 	}
-	doc := newNetworkDoc(args)
+	doc := st.newNetworkDoc(args)
 	ops := []txn.Op{{
 		C:      networksC,
-		Id:     args.Name,
+		Id:     doc.DocID,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
@@ -1251,7 +1277,7 @@ func (st *State) Network(name string) (*Network, error) {
 	defer closer()
 
 	doc := &networkDoc{}
-	err := networks.FindId(name).One(doc)
+	err := networks.FindId(st.docID(name)).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("network %q", name)
 	}
@@ -1267,6 +1293,7 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 	defer closer()
 
 	docs := []networkDoc{}
+	// TODO(waigani) - ENVUUID - query needs to filter by env: bson.D{{"env-uuid", st.EnvironUUID()}}
 	err = networksCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get all networks")
@@ -1316,13 +1343,13 @@ func (st *State) AllServices() (services []*Service, err error) {
 // where the environment uuid is prefixed to the
 // localID.
 func (st *State) docID(localID string) string {
-	return st.EnvironTag().Id() + ":" + localID
+	return st.EnvironUUID() + ":" + localID
 }
 
 // localID returns the local id value by stripping
 // off the environment uuid prefix if it is there.
 func (st *State) localID(ID string) string {
-	prefix := st.EnvironTag().Id() + ":"
+	prefix := st.EnvironUUID() + ":"
 	if strings.HasPrefix(ID, prefix) {
 		return ID[len(prefix):]
 	}
@@ -1332,15 +1359,14 @@ func (st *State) localID(ID string) string {
 // strictLocalID returns the local id value by removing the
 // environment UUID prefix.
 //
-// A success flag is also returned. If there is no prefix matching the
-// State's environment, false is returned. True is returned if the
-// expected prefix was present.
-func (st *State) strictLocalID(ID string) (string, bool) {
-	prefix := st.EnvironTag().Id() + ":"
+// If there is no prefix matching the State's environment, an error is
+// returned.
+func (st *State) strictLocalID(ID string) (string, error) {
+	prefix := st.EnvironUUID() + ":"
 	if !strings.HasPrefix(ID, prefix) {
-		return "", false
+		return "", errors.Errorf("unexpected id: %#v", ID)
 	}
-	return ID[len(prefix):], true
+	return ID[len(prefix):], nil
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
@@ -1371,7 +1397,7 @@ func (st *State) InferEndpoints(names ...string) ([]Endpoint, error) {
 		}
 		for _, ep1 := range eps1 {
 			for _, ep2 := range eps2 {
-				if ep1.CanRelateTo(ep2) {
+				if ep1.CanRelateTo(ep2) && containerScopeOk(st, ep1, ep2) {
 					candidates = append(candidates, []Endpoint{ep1, ep2})
 				}
 			}
@@ -1414,6 +1440,23 @@ func isPeer(ep Endpoint) bool {
 
 func notPeer(ep Endpoint) bool {
 	return ep.Role != charm.RolePeer
+}
+
+func containerScopeOk(st *State, ep1, ep2 Endpoint) bool {
+	if ep1.Scope != charm.ScopeContainer && ep2.Scope != charm.ScopeContainer {
+		return true
+	}
+	var subordinateCount int
+	for _, ep := range []Endpoint{ep1, ep2} {
+		svc, err := st.Service(ep.ServiceName)
+		if err != nil {
+			return false
+		}
+		if svc.doc.Subordinate {
+			subordinateCount++
+		}
+	}
+	return subordinateCount == 1
 }
 
 // endpoints returns all endpoints that could be intended by the
@@ -1495,6 +1538,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		}
 		// Collect per-service operations, checking sanity as we go.
 		var ops []txn.Op
+		var subordinateCount int
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
@@ -1504,6 +1548,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, errors.Trace(err)
 			} else if svc.doc.Life != Alive {
 				return nil, errors.Errorf("service %q is not alive", ep.ServiceName)
+			}
+			if svc.doc.Subordinate {
+				subordinateCount++
 			}
 			series[svc.doc.Series] = true
 			ch, _, err := svc.Charm()
@@ -1523,6 +1570,10 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		if matchSeries && len(series) != 1 {
 			return nil, errors.Errorf("principal and subordinate services' series must match")
 		}
+		if eps[0].Scope == charm.ScopeContainer && subordinateCount != 1 {
+			return nil, errors.Errorf("container scoped relation requires one subordinate service")
+		}
+
 		// Create a new unique id if that has not already been done, and add
 		// an operation to create the relation document.
 		if id == -1 {
@@ -1534,7 +1585,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		doc = &relationDoc{
 			DocID:     docID,
 			Key:       key,
-			EnvUUID:   st.EnvironTag().Id(),
+			EnvUUID:   st.EnvironUUID(),
 			Id:        id,
 			Endpoints: eps,
 			Life:      Alive,
@@ -1648,7 +1699,7 @@ func (st *State) matchingActionsByReceiverName(receiver string) ([]*Action, erro
 	actionsCollection, closer := st.getCollection(actionsC)
 	defer closer()
 
-	envuuid := st.EnvironTag().Id()
+	envuuid := st.EnvironUUID()
 	sel := bson.D{{"env-uuid", envuuid}, {"receiver", receiver}}
 	iter := actionsCollection.Find(sel).Iter()
 
@@ -1695,7 +1746,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 	actionresults, closer := st.getCollection(actionresultsC)
 	defer closer()
 
-	envuuid := st.EnvironTag().Id()
+	envuuid := st.EnvironUUID()
 	sel := bson.D{{"env-uuid", envuuid}, {"action.receiver", ar.Name()}}
 	iter := actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {

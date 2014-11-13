@@ -18,12 +18,13 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -50,13 +51,13 @@ const (
 	JobManageStateDeprecated
 )
 
-var jobNames = map[MachineJob]params.MachineJob{
-	JobHostUnits:        params.JobHostUnits,
-	JobManageEnviron:    params.JobManageEnviron,
-	JobManageNetworking: params.JobManageNetworking,
+var jobNames = map[MachineJob]juju.MachineJob{
+	JobHostUnits:        juju.JobHostUnits,
+	JobManageEnviron:    juju.JobManageEnviron,
+	JobManageNetworking: juju.JobManageNetworking,
 
 	// Deprecated in 1.18.
-	JobManageStateDeprecated: params.JobManageStateDeprecated,
+	JobManageStateDeprecated: juju.JobManageStateDeprecated,
 }
 
 // AllJobs returns all supported machine jobs.
@@ -68,21 +69,21 @@ func AllJobs() []MachineJob {
 	}
 }
 
-// ToParams returns the job as params.MachineJob.
-func (job MachineJob) ToParams() params.MachineJob {
-	if paramsJob, ok := jobNames[job]; ok {
-		return paramsJob
+// ToParams returns the job as juju.MachineJob.
+func (job MachineJob) ToParams() juju.MachineJob {
+	if jujuJob, ok := jobNames[job]; ok {
+		return jujuJob
 	}
-	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+	return juju.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
-// paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
-	paramsJobs := make([]params.MachineJob, len(jobs))
+// params.JobsFromJobs converts state jobs to juju jobs.
+func paramsJobsFromJobs(jobs []MachineJob) []juju.MachineJob {
+	jujuJobs := make([]juju.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
-		paramsJobs[i] = machineJob.ToParams()
+		jujuJobs[i] = machineJob.ToParams()
 	}
-	return paramsJobs
+	return jujuJobs
 }
 
 func (job MachineJob) String() string {
@@ -94,7 +95,7 @@ func (job MachineJob) String() string {
 const manualMachinePrefix = "manual:"
 
 // machineDoc represents the internal state of a machine in MongoDB.
-// Note the correspondence with MachineInfo in apiserver/params.
+// Note the correspondence with MachineInfo in apiserver/juju.
 type machineDoc struct {
 	DocID         string `bson:"_id"`
 	Id            string `bson:"machineid"`
@@ -123,11 +124,6 @@ type machineDoc struct {
 	// Placement is the placement directive that should be used when provisioning
 	// an instance for the machine.
 	Placement string `bson:",omitempty"`
-	// Deprecated. InstanceId, now lives on instanceData.
-	// This attribute is retained so that data from existing machines can be read.
-	// SCHEMACHANGE
-	// TODO(wallyworld): remove this attribute when schema upgrades are possible.
-	InstanceId instance.Id
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -739,50 +735,33 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this
 // machine, or a NotProvisionedError, if not set.
 func (m *Machine) InstanceId() (instance.Id, error) {
-	// SCHEMACHANGE
-	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-	// (we first check for InstanceId stored on the machineDoc)
-	if m.doc.InstanceId != "" {
-		return m.doc.InstanceId, nil
-	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instData.InstanceId == "") || errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
 		return "", err
 	}
-	return instData.InstanceId, nil
+	return instData.InstanceId, err
 }
 
 // InstanceStatus returns the provider specific instance status for this machine,
 // or a NotProvisionedError if instance is not yet provisioned.
 func (m *Machine) InstanceStatus() (string, error) {
-	// SCHEMACHANGE
-	// InstanceId may not be stored in the instanceData doc, so we
-	// get it using an API on machine which knows to look in the old
-	// place if necessary.
-	instId, err := m.InstanceId()
-	if err != nil {
-		return "", err
-	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if (err == nil && instId == "") || errors.IsNotFound(err) {
+	if errors.IsNotFound(err) {
 		err = NotProvisionedError(m.Id())
 	}
 	if err != nil {
 		return "", err
 	}
-	return instData.Status, nil
+	return instData.Status, err
 }
 
 // SetInstanceStatus sets the provider specific instance status for a machine.
 func (m *Machine) SetInstanceStatus(status string) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set instance status for machine %q", m)
 
-	// SCHEMACHANGE - we can't do this yet until the schema is updated
-	// so just do a txn.DocExists for now.
-	// provisioned := bson.D{{"instanceid", bson.D{{"$ne", ""}}}}
 	ops := []txn.Op{
 		{
 			C:      instanceDataC,
@@ -855,15 +834,13 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		CpuPower:   characteristics.CpuPower,
 		Tags:       characteristics.Tags,
 	}
-	// SCHEMACHANGE
-	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
-	notSetYet := bson.D{{"instanceid", ""}, {"nonce", ""}}
+
 	ops := []txn.Op{
 		{
 			C:      machinesC,
 			Id:     m.doc.DocID,
-			Assert: append(isAliveDoc, notSetYet...),
-			Update: bson.D{{"$set", bson.D{{"instanceid", id}, {"nonce", nonce}}}},
+			Assert: append(isAliveDoc, bson.DocElem{"nonce", ""}),
+			Update: bson.D{{"$set", bson.D{{"nonce", nonce}}}},
 		}, {
 			C:      instanceDataC,
 			Id:     m.doc.DocID,
@@ -874,10 +851,6 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 
 	if err = m.st.runTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
-		// SCHEMACHANGE
-		// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-		// (InstanceId is stored on the instanceData document but we duplicate the value on the machineDoc.
-		m.doc.InstanceId = id
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
@@ -945,7 +918,7 @@ func IsNotProvisionedError(err error) bool {
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
 	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
-	var providerValues set.Strings
+	providerValues := make(set.Strings)
 	for _, address := range providerAddresses {
 		// Older versions of Juju may have stored an empty address so ignore it here.
 		if address.Value == "" {
@@ -1063,7 +1036,8 @@ func (m *Machine) Networks() ([]*Network, error) {
 	networksCollection, closer := m.st.getCollection(networksC)
 	defer closer()
 
-	sel := bson.D{{"_id", bson.D{{"$in", requestedNetworks}}}}
+	// TODO(waigani) - ENVUUID - query needs to filter by env: {"env-uuid", m.st.EnvironUUID()}
+	sel := bson.D{{"name", bson.D{{"$in", requestedNetworks}}}}
 	err = networksCollection.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
@@ -1111,12 +1085,10 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	doc := newNetworkInterfaceDoc(args)
-	doc.MachineId = m.doc.Id
-	doc.Id = bson.NewObjectId()
+	doc := newNetworkInterfaceDoc(m.doc.Id, m.st.EnvironUUID(), args)
 	ops := []txn.Op{{
 		C:      networksC,
-		Id:     args.NetworkName,
+		Id:     m.st.docID(args.NetworkName),
 		Assert: txn.DocExists,
 	}, {
 		C:      machinesC,
@@ -1376,4 +1348,9 @@ func (m *Machine) markInvalidContainers() error {
 		}
 	}
 	return nil
+}
+
+func (m *Machine) SetMachineBlockDevices(devices []storage.BlockDevice) error {
+	// TODO(axw) implement me
+	return errors.New("SetMachineBlockDevices is not implemented")
 }

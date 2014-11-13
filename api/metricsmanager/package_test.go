@@ -4,8 +4,9 @@
 package metricsmanager_test
 
 import (
-	"github.com/juju/juju/testing"
 	stdtesting "testing"
+
+	"github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {

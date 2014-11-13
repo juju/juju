@@ -64,6 +64,34 @@ func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 	waitForFile(c, confFile)
 }
 
+func (s *RsyslogSuite) TestRsyslogCert(c *gc.C) {
+	st, m := s.st, s.machine
+	err := s.machine.SetAddresses(network.NewAddress("example.com", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
+	c.Assert(err, gc.IsNil)
+	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
+	defer worker.Kill()
+	waitForFile(c, filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
+
+	rsyslogCertPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-cert.pem"))
+	c.Assert(err, gc.IsNil)
+
+	cert, err := cert.ParseCert(string(rsyslogCertPEM))
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(cert.DNSNames, gc.DeepEquals, []string{"example.com", "*"})
+
+	subject := cert.Subject
+	c.Assert(subject.CommonName, gc.Equals, "*")
+	c.Assert(subject.Organization, gc.DeepEquals, []string{"juju"})
+
+	issuer := cert.Issuer
+	c.Assert(issuer.CommonName, gc.Equals, "juju-generated CA for environment \"rsyslog\"")
+	c.Assert(issuer.Organization, gc.DeepEquals, []string{"juju"})
+}
+
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	st, m := s.st, s.machine
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)

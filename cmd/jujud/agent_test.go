@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/api"
@@ -109,8 +110,8 @@ func (fakeAPIOpenConfig) OldPassword() string {
 	return "old"
 }
 
-func (fakeAPIOpenConfig) Jobs() []params.MachineJob {
-	return []params.MachineJob{}
+func (fakeAPIOpenConfig) Jobs() []juju.MachineJob {
+	return []juju.MachineJob{}
 }
 
 var _ = gc.Suite(&apiOpenSuite{})
@@ -311,8 +312,8 @@ func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers ve
 	logger.Debugf("priming agent %s", tag.String())
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
-	err = envtools.MergeAndWriteMetadata(stor, "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
+	err = envtools.MergeAndWriteMetadata(stor, "released", "released", coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
@@ -398,7 +399,7 @@ func (s *agentSuite) primeStateAgent(
 
 	stor, err := filestorage.NewFileStorageWriter(c.MkDir())
 	c.Assert(err, gc.IsNil)
-	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), "released", vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)

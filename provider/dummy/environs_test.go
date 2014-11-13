@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
@@ -105,13 +106,13 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ 
 	s.TestConfig["prefer-ipv6"] = preferIPv6
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, testing.Context(c), s.ConfigStore)
+	e, err := environs.Prepare(cfg, envtesting.BootstrapContext(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(e, gc.NotNil)
 
 	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(testing.Context(c), e, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), e, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	return e
 }
@@ -156,7 +157,7 @@ func (s *suite) TestListNetworks(c *gc.C) {
 		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
 		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
 	}
-	netInfo, err := e.ListNetworks()
+	netInfo, err := e.ListNetworks("")
 	c.Assert(err, gc.IsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
 	assertListNetworks(c, e, opc, expectInfo)

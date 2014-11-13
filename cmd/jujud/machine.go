@@ -25,12 +25,14 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/api/metricsmanager"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
@@ -64,6 +66,7 @@ import (
 	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
+	rebootworker "github.com/juju/juju/worker/reboot"
 	"github.com/juju/juju/worker/resumer"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
@@ -216,12 +219,47 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// At this point, all workers will have been configured to start
 	close(a.workersStarted)
 	err := a.runner.Wait()
-	if err == worker.ErrTerminateAgent {
+	switch err {
+	case worker.ErrTerminateAgent:
 		err = a.uninstallAgent(agentConfig)
+	case worker.ErrRebootMachine:
+		logger.Infof("Caught reboot error")
+		err = a.executeRebootOrShutdown(params.ShouldReboot)
+	case worker.ErrShutdownMachine:
+		logger.Infof("Caught shutdown error")
+		err = a.executeRebootOrShutdown(params.ShouldShutdown)
 	}
 	err = agentDone(err)
 	a.tomb.Kill(err)
 	return err
+}
+
+func (a *MachineAgent) executeRebootOrShutdown(action params.RebootAction) error {
+	agentCfg := a.CurrentConfig()
+	// At this stage, all API connections would have been closed
+	// We need to reopen the API to clear the reboot flag after
+	// scheduling the reboot. It may be cleaner to do this in the reboot
+	// worker, before returning the ErrRebootMachine.
+	st, _, err := openAPIState(agentCfg, a)
+	if err != nil {
+		logger.Infof("Reboot: Error connecting to state")
+		return errors.Trace(err)
+	}
+	// block until all units/containers are ready, and reboot/shutdown
+	finalize, err := reboot.NewRebootWaiter(st, agentCfg)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	logger.Infof("Reboot: Executing reboot")
+	err = finalize.ExecuteReboot(action)
+	if err != nil {
+		logger.Infof("Reboot: Error executing reboot: %v", err)
+		return errors.Trace(err)
+	}
+	// On windows, the shutdown command is asynchronous. We return ErrRebootMachine
+	// so the agent will simply exit without error pending reboot/shutdown.
+	return worker.ErrRebootMachine
 }
 
 func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
@@ -394,7 +432,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageEnviron {
+		if job == juju.JobManageEnviron {
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)
@@ -433,6 +471,17 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
+	a.startWorkerAfterUpgrade(runner, "reboot", func() (worker.Worker, error) {
+		reboot, err := st.Reboot()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		lock, err := hookExecutionLock(DataDir)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return rebootworker.NewReboot(reboot, agentConfig, lock)
+	})
 	a.startWorkerAfterUpgrade(runner, "apiaddressupdater", func() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), a), nil
 	})
@@ -449,7 +498,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Start networker depending on configuration and job.
 	intrusiveMode := false
 	for _, job := range entity.Jobs() {
-		if job == params.JobManageNetworking {
+		if job == juju.JobManageNetworking {
 			intrusiveMode = true
 			break
 		}
@@ -477,13 +526,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	}
 	for _, job := range entity.Jobs() {
 		switch job {
-		case params.JobHostUnits:
+		case juju.JobHostUnits:
 			a.startWorkerAfterUpgrade(runner, "deployer", func() (worker.Worker, error) {
 				apiDeployer := st.Deployer()
 				context := newDeployContext(apiDeployer, agentConfig)
 				return deployer.NewDeployer(apiDeployer, context), nil
 			})
-		case params.JobManageEnviron:
+		case juju.JobManageEnviron:
 			a.startWorkerAfterUpgrade(singularRunner, "environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewEnvironProvisioner(st.Provisioner(), agentConfig), nil
 			})
@@ -509,7 +558,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "metricsenderworker", func() (worker.Worker, error) {
 				return metricworker.NewSender(getMetricAPI(st)), nil
 			})
-		case params.JobManageStateDeprecated:
+		case juju.JobManageStateDeprecated:
 			// Legacy environments may set this, but we ignore it.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
@@ -560,7 +609,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		return err
 	}
 	machine, err := pr.Machine(tag)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
+	if errors.IsNotFound(err) || err == nil && machine.Life() == juju.Dead {
 		return worker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -1009,7 +1058,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 	})
 }
 
-func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status juju.Status, info string) error {
 	tag := a.Tag().(names.MachineTag)
 	machine, err := apiState.Machiner().Machine(tag)
 	if err != nil {

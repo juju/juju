@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apiprovisioner "github.com/juju/juju/api/provisioner"
@@ -207,7 +208,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 
-				var jobs []params.MachineJob
+				var jobs []juju.MachineJob
 				for _, job := range m.Jobs() {
 					jobs = append(jobs, job.ToParams())
 				}
@@ -258,7 +259,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *gc.C) {
 	s.BackingState.StartSync()
 	select {
 	case o := <-s.op:
-		c.Fatalf("unexpected operation %#v", o)
+		c.Fatalf("unexpected operation %+v", o)
 	case <-time.After(coretesting.ShortWait):
 		return
 	}
@@ -464,7 +465,7 @@ func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
 	availableVersions := []version.Binary{
 		currentVersion, compatibleVersion, ignoreVersion1, ignoreVersion2,
 	}
-	envtesting.AssertUploadFakeToolsVersions(c, stor, availableVersions...)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, s.cfg.AgentStream(), s.cfg.AgentStream(), availableVersions...)
 
 	// Extract the tools that we expect to actually match.
 	expectedList, err := tools.FindTools(s.Environ, -1, -1, coretools.Filter{
@@ -556,6 +557,125 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	p = s.newEnvironProvisioner(c)
 	defer stop(c, p)
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisionerFailedStartInstanceWithInjectedCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 2)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	destroyError := errors.New("container failed to start and failed to destroy: manual cleanup of containers needed")
+	// send the error message TWICE, because the provisioner will retry only ONCE
+	errorInjectionChannel <- retryableError
+	errorInjectionChannel <- destroyError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkNoOperations(c)
+
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, gc.IsNil)
+		if status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, state.StatusError)
+		// check that the status matches the error message
+		c.Assert(info, gc.Equals, destroyError.Error())
+		break
+	}
+
+}
+
+func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedRetryableCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message once
+	// - instance creation should succeed
+	retryableError := instance.NewRetryableCreationError("container failed to start and was destroyed")
+	errorInjectionChannel <- retryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisionerSucceedStartInstanceWithInjectedWrappedRetryableCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message once
+	// - instance creation should succeed
+	retryableError := errors.Wrap(errors.New(""), instance.NewRetryableCreationError("container failed to start and was destroyed"))
+	errorInjectionChannel <- retryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m)
+}
+
+func (s *ProvisionerSuite) TestProvisionerFailStartInstanceWithInjectedNonRetryableCreationError(c *gc.C) {
+	// create the error injection channel
+	errorInjectionChannel := make(chan error, 1)
+	c.Assert(errorInjectionChannel, gc.NotNil)
+
+	p := s.newEnvironProvisioner(c)
+	defer stop(c, p)
+
+	// patch the dummy provider error injection channel
+	cleanup := dummy.PatchTransientErrorInjectionChannel(errorInjectionChannel)
+	defer cleanup()
+
+	// send the error message once
+	// - instance creation should succeed
+	nonRetryableError := errors.New("some nonretryable error")
+	errorInjectionChannel <- nonRetryableError
+
+	m, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkNoOperations(c)
+
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, _, err := m.Status()
+		c.Assert(err, gc.IsNil)
+		if status == state.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, gc.Equals, state.StatusError)
+		// check that the status matches the error message
+		c.Assert(info, gc.Equals, nonRetryableError.Error())
+		break
+	}
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *gc.C) {
@@ -891,56 +1011,30 @@ func (s *ProvisionerSuite) TestProvisionerObservesConfigChanges(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
 
-	// create a machine
-	m0, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i0 := s.checkStartInstance(c, m0)
-
-	// create a second machine
-	m1, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	i1 := s.checkStartInstance(c, m1)
-
-	// mark the first machine as dead
-	c.Assert(m0.EnsureDead(), gc.IsNil)
-
-	// remove the second machine entirely from state
-	c.Assert(m1.EnsureDead(), gc.IsNil)
-	c.Assert(m1.Remove(), gc.IsNil)
-
-	// We default to the destroyed method. Only the one we know is
-	// dead should be stopped; not the unknown instance.
-	s.checkStopSomeInstances(c, []instance.Instance{i0}, []instance.Instance{i1})
-	s.waitRemoved(c, m0)
-
-	// insert our observer
+	// Inject our observer into the provisioner
 	cfgObserver := make(chan *config.Config, 1)
 	provisioner.SetObserver(p, cfgObserver)
 
-	// Switch to reaping on Destroyed machines.
+	// Switch to reaping on All machines.
 	attrs := map[string]interface{}{
-		"provisioner-harvest-mode": config.HarvestDestroyed.String(),
+		config.ProvisionerHarvestModeKey: config.HarvestAll.String(),
 	}
-	err = s.State.UpdateEnvironConfig(attrs, nil, nil)
+	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	s.BackingState.StartSync()
 
-	// wait for the PA to load the new configuration
+	// Wait for the PA to load the new configuration.
 	select {
 	case newCfg := <-cfgObserver:
 		c.Assert(
 			newCfg.ProvisionerHarvestMode().String(),
 			gc.Equals,
-			config.HarvestDestroyed.String(),
+			config.HarvestAll.String(),
 		)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("PA did not action config change")
 	}
-
-	m3, err := s.addMachine()
-	c.Assert(err, gc.IsNil)
-	s.checkStartInstance(c, m3)
 }
 
 func (s *ProvisionerSuite) newProvisionerTask(
@@ -989,6 +1083,7 @@ func (s *ProvisionerSuite) TestHarvestNoneReapsNothing(c *gc.C) {
 	// Ensure we're doing nothing.
 	s.checkNoOperations(c)
 }
+
 func (s *ProvisionerSuite) TestHarvestUnknownReapsOnlyUnknown(c *gc.C) {
 
 	task := s.newProvisionerTask(c,
@@ -1134,7 +1229,7 @@ type mockBroker struct {
 	ids        []string
 }
 
-func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	// All machines except machines 3, 4 are provisioned successfully the first time.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
@@ -1147,7 +1242,7 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 	} else {
 		b.retryCount[id] = retries + 1
 	}
-	return nil, nil, nil, fmt.Errorf("error: some error")
+	return nil, fmt.Errorf("error: some error")
 }
 
 type mockToolsFinder struct {

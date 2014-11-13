@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
@@ -17,7 +18,7 @@ import (
 type Service struct {
 	st   *State
 	tag  names.ServiceTag
-	life params.Life
+	life juju.Life
 }
 
 // Name returns the service name.
@@ -36,7 +37,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Life returns the service's current life state.
-func (s *Service) Life() params.Life {
+func (s *Service) Life() juju.Life {
 	return s.life
 }
 

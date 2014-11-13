@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v4"
 
+	jj "github.com/juju/juju"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	apideployer "github.com/juju/juju/api/deployer"
@@ -32,7 +33,6 @@ import (
 	apinetworker "github.com/juju/juju/api/networker"
 	apirsyslog "github.com/juju/juju/api/rsyslog"
 	charmtesting "github.com/juju/juju/apiserver/charmrevisionupdater/testing"
-	"github.com/juju/juju/apiserver/params"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
@@ -98,7 +97,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 
 	s.agentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
-	s.singularRecord = &singularRunnerRecord{}
+	s.singularRecord = &singularRunnerRecord{startedWorkers: make(set.Strings)}
 	s.agentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
 	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
@@ -365,7 +364,8 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 
 func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 	ctx := &fakeContext{
-		inited: make(chan struct{}),
+		inited:   make(chan struct{}),
+		deployed: make(set.Strings),
 	}
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
@@ -395,7 +395,8 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(
+		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
@@ -486,7 +487,8 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	s.agentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(
+		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
@@ -549,7 +551,8 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal"
-	envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(
+		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	calledChan := make(chan struct{}, 1)
 	s.agentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
@@ -615,7 +618,8 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.DefaultToolsStorage, newVers)[0]
+	newTools := envtesting.AssertUploadFakeToolsVersions(
+		c, s.DefaultToolsStorage, s.Environ.Config().AgentStream(), s.Environ.Config().AgentStream(), newVers)[0]
 	err := s.State.SetEnvironAgentVersion(newVers.Number)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
@@ -625,35 +629,6 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	})
-}
-
-func (s *MachineSuite) TestUpgradeTarget(c *gc.C) {
-	for i, test := range []struct {
-		job      params.MachineJob
-		master   bool
-		expected upgrades.Target
-	}{
-		{
-		// empty gives empty
-		}, {
-			job:      params.JobManageEnviron,
-			expected: upgrades.StateServer,
-		}, {
-			job:      params.JobManageEnviron,
-			master:   true,
-			expected: upgrades.DatabaseMaster,
-		}, {
-			job:      params.JobHostUnits,
-			expected: upgrades.HostMachine,
-		}, {
-			job:      params.JobHostUnits,
-			master:   true,
-			expected: upgrades.HostMachine,
-		},
-	} {
-		c.Logf("Test %v", i)
-		c.Assert(upgradeTarget(test.job, test.master), gc.Equals, test.expected)
-	}
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
@@ -764,7 +739,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Life(), gc.Equals, params.Alive)
+		c.Assert(m.Life(), gc.Equals, jj.Alive)
 	})
 }
 

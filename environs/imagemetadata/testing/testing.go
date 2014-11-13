@@ -35,7 +35,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 		ValueTemplate: imagemetadata.ImageMetadata{},
 	}
 	const requireSigned = false
-	indexPath := simplestreams.UnsignedIndex("v1")
+	indexPath := simplestreams.UnsignedIndex("v1", 1)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
@@ -60,8 +60,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader) []*imagemetad
 
 	// Collate the metadata.
 	imageMetadataMap := make(map[string]*imagemetadata.ImageMetadata)
-	var expectedProductIds set.Strings
-	var imageVersions set.Strings
+	expectedProductIds, imageVersions := make(set.Strings), make(set.Strings)
 	for _, mc := range cloudMetadata.Products {
 		for _, items := range mc.Items {
 			for key, item := range items.Items {

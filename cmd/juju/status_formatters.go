@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju"
 )
 
 // FormatOneline returns a brief list of units and their subordinates.
@@ -29,7 +29,16 @@ func FormatOneline(value interface{}) ([]byte, error) {
 	var out bytes.Buffer
 
 	pprint := func(uName string, u unitStatus, level int) {
-		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)"), uName, u.PublicAddress, u.AgentState)
+		var fmtPorts string
+		if len(u.OpenedPorts) > 0 {
+			fmtPorts = fmt.Sprintf(" %s", strings.Join(u.OpenedPorts, ", "))
+		}
+		fmt.Fprintf(&out, indent("\n", level*2, "- %s: %s (%v)%v"),
+			uName,
+			u.PublicAddress,
+			u.AgentState,
+			fmtPorts,
+		)
 	}
 
 	for _, svcName := range sortStrings(stringKeysFromMap(fs.Services)) {
@@ -158,7 +167,7 @@ func newSummaryFormatter() *summaryFormatter {
 		ipAddrs:     make([]net.IPNet, 0),
 		netStrings:  make([]string, 0),
 		openPorts:   set.NewStrings(),
-		stateToUnit: make(map[params.Status]int),
+		stateToUnit: make(map[juju.Status]int),
 	}
 	f.tw = tabwriter.NewWriter(&f.out, 0, 1, 1, ' ', 0)
 	return f
@@ -170,7 +179,7 @@ type summaryFormatter struct {
 	numUnits   int
 	openPorts  set.Strings
 	// status -> count
-	stateToUnit map[params.Status]int
+	stateToUnit map[juju.Status]int
 	tw          *tabwriter.Writer
 	out         bytes.Buffer
 }
@@ -211,9 +220,9 @@ func (f *summaryFormatter) trackUnit(name string, status unitStatus, indentLevel
 	f.stateToUnit[status.AgentState]++
 }
 
-func (f *summaryFormatter) printStateToCount(m map[params.Status]int) {
+func (f *summaryFormatter) printStateToCount(m map[juju.Status]int) {
 	for _, status := range sortStrings(stringKeysFromMap(m)) {
-		numInStatus := m[params.Status(status)]
+		numInStatus := m[juju.Status(status)]
 		f.delimitValuesWithTabs(status+":", fmt.Sprintf(" %d ", numInStatus))
 	}
 }
@@ -243,14 +252,14 @@ func (f *summaryFormatter) resolveAndTrackIp(publicDns string) {
 	f.trackIp(ip.IP)
 }
 
-func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[params.Status]int {
-	stateToMachine := make(map[params.Status]int)
+func (f *summaryFormatter) aggregateMachineStates(machines map[string]machineStatus) map[juju.Status]int {
+	stateToMachine := make(map[juju.Status]int)
 	for _, name := range sortStrings(stringKeysFromMap(machines)) {
 		m := machines[name]
 		f.resolveAndTrackIp(m.DNSName)
 
 		if agentState := m.AgentState; agentState == "" {
-			agentState = params.StatusPending
+			agentState = juju.StatusPending
 		} else {
 			stateToMachine[agentState]++
 		}

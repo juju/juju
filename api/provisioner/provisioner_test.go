@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/provisioner"
 	apitesting "github.com/juju/juju/api/testing"
@@ -96,15 +97,15 @@ func (s *provisionerSuite) TestGetSetStatus(c *gc.C) {
 
 	status, info, err := apiMachine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(status, gc.Equals, juju.StatusPending)
 	c.Assert(info, gc.Equals, "")
 
-	err = apiMachine.SetStatus(params.StatusStarted, "blah", nil)
+	err = apiMachine.SetStatus(juju.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
 
 	status, info, err = apiMachine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(status, gc.Equals, juju.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	_, _, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
@@ -115,12 +116,12 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 	apiMachine, err := s.provisioner.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
-	err = apiMachine.SetStatus(params.StatusError, "blah", map[string]interface{}{"foo": "bar"})
+	err = apiMachine.SetStatus(juju.StatusError, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.IsNil)
 
 	status, info, err := apiMachine.Status()
 	c.Assert(err, gc.IsNil)
-	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(status, gc.Equals, juju.StatusError)
 	c.Assert(info, gc.Equals, "blah")
 	_, _, data, err := s.machine.Status()
 	c.Assert(err, gc.IsNil)
@@ -194,15 +195,15 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 
 	apiMachine, err := s.provisioner.Machine(otherMachine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.Life(), gc.Equals, params.Alive)
+	c.Assert(apiMachine.Life(), gc.Equals, juju.Alive)
 
 	err = apiMachine.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.Life(), gc.Equals, params.Alive)
+	c.Assert(apiMachine.Life(), gc.Equals, juju.Alive)
 
 	err = apiMachine.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.Life(), gc.Equals, params.Dead)
+	c.Assert(apiMachine.Life(), gc.Equals, juju.Dead)
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
@@ -457,7 +458,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	// Change something other than the containers and make sure it's
 	// not detected.
-	err = apiMachine.SetStatus(params.StatusStarted, "not really", nil)
+	err = apiMachine.SetStatus(juju.StatusStarted, "not really", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 

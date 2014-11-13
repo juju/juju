@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/juju/names"
 	"gopkg.in/mgo.v2/txn"
@@ -53,6 +54,9 @@ type actionResultDoc struct {
 
 	// Results are the structured results from the action.
 	Results map[string]interface{} `bson:"results"`
+
+	// Completed reflects the time that the action was Finished.
+	Completed time.Time `bson:"completed"`
 }
 
 // ActionResult represents an instruction to do some "action" and is
@@ -89,6 +93,11 @@ func (a *ActionResult) Parameters() map[string]interface{} {
 	return a.doc.Action.Parameters
 }
 
+// Action returns an Action containing the original actionDoc.
+func (a *ActionResult) Action() *Action {
+	return newAction(a.st, a.doc.Action)
+}
+
 // Status returns the final state of the action.
 func (a *ActionResult) Status() ActionStatus {
 	return a.doc.Status
@@ -118,6 +127,11 @@ func (a *ActionResult) ActionTag() names.ActionTag {
 	return names.JoinActionTag(ar.Prefix(), ar.Sequence())
 }
 
+// Completed returns the completion time of the Action.
+func (a *ActionResult) Completed() time.Time {
+	return a.doc.Completed
+}
+
 // newActionResult builds an ActionResult from the supplied state and
 // actionResultDoc.
 func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
@@ -136,12 +150,13 @@ func newActionResultDoc(a *Action, finalStatus ActionStatus, results map[string]
 		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", actionId))
 	}
 	return actionResultDoc{
-		DocId:   a.st.docID(id),
-		EnvUUID: a.doc.EnvUUID,
-		Action:  a.doc,
-		Status:  finalStatus,
-		Results: results,
-		Message: message,
+		DocId:     a.st.docID(id),
+		EnvUUID:   a.doc.EnvUUID,
+		Action:    a.doc,
+		Status:    finalStatus,
+		Results:   results,
+		Message:   message,
+		Completed: nowToTheSecond(),
 	}
 }
 

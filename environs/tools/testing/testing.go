@@ -45,7 +45,7 @@ func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 // GetMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
 // a fake tools tarball.
 func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+	return func(forceVersion *version.Number, stream string) (*sync.BuiltTools, error) {
 		vers := version.Current
 		if forceVersion != nil {
 			vers.Number = *forceVersion
@@ -54,7 +54,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
 
-		toolsDir, err := ioutil.TempDir("", "juju-tools")
+		toolsDir, err := ioutil.TempDir("", "juju-tools-"+stream)
 		c.Assert(err, gc.IsNil)
 		name := "name"
 		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
@@ -70,20 +70,17 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 }
 
 // MakeTools creates some fake tools with the given version strings.
-func MakeTools(c *gc.C, metadataDir, subdir, stream string, versionStrings []string) coretools.List {
-	return makeTools(c, metadataDir, subdir, stream, versionStrings, false)
+func MakeTools(c *gc.C, metadataDir, stream string, versionStrings []string) coretools.List {
+	return makeTools(c, metadataDir, stream, versionStrings, false)
 }
 
 // MakeToolsWithCheckSum creates some fake tools (including checksums) with the given version strings.
-func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir, stream string, versionStrings []string) coretools.List {
-	return makeTools(c, metadataDir, subdir, stream, versionStrings, true)
+func MakeToolsWithCheckSum(c *gc.C, metadataDir, stream string, versionStrings []string) coretools.List {
+	return makeTools(c, metadataDir, stream, versionStrings, true)
 }
 
-func makeTools(c *gc.C, metadataDir, subdir, stream string, versionStrings []string, withCheckSum bool) coretools.List {
-	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath)
-	if subdir != "" {
-		toolsDir = filepath.Join(toolsDir, subdir)
-	}
+func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, withCheckSum bool) coretools.List {
+	toolsDir := filepath.Join(metadataDir, storage.BaseToolsPath, stream)
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	var toolsList coretools.List
 	for _, versionString := range versionStrings {
@@ -104,7 +101,7 @@ func makeTools(c *gc.C, metadataDir, subdir, stream string, versionStrings []str
 	// Write the tools metadata.
 	stor, err := filestorage.NewFileStorageWriter(metadataDir)
 	c.Assert(err, gc.IsNil)
-	err = tools.MergeAndWriteMetadata(stor, stream, toolsList, false)
+	err = tools.MergeAndWriteMetadata(stor, stream, stream, toolsList, false)
 	c.Assert(err, gc.IsNil)
 	return toolsList
 }
@@ -120,7 +117,7 @@ func SHA256sum(c *gc.C, path string) (int64, string) {
 }
 
 // ParseMetadataFromDir loads ToolsMetadata from the specified directory.
-func ParseMetadataFromDir(c *gc.C, stream, metadataDir string, expectMirrors bool) []*tools.ToolsMetadata {
+func ParseMetadataFromDir(c *gc.C, metadataDir, stream string, expectMirrors bool) []*tools.ToolsMetadata {
 	stor, err := filestorage.NewFileStorageReader(metadataDir)
 	c.Assert(err, gc.IsNil)
 	return ParseMetadataFromStorage(c, stor, stream, expectMirrors)
@@ -135,12 +132,11 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	}
 
 	const requireSigned = false
-	indexPath := simplestreams.UnsignedIndex("v1")
+	indexPath := simplestreams.UnsignedIndex("v1", 2)
 	mirrorsPath := simplestreams.MirrorsPath("v1")
 	indexRef, err := simplestreams.GetIndexWithFormat(
 		source, indexPath, "index:1.0", mirrorsPath, requireSigned, simplestreams.CloudSpec{}, params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(indexRef.Indexes, gc.HasLen, 1)
 
 	toolsIndexMetadata := indexRef.Indexes[tools.ToolsContentId(stream)]
 	c.Assert(toolsIndexMetadata, gc.NotNil)
@@ -158,8 +154,8 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 	c.Assert(err, gc.IsNil)
 
 	toolsMetadataMap := make(map[string]*tools.ToolsMetadata)
-	var expectedProductIds set.Strings
-	var toolsVersions set.Strings
+	expectedProductIds := make(set.Strings)
+	toolsVersions := make(set.Strings)
 	for _, mc := range cloudMetadata.Products {
 		for _, items := range mc.Items {
 			for key, item := range items.Items {
@@ -190,6 +186,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, stream string
 		data, err = ioutil.ReadAll(r)
 		c.Assert(err, gc.IsNil)
 		c.Assert(string(data), jc.Contains, `"mirrors":`)
+		c.Assert(string(data), jc.Contains, tools.ToolsContentId(stream))
 		c.Assert(err, gc.IsNil)
 	}
 	return toolsMetadata
@@ -203,7 +200,7 @@ type metadataFile struct {
 func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []metadataFile {
 	var metadata = make([]*tools.ToolsMetadata, len(versions))
 	for i, vers := range versions {
-		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
 		metadata[i] = &tools.ToolsMetadata{
 			Release: vers.Series,
 			Version: vers.Number.String(),
@@ -211,11 +208,16 @@ func generateMetadata(c *gc.C, stream string, versions ...version.Binary) []meta
 			Path:    basePath,
 		}
 	}
-	index, products, err := tools.MarshalToolsMetadataJSON(metadata, stream, time.Now())
+	var streamMetadata = map[string][]*tools.ToolsMetadata{
+		stream: metadata,
+	}
+	index, products, err := tools.MarshalToolsMetadataJSON(streamMetadata, time.Now())
 	c.Assert(err, gc.IsNil)
 	objects := []metadataFile{
-		{simplestreams.UnsignedIndex("v1"), index},
-		{tools.ProductMetadataPath(stream), products},
+		{simplestreams.UnsignedIndex("v1", 2), index},
+	}
+	for stream, metadata := range products {
+		objects = append(objects, metadataFile{tools.ProductMetadataPath(stream), metadata})
 	}
 	return objects
 }
@@ -228,7 +230,7 @@ func UploadToStorage(c *gc.C, stor storage.Storage, stream string, versions ...v
 	}
 	var err error
 	for _, vers := range versions {
-		filename := fmt.Sprintf("tools/releases/tools-%s.tar.gz", vers.String())
+		filename := fmt.Sprintf("tools/%s/tools-%s.tar.gz", stream, vers.String())
 		// Put a file in images since the dummy storage provider requires a
 		// file to exist before the URL can be found. This is to ensure it behaves
 		// the same way as MAAS.
@@ -253,7 +255,7 @@ func UploadToDirectory(c *gc.C, stream, dir string, versions ...version.Binary) 
 		return uploaded
 	}
 	for _, vers := range versions {
-		basePath := fmt.Sprintf("releases/tools-%s.tar.gz", vers.String())
+		basePath := fmt.Sprintf("%s/tools-%s.tar.gz", stream, vers.String())
 		uploaded[vers] = fmt.Sprintf("file://%s/%s", dir, basePath)
 	}
 	objects := generateMetadata(c, stream, versions...)

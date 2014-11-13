@@ -120,7 +120,9 @@ func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {
 
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	settings, closer := s.state.getCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	cleanSettingsMap(mgoData)
 	c.Assert(mgoData, gc.DeepEquals, options)
@@ -202,7 +204,9 @@ func (s *SettingsSuite) TestSetItem(c *gc.C) {
 	c.Assert(node.Map(), gc.DeepEquals, options)
 	// Check MongoDB state.
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	settings, closer := s.state.getCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	cleanSettingsMap(mgoData)
 	c.Assert(mgoData, gc.DeepEquals, options)
@@ -227,7 +231,9 @@ func (s *SettingsSuite) TestSetItemEscape(c *gc.C) {
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04bar": 1, "foo\uff0ealpha": "beta"}
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	settings, closer := s.state.getCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	cleanMgoSettings(mgoData)
 	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
@@ -264,7 +270,9 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	settings, closer := s.state.getCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	cleanMgoSettings(mgoData)
 	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
@@ -282,7 +290,9 @@ func (s *SettingsSuite) TestCreateSettingsEscape(c *gc.C) {
 	// Check MongoDB state.
 	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
 	mgoData := make(map[string]interface{}, 0)
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	settings, closer := s.state.getCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	cleanMgoSettings(mgoData)
 	c.Assert(mgoData, gc.DeepEquals, mgoOptions)
@@ -437,7 +447,9 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	mgoData := make(map[string]interface{})
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	settings, closer := s.state.getCollection(settingsC)
+	defer closer()
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	version := mgoData["version"]
 	for i := 0; i < 100; i++ {
@@ -449,7 +461,7 @@ func (s *SettingsSuite) TestMultipleWritesAreStable(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	mgoData = make(map[string]interface{})
-	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	err = settings.FindId(s.state.docID(s.key)).One(&mgoData)
 	c.Assert(err, gc.IsNil)
 	newVersion := mgoData["version"]
 	c.Assert(version, gc.Equals, newVersion)
@@ -492,6 +504,7 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 // keys, as opposed to cleanSettingsMap which does unescape keys.
 func cleanMgoSettings(in map[string]interface{}) {
 	delete(in, "_id")
+	delete(in, "env-uuid")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
 }

@@ -21,8 +21,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"launchpad.net/gwacl"
 
+	"github.com/juju/juju"
 	"github.com/juju/juju/api"
-	apiparams "github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -1493,7 +1493,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
-			c, s.env.storage, envtesting.V120p...,
+			c, s.env.storage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), envtesting.V120p...,
 		),
 		MachineConfig: mcfg,
 	}
@@ -1515,12 +1515,13 @@ func (s *startInstanceSuite) startInstance(c *gc.C) (serviceName string, stateSe
 		return nil, nil
 	})
 	defer restore()
-	_, hardware, _, err := s.env.StartInstance(s.params)
+	result, err := s.env.StartInstance(s.params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
-	c.Assert(hardware, gc.NotNil)
+	c.Assert(result, gc.NotNil)
+	c.Assert(result.Hardware, gc.NotNil)
 	arch := "amd64"
-	c.Assert(hardware, gc.DeepEquals, &instance.HardwareCharacteristics{
+	c.Assert(result.Hardware, gc.DeepEquals, &instance.HardwareCharacteristics{
 		Arch:     &arch,
 		Mem:      &roleSize.Mem,
 		RootDisk: &roleSize.OSDiskSpace,
@@ -1534,7 +1535,7 @@ func (s *startInstanceSuite) TestStartInstanceDistributionGroupError(c *gc.C) {
 		return nil, fmt.Errorf("DistributionGroupError")
 	}
 	s.env.ecfg.attrs["availability-sets-enabled"] = true
-	_, _, _, err := s.env.StartInstance(s.params)
+	_, err := s.env.StartInstance(s.params)
 	c.Assert(err, gc.ErrorMatches, "DistributionGroupError")
 	// DistributionGroup should not be called if availability-sets-enabled=false.
 	s.env.ecfg.attrs["availability-sets-enabled"] = false
@@ -1570,16 +1571,16 @@ func (s *startInstanceSuite) TestStartInstanceDistributionGroup(c *gc.C) {
 func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
 	// If the machine has the JobManagesEnviron job,
 	// we should see stateServer==true.
-	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits,
-		apiparams.JobManageNetworking,
+	s.params.MachineConfig.Jobs = []juju.MachineJob{
+		juju.JobHostUnits,
+		juju.JobManageNetworking,
 	}
 	_, stateServer := s.startInstance(c)
 	c.Assert(stateServer, jc.IsFalse)
-	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
-		apiparams.JobHostUnits,
-		apiparams.JobManageEnviron,
-		apiparams.JobManageNetworking,
+	s.params.MachineConfig.Jobs = []juju.MachineJob{
+		juju.JobHostUnits,
+		juju.JobManageEnviron,
+		juju.JobManageNetworking,
 	}
 	_, stateServer = s.startInstance(c)
 	c.Assert(stateServer, jc.IsTrue)
@@ -1622,7 +1623,7 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	storageDir := c.MkDir()
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, gc.IsNil)
-	s.UploadFakeTools(c, stor)
+	s.UploadFakeTools(c, stor, "released", "released")
 	s.PatchValue(&tools.DefaultBaseURL, storageDir)
 
 	env := s.setupEnvWithDummyMetadata(c)
@@ -1649,6 +1650,6 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	s.PatchValue(&createInstance, func(*azureEnviron, *gwacl.ManagementAPI, *gwacl.Role, string, bool) (instance.Instance, error) {
 		return nil, fmt.Errorf("no instance for you")
 	})
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, bootstrap.BootstrapParams{})
+	err = bootstrap.Bootstrap(envtesting.BootstrapContext(c), env, bootstrap.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }
