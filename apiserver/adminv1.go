@@ -5,7 +5,7 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/macaroon/bakery"
+	"gopkg.in/macaroon-bakery.v0/bakery"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"

@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/macaroon/bakery"
-	"github.com/juju/macaroon/bakery/checkers"
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v0/bakery"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"

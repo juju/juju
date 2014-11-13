@@ -8,10 +8,10 @@ import (
 	"encoding/json"
 
 	"github.com/juju/errors"
-	"github.com/juju/macaroon"
-	"github.com/juju/macaroon/bakery"
-	"github.com/juju/macaroon/bakery/checkers"
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v0/bakery"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/state"

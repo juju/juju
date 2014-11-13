@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/macaroon"
-	"github.com/juju/macaroon/bakery"
-	"github.com/juju/macaroon/bakery/checkers"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/macaroon-bakery.v0/bakery"
+	"gopkg.in/macaroon-bakery.v0/bakery/checkers"
+	"gopkg.in/macaroon.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"

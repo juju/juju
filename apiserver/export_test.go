@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/juju/macaroon/bakery"
 	"github.com/juju/names"
+	"gopkg.in/macaroon-bakery.v0/bakery"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
