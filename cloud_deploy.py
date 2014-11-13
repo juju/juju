@@ -65,16 +65,17 @@ def deploy_stack(environment, debug, machines, deploy_charm):
             raise
     finally:
         env.destroy_environment()
-    if env.config['type'] == 'maas':
-        sleep(90)
-        for machine, running in running_domains.items():
-            if running:
-                print("WARNING: %s at %s was running when deploy_job started. "
-                      "Shutting it down to ensure a clean environment."
-                      % (name, URI))
-            name, URI = machine.split('@')
-            status_msg = stop_libvirt_domain(URI, name)
-            print("%s" % status_msg)
+        if env.config['type'] == 'maas':
+            sleep(90)
+            for machine, running in running_domains.items():
+                if running:
+                    print("WARNING: %s at %s was running when deploy_job "
+                          "started. Shutting it down to ensure a clean "
+                          "environment."
+                          % (name, URI))
+                name, URI = machine.split('@')
+                status_msg = stop_libvirt_domain(URI, name)
+                print("%s" % status_msg)
 
 
 def main():
