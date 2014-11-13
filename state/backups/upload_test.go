@@ -35,7 +35,7 @@ func (s *uploadSuite) TestSSHUpload(c *gc.C) {
 	id, err := backups.SimpleUpload("127.0.0.1", archive, fakeUpload)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(sshFilename, gc.Matches, "juju-backup-.*.tgz$")
+	c.Check(sshFilename, gc.Matches, `juju-backup-.*\.tar\.gz$`)
 	c.Check(sshHost, gc.Equals, "ubuntu@127.0.0.1")
 	c.Check(sshArchive, gc.Equals, archive)
 	c.Check(id, gc.Equals, "file://"+sshFilename)

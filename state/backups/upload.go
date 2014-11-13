@@ -15,9 +15,8 @@ import (
 )
 
 const (
-	uploadedPrefix   = "file://"
-	sshUsername      = "ubuntu"
-	uploadedFilename = FilenamePrefix + "20060102-150405.tgz"
+	uploadedPrefix = "file://"
+	sshUsername    = "ubuntu"
 )
 
 type sendFunc func(host, filename string, archive io.Reader) error
@@ -26,7 +25,7 @@ type sendFunc func(host, filename string, archive io.Reader) error
 // in the home directory of the SSH user.  The returned ID may be used
 // to locate the file on the server.
 func SimpleUpload(publicAddress string, archive io.Reader, send sendFunc) (string, error) {
-	filename := time.Now().UTC().Format(uploadedFilename)
+	filename := time.Now().UTC().Format(FilenameTemplate)
 	host := sshUsername + "@" + publicAddress
 	err := send(host, filename, archive)
 	return uploadedPrefix + filename, errors.Trace(err)

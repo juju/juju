@@ -15,8 +15,13 @@ import (
 	"github.com/juju/utils/filestorage"
 )
 
-// FilenamePrefix is the prefix used for backup archive files.
-const FilenamePrefix = "juju-backup-"
+const (
+	// FilenamePrefix is the prefix used for backup archive files.
+	FilenamePrefix = "juju-backup-"
+
+	// FilenameTemplate is used with time.Time.Format to generate a filename.
+	FilenameTemplate = FilenamePrefix + "20060102-150405.tar.gz"
+)
 
 var logger = loggo.GetLogger("juju.state.backups")
 
